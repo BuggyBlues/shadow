@@ -1,0 +1,63 @@
+import { eq } from 'drizzle-orm'
+import type { Database } from '../db'
+import { channels } from '../db/schema'
+
+export class ChannelDao {
+  constructor(private deps: { db: Database }) {}
+
+  private get db() {
+    return this.deps.db
+  }
+
+  async findById(id: string) {
+    const result = await this.db.select().from(channels).where(eq(channels.id, id)).limit(1)
+    return result[0] ?? null
+  }
+
+  async findByServerId(serverId: string) {
+    return this.db
+      .select()
+      .from(channels)
+      .where(eq(channels.serverId, serverId))
+      .orderBy(channels.position)
+  }
+
+  async create(data: {
+    name: string
+    serverId: string
+    type?: 'text' | 'voice' | 'announcement'
+    topic?: string
+  }) {
+    const result = await this.db
+      .insert(channels)
+      .values({
+        name: data.name,
+        serverId: data.serverId,
+        type: data.type ?? 'text',
+        topic: data.topic,
+      })
+      .returning()
+    return result[0]
+  }
+
+  async update(
+    id: string,
+    data: Partial<{
+      name: string
+      type: 'text' | 'voice' | 'announcement'
+      topic: string | null
+      position: number
+    }>,
+  ) {
+    const result = await this.db
+      .update(channels)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(channels.id, id))
+      .returning()
+    return result[0] ?? null
+  }
+
+  async delete(id: string) {
+    await this.db.delete(channels).where(eq(channels.id, id))
+  }
+}

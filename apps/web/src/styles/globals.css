@@ -1,0 +1,138 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #00c8d6;
+  --color-primary-hover: #00a3b0;
+  --color-accent: #f8e71c;
+  --color-accent-hover: #e0d018;
+  --color-success: #57f287;
+  --color-warning: #fee75c;
+  --color-danger: #ed4245;
+  --color-bg-primary: #313338;
+  --color-bg-secondary: #2b2d31;
+  --color-bg-tertiary: #1e1f22;
+  --color-text-primary: #f2f3f5;
+  --color-text-secondary: #b5bac1;
+  --color-text-muted: #949ba4;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+body {
+  font-family: "Nunito", "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-bg-tertiary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #1a1b1e;
+}
+
+/* Markdown message styling */
+.msg-markdown p {
+  margin: 0.125rem 0;
+}
+.msg-markdown h1,
+.msg-markdown h2,
+.msg-markdown h3 {
+  margin-top: 0.5rem;
+  margin-bottom: 0.25rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+.msg-markdown h1 {
+  font-size: 1.25rem;
+}
+.msg-markdown h2 {
+  font-size: 1.1rem;
+}
+.msg-markdown h3 {
+  font-size: 1rem;
+}
+.msg-markdown code {
+  background: var(--color-bg-tertiary);
+  color: var(--color-primary);
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+  font-size: 0.8rem;
+}
+.msg-markdown pre {
+  background: var(--color-bg-tertiary);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin: 0.5rem 0;
+  overflow-x: auto;
+}
+.msg-markdown pre code {
+  background: transparent;
+  padding: 0;
+  color: var(--color-text-secondary);
+}
+.msg-markdown a {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+.msg-markdown a:hover {
+  opacity: 0.8;
+}
+.msg-markdown blockquote {
+  border-left: 3px solid var(--color-primary);
+  padding-left: 0.75rem;
+  margin: 0.25rem 0;
+  color: var(--color-text-muted);
+}
+.msg-markdown ul,
+.msg-markdown ol {
+  padding-left: 1.25rem;
+  margin: 0.25rem 0;
+}
+.msg-markdown li {
+  margin: 0.1rem 0;
+}
+.msg-markdown table {
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+}
+.msg-markdown th,
+.msg-markdown td {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+}
+.msg-markdown th {
+  background: var(--color-bg-tertiary);
+}
+.msg-markdown img {
+  max-width: 100%;
+  border-radius: 0.5rem;
+}
+.msg-markdown hr {
+  border-color: rgba(255, 255, 255, 0.1);
+  margin: 0.5rem 0;
+}
