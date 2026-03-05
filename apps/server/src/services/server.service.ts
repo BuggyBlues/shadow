@@ -10,7 +10,9 @@ export class ServerService {
       name: input.name,
       ownerId: userId,
       iconUrl: input.iconUrl,
+      bannerUrl: input.bannerUrl,
       description: input.description,
+      slug: input.slug,
       isPublic: input.isPublic,
     })
 
@@ -30,6 +32,14 @@ export class ServerService {
 
   async getById(id: string) {
     const server = await this.deps.serverDao.findById(id)
+    if (!server) {
+      throw Object.assign(new Error('Server not found'), { status: 404 })
+    }
+    return server
+  }
+
+  async getBySlug(slug: string) {
+    const server = await this.deps.serverDao.findBySlug(slug)
     if (!server) {
       throw Object.assign(new Error('Server not found'), { status: 404 })
     }

@@ -1,8 +1,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useSocketEvent } from '../../hooks/use-socket'
 import { fetchApi } from '../../lib/api'
 import { useChatStore } from '../../stores/chat.store'
+import { useUIStore } from '../../stores/ui.store'
 import { UserAvatar } from '../common/avatar'
 
 interface MemberUser {
@@ -35,6 +37,7 @@ export function MemberList() {
   const { t } = useTranslation()
   const { activeServerId } = useChatStore()
   const queryClient = useQueryClient()
+  const { mobileMemberListOpen, closeMobileMemberList } = useUIStore()
 
   const { data: members = [] } = useQuery({
     queryKey: ['members', activeServerId],
@@ -118,13 +121,41 @@ export function MemberList() {
     )
   }
 
-  return (
-    <div className="w-60 bg-bg-secondary overflow-y-auto shrink-0 pt-4 hidden lg:block">
+  const memberContent = (
+    <>
       {renderMemberGroup(t('member.groupOnline'), onlineMembers)}
       {renderMemberGroup(t('member.groupOffline'), offlineMembers)}
       {members.length === 0 && (
         <p className="text-text-muted text-sm px-4 py-2">{t('member.noMembers')}</p>
       )}
-    </div>
+    </>
+  )
+
+  return (
+    <>
+      {/* Desktop member list */}
+      <div className="w-60 bg-bg-secondary overflow-y-auto shrink-0 pt-4 hidden lg:block">
+        {memberContent}
+      </div>
+
+      {/* Mobile member list overlay */}
+      {mobileMemberListOpen && (
+        <div className="fixed inset-0 z-50 flex lg:hidden">
+          <div className="absolute inset-0 bg-black/60" onClick={closeMobileMemberList} />
+          <div className="ml-auto relative z-10 w-64 bg-bg-secondary h-full overflow-y-auto animate-slide-in-right">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+              <h3 className="font-bold text-text-primary text-sm">{t('member.groupOnline')}</h3>
+              <button
+                onClick={closeMobileMemberList}
+                className="text-text-muted hover:text-text-primary transition"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="pt-2">{memberContent}</div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }

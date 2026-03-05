@@ -2,23 +2,14 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PublicFooter, PublicNav } from './home'
 
-type DocSection = 'quickstart' | 'architecture' | 'api' | 'agent' | 'deploy'
+type DocSection = 'guide' | 'channels' | 'agents' | 'faq'
 
 const sectionIds: { id: DocSection; labelKey: string }[] = [
-  { id: 'quickstart', labelKey: 'docs.quickstart' },
-  { id: 'architecture', labelKey: 'docs.architecture' },
-  { id: 'api', labelKey: 'docs.api' },
-  { id: 'agent', labelKey: 'docs.agent' },
-  { id: 'deploy', labelKey: 'docs.deploy' },
+  { id: 'guide', labelKey: 'docs.guide' },
+  { id: 'channels', labelKey: 'docs.channels' },
+  { id: 'agents', labelKey: 'docs.agentsDoc' },
+  { id: 'faq', labelKey: 'docs.faqDoc' },
 ]
-
-function CodeBlock({ children, lang = 'bash' }: { children: string; lang?: string }) {
-  return (
-    <pre className="bg-gray-900 text-gray-100 rounded-xl p-5 overflow-x-auto text-sm leading-relaxed my-4 border border-gray-700">
-      <code className={`language-${lang}`}>{children}</code>
-    </pre>
-  )
-}
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
@@ -35,255 +26,149 @@ function SubHeading({ children }: { children: React.ReactNode }) {
   return <h3 className="text-xl font-bold mb-3 text-gray-700 mt-8">{children}</h3>
 }
 
-/* ---------- Content Sections ---------- */
-
-function QuickstartContent() {
-  const { t } = useTranslation()
+function Tip({ children }: { children: React.ReactNode }) {
   return (
-    <div>
-      <SectionHeading>{t('docs.quickstart')}</SectionHeading>
-      <p className="text-gray-600 font-medium mb-4 leading-relaxed">{t('docs.quickstartIntro')}</p>
-
-      <SubHeading>{t('docs.envRequirements')}</SubHeading>
-      <ul className="list-disc pl-6 text-gray-600 font-medium space-y-1 mb-4">
-        <li>{t('docs.envReqNode')}</li>
-        <li>{t('docs.envReqPnpm')}</li>
-        <li>{t('docs.envReqDocker')}</li>
-        <li>{t('docs.envReqDb')}</li>
-      </ul>
-
-      <SubHeading>{t('docs.cloneInstall')}</SubHeading>
-      <CodeBlock>{`git clone https://github.com/your-org/shadow.git
-cd shadow
-pnpm install`}</CodeBlock>
-
-      <SubHeading>{t('docs.startInfra')}</SubHeading>
-      <CodeBlock>{`docker compose up -d   # PostgreSQL + Redis + MinIO`}</CodeBlock>
-
-      <SubHeading>{t('docs.runMigration')}</SubHeading>
-      <CodeBlock>{`pnpm --filter @shadow/server db:push`}</CodeBlock>
-
-      <SubHeading>{t('docs.startDevServer')}</SubHeading>
-      <CodeBlock>{`# 同时启动前端和后端
-pnpm --filter @shadow/server dev &
-pnpm --filter @shadow/web dev &`}</CodeBlock>
-      <p className="text-gray-600 font-medium">
-        {t('docs.frontendPort', {
-          frontendUrl: 'http://localhost:3000',
-          backendUrl: 'http://localhost:3002',
-        })}
-      </p>
+    <div className="bg-cyan-50 border border-cyan-200 rounded-xl p-4 my-4 text-sm text-cyan-800 flex gap-2">
+      <span>💡</span>
+      <div>{children}</div>
     </div>
   )
 }
 
-function ArchitectureContent() {
+function Step({ num, title, children }: { num: number; title: string; children: React.ReactNode }) {
+  return (
+    <div className="flex gap-4 my-6">
+      <div className="shrink-0 w-8 h-8 rounded-full bg-cyan-500 text-white flex items-center justify-center font-bold text-sm">
+        {num}
+      </div>
+      <div className="flex-1">
+        <h4 className="font-bold text-gray-800 mb-2">{title}</h4>
+        <div className="text-gray-600 leading-relaxed">{children}</div>
+      </div>
+    </div>
+  )
+}
+
+/* ---------- Content Sections ---------- */
+
+function GuideContent() {
   const { t } = useTranslation()
   return (
     <div>
-      <SectionHeading>{t('docs.architecture')}</SectionHeading>
-      <p className="text-gray-600 font-medium mb-6 leading-relaxed">{t('docs.archIntro')}</p>
+      <SectionHeading>{t('docs.guide')}</SectionHeading>
+      <p className="text-gray-600 font-medium mb-6 leading-relaxed">{t('docs.guideIntro')}</p>
 
-      <SubHeading>{t('docs.projectStructure')}</SubHeading>
-      <CodeBlock lang="text">{`shadow/
-├── apps/
-│   ├── web/          # React 前端 (Rsbuild + TanStack Router)
-│   └── server/       # Hono 后端 (REST + WebSocket)
-├── packages/
-│   ├── shared/       # 共享类型、常量、工具函数
-│   ├── ui/           # 共享 UI 组件库
-│   └── agenthub/     # Agent 运行时与适配器
-├── docker-compose.yml
-└── pnpm-workspace.yaml`}</CodeBlock>
+      <SubHeading>{t('docs.getStarted')}</SubHeading>
+      <Step num={1} title={t('docs.step1Title')}>
+        <p>{t('docs.step1Desc')}</p>
+      </Step>
+      <Step num={2} title={t('docs.step2Title')}>
+        <p>{t('docs.step2Desc')}</p>
+      </Step>
+      <Step num={3} title={t('docs.step3Title')}>
+        <p>{t('docs.step3Desc')}</p>
+      </Step>
+      <Step num={4} title={t('docs.step4Title')}>
+        <p>{t('docs.step4Desc')}</p>
+      </Step>
 
-      <SubHeading>{t('docs.techStack')}</SubHeading>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-4">
-        {[
-          { label: t('docs.tech_frontend'), value: 'React 19 + TypeScript' },
-          { label: t('docs.tech_router'), value: 'TanStack Router' },
-          { label: t('docs.tech_state'), value: 'Zustand + TanStack Query' },
-          { label: t('docs.tech_style'), value: 'Tailwind CSS v4' },
-          { label: t('docs.tech_build'), value: 'Rsbuild (Rspack)' },
-          { label: t('docs.tech_backend'), value: 'Hono (Node.js)' },
-          { label: t('docs.tech_orm'), value: 'Drizzle ORM' },
-          { label: t('docs.tech_realtime'), value: 'Socket.IO' },
-          { label: t('docs.tech_di'), value: 'Awilix' },
-          { label: t('docs.tech_db'), value: 'PostgreSQL + Redis' },
-          { label: t('docs.tech_storage'), value: t('docs.tech_storageValue') },
-          { label: t('docs.tech_agentSdk'), value: t('docs.tech_agentSdkValue') },
-        ].map((item) => (
-          <div key={item.label} className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-            <span className="text-gray-500 text-sm font-bold">{item.label}</span>
-            <p className="text-gray-800 font-bold">{item.value}</p>
+      <Tip>{t('docs.guideTip')}</Tip>
+    </div>
+  )
+}
+
+function ChannelsContent() {
+  const { t } = useTranslation()
+  return (
+    <div>
+      <SectionHeading>{t('docs.channels')}</SectionHeading>
+      <p className="text-gray-600 font-medium mb-6 leading-relaxed">{t('docs.channelsIntro')}</p>
+
+      <SubHeading>{t('docs.channelTypes')}</SubHeading>
+      <div className="grid gap-4 my-4">
+        {['text', 'voice', 'announcement'].map((type) => (
+          <div key={type} className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+            <p className="font-bold text-gray-800">{t(`docs.channelType_${type}`)}</p>
+            <p className="text-gray-600 text-sm mt-1">{t(`docs.channelType_${type}_desc`)}</p>
           </div>
         ))}
       </div>
 
-      <SubHeading>{t('docs.dataFlow')}</SubHeading>
-      <p className="text-gray-600 font-medium leading-relaxed">{t('docs.dataFlowDesc')}</p>
-    </div>
-  )
-}
-
-function ApiContent() {
-  const { t } = useTranslation()
-  return (
-    <div>
-      <SectionHeading>{t('docs.api')}</SectionHeading>
-      <p className="text-gray-600 font-medium mb-6 leading-relaxed">{t('docs.apiIntro')}</p>
-
-      <SubHeading>{t('docs.apiAuth')}</SubHeading>
-      <CodeBlock>{`# 注册
-POST /api/auth/register
-{ "email": "...", "username": "...", "password": "..." }
-
-# 登录
-POST /api/auth/login
-{ "email": "...", "password": "..." }
-# 返回: { user, accessToken, refreshToken }
-
-# 获取当前用户
-GET /api/auth/me
-Authorization: Bearer <token>
-
-# 更新个人资料
-PATCH /api/auth/me
-Authorization: Bearer <token>
-{ "displayName": "...", "avatarUrl": "..." }`}</CodeBlock>
-
-      <SubHeading>{t('docs.apiServer')}</SubHeading>
-      <CodeBlock>{`# 获取用户服务器列表
-GET /api/servers
-
-# 创建服务器
-POST /api/servers
-{ "name": "..." }
-
-# 更新服务器
-PATCH /api/servers/:id
-{ "name": "..." }
-
-# 加入服务器（by 邀请码）
-POST /api/servers/join
-{ "inviteCode": "..." }`}</CodeBlock>
-
-      <SubHeading>{t('docs.apiChannel')}</SubHeading>
-      <CodeBlock>{`# 获取服务器频道
-GET /api/servers/:serverId/channels
-
-# 创建频道
-POST /api/servers/:serverId/channels
-{ "name": "...", "type": "text" }`}</CodeBlock>
-
-      <SubHeading>{t('docs.apiMessage')}</SubHeading>
-      <CodeBlock>{`# 获取频道消息
-GET /api/channels/:channelId/messages?limit=50&before=<cursor>
-
-# 发送消息
-POST /api/channels/:channelId/messages
-{ "content": "..." }
-
-# 添加反应
-POST /api/messages/:messageId/reactions
-{ "emoji": "👍" }`}</CodeBlock>
-    </div>
-  )
-}
-
-function AgentContent() {
-  const { t } = useTranslation()
-  return (
-    <div>
-      <SectionHeading>{t('docs.agent')}</SectionHeading>
-      <p className="text-gray-600 font-medium mb-6 leading-relaxed">{t('docs.agentIntro')}</p>
-
-      <SubHeading>{t('docs.agentConcept')}</SubHeading>
-      <p className="text-gray-600 font-medium leading-relaxed mb-4">{t('docs.agentConceptDesc')}</p>
-
-      <SubHeading>{t('docs.createAgent')}</SubHeading>
-      <CodeBlock lang="typescript">{`import { BaseAdapter } from '@shadow/agenthub'
-
-export class MyAgent extends BaseAdapter {
-  name = 'MyAgent'
-  description = '一个示例 Agent'
-
-  async handleMessage(message: {
-    content: string
-    channelId: string
-    userId: string
-  }) {
-    // 处理收到的消息
-    const reply = await this.generateReply(message.content)
-    return { content: reply }
-  }
-
-  private async generateReply(input: string): Promise<string> {
-    // 调用你的 LLM API
-    return \`你说了: \${input}\`
-  }
-}`}</CodeBlock>
-
-      <SubHeading>{t('docs.mcpAdapter')}</SubHeading>
-      <p className="text-gray-600 font-medium leading-relaxed mb-4">{t('docs.mcpAdapterDesc')}</p>
-      <CodeBlock lang="typescript">{`import { McpAdapter } from '@shadow/agenthub'
-
-const agent = new McpAdapter({
-  serverUrl: 'http://localhost:8080',
-  modelId: 'gpt-4',
-  tools: ['search', 'code-review'],
-})`}</CodeBlock>
-
-      <SubHeading>{t('docs.registerAgent')}</SubHeading>
-      <CodeBlock lang="typescript">{`import { AgentRegistry } from '@shadow/agenthub'
-
-const registry = new AgentRegistry()
-registry.register(new MyAgent())
-
-// Agent 现在可以被频道召唤了！`}</CodeBlock>
-    </div>
-  )
-}
-
-function DeployContent() {
-  const { t } = useTranslation()
-  return (
-    <div>
-      <SectionHeading>{t('docs.deploy')}</SectionHeading>
-      <p className="text-gray-600 font-medium mb-6 leading-relaxed">{t('docs.deployIntro')}</p>
-
-      <SubHeading>{t('docs.dockerDeploy')}</SubHeading>
-      <CodeBlock>{`# 1. 克隆代码
-git clone https://github.com/your-org/shadow.git && cd shadow
-
-# 2. 配置环境变量
-cp .env.example .env
-# 编辑 .env 文件设置数据库密码等
-
-# 3. 构建并启动
-docker compose -f docker-compose.prod.yml up -d
-
-# 4. 运行数据库迁移
-docker compose exec server pnpm db:push`}</CodeBlock>
-
-      <SubHeading>{t('docs.envVariables')}</SubHeading>
-      <CodeBlock lang="text">{`DATABASE_URL=postgresql://user:pass@localhost:5432/shadow
-REDIS_URL=redis://localhost:6379
-JWT_SECRET=your-secret-key
-MINIO_ENDPOINT=localhost
-MINIO_PORT=9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-PORT=3002`}</CodeBlock>
-
-      <SubHeading>{t('docs.prodTips')}</SubHeading>
-      <ul className="list-disc pl-6 text-gray-600 font-medium space-y-2">
-        <li>{t('docs.prodTip1')}</li>
-        <li>{t('docs.prodTip2')}</li>
-        <li>{t('docs.prodTip3')}</li>
-        <li>{t('docs.prodTip4')}</li>
-        <li>{t('docs.prodTip5')}</li>
-        <li>{t('docs.prodTip6')}</li>
+      <SubHeading>{t('docs.messaging')}</SubHeading>
+      <ul className="list-disc pl-6 text-gray-600 space-y-2 my-4">
+        <li>{t('docs.msgMarkdown')}</li>
+        <li>{t('docs.msgEmoji')}</li>
+        <li>{t('docs.msgReply')}</li>
+        <li>{t('docs.msgImage')}</li>
+        <li>{t('docs.msgEdit')}</li>
       </ul>
+
+      <SubHeading>{t('docs.serverMgmt')}</SubHeading>
+      <p className="text-gray-600 leading-relaxed">{t('docs.serverMgmtDesc')}</p>
+    </div>
+  )
+}
+
+function AgentsDocContent() {
+  const { t } = useTranslation()
+  return (
+    <div>
+      <SectionHeading>{t('docs.agentsDoc')}</SectionHeading>
+      <p className="text-gray-600 font-medium mb-6 leading-relaxed">{t('docs.agentsDocIntro')}</p>
+
+      <SubHeading>{t('docs.whatIsAgent')}</SubHeading>
+      <p className="text-gray-600 leading-relaxed mb-4">{t('docs.whatIsAgentDesc')}</p>
+
+      <SubHeading>{t('docs.howToUseAgent')}</SubHeading>
+      <ul className="list-disc pl-6 text-gray-600 space-y-2 my-4">
+        <li>{t('docs.agentStep1')}</li>
+        <li>{t('docs.agentStep2')}</li>
+        <li>{t('docs.agentStep3')}</li>
+      </ul>
+
+      <SubHeading>{t('docs.availableAgents')}</SubHeading>
+      <div className="grid gap-3 my-4">
+        {['coding', 'docu', 'design', 'detective', 'ops'].map((a) => (
+          <div
+            key={a}
+            className="bg-gray-50 rounded-xl p-4 border border-gray-200 flex items-start gap-3"
+          >
+            <span className="text-2xl">
+              {a === 'coding'
+                ? '🐱'
+                : a === 'docu'
+                  ? '📝'
+                  : a === 'design'
+                    ? '🎨'
+                    : a === 'detective'
+                      ? '🔍'
+                      : '⚙️'}
+            </span>
+            <div>
+              <p className="font-bold text-gray-800">{t(`docs.agent_${a}`)}</p>
+              <p className="text-gray-600 text-sm">{t(`docs.agent_${a}_desc`)}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function FaqContent() {
+  const { t } = useTranslation()
+  const faqs = [1, 2, 3, 4, 5, 6] as const
+  return (
+    <div>
+      <SectionHeading>{t('docs.faqDoc')}</SectionHeading>
+      <div className="space-y-4 my-6">
+        {faqs.map((n) => (
+          <div key={n} className="bg-gray-50 rounded-xl p-5 border border-gray-200">
+            <p className="font-bold text-gray-800 mb-2">Q: {t(`docs.faq${n}q`)}</p>
+            <p className="text-gray-600">{t(`docs.faq${n}a`)}</p>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -291,15 +176,14 @@ PORT=3002`}</CodeBlock>
 /* ---------- Main Page ---------- */
 
 export function DocsPage() {
-  const [activeSection, setActiveSection] = useState<DocSection>('quickstart')
+  const [activeSection, setActiveSection] = useState<DocSection>('guide')
   const { t } = useTranslation()
 
   const contentMap: Record<DocSection, React.ReactNode> = {
-    quickstart: <QuickstartContent />,
-    architecture: <ArchitectureContent />,
-    api: <ApiContent />,
-    agent: <AgentContent />,
-    deploy: <DeployContent />,
+    guide: <GuideContent />,
+    channels: <ChannelsContent />,
+    agents: <AgentsDocContent />,
+    faq: <FaqContent />,
   }
 
   return (

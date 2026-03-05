@@ -1,23 +1,28 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import {
   Check,
   ChevronDown,
   ChevronRight,
   Copy,
+  Edit3,
   Hash,
   Megaphone,
+  Menu,
   Plus,
   Save,
   Settings,
+  Trash2,
   Volume2,
   X,
 } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../../lib/api'
 import { joinChannel, leaveChannel } from '../../lib/socket'
 import { useAuthStore } from '../../stores/auth.store'
 import { useChatStore } from '../../stores/chat.store'
+import { useUIStore } from '../../stores/ui.store'
 
 interface Channel {
   id: string
@@ -30,7 +35,11 @@ interface Channel {
 interface Server {
   id: string
   name: string
+  description: string | null
+  slug: string | null
   iconUrl: string | null
+  bannerUrl: string | null
+  isPublic: boolean
   inviteCode: string
   ownerId: string
 }
@@ -43,6 +52,7 @@ const channelIcons = {
 
 export function ChannelSidebar({ serverId }: { serverId: string }) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { activeChannelId, setActiveChannel } = useChatStore()
   const _currentUser = useAuthStore((s) => s.user)
@@ -52,7 +62,19 @@ export function ChannelSidebar({ serverId }: { serverId: string }) {
   const [newName, setNewName] = useState('')
   const [newType, setNewType] = useState<'text' | 'voice' | 'announcement'>('text')
   const [editName, setEditName] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [editSlug, setEditSlug] = useState('')
+  const [editIsPublic, setEditIsPublic] = useState(false)
+  const [bannerUploading, setBannerUploading] = useState(false)
   const [copiedInvite, setCopiedInvite] = useState(false)
+  const [contextMenu, setContextMenu] = useState<{
+    x: number
+    y: number
+    channel: Channel
+  } | null>(null)
+  const [editingChannel, setEditingChannel] = useState<Channel | null>(null)
+  const [editChannelName, setEditChannelName] = useState('')
+  const contextMenuRef = useRef<HTMLDivElement>(null)
 
   const { data: server } = useQuery({
     queryKey: ['server', serverId],
@@ -78,22 +100,98 @@ export function ChannelSidebar({ serverId }: { serverId: string }) {
   })
 
   const updateServer = useMutation({
-    mutationFn: (data: { name: string }) =>
-      fetchApi(`/api/servers/${serverId}`, {
+    mutationFn: (data: {
+      name: string
+      description?: string | null
+      slug?: string | null
+      bannerUrl?: string | null
+      isPublic?: boolean
+    }) =>
+      fetchApi<Server>(`/api/servers/${serverId}`, {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),
-    onSuccess: () => {
+    onSuccess: (updatedServer) => {
       queryClient.invalidateQueries({ queryKey: ['server', serverId] })
       queryClient.invalidateQueries({ queryKey: ['servers'] })
+      queryClient.invalidateQueries({ queryKey: ['discover-servers'] })
       setShowServerEdit(false)
+      // Redirect to slug-based URL if slug was set/changed
+      if (updatedServer.slug && updatedServer.slug !== serverId) {
+        navigate({ to: '/app/servers/$serverId', params: { serverId: updatedServer.slug } })
+      }
     },
   })
 
   const openServerEdit = () => {
     setEditName(server?.name ?? '')
+    setEditDescription(server?.description ?? '')
+    setEditSlug(server?.slug ?? '')
+    setEditIsPublic(server?.isPublic ?? false)
     setShowServerEdit(true)
   }
+
+  const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setBannerUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const result = await fetchApi<{ url: string }>('/api/media/upload', {
+        method: 'POST',
+        body: formData,
+      })
+      // Update server banner immediately
+      await fetchApi(`/api/servers/${serverId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ bannerUrl: result.url }),
+      })
+      queryClient.invalidateQueries({ queryKey: ['server', serverId] })
+      queryClient.invalidateQueries({ queryKey: ['discover-servers'] })
+    } catch {
+      /* upload failed */
+    } finally {
+      setBannerUploading(false)
+    }
+  }
+
+  const deleteChannel = useMutation({
+    mutationFn: (channelId: string) =>
+      fetchApi(`/api/channels/${channelId}`, {
+        method: 'DELETE',
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['channels', serverId] })
+    },
+  })
+
+  const updateChannel = useMutation({
+    mutationFn: (data: { channelId: string; name: string }) =>
+      fetchApi(`/api/channels/${data.channelId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name: data.name }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['channels', serverId] })
+      setEditingChannel(null)
+      setEditChannelName('')
+    },
+  })
+
+  const handleContextMenu = (e: React.MouseEvent, channel: Channel) => {
+    e.preventDefault()
+    setContextMenu({ x: e.clientX, y: e.clientY, channel })
+  }
+
+  // Close context menu on click outside
+  useEffect(() => {
+    const handleClick = () => setContextMenu(null)
+    if (contextMenu) {
+      document.addEventListener('click', handleClick)
+      return () => document.removeEventListener('click', handleClick)
+    }
+  }, [contextMenu])
 
   const copyInviteCode = async () => {
     if (server?.inviteCode) {
@@ -104,6 +202,8 @@ export function ChannelSidebar({ serverId }: { serverId: string }) {
     }
   }
 
+  const { setMobileView, openMobileServerSidebar } = useUIStore()
+
   const handleSelectChannel = useCallback(
     (channelId: string) => {
       if (activeChannelId) {
@@ -111,8 +211,9 @@ export function ChannelSidebar({ serverId }: { serverId: string }) {
       }
       setActiveChannel(channelId)
       joinChannel(channelId)
+      setMobileView('chat')
     },
-    [activeChannelId, setActiveChannel],
+    [activeChannelId, setActiveChannel, setMobileView],
   )
 
   // Auto-select first channel (in useEffect, not render body)
@@ -158,10 +259,49 @@ export function ChannelSidebar({ serverId }: { serverId: string }) {
           items.map((ch) => {
             const Icon = channelIcons[ch.type]
             const isActive = activeChannelId === ch.id
-            return (
+            const isEditing = editingChannel?.id === ch.id
+            return isEditing ? (
+              <div key={ch.id} className="flex items-center gap-1 px-2 mx-2 py-1">
+                <Icon size={18} className="shrink-0 opacity-60" />
+                <input
+                  type="text"
+                  value={editChannelName}
+                  onChange={(e) => setEditChannelName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && editChannelName.trim()) {
+                      updateChannel.mutate({ channelId: ch.id, name: editChannelName.trim() })
+                    } else if (e.key === 'Escape') {
+                      setEditingChannel(null)
+                    }
+                  }}
+                  // biome-ignore lint/a11y/noAutofocus: needed for inline edit UX
+                  autoFocus
+                  className="flex-1 bg-bg-tertiary text-text-primary rounded px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-primary"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (editChannelName.trim()) {
+                      updateChannel.mutate({ channelId: ch.id, name: editChannelName.trim() })
+                    }
+                  }}
+                  className="text-green-400 hover:text-green-300"
+                >
+                  <Check size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingChannel(null)}
+                  className="text-text-muted hover:text-text-primary"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
               <button
                 key={ch.id}
                 onClick={() => handleSelectChannel(ch.id)}
+                onContextMenu={(e) => handleContextMenu(e, ch)}
                 className={`flex items-center gap-2 px-2 py-1.5 mx-2 rounded-md text-sm w-[calc(100%-16px)] text-left transition ${
                   isActive
                     ? 'bg-bg-primary/50 text-text-primary'
@@ -178,10 +318,19 @@ export function ChannelSidebar({ serverId }: { serverId: string }) {
   }
 
   return (
-    <div className="w-60 bg-bg-secondary flex flex-col shrink-0">
+    <div className="w-full md:w-60 bg-bg-secondary flex flex-col shrink-0 h-full">
       {/* Server name header */}
       <div className="h-12 px-4 flex items-center justify-between border-b border-white/5 shadow-sm">
-        <h2 className="font-bold text-text-primary truncate">{server?.name ?? '...'}</h2>
+        <div className="flex items-center gap-2 min-w-0">
+          {/* Mobile menu button to open server sidebar */}
+          <button
+            onClick={openMobileServerSidebar}
+            className="md:hidden text-text-muted hover:text-text-primary transition shrink-0"
+          >
+            <Menu size={20} />
+          </button>
+          <h2 className="font-bold text-text-primary truncate">{server?.name ?? '...'}</h2>
+        </div>
         <button
           onClick={openServerEdit}
           className="text-text-muted hover:text-text-primary transition"
@@ -277,7 +426,7 @@ export function ChannelSidebar({ serverId }: { serverId: string }) {
           onClick={() => setShowServerEdit(false)}
         >
           <div
-            className="bg-bg-secondary rounded-xl p-6 w-[420px] border border-white/5"
+            className="bg-bg-secondary rounded-xl p-6 w-[460px] max-h-[85vh] overflow-y-auto border border-white/5"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-5">
@@ -290,6 +439,34 @@ export function ChannelSidebar({ serverId }: { serverId: string }) {
               </button>
             </div>
 
+            {/* Banner upload */}
+            <div className="mb-4">
+              <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
+                {t('channel.serverBanner')}
+              </label>
+              <div className="relative h-28 bg-gradient-to-br from-primary/30 to-primary/5 rounded-lg overflow-hidden group/banner">
+                {server?.bannerUrl && (
+                  <img
+                    src={server.bannerUrl}
+                    alt=""
+                    className="w-full h-full object-cover absolute inset-0"
+                  />
+                )}
+                <label className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/banner:opacity-100 transition cursor-pointer">
+                  <span className="text-white text-sm font-medium">
+                    {bannerUploading ? t('common.loading') : t('channel.uploadBanner')}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleBannerUpload}
+                    className="hidden"
+                    disabled={bannerUploading}
+                  />
+                </label>
+              </div>
+            </div>
+
             <div className="mb-4">
               <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
                 {t('channel.editServerName')}
@@ -300,6 +477,55 @@ export function ChannelSidebar({ serverId }: { serverId: string }) {
                 onChange={(e) => setEditName(e.target.value)}
                 className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary"
               />
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
+                {t('channel.serverSlug')}
+              </label>
+              <input
+                type="text"
+                value={editSlug}
+                onChange={(e) => setEditSlug(e.target.value)}
+                placeholder={t('channel.slugPlaceholder')}
+                className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary font-mono text-sm"
+              />
+              <p className="text-xs text-text-muted mt-1">{t('channel.slugDesc')}</p>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
+                {t('channel.editServerDescription')}
+              </label>
+              <textarea
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                rows={3}
+                placeholder={t('channel.descriptionPlaceholder')}
+                className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary resize-none"
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="flex items-center justify-between cursor-pointer">
+                <span className="text-xs font-bold uppercase text-text-secondary">
+                  {t('channel.publicServer')}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setEditIsPublic(!editIsPublic)}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${
+                    editIsPublic ? 'bg-primary' : 'bg-bg-tertiary'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+                      editIsPublic ? 'translate-x-5' : ''
+                    }`}
+                  />
+                </button>
+              </label>
+              <p className="text-xs text-text-muted mt-1">{t('channel.publicServerDesc')}</p>
             </div>
 
             {server?.inviteCode && (
@@ -334,7 +560,15 @@ export function ChannelSidebar({ serverId }: { serverId: string }) {
                 {t('common.cancel')}
               </button>
               <button
-                onClick={() => editName.trim() && updateServer.mutate({ name: editName.trim() })}
+                onClick={() =>
+                  editName.trim() &&
+                  updateServer.mutate({
+                    name: editName.trim(),
+                    description: editDescription.trim() || null,
+                    slug: editSlug.trim() || null,
+                    isPublic: editIsPublic,
+                  })
+                }
                 disabled={!editName.trim() || updateServer.isPending}
                 className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition disabled:opacity-50 font-bold"
               >
@@ -343,6 +577,54 @@ export function ChannelSidebar({ serverId }: { serverId: string }) {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Channel context menu */}
+      {contextMenu && (
+        <div
+          ref={contextMenuRef}
+          className="fixed z-50 bg-bg-tertiary border border-white/10 rounded-lg shadow-xl py-1 min-w-[160px]"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setEditingChannel(contextMenu.channel)
+              setEditChannelName(contextMenu.channel.name)
+              setContextMenu(null)
+            }}
+            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+          >
+            <Edit3 size={14} />
+            {t('channel.editChannel')}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const channelLink = `${window.location.origin}/app/servers/${serverId}?channel=${contextMenu.channel.id}`
+              navigator.clipboard.writeText(channelLink)
+              setContextMenu(null)
+            }}
+            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+          >
+            <Copy size={14} />
+            {t('channel.copyChannelLink')}
+          </button>
+          <div className="h-px bg-white/5 my-1" />
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm(t('channel.deleteChannelConfirm'))) {
+                deleteChannel.mutate(contextMenu.channel.id)
+              }
+              setContextMenu(null)
+            }}
+            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition"
+          >
+            <Trash2 size={14} />
+            {t('channel.deleteChannel')}
+          </button>
         </div>
       )}
     </div>

@@ -6,14 +6,18 @@ export const createServerSchema = z.object({
     .min(1, 'Server name is required')
     .max(100, 'Server name must be at most 100 characters'),
   description: z.string().max(500).optional(),
+  slug: z.string().max(100).optional(),
   iconUrl: z.string().url().optional(),
+  bannerUrl: z.string().url().optional(),
   isPublic: z.boolean().optional(),
 })
 
 export const updateServerSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   description: z.string().max(500).nullable().optional(),
+  slug: z.string().max(100).nullable().optional(),
   iconUrl: z.string().url().nullable().optional(),
+  bannerUrl: z.string().url().nullable().optional(),
   isPublic: z.boolean().optional(),
 })
 

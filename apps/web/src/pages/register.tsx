@@ -13,6 +13,7 @@ export function RegisterPage() {
   const [username, setUsername] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [password, setPassword] = useState('')
+  const [inviteCode, setInviteCode] = useState('')
   const [selectedAvatar, setSelectedAvatar] = useState(getCatAvatar(0))
   const [showAvatarPicker, setShowAvatarPicker] = useState(false)
   const [error, setError] = useState('')
@@ -38,7 +39,13 @@ export function RegisterPage() {
         refreshToken: string
       }>('/api/auth/register', {
         method: 'POST',
-        body: JSON.stringify({ email, username, password, displayName: displayName || undefined }),
+        body: JSON.stringify({
+          email,
+          username,
+          password,
+          displayName: displayName || undefined,
+          inviteCode,
+        }),
       })
 
       // Set avatar after registration
@@ -177,6 +184,21 @@ export function RegisterPage() {
               className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
               placeholder={t('auth.passwordPlaceholder')}
             />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
+              {t('auth.inviteCodeLabel')}
+            </label>
+            <input
+              type="text"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
+              required
+              className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition font-mono tracking-wider"
+              placeholder={t('auth.inviteCodePlaceholder')}
+            />
+            <p className="text-xs text-text-muted mt-1">{t('auth.inviteCodeHint')}</p>
           </div>
 
           <button

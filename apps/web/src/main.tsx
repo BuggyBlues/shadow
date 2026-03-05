@@ -6,6 +6,7 @@ import {
   createRouter,
   RouterProvider,
   redirect,
+  useNavigate,
 } from '@tanstack/react-router'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
@@ -117,11 +118,23 @@ const appIndexRoute = createRoute({
   component: () => {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     const { t } = useTranslation()
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const navigate = useNavigate()
     return (
       <div className="flex-1 flex items-center justify-center text-text-muted">
-        <div className="text-center">
-          <img src="/Logo.svg" alt="Shadow" className="w-16 h-16 mx-auto mb-4 opacity-40" />
-          <p className="text-lg">{t('common.selectServerToChat')}</p>
+        <div className="text-center max-w-md">
+          <img src="/Logo.svg" alt="Shadow" className="w-20 h-20 mx-auto mb-6 opacity-60" />
+          <h2 className="text-2xl font-bold text-text-primary mb-2">{t('common.welcomeTitle')}</h2>
+          <p className="text-text-muted mb-8">{t('common.welcomeDesc')}</p>
+          <div className="flex flex-col gap-3">
+            <button
+              type="button"
+              onClick={() => navigate({ to: '/app/discover' })}
+              className="px-6 py-3 bg-primary hover:bg-primary-hover text-white rounded-xl font-bold transition flex items-center justify-center gap-2"
+            >
+              {t('common.welcomeDiscover')}
+            </button>
+          </div>
         </div>
       </div>
     )

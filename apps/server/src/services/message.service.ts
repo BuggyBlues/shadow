@@ -53,7 +53,23 @@ export class MessageService {
       throw Object.assign(new Error('Can only edit your own messages'), { status: 403 })
     }
 
-    return this.deps.messageDao.update(id, input.content)
+    const updated = await this.deps.messageDao.update(id, input.content)
+
+    // Attach author info for broadcasting
+    const user = await this.deps.userDao.findById(userId)
+    return {
+      ...updated,
+      author: user
+        ? {
+            id: user.id,
+            username: user.username,
+            displayName: user.displayName,
+            avatarUrl: user.avatarUrl,
+            status: user.status,
+            isBot: user.isBot,
+          }
+        : null,
+    }
   }
 
   async delete(id: string, userId: string) {
@@ -103,6 +119,18 @@ export class MessageService {
   }
 
   async getReactions(messageId: string) {
-    return this.deps.messageDao.getReactions(messageId)
+    const raw = await this.deps.messageDao.getReactions(messageId)
+    // Group by emoji: { emoji, count, userIds }
+    const grouped = new Map<string, { emoji: string; count: number; userIds: string[] }>()
+    for (const r of raw) {
+      const existing = grouped.get(r.emoji)
+      if (existing) {
+        existing.count++
+        existing.userIds.push(r.userId)
+      } else {
+        grouped.set(r.emoji, { emoji: r.emoji, count: 1, userIds: [r.userId] })
+      }
+    }
+    return Array.from(grouped.values())
   }
 }

@@ -1,18 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Compass, LogIn, Plus, Settings } from 'lucide-react'
+import { Compass, Plus, Settings, UserPlus } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../../lib/api'
 import { getCatAvatar } from '../../lib/pixel-cats'
 import { useChatStore } from '../../stores/chat.store'
+import { useUIStore } from '../../stores/ui.store'
 
 interface ServerEntry {
   server: { id: string; name: string; iconUrl: string | null }
   member: { role: string }
 }
 
-export function ServerSidebar() {
+export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -54,9 +55,13 @@ export function ServerSidebar() {
     },
   })
 
+  const { setMobileView } = useUIStore()
+
   const handleSelect = (serverId: string) => {
     setActiveServer(serverId)
+    setMobileView('channels')
     navigate({ to: '/app/servers/$serverId', params: { serverId } })
+    onNavigate?.()
   }
 
   return (
@@ -107,7 +112,7 @@ export function ServerSidebar() {
         className="w-12 h-12 rounded-2xl bg-bg-primary hover:bg-blue-600 hover:rounded-xl transition-all flex items-center justify-center text-blue-500 hover:text-white"
         title={t('server.joinServer')}
       >
-        <LogIn size={20} />
+        <UserPlus size={20} />
       </button>
 
       {/* Discover servers */}

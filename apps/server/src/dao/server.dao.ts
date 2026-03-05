@@ -15,6 +15,11 @@ export class ServerDao {
     return result[0] ?? null
   }
 
+  async findBySlug(slug: string) {
+    const result = await this.db.select().from(servers).where(eq(servers.slug, slug)).limit(1)
+    return result[0] ?? null
+  }
+
   async findByInviteCode(inviteCode: string) {
     const result = await this.db
       .select()
@@ -36,7 +41,9 @@ export class ServerDao {
     name: string
     ownerId: string
     iconUrl?: string
+    bannerUrl?: string
     description?: string
+    slug?: string
     isPublic?: boolean
   }) {
     const inviteCode = generateInviteCode()
@@ -46,7 +53,9 @@ export class ServerDao {
         name: data.name,
         ownerId: data.ownerId,
         iconUrl: data.iconUrl,
+        bannerUrl: data.bannerUrl,
         description: data.description,
+        slug: data.slug,
         isPublic: data.isPublic ?? false,
         inviteCode,
       })
@@ -59,7 +68,9 @@ export class ServerDao {
     data: Partial<{
       name: string
       iconUrl: string | null
+      bannerUrl: string | null
       description: string | null
+      slug: string | null
       isPublic: boolean
     }>,
   ) {

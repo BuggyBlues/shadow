@@ -4,12 +4,14 @@ import { useEffect } from 'react'
 import { fetchApi } from '../../lib/api'
 import { connectSocket, disconnectSocket } from '../../lib/socket'
 import { useAuthStore } from '../../stores/auth.store'
+import { useUIStore } from '../../stores/ui.store'
 import { NotificationBell } from '../notification/notification-bell'
 import { ServerSidebar } from '../server/server-sidebar'
 
 export function AppLayout() {
   const navigate = useNavigate()
   const { setUser, logout } = useAuthStore()
+  const { mobileServerSidebarOpen, closeMobileServerSidebar } = useUIStore()
 
   // Fetch current user on mount
   const { data: me, error: meError } = useQuery({
@@ -46,7 +48,21 @@ export function AppLayout() {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-bg-tertiary">
-      <ServerSidebar />
+      {/* Server sidebar — always visible on md+, overlay on mobile */}
+      <div className="hidden md:flex">
+        <ServerSidebar />
+      </div>
+
+      {/* Mobile server sidebar overlay */}
+      {mobileServerSidebarOpen && (
+        <div className="fixed inset-0 z-50 flex md:hidden">
+          <div className="absolute inset-0 bg-black/60" onClick={closeMobileServerSidebar} />
+          <div className="relative z-10 animate-slide-in-left">
+            <ServerSidebar onNavigate={closeMobileServerSidebar} />
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col flex-1 min-w-0">
         {/* Top bar with notification bell */}
         <div className="h-0 relative z-30">

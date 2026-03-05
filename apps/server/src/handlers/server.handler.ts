@@ -57,10 +57,13 @@ export function createServerHandler(container: AppContainer) {
   })
 
   // GET /api/servers/:id
+  // GET /api/servers/:id (supports UUID or slug)
   serverHandler.get('/:id', async (c) => {
     const serverService = container.resolve('serverService')
     const id = c.req.param('id')
-    const server = await serverService.getById(id)
+    // Try UUID first, then slug
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+    const server = isUuid ? await serverService.getById(id) : await serverService.getBySlug(id)
     return c.json(server)
   })
 
@@ -87,8 +90,18 @@ export function createServerHandler(container: AppContainer) {
     const serverService = container.resolve('serverService')
     const { inviteCode } = c.req.valid('json')
     const user = c.get('user')
-    const server = await serverService.join(inviteCode, user.userId)
-    return c.json(server)
+    try {
+      const server = await serverService.join(inviteCode, user.userId)
+      return c.json(server)
+    } catch (error) {
+      const status = (error as { status?: number }).status
+      if (status === 409) {
+        // Already a member — return the server info so client can navigate
+        const server = await serverService.getByInviteCode(inviteCode)
+        return c.json(server, 409)
+      }
+      throw error
+    }
   })
 
   // POST /api/servers/:id/leave

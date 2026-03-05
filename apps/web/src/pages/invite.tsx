@@ -39,19 +39,20 @@ export function InvitePage() {
 
   const joinMutation = useMutation({
     mutationFn: () =>
-      fetchApi('/api/servers/_/join', {
+      fetchApi<{ id: string }>('/api/servers/_/join', {
         method: 'POST',
         body: JSON.stringify({ inviteCode: code }),
       }),
-    onSuccess: (data: { id: string }) => {
+    onSuccess: (data) => {
       navigate({ to: '/app/servers/$serverId', params: { serverId: data.id } })
     },
-    onError: (err: Error & { status?: number }) => {
-      if (err?.status === 409) {
-        // Already a member, just navigate
-        if (serverInfo) {
-          navigate({ to: '/app/servers/$serverId', params: { serverId: serverInfo.id } })
-        }
+    onError: (err: unknown) => {
+      const status = (err as { status?: number })?.status
+      if (status === 409 && serverInfo) {
+        // Already a member, just navigate to the server
+        navigate({ to: '/app/servers/$serverId', params: { serverId: serverInfo.id } })
+      } else if (status === 401) {
+        navigate({ to: '/login' })
       } else {
         setError(t('invite.joinFailed'))
       }

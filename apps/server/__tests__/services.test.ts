@@ -239,15 +239,18 @@ describe('MessageService', () => {
 
   describe('getReactions', () => {
     it('should return reactions for a message', async () => {
-      const mockReactions = [{ emoji: '👍', count: 2, userIds: ['u1', 'u2'] }]
+      const mockRawReactions = [
+        { id: 'r1', messageId: 'msg1', userId: 'u1', emoji: '👍', createdAt: new Date() },
+        { id: 'r2', messageId: 'msg1', userId: 'u2', emoji: '👍', createdAt: new Date() },
+      ]
       const messageDao = createMockMessageDao({
-        getReactions: vi.fn().mockResolvedValue(mockReactions),
+        getReactions: vi.fn().mockResolvedValue(mockRawReactions),
       })
       const userDao = createMockUserDao()
       const service = new MessageService({ messageDao: messageDao as any, userDao: userDao as any })
 
       const result = await service.getReactions('msg1')
-      expect(result).toEqual(mockReactions)
+      expect(result).toEqual([{ emoji: '👍', count: 2, userIds: ['u1', 'u2'] }])
     })
   })
 })

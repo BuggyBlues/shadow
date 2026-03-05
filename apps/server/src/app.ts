@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { bodyLimit } from 'hono/body-limit'
 import { cors } from 'hono/cors'
 import type { AppContainer } from './container'
 import { createAdminHandler } from './handlers/admin.handler'
@@ -20,6 +21,7 @@ export function createApp(container: AppContainer) {
   app.use('*', cors())
   app.use('*', errorMiddleware)
   app.use('*', loggerMiddleware)
+  app.use('*', bodyLimit({ maxSize: 50 * 1024 * 1024 })) // 50MB
 
   // Health check
   app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }))

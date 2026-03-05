@@ -32,9 +32,30 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
 
         try {
           const messageService = container.resolve('messageService')
+
+          let threadId = data.threadId
+
+          // Auto-create thread when replying to a message
+          if (data.replyToId && !threadId) {
+            const parentMessage = await messageService.getById(data.replyToId)
+            if (parentMessage) {
+              // Check if parent message already has a thread
+              if (parentMessage.threadId) {
+                threadId = parentMessage.threadId
+              } else {
+                // Create a new thread
+                const thread = await messageService.createThread(data.channelId, userId, {
+                  name: `Thread`,
+                  parentMessageId: data.replyToId,
+                })
+                threadId = thread.id
+              }
+            }
+          }
+
           const message = await messageService.send(data.channelId, userId, {
             content: data.content,
-            threadId: data.threadId,
+            threadId,
             replyToId: data.replyToId,
           })
 

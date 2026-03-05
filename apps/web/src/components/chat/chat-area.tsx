@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Hash } from 'lucide-react'
+import { ArrowLeft, Hash, Users } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSocketEvent } from '../../hooks/use-socket'
 import { fetchApi } from '../../lib/api'
+import { playReceiveSound } from '../../lib/sounds'
 import { useAuthStore } from '../../stores/auth.store'
 import { useChatStore } from '../../stores/chat.store'
+import { useUIStore } from '../../stores/ui.store'
 import { MessageBubble } from './message-bubble'
 import { MessageInput } from './message-input'
 
@@ -33,6 +35,7 @@ interface Message {
   isEdited: boolean
   isPinned: boolean
   createdAt: string
+  updatedAt?: string
   author?: Author
   reactions?: ReactionGroup[]
 }
@@ -49,11 +52,33 @@ export function ChatArea() {
   const queryClient = useQueryClient()
   const { activeChannelId } = useChatStore()
   const user = useAuthStore((s) => s.user)
+  const { setMobileView } = useUIStore()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const [replyToId, setReplyToId] = useState<string | null>(null)
   const [typingUsers, setTypingUsers] = useState<string[]>([])
   const [lastReadCount, setLastReadCount] = useState(0)
+  const [highlightMsgId, setHighlightMsgId] = useState<string | null>(null)
+
+  // Handle ?msg= query param for message anchor links
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional trigger on channel change
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const msgId = params.get('msg')
+    if (msgId) {
+      setHighlightMsgId(msgId)
+      // Scroll to the message after a short delay
+      setTimeout(() => {
+        const el = document.getElementById(`msg-${msgId}`)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      }, 500)
+      // Clear highlight after animation
+      setTimeout(() => setHighlightMsgId(null), 3000)
+    }
+  }, [activeChannelId])
+
   // Fetch channel info
   const { data: channel } = useQuery({
     queryKey: ['channel', activeChannelId],
@@ -76,6 +101,10 @@ export function ChatArea() {
         ...old,
         msg,
       ])
+      // Play receive sound for messages from others
+      if (msg.authorId !== user?.id) {
+        playReceiveSound()
+      }
     }
   })
 
@@ -147,8 +176,29 @@ export function ChatArea() {
 
     if (isNearBottom || messages.length <= 50) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+      // User is at bottom, mark all messages as read
+      if (lastReadCount > 0 && lastReadCount < messages.length) {
+        setLastReadCount(messages.length)
+      }
     }
-  }, [messages.length])
+  }, [messages.length, lastReadCount])
+
+  // Clear new-message line when user scrolls to bottom
+  useEffect(() => {
+    const container = messagesContainerRef.current
+    if (!container) return
+
+    const handleScroll = () => {
+      const isNearBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight < 80
+      if (isNearBottom && lastReadCount > 0 && lastReadCount < messages.length) {
+        setLastReadCount(messages.length)
+      }
+    }
+
+    container.addEventListener('scroll', handleScroll, { passive: true })
+    return () => container.removeEventListener('scroll', handleScroll)
+  }, [lastReadCount, messages.length])
 
   // Reset read count when channel changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentional trigger on channel change
@@ -156,7 +206,7 @@ export function ChatArea() {
     setLastReadCount(0)
   }, [activeChannelId])
 
-  // Track read count for new message line
+  // Track read count for new message line (only set once on initial load)
   useEffect(() => {
     if (messages.length > 0 && lastReadCount === 0) {
       setLastReadCount(messages.length)
@@ -168,6 +218,24 @@ export function ChatArea() {
       addReaction.mutate({ messageId, emoji })
     },
     [addReaction],
+  )
+
+  const handleMessageUpdate = useCallback(
+    (msg: Message) => {
+      queryClient.setQueryData<Message[]>(['messages', activeChannelId], (old = []) =>
+        old.map((m) => (m.id === msg.id ? { ...m, ...msg } : m)),
+      )
+    },
+    [queryClient, activeChannelId],
+  )
+
+  const handleMessageDelete = useCallback(
+    (msgId: string) => {
+      queryClient.setQueryData<Message[]>(['messages', activeChannelId], (old = []) =>
+        old.filter((m) => m.id !== msgId),
+      )
+    },
+    [queryClient, activeChannelId],
   )
 
   if (!activeChannelId) {
@@ -185,14 +253,28 @@ export function ChatArea() {
     <div className="flex-1 flex flex-col bg-bg-primary min-w-0">
       {/* Channel header */}
       <div className="h-12 px-4 flex items-center gap-2 border-b border-white/5 shadow-sm shrink-0">
+        {/* Mobile back button */}
+        <button
+          onClick={() => setMobileView('channels')}
+          className="md:hidden text-text-muted hover:text-text-primary transition shrink-0 -ml-1 mr-1"
+        >
+          <ArrowLeft size={20} />
+        </button>
         <Hash size={20} className="text-text-muted" />
-        <h3 className="font-bold text-text-primary">{channel?.name ?? '...'}</h3>
+        <h3 className="font-bold text-text-primary truncate">{channel?.name ?? '...'}</h3>
         {channel?.topic && (
           <>
-            <div className="w-px h-5 bg-white/10 mx-2" />
-            <p className="text-sm text-text-muted truncate">{channel.topic}</p>
+            <div className="w-px h-5 bg-white/10 mx-2 hidden sm:block" />
+            <p className="text-sm text-text-muted truncate hidden sm:block">{channel.topic}</p>
           </>
         )}
+        {/* Mobile member list toggle */}
+        <button
+          onClick={() => useUIStore.getState().toggleMobileMemberList()}
+          className="lg:hidden ml-auto text-text-muted hover:text-text-primary transition shrink-0"
+        >
+          <Users size={18} />
+        </button>
       </div>
 
       {/* Messages */}
@@ -224,6 +306,12 @@ export function ChatArea() {
                 currentUserId={user?.id ?? ''}
                 onReply={(id) => setReplyToId(id)}
                 onReact={handleReact}
+                onMessageUpdate={handleMessageUpdate}
+                onMessageDelete={handleMessageDelete}
+                highlight={highlightMsgId === msg.id}
+                replyToMessage={
+                  msg.replyToId ? (messages.find((m) => m.id === msg.replyToId) ?? null) : null
+                }
               />
             </div>
           ))

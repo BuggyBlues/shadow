@@ -1,13 +1,20 @@
 import { compare, hash } from 'bcryptjs'
+import type { InviteCodeDao } from '../dao/invite-code.dao'
 import type { UserDao } from '../dao/user.dao'
 import { signAccessToken, signRefreshToken, verifyToken } from '../lib/jwt'
 import type { LoginInput, RegisterInput } from '../validators/auth.schema'
 
 export class AuthService {
-  constructor(private deps: { userDao: UserDao }) {}
+  constructor(private deps: { userDao: UserDao; inviteCodeDao: InviteCodeDao }) {}
 
   async register(input: RegisterInput) {
-    const { userDao } = this.deps
+    const { userDao, inviteCodeDao } = this.deps
+
+    // Validate invite code
+    const code = await inviteCodeDao.findAvailable(input.inviteCode)
+    if (!code) {
+      throw Object.assign(new Error('Invalid or already used invite code'), { status: 400 })
+    }
 
     // Check existing email
     const existingEmail = await userDao.findByEmail(input.email)
@@ -31,6 +38,9 @@ export class AuthService {
       passwordHash,
       displayName: input.displayName,
     })
+
+    // Mark invite code as used
+    await inviteCodeDao.markUsed(code.id, user.id)
 
     // Generate tokens
     const payload = { userId: user.id, email: user.email, username: user.username }

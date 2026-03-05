@@ -21,6 +21,7 @@ describe('Auth Validators', () => {
         username: 'testuser',
         password: 'password123',
         displayName: 'Test User',
+        inviteCode: 'ABC12345',
       })
       expect(result.success).toBe(true)
     })
@@ -66,6 +67,7 @@ describe('Auth Validators', () => {
         email: 'test@example.com',
         username: 'testuser',
         password: 'password123',
+        inviteCode: 'ABC12345',
       })
       expect(result.success).toBe(true)
     })
@@ -75,6 +77,7 @@ describe('Auth Validators', () => {
         email: 'test@example.com',
         username: 'test-user_123',
         password: 'password123',
+        inviteCode: 'ABC12345',
       })
       expect(result.success).toBe(true)
     })

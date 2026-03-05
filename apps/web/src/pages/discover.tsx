@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Globe, Search, Users } from 'lucide-react'
-import { useState } from 'react'
+import { Globe, LogIn, Search, Shield, UserPlus, Users } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../lib/api'
 import { getCatAvatar } from '../lib/pixel-cats'
@@ -11,7 +11,15 @@ interface DiscoverServer {
   name: string
   description: string | null
   iconUrl: string | null
+  bannerUrl?: string | null
+  isPublic: boolean
+  inviteCode: string
   memberCount: number
+}
+
+interface ServerEntry {
+  server: { id: string; name: string; iconUrl: string | null }
+  member: { role: string }
 }
 
 export function DiscoverPage() {
@@ -25,8 +33,16 @@ export function DiscoverPage() {
     queryFn: () => fetchApi<DiscoverServer[]>('/api/servers/discover'),
   })
 
-  const _joinMutation = useMutation({
-    mutationFn: (inviteCode: string) =>
+  // Fetch user's joined servers to determine joined status
+  const { data: myServers = [] } = useQuery({
+    queryKey: ['servers'],
+    queryFn: () => fetchApi<ServerEntry[]>('/api/servers'),
+  })
+
+  const joinedServerIds = useMemo(() => new Set(myServers.map((s) => s.server.id)), [myServers])
+
+  const joinMutation = useMutation({
+    mutationFn: ({ inviteCode }: { inviteCode: string; serverId: string }) =>
       fetchApi<{ id: string }>('/api/servers/_/join', {
         method: 'POST',
         body: JSON.stringify({ inviteCode }),
@@ -34,6 +50,14 @@ export function DiscoverPage() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['servers'] })
       navigate({ to: '/app/servers/$serverId', params: { serverId: data.id } })
+    },
+    onError: (err: unknown, variables) => {
+      const status = (err as { status?: number })?.status
+      if (status === 409) {
+        // Already a member — navigate to the server
+        queryClient.invalidateQueries({ queryKey: ['servers'] })
+        navigate({ to: '/app/servers/$serverId', params: { serverId: variables.serverId } })
+      }
     },
   })
 
@@ -79,48 +103,88 @@ export function DiscoverPage() {
           <div className="text-center text-text-muted py-12">{t('discover.noServers')}</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map((server, i) => (
-              <div
-                key={server.id}
-                className="bg-bg-secondary rounded-xl border border-white/5 overflow-hidden hover:border-white/10 transition group"
-              >
-                {/* Server banner */}
-                <div className="h-24 bg-gradient-to-br from-primary/30 to-primary/5 flex items-center justify-center">
-                  {server.iconUrl ? (
-                    <img
-                      src={server.iconUrl}
-                      alt=""
-                      className="w-16 h-16 rounded-2xl object-cover"
-                    />
-                  ) : (
-                    <img src={getCatAvatar(i)} alt={server.name} className="w-14 h-14" />
-                  )}
-                </div>
+            {filtered.map((server, i) => {
+              const isJoined = joinedServerIds.has(server.id)
+              return (
+                <div
+                  key={server.id}
+                  className="bg-bg-secondary rounded-xl border border-white/5 overflow-hidden hover:border-white/10 transition group flex flex-col"
+                >
+                  {/* Server banner */}
+                  <div className="h-28 bg-gradient-to-br from-primary/30 to-primary/5 flex items-center justify-center relative">
+                    {server.bannerUrl ? (
+                      <img
+                        src={server.bannerUrl}
+                        alt=""
+                        className="w-full h-full object-cover absolute inset-0"
+                      />
+                    ) : null}
+                    <div className="relative z-10">
+                      {server.iconUrl ? (
+                        <img
+                          src={server.iconUrl}
+                          alt=""
+                          className="w-16 h-16 rounded-2xl object-cover"
+                        />
+                      ) : (
+                        <img src={getCatAvatar(i)} alt={server.name} className="w-14 h-14" />
+                      )}
+                    </div>
+                    {server.isPublic && (
+                      <span className="absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 bg-primary/80 text-white text-xs rounded-full z-10">
+                        <Shield size={10} />
+                        {t('discover.public')}
+                      </span>
+                    )}
+                  </div>
 
-                <div className="p-4">
-                  <h3 className="font-bold text-text-primary mb-1 truncate">{server.name}</h3>
-                  <p className="text-text-muted text-sm mb-3 line-clamp-2 min-h-[2.5rem]">
-                    {server.description ?? t('discover.noDescription')}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1 text-xs text-text-muted">
-                      <Users size={14} />
-                      {server.memberCount} {t('discover.members')}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        // Navigate to the server's invite page
-                        navigate({ to: '/app/servers/$serverId', params: { serverId: server.id } })
-                      }}
-                      className="px-3 py-1.5 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-medium transition"
-                    >
-                      {t('discover.joinButton')}
-                    </button>
+                  <div className="p-4 flex flex-col flex-1">
+                    <h3 className="font-bold text-text-primary mb-1 truncate">{server.name}</h3>
+                    <p className="text-text-muted text-sm mb-3 line-clamp-2 min-h-[2.5rem] flex-1">
+                      {server.description ?? t('discover.noDescription')}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-xs text-text-muted">
+                        <Users size={14} />
+                        {server.memberCount} {t('discover.members')}
+                      </span>
+                      {isJoined ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navigate({
+                              to: '/app/servers/$serverId',
+                              params: { serverId: server.id },
+                            })
+                          }
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white rounded-lg text-sm font-medium transition"
+                        >
+                          <LogIn size={14} />
+                          {t('discover.enterButton')}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (server.inviteCode) {
+                              joinMutation.mutate({
+                                inviteCode: server.inviteCode,
+                                serverId: server.id,
+                              })
+                            }
+                          }}
+                          disabled={joinMutation.isPending}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-medium transition disabled:opacity-50"
+                        >
+                          <UserPlus size={14} />
+                          {t('discover.joinButton')}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

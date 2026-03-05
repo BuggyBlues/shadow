@@ -3,6 +3,7 @@ import { useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../../lib/api'
 import { sendTyping, sendWsMessage } from '../../lib/socket'
+import { playSendSound } from '../../lib/sounds'
 import { EmojiPicker } from '../common/emoji-picker'
 
 interface MessageInputProps {
@@ -72,6 +73,7 @@ export function MessageInput({
           content: finalContent,
           replyToId: replyToId ?? undefined,
         })
+        playSendSound()
       }
 
       setContent('')
@@ -157,7 +159,7 @@ export function MessageInput({
   }, [])
 
   return (
-    <div className="px-4 pb-4" onDrop={handleDrop} onDragOver={handleDragOver}>
+    <div className="px-4 pb-4 mobile-safe-bottom" onDrop={handleDrop} onDragOver={handleDragOver}>
       {/* Reply indicator */}
       {replyToId && (
         <div className="flex items-center justify-between bg-bg-tertiary rounded-t-lg px-3 py-1.5 text-xs text-text-muted border-b border-white/5">
@@ -223,7 +225,7 @@ export function MessageInput({
             channelName: channelName ?? t('chat.channelFallback'),
           })}
           rows={1}
-          className="flex-1 bg-transparent text-text-primary placeholder:text-text-muted outline-none resize-none text-sm leading-relaxed max-h-[200px]"
+          className="flex-1 bg-transparent text-text-primary placeholder:text-text-muted outline-none resize-none text-sm leading-relaxed max-h-[200px] min-h-[36px] md:min-h-0"
         />
 
         <button

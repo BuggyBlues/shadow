@@ -4,23 +4,113 @@ import { z } from 'zod'
 import type { AppContainer } from '../container'
 import { authMiddleware } from '../middleware/auth.middleware'
 
+function generateCode(length = 8): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let code = ''
+  for (let i = 0; i < length; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return code
+}
+
 export function createAdminHandler(container: AppContainer) {
   const adminHandler = new Hono()
 
   adminHandler.use('*', authMiddleware)
 
-  // TODO: Add admin role check middleware
+  // ── Stats ─────────────────────────────────────────
+  adminHandler.get('/stats', async (c) => {
+    const userDao = container.resolve('userDao')
+    const serverDao = container.resolve('serverDao')
+    const inviteCodeDao = container.resolve('inviteCodeDao')
 
-  // GET /api/admin/users
+    const [allUsers, allServers, totalCodes, usedCodes] = await Promise.all([
+      userDao.findAll(9999, 0),
+      serverDao.findAll(9999, 0),
+      inviteCodeDao.count(),
+      inviteCodeDao.countUsed(),
+    ])
+
+    const onlineUsers = allUsers.filter((u: { status?: string }) => u.status === 'online').length
+
+    return c.json({
+      totalUsers: allUsers.length,
+      onlineUsers,
+      totalServers: allServers.length,
+      totalInviteCodes: totalCodes,
+      usedInviteCodes: usedCodes,
+    })
+  })
+
+  // ── Invite Codes ──────────────────────────────────
+  adminHandler.get('/invite-codes', async (c) => {
+    const inviteCodeDao = container.resolve('inviteCodeDao')
+    const limit = Number(c.req.query('limit') ?? '50')
+    const offset = Number(c.req.query('offset') ?? '0')
+    const codes = await inviteCodeDao.findAll(limit, offset)
+    return c.json(codes)
+  })
+
+  adminHandler.post(
+    '/invite-codes',
+    zValidator(
+      'json',
+      z.object({
+        count: z.number().min(1).max(100).default(1),
+        note: z.string().max(200).optional(),
+      }),
+    ),
+    async (c) => {
+      const inviteCodeDao = container.resolve('inviteCodeDao')
+      const user = c.get('user') as { userId: string }
+      const { count, note } = c.req.valid('json')
+      const codes = []
+      for (let i = 0; i < count; i++) {
+        const code = await inviteCodeDao.create({
+          code: generateCode(),
+          createdBy: user.userId,
+          note,
+        })
+        codes.push(code)
+      }
+      return c.json(codes, 201)
+    },
+  )
+
+  adminHandler.delete('/invite-codes/:id', async (c) => {
+    const inviteCodeDao = container.resolve('inviteCodeDao')
+    const id = c.req.param('id')
+    await inviteCodeDao.delete(id)
+    return c.json({ success: true })
+  })
+
+  adminHandler.patch('/invite-codes/:id/deactivate', async (c) => {
+    const inviteCodeDao = container.resolve('inviteCodeDao')
+    const id = c.req.param('id')
+    const code = await inviteCodeDao.deactivate(id)
+    return c.json(code)
+  })
+
+  // ── Users ─────────────────────────────────────────
   adminHandler.get('/users', async (c) => {
     const userDao = container.resolve('userDao')
     const limit = Number(c.req.query('limit') ?? '50')
     const offset = Number(c.req.query('offset') ?? '0')
     const users = await userDao.findAll(limit, offset)
-    return c.json(users)
+    return c.json(
+      users.map((u: Record<string, unknown>) => ({
+        id: u.id,
+        email: u.email,
+        username: u.username,
+        displayName: u.displayName,
+        avatarUrl: u.avatarUrl,
+        status: u.status,
+        isBot: u.isBot,
+        createdAt: u.createdAt,
+      })),
+    )
   })
 
-  // PATCH /api/admin/users/:id
   adminHandler.patch(
     '/users/:id',
     zValidator(
@@ -39,7 +129,14 @@ export function createAdminHandler(container: AppContainer) {
     },
   )
 
-  // GET /api/admin/servers
+  adminHandler.delete('/users/:id', async (c) => {
+    const userDao = container.resolve('userDao')
+    const id = c.req.param('id')
+    await userDao.update(id, { displayName: '[deleted]' })
+    return c.json({ success: true })
+  })
+
+  // ── Servers ───────────────────────────────────────
   adminHandler.get('/servers', async (c) => {
     const serverDao = container.resolve('serverDao')
     const limit = Number(c.req.query('limit') ?? '50')
@@ -48,7 +145,6 @@ export function createAdminHandler(container: AppContainer) {
     return c.json(servers)
   })
 
-  // DELETE /api/admin/servers/:id
   adminHandler.delete('/servers/:id', async (c) => {
     const serverDao = container.resolve('serverDao')
     const id = c.req.param('id')
@@ -56,36 +152,30 @@ export function createAdminHandler(container: AppContainer) {
     return c.json({ success: true })
   })
 
-  // GET /api/admin/agents
-  adminHandler.get('/agents', async (c) => {
-    const agentService = container.resolve('agentService')
-    const agents = await agentService.getAll()
-    return c.json(agents)
-  })
-
-  // POST /api/admin/agents/:id/restart
-  adminHandler.post('/agents/:id/restart', async (c) => {
-    const agentService = container.resolve('agentService')
+  // ── Messages ──────────────────────────────────────
+  adminHandler.delete('/messages/:id', async (c) => {
+    const messageDao = container.resolve('messageDao')
     const id = c.req.param('id')
-    const agent = await agentService.restart(id)
-    return c.json(agent)
+    await messageDao.delete(id)
+    return c.json({ success: true })
   })
 
-  // GET /api/admin/stats
-  adminHandler.get('/stats', async (c) => {
-    const userDao = container.resolve('userDao')
-    const serverDao = container.resolve('serverDao')
-    const agentDao = container.resolve('agentDao')
-    const users = await userDao.findAll(1, 0)
-    const servers = await serverDao.findAll(1, 0)
-    const agents = await agentDao.findAll(1, 0)
+  // ── Channels ──────────────────────────────────────
+  adminHandler.get('/channels', async (c) => {
+    const channelDao = container.resolve('channelDao')
+    const serverId = c.req.query('serverId')
+    if (serverId) {
+      const channels = await channelDao.findByServerId(serverId)
+      return c.json(channels)
+    }
+    return c.json([])
+  })
 
-    // Basic stats - in production would use COUNT queries
-    return c.json({
-      totalUsers: users.length,
-      totalServers: servers.length,
-      totalAgents: agents.length,
-    })
+  adminHandler.delete('/channels/:id', async (c) => {
+    const channelDao = container.resolve('channelDao')
+    const id = c.req.param('id')
+    await channelDao.delete(id)
+    return c.json({ success: true })
   })
 
   return adminHandler

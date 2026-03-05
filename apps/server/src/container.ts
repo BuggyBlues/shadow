@@ -2,6 +2,7 @@ import { type AwilixContainer, asClass, asValue, createContainer, InjectionMode 
 import type { Server as SocketIOServer } from 'socket.io'
 import { AgentDao } from './dao/agent.dao'
 import { ChannelDao } from './dao/channel.dao'
+import { InviteCodeDao } from './dao/invite-code.dao'
 import { MessageDao } from './dao/message.dao'
 import { NotificationDao } from './dao/notification.dao'
 import { ServerDao } from './dao/server.dao'
@@ -35,6 +36,7 @@ export interface Cradle {
   messageDao: MessageDao
   notificationDao: NotificationDao
   agentDao: AgentDao
+  inviteCodeDao: InviteCodeDao
 
   // Services
   authService: AuthService
@@ -69,6 +71,7 @@ export function createAppContainer(db: Database): AppContainer {
     messageDao: asClass(MessageDao).singleton(),
     notificationDao: asClass(NotificationDao).singleton(),
     agentDao: asClass(AgentDao).singleton(),
+    inviteCodeDao: asClass(InviteCodeDao).singleton(),
 
     // Services
     authService: asClass(AuthService).singleton(),
