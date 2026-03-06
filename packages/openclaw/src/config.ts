@@ -4,7 +4,7 @@
  *
  * Config shape (simplified — server/channel info is fetched remotely):
  *   channels:
- *     shadow:
+ *     shadowob:
  *       accounts:
  *         <accountId>:
  *           token: "..."
@@ -16,9 +16,9 @@ import type { OpenClawConfig, ShadowAccountConfig } from './types.js'
 
 export const DEFAULT_ACCOUNT_ID = 'default'
 
-/** Extract the raw shadow config block from OpenClaw config. */
+/** Extract the raw shadowob config block from OpenClaw config. */
 function getShadowBlock(cfg: OpenClawConfig): Record<string, unknown> | undefined {
-  return cfg.channels?.shadow as Record<string, unknown> | undefined
+  return cfg.channels?.shadowob as Record<string, unknown> | undefined
 }
 
 /** Get a single account config by ID. */
@@ -73,7 +73,8 @@ export function listAccountIds(cfg: OpenClawConfig): string[] {
   }
 
   // Check if base-level config exists (shorthand for single-account)
-  const hasBaseLevelConfig = typeof shadow.token === 'string' || typeof shadow.serverUrl === 'string'
+  const hasBaseLevelConfig =
+    typeof shadow.token === 'string' || typeof shadow.serverUrl === 'string'
   if (hasBaseLevelConfig && !ids.includes(DEFAULT_ACCOUNT_ID)) {
     ids.push(DEFAULT_ACCOUNT_ID)
   }

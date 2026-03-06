@@ -9,7 +9,7 @@
  * 5. Shadow REST client
  * 6. Monitor/gateway inbound flow
  */
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // ── Config resolution ──────────────────────────────────────────
 
@@ -33,7 +33,7 @@ describe('Shadow Config', () => {
     it('should list accounts from multi-account config', () => {
       const cfg = {
         channels: {
-          shadow: {
+          shadowob: {
             accounts: {
               prod: { token: 'tok1', serverUrl: 'http://x:3002' },
               staging: { token: 'tok2', serverUrl: 'http://y:3002' },
@@ -50,7 +50,7 @@ describe('Shadow Config', () => {
     it('should add default account when base-level token is set', () => {
       const cfg = {
         channels: {
-          shadow: {
+          shadowob: {
             token: 'my-token',
             serverUrl: 'http://localhost:3000',
           },
@@ -70,7 +70,7 @@ describe('Shadow Config', () => {
     it('should resolve base-level config as default account', () => {
       const cfg = {
         channels: {
-          shadow: {
+          shadowob: {
             token: 'my-token',
             serverUrl: 'http://localhost:3000',
           },
@@ -85,7 +85,7 @@ describe('Shadow Config', () => {
     it('should resolve named account from multi-account config', () => {
       const cfg = {
         channels: {
-          shadow: {
+          shadowob: {
             accounts: {
               mybot: {
                 token: 'bot-token',
@@ -103,7 +103,7 @@ describe('Shadow Config', () => {
     it('should return null for non-existent named account', () => {
       const cfg = {
         channels: {
-          shadow: {
+          shadowob: {
             accounts: {
               mybot: { token: 'tok', serverUrl: 'url' },
             },
@@ -117,7 +117,7 @@ describe('Shadow Config', () => {
     it('should default serverUrl to localhost:3000', () => {
       const cfg = {
         channels: {
-          shadow: {
+          shadowob: {
             token: 'tok',
           },
         },
@@ -139,13 +139,13 @@ describe('Shadow Plugin', () => {
   })
 
   it('should have correct ID', () => {
-    expect(shadowPlugin.id).toBe('shadow')
+    expect(shadowPlugin.id).toBe('shadowob')
   })
 
   it('should have correct meta', () => {
-    expect(shadowPlugin.meta.id).toBe('shadow')
-    expect(shadowPlugin.meta.label).toBe('Shadow')
-    expect(shadowPlugin.meta.docsPath).toBe('/channels/shadow')
+    expect(shadowPlugin.meta.id).toBe('shadowob')
+    expect(shadowPlugin.meta.label).toBe('ShadowOwnBuddy')
+    expect(shadowPlugin.meta.docsPath).toBe('/channels/shadowob')
   })
 
   it('should declare channel + thread capabilities', () => {
@@ -166,12 +166,11 @@ describe('Shadow Plugin', () => {
   })
 
   it('should check isConfigured', () => {
-    expect(shadowPlugin.config.isConfigured!({ token: '', serverUrl: '' } as any, {} as any)).toBe(false)
+    expect(shadowPlugin.config.isConfigured!({ token: '', serverUrl: '' } as any, {} as any)).toBe(
+      false,
+    )
     expect(
-      shadowPlugin.config.isConfigured!(
-        { token: 'tok', serverUrl: 'url' } as any,
-        {} as any,
-      ),
+      shadowPlugin.config.isConfigured!({ token: 'tok', serverUrl: 'url' } as any, {} as any),
     ).toBe(true)
   })
 
@@ -216,11 +215,11 @@ describe('Shadow Plugin', () => {
     const normalized = shadowPlugin.messaging!.normalizeTarget!(
       '550e8400-e29b-41d4-a716-446655440000',
     )
-    expect(normalized).toBe('shadow:channel:550e8400-e29b-41d4-a716-446655440000')
+    expect(normalized).toBe('shadowob:channel:550e8400-e29b-41d4-a716-446655440000')
 
     // Already prefixed
-    const prefixed = shadowPlugin.messaging!.normalizeTarget!('shadow:channel:abc')
-    expect(prefixed).toBe('shadow:channel:abc')
+    const prefixed = shadowPlugin.messaging!.normalizeTarget!('shadowob:channel:abc')
+    expect(prefixed).toBe('shadowob:channel:abc')
 
     // Invalid
     const invalid = shadowPlugin.messaging!.normalizeTarget!('not-a-uuid')
@@ -241,7 +240,7 @@ describe('Plugin Entry Point', () => {
   it('should export a valid OpenClawPluginDefinition', async () => {
     const mod = await import('../index.js')
     const plugin = mod.default
-    expect(plugin.id).toBe('shadow')
+    expect(plugin.id).toBe('shadowob')
     expect(plugin.name).toBe('ShadowOwnBuddy')
     expect(typeof plugin.register).toBe('function')
   })
@@ -254,7 +253,7 @@ describe('Plugin Entry Point', () => {
   it('should export shadowPlugin', async () => {
     const mod = await import('../index.js')
     expect(mod.shadowPlugin).toBeDefined()
-    expect(mod.shadowPlugin.id).toBe('shadow')
+    expect(mod.shadowPlugin.id).toBe('shadowob')
   })
 })
 
@@ -308,7 +307,7 @@ describe('Shadow Outbound', () => {
 
     const result = await shadowOutbound.sendText!({
       cfg: {},
-      to: 'shadow:channel:ch-123',
+      to: 'shadowob:channel:ch-123',
       text: 'Hello',
     })
 
@@ -322,13 +321,13 @@ describe('Shadow Outbound', () => {
     const result = await shadowOutbound.sendText!({
       cfg: {
         channels: {
-          shadow: {
+          shadowob: {
             token: 'tok',
             serverUrl: 'http://localhost:3000',
           },
         },
       },
-      to: 'shadow:channel:ch-123',
+      to: 'shadowob:channel:ch-123',
     })
 
     expect(result.ok).toBe(false)

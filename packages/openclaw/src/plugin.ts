@@ -5,7 +5,7 @@
  * Supports channel messaging, threads, @mentions, reactions, and media.
  */
 
-import { getAccountConfig, listAccountIds, DEFAULT_ACCOUNT_ID } from './config.js'
+import { DEFAULT_ACCOUNT_ID, getAccountConfig, listAccountIds } from './config.js'
 import { shadowOutbound } from './outbound.js'
 import { ShadowClient } from './shadow-client.js'
 import type {
@@ -19,14 +19,14 @@ import type {
 
 export const shadowPlugin: ChannelPlugin<ShadowAccountConfig> = {
   /** Plugin identifier */
-  id: 'shadow',
+  id: 'shadowob',
 
   /** Plugin metadata */
   meta: {
-    id: 'shadow',
-    label: 'Shadow',
-    selectionLabel: 'Shadow (Server)',
-    docsPath: '/channels/shadow',
+    id: 'shadowob',
+    label: 'ShadowOwnBuddy',
+    selectionLabel: 'ShadowOwnBuddy (Server)',
+    docsPath: '/channels/shadowob',
     blurb: 'Shadow server channel integration — chat with AI agents in Shadow channels',
     aliases: ['shadow-server'],
   } satisfies ChannelMeta,
@@ -44,7 +44,7 @@ export const shadowPlugin: ChannelPlugin<ShadowAccountConfig> = {
 
   /** Auto-reload when shadow config changes */
   reload: {
-    configPrefixes: ['channels.shadow'],
+    configPrefixes: ['channels.shadowob'],
   },
 
   /** Default debounce */
@@ -109,7 +109,7 @@ export const shadowPlugin: ChannelPlugin<ShadowAccountConfig> = {
     defaultAccountId: (): string => DEFAULT_ACCOUNT_ID,
 
     isConfigured: (account: ShadowAccountConfig): boolean => {
-      return !!(account?.token?.trim())
+      return !!account?.token?.trim()
     },
 
     isEnabled: (account: ShadowAccountConfig): boolean => {
@@ -120,7 +120,7 @@ export const shadowPlugin: ChannelPlugin<ShadowAccountConfig> = {
       return {
         accountId: DEFAULT_ACCOUNT_ID,
         enabled: account?.enabled !== false,
-        configured: !!(account?.token?.trim()),
+        configured: !!account?.token?.trim(),
       }
     },
   },
@@ -136,7 +136,7 @@ export const shadowPlugin: ChannelPlugin<ShadowAccountConfig> = {
   /** Threading support */
   threading: {
     resolveReplyToMode: ({ cfg }) => {
-      const shadow = cfg.channels?.shadow as Record<string, unknown> | undefined
+      const shadow = cfg.channels?.shadowob as Record<string, unknown> | undefined
       const mode = shadow?.replyToMode
       if (mode === 'first' || mode === 'all' || mode === 'off') return mode
       return 'first'
@@ -151,11 +151,11 @@ export const shadowPlugin: ChannelPlugin<ShadowAccountConfig> = {
   /** Target normalization */
   messaging: {
     normalizeTarget: (raw: string): string | undefined => {
-      // Accept "shadow:channel:<id>" or bare UUID
-      if (raw.startsWith('shadow:')) return raw
+      // Accept "shadowob:channel:<id>" or bare UUID
+      if (raw.startsWith('shadowob:')) return raw
       // UUID pattern
       if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw)) {
-        return `shadow:channel:${raw}`
+        return `shadowob:channel:${raw}`
       }
       return undefined
     },
@@ -209,7 +209,7 @@ export const shadowPlugin: ChannelPlugin<ShadowAccountConfig> = {
       return {
         accountId: DEFAULT_ACCOUNT_ID,
         enabled: account?.enabled !== false,
-        configured: !!(account?.token?.trim()),
+        configured: !!account?.token?.trim(),
         running: runtime?.running ?? false,
         lastStartAt: runtime?.lastStartAt ?? null,
         lastStopAt: runtime?.lastStopAt ?? null,

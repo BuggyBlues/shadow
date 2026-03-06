@@ -15,8 +15,8 @@
  */
 
 import { io as connectSocket, type Socket } from 'socket.io-client'
-import { ShadowClient } from './shadow-client.js'
 import { getShadowRuntime } from './runtime.js'
+import { ShadowClient } from './shadow-client.js'
 import type {
   OpenClawConfig,
   PluginRuntime,
@@ -53,7 +53,8 @@ async function processShadowMessage(params: {
   channelPolicies: Map<string, ShadowChannelPolicy>
   socket: Socket
 }): Promise<void> {
-  const { message, account, accountId, config, runtime, core, botUserId, channelPolicies, socket } = params
+  const { message, account, accountId, config, runtime, core, botUserId, channelPolicies, socket } =
+    params
   const cfg = config as OpenClawConfig
 
   const senderLabel = message.author?.username ?? message.authorId
@@ -90,7 +91,9 @@ async function processShadowMessage(params: {
     }
   }
 
-  runtime.log?.(`[msg] Processing message from ${senderLabel}: "${message.content.slice(0, 80)}" (${message.id})`)
+  runtime.log?.(
+    `[msg] Processing message from ${senderLabel}: "${message.content.slice(0, 80)}" (${message.id})`,
+  )
 
   const senderName = message.author?.displayName ?? message.author?.username ?? 'Unknown'
   const senderUsername = message.author?.username ?? ''
@@ -101,7 +104,7 @@ async function processShadowMessage(params: {
   // 1. Resolve agent route
   const route = core.channel.routing.resolveAgentRoute({
     cfg,
-    channel: 'shadow',
+    channel: 'shadowob',
     accountId,
     peer: {
       kind: 'group',
@@ -124,8 +127,7 @@ async function processShadowMessage(params: {
   // Parse markdown for image/file URLs: ![alt](url) and [name](url)
   const markdownMediaRegex = /!?\[[^\]]*\]\(([^)]+)\)/g
   const markdownUrls: string[] = []
-  let mdMatch: RegExpExecArray | null
-  while ((mdMatch = markdownMediaRegex.exec(rawBody)) !== null) {
+  for (const mdMatch of rawBody.matchAll(markdownMediaRegex)) {
     const url = mdMatch[1]!
     // Only include media paths (uploads), not arbitrary links
     if (url.startsWith('/') && url.includes('/uploads/')) {
@@ -135,40 +137,113 @@ async function processShadowMessage(params: {
     }
   }
 
-  // Merge and deduplicate, convert relative URLs to absolute
-  const baseUrl = account.serverUrl.replace(/\/$/, '')
-  const allMediaUrls = [...new Set([...attachmentUrls, ...markdownUrls])].map((url) =>
-    url.startsWith('/') ? `${baseUrl}${url}` : url,
-  )
+  // Merge and deduplicate
+  const allRawUrls = [...new Set([...attachmentUrls, ...markdownUrls])]
 
-  // Build media context fields following OpenClaw convention
-  const mediaCtx: Record<string, unknown> = {}
-  if (allMediaUrls.length > 0) {
-    mediaCtx.MediaUrl = allMediaUrls[0]
-    mediaCtx.MediaUrls = allMediaUrls
-    // Try to infer content types from file extensions
-    const inferType = (u: string) => {
-      const ext = u.split('.').pop()?.toLowerCase() ?? ''
-      const map: Record<string, string> = {
-        jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
-        gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml',
-        mp4: 'video/mp4', webm: 'video/webm', mp3: 'audio/mpeg',
-        wav: 'audio/wav', ogg: 'audio/ogg', pdf: 'application/pdf',
-      }
-      return map[ext] ?? 'application/octet-stream'
+  // Download media files to local paths for the AI pipeline.
+  // OpenClaw's AI reads images/files from MediaPath (local absolute paths),
+  // not from MediaUrl (HTTP URLs). We download each file and save locally.
+  const mediaClient = new ShadowClient(account.serverUrl, account.token)
+  const localMediaPaths: string[] = []
+  const localMediaTypes: string[] = []
+  const resolvedMediaUrls: string[] = []
+
+  const inferMimeType = (filename: string, headerType?: string) => {
+    const ext = filename.split('.').pop()?.toLowerCase() ?? ''
+    const map: Record<string, string> = {
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      gif: 'image/gif',
+      webp: 'image/webp',
+      svg: 'image/svg+xml',
+      mp4: 'video/mp4',
+      webm: 'video/webm',
+      mp3: 'audio/mpeg',
+      wav: 'audio/wav',
+      ogg: 'audio/ogg',
+      pdf: 'application/pdf',
     }
-    mediaCtx.MediaType = inferType(allMediaUrls[0]!)
-    mediaCtx.MediaTypes = allMediaUrls.map(inferType)
+    return map[ext] ?? headerType ?? 'application/octet-stream'
+  }
+
+  if (allRawUrls.length > 0) {
+    // Dynamic imports for fs/path (available at Node.js runtime)
+    // @ts-expect-error node:fs/promises available at runtime
+    const fsPromises = await import('node:fs/promises')
+    // @ts-expect-error node:path available at runtime
+    const nodePath = await import('node:path')
+    // @ts-expect-error node:os available at runtime
+    const nodeOs = await import('node:os')
+    // @ts-expect-error node:crypto available at runtime
+    const nodeCrypto = await import('node:crypto')
+
+    // Save to ~/.openclaw/media/inbound/ (matches OpenClaw convention)
+    const mediaDir = nodePath.join(nodeOs.homedir(), '.openclaw', 'media', 'inbound')
+    await fsPromises.mkdir(mediaDir, { recursive: true })
+
+    for (const rawUrl of allRawUrls) {
+      try {
+        const downloaded = await mediaClient.downloadFile(rawUrl)
+        const uuid = nodeCrypto.randomUUID()
+        const ext = nodePath.extname(downloaded.filename) || '.bin'
+        const safeBase = downloaded.filename
+          .replace(/[^a-zA-Z0-9._\u4e00-\u9fff-]/g, '_')
+          .slice(0, 100)
+        const localFilename = `${safeBase}---${uuid}${ext.startsWith('.') ? '' : '.'}${ext}`
+        const localPath = nodePath.join(mediaDir, localFilename)
+        await fsPromises.writeFile(localPath, new Uint8Array(downloaded.buffer))
+
+        localMediaPaths.push(localPath)
+        localMediaTypes.push(inferMimeType(downloaded.filename, downloaded.contentType))
+
+        const baseUrl = account.serverUrl.replace(/\/$/, '')
+        resolvedMediaUrls.push(rawUrl.startsWith('/') ? `${baseUrl}${rawUrl}` : rawUrl)
+
+        runtime.log?.(
+          `[media] Downloaded ${rawUrl} → ${localPath} (${downloaded.buffer.byteLength} bytes)`,
+        )
+      } catch (err) {
+        runtime.error?.(`[media] Failed to download ${rawUrl}: ${String(err)}`)
+      }
+    }
+  }
+
+  // Build media context fields following OpenClaw convention.
+  // MediaPath/MediaPaths = local file paths (primary, used by AI pipeline)
+  // MediaUrl/MediaUrls = HTTP URLs (supplementary)
+  const mediaCtx: Record<string, unknown> = {}
+  if (localMediaPaths.length > 0) {
+    mediaCtx.MediaPath = localMediaPaths[0]
+    mediaCtx.MediaPaths = localMediaPaths
+    mediaCtx.MediaUrl = resolvedMediaUrls[0]
+    mediaCtx.MediaUrls = resolvedMediaUrls
+    mediaCtx.MediaType = localMediaTypes[0]
+    mediaCtx.MediaTypes = localMediaTypes
+  }
+
+  // Strip markdown image/file syntax from the text body sent to the AI agent.
+  // The images are already provided via MediaPath — no need to send the raw markdown.
+  let cleanBody = rawBody
+  if (localMediaPaths.length > 0) {
+    cleanBody = rawBody
+      .replace(/!?\[[^\]]*\]\([^)]*\/uploads\/[^)]+\)/g, '')
+      .replace(/\n{2,}/g, '\n')
+      .trim()
+    // If nothing is left after stripping, set a sensible default
+    if (!cleanBody) {
+      cleanBody = '[Media attached]'
+    }
   }
 
   // 3. Build and finalize MsgContext
   const ctxPayload = core.channel.reply.finalizeInboundContext({
     Body: body,
-    BodyForAgent: rawBody,
+    BodyForAgent: cleanBody,
     RawBody: rawBody,
-    CommandBody: rawBody,
-    From: `shadow:user:${senderId}`,
-    To: `shadow:channel:${channelId}`,
+    CommandBody: cleanBody,
+    From: `shadowob:user:${senderId}`,
+    To: `shadowob:channel:${channelId}`,
     SessionKey: route.sessionKey,
     AccountId: route.accountId,
     ChatType: chatType,
@@ -176,11 +251,11 @@ async function processShadowMessage(params: {
     SenderName: senderName,
     SenderId: senderId,
     SenderUsername: senderUsername,
-    Provider: 'shadow',
-    Surface: 'shadow',
+    Provider: 'shadowob',
+    Surface: 'shadowob',
     MessageSid: message.id,
-    OriginatingChannel: 'shadow',
-    OriginatingTo: `shadow:channel:${channelId}`,
+    OriginatingChannel: 'shadowob',
+    OriginatingTo: `shadowob:channel:${channelId}`,
     ...(message.threadId ? { ThreadId: message.threadId } : {}),
     ...(message.replyToId ? { ReplyToId: message.replyToId } : {}),
     ...mediaCtx,
@@ -320,7 +395,9 @@ export async function monitorShadowProvider(
   // Resolve agentId: prefer account config, fall back to /api/auth/me response
   const agentId = account.agentId ?? me.agentId ?? null
   if (!agentId) {
-    runtime.error?.('[config] Cannot resolve agentId — heartbeat and remote config will be unavailable')
+    runtime.error?.(
+      '[config] Cannot resolve agentId — heartbeat and remote config will be unavailable',
+    )
   } else {
     runtime.log?.(`[config] Resolved agentId: ${agentId}`)
   }
@@ -333,26 +410,30 @@ export async function monitorShadowProvider(
   if (agentId) {
     try {
       remoteConfig = await client.getAgentConfig(agentId)
-      runtime.log?.(
-        `[config] Fetched remote config: ${remoteConfig.servers.length} server(s)`,
-      )
+      runtime.log?.(`[config] Fetched remote config: ${remoteConfig.servers.length} server(s)`)
 
       // Build channel → policy map
       for (const server of remoteConfig.servers) {
-        runtime.log?.(`[config] Server "${server.name}" (${server.id}) — ${server.channels.length} channel(s)`)
+        runtime.log?.(
+          `[config] Server "${server.name}" (${server.id}) — ${server.channels.length} channel(s)`,
+        )
         for (const ch of server.channels) {
           channelPolicies.set(ch.id, ch.policy)
           // Only join channels where listen is enabled
           if (ch.policy.listen) {
             allChannelIds.push(ch.id)
-            runtime.log?.(`[config]   ✓ #${ch.name} (${ch.id}) — listen=true reply=${ch.policy.reply} mentionOnly=${ch.policy.mentionOnly}`)
+            runtime.log?.(
+              `[config]   ✓ #${ch.name} (${ch.id}) — listen=true reply=${ch.policy.reply} mentionOnly=${ch.policy.mentionOnly}`,
+            )
           } else {
             runtime.log?.(`[config]   ✗ #${ch.name} (${ch.id}) — listen=false, skipping`)
           }
         }
       }
 
-      runtime.log?.(`[config] Monitoring ${allChannelIds.length} channel(s) across ${remoteConfig.servers.length} server(s)`)
+      runtime.log?.(
+        `[config] Monitoring ${allChannelIds.length} channel(s) across ${remoteConfig.servers.length} server(s)`,
+      )
     } catch (err) {
       runtime.error?.(`[config] Failed to fetch remote config: ${String(err)}`)
       runtime.log?.('[config] Falling back to monitoring no channels — add agent to servers first')
@@ -385,7 +466,9 @@ export async function monitorShadowProvider(
   })
 
   socket.on('connect', () => {
-    runtime.log?.(`[ws] Connected (transport=${socket.io.engine?.transport?.name}, sid=${socket.id})`)
+    runtime.log?.(
+      `[ws] Connected (transport=${socket.io.engine?.transport?.name}, sid=${socket.id})`,
+    )
     // Join all monitored channel rooms
     if (allChannelIds.length === 0) {
       runtime.log?.('[ws] No channels to join — allChannelIds is empty')
@@ -400,7 +483,9 @@ export async function monitorShadowProvider(
         }
       })
     }
-    runtime.log?.(`[ws] Emitted channel:join for ${allChannelIds.length} channel(s), listening for messages`)
+    runtime.log?.(
+      `[ws] Emitted channel:join for ${allChannelIds.length} channel(s), listening for messages`,
+    )
   })
 
   socket.on('connect_error', (err) => {
@@ -436,11 +521,15 @@ export async function monitorShadowProvider(
             if (ch.policy.listen) {
               allChannelIds.push(ch.id)
               runtime.log?.(`[config] New channel: #${ch.name} (${ch.id}) — joining`)
-              socket.emit('channel:join', { channelId: ch.id }, (ack: { ok: boolean } | undefined) => {
-                if (ack?.ok) {
-                  runtime.log?.(`[ws] ✓ Joined new channel room ${ch.id}`)
-                }
-              })
+              socket.emit(
+                'channel:join',
+                { channelId: ch.id },
+                (ack: { ok: boolean } | undefined) => {
+                  if (ack?.ok) {
+                    runtime.log?.(`[ws] ✓ Joined new channel room ${ch.id}`)
+                  }
+                },
+              )
             }
           } else {
             // Update policy if changed
@@ -457,7 +546,9 @@ export async function monitorShadowProvider(
   // Listen for new messages
   socket.on('message:new', (message: ShadowMessage) => {
     const senderLabel = message.author?.username ?? message.authorId
-    runtime.log?.(`[ws] ← message:new from ${senderLabel} in channel ${message.channelId}: "${message.content?.slice(0, 60)}" (${message.id})`)
+    runtime.log?.(
+      `[ws] ← message:new from ${senderLabel} in channel ${message.channelId}: "${message.content?.slice(0, 60)}" (${message.id})`,
+    )
 
     if (stopped) {
       runtime.log?.('[ws] Monitor stopped, ignoring message')

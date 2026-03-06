@@ -105,16 +105,10 @@ export class ShadowClient {
     })
   }
 
-  async getThreadMessages(
-    threadId: string,
-    limit = 50,
-    cursor?: string,
-  ): Promise<ShadowMessage[]> {
+  async getThreadMessages(threadId: string, limit = 50, cursor?: string): Promise<ShadowMessage[]> {
     const params = new URLSearchParams({ limit: String(limit) })
     if (cursor) params.set('cursor', cursor)
-    return this.request<ShadowMessage[]>(
-      `/api/threads/${threadId}/messages?${params}`,
-    )
+    return this.request<ShadowMessage[]>(`/api/threads/${threadId}/messages?${params}`)
   }
 
   async sendToThread(threadId: string, content: string): Promise<ShadowMessage> {
@@ -199,10 +193,18 @@ export class ShadowClient {
       // Infer content type from extension
       const ext = filename.split('.').pop()?.toLowerCase() ?? ''
       const mimeMap: Record<string, string> = {
-        jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
-        gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml',
-        mp4: 'video/mp4', webm: 'video/webm', mp3: 'audio/mpeg',
-        wav: 'audio/wav', ogg: 'audio/ogg', pdf: 'application/pdf',
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        png: 'image/png',
+        gif: 'image/gif',
+        webp: 'image/webp',
+        svg: 'image/svg+xml',
+        mp4: 'video/mp4',
+        webm: 'video/webm',
+        mp3: 'audio/mpeg',
+        wav: 'audio/wav',
+        ogg: 'audio/ogg',
+        pdf: 'application/pdf',
       }
       const contentType = mimeMap[ext] ?? 'application/octet-stream'
       return this.uploadMedia(buffer, filename, contentType, messageId)
@@ -218,6 +220,32 @@ export class ShadowClient {
     const filename = urlPath.split('/').pop() ?? 'file'
     const contentType = blob.type || 'application/octet-stream'
     return this.uploadMedia(blob, filename, contentType, messageId)
+  }
+
+  /**
+   * Download a file from a URL (typically a Shadow upload URL).
+   * Uses the auth token for Shadow-hosted URLs.
+   * Returns the buffer, content type, and filename.
+   */
+  async downloadFile(
+    url: string,
+  ): Promise<{ buffer: ArrayBuffer; contentType: string; filename: string }> {
+    const headers: Record<string, string> = {}
+    // Add auth for Shadow-hosted URLs
+    if (url.startsWith(this.baseUrl) || url.startsWith('/')) {
+      headers.Authorization = `Bearer ${this.token}`
+    }
+    const fullUrl = url.startsWith('/') ? `${this.baseUrl}${url}` : url
+    const res = await fetch(fullUrl, { headers, redirect: 'follow' })
+    if (!res.ok) {
+      throw new Error(`Failed to download file from ${fullUrl}: ${res.status}`)
+    }
+    const buffer = await res.arrayBuffer()
+    const contentType = res.headers.get('content-type') ?? 'application/octet-stream'
+    // Extract filename from URL path
+    const urlPath = new URL(fullUrl).pathname
+    const filename = decodeURIComponent(urlPath.split('/').pop() ?? 'file')
+    return { buffer, contentType, filename }
   }
 
   // ── Heartbeat ─────────────────────────────────────────────────────────

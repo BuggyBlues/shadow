@@ -4,22 +4,23 @@
  * Uses the Shadow REST API via ShadowClient to deliver outbound messages.
  */
 
-import { getAccountConfig, DEFAULT_ACCOUNT_ID } from './config.js'
+import { DEFAULT_ACCOUNT_ID, getAccountConfig } from './config.js'
 import { ShadowClient } from './shadow-client.js'
 import type {
   ChannelOutboundAdapter,
   ChannelOutboundContext,
   OutboundDeliveryResult,
+  ShadowMessage,
 } from './types.js'
 
-/** Parse a Shadow target string like "shadow:channel:<channelId>" */
+/** Parse a Shadow target string like "shadowob:channel:<channelId>" */
 function parseTarget(to: string): { channelId?: string; threadId?: string } {
-  // "shadow:channel:<id>" or "shadow:thread:<id>"
+  // "shadowob:channel:<id>" or "shadowob:thread:<id>"
   const parts = to.split(':')
-  if (parts[0] === 'shadow' && parts[1] === 'channel' && parts[2]) {
+  if (parts[0] === 'shadowob' && parts[1] === 'channel' && parts[2]) {
     return { channelId: parts[2] }
   }
-  if (parts[0] === 'shadow' && parts[1] === 'thread' && parts[2]) {
+  if (parts[0] === 'shadowob' && parts[1] === 'thread' && parts[2]) {
     return { threadId: parts[2] }
   }
   // Fallback: treat as channel ID
@@ -46,7 +47,7 @@ export const shadowOutbound: ChannelOutboundAdapter = {
         return { ok: false, error: 'No text to send' }
       }
 
-      let message
+      let message: ShadowMessage | undefined
       if (threadId) {
         message = await client.sendToThread(threadId, ctx.text)
       } else if (channelId) {
@@ -78,7 +79,7 @@ export const shadowOutbound: ChannelOutboundAdapter = {
       const threadId = ctx.threadId ?? parsedThreadId
 
       // Send text message first (if any)
-      let message
+      let message: ShadowMessage | undefined
       const text = ctx.text ?? ''
       if (text) {
         if (threadId) {

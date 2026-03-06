@@ -18,28 +18,28 @@
  */
 
 import { type ChildProcess, execSync } from 'node:child_process'
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { io as connectSocket, type Socket } from 'socket.io-client'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { ShadowClient } from '../../src/shadow-client.js'
 
 import {
-  SHADOW_URL,
-  SHADOW_PORT,
-  OPENCLAW_PORT,
-  PLUGIN_DIR,
-  OPENCLAW_TEST_HOME,
-  OPENCLAW_TEST_CONFIG,
-  startShadowServer,
-  stopShadowServer,
-  startOpenClawGateway,
-  stopOpenClawGateway,
-  writeOpenClawConfig,
   cleanupOpenClawHome,
-  seedTestData,
-  waitForServer,
-  waitForOutput,
-  sleep,
+  OPENCLAW_PORT,
+  OPENCLAW_TEST_CONFIG,
+  OPENCLAW_TEST_HOME,
+  PLUGIN_DIR,
   type SeedData,
+  SHADOW_PORT,
+  SHADOW_URL,
+  seedTestData,
+  sleep,
+  startOpenClawGateway,
+  startShadowServer,
+  stopOpenClawGateway,
+  stopShadowServer,
+  waitForOutput,
+  waitForServer,
+  writeOpenClawConfig,
 } from './helpers.js'
 
 // ── Test timeout for the entire suite (processes need time to start) ────────
@@ -93,7 +93,7 @@ describe('Plugin Discovery', () => {
       })
 
       // The plugin should appear in the listing
-      expect(output).toContain('shadow')
+      expect(output).toContain('shadowob')
     },
     SUITE_TIMEOUT,
   )
@@ -101,7 +101,7 @@ describe('Plugin Discovery', () => {
   it(
     'openclaw plugins info should show shadow plugin details',
     async () => {
-      const output = execSync('openclaw plugins info shadow 2>&1', {
+      const output = execSync('openclaw plugins info shadowob 2>&1', {
         env: {
           ...process.env,
           OPENCLAW_CONFIG_PATH: OPENCLAW_TEST_CONFIG,
@@ -112,7 +112,7 @@ describe('Plugin Discovery', () => {
       })
 
       // Should show the plugin info (id, channels, etc.)
-      expect(output.toLowerCase()).toContain('shadow')
+      expect(output.toLowerCase()).toContain('shadowob')
     },
     SUITE_TIMEOUT,
   )
@@ -338,198 +338,198 @@ describe('Monitor Subscription E2E', () => {
         },
       },
       logging: {
-        getChildLogger: () => ({ info: () => {}, warn: () => {}, error: () => {}, debug: () => {} }),
+        getChildLogger: () => ({
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+          debug: () => {},
+        }),
         shouldLogVerbose: () => false,
       },
-    // biome-ignore lint/suspicious/noExplicitAny: mock runtime for E2E test
+      // biome-ignore lint/suspicious/noExplicitAny: mock runtime for E2E test
     } as any)
   })
 
-  it(
-    'monitorShadowProvider subscribes to channels via remote config and receives messages',
-    async () => {
-      // Collect all log output to verify comprehensive logging
-      const logs: string[] = []
-      const errors: string[] = []
+  it('monitorShadowProvider subscribes to channels via remote config and receives messages', async () => {
+    // Collect all log output to verify comprehensive logging
+    const logs: string[] = []
+    const errors: string[] = []
 
-      const abortController = new AbortController()
+    const abortController = new AbortController()
 
-      // Messages received by the monitor (captured via processShadowMessage)
-      const receivedMessages: Array<{ content: string; authorId: string }> = []
+    // Messages received by the monitor (captured via processShadowMessage)
+    const receivedMessages: Array<{ content: string; authorId: string }> = []
 
-      // We import monitorShadowProvider directly and verify it connects + receives
-      const { monitorShadowProvider } = await import('../../src/monitor.js')
+    // We import monitorShadowProvider directly and verify it connects + receives
+    const { monitorShadowProvider } = await import('../../src/monitor.js')
 
-      // Start the monitor in the background (it blocks until abort)
-      const monitorPromise = monitorShadowProvider({
-        account: {
-          token: seed.agentToken,
-          serverUrl: SHADOW_URL,
-          enabled: true,
-        },
-        accountId: 'e2e-test',
-        config: {
-          channels: {
-            shadow: {
-              token: seed.agentToken,
-              serverUrl: SHADOW_URL,
-              enabled: true,
-            },
+    // Start the monitor in the background (it blocks until abort)
+    const monitorPromise = monitorShadowProvider({
+      account: {
+        token: seed.agentToken,
+        serverUrl: SHADOW_URL,
+        enabled: true,
+      },
+      accountId: 'e2e-test',
+      config: {
+        channels: {
+          shadow: {
+            token: seed.agentToken,
+            serverUrl: SHADOW_URL,
+            enabled: true,
           },
         },
-        runtime: {
-          log: (msg: string) => {
-            logs.push(msg)
-            if (process.env.E2E_VERBOSE) console.log(`[monitor] ${msg}`)
+      },
+      runtime: {
+        log: (msg: string) => {
+          logs.push(msg)
+          if (process.env.E2E_VERBOSE) console.log(`[monitor] ${msg}`)
+        },
+        error: (msg: string) => {
+          errors.push(msg)
+          if (process.env.E2E_VERBOSE) console.error(`[monitor:err] ${msg}`)
+        },
+      },
+      abortSignal: abortController.signal,
+    })
+
+    // Wait for the monitor to connect and join channels
+    // Look for the "Emitted channel:join" log entry
+    const deadline = Date.now() + 15_000
+    while (Date.now() < deadline) {
+      if (logs.some((l) => l.includes('listening for messages'))) break
+      await sleep(200)
+    }
+
+    // Verify connection and channel join logs
+    expect(logs.some((l) => l.includes('[ws] Connected'))).toBe(true)
+    expect(logs.some((l) => l.includes('[config] Fetched remote config'))).toBe(true)
+    expect(logs.some((l) => l.includes('[config] Monitoring'))).toBe(true)
+    expect(logs.some((l) => l.includes(`[ws] Emitting channel:join for ${seed.channel.id}`))).toBe(
+      true,
+    )
+
+    // Wait for the ack to arrive
+    await sleep(1_000)
+    expect(logs.some((l) => l.includes('Joined channel room') && l.includes(seed.channel.id))).toBe(
+      true,
+    )
+
+    // Now send a message as the human user via a separate socket
+    const userSocket = connectSocket(SHADOW_URL, {
+      auth: { token: seed.userToken },
+      transports: ['websocket'],
+      forceNew: true,
+    })
+
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('User socket connect timeout')), 10_000)
+      userSocket.on('connect', () => {
+        clearTimeout(timer)
+        resolve()
+      })
+      userSocket.on('connect_error', (err) => {
+        clearTimeout(timer)
+        reject(err)
+      })
+    })
+
+    userSocket.emit('channel:join', { channelId: seed.channel.id })
+    await sleep(500)
+
+    // Send a unique message
+    const uniqueContent = `Monitor E2E msg ${Date.now()}`
+    userSocket.emit('message:send', {
+      channelId: seed.channel.id,
+      content: uniqueContent,
+    })
+
+    // Wait for the monitor to log receiving the message
+    const msgDeadline = Date.now() + 10_000
+    while (Date.now() < msgDeadline) {
+      if (logs.some((l) => l.includes('message:new') && l.includes(uniqueContent.slice(0, 30))))
+        break
+      await sleep(200)
+    }
+
+    // Verify the message was received and logged
+    expect(logs.some((l) => l.includes('[ws] ← message:new'))).toBe(true)
+    expect(logs.some((l) => l.includes(uniqueContent.slice(0, 30)))).toBe(true)
+
+    // Verify the processing pipeline was entered
+    expect(logs.some((l) => l.includes('[msg] Processing message from'))).toBe(true)
+
+    // Cleanup
+    userSocket.disconnect()
+    abortController.abort()
+
+    // Wait for monitor to stop
+    await monitorPromise.catch(() => {})
+    expect(logs.some((l) => l.includes('[lifecycle] Shadow monitor stopped'))).toBe(true)
+
+    // Final: verify no critical errors during the subscription flow
+    const criticalErrors = errors.filter((e) => !e.includes('Heartbeat') && !e.includes('session'))
+    expect(criticalErrors).toEqual([])
+  }, 60_000)
+
+  it('monitorShadowProvider logs detailed filtering info for own messages', async () => {
+    const logs: string[] = []
+    const abortController = new AbortController()
+
+    const { monitorShadowProvider } = await import('../../src/monitor.js')
+
+    const monitorPromise = monitorShadowProvider({
+      account: {
+        token: seed.agentToken,
+        serverUrl: SHADOW_URL,
+        enabled: true,
+      },
+      accountId: 'e2e-test-filter',
+      config: {
+        channels: {
+          shadow: {
+            token: seed.agentToken,
+            serverUrl: SHADOW_URL,
+            enabled: true,
           },
-          error: (msg: string) => {
-            errors.push(msg)
-            if (process.env.E2E_VERBOSE) console.error(`[monitor:err] ${msg}`)
-          },
         },
-        abortSignal: abortController.signal,
-      })
+      },
+      runtime: {
+        log: (msg: string) => logs.push(msg),
+        error: (msg: string) => logs.push(`[ERR] ${msg}`),
+      },
+      abortSignal: abortController.signal,
+    })
 
-      // Wait for the monitor to connect and join channels
-      // Look for the "Emitted channel:join" log entry
-      const deadline = Date.now() + 15_000
-      while (Date.now() < deadline) {
-        if (logs.some((l) => l.includes('listening for messages'))) break
-        await sleep(200)
-      }
+    // Wait for connection
+    const deadline = Date.now() + 15_000
+    while (Date.now() < deadline) {
+      if (logs.some((l) => l.includes('listening for messages'))) break
+      await sleep(200)
+    }
 
-      // Verify connection and channel join logs
-      expect(logs.some((l) => l.includes('[ws] Connected'))).toBe(true)
-      expect(logs.some((l) => l.includes('[config] Fetched remote config'))).toBe(true)
-      expect(logs.some((l) => l.includes('[config] Monitoring'))).toBe(true)
-      expect(logs.some((l) => l.includes(`[ws] Emitting channel:join for ${seed.channel.id}`))).toBe(true)
+    await sleep(1_000)
 
-      // Wait for the ack to arrive
-      await sleep(1_000)
-      expect(logs.some((l) => l.includes('Joined channel room') && l.includes(seed.channel.id))).toBe(true)
+    // Send a message AS THE BOT (should be filtered with log)
+    const client = await import('../../src/shadow-client.js').then(
+      (m) => new m.ShadowClient(SHADOW_URL, seed.agentToken),
+    )
+    const botContent = `Bot own msg ${Date.now()}`
+    await client.sendMessage(seed.channel.id, botContent)
 
-      // Now send a message as the human user via a separate socket
-      const userSocket = connectSocket(SHADOW_URL, {
-        auth: { token: seed.userToken },
-        transports: ['websocket'],
-        forceNew: true,
-      })
+    // Wait for potential reception
+    await sleep(2_000)
 
-      await new Promise<void>((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error('User socket connect timeout')), 10_000)
-        userSocket.on('connect', () => {
-          clearTimeout(timer)
-          resolve()
-        })
-        userSocket.on('connect_error', (err) => {
-          clearTimeout(timer)
-          reject(err)
-        })
-      })
+    // The bot message may or may not arrive via WS (sent via REST, not WS)
+    // But if it does, it should be filtered with a log
+    // The key assertion: no processing errors
+    const processingErrors = logs.filter((l) => l.includes('[ws] Message processing failed'))
+    expect(processingErrors).toEqual([])
 
-      userSocket.emit('channel:join', { channelId: seed.channel.id })
-      await sleep(500)
-
-      // Send a unique message
-      const uniqueContent = `Monitor E2E msg ${Date.now()}`
-      userSocket.emit('message:send', {
-        channelId: seed.channel.id,
-        content: uniqueContent,
-      })
-
-      // Wait for the monitor to log receiving the message
-      const msgDeadline = Date.now() + 10_000
-      while (Date.now() < msgDeadline) {
-        if (logs.some((l) => l.includes('message:new') && l.includes(uniqueContent.slice(0, 30)))) break
-        await sleep(200)
-      }
-
-      // Verify the message was received and logged
-      expect(logs.some((l) => l.includes('[ws] ← message:new'))).toBe(true)
-      expect(logs.some((l) => l.includes(uniqueContent.slice(0, 30)))).toBe(true)
-
-      // Verify the processing pipeline was entered
-      expect(logs.some((l) => l.includes('[msg] Processing message from'))).toBe(true)
-
-      // Cleanup
-      userSocket.disconnect()
-      abortController.abort()
-
-      // Wait for monitor to stop
-      await monitorPromise.catch(() => {})
-      expect(logs.some((l) => l.includes('[lifecycle] Shadow monitor stopped'))).toBe(true)
-
-      // Final: verify no critical errors during the subscription flow
-      const criticalErrors = errors.filter(
-        (e) => !e.includes('Heartbeat') && !e.includes('session'),
-      )
-      expect(criticalErrors).toEqual([])
-    },
-    60_000,
-  )
-
-  it(
-    'monitorShadowProvider logs detailed filtering info for own messages',
-    async () => {
-      const logs: string[] = []
-      const abortController = new AbortController()
-
-      const { monitorShadowProvider } = await import('../../src/monitor.js')
-
-      const monitorPromise = monitorShadowProvider({
-        account: {
-          token: seed.agentToken,
-          serverUrl: SHADOW_URL,
-          enabled: true,
-        },
-        accountId: 'e2e-test-filter',
-        config: {
-          channels: {
-            shadow: {
-              token: seed.agentToken,
-              serverUrl: SHADOW_URL,
-              enabled: true,
-            },
-          },
-        },
-        runtime: {
-          log: (msg: string) => logs.push(msg),
-          error: (msg: string) => logs.push(`[ERR] ${msg}`),
-        },
-        abortSignal: abortController.signal,
-      })
-
-      // Wait for connection
-      const deadline = Date.now() + 15_000
-      while (Date.now() < deadline) {
-        if (logs.some((l) => l.includes('listening for messages'))) break
-        await sleep(200)
-      }
-
-      await sleep(1_000)
-
-      // Send a message AS THE BOT (should be filtered with log)
-      const client = await import('../../src/shadow-client.js').then(
-        (m) => new m.ShadowClient(SHADOW_URL, seed.agentToken),
-      )
-      const botContent = `Bot own msg ${Date.now()}`
-      await client.sendMessage(seed.channel.id, botContent)
-
-      // Wait for potential reception
-      await sleep(2_000)
-
-      // The bot message may or may not arrive via WS (sent via REST, not WS)
-      // But if it does, it should be filtered with a log
-      // The key assertion: no processing errors
-      const processingErrors = logs.filter((l) => l.includes('[ws] Message processing failed'))
-      expect(processingErrors).toEqual([])
-
-      // Cleanup
-      abortController.abort()
-      await monitorPromise.catch(() => {})
-    },
-    60_000,
-  )
+    // Cleanup
+    abortController.abort()
+    await monitorPromise.catch(() => {})
+  }, 60_000)
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -680,7 +680,7 @@ describe('OpenClaw Gateway Integration', () => {
       // Output should mention loading plugins or shadow channel
       const lowerOutput = output.toLowerCase()
       const hasPluginInfo =
-        lowerOutput.includes('shadow') ||
+        lowerOutput.includes('shadowob') ||
         lowerOutput.includes('plugin') ||
         lowerOutput.includes('loaded') ||
         lowerOutput.includes('listen')
@@ -690,24 +690,20 @@ describe('OpenClaw Gateway Integration', () => {
     SUITE_TIMEOUT,
   )
 
-  it(
-    'gateway health endpoint responds',
-    async () => {
-      // The gateway might take a moment after startup
-      await sleep(2000)
+  it('gateway health endpoint responds', async () => {
+    // The gateway might take a moment after startup
+    await sleep(2000)
 
-      try {
-        const res = await fetch(`http://localhost:${OPENCLAW_PORT}/health`, {
-          signal: AbortSignal.timeout(5000),
-        })
-        // OpenClaw may use different health endpoints
-        expect([200, 404].includes(res.status)).toBe(true)
-      } catch {
-        // If the gateway doesn't expose /health, that's ok
-        // The process being alive is the real check
-        expect(gatewayProc.exitCode).toBeNull()
-      }
-    },
-    30_000,
-  )
+    try {
+      const res = await fetch(`http://localhost:${OPENCLAW_PORT}/health`, {
+        signal: AbortSignal.timeout(5000),
+      })
+      // OpenClaw may use different health endpoints
+      expect([200, 404].includes(res.status)).toBe(true)
+    } catch {
+      // If the gateway doesn't expose /health, that's ok
+      // The process being alive is the real check
+      expect(gatewayProc.exitCode).toBeNull()
+    }
+  }, 30_000)
 })
