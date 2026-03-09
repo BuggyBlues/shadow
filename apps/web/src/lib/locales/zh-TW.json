@@ -281,6 +281,9 @@
     "policyReplyToUsersDesc": "僅回覆以下用戶的訊息（留空則回覆所有人）",
     "policySave": "儲存策略",
     "policySaved": "策略已儲存",
+    "policySelectUsers": "選擇用戶...",
+    "policySearchUsers": "搜尋用戶...",
+    "policyMentionOnlyDesc": "僅在被直接 @提及時才回覆",
     "notInChannel": "未加入頻道",
     "inChannel": "已加入頻道"
   },

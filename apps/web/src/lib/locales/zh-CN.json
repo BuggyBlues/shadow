@@ -281,6 +281,9 @@
     "policyReplyToUsersDesc": "仅回复以下用户的消息（留空则回复所有人）",
     "policySave": "保存策略",
     "policySaved": "策略已保存",
+    "policySelectUsers": "选择用户...",
+    "policySearchUsers": "搜索用户...",
+    "policyMentionOnlyDesc": "仅在被直接 @提及时才回复",
     "notInChannel": "未加入频道",
     "inChannel": "已加入频道"
   },

@@ -281,6 +281,9 @@
     "policyReplyToUsersDesc": "이 사용자의 메시지에만 답장 (비어 있으면 전체에 답장)",
     "policySave": "정책 저장",
     "policySaved": "정책이 저장되었습니다",
+    "policySelectUsers": "사용자 선택...",
+    "policySearchUsers": "사용자 검색...",
+    "policyMentionOnlyDesc": "봇이 직접 @멘션된 경우에만 답장",
     "notInChannel": "채널 미참여",
     "inChannel": "채널 참여 중"
   },

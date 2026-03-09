@@ -197,7 +197,7 @@ export function createChannelHandler(container: AppContainer) {
     const body = await c.req.json<{
       mentionOnly?: boolean
       mode?: 'replyAll' | 'mentionOnly' | 'custom' | 'disabled'
-      config?: { replyToUsers?: string[]; keywords?: string[] }
+      config?: { replyToUsers?: string[]; keywords?: string[]; mentionOnly?: boolean }
     }>()
 
     // Verify channel exists
@@ -234,13 +234,14 @@ export function createChannelHandler(container: AppContainer) {
           reply = false
           break
         case 'custom':
-          mentionOnly = false
+          mentionOnly = body.config?.mentionOnly === true
           if (body.config?.replyToUsers?.length) {
             config.replyToUsers = body.config.replyToUsers
           }
           if (body.config?.keywords?.length) {
             config.keywords = body.config.keywords
           }
+          config.mentionOnly = mentionOnly
           break
       }
     }

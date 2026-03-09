@@ -16,7 +16,7 @@ interface ServerDetail {
   isPublic: boolean
 }
 
-/** Generate a polished default homepage HTML with i18n support. */
+/** Generate a polished default homepage HTML matching the main site's light glass-morphism style. */
 function generateDefaultHtml(
   server: ServerDetail,
   t: (key: string) => string,
@@ -24,7 +24,7 @@ function generateDefaultHtml(
   const initial = server.name.charAt(0).toUpperCase()
   const bannerCss = server.bannerUrl
     ? `background-image: url('${server.bannerUrl}'); background-size: cover; background-position: center;`
-    : 'background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);'
+    : ''
 
   const iconHtml = server.iconUrl
     ? `<img src="${server.iconUrl}" alt="" class="server-icon icon-img" />`
@@ -33,10 +33,10 @@ function generateDefaultHtml(
   const desc = server.description || t('serverHome.defaultDesc')
 
   const features = [
-    { icon: '💬', title: t('serverHome.chatTitle'), desc: t('serverHome.chatDesc'), color: '#5865F2' },
-    { icon: '🤖', title: t('serverHome.aiTitle'), desc: t('serverHome.aiDesc'), color: '#57F287' },
-    { icon: '📢', title: t('serverHome.announceTitle'), desc: t('serverHome.announceDesc'), color: '#FEE75C' },
-    { icon: '🎨', title: t('serverHome.customizeTitle'), desc: t('serverHome.customizeDesc'), color: '#EB459E' },
+    { icon: '💬', title: t('serverHome.chatTitle'), desc: t('serverHome.chatDesc'), color: '#06b6d4' },
+    { icon: '🤖', title: t('serverHome.aiTitle'), desc: t('serverHome.aiDesc'), color: '#f59e0b' },
+    { icon: '📢', title: t('serverHome.announceTitle'), desc: t('serverHome.announceDesc'), color: '#8b5cf6' },
+    { icon: '🎨', title: t('serverHome.customizeTitle'), desc: t('serverHome.customizeDesc'), color: '#ec4899' },
   ]
 
   const featureCards = features.map((f) => `
@@ -53,134 +53,219 @@ function generateDefaultHtml(
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-  @keyframes fadeInUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
-  @keyframes shimmer { 0% { background-position:-200% 0; } 100% { background-position:200% 0; } }
-  @keyframes float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-6px); } }
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&display=swap');
+
+  @keyframes fadeInUp { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes floatAnim { 0%,100% { transform:translateY(0) rotate(0deg); } 50% { transform:translateY(-12px) rotate(2deg); } }
+  @keyframes blobPulse { 0%,100% { transform: scale(1); opacity: 0.45; } 50% { transform: scale(1.1); opacity: 0.55; } }
 
   * { margin:0; padding:0; box-sizing:border-box; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-    background: #1a1b1e; color: #e4e5e8; min-height: 100vh;
+    font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #f2f7fc;
+    background-image: radial-gradient(#c2d2ea 2px, transparent 2px);
+    background-size: 36px 36px;
+    color: #2d3748;
+    min-height: 100vh;
     overflow-x: hidden;
+    position: relative;
   }
 
-  .banner {
-    height: 200px; ${bannerCss} position: relative;
-    overflow: hidden;
+  /* Decorative blobs */
+  .blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(70px);
+    z-index: 0;
+    animation: blobPulse 8s ease-in-out infinite;
+    pointer-events: none;
   }
-  .banner::before {
-    content: ''; position: absolute; inset: 0;
-    background: linear-gradient(to bottom, transparent 30%, rgba(26,27,30,0.6) 70%, #1a1b1e 100%);
+  .blob-1 { width: 260px; height: 260px; background: #67e8f9; top: -40px; right: 10%; }
+  .blob-2 { width: 200px; height: 200px; background: #fde68a; top: 180px; left: 5%; animation-delay: 2s; }
+  .blob-3 { width: 180px; height: 180px; background: #c4b5fd; bottom: 60px; right: 20%; animation-delay: 4s; }
+
+  /* Banner */
+  .banner {
+    height: 180px;
+    ${bannerCss || 'background: linear-gradient(135deg, #e0f2fe 0%, #cffafe 40%, #fef3c7 100%);'}
+    position: relative;
+    overflow: hidden;
+    border-bottom: 3px solid rgba(255,255,255,0.9);
   }
   .banner::after {
-    content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, transparent 50%, rgba(242,247,252,0.8) 100%);
   }
 
-  .content { max-width: 680px; margin: 0 auto; padding: 0 28px 40px; position: relative; }
+  .content {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 0 24px 48px;
+    position: relative;
+    z-index: 1;
+  }
 
+  /* Server identity */
   .icon-row {
-    display: flex; align-items: flex-end; gap: 16px;
-    margin-top: -44px; position: relative; z-index: 1; margin-bottom: 20px;
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+    margin-top: -40px;
+    position: relative;
+    z-index: 2;
+    margin-bottom: 20px;
     animation: fadeInUp 0.5s ease-out;
   }
   .server-icon {
-    width: 88px; height: 88px; border-radius: 20px; border: 4px solid #1a1b1e;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    width: 84px;
+    height: 84px;
+    border-radius: 24px;
+    border: 4px solid #fff;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.1);
     flex-shrink: 0;
   }
   .icon-img { object-fit: cover; }
   .icon-placeholder {
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, #06b6d4, #0891b2);
     display: flex; align-items: center; justify-content: center;
-    color: #fff; font-size: 36px; font-weight: 700;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    color: #fff; font-size: 34px; font-weight: 900;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.15);
   }
   .info { padding-bottom: 4px; }
   .info h1 {
-    font-size: 26px; font-weight: 800; color: #fff;
+    font-size: 24px; font-weight: 900; color: #1a202c;
     letter-spacing: -0.3px;
   }
   .badge {
     display: inline-flex; align-items: center; gap: 4px;
-    font-size: 11px; color: #57F287; font-weight: 600;
+    font-size: 11px; color: #0891b2; font-weight: 800;
     margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px;
   }
   .badge::before {
     content: ''; width: 6px; height: 6px; border-radius: 50%;
-    background: #57F287; animation: float 2s ease-in-out infinite;
+    background: #06b6d4; animation: floatAnim 2s ease-in-out infinite;
   }
 
   .desc {
-    color: #b8bbc2; font-size: 15px; line-height: 1.7;
-    margin-bottom: 28px;
+    color: #4a5568;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.7;
+    background: rgba(255,255,255,0.6);
+    padding: 12px 16px;
+    border-radius: 16px;
+    border-left: 4px solid #fbbf24;
+    margin-bottom: 24px;
     animation: fadeInUp 0.5s ease-out 0.1s both;
   }
 
+  /* Quick start card */
   .quick-start {
-    background: linear-gradient(135deg, rgba(86,99,242,0.12), rgba(118,75,162,0.08));
-    border-radius: 16px; padding: 24px 28px;
-    border: 1px solid rgba(86,99,242,0.2);
+    background: rgba(255,255,255,0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 3px solid rgba(255,255,255,0.9);
+    border-radius: 24px;
+    padding: 24px 28px;
     margin-bottom: 24px;
     animation: fadeInUp 0.5s ease-out 0.2s both;
-    position: relative; overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.06);
+    transition: all 0.3s;
   }
-  .quick-start::before {
-    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(86,99,242,0.4), transparent);
+  .quick-start:hover {
+    box-shadow: 0 12px 40px rgba(0,0,0,0.1);
+    border-color: #67e8f9;
+    transform: translateY(-2px);
   }
   .quick-start h2 {
-    font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 6px;
+    font-size: 16px; font-weight: 900; color: #1a202c; margin-bottom: 6px;
     display: flex; align-items: center; gap: 8px;
   }
-  .quick-start p { color: #949ba4; font-size: 14px; line-height: 1.5; }
+  .quick-start p { color: #718096; font-size: 14px; font-weight: 700; line-height: 1.6; }
 
+  /* Feature grid */
   .features {
     display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
     animation: fadeInUp 0.5s ease-out 0.3s both;
   }
   .feature-card {
-    background: rgba(255,255,255,0.04);
-    border-radius: 14px; padding: 22px;
-    border: 1px solid rgba(255,255,255,0.06);
-    transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
-    cursor: pointer; position: relative; overflow: hidden;
+    background: rgba(255,255,255,0.65);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 3px solid rgba(255,255,255,0.9);
+    border-radius: 24px;
+    padding: 22px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.04);
+    transition: all 0.3s cubic-bezier(0.25,0.8,0.25,1);
   }
   .feature-card::before {
-    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
     background: var(--accent); opacity: 0; transition: opacity 0.3s;
   }
   .feature-card:hover {
-    background: rgba(255,255,255,0.07);
-    border-color: rgba(255,255,255,0.12);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    transform: translateY(-4px);
+    box-shadow: 0 16px 40px rgba(0,0,0,0.1);
+    border-color: var(--accent);
   }
   .feature-card:hover::before { opacity: 1; }
   .feature-icon {
-    font-size: 28px; margin-bottom: 12px;
-    display: inline-block; animation: float 3s ease-in-out infinite;
+    font-size: 28px; margin-bottom: 10px;
+    display: inline-block; animation: floatAnim 3s ease-in-out infinite;
   }
-  .feature-card:nth-child(2) .feature-icon { animation-delay: 0.5s; }
-  .feature-card:nth-child(3) .feature-icon { animation-delay: 1s; }
-  .feature-card:nth-child(4) .feature-icon { animation-delay: 1.5s; }
+  .feature-card:nth-child(2) .feature-icon { animation-delay: 0.6s; }
+  .feature-card:nth-child(3) .feature-icon { animation-delay: 1.2s; }
+  .feature-card:nth-child(4) .feature-icon { animation-delay: 1.8s; }
   .feature-card h3 {
-    font-size: 14px; font-weight: 700; color: #f2f3f5; margin-bottom: 6px;
+    font-size: 14px; font-weight: 900; color: #1a202c; margin-bottom: 5px;
   }
   .feature-card p {
-    font-size: 12px; color: #949ba4; line-height: 1.5;
+    font-size: 12px; color: #718096; font-weight: 700; line-height: 1.5;
+  }
+
+  /* CTA button */
+  .cta-row {
+    text-align: center;
+    margin-top: 28px;
+    animation: fadeInUp 0.5s ease-out 0.4s both;
+  }
+  .cta-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: linear-gradient(135deg, #00f3ff, #00a2ff);
+    color: #1a1a1c;
+    font-size: 15px; font-weight: 900;
+    padding: 12px 28px;
+    border-radius: 9999px;
+    border: 3px solid #1a1a1c;
+    text-decoration: none;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(0,243,255,0.35);
+    transition: all 0.2s;
+  }
+  .cta-btn:hover {
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 10px 28px rgba(0,243,255,0.5);
   }
 
   @media (max-width: 480px) {
-    .banner { height: 140px; }
-    .content { padding: 0 16px 24px; }
+    .banner { height: 120px; }
+    .content { padding: 0 16px 32px; }
     .features { grid-template-columns: 1fr; }
-    .server-icon { width: 72px; height: 72px; border-radius: 16px; font-size: 28px; }
-    .info h1 { font-size: 22px; }
+    .server-icon { width: 68px; height: 68px; border-radius: 18px; font-size: 26px; }
+    .info h1 { font-size: 20px; }
   }
 </style>
 </head>
 <body>
+  <!-- Decorative blobs -->
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+
   <div class="banner"></div>
   <div class="content">
     <div class="icon-row">
@@ -198,14 +283,12 @@ function generateDefaultHtml(
     <div class="features">
       ${featureCards}
     </div>
+    <div class="cta-row">
+      <button class="cta-btn" onclick="window.parent.postMessage({type:'server-home:explore-channels'},'*')">
+        ${t('serverHome.exploreChannels')} →
+      </button>
+    </div>
   </div>
-  <script>
-    document.querySelectorAll('.feature-card').forEach(card => {
-      card.addEventListener('click', () => {
-        window.parent.postMessage({ type: 'server-home:explore-channels' }, '*');
-      });
-    });
-  </script>
 </body>
 </html>`
 }

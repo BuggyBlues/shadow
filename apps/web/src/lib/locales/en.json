@@ -281,6 +281,9 @@
     "policyReplyToUsersDesc": "Only reply to messages from these users (empty = reply to all)",
     "policySave": "Save Policy",
     "policySaved": "Policy saved",
+    "policySelectUsers": "Select users...",
+    "policySearchUsers": "Search users...",
+    "policyMentionOnlyDesc": "Only reply when the bot is directly @mentioned",
     "notInChannel": "Not in channel",
     "inChannel": "In channel"
   },

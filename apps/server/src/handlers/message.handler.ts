@@ -79,9 +79,27 @@ export function createMessageHandler(container: AppContainer) {
   // DELETE /api/messages/:id
   messageHandler.delete('/messages/:id', async (c) => {
     const messageService = container.resolve('messageService')
+    const agentDao = container.resolve('agentDao')
     const id = c.req.param('id')
     const user = c.get('user')
-    const deleted = await messageService.delete(id, user.userId)
+
+    // Check if the requester is the bot's owner (can delete bot's messages)
+    const message = await messageService.getById(id)
+    if (!message) return c.json({ error: 'Message not found' }, 404)
+
+    let canDelete = message.authorId === user.userId
+    if (!canDelete && message.authorId) {
+      // Check if the message author is a bot owned by the requester
+      const agent = await agentDao.findByUserId(message.authorId)
+      if (agent && agent.ownerId === user.userId) {
+        canDelete = true
+      }
+    }
+    if (!canDelete) {
+      return c.json({ error: 'Not authorized to delete this message' }, 403)
+    }
+
+    const deleted = await messageService.deleteById(id)
 
     // Emit WS event
     try {

@@ -281,6 +281,9 @@
     "policyReplyToUsersDesc": "これらのユーザーのメッセージにのみ返信（空の場合は全員に返信）",
     "policySave": "ポリシーを保存",
     "policySaved": "ポリシーが保存されました",
+    "policySelectUsers": "ユーザーを選択...",
+    "policySearchUsers": "ユーザーを検索...",
+    "policyMentionOnlyDesc": "ボットが直接@メンションされた場合のみ返信",
     "notInChannel": "未参加",
     "inChannel": "参加中"
   },

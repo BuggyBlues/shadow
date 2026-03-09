@@ -221,6 +221,8 @@ export function MessageBubble({
     : undefined
   const currentMember = membersList.find((m: MemberEntry) => m.userId === currentUser?.id)
   const canKick = currentMember?.role === 'owner' || currentMember?.role === 'admin'
+  // Allow deletion for own messages OR messages from a bot owned by the current user
+  const canDelete = isOwn || (author?.isBot && buddyAgent?.ownerId === currentUser?.id)
 
   const dateFnsLocaleMap: Record<string, Locale> = {
     'zh-CN': zhCN,
@@ -532,7 +534,7 @@ export function MessageBubble({
                         <ExternalLink size={14} />
                         {t('chat.shareLink')}
                       </button>
-                      {isOwn && (
+                      {canDelete && (
                         <>
                           <div className="h-px bg-white/5 my-1" />
                           <button

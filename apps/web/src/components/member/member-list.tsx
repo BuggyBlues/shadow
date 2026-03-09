@@ -166,7 +166,7 @@ export function MemberList() {
       agentId,
       mode,
       config,
-    }: { channelId: string; agentId: string; mode: string; config?: { replyToUsers?: string[]; keywords?: string[] } }) =>
+    }: { channelId: string; agentId: string; mode: string; config?: { replyToUsers?: string[]; keywords?: string[]; mentionOnly?: boolean } }) =>
       fetchApi(`/api/channels/${channelId}/agents/${agentId}/policy`, {
         method: 'PUT',
         body: JSON.stringify({ mode, config }),
@@ -480,6 +480,7 @@ export function MemberList() {
           activeChannelId={activeChannelId}
           activeServerId={activeServerId}
           buddyAgents={buddyAgents}
+          members={members}
           updateBotPolicy={updateBotPolicy}
           removeBotFromChannel={removeBotFromChannel}
           kickMember={kickMember}
@@ -561,6 +562,7 @@ function BotContextMenu({
   activeChannelId,
   activeServerId,
   buddyAgents,
+  members,
   updateBotPolicy,
   removeBotFromChannel,
   kickMember,
@@ -575,7 +577,8 @@ function BotContextMenu({
   activeChannelId: string | null
   activeServerId: string | null
   buddyAgents: BuddyAgent[]
-  updateBotPolicy: ReturnType<typeof useMutation<unknown, Error, { channelId: string; agentId: string; mode: string; config?: { replyToUsers?: string[]; keywords?: string[] } }>>
+  members: Member[]
+  updateBotPolicy: ReturnType<typeof useMutation<unknown, Error, { channelId: string; agentId: string; mode: string; config?: { replyToUsers?: string[]; keywords?: string[]; mentionOnly?: boolean } }>>
   removeBotFromChannel: ReturnType<typeof useMutation<unknown, Error, { channelId: string; userId: string }>>
   kickMember: ReturnType<typeof useMutation<unknown, Error, { serverId: string; userId: string }>>
   canKick: boolean
@@ -584,8 +587,11 @@ function BotContextMenu({
 }) {
   const [policyOpen, setPolicyOpen] = useState(false)
   const [customPolicyOpen, setCustomPolicyOpen] = useState(false)
-  const [customReplyToUsers, setCustomReplyToUsers] = useState('')
+  const [customReplyToUsers, setCustomReplyToUsers] = useState<string[]>([])
   const [customKeywords, setCustomKeywords] = useState('')
+  const [customMentionOnly, setCustomMentionOnly] = useState(false)
+  const [userPickerOpen, setUserPickerOpen] = useState(false)
+  const [userPickerSearch, setUserPickerSearch] = useState('')
   const queryClient = useQueryClient()
   const menuRef = useRef<HTMLDivElement>(null)
   const policyRowRef = useRef<HTMLDivElement>(null)
@@ -769,10 +775,11 @@ function BotContextMenu({
                   <button
                     type="button"
                     onClick={() => {
-                      // Pre-fill with current config
-                      const cfg = currentPolicy?.config as { replyToUsers?: string[]; keywords?: string[] } | undefined
-                      setCustomReplyToUsers(cfg?.replyToUsers?.join('\n') ?? '')
+                      // Pre-fill with current config (persisted values)
+                      const cfg = currentPolicy?.config as { replyToUsers?: string[]; keywords?: string[]; mentionOnly?: boolean } | undefined
+                      setCustomReplyToUsers(cfg?.replyToUsers ?? [])
                       setCustomKeywords(cfg?.keywords?.join('\n') ?? '')
+                      setCustomMentionOnly(cfg?.mentionOnly ?? false)
                       setCustomPolicyOpen(true)
                       setPolicyOpen(false)
                     }}
@@ -883,19 +890,104 @@ function BotContextMenu({
               </button>
             </div>
 
-            {/* Reply to specific users */}
+            {/* @mention only toggle */}
+            <div className="mb-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={customMentionOnly}
+                  onChange={(e) => setCustomMentionOnly(e.target.checked)}
+                  className="w-4 h-4 rounded border-white/20 bg-bg-primary text-primary focus:ring-primary/50"
+                />
+                <span className="text-xs font-semibold text-text-secondary">{t('member.policyMentionOnly')}</span>
+              </label>
+              <p className="text-[11px] text-text-muted mt-1 ml-6">{t('member.policyMentionOnlyDesc')}</p>
+            </div>
+
+            {/* Reply to specific users — multi-select */}
             <div className="mb-4">
               <label className="block text-xs font-semibold text-text-secondary mb-1.5">
                 {t('member.policyReplyToUsers')}
               </label>
               <p className="text-[11px] text-text-muted mb-1.5">{t('member.policyReplyToUsersDesc')}</p>
-              <textarea
-                value={customReplyToUsers}
-                onChange={(e) => setCustomReplyToUsers(e.target.value)}
-                placeholder={t('member.policyReplyToUsersPlaceholder')}
-                className="w-full bg-bg-primary border border-white/10 rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 resize-none"
-                rows={3}
-              />
+              {/* Selected user chips */}
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {customReplyToUsers.map((username) => {
+                  const member = members.find((m) => m.user?.username === username)
+                  return (
+                    <span key={username} className="inline-flex items-center gap-1 bg-primary/20 text-primary text-xs px-2 py-1 rounded-full">
+                      {member?.user?.avatarUrl && (
+                        <img src={member.user.avatarUrl} alt="" className="w-3.5 h-3.5 rounded-full" />
+                      )}
+                      {member?.user?.displayName ?? username}
+                      <button
+                        type="button"
+                        onClick={() => setCustomReplyToUsers((prev) => prev.filter((u) => u !== username))}
+                        className="ml-0.5 hover:text-red-400 transition"
+                      >
+                        <X size={10} />
+                      </button>
+                    </span>
+                  )
+                })}
+              </div>
+              {/* User picker dropdown */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setUserPickerOpen(!userPickerOpen)}
+                  className="w-full bg-bg-primary border border-white/10 rounded-lg px-3 py-2 text-sm text-text-muted hover:border-primary/50 transition text-left"
+                >
+                  {t('member.policySelectUsers')}
+                </button>
+                {userPickerOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-bg-tertiary border border-white/10 rounded-lg shadow-xl z-10 max-h-[200px] overflow-y-auto">
+                    <div className="sticky top-0 bg-bg-tertiary p-1.5 border-b border-white/5">
+                      <input
+                        type="text"
+                        value={userPickerSearch}
+                        onChange={(e) => setUserPickerSearch(e.target.value)}
+                        placeholder={t('member.policySearchUsers')}
+                        className="w-full bg-bg-primary border border-white/10 rounded px-2 py-1 text-xs text-text-primary placeholder:text-text-muted focus:outline-none"
+                        autoFocus
+                      />
+                    </div>
+                    {members
+                      .filter((m) => !m.user?.isBot && m.user?.username)
+                      .filter((m) => {
+                        if (!userPickerSearch) return true
+                        const q = userPickerSearch.toLowerCase()
+                        return m.user!.username.toLowerCase().includes(q) || m.user!.displayName?.toLowerCase().includes(q)
+                      })
+                      .map((m) => {
+                        const selected = customReplyToUsers.includes(m.user!.username)
+                        return (
+                          <button
+                            key={m.userId}
+                            type="button"
+                            onClick={() => {
+                              setCustomReplyToUsers((prev) =>
+                                selected ? prev.filter((u) => u !== m.user!.username) : [...prev, m.user!.username]
+                              )
+                            }}
+                            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm hover:bg-bg-primary/50 transition"
+                          >
+                            <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
+                              selected ? 'bg-primary border-primary' : 'border-white/20'
+                            }`}>
+                              {selected && <Check size={10} className="text-white" />}
+                            </div>
+                            {m.user?.avatarUrl && (
+                              <img src={m.user.avatarUrl} alt="" className="w-5 h-5 rounded-full flex-shrink-0" />
+                            )}
+                            <span className="text-text-primary truncate">{m.user?.displayName ?? m.user?.username}</span>
+                            <span className="text-text-muted text-xs ml-auto">@{m.user?.username}</span>
+                          </button>
+                        )
+                      })}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Keyword triggers */}
@@ -916,7 +1008,7 @@ function BotContextMenu({
             <button
               type="button"
               onClick={() => {
-                const replyToUsers = customReplyToUsers.split('\n').map((s) => s.trim()).filter(Boolean)
+                const replyToUsers = customReplyToUsers
                 const keywords = customKeywords.split('\n').map((s) => s.trim()).filter(Boolean)
                 updateBotPolicy.mutate(
                   {
@@ -926,6 +1018,7 @@ function BotContextMenu({
                     config: {
                       ...(replyToUsers.length ? { replyToUsers } : {}),
                       ...(keywords.length ? { keywords } : {}),
+                      ...(customMentionOnly ? { mentionOnly: true } : {}),
                     },
                   },
                   {

@@ -106,6 +106,16 @@ export class MessageService {
     return message
   }
 
+  /** Delete a message by id without ownership check (caller must verify authorization). */
+  async deleteById(id: string) {
+    const message = await this.deps.messageDao.findById(id)
+    if (!message) {
+      throw Object.assign(new Error('Message not found'), { status: 404 })
+    }
+    await this.deps.messageDao.delete(id)
+    return message
+  }
+
   // Threads
   async createThread(channelId: string, userId: string, input: CreateThreadInput) {
     const message = await this.deps.messageDao.findById(input.parentMessageId)
