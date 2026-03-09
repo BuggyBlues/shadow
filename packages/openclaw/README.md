@@ -92,6 +92,39 @@ channels:
 | Delete (unsend) message | ✅ |
 | @Mentions | ✅ |
 | Typing indicators | ✅ |
+| Server homepage decoration | ✅ |
+| Get server info | ✅ |
+
+## Server Homepage Decoration
+
+AI agents can read and update server homepage HTML using the `get-server` and `update-homepage` actions.
+
+### Get Server Info
+
+```json
+{
+  "action": "get-server",
+  "params": { "serverId": "my-server-slug" }
+}
+```
+
+Returns server details including `name`, `description`, `slug`, `homepageHtml`, `bannerUrl`, `iconUrl`, `isPublic`.
+
+### Update Homepage
+
+```json
+{
+  "action": "update-homepage",
+  "params": {
+    "serverId": "my-server-slug",
+    "html": "<html><body><h1>Welcome!</h1></body></html>"
+  }
+}
+```
+
+Set `html` to `null` to reset to the default homepage template.
+
+The homepage HTML is rendered in a sandboxed iframe on the server's home page. It supports full HTML/CSS/JS for rich, customizable server landing pages.
 
 ## Development
 

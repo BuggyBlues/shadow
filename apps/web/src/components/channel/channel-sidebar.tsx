@@ -39,7 +39,7 @@ interface Server {
   id: string
   name: string
   description: string | null
-  slug: string | null
+  slug: string
   iconUrl: string | null
   bannerUrl: string | null
   homepageHtml: string | null
@@ -84,6 +84,8 @@ export function ChannelSidebar({ serverId }: { serverId: string }) {
   const [editChannelName, setEditChannelName] = useState('')
   const [blankContextMenu, setBlankContextMenu] = useState<{ x: number; y: number } | null>(null)
   const contextMenuRef = useRef<HTMLDivElement>(null)
+  // When user clicks Home, we set this to prevent auto-select from overriding
+  const userChoseHomeRef = useRef(false)
 
   const { data: server } = useQuery({
     queryKey: ['server', serverId],
@@ -121,7 +123,7 @@ export function ChannelSidebar({ serverId }: { serverId: string }) {
     mutationFn: (data: {
       name: string
       description?: string | null
-      slug?: string | null
+      slug?: string
       bannerUrl?: string | null
       homepageHtml?: string | null
       isPublic?: boolean
@@ -135,8 +137,8 @@ export function ChannelSidebar({ serverId }: { serverId: string }) {
       queryClient.invalidateQueries({ queryKey: ['servers'] })
       queryClient.invalidateQueries({ queryKey: ['discover-servers'] })
       setShowServerEdit(false)
-      // Redirect to slug-based URL if slug was set/changed
-      if (updatedServer.slug && updatedServer.slug !== serverId) {
+      // Redirect to slug-based URL if slug changed
+      if (updatedServer.slug !== serverId) {
         navigate({ to: '/app/servers/$serverId', params: { serverId: updatedServer.slug } })
       }
     },
@@ -254,29 +256,36 @@ export function ChannelSidebar({ serverId }: { serverId: string }) {
       if (activeChannelId) {
         leaveChannel(activeChannelId)
       }
+      userChoseHomeRef.current = false
       setActiveChannel(channelId)
       joinChannel(channelId)
       setMobileView('chat')
-      // Update URL search param to persist channel across refresh
-      const url = new URL(window.location.href)
-      url.searchParams.set('channel', channelId)
-      window.history.replaceState({}, '', url.toString())
+      // Navigate to channel URL using channel name
+      const ch = channels.find((c) => c.id === channelId)
+      if (ch) {
+        const serverSlug = server?.slug ?? serverId
+        navigate({
+          to: '/app/servers/$serverId/$channelName',
+          params: { serverId: serverSlug, channelName: encodeURIComponent(ch.name) },
+          replace: true,
+        })
+      }
     },
-    [activeChannelId, setActiveChannel, setMobileView],
+    [activeChannelId, setActiveChannel, setMobileView, channels, server?.slug, serverId, navigate],
   )
 
   // Auto-select first channel (in useEffect, not render body)
   useEffect(() => {
-    if (channels.length > 0 && !activeChannelId) {
+    if (channels.length > 0 && !activeChannelId && !userChoseHomeRef.current) {
       const first = channels[0]!
-      setActiveChannel(first.id)
-      joinChannel(first.id)
-      // Persist in URL
-      const url = new URL(window.location.href)
-      url.searchParams.set('channel', first.id)
-      window.history.replaceState({}, '', url.toString())
+      handleSelectChannel(first.id)
     }
-  }, [channels, activeChannelId, setActiveChannel])
+  }, [channels, activeChannelId, handleSelectChannel])
+
+  // Reset homeRef when serverId changes (navigating to a new server)
+  useEffect(() => {
+    userChoseHomeRef.current = false
+  }, [serverId])
 
   // Rejoin active channel room on socket reconnect
   useSocketEvent('connect', () => {
@@ -444,10 +453,10 @@ export function ChannelSidebar({ serverId }: { serverId: string }) {
           type="button"
           onClick={() => {
             if (activeChannelId) leaveChannel(activeChannelId)
+            userChoseHomeRef.current = true
             setActiveChannel(null)
-            const url = new URL(window.location.href)
-            url.searchParams.delete('channel')
-            window.history.replaceState({}, '', url.toString())
+            // Navigate to server home URL (no channel)
+            navigate({ to: '/app/servers/$serverId', params: { serverId: server?.slug ?? serverId } })
             setMobileView('chat')
           }}
           className={`group flex items-center gap-1.5 px-2 py-[6px] mx-2 mb-2 rounded-md text-[15px] font-medium w-[calc(100%-16px)] text-left transition ${
@@ -803,7 +812,8 @@ export function ChannelSidebar({ serverId }: { serverId: string }) {
           <button
             type="button"
             onClick={() => {
-              const channelLink = `${window.location.origin}/app/servers/${serverId}?channel=${contextMenu.channel.id}`
+              const serverSlug = server?.slug ?? serverId
+              const channelLink = `${window.location.origin}/app/servers/${serverSlug}/${encodeURIComponent(contextMenu.channel.name)}`
               navigator.clipboard.writeText(channelLink)
               setContextMenu(null)
             }}

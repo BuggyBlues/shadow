@@ -70,7 +70,7 @@ export class ServerDao {
       iconUrl: string | null
       bannerUrl: string | null
       description: string | null
-      slug: string | null
+      slug: string
       homepageHtml: string | null
       isPublic: boolean
     }>,

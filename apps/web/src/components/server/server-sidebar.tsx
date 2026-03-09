@@ -52,7 +52,7 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
 
   const joinServer = useMutation({
     mutationFn: (inviteCode: string) =>
-      fetchApi<{ id: string }>('/api/servers/_/join', {
+      fetchApi<{ id: string; slug: string | null }>('/api/servers/_/join', {
         method: 'POST',
         body: JSON.stringify({ inviteCode }),
       }),
@@ -60,7 +60,7 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
       queryClient.invalidateQueries({ queryKey: ['servers'] })
       setShowJoin(false)
       setJoinCode('')
-      handleSelect(data.id)
+      handleSelect(data.id, data.slug)
     },
   })
 

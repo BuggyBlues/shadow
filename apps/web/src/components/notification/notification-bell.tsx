@@ -36,14 +36,14 @@ export function NotificationBell() {
       if (n.referenceType === 'message' && n.referenceId) {
         try {
           const message = await fetchApi<{ id: string; channelId: string }>(`/api/messages/${n.referenceId}`)
-          const channel = await fetchApi<{ id: string; serverId: string }>(`/api/channels/${message.channelId}`)
+          const channel = await fetchApi<{ id: string; name: string; serverId: string }>(`/api/channels/${message.channelId}`)
+          const server = await fetchApi<{ id: string; slug: string }>(`/api/servers/${channel.serverId}`)
           setShowPanel(false)
           setActiveServer(channel.serverId)
           setActiveChannel(message.channelId)
           navigate({
-            to: '/app/servers/$serverId',
-            params: { serverId: channel.serverId },
-            search: { msg: message.id },
+            to: '/app/servers/$serverId/$channelName',
+            params: { serverId: server.slug ?? channel.serverId, channelName: encodeURIComponent(channel.name) },
           })
         } catch {
           // Message may have been deleted

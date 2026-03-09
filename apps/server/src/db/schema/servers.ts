@@ -5,7 +5,7 @@ export const servers = pgTable('servers', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: varchar('name', { length: 100 }).notNull(),
   description: text('description'),
-  slug: varchar('slug', { length: 100 }),
+  slug: varchar('slug', { length: 100 }).notNull().unique(),
   iconUrl: text('icon_url'),
   bannerUrl: text('banner_url'),
   homepageHtml: text('homepage_html'),

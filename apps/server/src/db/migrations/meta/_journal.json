@@ -57,6 +57,13 @@
       "when": 1773200000000,
       "tag": "0007_add_server_homepage_html",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1773300000000,
+      "tag": "0008_add_slug_unique",
+      "breakpoints": true
     }
   ]
 }

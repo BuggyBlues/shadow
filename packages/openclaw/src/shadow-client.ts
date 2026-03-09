@@ -118,6 +118,50 @@ export class ShadowClient {
     })
   }
 
+  // ── Servers ───────────────────────────────────────────────────────────
+
+  /** Get server info by ID or slug. */
+  async getServer(serverIdOrSlug: string): Promise<{
+    id: string
+    name: string
+    slug: string
+    description: string | null
+    iconUrl: string | null
+    bannerUrl: string | null
+    homepageHtml: string | null
+    isPublic: boolean
+  }> {
+    return this.request(`/api/servers/${serverIdOrSlug}`)
+  }
+
+  /** Update server homepage HTML. */
+  async updateServerHomepage(
+    serverIdOrSlug: string,
+    homepageHtml: string | null,
+  ): Promise<{ id: string; slug: string; homepageHtml: string | null }> {
+    return this.request(`/api/servers/${serverIdOrSlug}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ homepageHtml }),
+    })
+  }
+
+  /** Update server info (name, description, slug, etc). */
+  async updateServer(
+    serverIdOrSlug: string,
+    data: {
+      name?: string
+      description?: string | null
+      slug?: string | null
+      homepageHtml?: string | null
+      isPublic?: boolean
+    },
+  ): Promise<{ id: string; slug: string; name: string }> {
+    return this.request(`/api/servers/${serverIdOrSlug}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  }
+
   // ── Channels ──────────────────────────────────────────────────────────
 
   async getServerChannels(serverId: string): Promise<ShadowChannel[]> {

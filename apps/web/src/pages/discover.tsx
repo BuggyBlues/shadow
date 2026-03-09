@@ -60,14 +60,15 @@ export function DiscoverPage() {
       }),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['servers'] })
-      navigate({ to: '/app/servers/$serverId', params: { serverId: data.id } })
+      navigate({ to: '/app/servers/$serverId', params: { serverId: (data as { slug?: string; id: string }).slug ?? data.id } })
     },
     onError: (err: unknown, variables) => {
       const status = (err as { status?: number })?.status
       if (status === 409) {
-        // Already a member — navigate to the server
+        // Already a member — navigate to the server (find slug from discover list)
         queryClient.invalidateQueries({ queryKey: ['servers'] })
-        navigate({ to: '/app/servers/$serverId', params: { serverId: variables.serverId } })
+        const srv = servers.find((s) => s.id === variables.serverId)
+        navigate({ to: '/app/servers/$serverId', params: { serverId: srv?.slug ?? variables.serverId } })
       }
     },
   })

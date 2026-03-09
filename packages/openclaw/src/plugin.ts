@@ -33,6 +33,8 @@ const SHADOW_ACTIONS = [
   'thread-reply',
   'pin',
   'unpin',
+  'update-homepage',
+  'get-server',
 ] as const
 
 export const shadowPlugin: ChannelPlugin<ShadowAccountConfig> = {
@@ -385,6 +387,79 @@ export const shadowPlugin: ChannelPlugin<ShadowAccountConfig> = {
               }),
             },
           ],
+        }
+      }
+
+      // get-server — fetch server info (name, description, homepage, etc.)
+      if (action === 'get-server') {
+        const serverId = (params.serverId as string) ?? (params.server_id as string) ?? (params.server as string) ?? ''
+        if (!serverId) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: JSON.stringify({ ok: false, error: 'serverId is required' }),
+              },
+            ],
+          }
+        }
+        try {
+          const client = new ShadowClient(account.serverUrl, account.token)
+          const server = await client.getServer(serverId)
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: JSON.stringify({ ok: true, action: 'get-server', server }),
+              },
+            ],
+          }
+        } catch (err) {
+          return {
+            content: [
+              { type: 'text' as const, text: JSON.stringify({ ok: false, error: String(err) }) },
+            ],
+          }
+        }
+      }
+
+      // update-homepage — update server homepage HTML for decoration
+      if (action === 'update-homepage') {
+        const serverId = (params.serverId as string) ?? (params.server_id as string) ?? (params.server as string) ?? ''
+        const html = (params.html as string) ?? (params.homepageHtml as string) ?? (params.homepage_html as string) ?? null
+        if (!serverId) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: JSON.stringify({ ok: false, error: 'serverId is required' }),
+              },
+            ],
+          }
+        }
+        try {
+          const client = new ShadowClient(account.serverUrl, account.token)
+          const result = await client.updateServerHomepage(serverId, html)
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: JSON.stringify({
+                  ok: true,
+                  action: 'update-homepage',
+                  serverId: result.id,
+                  slug: result.slug,
+                  homepageHtml: result.homepageHtml ? `(${result.homepageHtml.length} chars)` : null,
+                }),
+              },
+            ],
+          }
+        } catch (err) {
+          return {
+            content: [
+              { type: 'text' as const, text: JSON.stringify({ ok: false, error: String(err) }) },
+            ],
+          }
         }
       }
 

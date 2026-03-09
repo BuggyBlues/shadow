@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useParams } from '@tanstack/react-router'
+import { useNavigate, useParams } from '@tanstack/react-router'
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChannelSidebar } from '../components/channel/channel-sidebar'
@@ -15,6 +15,7 @@ import { useUIStore } from '../stores/ui.store'
 interface ServerMeta {
   id: string
   name: string
+  slug: string | null
 }
 
 interface ChannelMeta {
@@ -22,21 +23,30 @@ interface ChannelMeta {
   name: string
 }
 
+interface ChannelListItem {
+  id: string
+  name: string
+  type: string
+}
+
 export function ServerPage() {
   const { t } = useTranslation()
-  const { serverId } = useParams({ strict: false })
+  const navigate = useNavigate()
+  const { serverId, channelName } = useParams({ strict: false }) as { serverId?: string; channelName?: string }
   const { activeChannelId, setActiveServer, setActiveChannel } = useChatStore()
   const { mobileView, setMobileView } = useUIStore()
   const restoredRef = useRef(false)
 
-  // Read channel from URL search param (for persistence across refresh)
-  const channelFromUrl = useRef(
-    new URLSearchParams(window.location.search).get('channel') ?? undefined,
-  ).current
-
   const { data: server } = useQuery({
     queryKey: ['server', serverId],
     queryFn: () => fetchApi<ServerMeta>(`/api/servers/${serverId}`),
+    enabled: !!serverId,
+  })
+
+  // Fetch channels to resolve channelName → channelId
+  const { data: channels = [] } = useQuery({
+    queryKey: ['channels', serverId],
+    queryFn: () => fetchApi<ChannelListItem[]>(`/api/servers/${serverId}/channels`),
     enabled: !!serverId,
   })
 
@@ -70,22 +80,30 @@ export function ServerPage() {
     }
   }, [server?.id, serverId, setActiveServer, setMobileView])
 
-  // Restore channel from URL search param (on initial load / refresh)
+  // Resolve channelName from URL to channel ID
   useEffect(() => {
-    if (channelFromUrl && !restoredRef.current) {
+    if (!channelName || channels.length === 0 || restoredRef.current) return
+    const decodedName = decodeURIComponent(channelName)
+    const matched = channels.find(
+      (ch) => ch.name === decodedName || ch.name.toLowerCase() === decodedName.toLowerCase(),
+    )
+    if (matched && matched.id !== activeChannelId) {
       restoredRef.current = true
-      setActiveChannel(channelFromUrl)
-      joinChannel(channelFromUrl)
+      setActiveChannel(matched.id)
+      joinChannel(matched.id)
       setMobileView('chat')
     }
-  }, [channelFromUrl, setActiveChannel, setMobileView])
+  }, [channelName, channels, activeChannelId, setActiveChannel, setMobileView])
+
+  // Reset restored flag when serverId changes
+  useEffect(() => {
+    restoredRef.current = false
+  }, [serverId])
 
   if (!serverId) return null
 
   return (
     <div className="flex flex-1 min-w-0 overflow-hidden h-full bg-bg-tertiary">
-      {/* Channel sidebar: standard Discord width (240px/w-60). 
-          On mobile it takes full width but transitions smoothly. */}
       <div
         className={`${
           mobileView === 'channels' ? 'flex absolute inset-0 z-20 md:relative' : 'hidden'
@@ -94,7 +112,6 @@ export function ServerPage() {
         <ChannelSidebar serverId={serverId} />
       </div>
 
-      {/* Chat area: flexible width, with min-w-0 to prevent flex blowout */}
       <div
         className={`${
           mobileView === 'chat' ? 'flex absolute inset-0 z-10 md:relative md:z-auto' : 'hidden'
@@ -103,8 +120,6 @@ export function ServerPage() {
         <ChatArea />
       </div>
 
-      {/* Member list: hidden by default, shown on lg+ within its component,
-          or as an overlay on smaller screens if managed by a state */}
       <MemberList />
     </div>
   )

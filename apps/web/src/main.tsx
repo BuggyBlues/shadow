@@ -126,6 +126,12 @@ const serverRoute = createRoute({
   component: ServerPage,
 })
 
+const serverChannelRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/servers/$serverId/$channelName',
+  component: ServerPage,
+})
+
 const settingsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/settings',
@@ -154,7 +160,7 @@ const routeTree = rootRoute.addChildren([
   pricingRoute,
   docsRoute,
   inviteRoute,
-  appRoute.addChildren([appIndexRoute, serverRoute, settingsRoute, agentMgmtRoute, discoverRoute]),
+  appRoute.addChildren([appIndexRoute, serverRoute, serverChannelRoute, settingsRoute, agentMgmtRoute, discoverRoute]),
 ])
 
 const router = createRouter({ routeTree })
