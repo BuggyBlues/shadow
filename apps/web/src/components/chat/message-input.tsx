@@ -144,31 +144,34 @@ export function MessageInput({
 
     try {
       if (pendingFiles.length > 0) {
-        // When files are attached, use REST API to create the message first,
-        // then upload files with the messageId so proper attachment records
-        // are created and the message:updated event broadcasts them.
-        const contentToSend = text || '\u200B' // zero-width space for file-only messages
-        const message = await fetchApi<{ id: string; channelId: string }>(
-          `/api/channels/${channelId}/messages`,
-          {
-            method: 'POST',
-            body: JSON.stringify({
-              content: contentToSend,
-              ...(replyToId ? { replyToId } : {}),
-            }),
-          },
-        )
-
-        // Upload each file linked to the message
+        // Upload files first, then create the message with all attachments
+        // so the broadcast includes complete attachment data for AI agents.
+        const uploadedAttachments: { filename: string; url: string; contentType: string; size: number }[] = []
         for (const pf of pendingFiles) {
           const formData = new FormData()
           formData.append('file', pf.file)
-          formData.append('messageId', message.id)
-          await fetchApi('/api/media/upload', {
+          const result = await fetchApi<{ url: string; size: number }>('/api/media/upload', {
             method: 'POST',
             body: formData,
           })
+          uploadedAttachments.push({
+            filename: pf.file.name,
+            url: result.url,
+            contentType: pf.file.type || 'application/octet-stream',
+            size: result.size,
+          })
         }
+
+        // Create message with pre-uploaded attachments via REST
+        const contentToSend = text || '\u200B' // zero-width space for file-only messages
+        await fetchApi(`/api/channels/${channelId}/messages`, {
+          method: 'POST',
+          body: JSON.stringify({
+            content: contentToSend,
+            ...(replyToId ? { replyToId } : {}),
+            attachments: uploadedAttachments,
+          }),
+        })
 
         playSendSound()
       } else if (text) {

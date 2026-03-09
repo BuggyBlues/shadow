@@ -644,10 +644,13 @@ function BotContextMenu({
   // Determine which actions to show
   const isSelf = contextMenu.member.userId === currentUser?.id
   const isOwner = contextMenu.member.role === 'owner'
-  const showPolicySubmenu = isBot && activeChannelId && agent
-  const showRemoveFromChannel = isBot && activeChannelId && !isSelf && !isOwner
+  // Check if current user is the Buddy's owner
+  const isBuddyOwner = isBot && agent && currentUser?.id === agent.ownerId
+  const showPolicySubmenu = isBot && activeChannelId && agent && (canKick || isBuddyOwner)
+  // Only Buddy owner, server owner, or admin can remove a bot from a channel
+  const showRemoveFromChannel = isBot && activeChannelId && !isSelf && !isOwner && (canKick || isBuddyOwner)
   const showKickFromServer = !isSelf && !isOwner && (
-    (isBot && !activeChannelId && canKick) || (!isBot && canKick)
+    (isBot && !activeChannelId && (canKick || isBuddyOwner)) || (!isBot && canKick)
   )
   const hasDestructiveAction = showRemoveFromChannel || showKickFromServer
 
@@ -889,6 +892,16 @@ function MemberAddAgentDialog({
         method: 'POST',
         body: JSON.stringify({ agentIds: [agentId] }),
       })
+      // If we're viewing a specific channel, also add the bot to that channel
+      if (channelId) {
+        const agent = agents.find((a) => a.id === agentId)
+        if (agent?.botUser?.id) {
+          await fetchApi(`/api/channels/${channelId}/members`, {
+            method: 'POST',
+            body: JSON.stringify({ userId: agent.botUser.id }),
+          })
+        }
+      }
       queryClient.invalidateQueries({ queryKey: ['members'] })
       onSuccess()
     } catch {

@@ -11,6 +11,12 @@ export const sendMessageSchema = z.object({
     ),
   threadId: z.string().uuid().optional(),
   replyToId: z.string().uuid().optional(),
+  attachments: z.array(z.object({
+    filename: z.string(),
+    url: z.string(),
+    contentType: z.string(),
+    size: z.number(),
+  })).optional(),
 })
 
 export const updateMessageSchema = z.object({

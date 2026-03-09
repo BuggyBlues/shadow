@@ -31,6 +31,19 @@ export class MessageService {
       throw Object.assign(new Error('Failed to create message'), { status: 500 })
     }
 
+    // Create attachment records if provided (pre-uploaded files)
+    if (input.attachments && input.attachments.length > 0) {
+      for (const att of input.attachments) {
+        await this.deps.messageDao.createAttachment({
+          messageId: message.id,
+          filename: att.filename,
+          url: att.url,
+          contentType: att.contentType,
+          size: att.size,
+        })
+      }
+    }
+
     // Attach author info and attachments for broadcasting
     const user = await this.deps.userDao.findById(authorId)
     const messageAttachments = await this.deps.messageDao.getAttachments(message.id)
