@@ -98,6 +98,8 @@ async function main() {
       methods: ['GET', 'POST'],
     },
     transports: ['websocket', 'polling'],
+    pingInterval: 15000,  // Send ping every 15s (default 25s)
+    pingTimeout: 10000,   // Wait 10s for pong (default 20s)
   })
 
   setupWebSocket(io, container)

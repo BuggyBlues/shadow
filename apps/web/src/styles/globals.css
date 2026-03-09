@@ -14,6 +14,11 @@
   --color-text-primary: #f2f3f5;
   --color-text-secondary: #b5bac1;
   --color-text-muted: #949ba4;
+  --color-bg-modifier-hover: rgba(255, 255, 255, 0.04);
+  --color-bg-modifier-active: rgba(255, 255, 255, 0.08);
+  --color-border-subtle: rgba(255, 255, 255, 0.05);
+  --color-border-dim: rgba(255, 255, 255, 0.1);
+  --color-divider: #404249;
 }
 
 /* ─── Light Theme ─── */
@@ -27,6 +32,11 @@
   --color-primary: #009da8;
   --color-primary-hover: #007d86;
   --color-danger: #da373c;
+  --color-bg-modifier-hover: rgba(0, 0, 0, 0.04);
+  --color-bg-modifier-active: rgba(0, 0, 0, 0.06);
+  --color-border-subtle: rgba(0, 0, 0, 0.06);
+  --color-border-dim: rgba(0, 0, 0, 0.1);
+  --color-divider: #e0e1e5;
 }
 
 /* ─── Light Theme Utility Overrides ─── */
@@ -102,6 +112,13 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #1a1b1e;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+}
+.scrollbar-thin {
+  scrollbar-width: thin;
 }
 
 /* Markdown message styling */

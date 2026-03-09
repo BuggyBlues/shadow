@@ -218,8 +218,19 @@ export function ChannelSidebar({ serverId, channelNameFromUrl }: { serverId: str
       fetchApi(`/api/channels/${channelId}`, {
         method: 'DELETE',
       }),
-    onSuccess: () => {
+    onSuccess: (_data, deletedChannelId) => {
       queryClient.invalidateQueries({ queryKey: ['channels', serverId] })
+      // If the deleted channel was active, navigate to next available channel
+      if (activeChannelId === deletedChannelId) {
+        const remaining = channels.filter((ch) => ch.id !== deletedChannelId)
+        if (remaining.length > 0) {
+          handleSelectChannel(remaining[0]!.id)
+        } else {
+          // No channels left — go to server home
+          setActiveChannel(null)
+          navigate({ to: '/app/servers/$serverId', params: { serverId: server?.slug ?? serverId } })
+        }
+      }
     },
   })
 
@@ -340,7 +351,7 @@ export function ChannelSidebar({ serverId, channelNameFromUrl }: { serverId: str
         <div className="flex items-center justify-between pr-2">
           <button
             onClick={() => toggleGroup(label)}
-            className="flex items-center gap-1 px-4 py-1.5 text-[12px] font-bold tracking-wide uppercase text-[#949ba4] hover:text-[#dbdee1] flex-1 transition"
+            className="flex items-center gap-1 px-4 py-1.5 text-[12px] font-bold tracking-wide uppercase text-text-secondary hover:text-text-primary flex-1 transition"
           >
             {isCollapsed ? (
               <ChevronRight size={12} className="shrink-0" />
@@ -352,7 +363,7 @@ export function ChannelSidebar({ serverId, channelNameFromUrl }: { serverId: str
           <button
             type="button"
             onClick={() => setShowCreate(true)}
-            className="text-[#949ba4] hover:text-[#dbdee1] transition p-0.5 rounded hover:bg-white/5"
+            className="text-text-secondary hover:text-text-primary transition p-0.5 rounded hover:bg-bg-modifier-hover"
             title={t('channel.createChannel')}
           >
             <Plus size={14} />
@@ -366,7 +377,7 @@ export function ChannelSidebar({ serverId, channelNameFromUrl }: { serverId: str
             return isEditing ? (
               <div
                 key={ch.id}
-                className="flex items-center gap-1.5 px-2 mx-2 py-1 bg-white/[0.04] rounded"
+                className="flex items-center gap-1.5 px-2 mx-2 py-1 bg-bg-modifier-hover rounded"
               >
                 <Icon size={18} className="shrink-0 opacity-80" />
                 <input
@@ -411,13 +422,13 @@ export function ChannelSidebar({ serverId, channelNameFromUrl }: { serverId: str
                 onContextMenu={(e) => handleContextMenu(e, ch)}
                 className={`group flex items-center gap-1.5 px-2 py-[6px] mx-2 mb-[2px] rounded-md text-[15px] font-medium w-[calc(100%-16px)] text-left transition ${
                   isActive
-                    ? 'bg-white/[0.08] text-white'
-                    : 'text-[#949ba4] hover:bg-white/[0.04] hover:text-[#dbdee1]'
+                    ? 'bg-bg-modifier-active text-text-primary'
+                    : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
                 }`}
               >
                 <Icon
                   size={18}
-                  className={`shrink-0 ${isActive ? 'opacity-80 text-white' : 'opacity-60 group-hover:text-[#dbdee1]'}`}
+                  className={`shrink-0 ${isActive ? 'opacity-80 text-text-primary' : 'opacity-60 group-hover:text-text-primary'}`}
                 />
                 <span className="truncate">{ch.name}</span>
               </button>
@@ -430,7 +441,7 @@ export function ChannelSidebar({ serverId, channelNameFromUrl }: { serverId: str
   return (
     <div className="w-full md:w-60 bg-bg-secondary flex flex-col shrink-0 h-full">
       {/* Server name header */}
-      <div className="h-12 px-4 flex items-center justify-between border-b-2 border-bg-tertiary bg-bg-secondary shadow-sm z-10 transition hover:bg-white/[0.02] cursor-pointer">
+      <div className="h-12 px-4 flex items-center justify-between border-b-2 border-bg-tertiary bg-bg-secondary shadow-sm z-10 transition hover:bg-bg-modifier-hover cursor-pointer">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {/* Mobile menu button to open server sidebar */}
           <button
@@ -473,14 +484,14 @@ export function ChannelSidebar({ serverId, channelNameFromUrl }: { serverId: str
           }}
           className={`group flex items-center gap-1.5 px-2 py-[6px] mx-2 mb-2 rounded-md text-[15px] font-medium w-[calc(100%-16px)] text-left transition ${
             !activeChannelId
-              ? 'bg-white/[0.08] text-white'
-              : 'text-[#949ba4] hover:bg-white/[0.04] hover:text-[#dbdee1]'
+              ? 'bg-bg-modifier-active text-text-primary'
+              : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
           }`}
         >
-          <Home size={18} className={`shrink-0 ${!activeChannelId ? 'opacity-80 text-white' : 'opacity-60 group-hover:text-[#dbdee1]'}`} />
+          <Home size={18} className={`shrink-0 ${!activeChannelId ? 'opacity-80 text-text-primary' : 'opacity-60 group-hover:text-text-primary'}`} />
           <span className="truncate">{t('server.home')}</span>
         </button>
-        <div className="h-px bg-white/5 mx-4 mb-2" />
+        <div className="h-px bg-divider mx-4 mb-2" />
         {renderChannelGroup(t('channel.announcement'), announcementChannels)}
         {renderChannelGroup(t('channel.text'), textChannels)}
         {renderChannelGroup(t('channel.voice'), voiceChannels)}
@@ -491,7 +502,7 @@ export function ChannelSidebar({ serverId, channelNameFromUrl }: { serverId: str
       </div>
 
       {/* Add channel button */}
-      <div className="p-2 border-t border-white/5">
+      <div className="p-2 border-t border-border-subtle">
         <button
           onClick={() => setShowCreate(true)}
           className="flex items-center gap-2 px-3 py-2 w-full rounded-md text-sm text-text-muted hover:bg-bg-primary/30 hover:text-text-secondary transition"
@@ -572,7 +583,7 @@ export function ChannelSidebar({ serverId, channelNameFromUrl }: { serverId: str
           onClick={() => setShowServerEdit(false)}
         >
           <div
-            className="bg-bg-secondary rounded-xl p-6 w-[460px] max-h-[85vh] overflow-y-auto border border-white/5"
+            className="bg-bg-secondary rounded-xl p-6 w-[460px] max-h-[85vh] overflow-y-auto border border-border-subtle"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-5">
@@ -783,7 +794,7 @@ export function ChannelSidebar({ serverId, channelNameFromUrl }: { serverId: str
           />
           <div
             ref={contextMenuRef}
-            className="fixed z-50 bg-bg-tertiary border border-white/10 rounded-lg shadow-xl py-1 min-w-[160px]"
+            className="fixed z-50 bg-bg-tertiary border border-border-dim rounded-lg shadow-xl py-1 min-w-[160px]"
             style={{ top: contextMenu.y, left: contextMenu.x }}
           >
           <button
@@ -808,7 +819,7 @@ export function ChannelSidebar({ serverId, channelNameFromUrl }: { serverId: str
             <img src="/Logo.svg" alt="Buddy" className="w-4 h-4" />
             {t('channel.addAgent')}
           </button>
-          <div className="h-px bg-white/5 my-1" />
+          <div className="h-px bg-border-subtle my-1" />
           <button
             type="button"
             onClick={() => {
@@ -834,7 +845,7 @@ export function ChannelSidebar({ serverId, channelNameFromUrl }: { serverId: str
             <Copy size={14} />
             {t('channel.copyChannelLink')}
           </button>
-          <div className="h-px bg-white/5 my-1" />
+          <div className="h-px bg-border-subtle my-1" />
           <button
             type="button"
             onClick={async () => {
@@ -865,7 +876,7 @@ export function ChannelSidebar({ serverId, channelNameFromUrl }: { serverId: str
             onContextMenu={(e) => { e.preventDefault(); setBlankContextMenu(null) }}
           />
           <div
-            className="fixed z-50 bg-bg-tertiary border border-white/10 rounded-lg shadow-xl py-1 min-w-[160px]"
+            className="fixed z-50 bg-bg-tertiary border border-border-dim rounded-lg shadow-xl py-1 min-w-[160px]"
             style={{ top: blankContextMenu.y, left: blankContextMenu.x }}
           >
             <button
@@ -901,7 +912,7 @@ export function ChannelSidebar({ serverId, channelNameFromUrl }: { serverId: str
               <img src="/Logo.svg" alt="Buddy" className="w-4 h-4" />
               {t('channel.addAgent')}
             </button>
-            <div className="h-px bg-white/5 my-1" />
+            <div className="h-px bg-border-subtle my-1" />
             <button
               type="button"
               onClick={() => {
@@ -924,7 +935,7 @@ export function ChannelSidebar({ serverId, channelNameFromUrl }: { serverId: str
           onClick={() => setShowInvitePanel(false)}
         >
           <div
-            className="bg-bg-secondary rounded-xl p-6 w-96 border border-white/5"
+            className="bg-bg-secondary rounded-xl p-6 w-96 border border-border-subtle"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
@@ -1035,7 +1046,7 @@ function AddAgentDialog({
       onClick={onClose}
     >
       <div
-        className="bg-bg-secondary rounded-xl p-6 w-96 max-h-[60vh] flex flex-col border border-white/5"
+        className="bg-bg-secondary rounded-xl p-6 w-96 max-h-[60vh] flex flex-col border border-border-subtle"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-lg font-bold text-text-primary mb-4">{t('channel.addAgent')}</h2>
@@ -1060,7 +1071,7 @@ function AddAgentDialog({
                 >
                   <div
                     className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
-                      isSelected ? 'border-primary bg-primary' : 'border-white/20'
+                      isSelected ? 'border-primary bg-primary' : 'border-border-dim'
                     }`}
                   >
                     {isSelected && <Check size={10} className="text-white" />}
@@ -1081,7 +1092,7 @@ function AddAgentDialog({
           </div>
         )}
 
-        <div className="flex justify-end gap-3 pt-2 border-t border-white/5">
+        <div className="flex justify-end gap-3 pt-2 border-t border-border-subtle">
           <button
             onClick={onClose}
             className="px-4 py-2 text-text-secondary hover:text-text-primary transition rounded-lg"

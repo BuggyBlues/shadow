@@ -58,7 +58,7 @@ export function ConfirmDialog() {
       onClick={() => close(false)}
     >
       <div
-        className="bg-bg-secondary rounded-xl p-6 w-full max-w-96 mx-4 border border-white/5 animate-scale-in"
+        className="bg-bg-secondary rounded-xl p-6 w-full max-w-96 mx-4 border border-border-subtle animate-scale-in"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-xl font-bold text-text-primary mb-2">{title}</h2>

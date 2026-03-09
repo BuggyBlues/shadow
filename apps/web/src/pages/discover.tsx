@@ -88,17 +88,17 @@ export function DiscoverPage() {
             <Globe size={28} className="text-primary" />
             <h1 className="text-2xl font-bold text-text-primary">{t('discover.title')}</h1>
           </div>
-          <p className="text-[#dbdee1] mb-6 text-[15px]">{t('discover.subtitle')}</p>
+          <p className="text-text-primary mb-6 text-[15px]">{t('discover.subtitle')}</p>
 
           {/* Search */}
           <div className="relative max-w-md">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#949ba4]" />
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t('discover.searchPlaceholder')}
-              className="w-full bg-[#1e1f22] text-text-primary rounded-lg pl-10 pr-4 py-2.5 outline-none focus:ring-1 focus:ring-primary text-[15px] shadow-sm"
+              className="w-full bg-bg-tertiary text-text-primary rounded-lg pl-10 pr-4 py-2.5 outline-none focus:ring-1 focus:ring-primary text-[15px] shadow-sm"
             />
           </div>
         </div>
@@ -125,7 +125,7 @@ export function DiscoverPage() {
                       })
                     }
                   }}
-                  className="bg-[#2b2d31] rounded-[16px] overflow-hidden hover:bg-[#383a40] hover:-translate-y-0.5 hover:shadow-xl transition-all duration-200 group flex flex-col cursor-pointer border border-[#1e1f22] relative"
+                  className="bg-bg-secondary rounded-[16px] overflow-hidden hover:bg-[#383a40] hover:-translate-y-0.5 hover:shadow-xl transition-all duration-200 group flex flex-col cursor-pointer border border-[#1e1f22] relative"
                 >
                   {/* Server banner */}
                   <div className="h-[120px] bg-gradient-to-br from-[#5865F2]/20 to-[#5865F2]/5 relative">
@@ -145,8 +145,8 @@ export function DiscoverPage() {
                   </div>
 
                   {/* Avatar overlapping banner */}
-                  <div className="absolute top-[92px] left-4 p-1.5 bg-[#2b2d31] group-hover:bg-[#383a40] rounded-[18px] transition-colors duration-200 z-20">
-                    <div className="w-[48px] h-[48px] rounded-[12px] overflow-hidden bg-[#1e1f22] flex items-center justify-center">
+                  <div className="absolute top-[92px] left-4 p-1.5 bg-bg-secondary group-hover:bg-[#383a40] rounded-[18px] transition-colors duration-200 z-20">
+                    <div className="w-[48px] h-[48px] rounded-[12px] overflow-hidden bg-bg-tertiary flex items-center justify-center">
                       {server.iconUrl ? (
                         <img src={server.iconUrl} alt="" className="w-full h-full object-cover" />
                       ) : (
@@ -159,7 +159,7 @@ export function DiscoverPage() {
                     <h3 className="font-bold text-[#f2f3f5] text-[16px] mb-1 truncate">
                       {server.name}
                     </h3>
-                    <p className="text-[#dbdee1] text-[14px] mb-4 line-clamp-2 min-h-[2.5rem] flex-1">
+                    <p className="text-text-primary text-[14px] mb-4 line-clamp-2 min-h-[2.5rem] flex-1">
                       {server.description ?? t('discover.noDescription')}
                     </p>
                     <div className="flex items-center justify-between mt-auto">
@@ -168,7 +168,7 @@ export function DiscoverPage() {
                           {(server.memberAvatars ?? []).slice(0, 5).map((m) => (
                             <div
                               key={m.id}
-                              className="w-6 h-6 rounded-full border-2 border-[#2b2d31] group-hover:border-[#383a40] overflow-hidden bg-[#1e1f22] transition-colors duration-200"
+                              className="w-6 h-6 rounded-full border-2 border-[#2b2d31] group-hover:border-[#383a40] overflow-hidden bg-bg-tertiary transition-colors duration-200"
                             >
                               {m.avatarUrl ? (
                                 <img
@@ -177,14 +177,14 @@ export function DiscoverPage() {
                                   className="w-full h-full object-cover"
                                 />
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center text-[10px] text-[#dbdee1]">
+                                <div className="w-full h-full flex items-center justify-center text-[10px] text-text-primary">
                                   👤
                                 </div>
                               )}
                             </div>
                           ))}
                         </div>
-                        <span className="flex items-center gap-1.5 text-[12px] font-medium text-[#949ba4]">
+                        <span className="flex items-center gap-1.5 text-[12px] font-medium text-text-muted">
                           <div className="w-2 h-2 rounded-full bg-[#23a559]"></div>
                           {server.memberCount} {t('discover.members')}
                         </span>

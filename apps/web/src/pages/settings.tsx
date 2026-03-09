@@ -79,7 +79,7 @@ export function SettingsPage() {
   return (
     <div className="flex-1 flex flex-col md:flex-row bg-bg-primary overflow-hidden">
       {/* Mobile tab bar */}
-      <div className="md:hidden flex overflow-x-auto border-b border-white/5 bg-bg-secondary px-2 py-2 gap-1 shrink-0">
+      <div className="md:hidden flex overflow-x-auto border-b border-border-subtle bg-bg-secondary px-2 py-2 gap-1 shrink-0">
         {([
           { key: 'quickstart' as const, icon: Rocket, label: t('settings.tabQuickStart') },
           { key: 'profile' as const, icon: User, label: t('settings.tabProfile') },
@@ -94,7 +94,7 @@ export function SettingsPage() {
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition ${
               activeTab === key
                 ? 'bg-primary/10 text-primary'
-                : 'text-text-muted hover:text-text-primary hover:bg-white/5'
+                : 'text-text-muted hover:text-text-primary hover:bg-bg-modifier-hover'
             }`}
           >
             <Icon size={14} />
@@ -110,30 +110,30 @@ export function SettingsPage() {
             onClick={() => setActiveTab('quickstart')}
             className={`group flex items-center gap-3 w-full px-3 py-2 rounded-md text-[15px] font-medium transition ${
               activeTab === 'quickstart'
-                ? 'bg-white/[0.08] text-white'
-                : 'text-[#949ba4] hover:bg-white/[0.04] hover:text-[#dbdee1]'
+                ? 'bg-bg-modifier-active text-text-primary'
+                : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
             }`}
           >
             <Rocket
               size={18}
-              className={`shrink-0 ${activeTab === 'quickstart' ? 'opacity-80 text-white' : 'opacity-60 group-hover:text-[#dbdee1]'}`}
+              className={`shrink-0 ${activeTab === 'quickstart' ? 'opacity-80 text-text-primary' : 'opacity-60 group-hover:text-text-primary'}`}
             />
             {t('settings.tabQuickStart')}
           </button>
-          <div className="px-2 py-3 text-[11px] font-bold uppercase text-[#949ba4] tracking-wide mt-2">
+          <div className="px-2 py-3 text-[11px] font-bold uppercase text-text-secondary tracking-wide mt-2">
             {t('settings.sidebarTitle')}
           </div>
           <button
             onClick={() => setActiveTab('profile')}
             className={`group flex items-center gap-3 w-full px-3 py-2 rounded-md text-[15px] font-medium transition ${
               activeTab === 'profile'
-                ? 'bg-white/[0.08] text-white'
-                : 'text-[#949ba4] hover:bg-white/[0.04] hover:text-[#dbdee1]'
+                ? 'bg-bg-modifier-active text-text-primary'
+                : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
             }`}
           >
             <User
               size={18}
-              className={`shrink-0 ${activeTab === 'profile' ? 'opacity-80 text-white' : 'opacity-60 group-hover:text-[#dbdee1]'}`}
+              className={`shrink-0 ${activeTab === 'profile' ? 'opacity-80 text-text-primary' : 'opacity-60 group-hover:text-text-primary'}`}
             />
             {t('settings.tabProfile')}
           </button>
@@ -141,13 +141,13 @@ export function SettingsPage() {
             onClick={() => setActiveTab('appearance')}
             className={`group flex items-center gap-3 w-full px-3 py-2 rounded-md text-[15px] font-medium transition ${
               activeTab === 'appearance'
-                ? 'bg-white/[0.08] text-white'
-                : 'text-[#949ba4] hover:bg-white/[0.04] hover:text-[#dbdee1]'
+                ? 'bg-bg-modifier-active text-text-primary'
+                : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
             }`}
           >
             <Paintbrush
               size={18}
-              className={`shrink-0 ${activeTab === 'appearance' ? 'opacity-80 text-white' : 'opacity-60 group-hover:text-[#dbdee1]'}`}
+              className={`shrink-0 ${activeTab === 'appearance' ? 'opacity-80 text-text-primary' : 'opacity-60 group-hover:text-text-primary'}`}
             />
             {t('settings.tabAppearance')}
           </button>
@@ -155,13 +155,13 @@ export function SettingsPage() {
             onClick={() => setActiveTab('buddy')}
             className={`group flex items-center gap-3 w-full px-3 py-2 rounded-md text-[15px] font-medium transition ${
               activeTab === 'buddy'
-                ? 'bg-white/[0.08] text-white'
-                : 'text-[#949ba4] hover:bg-white/[0.04] hover:text-[#dbdee1]'
+                ? 'bg-bg-modifier-active text-text-primary'
+                : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
             }`}
           >
             <Bot
               size={18}
-              className={`shrink-0 ${activeTab === 'buddy' ? 'opacity-80 text-white' : 'opacity-60 group-hover:text-[#dbdee1]'}`}
+              className={`shrink-0 ${activeTab === 'buddy' ? 'opacity-80 text-text-primary' : 'opacity-60 group-hover:text-text-primary'}`}
             />
             {t('settings.tabBuddy')}
           </button>
@@ -169,13 +169,13 @@ export function SettingsPage() {
             onClick={() => setActiveTab('account')}
             className={`group flex items-center gap-3 w-full px-3 py-2 rounded-md text-[15px] font-medium transition ${
               activeTab === 'account'
-                ? 'bg-white/[0.08] text-white'
-                : 'text-[#949ba4] hover:bg-white/[0.04] hover:text-[#dbdee1]'
+                ? 'bg-bg-modifier-active text-text-primary'
+                : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
             }`}
           >
             <Shield
               size={18}
-              className={`shrink-0 ${activeTab === 'account' ? 'opacity-80 text-white' : 'opacity-60 group-hover:text-[#dbdee1]'}`}
+              className={`shrink-0 ${activeTab === 'account' ? 'opacity-80 text-text-primary' : 'opacity-60 group-hover:text-text-primary'}`}
             />
             {t('settings.tabAccount')}
           </button>
@@ -183,13 +183,13 @@ export function SettingsPage() {
             onClick={() => setActiveTab('invite')}
             className={`group flex items-center gap-3 w-full px-3 py-2 rounded-md text-[15px] font-medium transition ${
               activeTab === 'invite'
-                ? 'bg-white/[0.08] text-white'
-                : 'text-[#949ba4] hover:bg-white/[0.04] hover:text-[#dbdee1]'
+                ? 'bg-bg-modifier-active text-text-primary'
+                : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
             }`}
           >
             <Link2
               size={18}
-              className={`shrink-0 ${activeTab === 'invite' ? 'opacity-80 text-white' : 'opacity-60 group-hover:text-[#dbdee1]'}`}
+              className={`shrink-0 ${activeTab === 'invite' ? 'opacity-80 text-text-primary' : 'opacity-60 group-hover:text-text-primary'}`}
             />
             {t('settings.tabInvite')}
           </button>
@@ -212,7 +212,7 @@ export function SettingsPage() {
           {activeTab === 'quickstart' && (
             <>
               {/* Profile Card */}
-              <div className="bg-bg-secondary rounded-xl border border-white/5 p-6 mb-8 flex items-center gap-5">
+              <div className="bg-bg-secondary rounded-xl border border-border-subtle p-6 mb-8 flex items-center gap-5">
                 <UserAvatar
                   userId={user.id}
                   avatarUrl={user.avatarUrl}
@@ -229,7 +229,7 @@ export function SettingsPage() {
                 <button
                   type="button"
                   onClick={() => setActiveTab('profile')}
-                  className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary bg-white/5 hover:bg-white/10 rounded-lg transition"
+                  className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary bg-bg-modifier-hover hover:bg-bg-modifier-active rounded-lg transition"
                 >
                   {t('common.edit')}
                 </button>
@@ -239,7 +239,7 @@ export function SettingsPage() {
               <div className="text-center mb-10">
                 <img src="/Logo.svg" alt="Shadow" className="w-16 h-16 mx-auto mb-4 opacity-80" />
                 <h2 className="text-2xl font-bold text-text-primary mb-2">{t('common.welcomeTitle')}</h2>
-                <p className="text-[#dbdee1] text-[15px]">{t('common.welcomeDesc')}</p>
+                <p className="text-text-secondary text-[15px]">{t('common.welcomeDesc')}</p>
               </div>
 
               {/* Quick Actions */}
@@ -247,7 +247,7 @@ export function SettingsPage() {
                 <button
                   type="button"
                   onClick={() => navigate({ to: '/app/discover' })}
-                  className="bg-bg-secondary hover:bg-bg-tertiary border border-white/5 rounded-xl p-5 text-left transition group"
+                  className="bg-bg-secondary hover:bg-bg-tertiary border border-border-subtle rounded-xl p-5 text-left transition group"
                 >
                   <Compass size={24} className="text-[#23a559] mb-3 group-hover:scale-110 transition-transform" />
                   <h3 className="font-bold text-text-primary text-[15px] mb-1">{t('guide.discoverTitle')}</h3>
@@ -256,16 +256,16 @@ export function SettingsPage() {
                 <button
                   type="button"
                   onClick={() => setActiveTab('profile')}
-                  className="bg-bg-secondary hover:bg-bg-tertiary border border-white/5 rounded-xl p-5 text-left transition group"
+                  className="bg-bg-secondary hover:bg-bg-tertiary border border-border-subtle rounded-xl p-5 text-left transition group"
                 >
-                  <User size={24} className="text-[#80848e] mb-3 group-hover:scale-110 transition-transform" />
+                  <User size={24} className="text-text-muted mb-3 group-hover:scale-110 transition-transform" />
                   <h3 className="font-bold text-text-primary text-[15px] mb-1">{t('guide.settingsTitle')}</h3>
                   <p className="text-text-muted text-[13px]">{t('guide.settingsDesc')}</p>
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate({ to: '/docs' })}
-                  className="bg-bg-secondary hover:bg-bg-tertiary border border-white/5 rounded-xl p-5 text-left transition group"
+                  className="bg-bg-secondary hover:bg-bg-tertiary border border-border-subtle rounded-xl p-5 text-left transition group"
                 >
                   <FileText size={24} className="text-[#5865F2] mb-3 group-hover:scale-110 transition-transform" />
                   <h3 className="font-bold text-text-primary text-[15px] mb-1">{t('guide.docsTitle')}</h3>
@@ -274,7 +274,7 @@ export function SettingsPage() {
               </div>
 
               {/* Getting Started Steps */}
-              <div className="bg-bg-secondary rounded-xl border border-white/5 p-6 mb-8">
+              <div className="bg-bg-secondary rounded-xl border border-border-subtle p-6 mb-8">
                 <h3 className="font-bold text-text-primary text-lg mb-5 flex items-center gap-2">
                   <BookOpen size={20} className="text-primary" />
                   {t('guide.gettingStarted')}
@@ -314,7 +314,7 @@ export function SettingsPage() {
               </div>
 
               {/* Buddy Guide */}
-              <div className="bg-bg-secondary rounded-xl border border-white/5 p-6">
+              <div className="bg-bg-secondary rounded-xl border border-border-subtle p-6">
                 <h3 className="font-bold text-text-primary text-lg mb-5 flex items-center gap-2">
                   <Bot size={20} className="text-[#23a559]" />
                   {t('guide.buddyGuideTitle')}
@@ -360,7 +360,7 @@ export function SettingsPage() {
               </h2>
 
               {/* Preview card */}
-              <div className="bg-bg-secondary rounded-xl p-6 mb-8 border border-white/5">
+              <div className="bg-bg-secondary rounded-xl p-6 mb-8 border border-border-subtle">
                 <div className="flex items-center gap-4">
                   <UserAvatar
                     userId={user.id}
@@ -394,7 +394,7 @@ export function SettingsPage() {
 
               {/* Avatar picker */}
               <div className="mb-8">
-                <label className="block text-[12px] font-bold uppercase text-[#b5bac1] mb-3 tracking-wide">
+                <label className="block text-[12px] font-bold uppercase text-text-secondary mb-3 tracking-wide">
                   {t('settings.avatarLabel')}
                 </label>
                 <AvatarEditor value={selectedAvatar ?? undefined} onChange={setSelectedAvatar} />
@@ -437,7 +437,7 @@ export function SettingsPage() {
                 {t('settings.accountTitle')}
               </h2>
 
-              <div className="bg-bg-secondary rounded-xl p-6 space-y-5 border border-white/5">
+              <div className="bg-bg-secondary rounded-xl p-6 space-y-5 border border-border-subtle">
                 <div>
                   <label className="block text-xs font-bold uppercase text-text-secondary mb-1">
                     {t('settings.emailLabel')}
@@ -484,7 +484,7 @@ export function SettingsPage() {
           onClick={() => setShowLogoutConfirm(false)}
         >
           <div
-            className="bg-bg-secondary rounded-xl p-6 w-full max-w-96 mx-4 border border-white/5"
+            className="bg-bg-secondary rounded-xl p-6 w-full max-w-96 mx-4 border border-border-subtle"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-xl font-bold text-text-primary mb-2">
@@ -612,7 +612,7 @@ function InviteManagement() {
       </div>
 
       {showCreateForm && (
-        <div className="bg-bg-secondary rounded-xl p-4 mb-6 border border-white/5">
+        <div className="bg-bg-secondary rounded-xl p-4 mb-6 border border-border-subtle">
           <div className="flex gap-3">
             <input
               type="text"
@@ -642,7 +642,7 @@ function InviteManagement() {
       {loading ? (
         <div className="text-center text-text-muted py-12">{t('common.loading')}</div>
       ) : codes.length === 0 ? (
-        <div className="text-center text-text-muted py-12 bg-bg-secondary rounded-xl border border-white/5">
+        <div className="text-center text-text-muted py-12 bg-bg-secondary rounded-xl border border-border-subtle">
           <Link2 size={40} className="mx-auto mb-3 opacity-40" />
           <p className="text-sm">{t('settings.inviteEmpty')}</p>
         </div>
@@ -656,7 +656,7 @@ function InviteManagement() {
               <div
                 key={code.id}
                 className={`bg-bg-secondary rounded-xl p-4 border transition ${
-                  isActive ? 'border-white/5' : 'border-white/5 opacity-60'
+                  isActive ? 'border-border-subtle' : 'border-border-subtle opacity-60'
                 }`}
               >
                 <div className="flex items-center gap-3">
@@ -703,7 +703,7 @@ function InviteManagement() {
                     {isActive && (
                       <button
                         onClick={() => copyCode(code.code, code.id)}
-                        className="p-2 text-text-muted hover:text-text-primary hover:bg-white/10 rounded-lg transition"
+                        className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-modifier-active rounded-lg transition"
                         title={t('settings.inviteCopyLink')}
                       >
                         {copiedId === code.id ? <Check size={15} className="text-green-400" /> : <Copy size={15} />}
@@ -753,7 +753,7 @@ function AppearanceSettings() {
       </h2>
       <p className="text-text-muted text-sm mb-6">{t('settings.appearanceDesc')}</p>
 
-      <div className="bg-bg-secondary rounded-xl border border-white/5 p-6">
+      <div className="bg-bg-secondary rounded-xl border border-border-subtle p-6">
         <label className="block text-xs font-bold uppercase text-text-secondary mb-4 tracking-wide">
           {t('settings.themeLabel')}
         </label>
@@ -766,7 +766,7 @@ function AppearanceSettings() {
               className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition ${
                 theme === value
                   ? 'border-primary bg-primary/10'
-                  : 'border-transparent bg-bg-tertiary hover:border-white/10'
+                  : 'border-transparent bg-bg-tertiary hover:border-border-dim'
               }`}
             >
               <Icon size={28} className={theme === value ? 'text-primary' : 'text-text-muted'} />

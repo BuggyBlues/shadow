@@ -277,11 +277,11 @@ export function MemberList() {
             return (
               <div key={member.id} className={`relative ${rowOpts?.child ? 'pl-3' : 'mx-2'}`}>
                 {rowOpts?.child && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-3 h-px bg-white/20" />
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-3 h-px bg-border-dim" />
                 )}
                 <button
                   type="button"
-                  className="flex items-center gap-3 px-2 py-1.5 w-full rounded-md hover:bg-white/[0.06] transition group"
+                  className="flex items-center gap-3 px-2 py-1.5 w-full rounded-md hover:bg-bg-modifier-hover transition group"
                   onMouseEnter={(e) =>
                     handleMemberMouseEnter(member, e.currentTarget, {
                       ownerName: buddyMeta?.ownerName,
@@ -309,7 +309,7 @@ export function MemberList() {
                   <div className="flex-1 min-w-0 text-left">
                     <div className="flex items-center gap-1">
                       <span
-                        className={`text-[15px] truncate font-medium ${user.status === 'offline' ? 'text-text-muted' : 'text-[#dbdee1] group-hover:text-white'} transition`}
+                        className={`text-[15px] truncate font-medium ${user.status === 'offline' ? 'text-text-muted' : 'text-text-secondary group-hover:text-text-primary'} transition`}
                       >
                         {member.nickname ?? user.displayName}
                       </span>
@@ -337,7 +337,7 @@ export function MemberList() {
                   <div key={member.id}>
                     {renderMemberRow(member)}
                     {children.length > 0 && (
-                      <div className="relative ml-5 border-l border-white/15">
+                      <div className="relative ml-5 border-l border-border-dim">
                         {children.map((child) => renderMemberRow(child, { child: true }))}
                       </div>
                     )}
@@ -400,7 +400,7 @@ export function MemberList() {
         <div className="fixed inset-0 z-50 flex lg:hidden">
           <div className="absolute inset-0 bg-black/60" onClick={closeMobileMemberList} />
           <div className="ml-auto relative z-10 w-64 bg-bg-secondary h-full overflow-y-auto animate-slide-in-right">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
               <h3 className="font-bold text-text-primary text-sm">{t('member.groupOnline')}</h3>
               <button
                 onClick={closeMobileMemberList}
@@ -421,7 +421,7 @@ export function MemberList() {
           onClick={() => setShowInvitePanel(false)}
         >
           <div
-            className="bg-bg-secondary rounded-xl p-6 w-96 border border-white/5"
+            className="bg-bg-secondary rounded-xl p-6 w-96 border border-border-subtle"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
@@ -687,7 +687,7 @@ function BotContextMenu({
       />
       <div
         ref={menuRef}
-        className="fixed z-[81] bg-bg-tertiary border border-white/10 rounded-lg shadow-xl py-1 min-w-[180px]"
+        className="fixed z-[81] bg-bg-tertiary border border-border-dim rounded-lg shadow-xl py-1 min-w-[180px]"
         style={getMenuStyle()}
       >
         {/* View profile — always visible */}
@@ -706,7 +706,7 @@ function BotContextMenu({
         {/* Policy submenu — only for bots in a channel */}
         {showPolicySubmenu && (
           <>
-            <div className="h-px bg-white/5 my-1" />
+            <div className="h-px bg-border-subtle my-1" />
             <div
               ref={policyRowRef}
               className="relative"
@@ -723,7 +723,7 @@ function BotContextMenu({
               </button>
               {policyOpen && (
                 <div
-                  className="absolute ml-1 bg-bg-tertiary border border-white/10 rounded-lg shadow-xl py-1 min-w-[180px] z-[82]"
+                  className="absolute ml-1 bg-bg-tertiary border border-border-dim rounded-lg shadow-xl py-1 min-w-[180px] z-[82]"
                   style={getSubmenuStyle()}
                 >
                   {/* Reply All */}
@@ -793,7 +793,7 @@ function BotContextMenu({
                     )}
                     {t('member.policyCustom')}
                   </button>
-                  <div className="h-px bg-white/5 my-1" />
+                  <div className="h-px bg-border-subtle my-1" />
                   {/* Disabled / Silent */}
                   <button
                     type="button"
@@ -828,7 +828,7 @@ function BotContextMenu({
         {/* Remove / kick actions */}
         {hasDestructiveAction && (
           <>
-            <div className="h-px bg-white/5 my-1" />
+            <div className="h-px bg-border-subtle my-1" />
             {/* For bots in a channel: show "Remove from Channel" */}
             {showRemoveFromChannel && (
               <button
@@ -889,7 +889,7 @@ function BotContextMenu({
           onClick={() => setCustomPolicyOpen(false)}
         >
           <div
-            className="bg-bg-secondary rounded-xl p-5 w-[420px] max-w-[90vw] border border-white/10 shadow-2xl"
+            className="bg-bg-secondary rounded-xl p-5 w-[420px] max-w-[90vw] border border-border-dim shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
@@ -906,7 +906,7 @@ function BotContextMenu({
                   type="checkbox"
                   checked={customMentionOnly}
                   onChange={(e) => setCustomMentionOnly(e.target.checked)}
-                  className="w-4 h-4 rounded border-white/20 bg-bg-primary text-primary focus:ring-primary/50"
+                  className="w-4 h-4 rounded border-border-dim bg-bg-primary text-primary focus:ring-primary/50"
                 />
                 <span className="text-xs font-semibold text-text-secondary">{t('member.policyMentionOnly')}</span>
               </label>
@@ -945,19 +945,19 @@ function BotContextMenu({
                 <button
                   type="button"
                   onClick={() => setUserPickerOpen(!userPickerOpen)}
-                  className="w-full bg-bg-primary border border-white/10 rounded-lg px-3 py-2 text-sm text-text-muted hover:border-primary/50 transition text-left"
+                  className="w-full bg-bg-primary border border-border-dim rounded-lg px-3 py-2 text-sm text-text-muted hover:border-primary/50 transition text-left"
                 >
                   {t('member.policySelectUsers')}
                 </button>
                 {userPickerOpen && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-bg-tertiary border border-white/10 rounded-lg shadow-xl z-10 max-h-[200px] overflow-y-auto">
-                    <div className="sticky top-0 bg-bg-tertiary p-1.5 border-b border-white/5">
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-bg-tertiary border border-border-dim rounded-lg shadow-xl z-10 max-h-[200px] overflow-y-auto">
+                    <div className="sticky top-0 bg-bg-tertiary p-1.5 border-b border-border-subtle">
                       <input
                         type="text"
                         value={userPickerSearch}
                         onChange={(e) => setUserPickerSearch(e.target.value)}
                         placeholder={t('member.policySearchUsers')}
-                        className="w-full bg-bg-primary border border-white/10 rounded px-2 py-1 text-xs text-text-primary placeholder:text-text-muted focus:outline-none"
+                        className="w-full bg-bg-primary border border-border-dim rounded px-2 py-1 text-xs text-text-primary placeholder:text-text-muted focus:outline-none"
                         autoFocus
                       />
                     </div>
@@ -982,7 +982,7 @@ function BotContextMenu({
                             className="flex items-center gap-2 w-full px-3 py-1.5 text-sm hover:bg-bg-primary/50 transition"
                           >
                             <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
-                              selected ? 'bg-primary border-primary' : 'border-white/20'
+                              selected ? 'bg-primary border-primary' : 'border-border-dim'
                             }`}>
                               {selected && <Check size={10} className="text-white" />}
                             </div>
@@ -1009,7 +1009,7 @@ function BotContextMenu({
                 value={customKeywords}
                 onChange={(e) => setCustomKeywords(e.target.value)}
                 placeholder={t('member.policyKeywordsPlaceholder')}
-                className="w-full bg-bg-primary border border-white/10 rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 resize-none"
+                className="w-full bg-bg-primary border border-border-dim rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 resize-none"
                 rows={3}
               />
             </div>
@@ -1181,7 +1181,7 @@ function MemberAddAgentDialog({
       onClick={onClose}
     >
       <div
-        className="bg-bg-secondary rounded-xl w-[440px] max-h-[70vh] flex flex-col border border-white/5 overflow-hidden"
+        className="bg-bg-secondary rounded-xl w-[440px] max-h-[70vh] flex flex-col border border-border-subtle overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -1221,7 +1221,7 @@ function MemberAddAgentDialog({
                 return (
                   <div
                     key={member.id}
-                    className="flex items-start gap-3 px-3 py-3 rounded-lg border transition border-white/5 bg-bg-tertiary/50 hover:bg-bg-tertiary hover:border-white/10"
+                    className="flex items-start gap-3 px-3 py-3 rounded-lg border transition border-border-subtle bg-bg-tertiary/50 hover:bg-bg-tertiary hover:border-border-dim"
                   >
                     <div className="shrink-0 mt-0.5">
                       <UserAvatar
@@ -1276,7 +1276,7 @@ function MemberAddAgentDialog({
               return (
                 <div
                   key={agent.id}
-                  className="flex items-start gap-3 px-3 py-3 rounded-lg border transition border-white/5 bg-bg-tertiary/50 hover:bg-bg-tertiary hover:border-white/10"
+                  className="flex items-start gap-3 px-3 py-3 rounded-lg border transition border-border-subtle bg-bg-tertiary/50 hover:bg-bg-tertiary hover:border-border-dim"
                 >
                   <div className="shrink-0 mt-0.5">
                     <UserAvatar

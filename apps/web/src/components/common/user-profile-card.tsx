@@ -42,7 +42,7 @@ export function UserProfileCard({
 
   return (
     <div
-      className={`bg-bg-tertiary border border-white/10 rounded-xl shadow-2xl w-64 overflow-hidden ${className}`}
+      className={`bg-bg-tertiary border border-border-dim rounded-xl shadow-2xl w-64 overflow-hidden ${className}`}
       onClick={(e) => e.stopPropagation()}
     >
       {/* Banner */}
@@ -92,7 +92,7 @@ export function UserProfileCard({
         )}
 
         {/* Status */}
-        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/5">
+        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border-subtle">
           <div className={`w-2.5 h-2.5 rounded-full ${statusColors[status]}`} />
           <span className="text-xs text-text-secondary">
             {t(statusLabels[status] ?? 'member.offline')}
@@ -100,14 +100,14 @@ export function UserProfileCard({
         </div>
 
         {user.isBot && ownerName && (
-          <div className="mt-3 pt-3 border-t border-white/5">
+          <div className="mt-3 pt-3 border-t border-border-subtle">
             <p className="text-[10px] uppercase tracking-wide text-text-muted">OWNER / 主人</p>
             <p className="text-sm text-text-primary mt-1 truncate">{ownerName}</p>
           </div>
         )}
 
         {user.isBot && description && (
-          <div className="mt-3 pt-3 border-t border-white/5">
+          <div className="mt-3 pt-3 border-t border-border-subtle">
             <p className="text-[10px] uppercase tracking-wide text-text-muted">
               Description / 描述
             </p>

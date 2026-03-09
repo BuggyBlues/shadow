@@ -99,3 +99,35 @@ export function setupPresenceGateway(io: SocketIOServer, container: AppContainer
 export function getOnlineUserIds(): string[] {
   return Array.from(onlineUsers.keys())
 }
+
+/** Force-disconnect a user by userId (e.g. on page close via sendBeacon) */
+export function forceDisconnectUser(
+  userId: string,
+  io: import('socket.io').Server,
+  container: AppContainer,
+): void {
+  const sockets = onlineUsers.get(userId)
+  if (sockets) {
+    // Disconnect all sockets for this user
+    for (const socketId of sockets) {
+      const s = io.sockets.sockets.get(socketId)
+      if (s) s.disconnect(true)
+    }
+    onlineUsers.delete(userId)
+    const userDao = container.resolve('userDao')
+    void userDao.updateStatus(userId, 'offline')
+    io.emit('presence:change', { userId, status: 'offline' })
+
+    // Clear activity
+    const act = userActivities.get(userId)
+    if (act) {
+      clearTimeout(act.timer)
+      userActivities.delete(userId)
+      io.to(`channel:${act.channelId}`).emit('presence:activity', {
+        userId,
+        channelId: act.channelId,
+        activity: null,
+      })
+    }
+  }
+}

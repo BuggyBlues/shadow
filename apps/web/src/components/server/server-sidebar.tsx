@@ -92,9 +92,9 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
   }
 
   return (
-    <div className="w-[72px] bg-bg-tertiary flex flex-col items-center py-3 gap-2 shrink-0">
+    <div className="w-[72px] bg-bg-tertiary flex flex-col items-center py-3 shrink-0 h-full overflow-hidden">
       {/* User avatar → settings/profile */}
-      <div className="relative group/user">
+      <div className="relative group/user shrink-0">
         <button
           onClick={() => navigate({ to: '/app/settings' })}
           className="w-12 h-12 rounded-full bg-bg-primary hover:ring-2 hover:ring-primary/60 transition-all duration-200 flex items-center justify-center overflow-hidden"
@@ -109,41 +109,45 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
           )}
         </button>
         {/* Tooltip */}
-        <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1.5 bg-zinc-900 text-white text-sm font-medium rounded-md shadow-lg whitespace-nowrap pointer-events-none opacity-0 group-hover/user:opacity-100 transition-opacity z-50">
+        <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1.5 bg-bg-tertiary text-text-primary text-sm font-medium rounded-md shadow-lg whitespace-nowrap pointer-events-none opacity-0 group-hover/user:opacity-100 transition-opacity z-50">
           {user?.displayName || user?.username}
-          <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-zinc-900" />
+          <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-bg-tertiary" />
         </div>
       </div>
 
-      <div className="w-8 h-0.5 bg-[#404249] rounded-full my-1" />
+      <div className="w-8 h-0.5 bg-divider rounded-full my-1 shrink-0" />
 
-      {/* Server list */}
-      {servers.map((s, i) => (
-        <div key={s.server.id} className="relative group/server">
-          <button
-            onClick={() => handleSelect(s.server.id, s.server.slug)}
-            onContextMenu={(e) => handleContextMenu(e, s)}
-            className={`w-12 h-12 transition-all duration-200 flex items-center justify-center font-bold text-[15px] overflow-hidden ${
-              activeServerId === s.server.id
-                ? 'bg-[#5865F2] rounded-[16px] text-white shadow-sm'
-                : 'bg-bg-primary text-text-primary rounded-[24px] hover:rounded-[16px] hover:bg-[#5865F2] hover:text-white'
-            }`}
-          >
-            {s.server.iconUrl ? (
-              <img src={s.server.iconUrl} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <img src={getCatAvatar(i)} alt={s.server.name} className="w-10 h-10" />
-            )}
-          </button>
-          {/* Tooltip */}
-          <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1.5 bg-zinc-900 text-white text-sm font-medium rounded-md shadow-lg whitespace-nowrap pointer-events-none opacity-0 group-hover/server:opacity-100 transition-opacity z-50">
-            {s.server.name}
-            <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-zinc-900" />
+      {/* Scrollable server list */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col items-center gap-2 min-h-0 py-1 scrollbar-thin">
+        {servers.map((s, i) => (
+          <div key={s.server.id} className="relative group/server shrink-0">
+            <button
+              onClick={() => handleSelect(s.server.id, s.server.slug)}
+              onContextMenu={(e) => handleContextMenu(e, s)}
+              className={`w-12 h-12 transition-all duration-200 flex items-center justify-center font-bold text-[15px] overflow-hidden ${
+                activeServerId === s.server.id
+                  ? 'bg-[#5865F2] rounded-[16px] text-white shadow-sm'
+                  : 'bg-bg-primary text-text-primary rounded-[24px] hover:rounded-[16px] hover:bg-[#5865F2] hover:text-white'
+              }`}
+            >
+              {s.server.iconUrl ? (
+                <img src={s.server.iconUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <img src={getCatAvatar(i)} alt={s.server.name} className="w-10 h-10" />
+              )}
+            </button>
+            {/* Tooltip */}
+            <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1.5 bg-bg-tertiary text-text-primary text-sm font-medium rounded-md shadow-lg whitespace-nowrap pointer-events-none opacity-0 group-hover/server:opacity-100 transition-opacity z-50">
+              {s.server.name}
+              <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-bg-tertiary" />
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
 
-      {/* Add server */}
+      {/* Action buttons — fixed at bottom */}
+      <div className="flex flex-col items-center gap-2 pt-2 shrink-0">
+        <div className="w-8 h-0.5 bg-divider rounded-full" />
       <button
         onClick={() => setShowCreate(!showCreate)}
         className="w-12 h-12 rounded-[24px] hover:rounded-[16px] bg-bg-primary hover:bg-[#23a559] transition-all duration-200 flex items-center justify-center text-[#23a559] hover:text-white"
@@ -169,6 +173,7 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
       >
         <Compass size={24} className="opacity-90" />
       </button>
+      </div>
 
       {/* Simple create dialog */}
       {showCreate && (
@@ -177,7 +182,7 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
           onClick={() => setShowCreate(false)}
         >
           <div
-            className="bg-bg-secondary rounded-xl p-6 w-96 border border-white/5"
+            className="bg-bg-secondary rounded-xl p-6 w-96 border border-border-subtle"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-xl font-bold text-text-primary mb-4">{t('server.createServer')}</h2>
@@ -221,7 +226,7 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
           onClick={() => setShowJoin(false)}
         >
           <div
-            className="bg-bg-secondary rounded-xl p-6 w-96 border border-white/5"
+            className="bg-bg-secondary rounded-xl p-6 w-96 border border-border-subtle"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-xl font-bold text-text-primary mb-2">{t('server.joinServer')}</h2>
@@ -272,7 +277,7 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
             }}
           />
           <div
-            className="fixed z-[61] bg-bg-tertiary border border-white/10 rounded-lg shadow-xl py-1 min-w-[180px]"
+            className="fixed z-[61] bg-bg-tertiary border border-border-dim rounded-lg shadow-xl py-1 min-w-[180px]"
             style={{ left: contextMenu.x, top: contextMenu.y }}
           >
             {/* Server info */}
@@ -317,7 +322,7 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
             </button>
 
             {/* Leave server */}
-            <div className="h-px bg-white/5 my-1" />
+            <div className="h-px bg-border-subtle my-1" />
             <button
               type="button"
               onClick={async () => {

@@ -2,7 +2,9 @@ import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { AppContainer } from '../container'
+import { verifyToken } from '../lib/jwt'
 import { authMiddleware } from '../middleware/auth.middleware'
+import { forceDisconnectUser } from '../ws/presence.gateway'
 import { loginSchema, registerSchema } from '../validators/auth.schema'
 
 export function createAuthHandler(container: AppContainer) {
@@ -63,6 +65,23 @@ export function createAuthHandler(container: AppContainer) {
       return c.json(result)
     },
   )
+
+  // POST /api/auth/disconnect — beacon-based disconnect on page close
+  authHandler.post('/disconnect', async (c) => {
+    try {
+      const body = await c.req.json<{ token?: string }>()
+      if (body.token) {
+        const payload = verifyToken(body.token)
+        if (payload.userId) {
+          const io = container.resolve('io')
+          forceDisconnectUser(payload.userId, io, container)
+        }
+      }
+    } catch {
+      // Silently ignore — beacon fires on best-effort basis
+    }
+    return c.json({ ok: true })
+  })
 
   return authHandler
 }

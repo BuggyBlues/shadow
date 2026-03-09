@@ -52,7 +52,7 @@ export function AvatarEditor({ value, onChange }: AvatarEditorProps) {
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-4">
         {/* Current Avatar Display */}
-        <div className="w-20 h-20 rounded-[12px] border-4 border-[#1e1f22] bg-[#2b2d31] overflow-hidden flex items-center justify-center shrink-0">
+        <div className="w-20 h-20 rounded-[12px] border-4 border-[#1e1f22] bg-bg-secondary overflow-hidden flex items-center justify-center shrink-0">
           {value ? (
             <img src={value} alt="Avatar" className="w-full h-full object-cover" />
           ) : (
@@ -61,14 +61,14 @@ export function AvatarEditor({ value, onChange }: AvatarEditorProps) {
         </div>
 
         <div className="flex flex-col gap-2 flex-1">
-          <div className="flex bg-[#1e1f22] p-1 rounded-lg self-start">
+          <div className="flex bg-bg-tertiary p-1 rounded-lg self-start">
             <button
               type="button"
               onClick={() => setTab('preset')}
               className={`px-4 py-1.5 rounded-[5px] text-[13px] font-bold transition flex items-center gap-1 ${
                 tab === 'preset'
-                  ? 'bg-[#313338] text-[#f2f3f5] shadow-sm'
-                  : 'text-[#949ba4] hover:text-[#dbdee1] hover:bg-[#2b2d31]'
+                  ? 'bg-bg-primary text-[#f2f3f5] shadow-sm'
+                  : 'text-text-muted hover:text-text-primary hover:bg-bg-secondary'
               }`}
             >
               <Dices size={16} />
@@ -79,22 +79,22 @@ export function AvatarEditor({ value, onChange }: AvatarEditorProps) {
               onClick={() => setTab('upload')}
               className={`px-4 py-1.5 rounded-[5px] text-[13px] font-bold transition flex items-center gap-1 ${
                 tab === 'upload'
-                  ? 'bg-[#313338] text-[#f2f3f5] shadow-sm'
-                  : 'text-[#949ba4] hover:text-[#dbdee1] hover:bg-[#2b2d31]'
+                  ? 'bg-bg-primary text-[#f2f3f5] shadow-sm'
+                  : 'text-text-muted hover:text-text-primary hover:bg-bg-secondary'
               }`}
             >
               <Upload size={16} />
               {t('agentMgmt.uploadAvatar')}
             </button>
           </div>
-          <p className="text-[12px] text-[#949ba4]">{t('agentMgmt.avatarDesc')}</p>
+          <p className="text-[12px] text-text-muted">{t('agentMgmt.avatarDesc')}</p>
         </div>
       </div>
 
       {tab === 'preset' && (
-        <div className="bg-[#2b2d31] border border-[#1e1f22] rounded-[8px] p-4 flex items-center justify-between">
+        <div className="bg-bg-secondary border border-[#1e1f22] rounded-[8px] p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-[48px] h-[48px] rounded-[10px] bg-[#1e1f22] border-[2px] border-transparent overflow-hidden">
+            <div className="w-[48px] h-[48px] rounded-[10px] bg-bg-tertiary border-[2px] border-transparent overflow-hidden">
               <img
                 src={renderCatSvg(catConfig)}
                 alt="Preview"
@@ -103,7 +103,7 @@ export function AvatarEditor({ value, onChange }: AvatarEditorProps) {
             </div>
             <div>
               <h4 className="text-[14px] font-bold text-[#f2f3f5]">{t('agentMgmt.diceCat')}</h4>
-              <p className="text-[12px] text-[#949ba4]">{t('agentMgmt.diceCatDesc')}</p>
+              <p className="text-[12px] text-text-muted">{t('agentMgmt.diceCatDesc')}</p>
             </div>
           </div>
           <button
@@ -117,14 +117,14 @@ export function AvatarEditor({ value, onChange }: AvatarEditorProps) {
       )}
 
       {tab === 'upload' && (
-        <div className="bg-[#1e1f22] border-2 border-dashed border-[#383a40] hover:border-[#5865F2] rounded-[8px] p-6 flex flex-col items-center justify-center gap-2 transition-colors relative cursor-pointer group">
-          <div className="w-10 h-10 rounded-full bg-[#2b2d31] group-hover:bg-[#5865F2] flex items-center justify-center transition-colors">
-            <Upload size={20} className="text-[#dbdee1] group-hover:text-white" />
+        <div className="bg-bg-tertiary border-2 border-dashed border-[#383a40] hover:border-[#5865F2] rounded-[8px] p-6 flex flex-col items-center justify-center gap-2 transition-colors relative cursor-pointer group">
+          <div className="w-10 h-10 rounded-full bg-bg-secondary group-hover:bg-[#5865F2] flex items-center justify-center transition-colors">
+            <Upload size={20} className="text-text-primary group-hover:text-white" />
           </div>
-          <p className="text-[14px] text-[#dbdee1] font-bold mt-2">
+          <p className="text-[14px] text-text-primary font-bold mt-2">
             {isUploading ? t('common.uploading') : t('agentMgmt.clickToUpload')}
           </p>
-          <p className="text-[12px] text-[#949ba4]">{t('agentMgmt.uploadTip')}</p>
+          <p className="text-[12px] text-text-muted">{t('agentMgmt.uploadTip')}</p>
 
           <input
             ref={fileInputRef}

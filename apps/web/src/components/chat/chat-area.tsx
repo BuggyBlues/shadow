@@ -583,7 +583,7 @@ export function ChatArea() {
           {/* Mobile back button */}
           <button
             onClick={() => setMobileView('channels')}
-            className="md:hidden text-text-secondary hover:text-text-primary transition shrink-0 -ml-1 mr-1 p-1 hover:bg-white/5 rounded-md"
+            className="md:hidden text-text-secondary hover:text-text-primary transition shrink-0 -ml-1 mr-1 p-1 hover:bg-bg-modifier-hover rounded-md"
           >
             <ArrowLeft size={20} />
           </button>
@@ -604,7 +604,7 @@ export function ChatArea() {
             <NotificationBell />
             <button
               onClick={() => useUIStore.getState().toggleMobileMemberList()}
-              className="lg:hidden text-text-secondary hover:text-text-primary transition p-1.5 rounded-md hover:bg-white/5"
+              className="lg:hidden text-text-secondary hover:text-text-primary transition p-1.5 rounded-md hover:bg-bg-modifier-hover"
               title={t('member.toggleList')}
             >
               <Users size={20} />

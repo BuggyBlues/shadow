@@ -83,14 +83,14 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#1e1f22] p-4  bg-center">
-      <div className="w-full max-w-[480px] bg-[#313338] rounded-[5px] p-8 shadow-[0_2px_10px_0_rgba(0,0,0,0.2)]">
+    <div className="min-h-screen flex items-center justify-center bg-bg-tertiary p-4  bg-center">
+      <div className="w-full max-w-[480px] bg-bg-primary rounded-[5px] p-8 shadow-[0_2px_10px_0_rgba(0,0,0,0.2)]">
         <div className="text-center mb-6">
           <img src="/Logo.svg" alt="Shadow" className="w-12 h-12 mx-auto mb-3" />
           <h1 className="text-2xl font-semibold text-white mb-2 tracking-wide">
             {t('auth.registerTitle')}
           </h1>
-          <p className="text-[#b5bac1] text-[15px]">{t('auth.registerSubtitle')}</p>
+          <p className="text-text-secondary text-[15px]">{t('auth.registerSubtitle')}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -104,7 +104,7 @@ export function RegisterPage() {
           <AvatarEditor value={selectedAvatar} onChange={setSelectedAvatar} />
 
           <div>
-            <label className="block text-[12px] font-bold uppercase text-[#b5bac1] mb-2 tracking-wide">
+            <label className="block text-[12px] font-bold uppercase text-text-secondary mb-2 tracking-wide">
               {t('auth.emailLabel')} <span className="text-[#f23f43]">*</span>
             </label>
             <input
@@ -113,28 +113,28 @@ export function RegisterPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
-              className="w-full bg-[#1e1f22] text-[#dbdee1] rounded-[3px] px-3 py-2.5 outline-none focus:ring-0 transition"
+              className="w-full bg-bg-tertiary text-text-primary rounded-[3px] px-3 py-2.5 outline-none focus:ring-0 transition"
               placeholder="you@example.com"
             />
           </div>
 
           <div>
-            <label className="block text-[12px] font-bold uppercase text-[#b5bac1] mb-2 tracking-wide">
+            <label className="block text-[12px] font-bold uppercase text-text-secondary mb-2 tracking-wide">
               {t('auth.displayNameLabel')}{' '}
-              <span className="text-[#949ba4] font-normal italic">{t('auth.optional')}</span>
+              <span className="text-text-muted font-normal italic">{t('auth.optional')}</span>
             </label>
             <input
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               autoComplete="nickname"
-              className="w-full bg-[#1e1f22] text-[#dbdee1] rounded-[3px] px-3 py-2.5 outline-none focus:ring-0 transition"
+              className="w-full bg-bg-tertiary text-text-primary rounded-[3px] px-3 py-2.5 outline-none focus:ring-0 transition"
               placeholder={t('auth.displayNamePlaceholder')}
             />
           </div>
 
           <div>
-            <label className="block text-[12px] font-bold uppercase text-[#b5bac1] mb-2 tracking-wide">
+            <label className="block text-[12px] font-bold uppercase text-text-secondary mb-2 tracking-wide">
               {t('auth.passwordLabel')} <span className="text-[#f23f43]">*</span>
             </label>
             <input
@@ -144,13 +144,13 @@ export function RegisterPage() {
               required
               minLength={8}
               autoComplete="new-password"
-              className="w-full bg-[#1e1f22] text-[#dbdee1] rounded-[3px] px-3 py-2.5 outline-none focus:ring-0 transition"
+              className="w-full bg-bg-tertiary text-text-primary rounded-[3px] px-3 py-2.5 outline-none focus:ring-0 transition"
               placeholder={t('auth.passwordPlaceholder')}
             />
           </div>
 
           <div>
-            <label className="block text-[12px] font-bold uppercase text-[#b5bac1] mb-2 tracking-wide">
+            <label className="block text-[12px] font-bold uppercase text-text-secondary mb-2 tracking-wide">
               {t('auth.inviteCodeLabel')} <span className="text-[#f23f43]">*</span>
             </label>
             <input
@@ -158,10 +158,10 @@ export function RegisterPage() {
               value={inviteCode}
               onChange={(e) => setInviteCode(e.target.value)}
               required
-              className="w-full bg-[#1e1f22] text-[#dbdee1] rounded-[3px] px-3 py-2.5 outline-none focus:ring-0 transition font-mono tracking-wider"
+              className="w-full bg-bg-tertiary text-text-primary rounded-[3px] px-3 py-2.5 outline-none focus:ring-0 transition font-mono tracking-wider"
               placeholder={t('auth.inviteCodePlaceholder')}
             />
-            <p className="text-[11px] text-[#949ba4] mt-1.5">{t('auth.inviteCodeHint')}</p>
+            <p className="text-[11px] text-text-muted mt-1.5">{t('auth.inviteCodeHint')}</p>
           </div>
 
           <button
@@ -174,7 +174,7 @@ export function RegisterPage() {
         </form>
 
         <p className="mt-4 text-[14px]">
-          <span className="text-[#949ba4]">{t('auth.hasAccount')}</span>{' '}
+          <span className="text-text-muted">{t('auth.hasAccount')}</span>{' '}
           <Link to="/login" search={searchParams.redirect ? { redirect: searchParams.redirect } : {}} className="text-[#00a8fc] hover:underline">
             {t('auth.loginLink')}
           </Link>

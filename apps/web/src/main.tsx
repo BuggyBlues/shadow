@@ -125,9 +125,14 @@ const serverChannelRoute = createRoute({
 })
 
 const serverHomeRoute = createRoute({
-  getParentRoute: () => appRoute,
-  path: '/servers/$serverId/home',
+  getParentRoute: () => rootRoute,
+  path: '/s/$serverId',
   component: ServerHomePage,
+  beforeLoad: () => {
+    if (!useAuthStore.getState().isAuthenticated) {
+      throw redirect({ to: '/login' })
+    }
+  },
 })
 
 const settingsRoute = createRoute({
@@ -158,7 +163,8 @@ const routeTree = rootRoute.addChildren([
   pricingRoute,
   docsRoute,
   inviteRoute,
-  appRoute.addChildren([appIndexRoute, serverRoute, serverChannelRoute, serverHomeRoute, settingsRoute, agentMgmtRoute, discoverRoute]),
+  serverHomeRoute,
+  appRoute.addChildren([appIndexRoute, serverRoute, serverChannelRoute, settingsRoute, agentMgmtRoute, discoverRoute]),
 ])
 
 const router = createRouter({ routeTree })

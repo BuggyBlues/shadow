@@ -58,14 +58,14 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#1e1f22] p-4  bg-center">
-      <div className="w-full max-w-[480px] bg-[#313338] rounded-md p-8 shadow-[0_2px_10px_0_rgba(0,0,0,0.2)]">
+    <div className="min-h-screen flex items-center justify-center bg-bg-tertiary p-4  bg-center">
+      <div className="w-full max-w-[480px] bg-bg-primary rounded-md p-8 shadow-[0_2px_10px_0_rgba(0,0,0,0.2)]">
         <div className="text-center mb-8">
           <img src="/Logo.svg" alt="Shadow" className="w-12 h-12 mx-auto mb-3" />
           <h1 className="text-2xl font-semibold text-white mb-2 tracking-wide">
             {t('auth.loginTitle')}
           </h1>
-          <p className="text-[#b5bac1] text-[15px]">{t('auth.loginSubtitle')}</p>
+          <p className="text-text-secondary text-[15px]">{t('auth.loginSubtitle')}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -76,7 +76,7 @@ export function LoginPage() {
           )}
 
           <div>
-            <label className="block text-[12px] font-bold uppercase text-[#b5bac1] mb-2 tracking-wide">
+            <label className="block text-[12px] font-bold uppercase text-text-secondary mb-2 tracking-wide">
               {t('auth.emailLabel')} <span className="text-[#f23f43]">*</span>
             </label>
             <input
@@ -85,13 +85,13 @@ export function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
-              className="w-full bg-[#1e1f22] text-[#dbdee1] rounded-[3px] px-3 py-2.5 outline-none focus:ring-0 transition"
+              className="w-full bg-bg-tertiary text-text-primary rounded-[3px] px-3 py-2.5 outline-none focus:ring-0 transition"
               placeholder="you@example.com"
             />
           </div>
 
           <div>
-            <label className="block text-[12px] font-bold uppercase text-[#b5bac1] mb-2 tracking-wide">
+            <label className="block text-[12px] font-bold uppercase text-text-secondary mb-2 tracking-wide">
               {t('auth.passwordLabel')} <span className="text-[#f23f43]">*</span>
             </label>
             <input
@@ -100,7 +100,7 @@ export function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="current-password"
-              className="w-full bg-[#1e1f22] text-[#dbdee1] rounded-[3px] px-3 py-2.5 outline-none focus:ring-0 transition"
+              className="w-full bg-bg-tertiary text-text-primary rounded-[3px] px-3 py-2.5 outline-none focus:ring-0 transition"
               placeholder="••••••••"
             />
           </div>
@@ -115,7 +115,7 @@ export function LoginPage() {
         </form>
 
         <p className="mt-4 text-[14px]">
-          <span className="text-[#949ba4]">{t('auth.noAccount')}</span>{' '}
+          <span className="text-text-muted">{t('auth.noAccount')}</span>{' '}
           <Link to="/register" search={searchParams.redirect ? { redirect: searchParams.redirect } : {}} className="text-[#00a8fc] hover:underline">
             {t('auth.registerLink')}
           </Link>

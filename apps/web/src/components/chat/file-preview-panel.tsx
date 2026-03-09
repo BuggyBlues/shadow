@@ -302,7 +302,7 @@ function TabButton({
       className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition ${
         active
           ? 'bg-white/12 text-text-primary'
-          : 'text-text-muted hover:text-text-secondary hover:bg-white/5'
+          : 'text-text-muted hover:text-text-secondary hover:bg-bg-modifier-hover'
       }`}
     >
       <Icon size={13} />
@@ -323,14 +323,14 @@ function CSVTable({ text, ext }: { text: string; ext: string }) {
     <div className="overflow-auto flex-1">
       <table className="w-full border-collapse text-[13px]">
         <thead className="sticky top-0 z-10">
-          <tr className="bg-bg-tertiary border-b border-white/10">
-            <th className="px-3 py-2 text-[11px] font-bold text-text-muted text-right w-10 border-r border-white/5">
+          <tr className="bg-bg-tertiary border-b border-border-dim">
+            <th className="px-3 py-2 text-[11px] font-bold text-text-muted text-right w-10 border-r border-border-subtle">
               #
             </th>
             {headers.map((h, i) => (
               <th
                 key={i}
-                className="px-3 py-2 text-left font-semibold text-text-primary whitespace-nowrap border-r border-white/5 last:border-r-0"
+                className="px-3 py-2 text-left font-semibold text-text-primary whitespace-nowrap border-r border-border-subtle last:border-r-0"
               >
                 {h}
               </th>
@@ -339,14 +339,14 @@ function CSVTable({ text, ext }: { text: string; ext: string }) {
         </thead>
         <tbody>
           {rows.map((row, ri) => (
-            <tr key={ri} className="border-b border-white/5 hover:bg-white/3 transition-colors">
-              <td className="px-3 py-1.5 text-[11px] text-text-muted text-right border-r border-white/5 tabular-nums select-none">
+            <tr key={ri} className="border-b border-border-subtle hover:bg-white/3 transition-colors">
+              <td className="px-3 py-1.5 text-[11px] text-text-muted text-right border-r border-border-subtle tabular-nums select-none">
                 {ri + 1}
               </td>
               {headers.map((_, ci) => (
                 <td
                   key={ci}
-                  className="px-3 py-1.5 text-text-secondary whitespace-nowrap border-r border-white/5 last:border-r-0 max-w-[300px] truncate"
+                  className="px-3 py-1.5 text-text-secondary whitespace-nowrap border-r border-border-subtle last:border-r-0 max-w-[300px] truncate"
                   title={row[ci] ?? ''}
                 >
                   {row[ci] ?? ''}
@@ -430,7 +430,7 @@ function ExcelTable({ url }: { url: string }) {
               className={`px-2.5 py-1 text-xs rounded-md whitespace-nowrap transition ${
                 i === activeSheet
                   ? 'bg-white/12 text-text-primary font-medium'
-                  : 'text-text-muted hover:text-text-secondary hover:bg-white/5'
+                  : 'text-text-muted hover:text-text-secondary hover:bg-bg-modifier-hover'
               }`}
             >
               {s.name}
@@ -442,14 +442,14 @@ function ExcelTable({ url }: { url: string }) {
       <div className="overflow-auto flex-1">
         <table className="w-full border-collapse text-[13px]">
           <thead className="sticky top-0 z-10">
-            <tr className="bg-bg-tertiary border-b border-white/10">
-              <th className="px-3 py-2 text-[11px] font-bold text-text-muted text-right w-10 border-r border-white/5">
+            <tr className="bg-bg-tertiary border-b border-border-dim">
+              <th className="px-3 py-2 text-[11px] font-bold text-text-muted text-right w-10 border-r border-border-subtle">
                 #
               </th>
               {sheet.headers.map((h, i) => (
                 <th
                   key={i}
-                  className="px-3 py-2 text-left font-semibold text-text-primary whitespace-nowrap border-r border-white/5 last:border-r-0"
+                  className="px-3 py-2 text-left font-semibold text-text-primary whitespace-nowrap border-r border-border-subtle last:border-r-0"
                 >
                   {h}
                 </th>
@@ -458,14 +458,14 @@ function ExcelTable({ url }: { url: string }) {
           </thead>
           <tbody>
             {sheet.rows.map((row, ri) => (
-              <tr key={ri} className="border-b border-white/5 hover:bg-white/3 transition-colors">
-                <td className="px-3 py-1.5 text-[11px] text-text-muted text-right border-r border-white/5 tabular-nums select-none">
+              <tr key={ri} className="border-b border-border-subtle hover:bg-white/3 transition-colors">
+                <td className="px-3 py-1.5 text-[11px] text-text-muted text-right border-r border-border-subtle tabular-nums select-none">
                   {ri + 1}
                 </td>
                 {sheet.headers.map((_, ci) => (
                   <td
                     key={ci}
-                    className="px-3 py-1.5 text-text-secondary whitespace-nowrap border-r border-white/5 last:border-r-0 max-w-[300px] truncate"
+                    className="px-3 py-1.5 text-text-secondary whitespace-nowrap border-r border-border-subtle last:border-r-0 max-w-[300px] truncate"
                     title={row[ci] ?? ''}
                   >
                     {row[ci] ?? ''}
@@ -626,10 +626,10 @@ function MarkdownPreview({ text }: { text: string }) {
       [&_pre]:bg-bg-tertiary [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:mb-3 [&_pre]:overflow-x-auto [&_pre_code]:bg-transparent [&_pre_code]:p-0
       [&_blockquote]:border-l-2 [&_blockquote]:border-primary/50 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-text-muted [&_blockquote]:my-2
       [&_a]:text-primary [&_a]:underline [&_a]:hover:text-primary-hover
-      [&_hr]:border-white/10 [&_hr]:my-4
+      [&_hr]:border-border-dim [&_hr]:my-4
       [&_table]:w-full [&_table]:border-collapse [&_table]:my-3
-      [&_th]:px-3 [&_th]:py-1.5 [&_th]:text-left [&_th]:font-semibold [&_th]:text-text-primary [&_th]:border-b [&_th]:border-white/10 [&_th]:text-[13px]
-      [&_td]:px-3 [&_td]:py-1.5 [&_td]:border-b [&_td]:border-white/5 [&_td]:text-[13px]
+      [&_th]:px-3 [&_th]:py-1.5 [&_th]:text-left [&_th]:font-semibold [&_th]:text-text-primary [&_th]:border-b [&_th]:border-border-dim [&_th]:text-[13px]
+      [&_td]:px-3 [&_td]:py-1.5 [&_td]:border-b [&_td]:border-border-subtle [&_td]:text-[13px]
       [&_img]:max-w-full [&_img]:rounded-lg [&_img]:my-2
       [&_strong]:text-text-primary [&_strong]:font-semibold
       [&_em]:italic
@@ -816,7 +816,7 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
           <iframe
             src={attachment.url}
             title={attachment.filename}
-            className="w-full h-full rounded-lg border border-white/5"
+            className="w-full h-full rounded-lg border border-border-subtle"
           />
         </div>
       )
@@ -882,7 +882,7 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
         return <CSVTable text={textContent} ext={ext} />
       }
       return (
-        <div className="flex-1 overflow-auto bg-bg-primary/50 rounded-lg m-2 border border-white/5">
+        <div className="flex-1 overflow-auto bg-bg-primary/50 rounded-lg m-2 border border-border-subtle">
           <HighlightedCode text={textContent} lang="csv" />
         </div>
       )
@@ -898,7 +898,7 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
         )
       }
       return (
-        <div className="flex-1 overflow-auto bg-bg-primary/50 rounded-lg m-2 border border-white/5">
+        <div className="flex-1 overflow-auto bg-bg-primary/50 rounded-lg m-2 border border-border-subtle">
           <HighlightedCode text={textContent} lang="markdown" />
         </div>
       )
@@ -914,7 +914,7 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
         )
       }
       return (
-        <div className="flex-1 overflow-auto bg-bg-primary/50 rounded-lg m-2 border border-white/5">
+        <div className="flex-1 overflow-auto bg-bg-primary/50 rounded-lg m-2 border border-border-subtle">
           <HighlightedCode text={textContent} lang="html" />
         </div>
       )
@@ -923,7 +923,7 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
     // General text/code — always shows highlighted code
     const lang = extToLang(ext)
     return (
-      <div className="flex-1 overflow-auto bg-bg-primary/50 rounded-lg m-2 border border-white/5">
+      <div className="flex-1 overflow-auto bg-bg-primary/50 rounded-lg m-2 border border-border-subtle">
         <HighlightedCode text={textContent} lang={lang} />
       </div>
     )

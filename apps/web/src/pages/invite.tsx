@@ -64,11 +64,11 @@ export function InvitePage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#1e1f22]  flex items-center justify-center">
-        <div className="bg-[#313338] rounded-[5px] p-8 w-[480px] shadow-[0_2px_10px_0_rgba(0,0,0,0.2)] text-center">
+      <div className="min-h-screen bg-bg-tertiary  flex items-center justify-center">
+        <div className="bg-bg-primary rounded-[5px] p-8 w-[480px] shadow-[0_2px_10px_0_rgba(0,0,0,0.2)] text-center">
           <img src="/Logo.svg" alt="Shadow" className="w-16 h-16 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-[#f2f3f5] mb-2">{t('invite.title')}</h2>
-          <p className="text-[#b5bac1] text-sm mb-6">{t('invite.loginRequired')}</p>
+          <p className="text-text-secondary text-sm mb-6">{t('invite.loginRequired')}</p>
           <button
             type="button"
             onClick={() => navigate({ to: '/login', search: { redirect: `/invite/${code}` } })}
@@ -79,7 +79,7 @@ export function InvitePage() {
           <button
             type="button"
             onClick={() => navigate({ to: '/register', search: { redirect: `/invite/${code}` } })}
-            className="w-full mt-3 px-4 py-3 bg-[#2b2d31] hover:bg-[#3f4147] text-[#dbdee1] rounded-lg transition"
+            className="w-full mt-3 px-4 py-3 bg-bg-secondary hover:bg-bg-modifier-hover text-text-primary rounded-lg transition"
           >
             {t('auth.registerSubmit')}
           </button>
@@ -90,7 +90,7 @@ export function InvitePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#1e1f22]  flex items-center justify-center">
+      <div className="min-h-screen bg-bg-tertiary  flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-[#5865F2]" />
       </div>
     )
@@ -98,15 +98,15 @@ export function InvitePage() {
 
   if (error || !serverInfo) {
     return (
-      <div className="min-h-screen bg-[#1e1f22]  flex items-center justify-center">
-        <div className="bg-[#313338] rounded-[5px] p-8 w-[480px] shadow-[0_2px_10px_0_rgba(0,0,0,0.2)] text-center">
+      <div className="min-h-screen bg-bg-tertiary  flex items-center justify-center">
+        <div className="bg-bg-primary rounded-[5px] p-8 w-[480px] shadow-[0_2px_10px_0_rgba(0,0,0,0.2)] text-center">
           <img src="/Logo.svg" alt="Shadow" className="w-16 h-16 mx-auto mb-4 opacity-30" />
           <h2 className="text-xl font-bold text-[#f2f3f5] mb-2">{t('invite.title')}</h2>
           <p className="text-[#f23f43] text-sm mb-4">{error ?? t('invite.invalidCode')}</p>
           <button
             type="button"
             onClick={() => navigate({ to: '/app' })}
-            className="px-4 py-2 bg-[#2b2d31] hover:bg-[#3f4147] text-[#dbdee1] rounded-lg transition"
+            className="px-4 py-2 bg-bg-secondary hover:bg-bg-modifier-hover text-text-primary rounded-lg transition"
           >
             {t('common.back')}
           </button>
@@ -116,13 +116,13 @@ export function InvitePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#1e1f22]  flex items-center justify-center">
-      <div className="bg-[#313338] rounded-[5px] p-8 w-[480px] shadow-[0_2px_10px_0_rgba(0,0,0,0.2)] text-center">
+    <div className="min-h-screen bg-bg-tertiary  flex items-center justify-center">
+      <div className="bg-bg-primary rounded-[5px] p-8 w-[480px] shadow-[0_2px_10px_0_rgba(0,0,0,0.2)] text-center">
         <img src="/Logo.svg" alt="Shadow" className="w-16 h-16 mx-auto mb-4" />
         <h2 className="text-xl font-bold text-[#f2f3f5] mb-1">{t('invite.title')}</h2>
-        <p className="text-[#b5bac1] text-sm mb-6">{t('invite.youAreInvited')}</p>
+        <p className="text-text-secondary text-sm mb-6">{t('invite.youAreInvited')}</p>
 
-        <div className="bg-[#2b2d31] rounded-lg p-4 mb-6">
+        <div className="bg-bg-secondary rounded-lg p-4 mb-6">
           <div className="w-12 h-12 mx-auto rounded-2xl bg-[#5865F2]/20 flex items-center justify-center text-2xl font-bold text-[#5865F2] mb-2">
             {serverInfo.name.charAt(0).toUpperCase()}
           </div>

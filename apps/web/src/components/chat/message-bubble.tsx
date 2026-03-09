@@ -381,7 +381,7 @@ export function MessageBubble({
           /* Markdown content — hide zero-width space placeholder for file-only messages */
           message.content &&
           message.content !== '\u200B' && (
-            <div className="text-[15px] text-[#dbdee1] leading-[1.375] break-words msg-markdown pt-[2px]">
+            <div className="text-[15px] text-text-primary leading-[1.375] break-words msg-markdown pt-[2px]">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
@@ -411,7 +411,7 @@ export function MessageBubble({
                   href={att.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block max-w-xs rounded-lg overflow-hidden border border-white/10"
+                  className="block max-w-xs rounded-lg overflow-hidden border border-border-dim"
                 >
                   <img src={att.url} alt={att.filename} className="max-h-60 object-contain" />
                 </a>
@@ -440,7 +440,7 @@ export function MessageBubble({
                 className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border transition ${
                   (r.userIds ?? []).includes(currentUserId)
                     ? 'bg-primary/20 border-primary/50 text-primary'
-                    : 'bg-bg-tertiary border-white/5 text-text-muted hover:border-white/10'
+                    : 'bg-bg-tertiary border-border-subtle text-text-muted hover:border-border-dim'
                 }`}
               >
                 <span>{r.emoji}</span>
@@ -474,7 +474,7 @@ export function MessageBubble({
             const rect = messageRef.current!.getBoundingClientRect()
             return (
               <div
-                className="fixed flex items-center bg-bg-tertiary border border-white/10 rounded-lg shadow-lg z-[70]"
+                className="fixed flex items-center bg-bg-tertiary border border-border-dim rounded-lg shadow-lg z-[70]"
                 style={{ top: rect.top - 6, right: window.innerWidth - rect.right + 16 }}
                 onMouseEnter={() => setShowActions(true)}
                 onMouseLeave={() => {
@@ -512,7 +512,7 @@ export function MessageBubble({
                   </button>
                   {/* More dropdown menu */}
                   {showMoreMenu && (
-                    <div className="absolute top-full right-0 mt-1 bg-bg-tertiary border border-white/10 rounded-lg shadow-xl py-1 min-w-[160px] z-50">
+                    <div className="absolute top-full right-0 mt-1 bg-bg-tertiary border border-border-dim rounded-lg shadow-xl py-1 min-w-[160px] z-50">
                       {isOwn && (
                         <button
                           type="button"
@@ -541,7 +541,7 @@ export function MessageBubble({
                       </button>
                       {canDelete && (
                         <>
-                          <div className="h-px bg-white/5 my-1" />
+                          <div className="h-px bg-border-subtle my-1" />
                           <button
                             type="button"
                             onClick={handleDelete}
@@ -569,7 +569,7 @@ export function MessageBubble({
             const rect = messageRef.current!.getBoundingClientRect()
             return (
               <div
-                className="fixed flex items-center gap-1 bg-bg-tertiary border border-white/10 rounded-lg shadow-lg p-1 z-[70]"
+                className="fixed flex items-center gap-1 bg-bg-tertiary border border-border-dim rounded-lg shadow-lg p-1 z-[70]"
                 style={{ top: rect.top - 34, right: window.innerWidth - rect.right + 16 }}
                 onMouseEnter={() => setShowActions(true)}
                 onMouseLeave={() => {
@@ -585,19 +585,19 @@ export function MessageBubble({
                       onReact?.(message.id, emoji)
                       setShowEmojiPicker(false)
                     }}
-                    className="w-8 h-8 rounded hover:bg-white/10 flex items-center justify-center text-lg transition"
+                    className="w-8 h-8 rounded hover:bg-bg-modifier-active flex items-center justify-center text-lg transition"
                   >
                     {emoji}
                   </button>
                 ))}
-                <div className="w-px h-6 bg-white/10 mx-0.5" />
+                <div className="w-px h-6 bg-border-dim mx-0.5" />
                 <button
                   type="button"
                   onClick={() => {
                     setShowEmojiPicker(false)
                     setShowFullPicker(true)
                   }}
-                  className="w-8 h-8 rounded hover:bg-white/10 flex items-center justify-center text-sm text-text-muted transition"
+                  className="w-8 h-8 rounded hover:bg-bg-modifier-active flex items-center justify-center text-sm text-text-muted transition"
                   title={t('chat.addEmoji')}
                 >
                   +
@@ -703,7 +703,7 @@ export function MessageBubble({
               }}
             />
             <div
-              className="fixed z-[61] bg-bg-tertiary border border-white/10 rounded-lg shadow-xl py-1 min-w-[160px]"
+              className="fixed z-[61] bg-bg-tertiary border border-border-dim rounded-lg shadow-xl py-1 min-w-[160px]"
               style={{ left: avatarContextMenu.x, top: avatarContextMenu.y }}
             >
               <button
@@ -718,7 +718,7 @@ export function MessageBubble({
               </button>
               {canKick && author?.id !== currentUser?.id && authorMember?.role !== 'owner' && (
                 <>
-                  <div className="h-px bg-white/5 my-1" />
+                  <div className="h-px bg-border-subtle my-1" />
                   <button
                     type="button"
                     onClick={async () => {
@@ -946,7 +946,7 @@ function MentionSpan({ mention }: { mention: string }) {
               }}
             />
             <div
-              className="fixed z-[61] bg-bg-tertiary border border-white/10 rounded-lg shadow-xl py-1 min-w-[160px]"
+              className="fixed z-[61] bg-bg-tertiary border border-border-dim rounded-lg shadow-xl py-1 min-w-[160px]"
               style={{ left: ctxMenu.x, top: ctxMenu.y }}
             >
               <button
@@ -961,7 +961,7 @@ function MentionSpan({ mention }: { mention: string }) {
               </button>
               {canKick && user?.id !== currentUser?.id && member?.role !== 'owner' && (
                 <>
-                  <div className="h-px bg-white/5 my-1" />
+                  <div className="h-px bg-border-subtle my-1" />
                   <button
                     type="button"
                     onClick={async () => {

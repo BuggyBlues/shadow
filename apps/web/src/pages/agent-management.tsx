@@ -177,7 +177,7 @@ export function AgentManagementPage() {
   return (
     <div className="flex-1 flex flex-col md:flex-row bg-bg-primary overflow-hidden">
       {/* Mobile header */}
-      <div className="md:hidden flex items-center gap-2 px-4 py-3 bg-bg-secondary border-b border-white/5 shrink-0">
+      <div className="md:hidden flex items-center gap-2 px-4 py-3 bg-bg-secondary border-b border-border-subtle shrink-0">
         {selectedAgent ? (
           <button
             onClick={() => { setSelectedAgent(null); setGeneratedToken(null) }}
@@ -217,7 +217,7 @@ export function AgentManagementPage() {
                 setSelectedAgent(agent)
                 setGeneratedToken(null)
               }}
-              className="flex items-center gap-3 w-full px-3 py-2 rounded-md text-[15px] font-medium text-text-secondary hover:bg-white/[0.04] hover:text-text-primary transition"
+              className="flex items-center gap-3 w-full px-3 py-2 rounded-md text-[15px] font-medium text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary transition"
             >
               <UserAvatar
                 userId={agent.botUser?.id ?? agent.userId}
@@ -247,13 +247,13 @@ export function AgentManagementPage() {
         <div className="p-4 border-b-2 border-bg-tertiary">
           <button
             onClick={() => navigate({ to: '/app' })}
-            className="flex items-center gap-2 text-[#949ba4] hover:text-[#dbdee1] transition text-[15px] font-medium"
+            className="flex items-center gap-2 text-text-secondary hover:text-text-primary transition text-[15px] font-medium"
           >
             <ArrowLeft size={16} />
             {t('common.back')}
           </button>
         </div>
-        <div className="px-5 py-3 text-[12px] font-bold uppercase text-[#949ba4] tracking-wide mt-2">
+        <div className="px-5 py-3 text-[12px] font-bold uppercase text-text-secondary tracking-wide mt-2">
           {t('agentMgmt.title')}
         </div>
 
@@ -269,8 +269,8 @@ export function AgentManagementPage() {
               onContextMenu={(e) => handleAgentContextMenu(e, agent)}
               className={`flex items-center gap-3 w-full px-3 py-2 rounded-md text-[15px] font-medium transition ${
                 selectedAgent?.id === agent.id
-                  ? 'bg-white/[0.08] text-white'
-                  : 'text-[#949ba4] hover:bg-white/[0.04] hover:text-[#dbdee1]'
+                  ? 'bg-bg-modifier-active text-text-primary'
+                  : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
               }`}
             >
               <UserAvatar
@@ -383,7 +383,7 @@ export function AgentManagementPage() {
           onClick={() => setDeleteConfirmId(null)}
         >
           <div
-            className="bg-bg-secondary rounded-xl p-6 w-full max-w-96 mx-4 border border-white/5"
+            className="bg-bg-secondary rounded-xl p-6 w-full max-w-96 mx-4 border border-border-subtle"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-xl font-bold text-text-primary mb-2">{t('common.confirm')}</h2>
@@ -410,7 +410,7 @@ export function AgentManagementPage() {
       {/* Agent context menu */}
       {contextMenu && (
         <div
-          className="fixed z-50 bg-bg-tertiary border border-white/10 rounded-lg shadow-xl py-1 min-w-[160px]"
+          className="fixed z-50 bg-bg-tertiary border border-border-dim rounded-lg shadow-xl py-1 min-w-[160px]"
           style={{ top: contextMenu.y, left: contextMenu.x }}
         >
           <button
@@ -454,7 +454,7 @@ export function AgentManagementPage() {
             <Edit2 size={14} />
             {t('common.edit')}
           </button>
-          <div className="h-px bg-white/5 my-1" />
+          <div className="h-px bg-border-subtle my-1" />
           <button
             type="button"
             onClick={() => {
@@ -507,7 +507,7 @@ function AgentDetail({
   return (
     <>
       {/* Agent header */}
-      <div className="bg-bg-secondary rounded-xl p-6 mb-6 border border-white/5">
+      <div className="bg-bg-secondary rounded-xl p-6 mb-6 border border-border-subtle">
         <div className="flex items-center gap-4">
           <UserAvatar
             userId={agent.botUser?.id ?? agent.userId}
@@ -547,7 +547,7 @@ function AgentDetail({
       </div>
 
       {/* Status & info */}
-      <div className="bg-bg-secondary rounded-xl p-6 mb-6 border border-white/5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="bg-bg-secondary rounded-xl p-6 mb-6 border border-border-subtle grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-[10px] font-bold uppercase text-text-muted mb-1">
             {t('agentMgmt.status')}
@@ -649,7 +649,7 @@ function AgentDetail({
       </div>
 
       {/* Token section */}
-      <div className="bg-bg-secondary rounded-xl p-6 mb-6 border border-white/5">
+      <div className="bg-bg-secondary rounded-xl p-6 mb-6 border border-border-subtle">
         <div className="flex items-center gap-2 mb-2">
           <Key size={16} className="text-primary" />
           <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">
@@ -664,7 +664,7 @@ function AgentDetail({
           if (displayToken) {
             return (
               <div className="space-y-3">
-                <div className="bg-bg-tertiary rounded-lg p-3 break-all font-mono text-xs text-text-secondary border border-white/5">
+                <div className="bg-bg-tertiary rounded-lg p-3 break-all font-mono text-xs text-text-secondary border border-border-subtle">
                   {displayToken}
                 </div>
                 <div className="flex items-center gap-3">
@@ -696,7 +696,7 @@ function AgentDetail({
                   <label className="block text-[10px] font-bold uppercase text-text-muted mb-2">
                     {t('agentMgmt.yamlExample')}
                   </label>
-                  <pre className="bg-bg-tertiary rounded-lg p-4 text-xs text-text-secondary border border-white/5 overflow-x-auto">
+                  <pre className="bg-bg-tertiary rounded-lg p-4 text-xs text-text-secondary border border-border-subtle overflow-x-auto">
                     {`channels:
   shadow:
     token: "${displayToken.slice(0, 20)}..."
@@ -720,7 +720,7 @@ function AgentDetail({
       </div>
 
       {/* OpenClaw Setup Guide */}
-      <div className="bg-bg-secondary rounded-xl p-6 mb-6 border border-white/5">
+      <div className="bg-bg-secondary rounded-xl p-6 mb-6 border border-border-subtle">
         <div className="flex items-center gap-2 mb-3">
           <BookOpen size={16} className="text-primary" />
           <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">
@@ -735,7 +735,7 @@ function AgentDetail({
             <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">1</span>
             <span className="text-sm font-bold text-text-primary">{t('docs.openclawStep1Title')}</span>
           </div>
-          <div className="bg-bg-tertiary rounded-lg p-3 font-mono text-xs text-green-400 border border-white/5 ml-7">
+          <div className="bg-bg-tertiary rounded-lg p-3 font-mono text-xs text-green-400 border border-border-subtle ml-7">
             openclaw plugins install @shadowob/openclaw
           </div>
         </div>
@@ -747,7 +747,7 @@ function AgentDetail({
             <span className="text-sm font-bold text-text-primary">{t('docs.openclawConfig')}</span>
           </div>
           <p className="text-xs text-text-muted mb-2 ml-7">{t('docs.openclawConfigDesc')}</p>
-          <pre className="bg-bg-tertiary rounded-lg p-3 font-mono text-xs text-text-secondary border border-white/5 overflow-x-auto ml-7">{`channels:
+          <pre className="bg-bg-tertiary rounded-lg p-3 font-mono text-xs text-text-secondary border border-border-subtle overflow-x-auto ml-7">{`channels:
   shadow:
     token: "${(() => {
       const tk = (agent.config?.lastToken as string | undefined) ?? generatedToken
@@ -762,13 +762,13 @@ function AgentDetail({
             <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">3</span>
             <span className="text-sm font-bold text-text-primary">{t('agentMgmt.openclawRunTitle')}</span>
           </div>
-          <div className="bg-bg-tertiary rounded-lg p-3 font-mono text-xs text-green-400 border border-white/5 ml-7">
+          <div className="bg-bg-tertiary rounded-lg p-3 font-mono text-xs text-green-400 border border-border-subtle ml-7">
             openclaw start
           </div>
         </div>
 
         {/* Capabilities */}
-        <div className="mt-4 pt-4 border-t border-white/5">
+        <div className="mt-4 pt-4 border-t border-border-subtle">
           <p className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">{t('docs.openclawCapabilities')}</p>
           <div className="grid grid-cols-2 gap-2">
             {['messaging', 'threads', 'reactions', 'media', 'mentions', 'editDelete'].map((cap) => (
@@ -781,7 +781,7 @@ function AgentDetail({
         </div>
 
         {/* Link to full docs */}
-        <div className="mt-4 pt-3 border-t border-white/5">
+        <div className="mt-4 pt-3 border-t border-border-subtle">
           <a
             href="/docs"
             target="_blank"
@@ -879,7 +879,7 @@ function CreateAgentDialog({
       onClick={onClose}
     >
       <div
-        className="bg-bg-secondary rounded-xl p-6 w-full max-w-[480px] mx-4 max-h-[80vh] overflow-y-auto border border-white/5"
+        className="bg-bg-secondary rounded-xl p-6 w-full max-w-[480px] mx-4 max-h-[80vh] overflow-y-auto border border-border-subtle"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-xl font-bold text-text-primary mb-6">{t('agentMgmt.createTitle')}</h2>
@@ -916,7 +916,7 @@ function CreateAgentDialog({
 
         {/* Avatar picker */}
         <div className="mb-6">
-          <label className="block text-xs font-bold uppercase text-[#b5bac1] mb-3">
+          <label className="block text-xs font-bold uppercase text-text-secondary mb-3">
             {t('agentMgmt.avatarLabel')}
           </label>
           <AvatarEditor value={selectedAvatar ?? undefined} onChange={setSelectedAvatar} />
@@ -988,7 +988,7 @@ function EditAgentDialog({
       onClick={onClose}
     >
       <div
-        className="bg-bg-secondary rounded-xl p-6 w-full max-w-[480px] mx-4 max-h-[80vh] overflow-y-auto border border-white/5"
+        className="bg-bg-secondary rounded-xl p-6 w-full max-w-[480px] mx-4 max-h-[80vh] overflow-y-auto border border-border-subtle"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-xl font-bold text-text-primary mb-6">{t('agentMgmt.editTitle')}</h2>
@@ -1022,7 +1022,7 @@ function EditAgentDialog({
         </div>
 
         <div className="mb-6">
-          <label className="block text-xs font-bold uppercase text-[#b5bac1] mb-3">
+          <label className="block text-xs font-bold uppercase text-text-secondary mb-3">
             {t('agentMgmt.avatarLabel')}
           </label>
           <AvatarEditor value={selectedAvatar ?? undefined} onChange={setSelectedAvatar} />
@@ -1167,7 +1167,7 @@ export function BuddyManagementContent() {
       {isLoading ? (
         <div className="text-center text-text-muted py-8">{t('common.loading')}</div>
       ) : agents.length === 0 ? (
-        <div className="text-center text-text-muted py-12 bg-bg-secondary rounded-xl border border-white/5">
+        <div className="text-center text-text-muted py-12 bg-bg-secondary rounded-xl border border-border-subtle">
           <img src="/Logo.svg" alt="Buddy" className="w-12 h-12 mx-auto mb-3 opacity-50" />
           <p className="text-sm">{t('agentMgmt.noAgentsDesc')}</p>
         </div>
@@ -1185,8 +1185,8 @@ export function BuddyManagementContent() {
                 }}
                 className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-left transition border ${
                   isSelected
-                    ? 'bg-white/[0.08] border-primary/30 text-white'
-                    : 'bg-bg-secondary border-white/5 text-text-secondary hover:bg-white/[0.04] hover:text-text-primary'
+                    ? 'bg-bg-modifier-active border-primary/30 text-text-primary'
+                    : 'bg-bg-secondary border-border-subtle text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
                 }`}
               >
                 <UserAvatar
@@ -1267,7 +1267,7 @@ export function BuddyManagementContent() {
           onClick={() => setDeleteConfirmId(null)}
         >
           <div
-            className="bg-bg-secondary rounded-xl p-6 w-full max-w-96 mx-4 border border-white/5"
+            className="bg-bg-secondary rounded-xl p-6 w-full max-w-96 mx-4 border border-border-subtle"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-xl font-bold text-text-primary mb-2">{t('common.confirm')}</h2>

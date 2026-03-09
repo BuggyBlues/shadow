@@ -124,9 +124,9 @@ export function NotificationBell() {
           />
 
           {/* Panel */}
-          <div className="absolute top-full right-0 mt-2 w-80 bg-bg-secondary border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden">
+          <div className="absolute top-full right-0 mt-2 w-80 bg-bg-secondary border border-border-dim rounded-xl shadow-xl z-50 overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
               <h3 className="font-bold text-text-primary text-sm">{t('notification.title')}</h3>
               {unreadCount > 0 && (
                 <button
@@ -157,7 +157,7 @@ export function NotificationBell() {
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') handleNotificationClick(n)
                     }}
-                    className={`px-4 py-3 border-b border-white/5 last:border-0 hover:bg-white/[0.04] transition cursor-pointer ${
+                    className={`px-4 py-3 border-b border-border-subtle last:border-0 hover:bg-bg-modifier-hover transition cursor-pointer ${
                       !n.isRead ? 'bg-primary/5' : ''
                     }`}
                   >

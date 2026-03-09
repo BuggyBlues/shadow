@@ -9,7 +9,7 @@ import { BRAND_EN } from '../lib/brand'
 export function PublicNav() {
   const { t } = useTranslation()
   return (
-    <nav className="glass-nav fixed w-full top-0 z-50 py-4 px-8 md:px-16 flex justify-between items-center transition-all bg-white/70 backdrop-blur-xl border-b border-white/20 shadow-sm">
+    <nav className="glass-nav fixed w-full top-0 z-50 py-4 px-8 md:px-16 flex justify-between items-center transition-all bg-white/70 backdrop-blur-xl border-b border-border-dim shadow-sm">
       <Link to="/" className="flex items-center gap-3 cursor-pointer hover:scale-105 transition">
         <img src="/Logo.svg" alt="Shadow Logo" className="w-10 h-10" />
         <span className="zcool text-2xl font-bold tracking-wider text-gray-800">
@@ -370,7 +370,7 @@ export function HomePage() {
       </section>
 
       {/* Footer */}
-      <footer className="glass-nav mt-auto py-8 text-center border-t-2 border-white/50 relative z-10 w-full">
+      <footer className="glass-nav mt-auto py-8 text-center border-t-2 border-border-subtle0 relative z-10 w-full">
         <div className="flex justify-center items-center gap-2 mb-3">
           <img src="/Logo.svg" className="w-7 h-7 opacity-80" alt="Shadow cat" />
           <span className="zcool text-xl font-bold text-gray-500">

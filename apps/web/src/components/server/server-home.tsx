@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
-import { Copy, Check, ExternalLink, Settings, Home } from 'lucide-react'
+import { ArrowLeft, Copy, Check, ExternalLink, Settings, Home } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from '@tanstack/react-router'
 import { fetchApi } from '../../lib/api'
 import { useChatStore } from '../../stores/chat.store'
+import { useUIStore } from '../../stores/ui.store'
 
 interface ServerDetail {
   id: string
@@ -397,7 +398,7 @@ document.addEventListener('click', function(e) {
 
   const handleCopyLink = () => {
     const slug = server.slug || server.id
-    const url = `${window.location.origin}/app/servers/${slug}/home`
+    const url = `${window.location.origin}/s/${slug}`
     navigator.clipboard.writeText(url)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
@@ -405,20 +406,30 @@ document.addEventListener('click', function(e) {
 
   const handleOpenNewWindow = () => {
     const slug = server.slug || server.id
-    window.open(`/app/servers/${slug}/home`, '_blank')
+    window.open(`/s/${slug}`, '_blank')
   }
 
   return (
     <div className="flex-1 flex flex-col bg-bg-primary overflow-hidden">
       {/* Header bar */}
-      <div className="h-12 px-4 flex items-center border-b border-white/5 shrink-0">
+      <div className="h-12 px-4 flex items-center border-b border-border-subtle shrink-0">
+        {/* Mobile back button — return to channel list */}
+        {!standalone && (
+          <button
+            type="button"
+            onClick={() => useUIStore.getState().setMobileView('channels')}
+            className="md:hidden p-2 -ml-2 mr-1 text-text-muted hover:text-text-primary hover:bg-bg-modifier-hover rounded-lg transition"
+          >
+            <ArrowLeft size={18} />
+          </button>
+        )}
         <Home size={16} className="mr-2 text-text-muted" />
         <h2 className="font-semibold text-text-primary text-sm truncate flex-1">{server.name}</h2>
         <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={handleCopyLink}
-            className="p-2 text-text-muted hover:text-text-primary hover:bg-white/5 rounded-lg transition"
+            className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-modifier-hover rounded-lg transition"
             title={t('common.copy')}
           >
             {copied ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
@@ -426,7 +437,7 @@ document.addEventListener('click', function(e) {
           <button
             type="button"
             onClick={handleOpenNewWindow}
-            className="p-2 text-text-muted hover:text-text-primary hover:bg-white/5 rounded-lg transition"
+            className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-modifier-hover rounded-lg transition"
             title={t('serverHome.openNewWindow')}
           >
             <ExternalLink size={16} />
@@ -438,7 +449,7 @@ document.addEventListener('click', function(e) {
                 const slug = server.slug || server.id
                 navigate({ to: '/app/servers/$serverId', params: { serverId: slug } })
               }}
-              className="p-2 text-text-muted hover:text-text-primary hover:bg-white/5 rounded-lg transition"
+            className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-modifier-hover rounded-lg transition"
               title={t('serverHome.backToServer')}
             >
               <Settings size={16} />
