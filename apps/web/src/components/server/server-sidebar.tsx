@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Check, Compass, Copy, Info, LogOut, Plus, Settings, UserPlus } from 'lucide-react'
+import { Check, Compass, Copy, Info, LogOut, Plus, UserPlus } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../../lib/api'
 import { getCatAvatar } from '../../lib/pixel-cats'
+import { useAuthStore } from '../../stores/auth.store'
 import { useChatStore } from '../../stores/chat.store'
 import { useUIStore } from '../../stores/ui.store'
 
@@ -28,6 +29,7 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
     y: number
     server: ServerEntry
   } | null>(null)
+  const { user } = useAuthStore()
 
   const { data: servers = [] } = useQuery({
     queryKey: ['servers'],
@@ -36,14 +38,15 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
 
   const createServer = useMutation({
     mutationFn: (name: string) =>
-      fetchApi('/api/servers', {
+      fetchApi<{ id: string; slug: string | null }>('/api/servers', {
         method: 'POST',
         body: JSON.stringify({ name }),
       }),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['servers'] })
       setShowCreate(false)
       setNewName('')
+      handleSelect(data.id, data.slug)
     },
   })
 
@@ -89,16 +92,38 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
 
   return (
     <div className="w-[72px] bg-bg-tertiary flex flex-col items-center py-3 gap-2 shrink-0">
+      {/* User avatar → settings/profile */}
+      <div className="relative group/user">
+        <button
+          onClick={() => navigate({ to: '/app/settings' })}
+          className="w-12 h-12 rounded-full bg-bg-primary hover:ring-2 hover:ring-primary/60 transition-all duration-200 flex items-center justify-center overflow-hidden"
+          title={user?.displayName || user?.username || t('settings.tabProfile')}
+        >
+          {user?.avatarUrl ? (
+            <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full bg-[#5865F2] flex items-center justify-center text-white font-bold text-lg">
+              {(user?.displayName || user?.username || '?').charAt(0).toUpperCase()}
+            </div>
+          )}
+        </button>
+        {/* Tooltip */}
+        <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1.5 bg-zinc-900 text-white text-sm font-medium rounded-md shadow-lg whitespace-nowrap pointer-events-none opacity-0 group-hover/user:opacity-100 transition-opacity z-50">
+          {user?.displayName || user?.username}
+          <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-zinc-900" />
+        </div>
+      </div>
+
+      <div className="w-8 h-0.5 bg-[#404249] rounded-full my-1" />
+
       {/* Home button */}
       <button
-        onClick={() => navigate({ to: '/app' })}
+        onClick={() => navigate({ to: '/app/settings' })}
         className="w-12 h-12 rounded-[24px] hover:rounded-[16px] bg-bg-primary hover:bg-[#5865F2] transition-all duration-200 flex items-center justify-center overflow-hidden"
         title={t('server.home')}
       >
         <img src="/Logo.svg" alt="Shadow" className="w-7 h-7" />
       </button>
-
-      <div className="w-8 h-0.5 bg-[#404249] rounded-full my-1" />
 
       {/* Server list */}
       {servers.map((s, i) => (
@@ -153,26 +178,6 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
         <Compass size={24} className="opacity-90" />
       </button>
 
-      {/* Settings */}
-      <div className="mt-auto flex flex-col items-center gap-2">
-        {/* Buddy management */}
-        <button
-          onClick={() => navigate({ to: '/app/agents' })}
-          className="w-12 h-12 rounded-[24px] hover:rounded-[16px] bg-bg-primary hover:bg-[#5865F2] transition-all duration-200 flex items-center justify-center text-[#5865F2] hover:text-white"
-          title={t('agentMgmt.title')}
-        >
-          <img src="/Logo.svg" alt="Buddy" className="w-6 h-6 opacity-90" />
-        </button>
-
-        <button
-          onClick={() => navigate({ to: '/app/settings' })}
-          className="w-12 h-12 rounded-[24px] hover:rounded-[16px] bg-bg-primary hover:bg-[#80848e] transition-all duration-200 flex items-center justify-center text-text-muted hover:text-white"
-          title={t('server.settings')}
-        >
-          <Settings size={22} className="opacity-90" />
-        </button>
-      </div>
-
       {/* Simple create dialog */}
       {showCreate && (
         <div
@@ -188,8 +193,15 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
               type="text"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229 && newName.trim()) {
+                  e.preventDefault()
+                  createServer.mutate(newName.trim())
+                }
+              }}
               placeholder={t('server.serverName')}
               className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary mb-4"
+              autoFocus
             />
             <div className="flex justify-end gap-3">
               <button
@@ -226,9 +238,16 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
               type="text"
               value={joinCode}
               onChange={(e) => setJoinCode(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229 && joinCode.trim().length === 8) {
+                  e.preventDefault()
+                  joinServer.mutate(joinCode.trim())
+                }
+              }}
               placeholder={t('server.inviteCodePlaceholder')}
               maxLength={8}
               className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary mb-4 font-mono text-center text-lg tracking-widest"
+              autoFocus
             />
             <div className="flex justify-end gap-3">
               <button

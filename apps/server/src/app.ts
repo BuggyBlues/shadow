@@ -7,6 +7,7 @@ import { createAgentHandler } from './handlers/agent.handler'
 import { createAuthHandler } from './handlers/auth.handler'
 import { createChannelHandler } from './handlers/channel.handler'
 import { createDmHandler } from './handlers/dm.handler'
+import { createInviteHandler } from './handlers/invite.handler'
 import { createMediaHandler } from './handlers/media.handler'
 import { createMessageHandler } from './handlers/message.handler'
 import { createNotificationHandler } from './handlers/notification.handler'
@@ -52,6 +53,7 @@ export function createApp(container: AppContainer) {
   app.route('/api/notifications', createNotificationHandler(container))
   app.route('/api/media', createMediaHandler(container))
   app.route('/api/agents', createAgentHandler(container))
+  app.route('/api/invite-codes', createInviteHandler(container))
   app.route('/api/admin', createAdminHandler(container))
 
   // 404 handler

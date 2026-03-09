@@ -102,6 +102,7 @@ export function MessageBubble({
   const [copied, setCopied] = useState(false)
   const editInputRef = useRef<HTMLTextAreaElement>(null)
   const avatarRef = useRef<HTMLDivElement>(null)
+  const messageRef = useRef<HTMLDivElement>(null)
   const [avatarHover, setAvatarHover] = useState(false)
   const [avatarPinned, setAvatarPinned] = useState(false)
   const [avatarCardPos, setAvatarCardPos] = useState<{ left: number; top: number } | null>(null)
@@ -255,6 +256,7 @@ export function MessageBubble({
 
   return (
     <div
+      ref={messageRef}
       id={`msg-${message.id}`}
       className={`group relative flex gap-4 px-4 py-1.5 message-row ${highlight ? 'bg-primary/10 animate-pulse' : 'mt-[2px]'}`}
       onMouseEnter={() => setShowActions(true)}
@@ -337,7 +339,7 @@ export function MessageBubble({
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229) {
                   e.preventDefault()
                   handleSaveEdit()
                 } else if (e.key === 'Escape') {
@@ -442,125 +444,191 @@ export function MessageBubble({
         )}
       </div>
 
-      {/* Hover actions */}
-      {showActions && (
-        <div className="absolute -top-3 right-4 flex items-center bg-bg-tertiary border border-white/10 rounded-lg shadow-lg">
-          <button
-            type="button"
-            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className="p-1.5 text-text-muted hover:text-text-primary transition"
-            title={t('chat.addEmoji')}
-          >
-            <Smile size={16} />
-          </button>
-          <button
-            type="button"
-            onClick={() => onReply?.(message.id)}
-            className="p-1.5 text-text-muted hover:text-text-primary transition"
-            title={t('chat.reply')}
-          >
-            <Reply size={16} />
-          </button>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowMoreMenu(!showMoreMenu)}
-              className="p-1.5 text-text-muted hover:text-text-primary transition"
-              title={t('chat.more')}
-            >
-              <MoreHorizontal size={16} />
-            </button>
-            {/* More dropdown menu */}
-            {showMoreMenu && (
-              <div className="absolute top-full right-0 mt-1 bg-bg-tertiary border border-white/10 rounded-lg shadow-xl py-1 min-w-[160px] z-50">
-                {isOwn && (
+      {/* Hover actions (portal to avoid virtual list clipping) */}
+      {/* Click-outside backdrop to close More menu */}
+      {showMoreMenu &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[69]"
+            onClick={() => {
+              setShowMoreMenu(false)
+              setShowActions(false)
+              setShowEmojiPicker(false)
+              setShowFullPicker(false)
+            }}
+          />,
+          document.body,
+        )}
+
+      {showActions &&
+        messageRef.current &&
+        createPortal(
+          (() => {
+            const rect = messageRef.current!.getBoundingClientRect()
+            return (
+              <div
+                className="fixed flex items-center bg-bg-tertiary border border-white/10 rounded-lg shadow-lg z-[70]"
+                style={{ top: rect.top - 6, right: window.innerWidth - rect.right + 16 }}
+                onMouseEnter={() => setShowActions(true)}
+                onMouseLeave={() => {
+                  if (!showMoreMenu) {
+                    setShowActions(false)
+                    setShowEmojiPicker(false)
+                    setShowFullPicker(false)
+                  }
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  className="p-1.5 text-text-muted hover:text-text-primary transition"
+                  title={t('chat.addEmoji')}
+                >
+                  <Smile size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onReply?.(message.id)}
+                  className="p-1.5 text-text-muted hover:text-text-primary transition"
+                  title={t('chat.reply')}
+                >
+                  <Reply size={16} />
+                </button>
+                <div className="relative">
                   <button
                     type="button"
-                    onClick={handleEdit}
-                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+                    onClick={() => setShowMoreMenu(!showMoreMenu)}
+                    className="p-1.5 text-text-muted hover:text-text-primary transition"
+                    title={t('chat.more')}
                   >
-                    <Pencil size={14} />
-                    {t('chat.editMessage')}
+                    <MoreHorizontal size={16} />
                   </button>
-                )}
-                <button
-                  type="button"
-                  onClick={handleCopy}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
-                >
-                  <Copy size={14} />
-                  {copied ? t('common.copied') : t('chat.copyMessage')}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleShareLink}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
-                >
-                  <ExternalLink size={14} />
-                  {t('chat.shareLink')}
-                </button>
-                {isOwn && (
-                  <>
-                    <div className="h-px bg-white/5 my-1" />
-                    <button
-                      type="button"
-                      onClick={handleDelete}
-                      className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition"
-                    >
-                      <Trash2 size={14} />
-                      {t('chat.deleteMessage')}
-                    </button>
-                  </>
-                )}
+                  {/* More dropdown menu */}
+                  {showMoreMenu && (
+                    <div className="absolute top-full right-0 mt-1 bg-bg-tertiary border border-white/10 rounded-lg shadow-xl py-1 min-w-[160px] z-50">
+                      {isOwn && (
+                        <button
+                          type="button"
+                          onClick={handleEdit}
+                          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+                        >
+                          <Pencil size={14} />
+                          {t('chat.editMessage')}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleCopy}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+                      >
+                        <Copy size={14} />
+                        {copied ? t('common.copied') : t('chat.copyMessage')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleShareLink}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+                      >
+                        <ExternalLink size={14} />
+                        {t('chat.shareLink')}
+                      </button>
+                      {isOwn && (
+                        <>
+                          <div className="h-px bg-white/5 my-1" />
+                          <button
+                            type="button"
+                            onClick={handleDelete}
+                            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition"
+                          >
+                            <Trash2 size={14} />
+                            {t('chat.deleteMessage')}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
-        </div>
-      )}
+            )
+          })(),
+          document.body,
+        )}
 
-      {/* Quick emoji picker */}
-      {showEmojiPicker && (
-        <div className="absolute -top-10 right-4 flex items-center gap-1 bg-bg-tertiary border border-white/10 rounded-lg shadow-lg p-1">
-          {quickEmojis.map((emoji) => (
-            <button
-              type="button"
-              key={emoji}
-              onClick={() => {
-                onReact?.(message.id, emoji)
-                setShowEmojiPicker(false)
-              }}
-              className="w-8 h-8 rounded hover:bg-white/10 flex items-center justify-center text-lg transition"
-            >
-              {emoji}
-            </button>
-          ))}
-          <div className="w-px h-6 bg-white/10 mx-0.5" />
-          <button
-            type="button"
-            onClick={() => {
-              setShowEmojiPicker(false)
-              setShowFullPicker(true)
-            }}
-            className="w-8 h-8 rounded hover:bg-white/10 flex items-center justify-center text-sm text-text-muted transition"
-            title={t('chat.addEmoji')}
-          >
-            +
-          </button>
-        </div>
-      )}
+      {/* Quick emoji picker (portal) */}
+      {showEmojiPicker &&
+        messageRef.current &&
+        createPortal(
+          (() => {
+            const rect = messageRef.current!.getBoundingClientRect()
+            return (
+              <div
+                className="fixed flex items-center gap-1 bg-bg-tertiary border border-white/10 rounded-lg shadow-lg p-1 z-[70]"
+                style={{ top: rect.top - 34, right: window.innerWidth - rect.right + 16 }}
+                onMouseEnter={() => setShowActions(true)}
+                onMouseLeave={() => {
+                  setShowActions(false)
+                  setShowEmojiPicker(false)
+                }}
+              >
+                {quickEmojis.map((emoji) => (
+                  <button
+                    type="button"
+                    key={emoji}
+                    onClick={() => {
+                      onReact?.(message.id, emoji)
+                      setShowEmojiPicker(false)
+                    }}
+                    className="w-8 h-8 rounded hover:bg-white/10 flex items-center justify-center text-lg transition"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+                <div className="w-px h-6 bg-white/10 mx-0.5" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEmojiPicker(false)
+                    setShowFullPicker(true)
+                  }}
+                  className="w-8 h-8 rounded hover:bg-white/10 flex items-center justify-center text-sm text-text-muted transition"
+                  title={t('chat.addEmoji')}
+                >
+                  +
+                </button>
+              </div>
+            )
+          })(),
+          document.body,
+        )}
 
-      {/* Full emoji picker */}
-      {showFullPicker && (
-        <div className="absolute -top-[440px] right-4 z-50">
-          <EmojiPicker
-            onSelect={(emoji) => {
-              onReact?.(message.id, emoji)
-            }}
-            onClose={() => setShowFullPicker(false)}
-            position="bottom"
-          />
-        </div>
-      )}
+      {/* Full emoji picker (portal) */}
+      {showFullPicker &&
+        messageRef.current &&
+        createPortal(
+          (() => {
+            const rect = messageRef.current!.getBoundingClientRect()
+            const top = Math.max(8, rect.top - 440)
+            return (
+              <div
+                className="fixed z-[70]"
+                style={{ top, right: window.innerWidth - rect.right + 16 }}
+                onMouseLeave={() => {
+                  setShowFullPicker(false)
+                  setShowActions(false)
+                }}
+              >
+                <EmojiPicker
+                  onSelect={(emoji) => {
+                    onReact?.(message.id, emoji)
+                  }}
+                  onClose={() => setShowFullPicker(false)}
+                  position="bottom"
+                />
+              </div>
+            )
+          })(),
+          document.body,
+        )}
 
       {/* Avatar hover card (portal) */}
       {avatarHover &&

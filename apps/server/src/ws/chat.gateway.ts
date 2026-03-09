@@ -88,8 +88,8 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
                   referenceId: message.id,
                   referenceType: 'message',
                 })
-                // Push notification to the user via WS
-                io.emit('notification:new', notification)
+                // Push notification to the target user via WS
+                io.to(`user:${originalMessage.authorId}`).emit('notification:new', notification)
               }
             } catch {
               /* notification creation failed, non-critical */
@@ -123,7 +123,7 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
                     referenceId: message.id,
                     referenceType: 'message',
                   })
-                  io.emit('notification:new', notification)
+                  io.to(`user:${mentionedUser.id}`).emit('notification:new', notification)
                 }
               }
             }

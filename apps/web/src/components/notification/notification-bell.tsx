@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import { Bell, Check, CheckCheck } from 'lucide-react'
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSocketEvent } from '../../hooks/use-socket'
 import { fetchApi } from '../../lib/api'
+import { useChatStore } from '../../stores/chat.store'
 
 interface Notification {
   id: string
@@ -19,8 +21,38 @@ interface Notification {
 
 export function NotificationBell() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [showPanel, setShowPanel] = useState(false)
+  const { setActiveServer, setActiveChannel } = useChatStore()
+
+  const handleNotificationClick = useCallback(
+    async (n: Notification) => {
+      // Mark as read
+      if (!n.isRead) {
+        markRead.mutate(n.id)
+      }
+      // Navigate to referenced message
+      if (n.referenceType === 'message' && n.referenceId) {
+        try {
+          const message = await fetchApi<{ id: string; channelId: string }>(`/api/messages/${n.referenceId}`)
+          const channel = await fetchApi<{ id: string; serverId: string }>(`/api/channels/${message.channelId}`)
+          setShowPanel(false)
+          setActiveServer(channel.serverId)
+          setActiveChannel(message.channelId)
+          navigate({
+            to: '/app/servers/$serverId',
+            params: { serverId: channel.serverId },
+            search: { msg: message.id },
+          })
+        } catch {
+          // Message may have been deleted
+        }
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [navigate, setActiveServer, setActiveChannel],
+  )
 
   // Fetch unread count
   const { data: unreadData } = useQuery({
@@ -119,7 +151,13 @@ export function NotificationBell() {
                 notifications.map((n) => (
                   <div
                     key={n.id}
-                    className={`px-4 py-3 border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition ${
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleNotificationClick(n)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleNotificationClick(n)
+                    }}
+                    className={`px-4 py-3 border-b border-white/5 last:border-0 hover:bg-white/[0.04] transition cursor-pointer ${
                       !n.isRead ? 'bg-primary/5' : ''
                     }`}
                   >

@@ -15,6 +15,15 @@ export function createMessageHandler(container: AppContainer) {
 
   messageHandler.use('*', authMiddleware)
 
+  // GET /api/messages/:id — single message lookup (used by notification click-through)
+  messageHandler.get('/messages/:id', async (c) => {
+    const messageService = container.resolve('messageService')
+    const id = c.req.param('id')
+    const message = await messageService.getById(id)
+    if (!message) return c.json({ error: 'Message not found' }, 404)
+    return c.json(message)
+  })
+
   // GET /api/channels/:channelId/messages
   messageHandler.get('/channels/:channelId/messages', async (c) => {
     const messageService = container.resolve('messageService')

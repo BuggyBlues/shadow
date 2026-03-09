@@ -213,6 +213,8 @@ export function isPreviewable(contentType: string, filename: string): boolean {
   if (contentType.includes('javascript') || contentType.includes('typescript')) return true
   if (contentType.includes('xml') || contentType.includes('html')) return true
   if (contentType.includes('yaml')) return true
+  // Excel
+  if (contentType.includes('spreadsheet') || contentType.includes('ms-excel')) return true
   // Archives (ZIP, etc.)
   if (
     contentType.includes('zip') ||
@@ -274,6 +276,8 @@ export function isPreviewable(contentType: string, filename: string): boolean {
     'tgz',
     'jar',
     'war',
+    'xls',
+    'xlsx',
   ]
   return previewExts.includes(ext)
 }

@@ -79,6 +79,7 @@ export function ChannelSidebar({ serverId }: { serverId: string }) {
   const [showInvitePanel, setShowInvitePanel] = useState(false)
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null)
   const [editChannelName, setEditChannelName] = useState('')
+  const [blankContextMenu, setBlankContextMenu] = useState<{ x: number; y: number } | null>(null)
   const contextMenuRef = useRef<HTMLDivElement>(null)
 
   const { data: server } = useQuery({
@@ -100,14 +101,16 @@ export function ChannelSidebar({ serverId }: { serverId: string }) {
 
   const createChannel = useMutation({
     mutationFn: (data: { name: string; type: string }) =>
-      fetchApi(`/api/servers/${serverId}/channels`, {
+      fetchApi<{ id: string }>(`/api/servers/${serverId}/channels`, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['channels', serverId] })
       setShowCreate(false)
       setNewName('')
+      // Auto-navigate to the newly created channel
+      handleSelectChannel(data.id)
     },
   })
 
@@ -270,6 +273,13 @@ export function ChannelSidebar({ serverId }: { serverId: string }) {
     }
   })
 
+  // Auto-refresh channel list when a new channel is created
+  useSocketEvent('channel:created', (data: { serverId: string }) => {
+    if (data.serverId === serverId) {
+      queryClient.invalidateQueries({ queryKey: ['channels', serverId] })
+    }
+  })
+
   // Cleanup: leave channel on unmount
   useEffect(() => {
     return () => {
@@ -293,17 +303,27 @@ export function ChannelSidebar({ serverId }: { serverId: string }) {
     const isCollapsed = !!collapsedGroups[label]
     return (
       <div className="mb-4">
-        <button
-          onClick={() => toggleGroup(label)}
-          className="flex items-center gap-1 px-4 py-1.5 text-[12px] font-bold tracking-wide uppercase text-[#949ba4] hover:text-[#dbdee1] w-full transition"
-        >
-          {isCollapsed ? (
-            <ChevronRight size={12} className="shrink-0" />
-          ) : (
-            <ChevronDown size={12} className="shrink-0" />
-          )}
-          <span className="truncate">{label}</span>
-        </button>
+        <div className="flex items-center justify-between pr-2">
+          <button
+            onClick={() => toggleGroup(label)}
+            className="flex items-center gap-1 px-4 py-1.5 text-[12px] font-bold tracking-wide uppercase text-[#949ba4] hover:text-[#dbdee1] flex-1 transition"
+          >
+            {isCollapsed ? (
+              <ChevronRight size={12} className="shrink-0" />
+            ) : (
+              <ChevronDown size={12} className="shrink-0" />
+            )}
+            <span className="truncate">{label}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowCreate(true)}
+            className="text-[#949ba4] hover:text-[#dbdee1] transition p-0.5 rounded hover:bg-white/5"
+            title={t('channel.createChannel')}
+          >
+            <Plus size={14} />
+          </button>
+        </div>
         {!isCollapsed &&
           items.map((ch) => {
             const Icon = channelIcons[ch.type]
@@ -352,6 +372,7 @@ export function ChannelSidebar({ serverId }: { serverId: string }) {
             ) : (
               <button
                 key={ch.id}
+                data-channel-item
                 onClick={() => handleSelectChannel(ch.id)}
                 onContextMenu={(e) => handleContextMenu(e, ch)}
                 className={`group flex items-center gap-1.5 px-2 py-[6px] mx-2 mb-[2px] rounded-md text-[15px] font-medium w-[calc(100%-16px)] text-left transition ${
@@ -396,7 +417,15 @@ export function ChannelSidebar({ serverId }: { serverId: string }) {
       </div>
 
       {/* Channel list */}
-      <div className="flex-1 overflow-y-auto pt-4">
+      <div
+        className="flex-1 overflow-y-auto pt-4"
+        onContextMenu={(e) => {
+          // Only trigger if clicking on the blank area (not on a channel item)
+          if ((e.target as HTMLElement).closest('[data-channel-item]')) return
+          e.preventDefault()
+          setBlankContextMenu({ x: e.clientX, y: e.clientY })
+        }}
+      >
         {renderChannelGroup(t('channel.announcement'), announcementChannels)}
         {renderChannelGroup(t('channel.text'), textChannels)}
         {renderChannelGroup(t('channel.voice'), voiceChannels)}
@@ -431,8 +460,15 @@ export function ChannelSidebar({ serverId }: { serverId: string }) {
               type="text"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229 && newName.trim()) {
+                  e.preventDefault()
+                  createChannel.mutate({ name: newName.trim(), type: newType })
+                }
+              }}
               placeholder={t('channel.channelName')}
               className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary mb-3"
+              autoFocus
             />
             <div className="flex gap-2 mb-4">
               {(['text', 'voice', 'announcement'] as const).map((chType) => (
@@ -668,11 +704,17 @@ export function ChannelSidebar({ serverId }: { serverId: string }) {
 
       {/* Channel context menu */}
       {contextMenu && (
-        <div
-          ref={contextMenuRef}
-          className="fixed z-50 bg-bg-tertiary border border-white/10 rounded-lg shadow-xl py-1 min-w-[160px]"
-          style={{ top: contextMenu.y, left: contextMenu.x }}
-        >
+        <>
+          <div
+            className="fixed inset-0 z-[49]"
+            onClick={() => setContextMenu(null)}
+            onContextMenu={(e) => { e.preventDefault(); setContextMenu(null) }}
+          />
+          <div
+            ref={contextMenuRef}
+            className="fixed z-50 bg-bg-tertiary border border-white/10 rounded-lg shadow-xl py-1 min-w-[160px]"
+            style={{ top: contextMenu.y, left: contextMenu.x }}
+          >
           <button
             type="button"
             onClick={() => {
@@ -735,6 +777,68 @@ export function ChannelSidebar({ serverId }: { serverId: string }) {
             {t('channel.deleteChannel')}
           </button>
         </div>
+        </>
+      )}
+
+      {/* Blank area context menu */}
+      {blankContextMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-[49]"
+            onClick={() => setBlankContextMenu(null)}
+            onContextMenu={(e) => { e.preventDefault(); setBlankContextMenu(null) }}
+          />
+          <div
+            className="fixed z-50 bg-bg-tertiary border border-white/10 rounded-lg shadow-xl py-1 min-w-[160px]"
+            style={{ top: blankContextMenu.y, left: blankContextMenu.x }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setShowCreate(true)
+                setBlankContextMenu(null)
+              }}
+              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+            >
+              <Plus size={14} />
+              {t('channel.createChannel')}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowInvitePanel(true)
+                setBlankContextMenu(null)
+              }}
+              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+            >
+              <UserPlus size={14} />
+              {t('channel.inviteMember')}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowAddAgent(true)
+                setBlankContextMenu(null)
+              }}
+              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+            >
+              <img src="/Logo.svg" alt="Buddy" className="w-4 h-4" />
+              {t('channel.addAgent')}
+            </button>
+            <div className="h-px bg-white/5 my-1" />
+            <button
+              type="button"
+              onClick={() => {
+                openServerEdit()
+                setBlankContextMenu(null)
+              }}
+              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+            >
+              <Settings size={14} />
+              {t('channel.serverSettings')}
+            </button>
+          </div>
+        </>
       )}
 
       {/* Invite Panel */}

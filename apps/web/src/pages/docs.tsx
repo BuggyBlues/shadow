@@ -3,12 +3,13 @@ import { useTranslation } from 'react-i18next'
 import { useAppStatus } from '../hooks/use-app-status'
 import { PublicFooter, PublicNav } from './home'
 
-type DocSection = 'guide' | 'channels' | 'agents' | 'faq'
+type DocSection = 'guide' | 'channels' | 'agents' | 'openclaw' | 'faq'
 
 const sectionIds: { id: DocSection; labelKey: string }[] = [
   { id: 'guide', labelKey: 'docs.guide' },
   { id: 'channels', labelKey: 'docs.channels' },
   { id: 'agents', labelKey: 'docs.agentsDoc' },
+  { id: 'openclaw', labelKey: 'docs.openclawDoc' },
   { id: 'faq', labelKey: 'docs.faqDoc' },
 ]
 
@@ -156,6 +157,68 @@ function AgentsDocContent() {
   )
 }
 
+function OpenClawContent() {
+  const { t } = useTranslation()
+  return (
+    <div>
+      <SectionHeading>{t('docs.openclawDoc')}</SectionHeading>
+      <p className="text-gray-600 font-medium mb-6 leading-relaxed">{t('docs.openclawIntro')}</p>
+
+      <SubHeading>{t('docs.openclawWhat')}</SubHeading>
+      <p className="text-gray-600 leading-relaxed mb-4">{t('docs.openclawWhatDesc')}</p>
+
+      <SubHeading>{t('docs.openclawInstall')}</SubHeading>
+      <Step num={1} title={t('docs.openclawStep1Title')}>
+        <p>{t('docs.openclawStep1Desc')}</p>
+        <div className="bg-gray-900 text-green-400 rounded-lg p-4 mt-2 font-mono text-sm overflow-x-auto">
+          <div>openclaw plugins install @shadowob/openclaw</div>
+        </div>
+      </Step>
+      <Step num={2} title={t('docs.openclawStep2Title')}>
+        <p>{t('docs.openclawStep2Desc')}</p>
+        <div className="bg-gray-900 text-green-400 rounded-lg p-4 mt-2 font-mono text-sm overflow-x-auto">
+          <div>openclaw plugins list</div>
+        </div>
+      </Step>
+
+      <SubHeading>{t('docs.openclawConfig')}</SubHeading>
+      <p className="text-gray-600 leading-relaxed mb-4">{t('docs.openclawConfigDesc')}</p>
+      <div className="bg-gray-900 text-green-400 rounded-lg p-4 mt-2 font-mono text-sm overflow-x-auto whitespace-pre">
+{`channels:
+  shadow:
+    token: "<agent-jwt-token>"
+    serverUrl: "https://shadowob.com"`}
+      </div>
+
+      <SubHeading>{t('docs.openclawToken')}</SubHeading>
+      <Step num={1} title={t('docs.openclawTokenStep1')}>
+        <p>{t('docs.openclawTokenStep1Desc')}</p>
+      </Step>
+      <Step num={2} title={t('docs.openclawTokenStep2')}>
+        <p>{t('docs.openclawTokenStep2Desc')}</p>
+      </Step>
+      <Step num={3} title={t('docs.openclawTokenStep3')}>
+        <p>{t('docs.openclawTokenStep3Desc')}</p>
+      </Step>
+
+      <SubHeading>{t('docs.openclawCapabilities')}</SubHeading>
+      <div className="grid gap-3 my-4">
+        {['messaging', 'threads', 'reactions', 'media', 'mentions', 'editDelete'].map((cap) => (
+          <div key={cap} className="bg-gray-50 rounded-xl p-4 border border-gray-200 flex items-start gap-3">
+            <span className="text-green-500 mt-0.5">✅</span>
+            <div>
+              <p className="font-bold text-gray-800">{t(`docs.openclawCap_${cap}`)}</p>
+              <p className="text-gray-600 text-sm">{t(`docs.openclawCap_${cap}_desc`)}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <Tip>{t('docs.openclawTip')}</Tip>
+    </div>
+  )
+}
+
 function FaqContent() {
   const { t } = useTranslation()
   const faqs = [1, 2, 3, 4, 5, 6] as const
@@ -185,6 +248,7 @@ export function DocsPage() {
     guide: <GuideContent />,
     channels: <ChannelsContent />,
     agents: <AgentsDocContent />,
+    openclaw: <OpenClawContent />,
     faq: <FaqContent />,
   }
 

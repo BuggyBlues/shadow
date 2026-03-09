@@ -70,14 +70,14 @@ export function InvitePage() {
           <p className="text-[#b5bac1] text-sm mb-6">{t('invite.loginRequired')}</p>
           <button
             type="button"
-            onClick={() => navigate({ to: '/login' })}
+            onClick={() => navigate({ to: '/login', search: { redirect: `/invite/${code}` } })}
             className="w-full px-4 py-3 bg-[#5865F2] hover:bg-[#4752C4] text-white rounded-lg transition font-bold"
           >
             {t('auth.loginSubmit')}
           </button>
           <button
             type="button"
-            onClick={() => navigate({ to: '/register' })}
+            onClick={() => navigate({ to: '/register', search: { redirect: `/invite/${code}` } })}
             className="w-full mt-3 px-4 py-3 bg-[#2b2d31] hover:bg-[#3f4147] text-[#dbdee1] rounded-lg transition"
           >
             {t('auth.registerSubmit')}

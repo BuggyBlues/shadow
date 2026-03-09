@@ -88,6 +88,8 @@ export function ChatArea() {
   const { setMobileView } = useUIStore()
   const parentRef = useRef<HTMLDivElement>(null)
   const [replyToId, setReplyToId] = useState<string | null>(null)
+  const [droppedFiles, setDroppedFiles] = useState<File[]>([])
+  const [isDragOver, setIsDragOver] = useState(false)
   const [typingUsers, setTypingUsers] = useState<string[]>([])
   const [lastReadCount, setLastReadCount] = useState(0)
   const [highlightMsgId, setHighlightMsgId] = useState<string | null>(null)
@@ -512,6 +514,27 @@ export function ChatArea() {
     [queryClient, activeChannelId],
   )
 
+  const handleAreaDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragOver(false)
+    const files = e.dataTransfer.files
+    if (files.length > 0) {
+      setDroppedFiles(Array.from(files))
+    }
+  }, [])
+
+  const handleAreaDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragOver(true)
+  }, [])
+
+  const handleAreaDragLeave = useCallback((e: React.DragEvent) => {
+    // Only set false if leaving the container (not entering a child)
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false)
+    }
+  }, [])
+
   if (!activeChannelId) {
     return (
       <div className="flex-1 flex items-center justify-center bg-bg-primary">
@@ -527,7 +550,20 @@ export function ChatArea() {
 
   return (
     <div className="flex-1 flex min-w-0 h-full">
-      <div className="flex-1 flex flex-col bg-bg-primary min-w-0 h-full relative">
+      <div
+        className="flex-1 flex flex-col bg-bg-primary min-w-0 h-full relative"
+        onDrop={handleAreaDrop}
+        onDragOver={handleAreaDragOver}
+        onDragLeave={handleAreaDragLeave}
+      >
+        {/* Drag overlay */}
+        {isDragOver && (
+          <div className="absolute inset-0 z-40 bg-primary/10 border-2 border-dashed border-primary rounded-lg flex items-center justify-center pointer-events-none">
+            <div className="bg-bg-secondary px-6 py-4 rounded-xl shadow-lg text-text-primary font-bold text-lg">
+              {t('chat.dropFilesHere', 'Drop files here to upload')}
+            </div>
+          </div>
+        )}
         {/* Channel header */}
         <div className="h-12 px-4 flex items-center gap-2 border-b-2 border-bg-tertiary shrink-0 z-10 bg-bg-primary">
           {/* Mobile back button */}
@@ -716,6 +752,8 @@ export function ChatArea() {
           channelName={channel?.name}
           replyToId={replyToId}
           onClearReply={() => setReplyToId(null)}
+          externalFiles={droppedFiles}
+          onExternalFilesConsumed={() => setDroppedFiles([])}
         />
       </div>
 

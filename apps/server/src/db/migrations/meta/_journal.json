@@ -43,6 +43,13 @@
       "when": 1772867600000,
       "tag": "0005_add_agent_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1773100000000,
+      "tag": "0006_add_channel_members",
+      "breakpoints": true
     }
   ]
 }

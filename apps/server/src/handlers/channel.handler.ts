@@ -33,6 +33,20 @@ export function createChannelHandler(container: AppContainer) {
       const serverId = await resolveServerId(c.req.param('serverId'))
       const input = c.req.valid('json')
       const channel = await channelService.create(serverId, input)
+
+      // Broadcast channel:created to all members of the server via their user rooms
+      try {
+        const io = container.resolve('io')
+        const serverDao = container.resolve('serverDao')
+        const members = await serverDao.getMembers(serverId)
+        const payload = { ...channel, serverId }
+        for (const member of members) {
+          io.to(`user:${member.userId}`).emit('channel:created', payload)
+        }
+      } catch {
+        /* non-critical broadcast failure */
+      }
+
       return c.json(channel, 201)
     },
   )
@@ -41,7 +55,8 @@ export function createChannelHandler(container: AppContainer) {
   channelHandler.get('/servers/:serverId/channels', async (c) => {
     const channelService = container.resolve('channelService')
     const serverId = await resolveServerId(c.req.param('serverId'))
-    const channels = await channelService.getByServerId(serverId)
+    const user = c.get('user')
+    const channels = await channelService.getByServerIdForUser(serverId, user.userId)
     return c.json(channels)
   })
 
@@ -51,6 +66,15 @@ export function createChannelHandler(container: AppContainer) {
     const id = c.req.param('id')
     const channel = await channelService.getById(id)
     return c.json(channel)
+  })
+
+  // GET /api/channels/:id/members — returns channel members with full user info
+  channelHandler.get('/channels/:id/members', async (c) => {
+    const channelService = container.resolve('channelService')
+    const id = c.req.param('id')
+    const channel = await channelService.getById(id)
+    const members = await channelService.getChannelMembers(id, channel.serverId)
+    return c.json(members)
   })
 
   // PATCH /api/channels/:id

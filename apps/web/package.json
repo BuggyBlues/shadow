@@ -34,6 +34,7 @@
     "shiki": "^4.0.1",
     "socket.io-client": "^4.8.1",
     "tailwind-merge": "^3.3.0",
+    "xlsx": "^0.18.5",
     "zustand": "^5.0.5"
   },
   "devDependencies": {

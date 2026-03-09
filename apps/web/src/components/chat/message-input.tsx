@@ -14,6 +14,8 @@ interface MessageInputProps {
   channelName?: string
   replyToId?: string | null
   onClearReply?: () => void
+  externalFiles?: File[]
+  onExternalFilesConsumed?: () => void
 }
 
 interface PendingFile {
@@ -41,6 +43,8 @@ export function MessageInput({
   channelName,
   replyToId,
   onClearReply,
+  externalFiles,
+  onExternalFilesConsumed,
 }: MessageInputProps) {
   const { t } = useTranslation()
   const { activeServerId } = useChatStore()
@@ -84,6 +88,22 @@ export function MessageInput({
       item?.scrollIntoView({ block: 'nearest' })
     }
   }, [mentionIndex, mentionQuery])
+
+  // Consume external files dropped into the chat area
+  useEffect(() => {
+    if (externalFiles && externalFiles.length > 0) {
+      const newFiles: PendingFile[] = externalFiles.map((file) => {
+        const pf: PendingFile = { file }
+        if (file.type.startsWith('image/')) {
+          pf.preview = URL.createObjectURL(file)
+        }
+        return pf
+      })
+      setPendingFiles((prev) => [...prev, ...newFiles])
+      onExternalFilesConsumed?.()
+      textareaRef.current?.focus()
+    }
+  }, [externalFiles, onExternalFilesConsumed])
 
   // Insert mention at cursor
   const insertMention = useCallback(
@@ -204,7 +224,7 @@ export function MessageInput({
       }
     }
 
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
       handleSend()
     }

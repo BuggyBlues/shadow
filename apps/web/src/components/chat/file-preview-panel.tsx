@@ -1,8 +1,9 @@
-import { Code2, Download, Eye, File, FileArchive, FolderOpen, X } from 'lucide-react'
+import { Code2, Download, Eye, File, FileArchive, FolderOpen, Maximize2, Minimize2, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { useUIStore } from '../../stores/ui.store'
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -95,6 +96,12 @@ function getFileCategory(ct: string, ext: string) {
   if (ext === 'html' || ext === 'htm' || ct === 'text/html' || ct.includes('html')) return 'html'
   if (ext === 'csv' || ext === 'tsv' || ct === 'text/csv') return 'csv'
   if (
+    ['xls', 'xlsx'].includes(ext) ||
+    ct === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+    ct === 'application/vnd.ms-excel'
+  )
+    return 'xlsx'
+  if (
     ['zip', 'tar', 'gz', 'bz2', 'xz', '7z', 'rar', 'tgz', 'jar', 'war'].includes(ext) ||
     ct.includes('zip') ||
     ct.includes('tar') ||
@@ -152,7 +159,7 @@ function getFileCategory(ct: string, ext: string) {
 
 /** Whether a file category supports the Preview/Code toggle */
 function hasPreviewMode(category: string): boolean {
-  return ['markdown', 'html', 'csv'].includes(category)
+  return ['markdown', 'html', 'csv', 'xlsx'].includes(category)
 }
 
 // ── CSV Parser ─────────────────────────────────────────────────────────
@@ -356,6 +363,127 @@ function CSVTable({ text, ext }: { text: string; ext: string }) {
   )
 }
 
+/** Excel table viewer */
+function ExcelTable({ url }: { url: string }) {
+  const { t } = useTranslation()
+  const [sheets, setSheets] = useState<{ name: string; headers: string[]; rows: string[][] }[]>([])
+  const [activeSheet, setActiveSheet] = useState(0)
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    ;(async () => {
+      try {
+        const XLSX = await import('xlsx')
+        const res = await fetch(url)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const buf = await res.arrayBuffer()
+        const wb = XLSX.read(buf, { type: 'array' })
+        if (cancelled) return
+        const parsed = wb.SheetNames.map((name) => {
+          const ws = wb.Sheets[name]!
+          const json = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1 })
+          const headers = (json[0] ?? []).map(String)
+          const rows = json.slice(1).map((r) => r.map(String))
+          return { name, headers, rows }
+        })
+        setSheets(parsed)
+        setActiveSheet(0)
+      } catch (err) {
+        if (!cancelled) setError((err as Error).message)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [url])
+
+  if (loading)
+    return (
+      <div className="flex-1 flex items-center justify-center text-text-muted">
+        <span className="animate-pulse">{t('common.loading')}</span>
+      </div>
+    )
+  if (error)
+    return (
+      <div className="flex-1 flex items-center justify-center text-red-400 text-sm">
+        {t('chat.previewError', { error })}
+      </div>
+    )
+  const sheet = sheets[activeSheet]
+  if (!sheet || sheet.headers.length === 0)
+    return <p className="text-text-muted text-sm p-4">Empty spreadsheet</p>
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Sheet tabs */}
+      {sheets.length > 1 && (
+        <div className="flex items-center gap-0.5 px-2 py-1 border-b border-white/8 overflow-x-auto shrink-0">
+          {sheets.map((s, i) => (
+            <button
+              key={s.name}
+              type="button"
+              onClick={() => setActiveSheet(i)}
+              className={`px-2.5 py-1 text-xs rounded-md whitespace-nowrap transition ${
+                i === activeSheet
+                  ? 'bg-white/12 text-text-primary font-medium'
+                  : 'text-text-muted hover:text-text-secondary hover:bg-white/5'
+              }`}
+            >
+              {s.name}
+            </button>
+          ))}
+        </div>
+      )}
+      {/* Table */}
+      <div className="overflow-auto flex-1">
+        <table className="w-full border-collapse text-[13px]">
+          <thead className="sticky top-0 z-10">
+            <tr className="bg-bg-tertiary border-b border-white/10">
+              <th className="px-3 py-2 text-[11px] font-bold text-text-muted text-right w-10 border-r border-white/5">
+                #
+              </th>
+              {sheet.headers.map((h, i) => (
+                <th
+                  key={i}
+                  className="px-3 py-2 text-left font-semibold text-text-primary whitespace-nowrap border-r border-white/5 last:border-r-0"
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sheet.rows.map((row, ri) => (
+              <tr key={ri} className="border-b border-white/5 hover:bg-white/3 transition-colors">
+                <td className="px-3 py-1.5 text-[11px] text-text-muted text-right border-r border-white/5 tabular-nums select-none">
+                  {ri + 1}
+                </td>
+                {sheet.headers.map((_, ci) => (
+                  <td
+                    key={ci}
+                    className="px-3 py-1.5 text-text-secondary whitespace-nowrap border-r border-white/5 last:border-r-0 max-w-[300px] truncate"
+                    title={row[ci] ?? ''}
+                  >
+                    {row[ci] ?? ''}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="px-3 py-2 text-[11px] text-text-muted border-t border-white/8">
+          {sheet.rows.length} rows × {sheet.headers.length} columns
+          {sheets.length > 1 && ` · Sheet: ${sheet.name}`}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /** ZIP file listing */
 function ZipListing({ url }: { url: string }) {
   const { t } = useTranslation()
@@ -551,6 +679,47 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [mode, setMode] = useState<'preview' | 'code'>('preview')
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const setFilePreviewOpen = useUIStore((s) => s.setFilePreviewOpen)
+
+  // Drag-to-resize state
+  const [panelWidth, setPanelWidth] = useState(520)
+  const isDragging = useRef(false)
+  const dragStartX = useRef(0)
+  const dragStartWidth = useRef(520)
+
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    isDragging.current = true
+    dragStartX.current = e.clientX
+    dragStartWidth.current = panelWidth
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      if (!isDragging.current) return
+      const delta = dragStartX.current - ev.clientX
+      const newWidth = Math.max(320, Math.min(window.innerWidth * 0.8, dragStartWidth.current + delta))
+      setPanelWidth(newWidth)
+    }
+
+    const handleMouseUp = () => {
+      isDragging.current = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }, [panelWidth])
+
+  // Track preview open/close for auto-hiding member list
+  useEffect(() => {
+    setFilePreviewOpen(true)
+    return () => setFilePreviewOpen(false)
+  }, [setFilePreviewOpen])
 
   const ext = attachment.filename.split('.').pop()?.toLowerCase() ?? ''
   const category = getFileCategory(attachment.contentType, ext)
@@ -560,7 +729,7 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
   useEffect(() => {
     const isTextBased =
       category === 'text' || category === 'markdown' || category === 'html' || category === 'csv'
-    if (!isTextBased) return
+    if (!isTextBased && category !== 'xlsx') return
 
     setLoading(true)
     setError(null)
@@ -584,14 +753,20 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
       .finally(() => setLoading(false))
   }, [attachment.url, category])
 
-  // Close on Escape key
+  // Close on Escape key (exit fullscreen first if in fullscreen)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {
+        if (isFullscreen) {
+          setIsFullscreen(false)
+        } else {
+          onClose()
+        }
+      }
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
+  }, [onClose, isFullscreen])
 
   const renderContent = useCallback(() => {
     // Image
@@ -645,6 +820,19 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
     // Archive / ZIP
     if (category === 'archive') {
       return <ZipListing url={attachment.url} />
+    }
+
+    // Excel / XLSX
+    if (category === 'xlsx') {
+      if (mode === 'preview') {
+        return <ExcelTable url={attachment.url} />
+      }
+      // Code mode: show as JSON
+      return (
+        <div className="flex-1 flex items-center justify-center text-text-muted text-sm p-4">
+          {t('chat.previewUnsupported')}
+        </div>
+      )
     }
 
     // Loading state for text-based content
@@ -736,8 +924,26 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
     )
   }, [category, attachment, loading, error, textContent, mode, ext, t])
 
+  const panelClasses = isFullscreen
+    ? 'fixed inset-0 z-50 bg-bg-secondary flex flex-col animate-fade-in'
+    : 'h-full bg-bg-secondary border-l border-white/8 flex flex-col shrink-0 animate-slide-in-right relative'
+
   return (
-    <div className="w-[420px] h-full bg-bg-secondary border-l border-white/8 flex flex-col shrink-0 animate-slide-in-right">
+    <>
+      {/* Fullscreen backdrop */}
+      {isFullscreen && (
+        <div className="fixed inset-0 z-40 bg-black/60" onClick={() => setIsFullscreen(false)} />
+      )}
+      <div className={panelClasses} style={isFullscreen ? undefined : { width: panelWidth }}>
+      {/* Drag handle on left edge */}
+      {!isFullscreen && (
+        <div
+          className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/40 transition-colors z-10 group"
+          onMouseDown={handleDragStart}
+        >
+          <div className="absolute inset-y-0 -left-1 w-3" />
+        </div>
+      )}
       {/* Header */}
       <div className="h-12 px-4 flex items-center gap-3 border-b border-white/8 shrink-0">
         <div className="flex-1 min-w-0">
@@ -745,7 +951,6 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
           <p className="text-[11px] text-text-muted">{formatFileSize(attachment.size)}</p>
         </div>
 
-        {/* Preview / Code toggle */}
         {showToggle && (
           <div className="flex items-center gap-0.5 bg-bg-tertiary rounded-lg p-0.5">
             <TabButton
@@ -763,6 +968,14 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
           </div>
         )}
 
+        <button
+          type="button"
+          onClick={() => setIsFullscreen(!isFullscreen)}
+          className="p-1.5 text-text-muted hover:text-text-primary hover:bg-white/10 rounded-md transition"
+          title={isFullscreen ? t('chat.exitFullscreen') : t('chat.enterFullscreen')}
+        >
+          {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+        </button>
         <a
           href={attachment.url}
           download={attachment.filename}
@@ -783,6 +996,7 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
 
       {/* Preview content */}
       {renderContent()}
-    </div>
+      </div>
+    </>
   )
 }

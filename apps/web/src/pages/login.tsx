@@ -1,4 +1,4 @@
-import { Link, useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStatus } from '../hooks/use-app-status'
@@ -9,6 +9,7 @@ export function LoginPage() {
   const { t } = useTranslation()
   useAppStatus({ title: t('auth.loginTitle'), variant: 'auth' })
   const navigate = useNavigate()
+  const searchParams = useSearch({ strict: false }) as { redirect?: string }
   const setAuth = useAuthStore((s) => s.setAuth)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -37,7 +38,12 @@ export function LoginPage() {
       })
 
       setAuth(result.user, result.accessToken, result.refreshToken)
-      navigate({ to: '/app' })
+      const redirectTo = searchParams.redirect
+      if (redirectTo && redirectTo.startsWith('/')) {
+        navigate({ to: redirectTo })
+      } else {
+        navigate({ to: '/app' })
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : t('auth.loginFailed'))
     } finally {
@@ -102,7 +108,7 @@ export function LoginPage() {
 
         <p className="mt-4 text-[14px]">
           <span className="text-[#949ba4]">{t('auth.noAccount')}</span>{' '}
-          <Link to="/register" className="text-[#00a8fc] hover:underline">
+          <Link to="/register" search={searchParams.redirect ? { redirect: searchParams.redirect } : {}} className="text-[#00a8fc] hover:underline">
             {t('auth.registerLink')}
           </Link>
         </p>

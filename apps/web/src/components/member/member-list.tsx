@@ -56,10 +56,10 @@ const statusColors: Record<string, string> = {
 
 export function MemberList() {
   const { t } = useTranslation()
-  const { activeServerId } = useChatStore()
+  const { activeServerId, activeChannelId } = useChatStore()
   const currentUser = useAuthStore((s) => s.user)
   const queryClient = useQueryClient()
-  const { mobileMemberListOpen, closeMobileMemberList } = useUIStore()
+  const { mobileMemberListOpen, closeMobileMemberList, filePreviewOpen } = useUIStore()
   const [showAddAgent, setShowAddAgent] = useState(false)
   const [showInvitePanel, setShowInvitePanel] = useState(false)
   const [inviteCopied, setInviteCopied] = useState(false)
@@ -85,8 +85,14 @@ export function MemberList() {
   } | null>(null)
 
   const { data: members = [] } = useQuery({
-    queryKey: ['members', activeServerId],
-    queryFn: () => fetchApi<Member[]>(`/api/servers/${activeServerId}/members`),
+    queryKey: ['members', activeServerId, activeChannelId],
+    queryFn: () => {
+      // Prefer channel-specific members when a channel is active
+      if (activeChannelId) {
+        return fetchApi<Member[]>(`/api/channels/${activeChannelId}/members`)
+      }
+      return fetchApi<Member[]>(`/api/servers/${activeServerId}/members`)
+    },
     enabled: !!activeServerId,
   })
 
@@ -106,7 +112,7 @@ export function MemberList() {
   useSocketEvent(
     'presence:change',
     (data: { userId: string; status: 'online' | 'idle' | 'dnd' | 'offline' }) => {
-      queryClient.setQueryData<Member[]>(['members', activeServerId], (old = []) =>
+      queryClient.setQueryData<Member[]>(['members', activeServerId, activeChannelId], (old = []) =>
         old.map((m) =>
           m.userId === data.userId && m.user
             ? { ...m, user: { ...m.user, status: data.status } }
@@ -118,7 +124,7 @@ export function MemberList() {
 
   // On socket reconnect, refetch members to sync bot/user statuses
   useSocketEvent('connect', () => {
-    queryClient.invalidateQueries({ queryKey: ['members', activeServerId] })
+    queryClient.invalidateQueries({ queryKey: ['members', activeServerId, activeChannelId] })
   })
 
   // Kick / remove member mutation
@@ -126,7 +132,7 @@ export function MemberList() {
     mutationFn: ({ serverId, userId }: { serverId: string; userId: string }) =>
       fetchApi(`/api/servers/${serverId}/members/${userId}`, { method: 'DELETE' }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['members', activeServerId] })
+      queryClient.invalidateQueries({ queryKey: ['members', activeServerId, activeChannelId] })
       setContextMenu(null)
     },
   })
@@ -182,8 +188,9 @@ export function MemberList() {
   const onlineMembers = members.filter((m) => m.user?.status !== 'offline')
   const offlineMembers = members.filter((m) => m.user?.status === 'offline')
 
-  const renderMemberGroup = (label: string, items: Member[]) => {
+  const renderMemberGroup = (label: string, items: Member[], opts?: { flat?: boolean }) => {
     if (items.length === 0) return null
+    const isFlat = opts?.flat ?? false
     return (
       <div className="mb-4">
         <h4 className="text-[12px] font-bold uppercase text-text-muted px-4 mb-2 tracking-wide">
@@ -219,7 +226,7 @@ export function MemberList() {
 
           const topLevelMembers = items.filter((m) => !m.user?.isBot)
 
-          const renderMemberRow = (member: Member, opts?: { child?: boolean }) => {
+          const renderMemberRow = (member: Member, rowOpts?: { child?: boolean }) => {
             const user = member.user
             if (!user) return null
             const buddyMeta = user.isBot ? buddyMetaByUserId.get(user.id) : undefined
@@ -231,8 +238,8 @@ export function MemberList() {
                   : null
             const isHovered = hoveredMemberId === member.id
             return (
-              <div key={member.id} className={`relative ${opts?.child ? 'pl-3' : 'mx-2'}`}>
-                {opts?.child && (
+              <div key={member.id} className={`relative ${rowOpts?.child ? 'pl-3' : 'mx-2'}`}>
+                {rowOpts?.child && (
                   <div className="absolute left-0 top-1/2 -translate-y-1/2 w-3 h-px bg-white/20" />
                 )}
                 <button
@@ -288,7 +295,7 @@ export function MemberList() {
           return (
             <>
               {topLevelMembers.map((member) => {
-                const children = ownerChildren.get(member.userId) ?? []
+                const children = isFlat ? [] : (ownerChildren.get(member.userId) ?? [])
                 return (
                   <div key={member.id}>
                     {renderMemberRow(member)}
@@ -300,7 +307,10 @@ export function MemberList() {
                   </div>
                 )
               })}
-              {orphanBots.map((member) => renderMemberRow(member, { child: true }))}
+              {/* In flat mode, render all bots without tree structure */}
+              {isFlat
+                ? items.filter((m) => m.user?.isBot).map((m) => renderMemberRow(m))
+                : orphanBots.map((member) => renderMemberRow(member, { child: true }))}
             </>
           )
         })()}
@@ -332,7 +342,7 @@ export function MemberList() {
         </button>
       </div>
       {renderMemberGroup(t('member.groupOnline'), onlineMembers)}
-      {renderMemberGroup(t('member.groupOffline'), offlineMembers)}
+      {renderMemberGroup(t('member.groupOffline'), offlineMembers, { flat: true })}
       {members.length === 0 && (
         <p className="text-text-muted text-sm px-4 py-2">{t('member.noMembers')}</p>
       )}
@@ -341,10 +351,12 @@ export function MemberList() {
 
   return (
     <>
-      {/* Desktop member list */}
-      <div className="w-60 bg-bg-secondary overflow-y-auto shrink-0 pt-4 hidden lg:block h-full">
-        {memberContent}
-      </div>
+      {/* Desktop member list — hidden when file preview panel is open */}
+      {!filePreviewOpen && (
+        <div className="w-60 bg-bg-secondary overflow-y-auto shrink-0 pt-4 hidden lg:block h-full">
+          {memberContent}
+        </div>
+      )}
 
       {/* Mobile member list overlay */}
       {mobileMemberListOpen && (
@@ -414,7 +426,7 @@ export function MemberList() {
           serverId={activeServerId}
           onClose={() => setShowAddAgent(false)}
           onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ['members', activeServerId] })
+            queryClient.invalidateQueries({ queryKey: ['members'] })
             setShowAddAgent(false)
           }}
           t={t}

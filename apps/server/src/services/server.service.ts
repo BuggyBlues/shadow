@@ -1,4 +1,5 @@
 import type { ChannelDao } from '../dao/channel.dao'
+import type { ChannelMemberDao } from '../dao/channel-member.dao'
 import type { ServerDao } from '../dao/server.dao'
 import type {
   CreateServerInput,
@@ -7,7 +8,9 @@ import type {
 } from '../validators/server.schema'
 
 export class ServerService {
-  constructor(private deps: { serverDao: ServerDao; channelDao: ChannelDao }) {}
+  constructor(
+    private deps: { serverDao: ServerDao; channelDao: ChannelDao; channelMemberDao: ChannelMemberDao },
+  ) {}
 
   async create(input: CreateServerInput, userId: string) {
     const server = await this.deps.serverDao.create({
@@ -21,15 +24,24 @@ export class ServerService {
     })
 
     // Add owner as member with 'owner' role
-    await this.deps.serverDao.addMember(server.id, userId, 'owner')
+    await this.deps.serverDao.addMember(server!.id, userId, 'owner')
 
     // Create default #general channel
-    await this.deps.channelDao.create({
+    const generalChannel = await this.deps.channelDao.create({
       name: 'general',
-      serverId: server.id,
+      serverId: server!.id,
       type: 'text',
       topic: 'General discussion',
     })
+
+    // Add owner to the general channel
+    if (generalChannel) {
+      try {
+        await this.deps.channelMemberDao.add(generalChannel.id, userId)
+      } catch {
+        /* channel_members table may not exist yet */
+      }
+    }
 
     return server
   }
@@ -95,6 +107,16 @@ export class ServerService {
     }
 
     await this.deps.serverDao.addMember(server.id, userId, 'member')
+
+    // Auto-add user to all existing channels in the server
+    try {
+      const channels = await this.deps.channelDao.findByServerId(server.id)
+      const channelIds = channels.map((ch) => ch.id)
+      await this.deps.channelMemberDao.addBulk(channelIds, userId)
+    } catch {
+      /* channel_members table may not exist yet */
+    }
+
     return server
   }
 
@@ -108,6 +130,16 @@ export class ServerService {
     }
 
     await this.deps.serverDao.removeMember(serverId, userId)
+
+    // Remove user from all channels in the server
+    try {
+      const channels = await this.deps.channelDao.findByServerId(serverId)
+      for (const ch of channels) {
+        await this.deps.channelMemberDao.remove(ch.id, userId)
+      }
+    } catch {
+      /* channel_members table may not exist yet */
+    }
   }
 
   async getMembers(serverId: string) {
@@ -136,6 +168,16 @@ export class ServerService {
     }
 
     await this.deps.serverDao.removeMember(serverId, targetUserId)
+
+    // Remove kicked user from all channels in the server
+    try {
+      const channels = await this.deps.channelDao.findByServerId(serverId)
+      for (const ch of channels) {
+        await this.deps.channelMemberDao.remove(ch.id, targetUserId)
+      }
+    } catch {
+      /* channel_members table may not exist yet */
+    }
   }
 
   async updateMember(
@@ -200,6 +242,17 @@ export class ServerService {
     if (existing) {
       return existing // already a member
     }
-    return this.deps.serverDao.addMember(serverId, botUserId, 'member')
+    const member = await this.deps.serverDao.addMember(serverId, botUserId, 'member')
+
+    // Auto-add bot to all existing channels in the server
+    try {
+      const channels = await this.deps.channelDao.findByServerId(serverId)
+      const channelIds = channels.map((ch) => ch.id)
+      await this.deps.channelMemberDao.addBulk(channelIds, botUserId)
+    } catch {
+      /* channel_members table may not exist yet */
+    }
+
+    return member
   }
 }

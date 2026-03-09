@@ -912,3 +912,242 @@ function EditAgentDialog({
     </div>
   )
 }
+
+/* ── Embeddable Buddy Management Content (for Settings page) ── */
+
+export function BuddyManagementContent() {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+
+  const [showCreate, setShowCreate] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
+  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
+  const [generatedToken, setGeneratedToken] = useState<string | null>(null)
+  const [tokenCopied, setTokenCopied] = useState(false)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [message, setMessage] = useState<{ text: string; success: boolean } | null>(null)
+
+  const { data: agents = [], isLoading } = useQuery({
+    queryKey: ['agents'],
+    queryFn: () => fetchApi<Agent[]>('/api/agents'),
+    refetchInterval: 30000,
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => fetchApi(`/api/agents/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['agents'] })
+      setDeleteConfirmId(null)
+      if (selectedAgent?.id === deleteConfirmId) setSelectedAgent(null)
+      showMsg(t('agentMgmt.deleteSuccess'), true)
+    },
+    onError: () => showMsg(t('agentMgmt.deleteFailed'), false),
+  })
+
+  const tokenMutation = useMutation({
+    mutationFn: (id: string) =>
+      fetchApi<TokenResponse>(`/api/agents/${id}/token`, { method: 'POST' }),
+    onSuccess: (data) => {
+      setGeneratedToken(data.token)
+      setTokenCopied(false)
+      queryClient.invalidateQueries({ queryKey: ['agents'] })
+    },
+  })
+
+  const toggleMutation = useMutation({
+    mutationFn: (agent: Agent) =>
+      fetchApi<Agent>(`/api/agents/${agent.id}/${agent.status === 'running' ? 'stop' : 'start'}`, {
+        method: 'POST',
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['agents'] })
+      if (selectedAgent) {
+        fetchApi<Agent>(`/api/agents/${selectedAgent.id}`).then((a) => setSelectedAgent(a))
+      }
+    },
+  })
+
+  const showMsg = (text: string, success: boolean) => {
+    setMessage({ text, success })
+    setTimeout(() => setMessage(null), 3000)
+  }
+
+  const copyToken = async (token: string) => {
+    await navigator.clipboard.writeText(token)
+    setTokenCopied(true)
+    showMsg(t('agentMgmt.tokenCopied'), true)
+  }
+
+  const statusColor = (status: string) => {
+    switch (status) {
+      case 'running': return 'text-green-400'
+      case 'stopped': return 'text-zinc-400'
+      case 'error': return 'text-red-400'
+      default: return 'text-zinc-400'
+    }
+  }
+
+  const statusLabel = (status: string) => {
+    switch (status) {
+      case 'running': return t('agentMgmt.statusRunning')
+      case 'stopped': return t('agentMgmt.statusStopped')
+      case 'error': return t('agentMgmt.statusError')
+      default: return status
+    }
+  }
+
+  return (
+    <>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-text-primary">{t('agentMgmt.title')}</h2>
+        <button
+          onClick={() => setShowCreate(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition font-bold text-sm"
+        >
+          <Plus size={16} />
+          {t('agentMgmt.newAgent')}
+        </button>
+      </div>
+
+      {/* Message */}
+      {message && (
+        <div
+          className={`mb-4 px-4 py-2 rounded-lg text-sm ${
+            message.success ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
+          }`}
+        >
+          {message.text}
+        </div>
+      )}
+
+      {/* Agent list */}
+      {isLoading ? (
+        <div className="text-center text-text-muted py-8">{t('common.loading')}</div>
+      ) : agents.length === 0 ? (
+        <div className="text-center text-text-muted py-12 bg-bg-secondary rounded-xl border border-white/5">
+          <img src="/Logo.svg" alt="Buddy" className="w-12 h-12 mx-auto mb-3 opacity-50" />
+          <p className="text-sm">{t('agentMgmt.noAgentsDesc')}</p>
+        </div>
+      ) : (
+        <div className="space-y-2 mb-6">
+          {agents.map((agent) => {
+            const name = agent.botUser?.displayName ?? agent.botUser?.username ?? 'Buddy'
+            const isSelected = selectedAgent?.id === agent.id
+            return (
+              <button
+                key={agent.id}
+                onClick={() => {
+                  setSelectedAgent(isSelected ? null : agent)
+                  setGeneratedToken(null)
+                }}
+                className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-left transition border ${
+                  isSelected
+                    ? 'bg-white/[0.08] border-primary/30 text-white'
+                    : 'bg-bg-secondary border-white/5 text-text-secondary hover:bg-white/[0.04] hover:text-text-primary'
+                }`}
+              >
+                <UserAvatar
+                  userId={agent.botUser?.id ?? agent.userId}
+                  avatarUrl={agent.botUser?.avatarUrl}
+                  displayName={agent.botUser?.displayName ?? undefined}
+                  size="sm"
+                />
+                <span className="truncate flex-1">{name}</span>
+                <span
+                  className={`w-2 h-2 rounded-full shrink-0 ${
+                    agent.status === 'running'
+                      ? 'bg-[#23a559]'
+                      : agent.status === 'error'
+                        ? 'bg-[#da373c]'
+                        : 'bg-[#80848e]'
+                  }`}
+                />
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Selected agent detail */}
+      {selectedAgent && (
+        <AgentDetail
+          agent={selectedAgent}
+          generatedToken={generatedToken}
+          tokenCopied={tokenCopied}
+          tokenMutation={tokenMutation}
+          statusColor={statusColor}
+          statusLabel={statusLabel}
+          onCopyToken={copyToken}
+          onDelete={() => setDeleteConfirmId(selectedAgent.id)}
+          onEdit={() => setShowEdit(true)}
+          onToggle={(agent) => toggleMutation.mutate(agent)}
+          togglePending={toggleMutation.isPending}
+          t={t}
+        />
+      )}
+
+      {/* Create dialog */}
+      {showCreate && (
+        <CreateAgentDialog
+          onClose={() => setShowCreate(false)}
+          onSuccess={(agent) => {
+            queryClient.invalidateQueries({ queryKey: ['agents'] })
+            setShowCreate(false)
+            setSelectedAgent(agent)
+            showMsg(t('agentMgmt.createSuccess'), true)
+          }}
+          onError={() => showMsg(t('agentMgmt.createFailed'), false)}
+          t={t}
+        />
+      )}
+
+      {/* Edit dialog */}
+      {showEdit && selectedAgent && (
+        <EditAgentDialog
+          agent={selectedAgent}
+          onClose={() => setShowEdit(false)}
+          onSuccess={(agent) => {
+            queryClient.invalidateQueries({ queryKey: ['agents'] })
+            setShowEdit(false)
+            setSelectedAgent(agent)
+            showMsg(t('agentMgmt.editSuccess'), true)
+          }}
+          onError={() => showMsg(t('agentMgmt.editFailed'), false)}
+          t={t}
+        />
+      )}
+
+      {/* Delete confirmation */}
+      {deleteConfirmId && (
+        <div
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+          onClick={() => setDeleteConfirmId(null)}
+        >
+          <div
+            className="bg-bg-secondary rounded-xl p-6 w-96 border border-white/5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-xl font-bold text-text-primary mb-2">{t('common.confirm')}</h2>
+            <p className="text-text-muted text-sm mb-6">{t('agentMgmt.deleteConfirm')}</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setDeleteConfirmId(null)}
+                className="px-4 py-2 text-text-secondary hover:text-text-primary transition rounded-lg"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={() => deleteMutation.mutate(deleteConfirmId)}
+                disabled={deleteMutation.isPending}
+                className="px-4 py-2 bg-danger text-white rounded-lg hover:bg-red-600 transition font-bold disabled:opacity-50"
+              >
+                {t('common.delete')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}

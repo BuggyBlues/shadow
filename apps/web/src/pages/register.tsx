@@ -1,4 +1,4 @@
-import { Link, useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStatus } from '../hooks/use-app-status'
@@ -10,12 +10,13 @@ export function RegisterPage() {
   const { t } = useTranslation()
   useAppStatus({ title: t('auth.registerTitle'), variant: 'auth' })
   const navigate = useNavigate()
+  const searchParams = useSearch({ strict: false }) as { redirect?: string; code?: string }
   const setAuth = useAuthStore((s) => s.setAuth)
   const [email, setEmail] = useState('')
   const [username, setUsername] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [password, setPassword] = useState('')
-  const [inviteCode, setInviteCode] = useState('')
+  const [inviteCode, setInviteCode] = useState(searchParams.code ?? '')
   const [selectedAvatar, setSelectedAvatar] = useState(getCatAvatar(0))
   const [showAvatarPicker, setShowAvatarPicker] = useState(false)
   const [error, setError] = useState('')
@@ -66,7 +67,12 @@ export function RegisterPage() {
         result.accessToken,
         result.refreshToken,
       )
-      navigate({ to: '/app' })
+      const redirectTo = searchParams.redirect
+      if (redirectTo && redirectTo.startsWith('/')) {
+        navigate({ to: redirectTo })
+      } else {
+        navigate({ to: '/app' })
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : t('auth.registerFailed'))
     } finally {
@@ -216,7 +222,7 @@ export function RegisterPage() {
 
         <p className="mt-4 text-[14px]">
           <span className="text-[#949ba4]">{t('auth.hasAccount')}</span>{' '}
-          <Link to="/login" className="text-[#00a8fc] hover:underline">
+          <Link to="/login" search={searchParams.redirect ? { redirect: searchParams.redirect } : {}} className="text-[#00a8fc] hover:underline">
             {t('auth.loginLink')}
           </Link>
         </p>

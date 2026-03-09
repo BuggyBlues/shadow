@@ -101,14 +101,15 @@ async function processShadowMessage(params: {
   const rawBody = message.content
   const chatType = message.threadId ? 'thread' : 'channel'
 
-  // 1. Resolve agent route
+  // 1. Resolve agent route — use threadId as sub-conversation for session isolation
+  const peerId = message.threadId ? `${channelId}:thread:${message.threadId}` : channelId
   const route = core.channel.routing.resolveAgentRoute({
     cfg,
     channel: 'shadowob',
     accountId,
     peer: {
       kind: 'group',
-      id: channelId,
+      id: peerId,
     },
   })
 
@@ -247,7 +248,7 @@ async function processShadowMessage(params: {
     SessionKey: route.sessionKey,
     AccountId: route.accountId,
     ChatType: chatType,
-    ConversationLabel: channelId,
+    ConversationLabel: peerId,
     SenderName: senderName,
     SenderId: senderId,
     SenderUsername: senderUsername,
@@ -548,6 +549,40 @@ export async function monitorShadowProvider(
       runtime.error?.(`[config] Failed to refresh config after server:joined: ${String(err)}`)
     }
   })
+
+  // Listen for channel:created — new channel added to a server the bot is in
+  socket.on(
+    'channel:created',
+    async (data: { id: string; name: string; serverId: string; type: string }) => {
+      runtime.log?.(
+        `[ws] Received channel:created: #${data.name} (${data.id}) in server ${data.serverId}`,
+      )
+
+      // Check if this channel is in a server we're monitoring
+      const monitoredServer = remoteConfig?.servers.find((s) => s.id === data.serverId)
+      if (!monitoredServer) {
+        runtime.log?.(`[ws] channel:created for unknown server ${data.serverId}, ignoring`)
+        return
+      }
+
+      // Default policy: listen + reply (same as when added from config)
+      if (!channelPolicies.has(data.id)) {
+        const defaultPolicy: ShadowChannelPolicy = { listen: true, reply: true, mentionOnly: false }
+        channelPolicies.set(data.id, defaultPolicy)
+        allChannelIds.push(data.id)
+        runtime.log?.(`[config] New channel: #${data.name} (${data.id}) — joining with default policy`)
+        socket.emit(
+          'channel:join',
+          { channelId: data.id },
+          (ack: { ok: boolean } | undefined) => {
+            if (ack?.ok) {
+              runtime.log?.(`[ws] ✓ Joined new channel room ${data.id}`)
+            }
+          },
+        )
+      }
+    },
+  )
 
   // Listen for new messages
   socket.on('message:new', (message: ShadowMessage) => {

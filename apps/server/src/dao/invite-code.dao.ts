@@ -97,4 +97,32 @@ export class InviteCodeDao {
   async delete(id: string) {
     await this.db.delete(inviteCodes).where(eq(inviteCodes.id, id))
   }
+
+  /** Find all invite codes created by a specific user, with used-by user info */
+  async findByCreator(userId: string, limit = 50, offset = 0) {
+    const usedByUser = {
+      id: users.id,
+      username: users.username,
+      displayName: users.displayName,
+      avatarUrl: users.avatarUrl,
+    }
+
+    // Self-join: get usedBy user info
+    const rows = await this.db
+      .select({
+        inviteCode: inviteCodes,
+        usedByUser: usedByUser,
+      })
+      .from(inviteCodes)
+      .leftJoin(users, eq(inviteCodes.usedBy, users.id))
+      .where(eq(inviteCodes.createdBy, userId))
+      .orderBy(sql`${inviteCodes.createdAt} DESC`)
+      .limit(limit)
+      .offset(offset)
+
+    return rows.map((r) => ({
+      ...r.inviteCode,
+      usedByUser: r.usedByUser?.id ? r.usedByUser : null,
+    }))
+  }
 }
