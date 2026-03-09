@@ -262,6 +262,7 @@
     "addBuddyToChannel": "Add Buddy to Channel",
     "policyMentionOnly": "@mention only",
     "policyReplyAll": "Reply to all",
+    "replyPolicy": "Reply Policy",
     "notInChannel": "Not in channel",
     "inChannel": "In channel"
   },

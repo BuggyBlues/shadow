@@ -262,6 +262,7 @@
     "addBuddyToChannel": "Buddy をチャンネルに追加",
     "policyMentionOnly": "@メンションのみ",
     "policyReplyAll": "すべてに返信",
+    "replyPolicy": "返信ポリシー",
     "notInChannel": "未参加",
     "inChannel": "参加中"
   },

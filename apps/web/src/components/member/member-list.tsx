@@ -474,129 +474,21 @@ export function MemberList() {
 
       {/* Context menu */}
       {contextMenu && (
-        <>
-          <div
-            className="fixed inset-0 z-[60]"
-            onClick={closeContextMenu}
-            onContextMenu={(e) => {
-              e.preventDefault()
-              closeContextMenu()
-            }}
-          />
-          <div
-            className="fixed z-[61] bg-bg-tertiary border border-white/10 rounded-lg shadow-xl py-1 min-w-[160px]"
-            style={{ left: contextMenu.x, top: contextMenu.y }}
-          >
-            {/* View profile — always visible */}
-            <button
-              type="button"
-              onClick={() => {
-                setProfileMember(contextMenu.member)
-                setContextMenu(null)
-              }}
-              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
-            >
-              {t('member.viewProfile')}
-            </button>
-
-            {/* Channel-level buddy actions — only for bots in a channel */}
-            {contextMenu.member.user?.isBot && activeChannelId && (
-              <>
-                <div className="h-px bg-white/5 my-1" />
-                {/* Policy toggle */}
-                {(() => {
-                  const agent = buddyAgents.find(
-                    (a) => a.botUser?.id === contextMenu.member.user?.id,
-                  )
-                  if (!agent) return null
-                  return (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!activeChannelId) return
-                          updateBotPolicy.mutate({
-                            channelId: activeChannelId,
-                            agentId: agent.id,
-                            mentionOnly: true,
-                          })
-                        }}
-                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
-                      >
-                        <MessageSquare size={14} />
-                        {t('member.policyMentionOnly')}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!activeChannelId) return
-                          updateBotPolicy.mutate({
-                            channelId: activeChannelId,
-                            agentId: agent.id,
-                            mentionOnly: false,
-                          })
-                        }}
-                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
-                      >
-                        <MessageSquare size={14} />
-                        {t('member.policyReplyAll')}
-                      </button>
-                    </>
-                  )
-                })()}
-                {/* Remove from channel */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!activeChannelId) return
-                    const name =
-                      contextMenu.member.user?.displayName ?? contextMenu.member.user?.username
-                    if (confirm(t('member.removeFromChannelConfirm', { name }))) {
-                      removeBotFromChannel.mutate({
-                        channelId: activeChannelId,
-                        userId: contextMenu.member.userId,
-                      })
-                    }
-                  }}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-orange-400 hover:bg-orange-500/10 transition"
-                >
-                  {t('member.removeFromChannel')}
-                </button>
-              </>
-            )}
-
-            {/* Kick / remove — admin+ only, not self, not owner */}
-            {canKick &&
-              contextMenu.member.userId !== currentUser?.id &&
-              contextMenu.member.role !== 'owner' && (
-                <>
-                  <div className="h-px bg-white/5 my-1" />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!activeServerId) return
-                      const name =
-                        contextMenu.member.user?.displayName ?? contextMenu.member.user?.username
-                      const confirmKey = contextMenu.member.user?.isBot
-                        ? 'member.removeBotConfirm'
-                        : 'member.kickConfirm'
-                      if (confirm(t(confirmKey, { name }))) {
-                        kickMember.mutate({
-                          serverId: activeServerId,
-                          userId: contextMenu.member.userId,
-                        })
-                      }
-                    }}
-                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition"
-                  >
-                    {contextMenu.member.user?.isBot
-                      ? t('member.removeBot')
-                      : t('member.kickMember')}
-                  </button>
-                </>
-              )}
-          </div>
-        </>
+        <BotContextMenu
+          contextMenu={contextMenu}
+          closeContextMenu={closeContextMenu}
+          setProfileMember={setProfileMember}
+          setContextMenu={setContextMenu}
+          activeChannelId={activeChannelId}
+          activeServerId={activeServerId}
+          buddyAgents={buddyAgents}
+          updateBotPolicy={updateBotPolicy}
+          removeBotFromChannel={removeBotFromChannel}
+          kickMember={kickMember}
+          canKick={canKick}
+          currentUser={currentUser}
+          t={t}
+        />
       )}
 
       {/* Profile panel modal */}
@@ -657,6 +549,186 @@ export function MemberList() {
           </div>,
           document.body,
         )}
+    </>
+  )
+}
+
+/* ── Bot Context Menu ──────────────────── */
+
+function BotContextMenu({
+  contextMenu,
+  closeContextMenu,
+  setProfileMember,
+  setContextMenu,
+  activeChannelId,
+  activeServerId,
+  buddyAgents,
+  updateBotPolicy,
+  removeBotFromChannel,
+  kickMember,
+  canKick,
+  currentUser,
+  t,
+}: {
+  contextMenu: { x: number; y: number; member: Member }
+  closeContextMenu: () => void
+  setProfileMember: (m: Member | null) => void
+  setContextMenu: (m: null) => void
+  activeChannelId: string | null
+  activeServerId: string | null
+  buddyAgents: BuddyAgent[]
+  updateBotPolicy: ReturnType<typeof useMutation<unknown, Error, { channelId: string; agentId: string; mentionOnly: boolean }>>
+  removeBotFromChannel: ReturnType<typeof useMutation<unknown, Error, { channelId: string; userId: string }>>
+  kickMember: ReturnType<typeof useMutation<unknown, Error, { serverId: string; userId: string }>>
+  canKick: boolean
+  currentUser: { id: string } | null
+  t: (key: string, opts?: Record<string, unknown>) => string
+}) {
+  const [policyOpen, setPolicyOpen] = useState(false)
+  const isBot = contextMenu.member.user?.isBot
+  const agent = isBot ? buddyAgents.find((a) => a.botUser?.id === contextMenu.member.user?.id) : null
+
+  // Fetch current policy for the bot in this channel
+  const { data: currentPolicy } = useQuery({
+    queryKey: ['agent-policy', activeChannelId, agent?.id],
+    queryFn: () =>
+      fetchApi<{ mentionOnly: boolean; listen: boolean; reply: boolean }>(
+        `/api/channels/${activeChannelId}/agents/${agent!.id}/policy`,
+      ),
+    enabled: !!isBot && !!activeChannelId && !!agent,
+  })
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-[60]"
+        onClick={closeContextMenu}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          closeContextMenu()
+        }}
+      />
+      <div
+        className="fixed z-[61] bg-bg-tertiary border border-white/10 rounded-lg shadow-xl py-1 min-w-[180px]"
+        style={{ left: contextMenu.x, top: contextMenu.y }}
+      >
+        {/* View profile — always visible */}
+        <button
+          type="button"
+          onClick={() => {
+            setProfileMember(contextMenu.member)
+            setContextMenu(null)
+          }}
+          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+        >
+          {t('member.viewProfile')}
+        </button>
+
+        {/* Policy submenu — only for bots in a channel */}
+        {isBot && activeChannelId && agent && (
+          <>
+            <div className="h-px bg-white/5 my-1" />
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setPolicyOpen(!policyOpen)}
+                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+              >
+                <MessageSquare size={14} />
+                <span className="flex-1 text-left">{t('member.replyPolicy')}</span>
+                <span className="text-[10px] text-text-muted ml-1">▸</span>
+              </button>
+              {policyOpen && (
+                <div className="absolute left-full top-0 ml-1 bg-bg-tertiary border border-white/10 rounded-lg shadow-xl py-1 min-w-[160px] z-[62]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateBotPolicy.mutate({
+                        channelId: activeChannelId,
+                        agentId: agent.id,
+                        mentionOnly: true,
+                      })
+                    }}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+                  >
+                    {currentPolicy?.mentionOnly ? (
+                      <Check size={14} className="text-green-400" />
+                    ) : (
+                      <span className="w-[14px]" />
+                    )}
+                    {t('member.policyMentionOnly')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateBotPolicy.mutate({
+                        channelId: activeChannelId,
+                        agentId: agent.id,
+                        mentionOnly: false,
+                      })
+                    }}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+                  >
+                    {currentPolicy && !currentPolicy.mentionOnly ? (
+                      <Check size={14} className="text-green-400" />
+                    ) : (
+                      <span className="w-[14px]" />
+                    )}
+                    {t('member.policyReplyAll')}
+                  </button>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Remove / kick actions */}
+        {contextMenu.member.userId !== currentUser?.id &&
+          contextMenu.member.role !== 'owner' && (
+            <>
+              <div className="h-px bg-white/5 my-1" />
+              {/* For bots in a channel: show "Remove from Channel" */}
+              {isBot && activeChannelId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const name =
+                      contextMenu.member.user?.displayName ?? contextMenu.member.user?.username
+                    if (confirm(t('member.removeFromChannelConfirm', { name }))) {
+                      removeBotFromChannel.mutate({
+                        channelId: activeChannelId,
+                        userId: contextMenu.member.userId,
+                      })
+                    }
+                  }}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition"
+                >
+                  {t('member.removeFromChannel')}
+                </button>
+              )}
+              {/* Kick from server — admin+ only, not for bots (use "remove from channel" instead) */}
+              {canKick && !isBot && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!activeServerId) return
+                    const name =
+                      contextMenu.member.user?.displayName ?? contextMenu.member.user?.username
+                    if (confirm(t('member.kickConfirm', { name }))) {
+                      kickMember.mutate({
+                        serverId: activeServerId,
+                        userId: contextMenu.member.userId,
+                      })
+                    }
+                  }}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition"
+                >
+                  {t('member.kickMember')}
+                </button>
+              )}
+            </>
+          )}
+      </div>
     </>
   )
 }

@@ -262,6 +262,7 @@
     "addBuddyToChannel": "添加 Buddy 到频道",
     "policyMentionOnly": "仅 @提及时回复",
     "policyReplyAll": "回复所有消息",
+    "replyPolicy": "回复策略",
     "notInChannel": "未加入频道",
     "inChannel": "已加入频道"
   },

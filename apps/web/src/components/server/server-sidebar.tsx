@@ -116,15 +116,6 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
 
       <div className="w-8 h-0.5 bg-[#404249] rounded-full my-1" />
 
-      {/* Home button */}
-      <button
-        onClick={() => navigate({ to: '/app/settings' })}
-        className="w-12 h-12 rounded-[24px] hover:rounded-[16px] bg-bg-primary hover:bg-[#5865F2] transition-all duration-200 flex items-center justify-center overflow-hidden"
-        title={t('server.home')}
-      >
-        <img src="/Logo.svg" alt="Shadow" className="w-7 h-7" />
-      </button>
-
       {/* Server list */}
       {servers.map((s, i) => (
         <div key={s.server.id} className="relative group/server">

@@ -262,6 +262,7 @@
     "addBuddyToChannel": "Buddy를 채널에 추가",
     "policyMentionOnly": "@멘션만",
     "policyReplyAll": "모든 메시지에 답장",
+    "replyPolicy": "답장 정책",
     "notInChannel": "채널 미참여",
     "inChannel": "채널 참여 중"
   },

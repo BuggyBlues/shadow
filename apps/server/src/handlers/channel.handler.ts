@@ -209,8 +209,9 @@ export function createChannelHandler(container: AppContainer) {
     }
 
     // Upsert channel-level policy
-    const policy = await agentPolicyService.upsertPolicies(agentId, channel.serverId, [
+    const policy = await agentPolicyService.upsertPolicies(agentId, [
       {
+        serverId: channel.serverId,
         channelId,
         listen: true,
         reply: true,
@@ -232,6 +233,38 @@ export function createChannelHandler(container: AppContainer) {
     }
 
     return c.json(policy)
+  })
+
+  // GET /api/channels/:channelId/agents/:agentId/policy — get buddy policy for a channel
+  channelHandler.get('/channels/:channelId/agents/:agentId/policy', async (c) => {
+    const agentPolicyDao = container.resolve('agentPolicyDao')
+    const agentService = container.resolve('agentService')
+    const channelService = container.resolve('channelService')
+    const channelId = c.req.param('channelId')
+    const agentId = c.req.param('agentId')
+
+    const channel = await channelService.getById(channelId)
+    const agent = await agentService.getById(agentId)
+    if (!agent) {
+      return c.json({ error: 'Agent not found' }, 404)
+    }
+
+    // Try channel-level policy first, fall back to server default
+    const channelPolicy = await agentPolicyDao.findByChannel(agentId, channel.serverId, channelId)
+    if (channelPolicy) {
+      return c.json({
+        mentionOnly: channelPolicy.mentionOnly,
+        listen: channelPolicy.listen,
+        reply: channelPolicy.reply,
+      })
+    }
+
+    const serverDefault = await agentPolicyDao.findServerDefault(agentId, channel.serverId)
+    return c.json({
+      mentionOnly: serverDefault?.mentionOnly ?? false,
+      listen: serverDefault?.listen ?? true,
+      reply: serverDefault?.reply ?? true,
+    })
   })
 
   return channelHandler

@@ -262,6 +262,7 @@
     "addBuddyToChannel": "新增 Buddy 到頻道",
     "policyMentionOnly": "僅 @提及時回覆",
     "policyReplyAll": "回覆所有訊息",
+    "replyPolicy": "回覆策略",
     "notInChannel": "未加入頻道",
     "inChannel": "已加入頻道"
   },
