@@ -180,7 +180,10 @@ export function AgentManagementPage() {
       <div className="md:hidden flex items-center gap-2 px-4 py-3 bg-bg-secondary border-b border-border-subtle shrink-0">
         {selectedAgent ? (
           <button
-            onClick={() => { setSelectedAgent(null); setGeneratedToken(null) }}
+            onClick={() => {
+              setSelectedAgent(null)
+              setGeneratedToken(null)
+            }}
             className="flex items-center gap-2 text-text-muted hover:text-text-primary transition text-sm font-medium"
           >
             <ArrowLeft size={16} />
@@ -732,8 +735,12 @@ function AgentDetail({
         {/* Step 1: Install */}
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-1.5">
-            <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">1</span>
-            <span className="text-sm font-bold text-text-primary">{t('docs.openclawStep1Title')}</span>
+            <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">
+              1
+            </span>
+            <span className="text-sm font-bold text-text-primary">
+              {t('docs.openclawStep1Title')}
+            </span>
           </div>
           <div className="bg-bg-tertiary rounded-lg p-3 font-mono text-xs text-green-400 border border-border-subtle ml-7">
             openclaw plugins install @shadowob/openclaw
@@ -743,7 +750,9 @@ function AgentDetail({
         {/* Step 2: Config */}
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-1.5">
-            <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">2</span>
+            <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">
+              2
+            </span>
             <span className="text-sm font-bold text-text-primary">{t('docs.openclawConfig')}</span>
           </div>
           <p className="text-xs text-text-muted mb-2 ml-7">{t('docs.openclawConfigDesc')}</p>
@@ -759,8 +768,12 @@ function AgentDetail({
         {/* Step 3: Run */}
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-1.5">
-            <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">3</span>
-            <span className="text-sm font-bold text-text-primary">{t('agentMgmt.openclawRunTitle')}</span>
+            <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">
+              3
+            </span>
+            <span className="text-sm font-bold text-text-primary">
+              {t('agentMgmt.openclawRunTitle')}
+            </span>
           </div>
           <div className="bg-bg-tertiary rounded-lg p-3 font-mono text-xs text-green-400 border border-border-subtle ml-7">
             openclaw start
@@ -769,7 +782,9 @@ function AgentDetail({
 
         {/* Capabilities */}
         <div className="mt-4 pt-4 border-t border-border-subtle">
-          <p className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">{t('docs.openclawCapabilities')}</p>
+          <p className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">
+            {t('docs.openclawCapabilities')}
+          </p>
           <div className="grid grid-cols-2 gap-2">
             {['messaging', 'threads', 'reactions', 'media', 'mentions', 'editDelete'].map((cap) => (
               <div key={cap} className="flex items-center gap-1.5 text-xs text-text-secondary">
@@ -874,14 +889,8 @@ function CreateAgentDialog({
   })
 
   return (
-    <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
-      onClick={onClose}
-    >
-      <div
-        className="bg-bg-secondary rounded-xl p-6 w-full max-w-[480px] mx-4 max-h-[80vh] overflow-y-auto border border-border-subtle"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+      <div className="bg-bg-secondary rounded-xl p-6 w-full max-w-[480px] mx-4 max-h-[80vh] overflow-y-auto border border-border-subtle">
         <h2 className="text-xl font-bold text-text-primary mb-6">{t('agentMgmt.createTitle')}</h2>
 
         {/* Name */}
@@ -983,14 +992,8 @@ function EditAgentDialog({
   })
 
   return (
-    <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
-      onClick={onClose}
-    >
-      <div
-        className="bg-bg-secondary rounded-xl p-6 w-full max-w-[480px] mx-4 max-h-[80vh] overflow-y-auto border border-border-subtle"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+      <div className="bg-bg-secondary rounded-xl p-6 w-full max-w-[480px] mx-4 max-h-[80vh] overflow-y-auto border border-border-subtle">
         <h2 className="text-xl font-bold text-text-primary mb-6">{t('agentMgmt.editTitle')}</h2>
 
         <div className="mb-4">
@@ -1122,19 +1125,27 @@ export function BuddyManagementContent() {
 
   const statusColor = (status: string) => {
     switch (status) {
-      case 'running': return 'text-green-400'
-      case 'stopped': return 'text-zinc-400'
-      case 'error': return 'text-red-400'
-      default: return 'text-zinc-400'
+      case 'running':
+        return 'text-green-400'
+      case 'stopped':
+        return 'text-zinc-400'
+      case 'error':
+        return 'text-red-400'
+      default:
+        return 'text-zinc-400'
     }
   }
 
   const statusLabel = (status: string) => {
     switch (status) {
-      case 'running': return t('agentMgmt.statusRunning')
-      case 'stopped': return t('agentMgmt.statusStopped')
-      case 'error': return t('agentMgmt.statusError')
-      default: return status
+      case 'running':
+        return t('agentMgmt.statusRunning')
+      case 'stopped':
+        return t('agentMgmt.statusStopped')
+      case 'error':
+        return t('agentMgmt.statusError')
+      default:
+        return status
     }
   }
 

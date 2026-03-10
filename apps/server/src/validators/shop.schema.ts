@@ -5,8 +5,8 @@ import { z } from 'zod'
 export const updateShopSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   description: z.string().max(2000).nullable().optional(),
-  logoUrl: z.string().url().nullable().optional(),
-  bannerUrl: z.string().url().nullable().optional(),
+  logoUrl: z.string().nullable().optional(),
+  bannerUrl: z.string().nullable().optional(),
   settings: z.record(z.unknown()).optional(),
 })
 
@@ -17,7 +17,7 @@ export const createCategorySchema = z.object({
   slug: z.string().min(1).max(100),
   parentId: z.string().uuid().optional(),
   position: z.number().int().min(0).optional(),
-  iconUrl: z.string().url().optional(),
+  iconUrl: z.string().optional(),
 })
 
 export const updateCategorySchema = createCategorySchema.partial()
@@ -85,13 +85,15 @@ export const updateCartItemSchema = z.object({
 /* ═══════════════ Order ═══════════════ */
 
 export const createOrderSchema = z.object({
-  items: z.array(
-    z.object({
-      productId: z.string().uuid(),
-      skuId: z.string().uuid().optional(),
-      quantity: z.number().int().min(1).max(99).default(1),
-    }),
-  ).min(1),
+  items: z
+    .array(
+      z.object({
+        productId: z.string().uuid(),
+        skuId: z.string().uuid().optional(),
+        quantity: z.number().int().min(1).max(99).default(1),
+      }),
+    )
+    .min(1),
   buyerNote: z.string().max(500).optional(),
 })
 
@@ -107,7 +109,7 @@ export const createReviewSchema = z.object({
   productId: z.string().uuid(),
   rating: z.number().int().min(1).max(5),
   content: z.string().max(2000).optional(),
-  images: z.array(z.string().url()).max(9).optional(),
+  images: z.array(z.string()).max(9).optional(),
 })
 
 export const replyReviewSchema = z.object({

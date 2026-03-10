@@ -117,7 +117,7 @@ export function AvatarEditor({ value, onChange }: AvatarEditorProps) {
       )}
 
       {tab === 'upload' && (
-        <div className="bg-bg-tertiary border-2 border-dashed border-[#383a40] hover:border-[#5865F2] rounded-[8px] p-6 flex flex-col items-center justify-center gap-2 transition-colors relative cursor-pointer group">
+        <div className="bg-bg-tertiary border-2 border-dashed border-[#383a40] hover:border-[#5865F2] rounded-[8px] p-4 flex flex-col items-center justify-center gap-1 transition-colors relative cursor-pointer group">
           <div className="w-10 h-10 rounded-full bg-bg-secondary group-hover:bg-[#5865F2] flex items-center justify-center transition-colors">
             <Upload size={20} className="text-text-primary group-hover:text-white" />
           </div>
