@@ -2,6 +2,7 @@ import { compare, hash } from 'bcryptjs'
 import type { AgentDao } from '../dao/agent.dao'
 import type { InviteCodeDao } from '../dao/invite-code.dao'
 import type { UserDao } from '../dao/user.dao'
+import { randomFixedDigits } from '../lib/id'
 import { signAccessToken, signRefreshToken, verifyToken } from '../lib/jwt'
 import type { LoginInput, RegisterInput } from '../validators/auth.schema'
 
@@ -28,9 +29,10 @@ export class AuthService {
     // Auto-generate username if not provided
     let username = input.username
     if (!username) {
-      const prefix = input.email.split('@')[0].replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 24)
+      const emailLocalPart = input.email.split('@')[0] ?? 'user'
+      const prefix = emailLocalPart.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 24)
       for (let attempt = 0; attempt < 10; attempt++) {
-        const suffix = Math.floor(1000 + Math.random() * 9000).toString()
+        const suffix = randomFixedDigits(6)
         const candidate = `${prefix}_${suffix}`
         const existing = await userDao.findByUsername(candidate)
         if (!existing) {
@@ -59,6 +61,9 @@ export class AuthService {
       passwordHash,
       displayName: input.displayName,
     })
+    if (!user) {
+      throw Object.assign(new Error('Failed to create user'), { status: 500 })
+    }
 
     // Mark invite code as used
     await inviteCodeDao.markUsed(code.id, user.id)

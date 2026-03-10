@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { FileText, FolderOpen, Image as ImageIcon, Plus, Send, Smile, X } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../../lib/api'
 import { sendTyping, sendWsMessage } from '../../lib/socket'
@@ -76,17 +76,38 @@ export function MessageInput({
   })
 
   // Filter members by mention query
-  const filteredMembers =
-    mentionQuery !== null
-      ? members
-          .filter((m) => {
-            const q = mentionQuery.toLowerCase()
-            const username = m.user?.username?.toLowerCase() ?? ''
-            const displayName = m.user?.displayName?.toLowerCase() ?? ''
-            return username.includes(q) || displayName.includes(q)
-          })
-          .slice(0, 8)
-      : []
+  const filteredMembers = useMemo(() => {
+    if (mentionQuery === null) return []
+    const q = mentionQuery.trim().toLocaleLowerCase()
+    const scored = members
+      .map((m) => {
+        const username = m.user?.username ?? ''
+        const displayName = m.user?.displayName ?? ''
+        const usernameLc = username.toLocaleLowerCase()
+        const displayNameLc = displayName.toLocaleLowerCase()
+
+        // Query empty => show top members (stable alphabetical fallback)
+        if (!q) {
+          return { member: m, score: 1000 + (m.user?.isBot ? -1 : 0), usernameLc, displayNameLc }
+        }
+
+        let score = -1
+        if (usernameLc.startsWith(q)) score = Math.max(score, 300)
+        else if (displayNameLc.startsWith(q)) score = Math.max(score, 250)
+        else if (usernameLc.includes(q)) score = Math.max(score, 200)
+        else if (displayNameLc.includes(q)) score = Math.max(score, 150)
+
+        return { member: m, score, usernameLc, displayNameLc }
+      })
+      .filter((x) => x.score >= 0)
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score
+        return (a.displayNameLc || a.usernameLc).localeCompare(b.displayNameLc || b.usernameLc)
+      })
+      .slice(0, 8)
+
+    return scored.map((x) => x.member)
+  }, [members, mentionQuery])
 
   // Scroll active mention item into view
   useEffect(() => {
@@ -268,7 +289,7 @@ export function MessageInput({
     // Detect @mention trigger
     const cursorPos = el.selectionStart
     const beforeCursor = value.slice(0, cursorPos)
-    const mentionMatch = beforeCursor.match(/@([\w-]*)$/)
+    const mentionMatch = beforeCursor.match(/(?:^|\s)@([^\s@]{0,32})$/u)
     if (mentionMatch) {
       setMentionQuery(mentionMatch[1] ?? '')
       setMentionIndex(0)

@@ -821,7 +821,7 @@ export function ChannelSidebar({
                   updateServer.mutate({
                     name: editName.trim(),
                     description: editDescription.trim() || null,
-                    slug: editSlug.trim() || null,
+                    slug: editSlug.trim() || undefined,
                     isPublic: editIsPublic,
                     homepageHtml: editHomepageHtml.trim() || null,
                   })

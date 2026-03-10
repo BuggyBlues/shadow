@@ -98,8 +98,16 @@ interface MutationDeps {
 }
 
 export function useWorkspaceMutations({ serverId, refetchTree, invalidateStats }: MutationDeps) {
-  const { setRenamingNodeId, setActiveFileId, setClipboard, setExpanded, clipboard, workspace } =
-    useWorkspaceStore()
+  const {
+    setRenamingNodeId,
+    setActiveFileId,
+    setClipboard,
+    setExpanded,
+    setSelectedNodeId,
+    selectMultiple,
+    clipboard,
+    workspace,
+  } = useWorkspaceStore()
   const queryClient = useQueryClient()
 
   const createFolder = useMutation({
@@ -127,6 +135,8 @@ export function useWorkspaceMutations({ serverId, refetchTree, invalidateStats }
       invalidateStats()
       // Auto-focus the newly created file (after tree is updated)
       setActiveFileId(newFile.id)
+      setSelectedNodeId(newFile.id)
+      selectMultiple([newFile.id])
       // Expand parent folder so the new file is visible
       if (newFile.parentId) setExpanded(newFile.parentId, true)
     },
@@ -231,14 +241,22 @@ export function useWorkspaceMutations({ serverId, refetchTree, invalidateStats }
       const formData = new FormData()
       formData.append('file', file)
       if (parentId) formData.append('parentId', parentId)
-      return fetchApi(`/api/servers/${serverId}/workspace/upload`, {
+      return fetchApi<WorkspaceNode>(`/api/servers/${serverId}/workspace/upload`, {
         method: 'POST',
         body: formData,
       })
     },
-    onSuccess: () => {
-      refetchTree()
+    onSuccess: async (newFile, variables) => {
+      await refetchTree()
       invalidateStats()
+      if (variables.parentId) {
+        setExpanded(variables.parentId, true)
+      }
+      if (newFile?.id) {
+        setSelectedNodeId(newFile.id)
+        selectMultiple([newFile.id])
+        setActiveFileId(newFile.id)
+      }
       showToast('文件已上传', 'success')
     },
     onError: (err: Error) => showToast(err.message || '上传失败', 'error'),

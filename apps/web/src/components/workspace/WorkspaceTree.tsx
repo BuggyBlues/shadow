@@ -6,7 +6,6 @@ import {
   GripVertical,
   Plus,
   RefreshCw,
-  Upload,
 } from 'lucide-react'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useWorkspaceStore, type WorkspaceNode } from '../../stores/workspace.store'
@@ -62,7 +61,7 @@ export function WorkspaceTree({
   const treeContainerRef = useRef<HTMLDivElement>(null)
   const [dragOverState, setDragOverState] = useState<DragOverState | null>(null)
   const [draggingIds, setDraggingIds] = useState<Set<string>>(new Set())
-  const [nativeFileDragOver, setNativeFileDragOver] = useState(false)
+  const [nativeFileDropTargetId, setNativeFileDropTargetId] = useState<string | null>(null)
   const nativeFileDragCounter = useRef(0)
 
   // ─── Build visible rows ───
@@ -221,7 +220,7 @@ export function WorkspaceTree({
       e.preventDefault()
       e.stopPropagation()
       nativeFileDragCounter.current = 0
-      setNativeFileDragOver(false)
+      setNativeFileDropTargetId(null)
       const files = Array.from(e.dataTransfer.files)
       if (files.length > 0) {
         onUploadToDir(parentId, files)
@@ -235,7 +234,6 @@ export function WorkspaceTree({
   const handleTreeDragEnter = useCallback((e: React.DragEvent) => {
     if (e.dataTransfer.types.includes('Files')) {
       nativeFileDragCounter.current++
-      setNativeFileDragOver(true)
     }
   }, [])
 
@@ -244,7 +242,7 @@ export function WorkspaceTree({
       nativeFileDragCounter.current--
       if (nativeFileDragCounter.current <= 0) {
         nativeFileDragCounter.current = 0
-        setNativeFileDragOver(false)
+        setNativeFileDropTargetId(null)
       }
     }
   }, [])
@@ -253,11 +251,7 @@ export function WorkspaceTree({
 
   const rootNodeElement = (
     <div
-      className={`flex items-center h-7 mx-1 px-1.5 cursor-pointer select-none transition-all duration-100 text-[13px] group rounded-md ${
-        nativeFileDragOver
-          ? 'bg-primary/10 text-primary'
-          : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
-      }`}
+      className={`flex items-center h-7 mx-1 px-1.5 cursor-pointer select-none transition-all duration-100 text-[13px] group rounded-md ${'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'}`}
       style={{ paddingLeft: '6px' }}
       onContextMenu={(e) => {
         e.preventDefault()
@@ -286,17 +280,6 @@ export function WorkspaceTree({
     </div>
   )
 
-  // ─── Drag overlay for native file drag (scoped to tree panel) ───
-
-  const nativeDropOverlay = nativeFileDragOver && (
-    <div className="absolute inset-1 z-40 bg-primary/5 border border-dashed border-primary/30 rounded-lg flex items-center justify-center pointer-events-none backdrop-blur-[1px]">
-      <div className="flex flex-col items-center gap-1 text-primary/60">
-        <Upload size={22} strokeWidth={1.5} />
-        <p className="text-[11px] font-medium">拖放上传</p>
-      </div>
-    </div>
-  )
-
   // ─── Empty state ───
 
   if (isLoading) {
@@ -313,7 +296,6 @@ export function WorkspaceTree({
           if (e.dataTransfer.types.includes('Files')) handleNativeFileDrop(e, null)
         }}
       >
-        {nativeDropOverlay}
         {rootNodeElement}
         <div className="flex-1 flex items-center justify-center">
           <RefreshCw size={20} className="text-text-muted animate-spin" />
@@ -336,7 +318,6 @@ export function WorkspaceTree({
           if (e.dataTransfer.types.includes('Files')) handleNativeFileDrop(e, null)
         }}
       >
-        {nativeDropOverlay}
         {rootNodeElement}
         <div className="flex-1 flex flex-col items-center justify-center px-6">
           <div className="w-12 h-12 rounded-xl bg-bg-tertiary/60 flex items-center justify-center mb-3">
@@ -377,7 +358,6 @@ export function WorkspaceTree({
         }
       }}
     >
-      {nativeDropOverlay}
       {rootNodeElement}
       <div style={{ height: rowVirtualizer.getTotalSize(), position: 'relative' }}>
         {rowVirtualizer.getVirtualItems().map((virtualRow) => {
@@ -414,9 +394,11 @@ export function WorkspaceTree({
                 onDrop={handleDrop}
                 onDragEnd={handleTreeDragEnd}
                 onNativeFileDrop={onUploadToDir}
+                nativeFileDropTargetId={nativeFileDropTargetId}
+                onNativeFileDragOverTarget={setNativeFileDropTargetId}
                 onNativeFileDragReset={() => {
                   nativeFileDragCounter.current = 0
-                  setNativeFileDragOver(false)
+                  setNativeFileDropTargetId(null)
                 }}
               />
             </div>
@@ -448,6 +430,8 @@ interface TreeRowProps {
   onDrop: (e: React.DragEvent, node: WorkspaceNode) => void
   onDragEnd: () => void
   onNativeFileDrop: (parentId: string | null, files: globalThis.File[]) => void
+  nativeFileDropTargetId: string | null
+  onNativeFileDragOverTarget: (parentId: string | null) => void
   onNativeFileDragReset: () => void
 }
 
@@ -470,11 +454,15 @@ function TreeRow({
   onDrop,
   onDragEnd,
   onNativeFileDrop,
+  nativeFileDropTargetId,
+  onNativeFileDragOverTarget,
   onNativeFileDragReset,
 }: TreeRowProps) {
   const { node, depth } = row
   const Icon = getNodeIcon(node, isExpanded)
   const highlighted = isSelected || isMultiSelected
+  const rowDropTargetId = node.kind === 'dir' ? node.id : node.parentId
+  const isNativeDropTarget = !!rowDropTargetId && nativeFileDropTargetId === rowDropTargetId
 
   return (
     <div
@@ -485,7 +473,7 @@ function TreeRow({
           : highlighted
             ? 'bg-primary/15 text-text-primary'
             : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
-      } ${dragOverState?.position === 'inside' ? 'bg-primary/10 ring-1 ring-inset ring-primary/40 rounded-md' : ''}`}
+      } ${dragOverState?.position === 'inside' ? 'bg-primary/10 ring-1 ring-inset ring-primary/40 rounded-md' : ''} ${isNativeDropTarget ? 'ring-1 ring-inset ring-primary/50 bg-primary/10' : ''}`}
       style={{ paddingLeft: `${depth * 14 + 6}px` }}
       draggable={!isRenaming}
       onClick={(e) => onClick(node, e)}
@@ -497,6 +485,7 @@ function TreeRow({
           e.preventDefault()
           e.stopPropagation()
           e.dataTransfer.dropEffect = 'copy'
+          onNativeFileDragOverTarget(node.kind === 'dir' ? node.id : node.parentId)
         } else {
           onDragOver(e, node)
         }

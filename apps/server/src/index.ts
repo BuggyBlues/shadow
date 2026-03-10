@@ -9,6 +9,7 @@ import { createApp } from './app'
 import { createAppContainer } from './container'
 import { db } from './db'
 import { users } from './db/schema'
+import { randomFixedDigits } from './lib/id'
 import { logger } from './lib/logger'
 import { setupWebSocket } from './ws'
 
@@ -29,21 +30,8 @@ async function main() {
     throw new Error(`Migrations folder not found. Tried: ${migrationCandidates.join(', ')}`)
   }
   logger.info('Running database migrations...')
-  try {
-    await migrate(db, { migrationsFolder: migrationsPath })
-    logger.info('Database migrations completed')
-  } catch (err) {
-    // Handle "already exists" errors gracefully (e.g. Docker volume has stale data
-    // from a previous run where objects were created but migration journal lost)
-    const message = err instanceof Error ? err.message : String(err)
-    if (message.includes('already exists')) {
-      logger.warn(
-        'Database objects already exist, skipping migrations. If schema is out of sync, run: docker-compose down -v && docker-compose up --build',
-      )
-    } else {
-      throw err
-    }
-  }
+  await migrate(db, { migrationsFolder: migrationsPath })
+  logger.info('Database migrations completed')
 
   // Create DI container
   const container = createAppContainer(db)
@@ -64,7 +52,7 @@ async function main() {
           .where(eq(users.username, adminUsername))
           .limit(1)
         const finalUsername =
-          usernameCheck.length > 0 ? `${adminUsername}_${Date.now()}` : adminUsername
+          usernameCheck.length > 0 ? `${adminUsername}_${randomFixedDigits(6)}` : adminUsername
         await db.insert(users).values({
           email: adminEmail,
           username: finalUsername,

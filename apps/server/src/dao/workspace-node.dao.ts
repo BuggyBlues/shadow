@@ -46,14 +46,13 @@ export class WorkspaceNodeDao {
   }
 
   async listDescendants(workspaceId: string, pathPrefix: string) {
+    const normalizedPrefix = pathPrefix === '/' ? '' : pathPrefix
+    const likePrefix = normalizedPrefix ? `${normalizedPrefix}/%` : '/%'
     return this.db
       .select()
       .from(workspaceNodes)
       .where(
-        and(
-          eq(workspaceNodes.workspaceId, workspaceId),
-          like(workspaceNodes.path, `${pathPrefix}/%`),
-        ),
+        and(eq(workspaceNodes.workspaceId, workspaceId), like(workspaceNodes.path, likePrefix)),
       )
       .orderBy(asc(workspaceNodes.path))
   }
