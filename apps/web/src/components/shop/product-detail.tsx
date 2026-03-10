@@ -138,17 +138,20 @@ export function ProductDetail({
 
   const contactSupport = useMutation({
     mutationFn: (payload: { message: string; images: string[] }) =>
-      fetchApi<{ channelId: string; channelName: string }>(
-        `/api/servers/${serverId}/shop/support`,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            productId,
-            message: payload.message,
-            images: payload.images,
-          }),
-        },
-      ),
+      fetchApi<{
+        channelId: string
+        channelName: string
+        buddyUserId?: string | null
+        buddyReady?: boolean
+        buddyStatus?: 'running' | 'stopped' | 'error' | null
+      }>(`/api/servers/${serverId}/shop/support`, {
+        method: 'POST',
+        body: JSON.stringify({
+          productId,
+          message: payload.message,
+          images: payload.images,
+        }),
+      }),
     onSuccess: (res) => {
       setSupportOpen(false)
       setSupportMessage('')
@@ -157,7 +160,15 @@ export function ProductDetail({
         to: '/app/servers/$serverId/$channelName',
         params: { serverId, channelName: encodeURIComponent(res.channelName) },
       })
-      showToast('已联系店主和客服 Buddy，请耐心等待回复', 'success')
+      if (res.buddyUserId) {
+        if (res.buddyReady) {
+          showToast('已自动拉入 Buddy 并就绪，请直接在频道沟通', 'success')
+        } else {
+          showToast('已自动拉入 Buddy，正在等待 Buddy 就绪，请稍候', 'info')
+        }
+      } else {
+        showToast('已联系店主和客服，请耐心等待回复', 'success')
+      }
     },
     onError: (err: Error) => showToast(err.message || '联系客服失败', 'error'),
   })

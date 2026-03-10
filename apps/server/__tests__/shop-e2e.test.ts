@@ -1252,12 +1252,18 @@ describe('Support ticket workflow', () => {
       channelName: string
       ownerUserId?: string | null
       buddyUserId?: string | null
+      buddyReady?: boolean
+      buddyStatus?: 'running' | 'stopped' | 'error' | null
     }>(supportRes)
 
     expect(support.channelId).toBeDefined()
     expect(support.channelName).toContain('shop-support-')
     expect(support.ownerUserId).toBe(adminUserId)
     expect(support.buddyUserId).toBe(buddyUserId)
+    expect(typeof support.buddyReady).toBe('boolean')
+    if (support.buddyReady) {
+      expect(support.buddyStatus).toBe('running')
+    }
 
     const { and, eq } = await import('drizzle-orm')
     const { messages, attachments, channelMembers } = schema

@@ -1434,14 +1434,13 @@ function ShopSettings({ serverId }: { serverId: string }) {
               className="w-full p-3 pr-10 bg-white dark:bg-bg-secondary text-sm rounded-xl border border-gray-200 dark:border-border-dim appearance-none"
             >
               <option value="">不指定 Buddy（仅店主/管理员接待）</option>
-              {members
-                .filter((m) => !m.user?.isBot)
-                .map((m) => (
-                  <option key={m.userId} value={m.userId}>
-                    {m.user?.displayName || m.user?.username || m.userId.slice(0, 8)}
-                    {m.role === 'owner' ? '（店主）' : m.role === 'admin' ? '（管理员）' : ''}
-                  </option>
-                ))}
+              {members.map((m) => (
+                <option key={m.userId} value={m.userId}>
+                  {m.user?.displayName || m.user?.username || m.userId.slice(0, 8)}
+                  {m.role === 'owner' ? '（店主）' : m.role === 'admin' ? '（管理员）' : ''}
+                  {m.user?.isBot ? '（Buddy）' : ''}
+                </option>
+              ))}
             </select>
             <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
               <ChevronDown size={14} />

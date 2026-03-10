@@ -440,6 +440,7 @@ export function createShopHandler(container: AppContainer) {
       const messageService = container.resolve('messageService')
       const channelMemberDao = container.resolve('channelMemberDao')
       const serverDao = container.resolve('serverDao')
+      const agentDao = container.resolve('agentDao')
 
       const existing = await channelService.getByServerId(serverId)
       const channelName = `shop-support-${user.userId.slice(0, 8)}`
@@ -456,8 +457,12 @@ export function createShopHandler(container: AppContainer) {
       const members = await serverDao.getMembers(serverId)
       const server = await serverDao.findById(serverId)
       const settings = (shop.settings || {}) as Record<string, unknown>
-      const buddyId =
+      const configuredBuddyId =
         typeof settings.supportBuddyUserId === 'string' ? settings.supportBuddyUserId : null
+      const buddyId =
+        configuredBuddyId && members.some((m) => m.userId === configuredBuddyId)
+          ? configuredBuddyId
+          : null
       const ownerId = server?.ownerId || members.find((m) => m.role === 'owner')?.userId || null
       const adminIds = members
         .filter((m) => m.role === 'owner' || m.role === 'admin')
@@ -482,6 +487,18 @@ export function createShopHandler(container: AppContainer) {
       }
       for (const uid of allowOrder) {
         await channelMemberDao.add(channel.id, uid)
+      }
+
+      try {
+        const io = container.resolve('io')
+        for (const uid of allowOrder) {
+          io.to(`channel:${channel.id}`).emit('channel:member-added', {
+            channelId: channel.id,
+            userId: uid,
+          })
+        }
+      } catch {
+        /* non-critical in test or ws-unavailable env */
       }
 
       const prefix = input.productId ? `商品(${input.productId})` : '通用咨询'
@@ -509,6 +526,10 @@ export function createShopHandler(container: AppContainer) {
         attachments: attachments.length > 0 ? attachments : undefined,
       })
 
+      const buddyAgent = buddyId ? await agentDao.findByUserId(buddyId) : null
+      const buddyStatus = buddyAgent?.status ?? null
+      const buddyReady = !!buddyAgent && buddyAgent.status === 'running'
+
       return c.json(
         {
           ok: true,
@@ -516,6 +537,8 @@ export function createShopHandler(container: AppContainer) {
           channelName: channel.name,
           ownerUserId: ownerId,
           buddyUserId: buddyId,
+          buddyStatus,
+          buddyReady,
         },
         201,
       )
