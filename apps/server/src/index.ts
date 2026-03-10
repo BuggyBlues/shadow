@@ -1,3 +1,5 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { serve } from '@hono/node-server'
 import { hash } from 'bcryptjs'
 import { eq } from 'drizzle-orm'
@@ -14,8 +16,17 @@ const PORT = Number(process.env.PORT ?? 3002)
 
 async function main() {
   // Run database migrations
-  const migrationsPath =
-    process.env.NODE_ENV === 'production' ? './apps/server/migrations' : './src/db/migrations'
+  const migrationCandidates = [
+    process.env.MIGRATIONS_DIR,
+    path.resolve(process.cwd(), 'src/db/migrations'),
+    path.resolve(process.cwd(), 'dist/db/migrations'),
+    path.resolve(process.cwd(), 'apps/server/src/db/migrations'),
+  ].filter((p): p is string => Boolean(p))
+
+  const migrationsPath = migrationCandidates.find((p) => fs.existsSync(p))
+  if (!migrationsPath) {
+    throw new Error(`Migrations folder not found. Tried: ${migrationCandidates.join(', ')}`)
+  }
   logger.info('Running database migrations...')
   try {
     await migrate(db, { migrationsFolder: migrationsPath })
@@ -98,8 +109,8 @@ async function main() {
       methods: ['GET', 'POST'],
     },
     transports: ['websocket', 'polling'],
-    pingInterval: 15000,  // Send ping every 15s (default 25s)
-    pingTimeout: 10000,   // Wait 10s for pong (default 20s)
+    pingInterval: 15000, // Send ping every 15s (default 25s)
+    pingTimeout: 10000, // Wait 10s for pong (default 20s)
   })
 
   setupWebSocket(io, container)

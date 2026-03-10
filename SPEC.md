@@ -193,12 +193,12 @@ pnpm install
 # 3. Start infrastructure (PostgreSQL, Redis, MinIO)
 docker compose up -d
 
-# 4. Push database schema
-pnpm db:push
-
-# 5. Start all development servers
+# 4. Start all development servers
 pnpm dev
 ```
+
+> On backend startup, `apps/server/src/index.ts` automatically runs Drizzle migrations (`drizzle-orm/postgres-js/migrator`) and creates missing tables.
+> You can still use `pnpm db:migrate`/`pnpm db:push` manually when needed.
 
 ### Development URLs
 
@@ -323,6 +323,15 @@ notifications ──< (per user)
 All Drizzle schemas: `apps/server/src/db/schema/*.ts`
 
 Drizzle config: `apps/server/drizzle.config.ts`
+
+### Migration Strategy
+
+- Migration SQL files are under `apps/server/src/db/migrations/`
+- Drizzle journal is tracked in `apps/server/src/db/migrations/meta/_journal.json`
+- Backend startup performs **auto-migrate** (best for local/dev and container cold-start)
+- Current baseline includes shop domain migration:
+  - `0010_add_shop_schema.sql` (shop tables + enums + `channels.is_private`)
+- If migration directory cannot be resolved at runtime, service fails fast with candidate paths in error message.
 
 ---
 

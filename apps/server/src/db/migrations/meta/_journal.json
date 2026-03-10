@@ -64,6 +64,20 @@
       "when": 1773300000000,
       "tag": "0008_add_slug_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1773310000000,
+      "tag": "0009_make_slug_nullable",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1773320000000,
+      "tag": "0010_add_shop_schema",
+      "breakpoints": true
     }
   ]
 }
