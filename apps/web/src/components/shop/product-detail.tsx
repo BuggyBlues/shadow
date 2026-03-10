@@ -1,21 +1,22 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
-  ShoppingCart,
-  Star,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Clock,
+  Heart,
+  MessageSquare,
   Minus,
   Plus,
-  Shield,
-  Clock,
-  CheckCircle2,
   Share,
-  Heart,
-  MessageSquare
+  Shield,
+  ShoppingCart,
+  Star,
 } from 'lucide-react'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchApi } from '../../lib/api'
+import { showToast } from '../../lib/toast'
 import type { Product, ProductMediaItem, SkuItem } from './shop-page'
 import { PriceDisplay } from './ui/currency'
 
@@ -66,6 +67,7 @@ export function ProductDetail({ serverId, productId, isAdmin, onBack }: ProductD
       setAddedToCart(true)
       setTimeout(() => setAddedToCart(false), 2000)
     },
+    onError: (err: Error) => showToast(err.message || '加入购物车失败', 'error'),
   })
 
   const buyNow = useMutation({
@@ -78,7 +80,9 @@ export function ProductDetail({ serverId, productId, isAdmin, onBack }: ProductD
       queryClient.invalidateQueries({ queryKey: ['shop-orders', serverId] })
       queryClient.invalidateQueries({ queryKey: ['wallet'] })
       setPurchased(true)
+      showToast('购买成功！', 'success')
     },
+    onError: (err: Error) => showToast(err.message || '购买失败，请检查余额或库存', 'error'),
   })
 
   const [selectedSkuId, setSelectedSkuId] = useState<string | null>(null)
@@ -117,7 +121,9 @@ export function ProductDetail({ serverId, productId, isAdmin, onBack }: ProductD
   if (isLoading || !product) {
     return (
       <div className="flex-1 flex flex-col bg-[#F9FAFB] dark:bg-bg-primary h-full">
-        <div className="h-14 flex items-center px-4"><div className="w-8 h-8 rounded-xl bg-gray-200 dark:bg-bg-tertiary animate-pulse"/></div>
+        <div className="h-14 flex items-center px-4">
+          <div className="w-8 h-8 rounded-xl bg-gray-200 dark:bg-bg-tertiary animate-pulse" />
+        </div>
         <div className="w-full aspect-square bg-gray-200 dark:bg-bg-tertiary animate-pulse" />
       </div>
     )
@@ -140,7 +146,6 @@ export function ProductDetail({ serverId, productId, isAdmin, onBack }: ProductD
 
   return (
     <div className="flex-1 flex flex-col bg-[#F9FAFB] dark:bg-bg-primary overflow-hidden h-full relative z-30 font-sans">
-      
       {/* ── Top Header ── */}
       <div className="flex items-center justify-between p-4 bg-white/80 dark:bg-bg-primary/80 backdrop-blur-md border-b border-gray-200 dark:border-border-subtle shrink-0 sticky top-0 z-50">
         <button
@@ -150,7 +155,9 @@ export function ProductDetail({ serverId, productId, isAdmin, onBack }: ProductD
         >
           <ArrowLeft size={20} />
         </button>
-        <span className="font-bold text-gray-900 dark:text-white truncate max-w-[200px]">{product.name}</span>
+        <span className="font-bold text-gray-900 dark:text-white truncate max-w-[200px]">
+          {product.name}
+        </span>
         <div className="flex gap-1 items-center">
           <button
             type="button"
@@ -172,7 +179,6 @@ export function ProductDetail({ serverId, productId, isAdmin, onBack }: ProductD
       <div className="flex-1 overflow-y-auto custom-scrollbar relative">
         <div className="max-w-[1200px] mx-auto w-full pb-28 md:pb-10 pt-0 md:pt-6 md:px-6">
           <div className="flex flex-col md:flex-row gap-0 md:gap-8 lg:gap-12">
-            
             {/* ═══ Left Column: Media Gallery ═══ */}
             <div className="w-full md:w-1/2 lg:w-[45%] shrink-0">
               <div className="md:sticky md:top-6">
@@ -203,7 +209,9 @@ export function ProductDetail({ serverId, productId, isAdmin, onBack }: ProductD
                             type="button"
                             onClick={() => goToMedia(i)}
                             className={`h-1.5 rounded-full transition-all duration-300 ${
-                              i === currentMediaIndex ? 'w-5 bg-white' : 'w-1.5 bg-white/50 hover:bg-white/80'
+                              i === currentMediaIndex
+                                ? 'w-5 bg-white'
+                                : 'w-1.5 bg-white/50 hover:bg-white/80'
                             }`}
                           />
                         ))}
@@ -215,7 +223,7 @@ export function ProductDetail({ serverId, productId, isAdmin, onBack }: ProductD
                     <span className="text-gray-400">无图片</span>
                   </div>
                 )}
-                
+
                 {/* Thumbnails below main image (PC only) */}
                 {media.length > 1 && (
                   <div className="hidden md:flex gap-3 mt-4 overflow-x-auto pb-2 custom-scrollbar">
@@ -224,12 +232,16 @@ export function ProductDetail({ serverId, productId, isAdmin, onBack }: ProductD
                         key={`thumb-${m.id}`}
                         onClick={() => goToMedia(i)}
                         className={`w-20 h-20 rounded-xl overflow-hidden shrink-0 border-2 transition-all ${
-                          i === currentMediaIndex ? 'border-cyan-500 p-0.5' : 'border-transparent opacity-70 hover:opacity-100'
+                          i === currentMediaIndex
+                            ? 'border-cyan-500 p-0.5'
+                            : 'border-transparent opacity-70 hover:opacity-100'
                         }`}
                       >
                         <div className="w-full h-full rounded-lg overflow-hidden bg-gray-100 dark:bg-bg-tertiary">
                           {m.type === 'video' ? (
-                            <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-800"><span className="text-[10px]">VIDEO</span></div>
+                            <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-800">
+                              <span className="text-[10px]">VIDEO</span>
+                            </div>
                           ) : (
                             <img src={m.url} className="w-full h-full object-cover" alt="" />
                           )}
@@ -293,48 +305,57 @@ export function ProductDetail({ serverId, productId, isAdmin, onBack }: ProductD
                 {/* ═══ SKU Selection ═══ */}
                 {(hasSpecs || true) && (
                   <div className="mb-6">
-                    {hasSpecs && product.specNames.map((specName, specIndex) => {
-                      const uniqueValues = [
-                        ...new Set(product.skus?.map((s) => s.specValues[specIndex]).filter(Boolean)),
-                      ]
-                      return (
-                        <div key={specName} className="mb-5">
-                          <p className="text-gray-900 dark:text-gray-200 text-sm font-bold mb-3">{specName}</p>
-                          <div className="flex flex-wrap gap-3">
-                            {uniqueValues.map((val) => {
-                              const isSelected = selectedSku?.specValues[specIndex] === val
-                              return (
-                                <button
-                                  key={String(val)}
-                                  type="button"
-                                  onClick={() => {
-                                    const baseSpecValues =
-                                      selectedSku?.specValues ?? product.skus?.[0]?.specValues ?? []
-                                    const newSpecValues = [...baseSpecValues]
-                                    if (typeof val !== 'string') return
-                                    newSpecValues[specIndex] = val
-                                    const matchingSku = product.skus?.find(
-                                      (s) => s.specValues.every((v, i) => v === newSpecValues[i])
-                                    )
-                                    if (matchingSku) setSelectedSkuId(matchingSku.id)
-                                  }}
-                                  className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-all border-2 ${
-                                    isSelected
-                                      ? 'bg-cyan-50 dark:bg-cyan-900/20 text-cyan-600 dark:text-cyan-400 border-cyan-500'
-                                      : 'bg-white dark:bg-bg-secondary text-gray-600 dark:text-gray-300 border-gray-200 dark:border-border-dim hover:border-gray-300 dark:hover:border-border-subtle'
-                                  }`}
-                                >
-                                  {val}
-                                </button>
-                              )
-                            })}
+                    {hasSpecs &&
+                      product.specNames.map((specName, specIndex) => {
+                        const uniqueValues = [
+                          ...new Set(
+                            product.skus?.map((s) => s.specValues[specIndex]).filter(Boolean),
+                          ),
+                        ]
+                        return (
+                          <div key={specName} className="mb-5">
+                            <p className="text-gray-900 dark:text-gray-200 text-sm font-bold mb-3">
+                              {specName}
+                            </p>
+                            <div className="flex flex-wrap gap-3">
+                              {uniqueValues.map((val) => {
+                                const isSelected = selectedSku?.specValues[specIndex] === val
+                                return (
+                                  <button
+                                    key={String(val)}
+                                    type="button"
+                                    onClick={() => {
+                                      const baseSpecValues =
+                                        selectedSku?.specValues ??
+                                        product.skus?.[0]?.specValues ??
+                                        []
+                                      const newSpecValues = [...baseSpecValues]
+                                      if (typeof val !== 'string') return
+                                      newSpecValues[specIndex] = val
+                                      const matchingSku = product.skus?.find((s) =>
+                                        s.specValues.every((v, i) => v === newSpecValues[i]),
+                                      )
+                                      if (matchingSku) setSelectedSkuId(matchingSku.id)
+                                    }}
+                                    className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-all border-2 ${
+                                      isSelected
+                                        ? 'bg-cyan-50 dark:bg-cyan-900/20 text-cyan-600 dark:text-cyan-400 border-cyan-500'
+                                        : 'bg-white dark:bg-bg-secondary text-gray-600 dark:text-gray-300 border-gray-200 dark:border-border-dim hover:border-gray-300 dark:hover:border-border-subtle'
+                                    }`}
+                                  >
+                                    {val}
+                                  </button>
+                                )
+                              })}
+                            </div>
                           </div>
-                        </div>
-                      )
-                    })}
+                        )
+                      })}
 
                     <div className="flex items-center justify-between mt-6 bg-gray-50 dark:bg-bg-tertiary p-4 rounded-2xl border border-gray-100 dark:border-border-dim">
-                      <span className="text-gray-900 dark:text-gray-200 text-sm font-bold">购买数量</span>
+                      <span className="text-gray-900 dark:text-gray-200 text-sm font-bold">
+                        购买数量
+                      </span>
                       <div className="flex items-center gap-4">
                         <span className="text-[11px] text-gray-400 dark:text-text-muted font-medium">
                           库存: {stock}件
@@ -348,7 +369,9 @@ export function ProductDetail({ serverId, productId, isAdmin, onBack }: ProductD
                           >
                             <Minus size={14} strokeWidth={3} />
                           </button>
-                          <div className="w-10 text-center text-sm font-bold text-gray-900 dark:text-white">{quantity}</div>
+                          <div className="w-10 text-center text-sm font-bold text-gray-900 dark:text-white">
+                            {quantity}
+                          </div>
                           <button
                             type="button"
                             onClick={() => setQuantity(Math.min(stock, quantity + 1))}
@@ -403,7 +426,13 @@ export function ProductDetail({ serverId, productId, isAdmin, onBack }: ProductD
                     disabled={addToCart.isPending || stock === 0}
                     className="flex-1 py-4 px-6 rounded-xl font-bold text-sm bg-cyan-50 dark:bg-cyan-900/20 text-cyan-600 dark:text-cyan-400 border border-cyan-100 dark:border-cyan-900/30 hover:bg-cyan-100 dark:hover:bg-cyan-900/40 disabled:opacity-50 transition-all active:scale-95"
                   >
-                    {addedToCart ? <span className="flex items-center justify-center gap-2"><CheckCircle2 size={18} /> 已加入</span> : '加入购物车'}
+                    {addedToCart ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <CheckCircle2 size={18} /> 已加入
+                      </span>
+                    ) : (
+                      '加入购物车'
+                    )}
                   </button>
                   <button
                     type="button"
@@ -414,7 +443,6 @@ export function ProductDetail({ serverId, productId, isAdmin, onBack }: ProductD
                     {purchased ? '购买成功' : '立即购买'}
                   </button>
                 </div>
-                
               </div>
             </div>
           </div>
@@ -426,7 +454,9 @@ export function ProductDetail({ serverId, productId, isAdmin, onBack }: ProductD
                 type="button"
                 onClick={() => setActiveTab('detail')}
                 className={`px-6 py-4 text-sm md:text-base font-bold transition-all relative ${
-                  activeTab === 'detail' ? 'text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                  activeTab === 'detail'
+                    ? 'text-gray-900 dark:text-white'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
                 }`}
               >
                 商品详情
@@ -438,7 +468,9 @@ export function ProductDetail({ serverId, productId, isAdmin, onBack }: ProductD
                 type="button"
                 onClick={() => setActiveTab('reviews')}
                 className={`px-6 py-4 text-sm md:text-base font-bold transition-all relative ${
-                  activeTab === 'reviews' ? 'text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                  activeTab === 'reviews'
+                    ? 'text-gray-900 dark:text-white'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
                 }`}
               >
                 用户评价 <span className="ml-1 text-xs opacity-60">({reviews?.length || 0})</span>
@@ -468,20 +500,33 @@ export function ProductDetail({ serverId, productId, isAdmin, onBack }: ProductD
                 <div className="space-y-8">
                   {reviews?.length ? (
                     reviews.map((review) => (
-                      <div key={review.id} className="border-b border-gray-100 dark:border-border-dim pb-8 last:border-0">
+                      <div
+                        key={review.id}
+                        className="border-b border-gray-100 dark:border-border-dim pb-8 last:border-0"
+                      >
                         <div className="flex items-center gap-3 mb-3">
                           <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-bg-tertiary" />
                           <div>
-                            <p className="text-sm font-bold text-gray-900 dark:text-white">用户 {review.userId.slice(0,6)}</p>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white">
+                              用户 {review.userId.slice(0, 6)}
+                            </p>
                             <div className="flex text-yellow-400 mt-0.5">
                               {Array.from({ length: 5 }).map((_, i) => (
-                                <Star key={i} size={14} className={i < review.rating ? 'fill-current' : 'text-gray-200'} />
+                                <Star
+                                  key={i}
+                                  size={14}
+                                  className={i < review.rating ? 'fill-current' : 'text-gray-200'}
+                                />
                               ))}
                             </div>
                           </div>
-                          <span className="ml-auto text-xs text-gray-400">{new Date(review.createdAt).toLocaleDateString()}</span>
+                          <span className="ml-auto text-xs text-gray-400">
+                            {new Date(review.createdAt).toLocaleDateString()}
+                          </span>
                         </div>
-                        <p className="text-gray-700 dark:text-gray-300 text-sm md:text-base leading-relaxed pl-13">{review.content}</p>
+                        <p className="text-gray-700 dark:text-gray-300 text-sm md:text-base leading-relaxed pl-13">
+                          {review.content}
+                        </p>
                       </div>
                     ))
                   ) : (
@@ -518,7 +563,7 @@ export function ProductDetail({ serverId, productId, isAdmin, onBack }: ProductD
           >
             {addedToCart ? '已加入' : '加入购物车'}
           </button>
-          
+
           <button
             type="button"
             onClick={handleBuyNow}

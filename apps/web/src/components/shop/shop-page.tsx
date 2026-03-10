@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import {
   ArrowLeft,
@@ -8,14 +8,17 @@ import {
   Settings,
   ShoppingBag,
   ShoppingCart,
+  Wallet,
   X,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { fetchApi } from '../../lib/api'
+import { showToast } from '../../lib/toast'
 import { useShopStore } from '../../stores/shop.store'
 import { ProductDetail } from './product-detail'
 import { ShopCart } from './shop-cart'
 import { ShopOrders } from './shop-orders'
+import { PriceDisplay } from './ui/currency'
 
 import { ProductCard } from './ui/product-card'
 
@@ -99,6 +102,7 @@ interface ShopPageProps {
 export function ShopPage({ serverId, isAdmin, onClose }: ShopPageProps) {
   const { activeProductId, setActiveProductId, overlay, setOverlay } = useShopStore()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   const { data: shop, isLoading: isShopLoading } = useQuery({
     queryKey: ['shop', serverId],
@@ -109,6 +113,24 @@ export function ShopPage({ serverId, isAdmin, onClose }: ShopPageProps) {
   const { data: cartItems = [] } = useQuery({
     queryKey: ['shop-cart', serverId],
     queryFn: () => fetchApi<{ id: string }[]>(`/api/servers/${serverId}/shop/cart`),
+  })
+
+  const { data: wallet } = useQuery({
+    queryKey: ['wallet'],
+    queryFn: () => fetchApi<{ balance: number }>('/api/wallet'),
+  })
+
+  const quickAddToCart = useMutation({
+    mutationFn: (data: { productId: string; quantity: number }) =>
+      fetchApi(`/api/servers/${serverId}/shop/cart`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shop-cart', serverId] })
+      showToast('已加入购物车', 'success')
+    },
+    onError: (err: Error) => showToast(err.message || '加入购物车失败', 'error'),
   })
 
   // Product detail view
@@ -146,6 +168,14 @@ export function ShopPage({ serverId, isAdmin, onClose }: ShopPageProps) {
         </div>
         <div className="flex-1" />
 
+        {/* Wallet balance */}
+        {wallet && (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 dark:bg-rose-900/10 rounded-xl border border-rose-100 dark:border-rose-900/20">
+            <Wallet size={14} className="text-rose-400" />
+            <PriceDisplay amount={wallet.balance} size={13} />
+          </div>
+        )}
+
         {/* Header action icons */}
         <div className="flex items-center gap-1.5">
           <button
@@ -157,7 +187,12 @@ export function ShopPage({ serverId, isAdmin, onClose }: ShopPageProps) {
                 : 'text-gray-500 hover:text-gray-900 dark:text-text-muted dark:hover:text-text-primary hover:bg-gray-100 dark:hover:bg-bg-modifier-hover'
             }`}
           >
-            <ShoppingCart size={18} className={overlay === 'cart' ? 'scale-110 transition-transform' : 'transition-transform'} />
+            <ShoppingCart
+              size={18}
+              className={
+                overlay === 'cart' ? 'scale-110 transition-transform' : 'transition-transform'
+              }
+            />
             {cartItems.length > 0 && (
               <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-bold bg-rose-500 text-white rounded-full shadow-sm border border-white dark:border-bg-primary animate-in zoom-in duration-200">
                 {cartItems.length > 99 ? '99+' : cartItems.length}
@@ -174,7 +209,12 @@ export function ShopPage({ serverId, isAdmin, onClose }: ShopPageProps) {
                 : 'text-gray-500 hover:text-gray-900 dark:text-text-muted dark:hover:text-text-primary hover:bg-gray-100 dark:hover:bg-bg-modifier-hover'
             }`}
           >
-            <ClipboardList size={18} className={overlay === 'orders' ? 'scale-110 transition-transform' : 'transition-transform'} />
+            <ClipboardList
+              size={18}
+              className={
+                overlay === 'orders' ? 'scale-110 transition-transform' : 'transition-transform'
+              }
+            />
           </button>
 
           {isAdmin && (
@@ -196,7 +236,15 @@ export function ShopPage({ serverId, isAdmin, onClose }: ShopPageProps) {
 
       {/* ── Main content area ── */}
       <div className="flex-1 overflow-y-auto scroll-smooth custom-scrollbar">
-        <ShopBrowse serverId={serverId} shop={shop} isLoading={isShopLoading} />
+        <ShopBrowse
+          serverId={serverId}
+          shop={shop}
+          isLoading={isShopLoading}
+          onAddToCart={(product, e) => {
+            e.stopPropagation()
+            quickAddToCart.mutate({ productId: product.id, quantity: 1 })
+          }}
+        />
       </div>
 
       {/* Overlays */}
@@ -215,7 +263,15 @@ export function ShopPage({ serverId, isAdmin, onClose }: ShopPageProps) {
   )
 }
 
-function OverlayContainer({ children, onClose, title }: { children: React.ReactNode; onClose: () => void; title: string }) {
+function OverlayContainer({
+  children,
+  onClose,
+  title,
+}: {
+  children: React.ReactNode
+  onClose: () => void
+  title: string
+}) {
   return (
     <div className="absolute inset-0 z-50 flex flex-col bg-white dark:bg-bg-primary animate-in slide-in-from-bottom-full duration-300">
       <div className="h-14 px-4 flex items-center border-b border-gray-200 dark:border-border-subtle bg-white/80 dark:bg-bg-primary/80 backdrop-blur-md shrink-0">
@@ -233,7 +289,17 @@ function OverlayContainer({ children, onClose, title }: { children: React.ReactN
   )
 }
 
-function ShopBrowse({ serverId, shop, isLoading }: { serverId: string; shop?: Shop | null; isLoading?: boolean }) {
+function ShopBrowse({
+  serverId,
+  shop,
+  isLoading,
+  onAddToCart,
+}: {
+  serverId: string
+  shop?: Shop | null
+  isLoading?: boolean
+  onAddToCart?: (product: Product, e: React.MouseEvent) => void
+}) {
   const {
     activeCategoryId,
     setActiveCategoryId,
@@ -278,7 +344,9 @@ function ShopBrowse({ serverId, shop, isLoading }: { serverId: string; shop?: Sh
       case 'sales':
         return [...result].sort((a, b) => b.salesCount - a.salesCount)
       case 'newest':
-        return [...result].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        return [...result].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        )
       case 'price-asc':
         return [...result].sort((a, b) => a.basePrice - b.basePrice)
       case 'price-desc':
@@ -289,15 +357,15 @@ function ShopBrowse({ serverId, shop, isLoading }: { serverId: string; shop?: Sh
   }, [products, searchQuery, sortBy])
 
   const topCategories = categories.slice(0, 8)
-  
+
   return (
     <div className="flex flex-col pb-24">
       {/* ── Shop Banner / Header ── */}
       {shop?.bannerUrl ? (
         <div className="relative h-48 md:h-[300px] w-full group overflow-hidden bg-gray-100 dark:bg-bg-tertiary">
-          <img 
-            src={shop.bannerUrl} 
-            alt="Banner" 
+          <img
+            src={shop.bannerUrl}
+            alt="Banner"
             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
@@ -322,7 +390,9 @@ function ShopBrowse({ serverId, shop, isLoading }: { serverId: string; shop?: Sh
       ) : shop?.description ? (
         <div className="px-6 md:px-10 py-5 md:py-8 bg-white dark:bg-[#1A1A1A] border-b border-gray-100 dark:border-white/5">
           <h1 className="text-2xl md:text-3xl font-black mb-2">{shop.name}</h1>
-          <p className="text-gray-500 dark:text-gray-400 text-sm md:text-base max-w-3xl leading-relaxed">{shop.description}</p>
+          <p className="text-gray-500 dark:text-gray-400 text-sm md:text-base max-w-3xl leading-relaxed">
+            {shop.description}
+          </p>
         </div>
       ) : isLoading ? (
         <div className="h-48 md:h-[300px] bg-gray-100 dark:bg-white/5 animate-pulse" />
@@ -330,13 +400,16 @@ function ShopBrowse({ serverId, shop, isLoading }: { serverId: string; shop?: Sh
 
       {/* ── Container for Filters & Grid (PC Friendly Layout) ── */}
       <div className="max-w-[1400px] mx-auto w-full">
-        
         {/* ── Discovery Bar ── */}
         <div className="bg-white/90 dark:bg-bg-primary/90 backdrop-blur-md pt-5 pb-4 px-4 md:px-8 border-b md:border-none border-gray-200 dark:border-border-subtle sticky top-0 z-10 md:static">
           <div className="flex flex-col md:flex-row md:items-center gap-4 mb-4">
             {/* Search */}
-            <div className={`relative flex-1 md:max-w-md transition-all duration-300 ease-out ${isSearchFocused ? 'scale-[1.01]' : ''}`}>
-              <div className={`absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none transition-colors ${isSearchFocused ? 'text-cyan-600' : 'text-gray-400'}`}>
+            <div
+              className={`relative flex-1 md:max-w-md transition-all duration-300 ease-out ${isSearchFocused ? 'scale-[1.01]' : ''}`}
+            >
+              <div
+                className={`absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none transition-colors ${isSearchFocused ? 'text-cyan-600' : 'text-gray-400'}`}
+              >
                 <Search size={18} strokeWidth={2.5} />
               </div>
               <input
@@ -351,7 +424,10 @@ function ShopBrowse({ serverId, shop, isLoading }: { serverId: string; shop?: Sh
               {searchQuery && (
                 <button
                   type="button"
-                  onClick={() => { setSearchQuery(''); setIsSearchFocused(false) }}
+                  onClick={() => {
+                    setSearchQuery('')
+                    setIsSearchFocused(false)
+                  }}
                   className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-text-primary transition-colors"
                 >
                   <X size={18} className="bg-gray-200 dark:bg-white/10 rounded-full p-0.5" />
@@ -371,7 +447,9 @@ function ShopBrowse({ serverId, shop, isLoading }: { serverId: string; shop?: Sh
                   type="button"
                   onClick={() => setSortBy(tab.key)}
                   className={`text-sm md:text-[15px] font-bold transition-all px-4 py-2 rounded-xl md:rounded-full ${
-                    sortBy === tab.key ? 'bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white'
+                    sortBy === tab.key
+                      ? 'bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-sm'
+                      : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white'
                   }`}
                 >
                   {tab.label}
@@ -382,13 +460,23 @@ function ShopBrowse({ serverId, shop, isLoading }: { serverId: string; shop?: Sh
                 type="button"
                 onClick={() => setSortBy(sortBy === 'price-asc' ? 'price-desc' : 'price-asc')}
                 className={`text-sm md:text-[15px] font-bold transition-all px-4 py-2 rounded-xl md:rounded-full flex items-center gap-1.5 ${
-                  sortBy === 'price-asc' || sortBy === 'price-desc' ? 'bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white'
+                  sortBy === 'price-asc' || sortBy === 'price-desc'
+                    ? 'bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white'
                 }`}
               >
                 价格
                 <span className="flex flex-col leading-none -space-y-0.5">
-                  <span className={`text-[9px] ${sortBy === 'price-asc' ? 'text-cyan-500' : 'text-gray-300 dark:text-gray-600'}`}>▲</span>
-                  <span className={`text-[9px] ${sortBy === 'price-desc' ? 'text-cyan-500' : 'text-gray-300 dark:text-gray-600'}`}>▼</span>
+                  <span
+                    className={`text-[9px] ${sortBy === 'price-asc' ? 'text-cyan-500' : 'text-gray-300 dark:text-gray-600'}`}
+                  >
+                    ▲
+                  </span>
+                  <span
+                    className={`text-[9px] ${sortBy === 'price-desc' ? 'text-cyan-500' : 'text-gray-300 dark:text-gray-600'}`}
+                  >
+                    ▼
+                  </span>
                 </span>
               </button>
             </div>
@@ -400,7 +488,7 @@ function ShopBrowse({ serverId, shop, isLoading }: { serverId: string; shop?: Sh
               type="button"
               onClick={() => setActiveCategoryId(null)}
               className={`whitespace-nowrap px-5 py-2 rounded-full text-sm font-bold transition-all ${
-                !activeCategoryId 
+                !activeCategoryId
                   ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md'
                   : 'bg-white dark:bg-bg-secondary text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5'
               }`}
@@ -413,7 +501,7 @@ function ShopBrowse({ serverId, shop, isLoading }: { serverId: string; shop?: Sh
                 type="button"
                 onClick={() => setActiveCategoryId(cat.id)}
                 className={`whitespace-nowrap px-5 py-2 rounded-full text-sm font-bold transition-all ${
-                  activeCategoryId === cat.id 
+                  activeCategoryId === cat.id
                     ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md'
                     : 'bg-white dark:bg-bg-secondary text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5'
                 }`}
@@ -429,7 +517,10 @@ function ShopBrowse({ serverId, shop, isLoading }: { serverId: string; shop?: Sh
           {isProductsLoading ? (
             <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
               {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                <div key={i} className="bg-white dark:bg-[#1A1A1A] rounded-2xl md:rounded-3xl animate-pulse flex flex-col overflow-hidden border border-gray-100 dark:border-white/5">
+                <div
+                  key={i}
+                  className="bg-white dark:bg-[#1A1A1A] rounded-2xl md:rounded-3xl animate-pulse flex flex-col overflow-hidden border border-gray-100 dark:border-white/5"
+                >
                   <div className="aspect-[4/5] bg-gray-100 dark:bg-white/5 w-full" />
                   <div className="p-4 space-y-3">
                     <div className="h-5 bg-gray-100 dark:bg-white/5 rounded-lg w-3/4" />
@@ -444,7 +535,9 @@ function ShopBrowse({ serverId, shop, isLoading }: { serverId: string; shop?: Sh
               <div className="w-24 h-24 mb-6 rounded-full bg-white dark:bg-white/5 flex items-center justify-center shadow-sm border border-gray-100 dark:border-white/5">
                 <ShoppingBag size={48} strokeWidth={1.5} />
               </div>
-              <p className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-2">未找到相关商品</p>
+              <p className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-2">
+                未找到相关商品
+              </p>
               <p className="text-sm">尝试更换搜索词或分类</p>
             </div>
           ) : (
@@ -454,6 +547,7 @@ function ShopBrowse({ serverId, shop, isLoading }: { serverId: string; shop?: Sh
                   key={product.id}
                   product={product}
                   onClick={() => setActiveProductId(product.id)}
+                  onAddToCart={onAddToCart}
                 />
               ))}
             </div>

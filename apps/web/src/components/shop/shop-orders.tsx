@@ -1,18 +1,19 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { PriceDisplay } from './ui/currency'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  ClipboardList,
-  Package,
-  Truck,
   CheckCircle,
-  XCircle,
-  Star,
   ChevronRight,
+  ClipboardList,
   Clock,
+  Package,
   ShieldCheck,
+  Star,
+  Truck,
+  XCircle,
 } from 'lucide-react'
 import { useState } from 'react'
 import { fetchApi } from '../../lib/api'
+import { showToast } from '../../lib/toast'
+import { PriceDisplay } from './ui/currency'
 
 interface OrderItem {
   id: string
@@ -43,15 +44,58 @@ interface Order {
   items: OrderItem[]
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
-  pending: { label: '待付款', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20', icon: Clock },
-  paid: { label: '待发货', color: 'text-cyan-600 dark:text-cyan-400', bg: 'bg-cyan-50 dark:bg-cyan-900/20', icon: Package },
-  processing: { label: '处理中', color: 'text-cyan-600 dark:text-cyan-400', bg: 'bg-cyan-50 dark:bg-cyan-900/20', icon: Package },
-  shipped: { label: '已发货', color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/20', icon: Truck },
-  delivered: { label: '已送达', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', icon: CheckCircle },
-  completed: { label: '已完成', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', icon: ShieldCheck },
-  cancelled: { label: '已取消', color: 'text-gray-500 dark:text-gray-400', bg: 'bg-gray-100 dark:bg-gray-800', icon: XCircle },
-  refunded: { label: '已退款', color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-900/20', icon: XCircle },
+const STATUS_CONFIG: Record<
+  string,
+  { label: string; color: string; bg: string; icon: React.ElementType }
+> = {
+  pending: {
+    label: '待付款',
+    color: 'text-amber-600 dark:text-amber-400',
+    bg: 'bg-amber-50 dark:bg-amber-900/20',
+    icon: Clock,
+  },
+  paid: {
+    label: '待发货',
+    color: 'text-cyan-600 dark:text-cyan-400',
+    bg: 'bg-cyan-50 dark:bg-cyan-900/20',
+    icon: Package,
+  },
+  processing: {
+    label: '处理中',
+    color: 'text-cyan-600 dark:text-cyan-400',
+    bg: 'bg-cyan-50 dark:bg-cyan-900/20',
+    icon: Package,
+  },
+  shipped: {
+    label: '已发货',
+    color: 'text-blue-600 dark:text-blue-400',
+    bg: 'bg-blue-50 dark:bg-blue-900/20',
+    icon: Truck,
+  },
+  delivered: {
+    label: '已送达',
+    color: 'text-emerald-600 dark:text-emerald-400',
+    bg: 'bg-emerald-50 dark:bg-emerald-900/20',
+    icon: CheckCircle,
+  },
+  completed: {
+    label: '已完成',
+    color: 'text-emerald-600 dark:text-emerald-400',
+    bg: 'bg-emerald-50 dark:bg-emerald-900/20',
+    icon: ShieldCheck,
+  },
+  cancelled: {
+    label: '已取消',
+    color: 'text-gray-500 dark:text-gray-400',
+    bg: 'bg-gray-100 dark:bg-gray-800',
+    icon: XCircle,
+  },
+  refunded: {
+    label: '已退款',
+    color: 'text-rose-600 dark:text-rose-400',
+    bg: 'bg-rose-50 dark:bg-rose-900/20',
+    icon: XCircle,
+  },
 }
 
 interface ShopOrdersProps {
@@ -65,6 +109,7 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
   const [reviewingOrder, setReviewingOrder] = useState<string | null>(null)
   const [reviewRating, setReviewRating] = useState(5)
   const [reviewContent, setReviewContent] = useState('')
+  const [reviewProductId, setReviewProductId] = useState<string | null>(null)
 
   const { data: orders = [] } = useQuery({
     queryKey: ['shop-orders', serverId, statusFilter],
@@ -80,7 +125,9 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shop-orders', serverId] })
       queryClient.invalidateQueries({ queryKey: ['wallet'] })
+      showToast('订单已取消', 'success')
     },
+    onError: (err: Error) => showToast(err.message || '取消失败', 'error'),
   })
 
   const submitReview = useMutation({
@@ -97,8 +144,11 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
       setReviewingOrder(null)
       setReviewRating(5)
       setReviewContent('')
+      setReviewProductId(null)
       queryClient.invalidateQueries({ queryKey: ['shop-orders', serverId] })
+      showToast('评价已提交，感谢您的反馈！', 'success')
     },
+    onError: (err: Error) => showToast(err.message || '评价提交失败', 'error'),
   })
 
   const statusTabs = [
@@ -113,9 +163,11 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[#F9FAFB] dark:bg-bg-primary h-full">
         <div className="w-32 h-32 mb-6 rounded-full bg-cyan-50 dark:bg-cyan-900/10 flex items-center justify-center shadow-inner relative">
-           <ClipboardList size={48} className="text-cyan-300 dark:text-cyan-800" strokeWidth={1.5} />
+          <ClipboardList size={48} className="text-cyan-300 dark:text-cyan-800" strokeWidth={1.5} />
         </div>
-        <h3 className="text-lg font-bold text-gray-900 dark:text-text-primary mb-2">暂无订单记录</h3>
+        <h3 className="text-lg font-bold text-gray-900 dark:text-text-primary mb-2">
+          暂无订单记录
+        </h3>
         <p className="text-sm text-gray-500 dark:text-text-muted mb-8">您还没有下过任何订单哦</p>
       </div>
     )
@@ -123,7 +175,6 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
 
   return (
     <div className="flex flex-col h-full bg-[#F9FAFB] dark:bg-bg-primary font-sans relative">
-      
       {/* ── Status Filter Tabs ── */}
       <div className="flex px-4 py-2 bg-white dark:bg-bg-secondary sticky top-0 z-10 shadow-sm gap-2 overflow-x-auto no-scrollbar border-b border-gray-100 dark:border-border-subtle">
         {statusTabs.map((tab) => (
@@ -145,9 +196,9 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
       {/* ── Order List ── */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
         {orders.length === 0 && statusFilter ? (
-           <div className="py-20 text-center text-gray-400 dark:text-text-muted text-sm">
-             该状态下暂无订单
-           </div>
+          <div className="py-20 text-center text-gray-400 dark:text-text-muted text-sm">
+            该状态下暂无订单
+          </div>
         ) : (
           orders.map((order) => {
             const statusCfg = (STATUS_CONFIG[order.status] ?? STATUS_CONFIG['pending'])!
@@ -169,7 +220,9 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
                 >
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-center gap-2">
-                       <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold flex items-center gap-1 ${statusCfg.bg} ${statusCfg.color}`}>
+                      <span
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold flex items-center gap-1 ${statusCfg.bg} ${statusCfg.color}`}
+                      >
                         <StatusIcon size={10} strokeWidth={3} />
                         {statusCfg.label}
                       </span>
@@ -179,14 +232,19 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
                     </div>
                     <span className="text-gray-400 dark:text-text-muted text-[10px]">
                       {new Date(order.createdAt).toLocaleString(undefined, {
-                        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
                       })}
                     </span>
                   </div>
-                  
+
                   <div className="flex items-center gap-3">
                     <div className="text-right">
-                      <p className="text-[10px] text-gray-500 dark:text-text-muted mb-0.5">合计 {totalQuantity} 件</p>
+                      <p className="text-[10px] text-gray-500 dark:text-text-muted mb-0.5">
+                        合计 {totalQuantity} 件
+                      </p>
                       <span className="text-gray-900 dark:text-text-primary text-sm font-black flex items-baseline justify-end gap-0.5">
                         <PriceDisplay amount={order.totalAmount} />
                       </span>
@@ -211,7 +269,7 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
                           </div>
                         )}
                       </div>
-                      
+
                       <div className="flex-1 min-w-0 pt-0.5">
                         <p className="text-gray-900 dark:text-text-primary text-sm font-bold line-clamp-1 leading-snug">
                           {item.productName}
@@ -225,7 +283,9 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
                           <span className="text-gray-900 dark:text-text-primary text-sm font-bold">
                             <PriceDisplay amount={item.price} />
                           </span>
-                          <span className="text-gray-400 dark:text-text-muted text-xs font-medium">x{item.quantity}</span>
+                          <span className="text-gray-400 dark:text-text-muted text-xs font-medium">
+                            x{item.quantity}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -252,32 +312,50 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
                           取消订单
                         </button>
                       )}
-                      
-                      {order.status === 'pending' && (
-                        <button
-                          type="button"
-                          className="px-4 py-2 text-xs font-bold text-white bg-cyan-600 rounded-xl shadow-md shadow-cyan-900/20 hover:bg-cyan-700 transition-all active:scale-[0.98]"
-                        >
-                          去支付
-                        </button>
-                      )}
 
-                      {['delivered', 'completed'].includes(order.status) && reviewingOrder !== order.id && (
-                        <button
-                          type="button"
-                          onClick={() => setReviewingOrder(order.id)}
-                          className="px-4 py-2 text-xs font-bold text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/20 border border-cyan-200 dark:border-cyan-800 rounded-xl hover:bg-cyan-100 dark:hover:bg-cyan-900/40 transition-all active:scale-95 hover:shadow-sm"
-                        >
-                          我要评价
-                        </button>
-                      )}
+                      {['delivered', 'completed'].includes(order.status) &&
+                        reviewingOrder !== order.id && (
+                          <button
+                            type="button"
+                            onClick={() => setReviewingOrder(order.id)}
+                            className="px-4 py-2 text-xs font-bold text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/20 border border-cyan-200 dark:border-cyan-800 rounded-xl hover:bg-cyan-100 dark:hover:bg-cyan-900/40 transition-all active:scale-95 hover:shadow-sm"
+                          >
+                            我要评价
+                          </button>
+                        )}
                     </div>
                   )}
 
                   {/* Inline Review Form */}
                   {reviewingOrder === order.id && (
                     <div className="mt-4 p-4 bg-gray-50 dark:bg-bg-tertiary rounded-2xl animate-in slide-in-from-top-2 duration-200">
-                      <span className="text-xs font-bold text-gray-700 dark:text-text-secondary block mb-2">商品评分</span>
+                      {/* Product selector for multi-item orders */}
+                      {order.items.length > 1 && (
+                        <div className="mb-3">
+                          <span className="text-xs font-bold text-gray-700 dark:text-text-secondary block mb-2">
+                            选择要评价的商品
+                          </span>
+                          <div className="flex flex-wrap gap-2">
+                            {order.items.map((item) => (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => setReviewProductId(item.productId)}
+                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all border ${
+                                  (reviewProductId || order.items[0]?.productId) === item.productId
+                                    ? 'border-cyan-500 bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400'
+                                    : 'border-gray-200 dark:border-border-dim text-gray-600 dark:text-gray-400 hover:border-gray-300'
+                                }`}
+                              >
+                                {item.productName}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <span className="text-xs font-bold text-gray-700 dark:text-text-secondary block mb-2">
+                        商品评分
+                      </span>
                       <div className="flex items-center gap-1.5 mb-3">
                         {Array.from({ length: 5 }).map((_, i) => (
                           <button
@@ -316,7 +394,7 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
                           onClick={() =>
                             submitReview.mutate({
                               orderId: order.id,
-                              productId: order.items[0]?.productId ?? '',
+                              productId: reviewProductId || (order.items[0]?.productId ?? ''),
                               rating: reviewRating,
                               content: reviewContent || undefined,
                             })
