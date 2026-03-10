@@ -24,6 +24,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { fetchApi } from '../../lib/api'
 import { showToast } from '../../lib/toast'
+import { useConfirmStore } from '../common/confirm-dialog'
 import type { Product, ProductCategory, Shop } from './shop-page'
 import { PriceDisplay, ShrimpCoinIcon } from './ui/currency'
 
@@ -265,9 +266,14 @@ function ProductManager({ serverId }: { serverId: string }) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (confirm('确定要删除该商品吗? 删除后将不可恢复。'))
-                      deleteMutation.mutate(product.id)
+                  onClick={async () => {
+                    const ok = await useConfirmStore.getState().confirm({
+                      title: '删除商品',
+                      message: '确定要删除该商品吗? 删除后将不可恢复。',
+                      confirmLabel: '删除',
+                      danger: true,
+                    })
+                    if (ok) deleteMutation.mutate(product.id)
                   }}
                   className="p-2.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all"
                   title="删除此商品"
@@ -1096,8 +1102,14 @@ function CategoryManager({ serverId }: { serverId: string }) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (confirm('删除此分类？')) deleteMutation.mutate(cat.id)
+                      onClick={async () => {
+                        const ok = await useConfirmStore.getState().confirm({
+                          title: '删除分类',
+                          message: '确定删除此分类？',
+                          confirmLabel: '删除',
+                          danger: true,
+                        })
+                        if (ok) deleteMutation.mutate(cat.id)
                       }}
                       className="p-2 text-gray-400 hover:text-rose-600 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
                     >

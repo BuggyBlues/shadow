@@ -13,23 +13,24 @@ export { servers } from './servers'
 export {
   cartItems,
   currencyEnum,
-  entitlementTypeEnum,
   entitlements,
+  entitlementTypeEnum,
   orderItems,
   orderStatusEnum,
   orders,
   productCategories,
   productMedia,
   productStatusEnum,
-  productTypeEnum,
   products,
+  productTypeEnum,
   reviews,
   shopStatusEnum,
   shops,
   skus,
+  wallets,
   walletTransactions,
   walletTxTypeEnum,
-  wallets,
 } from './shops'
 export { threads } from './threads'
 export { userStatusEnum, users } from './users'
+export { workspaceNodeKindEnum, workspaceNodes, workspaces } from './workspaces'

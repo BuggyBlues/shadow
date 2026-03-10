@@ -277,6 +277,10 @@ The Rsbuild dev server proxies these paths to the backend (port 3002):
 3. Internal aliases (`@/components/...`, `../../lib/...`)
 4. Styles
 
+### Hard Constraints
+
+- **禁止使用 `window.prompt`、`window.confirm`、`window.alert`**：所有用户确认/输入交互**必须**使用 React 组件实现（如 `useConfirmStore` / `ConfirmDialog`）。原生弹窗会阻塞主线程且无法自定义样式，**任何新增调用将被视为 bug**。
+
 ---
 
 ## 7. Data Model

@@ -25,6 +25,7 @@ import { useConfirmStore } from '../common/confirm-dialog'
 import { EmojiPicker } from '../common/emoji-picker'
 import { UserProfileCard } from '../common/user-profile-card'
 import { FileCard } from './file-card'
+import { ImageContextMenu } from './image-context-menu'
 
 interface Author {
   id: string
@@ -72,6 +73,7 @@ interface MessageBubbleProps {
   onMessageUpdate?: (msg: Message) => void
   onMessageDelete?: (msgId: string) => void
   onPreviewFile?: (attachment: Attachment) => void
+  onSaveToWorkspace?: (attachment: Attachment) => void
   highlight?: boolean
   replyToMessage?: Message | null
 }
@@ -90,6 +92,7 @@ export function MessageBubble({
   onMessageUpdate,
   onMessageDelete,
   onPreviewFile,
+  onSaveToWorkspace,
   highlight,
   replyToMessage,
 }: MessageBubbleProps) {
@@ -108,6 +111,11 @@ export function MessageBubble({
   const [avatarPinned, setAvatarPinned] = useState(false)
   const [avatarCardPos, setAvatarCardPos] = useState<{ left: number; top: number } | null>(null)
   const [avatarContextMenu, setAvatarContextMenu] = useState<{ x: number; y: number } | null>(null)
+  const [imageContextMenu, setImageContextMenu] = useState<{
+    x: number
+    y: number
+    att: Attachment
+  } | null>(null)
   const avatarHoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const isOwn = message.authorId === currentUserId
@@ -431,15 +439,33 @@ export function MessageBubble({
           <div className="flex flex-col gap-2 mt-2">
             {message.attachments.map((att) =>
               isImageType(att.contentType) ? (
-                <a
-                  key={att.id}
-                  href={att.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block max-w-xs rounded-lg overflow-hidden border border-border-dim"
-                >
-                  <img src={att.url} alt={att.filename} className="max-h-60 object-contain" />
-                </a>
+                <div key={att.id} className="relative">
+                  <a
+                    href={att.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block max-w-xs rounded-lg overflow-hidden border border-border-dim"
+                    onContextMenu={(e) => {
+                      e.preventDefault()
+                      setImageContextMenu({ x: e.clientX, y: e.clientY, att })
+                    }}
+                  >
+                    <img src={att.url} alt={att.filename} className="max-h-60 object-contain" />
+                  </a>
+                  {imageContextMenu?.att.id === att.id &&
+                    createPortal(
+                      <ImageContextMenu
+                        x={imageContextMenu.x}
+                        y={imageContextMenu.y}
+                        attachment={att}
+                        onClose={() => setImageContextMenu(null)}
+                        onSaveToWorkspace={
+                          onSaveToWorkspace ? () => onSaveToWorkspace(att) : undefined
+                        }
+                      />,
+                      document.body,
+                    )}
+                </div>
               ) : (
                 <FileCard
                   key={att.id}
@@ -448,6 +474,7 @@ export function MessageBubble({
                   contentType={att.contentType}
                   size={att.size}
                   onClick={() => onPreviewFile?.(att)}
+                  onSaveToWorkspace={onSaveToWorkspace ? () => onSaveToWorkspace(att) : undefined}
                 />
               ),
             )}

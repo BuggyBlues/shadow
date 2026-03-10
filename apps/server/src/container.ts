@@ -2,22 +2,24 @@ import { type AwilixContainer, asClass, asValue, createContainer, InjectionMode 
 import type { Server as SocketIOServer } from 'socket.io'
 import { AgentDao } from './dao/agent.dao'
 import { AgentPolicyDao } from './dao/agent-policy.dao'
+import { CartDao } from './dao/cart.dao'
 import { ChannelDao } from './dao/channel.dao'
 import { ChannelMemberDao } from './dao/channel-member.dao'
+import { EntitlementDao } from './dao/entitlement.dao'
 import { InviteCodeDao } from './dao/invite-code.dao'
 import { MessageDao } from './dao/message.dao'
 import { NotificationDao } from './dao/notification.dao'
-import { ServerDao } from './dao/server.dao'
-import { CartDao } from './dao/cart.dao'
-import { EntitlementDao } from './dao/entitlement.dao'
 import { OrderDao } from './dao/order.dao'
-import { ProductCategoryDao } from './dao/product-category.dao'
 import { ProductDao, ProductMediaDao, SkuDao } from './dao/product.dao'
+import { ProductCategoryDao } from './dao/product-category.dao'
 import { ReviewDao } from './dao/review.dao'
+import { ServerDao } from './dao/server.dao'
 import { ShopDao } from './dao/shop.dao'
-import { WalletDao } from './dao/wallet.dao'
 // DAO classes
 import { UserDao } from './dao/user.dao'
+import { WalletDao } from './dao/wallet.dao'
+import { WorkspaceDao } from './dao/workspace.dao'
+import { WorkspaceNodeDao } from './dao/workspace-node.dao'
 import type { Database } from './db'
 // Lib
 import { logger } from './lib/logger'
@@ -25,21 +27,22 @@ import { AgentService } from './services/agent.service'
 import { AgentPolicyService } from './services/agent-policy.service'
 // Service classes
 import { AuthService } from './services/auth.service'
+import { CartService } from './services/cart.service'
 import { ChannelService } from './services/channel.service'
 import { DmService } from './services/dm.service'
+import { EntitlementService } from './services/entitlement.service'
 import { MediaService } from './services/media.service'
 import { MessageService } from './services/message.service'
 import { NotificationService } from './services/notification.service'
+import { OrderService } from './services/order.service'
 import { PermissionService } from './services/permission.service'
+import { ProductService } from './services/product.service'
+import { ReviewService } from './services/review.service'
 import { SearchService } from './services/search.service'
 import { ServerService } from './services/server.service'
 import { ShopService } from './services/shop.service'
-import { ProductService } from './services/product.service'
 import { WalletService } from './services/wallet.service'
-import { CartService } from './services/cart.service'
-import { OrderService } from './services/order.service'
-import { ReviewService } from './services/review.service'
-import { EntitlementService } from './services/entitlement.service'
+import { WorkspaceService } from './services/workspace.service'
 
 export interface Cradle {
   // Infrastructure
@@ -70,6 +73,10 @@ export interface Cradle {
   entitlementDao: EntitlementDao
   cartDao: CartDao
 
+  // Workspace DAOs
+  workspaceDao: WorkspaceDao
+  workspaceNodeDao: WorkspaceNodeDao
+
   // Services
   authService: AuthService
   serverService: ServerService
@@ -89,6 +96,7 @@ export interface Cradle {
   orderService: OrderService
   reviewService: ReviewService
   entitlementService: EntitlementService
+  workspaceService: WorkspaceService
 }
 
 export type AppContainer = AwilixContainer<Cradle>
@@ -127,6 +135,10 @@ export function createAppContainer(db: Database): AppContainer {
     entitlementDao: asClass(EntitlementDao).singleton(),
     cartDao: asClass(CartDao).singleton(),
 
+    // Workspace DAOs
+    workspaceDao: asClass(WorkspaceDao).singleton(),
+    workspaceNodeDao: asClass(WorkspaceNodeDao).singleton(),
+
     // Services
     authService: asClass(AuthService).singleton(),
     serverService: asClass(ServerService).singleton(),
@@ -146,6 +158,7 @@ export function createAppContainer(db: Database): AppContainer {
     orderService: asClass(OrderService).singleton(),
     reviewService: asClass(ReviewService).singleton(),
     entitlementService: asClass(EntitlementService).singleton(),
+    workspaceService: asClass(WorkspaceService).singleton(),
   })
 
   return container

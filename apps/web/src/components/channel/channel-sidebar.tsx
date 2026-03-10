@@ -6,14 +6,15 @@ import {
   ChevronRight,
   Copy,
   Edit3,
+  FolderClosed,
   Hash,
   Home,
   Megaphone,
-  ShoppingBag,
   Menu,
   Plus,
   Save,
   Settings,
+  ShoppingBag,
   Trash2,
   UserPlus,
   Volume2,
@@ -56,7 +57,13 @@ const channelIcons = {
   announcement: Megaphone,
 }
 
-export function ChannelSidebar({ serverId, channelNameFromUrl }: { serverId: string; channelNameFromUrl?: string }) {
+export function ChannelSidebar({
+  serverId,
+  channelNameFromUrl,
+}: {
+  serverId: string
+  channelNameFromUrl?: string
+}) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -309,7 +316,7 @@ export function ChannelSidebar({ serverId, channelNameFromUrl }: { serverId: str
   // Reset homeRef when serverId changes (navigating to a new server)
   useEffect(() => {
     userChoseHomeRef.current = false
-  }, [serverId])
+  }, [])
 
   // Rejoin active channel room on socket reconnect
   useSocketEvent('connect', () => {
@@ -480,7 +487,10 @@ export function ChannelSidebar({ serverId, channelNameFromUrl }: { serverId: str
             userChoseHomeRef.current = true
             setActiveChannel(null)
             // Navigate to server home URL (no channel)
-            navigate({ to: '/app/servers/$serverId', params: { serverId: server?.slug ?? serverId } })
+            navigate({
+              to: '/app/servers/$serverId',
+              params: { serverId: server?.slug ?? serverId },
+            })
             setMobileView('chat')
           }}
           className={`group flex items-center gap-1.5 px-2 py-[6px] mx-2 mb-2 rounded-md text-[15px] font-medium w-[calc(100%-16px)] text-left transition ${
@@ -489,7 +499,10 @@ export function ChannelSidebar({ serverId, channelNameFromUrl }: { serverId: str
               : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
           }`}
         >
-          <Home size={18} className={`shrink-0 ${!activeChannelId ? 'opacity-80 text-text-primary' : 'opacity-60 group-hover:text-text-primary'}`} />
+          <Home
+            size={18}
+            className={`shrink-0 ${!activeChannelId ? 'opacity-80 text-text-primary' : 'opacity-60 group-hover:text-text-primary'}`}
+          />
           <span className="truncate">{t('server.home')}</span>
         </button>
         <button
@@ -498,13 +511,33 @@ export function ChannelSidebar({ serverId, channelNameFromUrl }: { serverId: str
             if (activeChannelId) leaveChannel(activeChannelId)
             userChoseHomeRef.current = true
             setActiveChannel(null)
-            navigate({ to: '/app/servers/$serverId/shop', params: { serverId: server?.slug ?? serverId } })
+            navigate({
+              to: '/app/servers/$serverId/shop',
+              params: { serverId: server?.slug ?? serverId },
+            })
             setMobileView('chat')
           }}
           className="group flex items-center gap-1.5 px-2 py-[6px] mx-2 mb-2 rounded-md text-[15px] font-medium w-[calc(100%-16px)] text-left transition text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary"
         >
           <ShoppingBag size={18} className="shrink-0 opacity-60 group-hover:text-text-primary" />
           <span className="truncate">{t('serverHome.shop', '店铺')}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (activeChannelId) leaveChannel(activeChannelId)
+            userChoseHomeRef.current = true
+            setActiveChannel(null)
+            navigate({
+              to: '/app/servers/$serverId/workspace',
+              params: { serverId: server?.slug ?? serverId },
+            })
+            setMobileView('chat')
+          }}
+          className="group flex items-center gap-1.5 px-2 py-[6px] mx-2 mb-2 rounded-md text-[15px] font-medium w-[calc(100%-16px)] text-left transition text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary"
+        >
+          <FolderClosed size={18} className="shrink-0 opacity-60 group-hover:text-text-primary" />
+          <span className="truncate">{t('serverHome.workspace', '工作区')}</span>
         </button>
         <div className="h-px bg-divider mx-4 mb-2" />
         {renderChannelGroup(t('channel.announcement'), announcementChannels)}
@@ -542,14 +575,19 @@ export function ChannelSidebar({ serverId, channelNameFromUrl }: { serverId: str
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229 && newName.trim()) {
+                if (
+                  e.key === 'Enter' &&
+                  !e.shiftKey &&
+                  !e.nativeEvent.isComposing &&
+                  e.keyCode !== 229 &&
+                  newName.trim()
+                ) {
                   e.preventDefault()
                   createChannel.mutate({ name: newName.trim(), type: newType })
                 }
               }}
               placeholder={t('channel.channelName')}
               className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary mb-3"
-              autoFocus
             />
             <div className="flex gap-2 mb-4">
               {(['text', 'voice', 'announcement'] as const).map((chType) => (
@@ -805,80 +843,83 @@ export function ChannelSidebar({ serverId, channelNameFromUrl }: { serverId: str
           <div
             className="fixed inset-0 z-[49]"
             onClick={() => setContextMenu(null)}
-            onContextMenu={(e) => { e.preventDefault(); setContextMenu(null) }}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              setContextMenu(null)
+            }}
           />
           <div
             ref={contextMenuRef}
             className="fixed z-50 bg-bg-tertiary border border-border-dim rounded-lg shadow-xl py-1 min-w-[160px]"
             style={{ top: contextMenu.y, left: contextMenu.x }}
           >
-          <button
-            type="button"
-            onClick={() => {
-              setShowInvitePanel(true)
-              setContextMenu(null)
-            }}
-            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
-          >
-            <UserPlus size={14} />
-            {t('channel.inviteMember')}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setShowAddAgent(true)
-              setContextMenu(null)
-            }}
-            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
-          >
-            <img src="/Logo.svg" alt="Buddy" className="w-4 h-4" />
-            {t('channel.addAgent')}
-          </button>
-          <div className="h-px bg-border-subtle my-1" />
-          <button
-            type="button"
-            onClick={() => {
-              setEditingChannel(contextMenu.channel)
-              setEditChannelName(contextMenu.channel.name)
-              setContextMenu(null)
-            }}
-            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
-          >
-            <Edit3 size={14} />
-            {t('channel.editChannel')}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              const serverSlug = server?.slug ?? serverId
-              const channelLink = `${window.location.origin}/app/servers/${serverSlug}/${encodeURIComponent(contextMenu.channel.name)}`
-              navigator.clipboard.writeText(channelLink)
-              setContextMenu(null)
-            }}
-            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
-          >
-            <Copy size={14} />
-            {t('channel.copyChannelLink')}
-          </button>
-          <div className="h-px bg-border-subtle my-1" />
-          <button
-            type="button"
-            onClick={async () => {
-              const ok = await useConfirmStore.getState().confirm({
-                title: t('channel.deleteChannel'),
-                message: t('channel.deleteChannelConfirm'),
-              })
-              if (ok) {
-                deleteChannel.mutate(contextMenu.channel.id)
-              }
-              setContextMenu(null)
-            }}
-            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition"
-          >
-            <Trash2 size={14} />
-            {t('channel.deleteChannel')}
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => {
+                setShowInvitePanel(true)
+                setContextMenu(null)
+              }}
+              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+            >
+              <UserPlus size={14} />
+              {t('channel.inviteMember')}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowAddAgent(true)
+                setContextMenu(null)
+              }}
+              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+            >
+              <img src="/Logo.svg" alt="Buddy" className="w-4 h-4" />
+              {t('channel.addAgent')}
+            </button>
+            <div className="h-px bg-border-subtle my-1" />
+            <button
+              type="button"
+              onClick={() => {
+                setEditingChannel(contextMenu.channel)
+                setEditChannelName(contextMenu.channel.name)
+                setContextMenu(null)
+              }}
+              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+            >
+              <Edit3 size={14} />
+              {t('channel.editChannel')}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const serverSlug = server?.slug ?? serverId
+                const channelLink = `${window.location.origin}/app/servers/${serverSlug}/${encodeURIComponent(contextMenu.channel.name)}`
+                navigator.clipboard.writeText(channelLink)
+                setContextMenu(null)
+              }}
+              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+            >
+              <Copy size={14} />
+              {t('channel.copyChannelLink')}
+            </button>
+            <div className="h-px bg-border-subtle my-1" />
+            <button
+              type="button"
+              onClick={async () => {
+                const ok = await useConfirmStore.getState().confirm({
+                  title: t('channel.deleteChannel'),
+                  message: t('channel.deleteChannelConfirm'),
+                })
+                if (ok) {
+                  deleteChannel.mutate(contextMenu.channel.id)
+                }
+                setContextMenu(null)
+              }}
+              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition"
+            >
+              <Trash2 size={14} />
+              {t('channel.deleteChannel')}
+            </button>
+          </div>
         </>
       )}
 
@@ -888,7 +929,10 @@ export function ChannelSidebar({ serverId, channelNameFromUrl }: { serverId: str
           <div
             className="fixed inset-0 z-[49]"
             onClick={() => setBlankContextMenu(null)}
-            onContextMenu={(e) => { e.preventDefault(); setBlankContextMenu(null) }}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              setBlankContextMenu(null)
+            }}
           />
           <div
             className="fixed z-50 bg-bg-tertiary border border-border-dim rounded-lg shadow-xl py-1 min-w-[160px]"

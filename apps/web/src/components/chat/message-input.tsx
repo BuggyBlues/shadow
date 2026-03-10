@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { FileText, Image as ImageIcon, Plus, Send, Smile, X } from 'lucide-react'
+import { FileText, FolderOpen, Image as ImageIcon, Plus, Send, Smile, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../../lib/api'
@@ -8,6 +8,7 @@ import { playSendSound } from '../../lib/sounds'
 import { useChatStore } from '../../stores/chat.store'
 import { UserAvatar } from '../common/avatar'
 import { EmojiPicker } from '../common/emoji-picker'
+import { type PickerResult, WorkspaceFilePicker } from '../workspace'
 
 interface MessageInputProps {
   channelId: string
@@ -21,6 +22,11 @@ interface MessageInputProps {
 interface PendingFile {
   file: File
   preview?: string
+  /** If set, this file comes from workspace and already has a URL (skip re-upload) */
+  workspaceUrl?: string
+  workspaceName?: string
+  workspaceMime?: string
+  workspaceSize?: number
 }
 
 interface MemberUser {
@@ -52,6 +58,7 @@ export function MessageInput({
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([])
   const [uploading, setUploading] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [showWorkspacePicker, setShowWorkspacePicker] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -154,18 +161,28 @@ export function MessageInput({
           size: number
         }[] = []
         for (const pf of pendingFiles) {
-          const formData = new FormData()
-          formData.append('file', pf.file)
-          const result = await fetchApi<{ url: string; size: number }>('/api/media/upload', {
-            method: 'POST',
-            body: formData,
-          })
-          uploadedAttachments.push({
-            filename: pf.file.name,
-            url: result.url,
-            contentType: pf.file.type || 'application/octet-stream',
-            size: result.size,
-          })
+          if (pf.workspaceUrl) {
+            // Workspace file: already has a URL, skip re-upload
+            uploadedAttachments.push({
+              filename: pf.workspaceName ?? pf.file.name,
+              url: pf.workspaceUrl,
+              contentType: pf.workspaceMime ?? (pf.file.type || 'application/octet-stream'),
+              size: pf.workspaceSize ?? pf.file.size,
+            })
+          } else {
+            const formData = new FormData()
+            formData.append('file', pf.file)
+            const result = await fetchApi<{ url: string; size: number }>('/api/media/upload', {
+              method: 'POST',
+              body: formData,
+            })
+            uploadedAttachments.push({
+              filename: pf.file.name,
+              url: result.url,
+              contentType: pf.file.type || 'application/octet-stream',
+              size: result.size,
+            })
+          }
         }
 
         // Create message with pre-uploaded attachments via REST
@@ -313,6 +330,34 @@ export function MessageInput({
     e.preventDefault()
   }, [])
 
+  // Handle workspace file selection from picker
+  const handleWorkspaceFileSelect = useCallback((result: PickerResult) => {
+    const node = result.node
+    if (!node?.contentRef) return
+
+    // Create a placeholder File object for display purposes
+    const placeholderFile = new globalThis.File([], node.name, {
+      type: node.mime ?? 'application/octet-stream',
+    })
+
+    const pf: PendingFile = {
+      file: placeholderFile,
+      workspaceUrl: node.contentRef,
+      workspaceName: node.name,
+      workspaceMime: node.mime ?? undefined,
+      workspaceSize: node.sizeBytes ?? undefined,
+    }
+
+    // Generate preview for images
+    if (node.mime?.startsWith('image/') && node.contentRef) {
+      pf.preview = node.contentRef
+    }
+
+    setPendingFiles((prev) => [...prev, pf])
+    setShowWorkspacePicker(false)
+    textareaRef.current?.focus()
+  }, [])
+
   return (
     <div
       className="px-4 pb-4 mobile-safe-bottom relative"
@@ -389,9 +434,14 @@ export function MessageInput({
                 <div className="w-20 h-20 rounded-lg border border-border-dim bg-bg-tertiary flex flex-col items-center justify-center gap-1">
                   <FileText size={20} className="text-text-muted" />
                   <span className="text-[9px] text-text-muted truncate max-w-[72px] px-1">
-                    {pf.file.name}
+                    {pf.workspaceName ?? pf.file.name}
                   </span>
                 </div>
+              )}
+              {pf.workspaceUrl && (
+                <span className="absolute bottom-0.5 left-0.5 text-[8px] bg-[#5865F2]/80 text-white px-1 py-0.5 rounded">
+                  工作区
+                </span>
               )}
               <button
                 onClick={() => removeFile(i)}
@@ -437,6 +487,16 @@ export function MessageInput({
           <ImageIcon size={20} />
         </button>
 
+        {activeServerId && (
+          <button
+            onClick={() => setShowWorkspacePicker(true)}
+            className="text-text-secondary hover:text-text-primary transition p-1.5 rounded-full hover:bg-bg-modifier-hover shrink-0 self-end mb-[3px]"
+            title="从工作区选择文件"
+          >
+            <FolderOpen size={20} />
+          </button>
+        )}
+
         <div className="relative shrink-0 self-end mb-[3px]">
           <button
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
@@ -474,6 +534,16 @@ export function MessageInput({
         className="hidden"
         accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip,.rar,.7z"
       />
+
+      {showWorkspacePicker && activeServerId && (
+        <WorkspaceFilePicker
+          serverId={activeServerId}
+          mode="select-file"
+          title="选择工作区文件发送"
+          onConfirm={handleWorkspaceFileSelect}
+          onClose={() => setShowWorkspacePicker(false)}
+        />
+      )}
     </div>
   )
 }

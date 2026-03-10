@@ -12,11 +12,13 @@ import { useTranslation } from 'react-i18next'
 import { useSocketEvent } from '../../hooks/use-socket'
 import { fetchApi } from '../../lib/api'
 import { playReceiveSound } from '../../lib/sounds'
+import { showToast } from '../../lib/toast'
 import { useAuthStore } from '../../stores/auth.store'
 import { useChatStore } from '../../stores/chat.store'
 import { useUIStore } from '../../stores/ui.store'
 import { NotificationBell } from '../notification/notification-bell'
 import { ServerHome } from '../server/server-home'
+import { type PickerResult, WorkspaceFilePicker } from '../workspace'
 import { FilePreviewPanel } from './file-preview-panel'
 import { MessageBubble } from './message-bubble'
 import { MessageInput } from './message-input'
@@ -106,6 +108,14 @@ export function ChatArea() {
   const shouldStickToBottomRef = useRef(true)
   const [previewFile, setPreviewFile] = useState<{
     id: string
+    filename: string
+    url: string
+    contentType: string
+    size: number
+  } | null>(null)
+
+  // Save-to-workspace state
+  const [saveToWorkspaceFile, setSaveToWorkspaceFile] = useState<{
     filename: string
     url: string
     contentType: string
@@ -305,13 +315,14 @@ export function ChatArea() {
         // Deduplicate: if a server-level join exists for this user within 5s, replace with channel-level
         if (scope === 'channel') {
           const recentServerJoin = prev.find(
-            (e) => e.type === 'joined' && e.scope === 'server' && e.displayName === data.displayName
-              && Date.now() - e.timestamp < 5000,
+            (e) =>
+              e.type === 'joined' &&
+              e.scope === 'server' &&
+              e.displayName === data.displayName &&
+              Date.now() - e.timestamp < 5000,
           )
           if (recentServerJoin) {
-            return prev.map((e) =>
-              e.id === recentServerJoin.id ? { ...e, scope: 'channel' } : e,
-            )
+            return prev.map((e) => (e.id === recentServerJoin.id ? { ...e, scope: 'channel' } : e))
           }
         }
         return [
@@ -556,6 +567,34 @@ export function ChatArea() {
     }
   }, [])
 
+  // Save chat attachment to workspace
+  const handleSaveToWorkspace = useCallback(
+    async (result: PickerResult) => {
+      if (!saveToWorkspaceFile || !activeServerId) return
+      try {
+        const targetParentId = result.targetFolderId
+        // Fetch the attachment and re-upload it to the workspace
+        const resp = await fetch(saveToWorkspaceFile.url)
+        const blob = await resp.blob()
+        const file = new globalThis.File([blob], saveToWorkspaceFile.filename, {
+          type: saveToWorkspaceFile.contentType,
+        })
+        const formData = new FormData()
+        formData.append('file', file)
+        if (targetParentId) formData.append('parentId', targetParentId)
+        await fetchApi(`/api/servers/${activeServerId}/workspace/upload`, {
+          method: 'POST',
+          body: formData,
+        })
+        showToast('已保存到工作区', 'success')
+        setSaveToWorkspaceFile(null)
+      } catch (_err) {
+        showToast('保存到工作区失败', 'error')
+      }
+    },
+    [saveToWorkspaceFile, activeServerId],
+  )
+
   if (!activeChannelId) {
     return <ServerHome />
   }
@@ -685,8 +724,12 @@ export function ChatArea() {
                               {item.data.displayName}
                             </span>{' '}
                             {item.data.type === 'joined'
-                              ? (item.data.scope === 'channel' ? t('member.joinedChannel') : t('member.joinedServer'))
-                              : (item.data.scope === 'channel' ? t('member.leftChannel') : t('member.leftServer'))}
+                              ? item.data.scope === 'channel'
+                                ? t('member.joinedChannel')
+                                : t('member.joinedServer')
+                              : item.data.scope === 'channel'
+                                ? t('member.leftChannel')
+                                : t('member.leftServer')}
                           </span>
                         </div>
                       </div>
@@ -699,6 +742,9 @@ export function ChatArea() {
                         onMessageUpdate={handleMessageUpdate}
                         onMessageDelete={handleMessageDelete}
                         onPreviewFile={(att) => setPreviewFile(att)}
+                        onSaveToWorkspace={
+                          activeServerId ? (att) => setSaveToWorkspaceFile(att) : undefined
+                        }
                         highlight={highlightMsgId === item.data.id}
                         replyToMessage={
                           item.data.replyToId
@@ -774,6 +820,17 @@ export function ChatArea() {
       {/* File preview panel */}
       {previewFile && (
         <FilePreviewPanel attachment={previewFile} onClose={() => setPreviewFile(null)} />
+      )}
+
+      {/* Save attachment to workspace picker */}
+      {saveToWorkspaceFile && activeServerId && (
+        <WorkspaceFilePicker
+          serverId={activeServerId}
+          mode="save-to-folder"
+          title={`保存 "${saveToWorkspaceFile.filename}" 到工作区`}
+          onConfirm={handleSaveToWorkspace}
+          onClose={() => setSaveToWorkspaceFile(null)}
+        />
       )}
     </div>
   )

@@ -10,6 +10,7 @@ import {
   FileText,
   FileType,
   FileVideo,
+  FolderPlus,
 } from 'lucide-react'
 
 interface FileCardProps {
@@ -18,6 +19,8 @@ interface FileCardProps {
   contentType: string
   size: number
   onClick?: () => void
+  /** Optional handler to save this attachment to a workspace folder */
+  onSaveToWorkspace?: () => void
 }
 
 /** Map content-type prefixes / extensions to an icon + accent colour */
@@ -162,7 +165,14 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-export function FileCard({ filename, url, contentType, size, onClick }: FileCardProps) {
+export function FileCard({
+  filename,
+  url,
+  contentType,
+  size,
+  onClick,
+  onSaveToWorkspace,
+}: FileCardProps) {
   const meta = getFileMeta(contentType, filename)
   const Icon = meta.icon
 
@@ -185,6 +195,21 @@ export function FileCard({ filename, url, contentType, size, onClick }: FileCard
           {meta.label} · {formatFileSize(size)}
         </p>
       </div>
+
+      {/* Save to workspace button */}
+      {onSaveToWorkspace && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onSaveToWorkspace()
+          }}
+          className="shrink-0 p-1.5 rounded-md text-text-muted hover:text-[#e8a838] hover:bg-[#e8a838]/10 transition opacity-0 group-hover/fc:opacity-100"
+          title="保存到工作区"
+        >
+          <FolderPlus size={16} />
+        </button>
+      )}
 
       {/* Download button */}
       <a
