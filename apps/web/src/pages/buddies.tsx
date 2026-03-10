@@ -49,9 +49,9 @@ const agentItems = [
   },
 ]
 
-export function AgentMarketPage() {
+export function BuddyMarketPage() {
   const { t } = useTranslation()
-  useAppStatus({ title: t('nav.agents'), variant: 'market' })
+  useAppStatus({ title: t('nav.buddies'), variant: 'market' })
 
   return (
     <div
@@ -76,7 +76,7 @@ export function AgentMarketPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {agentItems.map((a) => (
             <Link
-              to={`/agents/${a.nameKey.split('.')[1].toLowerCase()}/contract`}
+              to={`/buddies/${a.nameKey.split('.')[1].toLowerCase()}/contract`}
               key={a.nameKey}
               className="block bg-white/70 backdrop-blur-lg border-2 border-white/90 rounded-3xl p-8 hover:-translate-y-2 hover:shadow-xl transition-all group cursor-pointer"
             >

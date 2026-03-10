@@ -12,12 +12,13 @@ import ReactDOM from 'react-dom/client'
 import { AppLayout } from './components/layout/app-layout'
 import { RootLayout } from './components/layout/root-layout'
 import { queryClient } from './lib/query-client'
-import { AgentManagementPage } from './pages/agent-management'
-import { AgentMarketPage } from './pages/agents'
+import { BuddyManagementPage } from './pages/buddy-management'
+import { BuddyMarketPage } from './pages/buddies'
 import { DiscoverPage } from './pages/discover'
 import { DocsPage } from './pages/docs'
 import { FeaturesPage } from './pages/features'
 import { HomePage } from './pages/home'
+import { BuddyContractPage } from './pages/buddy-contract'
 import { InvitePage } from './pages/invite'
 import { LoginPage } from './pages/login'
 import { PricingPage } from './pages/pricing'
@@ -70,10 +71,16 @@ const featuresRoute = createRoute({
   component: FeaturesPage,
 })
 
-const agentsRoute = createRoute({
+const buddiesRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/agents',
-  component: AgentMarketPage,
+  path: '/buddies',
+  component: BuddyMarketPage,
+})
+
+const buddyContractRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/buddies/$buddyId/contract',
+  component: BuddyContractPage,
 })
 
 const pricingRoute = createRoute({
@@ -162,10 +169,10 @@ const settingsRoute = createRoute({
   component: SettingsPage,
 })
 
-const agentMgmtRoute = createRoute({
+const buddyMgmtRoute = createRoute({
   getParentRoute: () => appRoute,
-  path: '/agents',
-  component: AgentManagementPage,
+  path: '/buddies',
+  component: BuddyManagementPage,
 })
 
 const discoverRoute = createRoute({
@@ -180,7 +187,8 @@ const routeTree = rootRoute.addChildren([
   loginRoute,
   registerRoute,
   featuresRoute,
-  agentsRoute,
+  buddiesRoute,
+  buddyContractRoute,
   pricingRoute,
   docsRoute,
   inviteRoute,
@@ -193,7 +201,7 @@ const routeTree = rootRoute.addChildren([
     serverWorkspaceRoute,
     serverChannelRoute,
     settingsRoute,
-    agentMgmtRoute,
+    buddyMgmtRoute,
     discoverRoute,
   ]),
 ])

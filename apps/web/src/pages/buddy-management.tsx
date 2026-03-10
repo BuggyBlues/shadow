@@ -55,7 +55,7 @@ interface TokenResponse {
 
 /* ── Agent Management Page ──────────────────────────── */
 
-export function AgentManagementPage() {
+export function BuddyManagementPage() {
   const { t } = useTranslation()
   const unreadCount = useUnreadCount()
   useAppStatus({

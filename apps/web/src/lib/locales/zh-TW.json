@@ -23,7 +23,6 @@
     "copied": "已複製",
     "loading": "載入中...",
     "uploading": "上傳中...",
-    "confirm": "確認",
     "delete": "刪除",
     "edit": "編輯",
     "close": "關閉",
@@ -599,5 +598,22 @@
     "startChatting": "開始聊天",
     "openNewWindow": "在新視窗開啟",
     "backToServer": "返回伺服器"
+  },
+  "contract": {
+    "contractTitle": "Buddy 聘用合約",
+    "officialDoc": "官方文件 #",
+    "introText": "本協議規定了指定 Buddy 在您的工作區內提供協助、陪伴和專業服務的所有條款和條件。",
+    "effectiveDate": "生效日期",
+    "expirationDate": "截止日期",
+    "serviceLevel": "服務級別",
+    "compensation": "薪酬待遇",
+    "serviceUnlimited": "7×24小時無限制",
+    "commensationDesc": "虛擬小魚乾 🐟",
+    "repSignature": "Buddy 代表",
+    "authSignature": "授權簽章",
+    "signBtn": "立即簽約",
+    "signedUser": "簽約雇主",
+    "employerSignature": "雇主簽章",
+    "approved": "已批准"
   }
 }

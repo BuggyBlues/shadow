@@ -24,7 +24,7 @@ export function PublicNav() {
           {t('nav.features')}
         </Link>
         <Link
-          to="/agents"
+          to="/buddies"
           className="hover:text-cyan-600 transition border-b-2 border-transparent hover:border-cyan-500 py-1"
         >
           {t('nav.agents')}
@@ -92,6 +92,7 @@ function SparkleIcon({ className = '' }: { className?: string }) {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
+      <title>Sparkle icon</title>
       <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z" />
     </svg>
   )
@@ -108,6 +109,7 @@ function ChatIcon({ className = '' }: { className?: string }) {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
+      <title>Chat icon</title>
       <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
     </svg>
   )
@@ -124,6 +126,7 @@ function BuddyIcon({ className = '' }: { className?: string }) {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
+      <title>Buddy icon</title>
       <path d="M6 10c-1.1-2.8-1-5.2.8-6.1 1.8-.9 3.8.7 5.2 3.1" />
       <path d="M18 10c1.1-2.8 1-5.2-.8-6.1-1.8-.9-3.8.7-5.2 3.1" />
       <ellipse cx="12" cy="14" rx="8" ry="6.5" />
@@ -145,6 +148,7 @@ function BoltIcon({ className = '' }: { className?: string }) {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
+      <title>Bolt icon</title>
       <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
     </svg>
   )
@@ -161,6 +165,7 @@ function RocketIcon({ className = '' }: { className?: string }) {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
+      <title>Rocket icon</title>
       <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 00-2.91-.09z" />
       <path d="M12 15l-3-3a22 22 0 012-3.95A12.88 12.88 0 0122 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 01-4 2z" />
     </svg>
@@ -170,6 +175,7 @@ function RocketIcon({ className = '' }: { className?: string }) {
 function PawIcon({ className = '' }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={`inline-block ${className}`} fill="currentColor">
+      <title>Paw icon</title>
       <ellipse cx="8" cy="7" rx="2.5" ry="3" />
       <ellipse cx="16" cy="7" rx="2.5" ry="3" />
       <ellipse cx="4.5" cy="13" rx="2" ry="2.5" />
@@ -190,6 +196,7 @@ function BookIcon({ className = '' }: { className?: string }) {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
+      <title>Book icon</title>
       <path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z" />
       <path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z" />
     </svg>

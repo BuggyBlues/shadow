@@ -11,7 +11,7 @@ import { fetchApi } from '../lib/api'
 import { disconnectSocket } from '../lib/socket'
 import { useAuthStore } from '../stores/auth.store'
 import { type ThemeMode, useUIStore } from '../stores/ui.store'
-import { BuddyManagementContent } from './agent-management'
+import { BuddyManagementContent } from './buddy-management'
 
 export function SettingsPage() {
   const { t } = useTranslation()
