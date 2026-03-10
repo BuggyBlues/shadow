@@ -13,8 +13,8 @@ interface ShopState {
   /** Sort mode */
   sortBy: 'default' | 'sales' | 'newest' | 'price-asc' | 'price-desc'
   setSortBy: (s: ShopState['sortBy']) => void
-  /** Overlay panel: cart or orders */
-  overlay: 'cart' | 'orders' | null
+  /** Overlay panel: cart / orders / favorites */
+  overlay: 'cart' | 'orders' | 'favorites' | null
   setOverlay: (o: ShopState['overlay']) => void
 }
 

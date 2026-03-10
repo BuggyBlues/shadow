@@ -21,7 +21,7 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import { Hono } from 'hono'
 import postgres from 'postgres'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { createAppContainer, type AppContainer } from '../src/container'
+import { type AppContainer, createAppContainer } from '../src/container'
 import type { Database } from '../src/db'
 import * as schema from '../src/db/schema'
 import { createShopHandler } from '../src/handlers/shop.handler'
@@ -41,6 +41,7 @@ let app: Hono
 // Test identities
 let adminUserId: string
 let buyerUserId: string
+let buddyUserId: string
 let adminToken: string
 let buyerToken: string
 let serverId: string
@@ -49,8 +50,8 @@ let serverId: string
 let shopId: string
 let categoryId1: string
 let categoryId2: string
-let productId1: string  // physical product
-let productId2: string  // entitlement product
+let productId1: string // physical product
+let productId2: string // entitlement product
 let skuId1: string
 let skuId2: string
 let cartItemId: string
@@ -125,14 +126,30 @@ beforeAll(async () => {
   })
   buyerUserId = buyer!.id
 
-  adminToken = signAccessToken({ userId: adminUserId, email: admin!.email, username: admin!.username })
-  buyerToken = signAccessToken({ userId: buyerUserId, email: buyer!.email, username: buyer!.username })
+  const buddy = await userDao.create({
+    email: `shop-buddy-${ts}@test.local`,
+    username: `shopbuddy${ts}`,
+    passwordHash: 'not-used',
+  })
+  buddyUserId = buddy!.id
+
+  adminToken = signAccessToken({
+    userId: adminUserId,
+    email: admin!.email,
+    username: admin!.username,
+  })
+  buyerToken = signAccessToken({
+    userId: buyerUserId,
+    email: buyer!.email,
+    username: buyer!.username,
+  })
 
   // Create a server + admin membership
   const server = await serverDao.create({ name: `ShopTestServer-${ts}`, ownerId: adminUserId })
   serverId = server!.id
   await serverDao.addMember(serverId, adminUserId, 'owner')
   await serverDao.addMember(serverId, buyerUserId, 'member')
+  await serverDao.addMember(serverId, buddyUserId, 'member')
 }, 30_000)
 
 afterAll(async () => {
@@ -159,6 +176,7 @@ afterAll(async () => {
     // Delete users
     if (adminUserId) await db.delete(users).where(eq(users.id, adminUserId))
     if (buyerUserId) await db.delete(users).where(eq(users.id, buyerUserId))
+    if (buddyUserId) await db.delete(users).where(eq(users.id, buddyUserId))
   } catch (e) {
     console.warn('Cleanup warning:', e)
   }
@@ -360,11 +378,17 @@ describe('Products — CRUD & listing', () => {
   it('buyer sees only active products', async () => {
     const res = await req('GET', `/api/servers/${serverId}/shop/products`, { token: buyerToken })
     expect(res.status).toBe(200)
-    const data = await json<{ products: { id: string; status: string }[]; total: number }>(res)
+    const data = await json<{
+      products: { id: string; status: string; media?: Array<{ url: string }> }[]
+      total: number
+    }>(res)
     expect(data.products.every((p) => p.status === 'active')).toBe(true)
     expect(data.total).toBe(data.products.length)
     // draft product should not be in this list
     expect(data.products.length).toBeGreaterThanOrEqual(2)
+
+    const withImage = data.products.find((p) => p.id === productId1)
+    expect(withImage?.media?.[0]?.url).toBe('https://img.test/card1.jpg')
   })
 
   it('admin sees all products including drafts', async () => {
@@ -416,7 +440,9 @@ describe('Products — CRUD & listing', () => {
 
 describe('Product detail & update', () => {
   it('get product detail with media and skus', async () => {
-    const res = await req('GET', `/api/servers/${serverId}/shop/products/${productId1}`, { token: buyerToken })
+    const res = await req('GET', `/api/servers/${serverId}/shop/products/${productId1}`, {
+      token: buyerToken,
+    })
     expect(res.status).toBe(200)
     const p = await json<{
       id: string
@@ -471,12 +497,16 @@ describe('Product detail & update', () => {
     expect(p.status).toBe('archived')
 
     // Buyer should NOT see archived product
-    const listRes = await req('GET', `/api/servers/${serverId}/shop/products`, { token: buyerToken })
+    const listRes = await req('GET', `/api/servers/${serverId}/shop/products`, {
+      token: buyerToken,
+    })
     const data = await json<{ products: { id: string }[] }>(listRes)
     expect(data.products.find((pr) => pr.id === tempProduct.id)).toBeUndefined()
 
     // Cleanup
-    await req('DELETE', `/api/servers/${serverId}/shop/products/${tempProduct.id}`, { token: adminToken })
+    await req('DELETE', `/api/servers/${serverId}/shop/products/${tempProduct.id}`, {
+      token: adminToken,
+    })
   })
 
   it('non-admin cannot update product', async () => {
@@ -549,7 +579,15 @@ describe('Cart', () => {
   it('get cart with enriched product info', async () => {
     const res = await req('GET', `/api/servers/${serverId}/shop/cart`, { token: buyerToken })
     expect(res.status).toBe(200)
-    const items = await json<{ id: string; product: { name: string } | null; sku: { price: number } | null; unitPrice: number }[]>(res)
+    const items =
+      await json<
+        {
+          id: string
+          product: { name: string } | null
+          sku: { price: number } | null
+          unitPrice: number
+        }[]
+      >(res)
     expect(items.length).toBeGreaterThanOrEqual(1)
     const item = items.find((i) => i.id === cartItemId)!
     expect(item.product?.name).toContain('虾币充值卡')
@@ -581,7 +619,9 @@ describe('Cart', () => {
   })
 
   it('remove first item from cart', async () => {
-    const res = await req('DELETE', `/api/servers/${serverId}/shop/cart/${cartItemId}`, { token: buyerToken })
+    const res = await req('DELETE', `/api/servers/${serverId}/shop/cart/${cartItemId}`, {
+      token: buyerToken,
+    })
     expect(res.status).toBe(200)
 
     // Verify only 1 item left
@@ -605,7 +645,9 @@ describe('Cart', () => {
     expect(res.status).toBe(400)
 
     // Cleanup
-    await req('DELETE', `/api/servers/${serverId}/shop/products/${draftProduct.id}`, { token: adminToken })
+    await req('DELETE', `/api/servers/${serverId}/shop/products/${draftProduct.id}`, {
+      token: adminToken,
+    })
   })
 })
 
@@ -673,13 +715,17 @@ describe('Order — creation & payment', () => {
   })
 
   it('product sales count incremented', async () => {
-    const res = await req('GET', `/api/servers/${serverId}/shop/products/${productId1}`, { token: buyerToken })
+    const res = await req('GET', `/api/servers/${serverId}/shop/products/${productId1}`, {
+      token: buyerToken,
+    })
     const p = await json<{ salesCount: number }>(res)
     expect(p.salesCount).toBeGreaterThanOrEqual(2)
   })
 
   it('order details retrievable', async () => {
-    const res = await req('GET', `/api/servers/${serverId}/shop/orders/${orderId1}`, { token: buyerToken })
+    const res = await req('GET', `/api/servers/${serverId}/shop/orders/${orderId1}`, {
+      token: buyerToken,
+    })
     expect(res.status).toBe(200)
     const order = await json<{ id: string; orderNo: string; items: unknown[] }>(res)
     expect(order.id).toBe(orderId1)
@@ -689,7 +735,7 @@ describe('Order — creation & payment', () => {
 
   it('insufficient balance rejects order', async () => {
     // Drain wallet first
-    const walletRes = await json<{ balance: number }>(
+    const _walletRes = await json<{ balance: number }>(
       await req('GET', '/api/wallet', { token: buyerToken }),
     )
 
@@ -707,7 +753,9 @@ describe('Order — creation & payment', () => {
     expect(res.status).toBe(400)
 
     // Cleanup
-    await req('DELETE', `/api/servers/${serverId}/shop/products/${expensiveProduct.id}`, { token: adminToken })
+    await req('DELETE', `/api/servers/${serverId}/shop/products/${expensiveProduct.id}`, {
+      token: adminToken,
+    })
   })
 })
 
@@ -734,14 +782,18 @@ describe('Order listing & filtering', () => {
   })
 
   it('admin can list all shop orders via manage endpoint', async () => {
-    const res = await req('GET', `/api/servers/${serverId}/shop/orders/manage`, { token: adminToken })
+    const res = await req('GET', `/api/servers/${serverId}/shop/orders/manage`, {
+      token: adminToken,
+    })
     expect(res.status).toBe(200)
     const orders = await json<{ id: string }[]>(res)
     expect(orders.length).toBeGreaterThanOrEqual(2)
   })
 
   it('non-admin cannot access manage endpoint', async () => {
-    const res = await req('GET', `/api/servers/${serverId}/shop/orders/manage`, { token: buyerToken })
+    const res = await req('GET', `/api/servers/${serverId}/shop/orders/manage`, {
+      token: buyerToken,
+    })
     expect(res.status).toBe(403)
   })
 
@@ -803,6 +855,26 @@ describe('Order status management', () => {
     const order = await json<{ status: string; completedAt: string }>(res)
     expect(order.status).toBe('completed')
     expect(order.completedAt).toBeDefined()
+  })
+
+  it('rejects invalid transition from paid directly to completed', async () => {
+    await req('POST', '/api/wallet/topup', {
+      token: buyerToken,
+      body: { amount: 500 },
+    })
+    const createRes = await req('POST', `/api/servers/${serverId}/shop/orders`, {
+      token: buyerToken,
+      body: { items: [{ productId: productId1, skuId: skuId1, quantity: 1 }] },
+    })
+    expect(createRes.status).toBe(201)
+    const created = await json<{ id: string; status: string }>(createRes)
+    expect(created.status).toBe('paid')
+
+    const res = await req('PUT', `/api/servers/${serverId}/shop/orders/${created.id}/status`, {
+      token: adminToken,
+      body: { status: 'completed' },
+    })
+    expect(res.status).toBe(400)
   })
 
   it('non-admin cannot update order status', async () => {
@@ -883,9 +955,13 @@ describe('Order cancellation & refund', () => {
     expect(res.status).toBe(403)
 
     // Buyer can cancel their own order (cleanup)
-    const buyerCancelRes = await req('POST', `/api/servers/${serverId}/shop/orders/${newOrder.id}/cancel`, {
-      token: buyerToken,
-    })
+    const buyerCancelRes = await req(
+      'POST',
+      `/api/servers/${serverId}/shop/orders/${newOrder.id}/cancel`,
+      {
+        token: buyerToken,
+      },
+    )
     expect(buyerCancelRes.status).toBe(200)
   })
 
@@ -948,7 +1024,9 @@ describe('Reviews', () => {
   })
 
   it('product rating stats updated', async () => {
-    const res = await req('GET', `/api/servers/${serverId}/shop/products/${productId1}`, { token: buyerToken })
+    const res = await req('GET', `/api/servers/${serverId}/shop/products/${productId1}`, {
+      token: buyerToken,
+    })
     const p = await json<{ avgRating: number; ratingCount: number }>(res)
     expect(p.ratingCount).toBeGreaterThanOrEqual(1)
     expect(p.avgRating).toBeGreaterThanOrEqual(1)
@@ -956,9 +1034,13 @@ describe('Reviews', () => {
 
   it('admin can reply to review', async () => {
     // Get review id from the product reviews
-    const listRes = await req('GET', `/api/servers/${serverId}/shop/products/${productId1}/reviews`, {
-      token: adminToken,
-    })
+    const listRes = await req(
+      'GET',
+      `/api/servers/${serverId}/shop/products/${productId1}/reviews`,
+      {
+        token: adminToken,
+      },
+    )
     const reviews = await json<{ id: string }[]>(listRes)
     const reviewId = reviews[0]!.id
 
@@ -973,9 +1055,13 @@ describe('Reviews', () => {
   })
 
   it('non-admin cannot reply to review', async () => {
-    const listRes = await req('GET', `/api/servers/${serverId}/shop/products/${productId1}/reviews`, {
-      token: buyerToken,
-    })
+    const listRes = await req(
+      'GET',
+      `/api/servers/${serverId}/shop/products/${productId1}/reviews`,
+      {
+        token: buyerToken,
+      },
+    )
     const reviews = await json<{ id: string }[]>(listRes)
 
     const res = await req('PUT', `/api/servers/${serverId}/shop/reviews/${reviews[0]!.id}/reply`, {
@@ -992,7 +1078,9 @@ describe('Reviews', () => {
 
 describe('Entitlements', () => {
   it('entitlement granted after purchasing entitlement product', async () => {
-    const res = await req('GET', `/api/servers/${serverId}/shop/entitlements`, { token: buyerToken })
+    const res = await req('GET', `/api/servers/${serverId}/shop/entitlements`, {
+      token: buyerToken,
+    })
     expect(res.status).toBe(200)
     const ents = await json<{ type: string; targetId: string; isActive: boolean }[]>(res)
     expect(ents.length).toBeGreaterThanOrEqual(1)
@@ -1011,7 +1099,9 @@ describe('Entitlements', () => {
     expect(cancelRes.status).toBe(200)
 
     // Check entitlement is revoked (findActiveByUser excludes inactive)
-    const res = await req('GET', `/api/servers/${serverId}/shop/entitlements`, { token: buyerToken })
+    const res = await req('GET', `/api/servers/${serverId}/shop/entitlements`, {
+      token: buyerToken,
+    })
     expect(res.status).toBe(200)
     const ents = await json<{ type: string; isActive: boolean }[]>(res)
     // The channel_access entitlement should no longer appear since it's been revoked
@@ -1032,7 +1122,9 @@ describe('Deletion', () => {
     expect(res.status).toBe(200)
 
     // Verify gone
-    const listRes = await req('GET', `/api/servers/${serverId}/shop/categories`, { token: adminToken })
+    const listRes = await req('GET', `/api/servers/${serverId}/shop/categories`, {
+      token: adminToken,
+    })
     const cats = await json<{ id: string }[]>(listRes)
     expect(cats.find((c) => c.id === categoryId2)).toBeUndefined()
   })
@@ -1109,5 +1201,73 @@ describe('Edge cases & validation', () => {
     const data = await json<{ products: unknown[] }>(res)
     // Offset 1 should return second product or empty if only 1 total active
     expect(data.products.length).toBeLessThanOrEqual(1)
+  })
+})
+
+describe('Support ticket workflow', () => {
+  it('admin can save buddy in shop settings', async () => {
+    const res = await req('PUT', `/api/servers/${serverId}/shop`, {
+      token: adminToken,
+      body: {
+        settings: {
+          supportBuddyUserId: buddyUserId,
+        },
+      },
+    })
+    expect(res.status).toBe(200)
+    const shop = await json<{ settings: { supportBuddyUserId?: string } }>(res)
+    expect(shop.settings.supportBuddyUserId).toBe(buddyUserId)
+  })
+
+  it('buyer support ticket creates channel, mentions owner+buddy, and stores attachments', async () => {
+    const supportRes = await req('POST', `/api/servers/${serverId}/shop/support`, {
+      token: buyerToken,
+      body: {
+        productId: productId1,
+        message: '订单收货地址填错了，麻烦帮我处理',
+        images: ['https://img.test/support-proof-1.png'],
+      },
+    })
+    expect(supportRes.status).toBe(201)
+    const support = await json<{
+      channelId: string
+      channelName: string
+      ownerUserId?: string | null
+      buddyUserId?: string | null
+    }>(supportRes)
+
+    expect(support.channelId).toBeDefined()
+    expect(support.channelName).toContain('shop-support-')
+    expect(support.ownerUserId).toBe(adminUserId)
+    expect(support.buddyUserId).toBe(buddyUserId)
+
+    const { and, eq } = await import('drizzle-orm')
+    const { messages, attachments, channelMembers } = schema
+
+    const latestMessage = await db
+      .select()
+      .from(messages)
+      .where(eq(messages.channelId, support.channelId))
+      .orderBy(messages.createdAt)
+
+    const created = latestMessage[latestMessage.length - 1]
+    expect(created?.content).toContain(`<@${adminUserId}>`)
+    expect(created?.content).toContain(`<@${buddyUserId}>`)
+
+    if (!created) throw new Error('Support message not created')
+    const atts = await db.select().from(attachments).where(eq(attachments.messageId, created.id))
+    expect(atts.length).toBeGreaterThanOrEqual(1)
+    expect(atts[0]?.url).toBe('https://img.test/support-proof-1.png')
+
+    const ownerMember = await db
+      .select()
+      .from(channelMembers)
+      .where(
+        and(
+          eq(channelMembers.channelId, support.channelId),
+          eq(channelMembers.userId, adminUserId),
+        ),
+      )
+    expect(ownerMember.length).toBeGreaterThanOrEqual(1)
   })
 })

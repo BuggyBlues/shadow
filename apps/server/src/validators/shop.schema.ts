@@ -48,6 +48,11 @@ export const entitlementConfigSchema = z.object({
   privilegeDescription: z.string().max(500).optional(),
 })
 
+const entitlementConfigListSchema = z.union([
+  entitlementConfigSchema,
+  z.array(entitlementConfigSchema).min(1),
+])
+
 export const createProductSchema = z.object({
   name: z.string().min(1).max(200),
   slug: z.string().min(1).max(200),
@@ -59,7 +64,7 @@ export const createProductSchema = z.object({
   specNames: z.array(z.string()).optional().default([]),
   tags: z.array(z.string()).optional().default([]),
   categoryId: z.string().uuid().optional(),
-  entitlementConfig: entitlementConfigSchema.optional(),
+  entitlementConfig: entitlementConfigListSchema.optional(),
   media: z.array(mediaItemSchema).optional(),
   skus: z.array(skuItemSchema).optional(),
 })
@@ -110,6 +115,17 @@ export const createReviewSchema = z.object({
   rating: z.number().int().min(1).max(5),
   content: z.string().max(2000).optional(),
   images: z.array(z.string()).max(9).optional(),
+  isAnonymous: z.boolean().optional(),
+})
+
+export const createSupportTicketSchema = z.object({
+  productId: z.string().uuid().optional(),
+  message: z.string().min(1).max(2000),
+  images: z.array(z.string().url()).max(6).optional(),
+})
+
+export const updateSupportBuddySchema = z.object({
+  buddyUserId: z.string().uuid().nullable().optional(),
 })
 
 export const replyReviewSchema = z.object({

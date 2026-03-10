@@ -10,7 +10,7 @@ interface CartItem {
   userId: string
   shopId: string
   productId: string
-  skuId?: string
+  skuId?: string | null
   quantity: number
   product: { id: string; name: string; status: string; basePrice: number } | null
   sku: { id: string; specValues: string[]; price: number; stock: number; imageUrl?: string } | null
@@ -107,7 +107,7 @@ export function ShopCart({ serverId, onCheckout }: ShopCartProps) {
     if (selectedItems.length === 0) return
     const items = selectedItems.map((item) => ({
       productId: item.productId,
-      skuId: item.skuId,
+      ...(item.skuId ? { skuId: item.skuId } : {}),
       quantity: item.quantity,
     }))
     placeOrder.mutate(items)
@@ -246,7 +246,7 @@ export function ShopCart({ serverId, onCheckout }: ShopCartProps) {
                       onClick={() =>
                         updateQty.mutate({
                           productId: item.productId,
-                          skuId: item.skuId,
+                          skuId: item.skuId ?? undefined,
                           quantity: Math.max(1, item.quantity - 1),
                         })
                       }
@@ -262,7 +262,7 @@ export function ShopCart({ serverId, onCheckout }: ShopCartProps) {
                       onClick={() =>
                         updateQty.mutate({
                           productId: item.productId,
-                          skuId: item.skuId,
+                          skuId: item.skuId ?? undefined,
                           quantity: Math.min(99, item.quantity + 1),
                         })
                       }

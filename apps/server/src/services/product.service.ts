@@ -7,6 +7,8 @@ type EntitlementConfig = {
   privilegeDescription?: string
 }
 
+type EntitlementConfigInput = EntitlementConfig | EntitlementConfig[]
+
 /**
  * ProductService — manages products (SPU), media, and SKUs.
  * Pure product catalog logic, no order / payment coupling.
@@ -22,17 +24,29 @@ export class ProductService {
 
   /* ───────── Query ───────── */
 
-  async getProducts(shopId: string, opts?: {
-    status?: 'draft' | 'active' | 'archived'
-    categoryId?: string
-    keyword?: string
-    limit?: number
-    offset?: number
-  }) {
-    return this.deps.productDao.findByShopId(shopId, opts)
+  async getProducts(
+    shopId: string,
+    opts?: {
+      status?: 'draft' | 'active' | 'archived'
+      categoryId?: string
+      keyword?: string
+      limit?: number
+      offset?: number
+    },
+  ) {
+    const list = await this.deps.productDao.findByShopId(shopId, opts)
+    return Promise.all(
+      list.map(async (product) => {
+        const media = await this.deps.productMediaDao.findByProductId(product.id)
+        return { ...product, media }
+      }),
+    )
   }
 
-  async getProductCount(shopId: string, opts?: { status?: 'draft' | 'active' | 'archived'; categoryId?: string; keyword?: string }) {
+  async getProductCount(
+    shopId: string,
+    opts?: { status?: 'draft' | 'active' | 'archived'; categoryId?: string; keyword?: string },
+  ) {
     return this.deps.productDao.countByShopId(shopId, opts)
   }
 
@@ -54,28 +68,41 @@ export class ProductService {
 
   /* ───────── Mutation ───────── */
 
-  async createProduct(shopId: string, data: {
-    name: string
-    slug: string
-    type?: 'physical' | 'entitlement'
-    status?: 'draft' | 'active' | 'archived'
-    description?: string
-    summary?: string
-    basePrice?: number
-    specNames?: string[]
-    tags?: string[]
-    entitlementConfig?: EntitlementConfig
-    categoryId?: string
-    media?: Array<{ type?: string; url: string; thumbnailUrl?: string; position?: number }>
-    skus?: Array<{ specValues?: string[]; price: number; stock?: number; imageUrl?: string; skuCode?: string }>
-  }) {
+  async createProduct(
+    shopId: string,
+    data: {
+      name: string
+      slug: string
+      type?: 'physical' | 'entitlement'
+      status?: 'draft' | 'active' | 'archived'
+      description?: string
+      summary?: string
+      basePrice?: number
+      specNames?: string[]
+      tags?: string[]
+      entitlementConfig?: EntitlementConfigInput
+      categoryId?: string
+      media?: Array<{ type?: string; url: string; thumbnailUrl?: string; position?: number }>
+      skus?: Array<{
+        specValues?: string[]
+        price: number
+        stock?: number
+        imageUrl?: string
+        skuCode?: string
+      }>
+    },
+  ) {
     const { media, skus, ...productData } = data
     const product = await this.deps.productDao.create({ shopId, ...productData })
     if (!product) throw new Error('Failed to create product')
 
     if (media?.length) {
       for (let i = 0; i < media.length; i++) {
-        await this.deps.productMediaDao.create({ productId: product.id, ...media[i]!, position: media[i]!.position ?? i })
+        await this.deps.productMediaDao.create({
+          productId: product.id,
+          ...media[i]!,
+          position: media[i]!.position ?? i,
+        })
       }
     }
 
@@ -88,17 +115,32 @@ export class ProductService {
     return this.getProductDetail(product.id)
   }
 
-  async updateProduct(id: string, data: Parameters<ProductDao['update']>[1] & {
-    media?: Array<{ type?: string; url: string; thumbnailUrl?: string; position?: number }>
-    skus?: Array<{ id?: string; specValues?: string[]; price: number; stock?: number; imageUrl?: string; skuCode?: string; isActive?: boolean }>
-  }) {
+  async updateProduct(
+    id: string,
+    data: Parameters<ProductDao['update']>[1] & {
+      media?: Array<{ type?: string; url: string; thumbnailUrl?: string; position?: number }>
+      skus?: Array<{
+        id?: string
+        specValues?: string[]
+        price: number
+        stock?: number
+        imageUrl?: string
+        skuCode?: string
+        isActive?: boolean
+      }>
+    },
+  ) {
     const { media, skus, ...productData } = data
     await this.deps.productDao.update(id, productData)
 
     if (media !== undefined) {
       await this.deps.productMediaDao.deleteByProductId(id)
       for (let i = 0; i < media.length; i++) {
-        await this.deps.productMediaDao.create({ productId: id, ...media[i]!, position: media[i]!.position ?? i })
+        await this.deps.productMediaDao.create({
+          productId: id,
+          ...media[i]!,
+          position: media[i]!.position ?? i,
+        })
       }
     }
 

@@ -1,5 +1,5 @@
-import type { ReviewDao } from '../dao/review.dao'
 import type { OrderDao } from '../dao/order.dao'
+import type { ReviewDao } from '../dao/review.dao'
 import type { ProductService } from './product.service'
 
 /**
@@ -17,14 +17,50 @@ export class ReviewService {
   ) {}
 
   async getProductReviews(productId: string, limit = 50, offset = 0) {
-    return this.deps.reviewDao.findByProductId(productId, limit, offset)
+    const list = await this.deps.reviewDao.findByProductId(productId, limit, offset)
+    return list.map((item) => {
+      const review = 'review' in item ? item.review : item
+      const raw = review.content || ''
+      const isAnonymous = raw.startsWith('[ANON]')
+      return {
+        ...review,
+        content: isAnonymous ? raw.replace(/^\[ANON\]\s*/, '') : raw,
+        isAnonymous,
+        authorName: isAnonymous
+          ? '匿名用户'
+          : ('authorDisplayName' in item && item.authorDisplayName) ||
+            ('authorUsername' in item && item.authorUsername) ||
+            `用户 ${review.userId.slice(0, 6)}`,
+      }
+    })
+  }
+
+  async getOrderReviews(orderId: string, userId: string) {
+    const list = await this.deps.reviewDao.findByOrderAndUser(orderId, userId)
+    return list.map((review) => {
+      const raw = review.content || ''
+      const isAnonymous = raw.startsWith('[ANON]')
+      return {
+        ...review,
+        content: isAnonymous ? raw.replace(/^\[ANON\]\s*/, '') : raw,
+        isAnonymous,
+      }
+    })
   }
 
   async getProductReviewCount(productId: string) {
     return this.deps.reviewDao.countByProductId(productId)
   }
 
-  async createReview(userId: string, orderId: string, productId: string, rating: number, content?: string, images?: string[]) {
+  async createReview(
+    userId: string,
+    orderId: string,
+    productId: string,
+    rating: number,
+    content?: string,
+    images?: string[],
+    isAnonymous?: boolean,
+  ) {
     // Verify order belongs to user
     const order = await this.deps.orderDao.findById(orderId)
     if (!order) throw Object.assign(new Error('Order not found'), { status: 404 })
@@ -37,7 +73,15 @@ export class ReviewService {
     const existing = await this.deps.reviewDao.findByUserAndOrder(userId, orderId)
     if (existing) throw Object.assign(new Error('Already reviewed this order'), { status: 400 })
 
-    const review = await this.deps.reviewDao.create({ productId, orderId, userId, rating, content, images })
+    const storedContent = isAnonymous ? `[ANON] ${content || ''}` : content
+    const review = await this.deps.reviewDao.create({
+      productId,
+      orderId,
+      userId,
+      rating,
+      content: storedContent,
+      images,
+    })
 
     // Update product rating stats
     const stats = await this.deps.reviewDao.getAverageRating(productId)

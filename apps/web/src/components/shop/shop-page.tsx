@@ -2,8 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import {
   ArrowLeft,
-  ChevronDown,
   ClipboardList,
+  Heart,
   Search,
   Settings,
   ShoppingBag,
@@ -11,7 +11,7 @@ import {
   Wallet,
   X,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { fetchApi } from '../../lib/api'
 import { showToast } from '../../lib/toast'
 import { useShopStore } from '../../stores/shop.store'
@@ -59,12 +59,19 @@ export interface Product {
   salesCount: number
   avgRating: number
   ratingCount: number
-  entitlementConfig?: {
-    type: string
-    targetId?: string
-    durationSeconds?: number | null
-    privilegeDescription?: string
-  }
+  entitlementConfig?:
+    | {
+        type: string
+        targetId?: string
+        durationSeconds?: number | null
+        privilegeDescription?: string
+      }
+    | Array<{
+        type: string
+        targetId?: string
+        durationSeconds?: number | null
+        privilegeDescription?: string
+      }>
   media?: ProductMediaItem[]
   skus?: SkuItem[]
   createdAt: string
@@ -180,6 +187,25 @@ export function ShopPage({ serverId, isAdmin, onClose }: ShopPageProps) {
         <div className="flex items-center gap-1.5">
           <button
             type="button"
+            onClick={() => setOverlay(overlay === 'favorites' ? null : 'favorites')}
+            className={`p-2.5 rounded-xl transition-all duration-200 active:scale-95 ${
+              overlay === 'favorites'
+                ? 'text-rose-500 bg-rose-50 dark:bg-rose-900/20 shadow-sm'
+                : 'text-gray-500 hover:text-gray-900 dark:text-text-muted dark:hover:text-text-primary hover:bg-gray-100 dark:hover:bg-bg-modifier-hover'
+            }`}
+          >
+            <Heart
+              size={18}
+              className={
+                overlay === 'favorites'
+                  ? 'fill-rose-500 scale-110 transition-transform'
+                  : 'transition-transform'
+              }
+            />
+          </button>
+
+          <button
+            type="button"
             onClick={() => setOverlay(overlay === 'cart' ? null : 'cart')}
             className={`relative p-2.5 rounded-xl transition-all duration-200 active:scale-95 ${
               overlay === 'cart'
@@ -259,6 +285,91 @@ export function ShopPage({ serverId, isAdmin, onClose }: ShopPageProps) {
           <ShopOrders serverId={serverId} />
         </OverlayContainer>
       )}
+
+      {overlay === 'favorites' && (
+        <OverlayContainer onClose={() => setOverlay(null)} title="我的收藏">
+          <FavoriteProducts
+            serverId={serverId}
+            onOpenProduct={(productId) => {
+              setActiveProductId(productId)
+              setOverlay(null)
+            }}
+          />
+        </OverlayContainer>
+      )}
+    </div>
+  )
+}
+
+function FavoriteProducts({
+  serverId,
+  onOpenProduct,
+}: {
+  serverId: string
+  onOpenProduct: (productId: string) => void
+}) {
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([])
+
+  useEffect(() => {
+    const readFavorites = () => {
+      const raw = localStorage.getItem(`shop:favorites:${serverId}`)
+      setFavoriteIds(raw ? JSON.parse(raw) : [])
+    }
+    readFavorites()
+    window.addEventListener('shop:favorites-changed', readFavorites)
+    return () => window.removeEventListener('shop:favorites-changed', readFavorites)
+  }, [serverId])
+
+  const { data: productsData, isLoading } = useQuery({
+    queryKey: ['shop-products', serverId],
+    queryFn: () =>
+      fetchApi<{ products: Product[]; total: number }>(`/api/servers/${serverId}/shop/products`),
+  })
+
+  const products = (productsData?.products || []).filter((p) => favoriteIds.includes(p.id))
+
+  if (isLoading) {
+    return <div className="p-6 text-sm text-gray-500">加载收藏中...</div>
+  }
+
+  if (products.length === 0) {
+    return (
+      <div className="p-8 text-center text-sm text-gray-500 dark:text-text-muted">
+        你还没有收藏商品，去逛逛并点亮小心心吧 💖
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-4 grid gap-3 overflow-y-auto h-full">
+      {products.map((product) => (
+        <button
+          key={product.id}
+          type="button"
+          onClick={() => onOpenProduct(product.id)}
+          className="w-full text-left p-3 rounded-2xl bg-white dark:bg-bg-secondary border border-gray-100 dark:border-border-dim hover:border-rose-200 dark:hover:border-rose-800 transition-all"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-14 h-14 rounded-xl overflow-hidden bg-gray-100 shrink-0">
+              {product.media?.[0]?.url ? (
+                <img
+                  src={product.media[0].url}
+                  alt={product.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : null}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="font-bold text-sm text-gray-900 dark:text-text-primary truncate">
+                {product.name}
+              </div>
+              <div className="text-xs text-rose-500 mt-1">
+                <PriceDisplay amount={product.basePrice} />
+              </div>
+            </div>
+          </div>
+        </button>
+      ))}
     </div>
   )
 }
@@ -311,6 +422,18 @@ function ShopBrowse({
   } = useShopStore()
 
   const [isSearchFocused, setIsSearchFocused] = useState(false)
+  const [favoriteOnly, setFavoriteOnly] = useState(false)
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([])
+
+  useEffect(() => {
+    const readFavorites = () => {
+      const raw = localStorage.getItem(`shop:favorites:${serverId}`)
+      setFavoriteIds(raw ? JSON.parse(raw) : [])
+    }
+    readFavorites()
+    window.addEventListener('shop:favorites-changed', readFavorites)
+    return () => window.removeEventListener('shop:favorites-changed', readFavorites)
+  }, [serverId])
 
   const { data: categoriesData } = useQuery({
     queryKey: ['shop-categories', serverId],
@@ -340,6 +463,10 @@ function ShopBrowse({
           p.tags?.some((t) => t.toLowerCase().includes(q)),
       )
     }
+    if (favoriteOnly) {
+      result = result.filter((p) => favoriteIds.includes(p.id))
+    }
+
     switch (sortBy) {
       case 'sales':
         return [...result].sort((a, b) => b.salesCount - a.salesCount)
@@ -354,7 +481,7 @@ function ShopBrowse({
       default:
         return result
     }
-  }, [products, searchQuery, sortBy])
+  }, [products, searchQuery, sortBy, favoriteOnly, favoriteIds])
 
   const topCategories = categories.slice(0, 8)
 
@@ -509,6 +636,17 @@ function ShopBrowse({
                 {cat.name}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => setFavoriteOnly((v) => !v)}
+              className={`whitespace-nowrap px-5 py-2 rounded-full text-sm font-bold transition-all ${
+                favoriteOnly
+                  ? 'bg-rose-500 text-white shadow-md'
+                  : 'bg-white dark:bg-bg-secondary text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5'
+              }`}
+            >
+              收藏({favoriteIds.length})
+            </button>
           </div>
         </div>
 

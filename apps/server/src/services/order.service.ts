@@ -1,10 +1,24 @@
 import { nanoid } from 'nanoid'
 import type { OrderDao } from '../dao/order.dao'
-import type { ProductService } from './product.service'
-import type { WalletService } from './wallet.service'
-import type { EntitlementService } from './entitlement.service'
 import type { CartService } from './cart.service'
+import type { EntitlementService } from './entitlement.service'
+import type { ProductService } from './product.service'
 import type { ShopService } from './shop.service'
+import type { WalletService } from './wallet.service'
+
+const ORDER_STATE_TRANSITIONS: Record<
+  string,
+  Array<'processing' | 'shipped' | 'delivered' | 'completed' | 'cancelled' | 'refunded'>
+> = {
+  pending: ['cancelled'],
+  paid: ['processing', 'cancelled', 'refunded'],
+  processing: ['shipped', 'cancelled', 'refunded'],
+  shipped: ['delivered', 'refunded'],
+  delivered: ['completed', 'refunded'],
+  completed: ['refunded'],
+  cancelled: [],
+  refunded: [],
+}
 
 /**
  * OrderService — orchestrates order lifecycle.
@@ -48,7 +62,9 @@ export class OrderService {
     for (const item of items) {
       const product = await this.deps.productService.getProductById(item.productId)
       if (product.status !== 'active') {
-        throw Object.assign(new Error(`Product "${product.name}" is not available`), { status: 400 })
+        throw Object.assign(new Error(`Product "${product.name}" is not available`), {
+          status: 400,
+        })
       }
 
       let price = product.basePrice
@@ -61,7 +77,9 @@ export class OrderService {
           throw Object.assign(new Error(`SKU ${item.skuId} is not available`), { status: 400 })
         }
         if (sku.stock < item.quantity) {
-          throw Object.assign(new Error(`Insufficient stock for "${product.name}"`), { status: 400 })
+          throw Object.assign(new Error(`Insufficient stock for "${product.name}"`), {
+            status: 400,
+          })
         }
         price = sku.price
         specValues = (sku.specValues as string[]) || []
@@ -89,7 +107,13 @@ export class OrderService {
     const orderNo = `SH${Date.now().toString(36).toUpperCase()}${nanoid(6).toUpperCase()}`
 
     // 3. Create the order
-    const order = await this.deps.orderDao.create({ orderNo, shopId, buyerId, totalAmount, buyerNote })
+    const order = await this.deps.orderDao.create({
+      orderNo,
+      shopId,
+      buyerId,
+      totalAmount,
+      buyerNote,
+    })
     if (!order) throw new Error('Failed to create order')
 
     // 4. Create order items (snapshot)
@@ -124,21 +148,25 @@ export class OrderService {
     for (const item of items) {
       const product = await this.deps.productService.getProductById(item.productId)
       if (product.type === 'entitlement' && product.entitlementConfig) {
-        const config = product.entitlementConfig
+        const configs = Array.isArray(product.entitlementConfig)
+          ? product.entitlementConfig
+          : [product.entitlementConfig]
         const shop = await this.deps.shopService.getShopById(shopId)
         if (shop) {
-          const expiresAt = config.durationSeconds
-            ? new Date(Date.now() + config.durationSeconds * 1000)
-            : undefined
-          await this.deps.entitlementService.grantEntitlement({
-            userId: buyerId,
-            serverId: shop.serverId,
-            orderId: order.id,
-            productId: product.id,
-            type: config.type,
-            targetId: config.targetId,
-            expiresAt,
-          })
+          for (const config of configs) {
+            const expiresAt = config.durationSeconds
+              ? new Date(Date.now() + config.durationSeconds * 1000)
+              : undefined
+            await this.deps.entitlementService.grantEntitlement({
+              userId: buyerId,
+              serverId: shop.serverId,
+              orderId: order.id,
+              productId: product.id,
+              type: config.type,
+              targetId: config.targetId,
+              expiresAt,
+            })
+          }
         }
       }
     }
@@ -189,11 +217,26 @@ export class OrderService {
     status: 'processing' | 'shipped' | 'delivered' | 'completed' | 'cancelled' | 'refunded',
     extra?: { trackingNo?: string; sellerNote?: string },
   ) {
+    const currentOrder = await this.deps.orderDao.findById(orderId)
+    if (!currentOrder) throw Object.assign(new Error('Order not found'), { status: 404 })
+
+    if (currentOrder.status !== status) {
+      const allowed = ORDER_STATE_TRANSITIONS[currentOrder.status] || []
+      if (!allowed.includes(status)) {
+        throw Object.assign(
+          new Error(`Invalid order status transition: ${currentOrder.status} -> ${status}`),
+          { status: 400 },
+        )
+      }
+    }
+
     const timestamps: Record<string, Date> = {}
     if (status === 'shipped') timestamps.shippedAt = new Date()
     if (status === 'completed') timestamps.completedAt = new Date()
     if (status === 'cancelled') timestamps.cancelledAt = new Date()
-    return this.deps.orderDao.update(orderId, { status, ...extra, ...timestamps } as Parameters<OrderDao['update']>[1])
+    return this.deps.orderDao.update(orderId, { status, ...extra, ...timestamps } as Parameters<
+      OrderDao['update']
+    >[1])
   }
 
   async cancelOrder(orderId: string, userId: string) {

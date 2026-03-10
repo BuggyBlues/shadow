@@ -10,7 +10,7 @@ import {
   Truck,
   XCircle,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { fetchApi } from '../../lib/api'
 import { showToast } from '../../lib/toast'
 import { PriceDisplay } from './ui/currency'
@@ -42,6 +42,14 @@ interface Order {
   cancelledAt?: string
   createdAt: string
   items: OrderItem[]
+}
+
+interface OrderReview {
+  id: string
+  productId: string
+  rating: number
+  content?: string
+  isAnonymous?: boolean
 }
 
 const STATUS_CONFIG: Record<
@@ -110,6 +118,8 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
   const [reviewRating, setReviewRating] = useState(5)
   const [reviewContent, setReviewContent] = useState('')
   const [reviewProductId, setReviewProductId] = useState<string | null>(null)
+  const [reviewAnonymous, setReviewAnonymous] = useState(false)
+  const [orderReviews, setOrderReviews] = useState<Record<string, OrderReview[]>>({})
 
   const { data: orders = [] } = useQuery({
     queryKey: ['shop-orders', serverId, statusFilter],
@@ -131,25 +141,44 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
   })
 
   const submitReview = useMutation({
-    mutationFn: (data: { orderId: string; productId: string; rating: number; content?: string }) =>
+    mutationFn: (data: {
+      orderId: string
+      productId: string
+      rating: number
+      content?: string
+      isAnonymous?: boolean
+    }) =>
       fetchApi(`/api/servers/${serverId}/shop/orders/${data.orderId}/review`, {
         method: 'POST',
         body: JSON.stringify({
           productId: data.productId,
           rating: data.rating,
           content: data.content,
+          isAnonymous: data.isAnonymous,
         }),
       }),
-    onSuccess: () => {
+    onSuccess: (review, vars) => {
       setReviewingOrder(null)
       setReviewRating(5)
       setReviewContent('')
       setReviewProductId(null)
+      setReviewAnonymous(false)
+      setOrderReviews((prev) => ({
+        ...prev,
+        [vars.orderId]: [...(prev[vars.orderId] || []), review as OrderReview],
+      }))
       queryClient.invalidateQueries({ queryKey: ['shop-orders', serverId] })
       showToast('评价已提交，感谢您的反馈！', 'success')
     },
     onError: (err: Error) => showToast(err.message || '评价提交失败', 'error'),
   })
+
+  useEffect(() => {
+    if (!expandedOrder || orderReviews[expandedOrder]) return
+    fetchApi<OrderReview[]>(`/api/servers/${serverId}/shop/orders/${expandedOrder}/reviews`)
+      .then((list) => setOrderReviews((prev) => ({ ...prev, [expandedOrder]: list })))
+      .catch(() => undefined)
+  }, [expandedOrder, orderReviews, serverId])
 
   const statusTabs = [
     { key: null, label: '全部' },
@@ -201,7 +230,7 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
           </div>
         ) : (
           orders.map((order) => {
-            const statusCfg = (STATUS_CONFIG[order.status] ?? STATUS_CONFIG['pending'])!
+            const statusCfg = (STATUS_CONFIG[order.status] ?? STATUS_CONFIG.pending)!
             const isExpanded = expandedOrder === order.id
             const StatusIcon = statusCfg.icon
 
@@ -314,6 +343,7 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
                       )}
 
                       {['delivered', 'completed'].includes(order.status) &&
+                        (orderReviews[order.id]?.length || 0) === 0 &&
                         reviewingOrder !== order.id && (
                           <button
                             type="button"
@@ -323,6 +353,48 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
                             我要评价
                           </button>
                         )}
+                      {['delivered', 'completed'].includes(order.status) &&
+                        (orderReviews[order.id]?.length || 0) > 0 && (
+                          <span className="px-4 py-2 text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-200 dark:border-emerald-900/40">
+                            已评价
+                          </span>
+                        )}
+                    </div>
+                  )}
+
+                  {isExpanded && (orderReviews[order.id]?.length || 0) > 0 && (
+                    <div className="mt-4 p-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-900/10 border border-emerald-200/60 dark:border-emerald-900/30 space-y-2">
+                      <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                        我的评价
+                      </p>
+                      {orderReviews[order.id]!.map((rv) => (
+                        <div key={rv.id} className="text-xs text-emerald-700 dark:text-emerald-300">
+                          <span className="font-bold">评分 {rv.rating} 星：</span>
+                          <span>{rv.content || '（未填写文字）'}</span>
+                          {rv.isAnonymous ? <span className="ml-2 text-[10px]">匿名</span> : null}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {isExpanded && (
+                    <div className="mt-4 p-3 rounded-xl bg-gray-50 dark:bg-bg-tertiary border border-gray-100 dark:border-border-dim text-xs space-y-1 text-gray-600 dark:text-text-muted">
+                      <p>订单号：{order.orderNo}</p>
+                      {order.trackingNo ? <p>物流单号：{order.trackingNo}</p> : null}
+                      {order.buyerNote ? <p>买家备注：{order.buyerNote}</p> : null}
+                      {order.sellerNote ? <p>商家备注：{order.sellerNote}</p> : null}
+                      {order.paidAt ? (
+                        <p>支付时间：{new Date(order.paidAt).toLocaleString()}</p>
+                      ) : null}
+                      {order.shippedAt ? (
+                        <p>发货时间：{new Date(order.shippedAt).toLocaleString()}</p>
+                      ) : null}
+                      {order.completedAt ? (
+                        <p>完成时间：{new Date(order.completedAt).toLocaleString()}</p>
+                      ) : null}
+                      {order.cancelledAt ? (
+                        <p>取消时间：{new Date(order.cancelledAt).toLocaleString()}</p>
+                      ) : null}
                     </div>
                   )}
 
@@ -381,6 +453,14 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
                         placeholder="商品满足您的期待吗？说说您的真实感受..."
                         className="w-full h-24 p-3 bg-white dark:bg-bg-secondary text-gray-900 dark:text-text-primary text-sm rounded-xl border border-gray-200 dark:border-border-dim focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 resize-none transition-all"
                       />
+                      <label className="mt-3 flex items-center gap-2 text-xs text-gray-600 dark:text-text-muted font-medium">
+                        <input
+                          type="checkbox"
+                          checked={reviewAnonymous}
+                          onChange={(e) => setReviewAnonymous(e.target.checked)}
+                        />
+                        匿名评价
+                      </label>
                       <div className="flex justify-end gap-2 mt-3">
                         <button
                           type="button"
@@ -397,6 +477,7 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
                               productId: reviewProductId || (order.items[0]?.productId ?? ''),
                               rating: reviewRating,
                               content: reviewContent || undefined,
+                              isAnonymous: reviewAnonymous,
                             })
                           }
                           disabled={submitReview.isPending}

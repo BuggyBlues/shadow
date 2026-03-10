@@ -1,9 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import {
   ArrowLeft,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   Clock,
   Heart,
   MessageSquare,
@@ -11,8 +10,9 @@ import {
   Plus,
   Share,
   Shield,
-  ShoppingCart,
   Star,
+  Upload,
+  X,
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchApi } from '../../lib/api'
@@ -30,6 +30,8 @@ interface ProductDetailProps {
 interface Review {
   id: string
   userId: string
+  authorName?: string
+  isAnonymous?: boolean
   rating: number
   content?: string
   images?: string[]
@@ -38,8 +40,14 @@ interface Review {
   createdAt: string
 }
 
-export function ProductDetail({ serverId, productId, isAdmin, onBack }: ProductDetailProps) {
+export function ProductDetail({
+  serverId,
+  productId,
+  isAdmin: _isAdmin,
+  onBack,
+}: ProductDetailProps) {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
 
   const { data: product, isLoading } = useQuery({
     queryKey: ['shop-product', productId],
@@ -91,6 +99,16 @@ export function ProductDetail({ serverId, productId, isAdmin, onBack }: ProductD
   const [purchased, setPurchased] = useState(false)
   const [activeTab, setActiveTab] = useState<'detail' | 'reviews'>('detail')
   const [isFavorite, setIsFavorite] = useState(false)
+  const [supportOpen, setSupportOpen] = useState(false)
+  const [supportMessage, setSupportMessage] = useState('')
+  const [supportImages, setSupportImages] = useState<string[]>([])
+  const [uploadingCount, setUploadingCount] = useState(0)
+
+  useEffect(() => {
+    const raw = localStorage.getItem(`shop:favorites:${serverId}`)
+    const ids: string[] = raw ? JSON.parse(raw) : []
+    setIsFavorite(ids.includes(productId))
+  }, [productId, serverId])
 
   // Media carousel
   const media = product?.media || []
@@ -118,6 +136,32 @@ export function ProductDetail({ serverId, productId, isAdmin, onBack }: ProductD
     [media.length],
   )
 
+  const contactSupport = useMutation({
+    mutationFn: (payload: { message: string; images: string[] }) =>
+      fetchApi<{ channelId: string; channelName: string }>(
+        `/api/servers/${serverId}/shop/support`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            productId,
+            message: payload.message,
+            images: payload.images,
+          }),
+        },
+      ),
+    onSuccess: (res) => {
+      setSupportOpen(false)
+      setSupportMessage('')
+      setSupportImages([])
+      navigate({
+        to: '/app/servers/$serverId/$channelName',
+        params: { serverId, channelName: encodeURIComponent(res.channelName) },
+      })
+      showToast('已联系店主和客服 Buddy，请耐心等待回复', 'success')
+    },
+    onError: (err: Error) => showToast(err.message || '联系客服失败', 'error'),
+  })
+
   if (isLoading || !product) {
     return (
       <div className="flex-1 flex flex-col bg-[#F9FAFB] dark:bg-bg-primary h-full">
@@ -144,6 +188,60 @@ export function ProductDetail({ serverId, productId, isAdmin, onBack }: ProductD
     })
   }
 
+  const handleToggleFavorite = () => {
+    const raw = localStorage.getItem(`shop:favorites:${serverId}`)
+    const ids: string[] = raw ? JSON.parse(raw) : []
+    const next = ids.includes(product.id)
+      ? ids.filter((id) => id !== product.id)
+      : [...ids, product.id]
+    localStorage.setItem(`shop:favorites:${serverId}`, JSON.stringify(next))
+    setIsFavorite(next.includes(product.id))
+    window.dispatchEvent(new Event('shop:favorites-changed'))
+    showToast(next.includes(product.id) ? '已加入收藏' : '已取消收藏', 'success')
+  }
+
+  const handleShare = async () => {
+    const shareText = `${product.name} - ${window.location.origin}/app/servers/${serverId}/shop?product=${product.id}`
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: product.name,
+          text: product.summary || product.name,
+          url: shareText.split(' - ')[1],
+        })
+        showToast('分享已发起', 'success')
+        return
+      }
+      await navigator.clipboard.writeText(shareText)
+      showToast('分享链接已复制', 'success')
+    } catch {
+      showToast('暂时无法分享，请稍后重试', 'error')
+    }
+  }
+
+  const uploadSupportImages = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+    setUploadingCount(files.length)
+    try {
+      const uploaded = await Promise.all(
+        Array.from(files).map(async (file) => {
+          const formData = new FormData()
+          formData.append('file', file)
+          const res = await fetchApi<{ url: string }>('/api/media/upload', {
+            method: 'POST',
+            body: formData,
+          })
+          return res.url
+        }),
+      )
+      setSupportImages((prev) => [...prev, ...uploaded].slice(0, 6))
+    } catch (err) {
+      showToast((err as Error).message || '上传图片失败', 'error')
+    } finally {
+      setUploadingCount(0)
+    }
+  }
+
   return (
     <div className="flex-1 flex flex-col bg-[#F9FAFB] dark:bg-bg-primary overflow-hidden h-full relative z-30 font-sans">
       {/* ── Top Header ── */}
@@ -161,13 +259,14 @@ export function ProductDetail({ serverId, productId, isAdmin, onBack }: ProductD
         <div className="flex gap-1 items-center">
           <button
             type="button"
-            onClick={() => setIsFavorite(!isFavorite)}
+            onClick={handleToggleFavorite}
             className="w-10 h-10 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-bg-modifier-hover rounded-full transition-all"
           >
             <Heart size={18} className={isFavorite ? 'fill-rose-500 text-rose-500' : ''} />
           </button>
           <button
             type="button"
+            onClick={handleShare}
             className="w-10 h-10 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-bg-modifier-hover rounded-full transition-all"
           >
             <Share size={18} />
@@ -229,6 +328,7 @@ export function ProductDetail({ serverId, productId, isAdmin, onBack }: ProductD
                   <div className="hidden md:flex gap-3 mt-4 overflow-x-auto pb-2 custom-scrollbar">
                     {media.map((m, i) => (
                       <button
+                        type="button"
                         key={`thumb-${m.id}`}
                         onClick={() => goToMedia(i)}
                         className={`w-20 h-20 rounded-xl overflow-hidden shrink-0 border-2 transition-all ${
@@ -387,36 +487,54 @@ export function ProductDetail({ serverId, productId, isAdmin, onBack }: ProductD
                 )}
 
                 {/* ═══ Entitlement Special Section ═══ */}
-                {product.type === 'entitlement' && product.entitlementConfig && (
-                  <div className="bg-cyan-50/50 dark:bg-cyan-900/10 p-5 rounded-2xl border border-cyan-100/50 dark:border-cyan-900/30 mb-6">
-                    <div className="flex items-center gap-2 text-cyan-800 dark:text-cyan-400 text-sm font-bold mb-3">
-                      <div className="w-6 h-6 rounded-full bg-cyan-100 dark:bg-cyan-900/50 flex items-center justify-center">
-                        <Shield size={12} strokeWidth={3} />
+                {product.type === 'entitlement' &&
+                  product.entitlementConfig &&
+                  (() => {
+                    const entitlementRules = Array.isArray(product.entitlementConfig)
+                      ? product.entitlementConfig
+                      : [product.entitlementConfig]
+                    const primaryRule = entitlementRules[0]
+                    if (!primaryRule) return null
+                    return (
+                      <div className="bg-cyan-50/50 dark:bg-cyan-900/10 p-5 rounded-2xl border border-cyan-100/50 dark:border-cyan-900/30 mb-6">
+                        <div className="flex items-center gap-2 text-cyan-800 dark:text-cyan-400 text-sm font-bold mb-3">
+                          <div className="w-6 h-6 rounded-full bg-cyan-100 dark:bg-cyan-900/50 flex items-center justify-center">
+                            <Shield size={12} strokeWidth={3} />
+                          </div>
+                          权益说明
+                        </div>
+                        {primaryRule.privilegeDescription && (
+                          <p className="text-cyan-700/80 dark:text-cyan-300 text-sm leading-relaxed mb-3">
+                            {primaryRule.privilegeDescription}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2 text-cyan-600 dark:text-cyan-500/80 text-sm font-medium border-t border-cyan-200/50 dark:border-cyan-900/30 pt-3">
+                          <Clock size={14} />
+                          有效期：
+                          <span className="font-bold">
+                            {primaryRule.durationSeconds
+                              ? primaryRule.durationSeconds >= 86400
+                                ? `${Math.floor(primaryRule.durationSeconds / 86400)} 天`
+                                : `${Math.floor(primaryRule.durationSeconds / 3600)} 小时`
+                              : '永久有效'}
+                          </span>
+                        </div>
+                        {entitlementRules.length > 1 && (
+                          <p className="text-xs text-cyan-600/80 dark:text-cyan-400/80 mt-2">
+                            共包含 {entitlementRules.length} 条权益规则
+                          </p>
+                        )}
                       </div>
-                      权益说明
-                    </div>
-                    {product.entitlementConfig.privilegeDescription && (
-                      <p className="text-cyan-700/80 dark:text-cyan-300 text-sm leading-relaxed mb-3">
-                        {product.entitlementConfig.privilegeDescription}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-2 text-cyan-600 dark:text-cyan-500/80 text-sm font-medium border-t border-cyan-200/50 dark:border-cyan-900/30 pt-3">
-                      <Clock size={14} />
-                      有效期：
-                      <span className="font-bold">
-                        {product.entitlementConfig.durationSeconds
-                          ? product.entitlementConfig.durationSeconds >= 86400
-                            ? `${Math.floor(product.entitlementConfig.durationSeconds / 86400)} 天`
-                            : `${Math.floor(product.entitlementConfig.durationSeconds / 3600)} 小时`
-                          : '永久有效'}
-                      </span>
-                    </div>
-                  </div>
-                )}
+                    )
+                  })()}
 
                 {/* Actions on PC (hidden on mobile, shown in bottom bar instead) */}
                 <div className="hidden md:flex gap-4 mt-8">
-                  <button className="flex flex-col items-center justify-center text-gray-500 hover:text-cyan-600 w-14 bg-gray-50 dark:bg-bg-tertiary rounded-xl border border-gray-100 dark:border-border-dim transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => setSupportOpen(true)}
+                    className="flex flex-col items-center justify-center text-gray-500 hover:text-cyan-600 w-14 bg-gray-50 dark:bg-bg-tertiary rounded-xl border border-gray-100 dark:border-border-dim transition-colors"
+                  >
                     <MessageSquare size={20} />
                     <span className="text-[11px] mt-1 font-medium">客服</span>
                   </button>
@@ -508,14 +626,18 @@ export function ProductDetail({ serverId, productId, isAdmin, onBack }: ProductD
                           <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-bg-tertiary" />
                           <div>
                             <p className="text-sm font-bold text-gray-900 dark:text-white">
-                              用户 {review.userId.slice(0, 6)}
+                              {review.isAnonymous
+                                ? '匿名用户'
+                                : review.authorName || `用户 ${review.userId.slice(0, 6)}`}
                             </p>
                             <div className="flex text-yellow-400 mt-0.5">
-                              {Array.from({ length: 5 }).map((_, i) => (
+                              {[1, 2, 3, 4, 5].map((star) => (
                                 <Star
-                                  key={i}
+                                  key={`${review.id}-${star}`}
                                   size={14}
-                                  className={i < review.rating ? 'fill-current' : 'text-gray-200'}
+                                  className={
+                                    star <= review.rating ? 'fill-current' : 'text-gray-200'
+                                  }
                                 />
                               ))}
                             </div>
@@ -548,7 +670,11 @@ export function ProductDetail({ serverId, productId, isAdmin, onBack }: ProductD
       <div className="md:hidden absolute bottom-0 left-0 right-0 bg-white/90 dark:bg-bg-primary/95 backdrop-blur-xl border-t border-gray-200 dark:border-border-subtle p-3 pb-safe px-4 z-40 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)]">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 pr-2">
-            <button className="flex flex-col items-center justify-center text-gray-500 hover:text-cyan-600 w-10">
+            <button
+              type="button"
+              onClick={() => setSupportOpen(true)}
+              className="flex flex-col items-center justify-center text-gray-500 hover:text-cyan-600 w-10"
+            >
               <MessageSquare size={18} />
               <span className="text-[10px] mt-1 font-medium">客服</span>
             </button>
@@ -574,6 +700,75 @@ export function ProductDetail({ serverId, productId, isAdmin, onBack }: ProductD
           </button>
         </div>
       </div>
+
+      {supportOpen && (
+        <div className="absolute inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-end md:items-center justify-center p-0 md:p-4">
+          <div className="w-full md:max-w-lg bg-white dark:bg-bg-secondary rounded-t-3xl md:rounded-3xl p-5 border border-gray-100 dark:border-border-dim max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-gray-900 dark:text-white">联系客服</h3>
+              <button
+                type="button"
+                onClick={() => setSupportOpen(false)}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-bg-modifier-hover"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <textarea
+              value={supportMessage}
+              onChange={(e) => setSupportMessage(e.target.value)}
+              placeholder="请详细描述问题，我们会尽快处理"
+              rows={4}
+              className="w-full p-3 rounded-xl border border-gray-200 dark:border-border-dim bg-gray-50 dark:bg-bg-tertiary text-sm"
+            />
+
+            <div className="mt-4 space-y-2">
+              <label className="inline-flex items-center gap-2 text-sm font-medium cursor-pointer text-cyan-600">
+                <Upload size={15} /> 上传问题截图
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    uploadSupportImages(e.target.files)
+                    e.currentTarget.value = ''
+                  }}
+                />
+              </label>
+              {uploadingCount > 0 && <div className="text-xs text-gray-500">图片上传中...</div>}
+              {supportImages.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {supportImages.map((url, idx) => (
+                    <div key={url} className="relative w-16 h-16 rounded-lg overflow-hidden">
+                      <img src={url} alt="support" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        className="absolute top-0.5 right-0.5 bg-black/50 text-white rounded-full p-0.5"
+                        onClick={() => setSupportImages((prev) => prev.filter((_, i) => i !== idx))}
+                      >
+                        <X size={10} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                contactSupport.mutate({ message: supportMessage.trim(), images: supportImages })
+              }
+              disabled={!supportMessage.trim() || contactSupport.isPending || uploadingCount > 0}
+              className="mt-5 w-full py-3 rounded-xl font-bold text-white bg-cyan-600 disabled:opacity-50"
+            >
+              {contactSupport.isPending ? '正在创建客服会话...' : '提交并进入聊天频道'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

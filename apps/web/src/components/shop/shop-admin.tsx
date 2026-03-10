@@ -8,19 +8,15 @@ import {
   Eye,
   EyeOff,
   FolderPlus,
-  ImagePlus,
   Layers,
-  MoreVertical,
   Package,
   Plus,
   Save,
   Search,
   Settings,
-  ShieldCheck,
   ShoppingBag,
   Tag,
   Trash2,
-  Truck,
   Upload,
   X,
   XCircle,
@@ -221,7 +217,7 @@ function ProductManager({ serverId }: { serverId: string }) {
                 {product.media?.[0]?.url ? (
                   <img
                     src={product.media[0].url}
-                    alt=""
+                    alt={product.name}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                   />
                 ) : (
@@ -325,7 +321,51 @@ interface ProductFormProps {
   onSaved: () => void
 }
 
+type EntitlementRule = {
+  type: 'channel_access' | 'channel_speak' | 'app_access' | 'custom_role' | 'custom'
+  targetId: string
+  durationSeconds: string
+  privilegeDescription: string
+}
+
+function normalizeEntitlementRules(product: Product | null): EntitlementRule[] {
+  if (!product?.entitlementConfig) {
+    return [
+      {
+        type: 'channel_access',
+        targetId: '',
+        durationSeconds: '',
+        privilegeDescription: '',
+      },
+    ]
+  }
+
+  const raw = product.entitlementConfig as unknown
+  const list = Array.isArray(raw) ? raw : [raw]
+  return list
+    .filter(Boolean)
+    .map((cfg) => {
+      const item = cfg as {
+        type?: EntitlementRule['type']
+        targetId?: string
+        durationSeconds?: number | null
+        privilegeDescription?: string
+      }
+      return {
+        type: item.type || 'channel_access',
+        targetId: item.targetId || '',
+        durationSeconds:
+          item.durationSeconds === null || item.durationSeconds === undefined
+            ? ''
+            : String(item.durationSeconds),
+        privilegeDescription: item.privilegeDescription || '',
+      }
+    })
+    .filter((r) => !!r.type)
+}
+
 function ProductForm({ serverId, product, onCancel, onSaved }: ProductFormProps) {
+  const queryClient = useQueryClient()
   const isEditing = !!product
 
   // Basic fields
@@ -356,12 +396,40 @@ function ProductForm({ serverId, product, onCancel, onSaved }: ProductFormProps)
   )
 
   // Entitlement config
-  const [entType, setEntType] = useState(product?.entitlementConfig?.type || 'channel_access')
-  const [entTargetId, setEntTargetId] = useState(product?.entitlementConfig?.targetId || '')
-  const [entDuration, setEntDuration] = useState(
-    product?.entitlementConfig?.durationSeconds?.toString() || '',
+  const [entitlementRules, setEntitlementRules] = useState<EntitlementRule[]>(
+    normalizeEntitlementRules(product),
   )
-  const [entDesc, setEntDesc] = useState(product?.entitlementConfig?.privilegeDescription || '')
+
+  const { data: editingProductDetail } = useQuery({
+    queryKey: ['shop-product-detail', serverId, product?.id],
+    queryFn: () => fetchApi<Product>(`/api/servers/${serverId}/shop/products/${product!.id}`),
+    enabled: isEditing,
+  })
+
+  useEffect(() => {
+    if (!isEditing || !product) return
+    const source = editingProductDetail || product
+    setName(source.name || '')
+    setSlug(source.slug || '')
+    setType(source.type || 'physical')
+    setStatus(source.status || 'draft')
+    setSummary(source.summary || '')
+    setDescription(source.description || '')
+    setBasePrice(source.basePrice?.toString() || '0')
+    setTags(source.tags?.join(', ') || '')
+    setCategoryId(source.categoryId || '')
+    setMediaUrls(source.media?.map((m) => m.url) || [])
+    setSpecNames(source.specNames?.join(', ') || '')
+    setSkus(
+      source.skus?.map((s) => ({
+        specValues: s.specValues,
+        price: s.price.toString(),
+        stock: s.stock.toString(),
+        skuCode: s.skuCode || '',
+      })) || [],
+    )
+    setEntitlementRules(normalizeEntitlementRules(source))
+  }, [editingProductDetail, isEditing, product])
 
   // Categories data
   const { data: categories = [] } = useQuery({
@@ -410,12 +478,12 @@ function ProductForm({ serverId, product, onCancel, onSaved }: ProductFormProps)
       }
 
       if (type === 'entitlement') {
-        body.entitlementConfig = {
-          type: entType,
-          targetId: entTargetId || undefined,
-          durationSeconds: entDuration ? Number(entDuration) : null,
-          privilegeDescription: entDesc || undefined,
-        }
+        body.entitlementConfig = entitlementRules.map((rule) => ({
+          type: rule.type,
+          targetId: rule.targetId || undefined,
+          durationSeconds: rule.durationSeconds ? Number(rule.durationSeconds) : null,
+          privilegeDescription: rule.privilegeDescription || undefined,
+        }))
       }
 
       if (isEditing) {
@@ -431,7 +499,15 @@ function ProductForm({ serverId, product, onCancel, onSaved }: ProductFormProps)
         headers: { 'Content-Type': 'application/json' },
       })
     },
-    onSuccess: onSaved,
+    onSuccess: async () => {
+      if (product?.id) {
+        await queryClient.invalidateQueries({
+          queryKey: ['shop-product-detail', serverId, product.id],
+        })
+      }
+      await queryClient.invalidateQueries({ queryKey: ['shop-products', serverId] })
+      onSaved()
+    },
   })
 
   return (
@@ -747,60 +823,116 @@ function ProductForm({ serverId, product, onCancel, onSaved }: ProductFormProps)
         {/* ── Section: Entitlement Config ── */}
         {type === 'entitlement' && (
           <FormSection title="虚拟权益投递配置">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <FormField label="权益类型">
-                <div className="relative">
-                  <select
-                    value={entType}
-                    onChange={(e) => setEntType(e.target.value)}
-                    className="w-full p-3 pr-10 bg-gray-50 dark:bg-bg-tertiary text-gray-900 dark:text-white text-sm rounded-xl border border-gray-200 dark:border-border-dim focus:outline-none focus:border-cyan-500 transition-all appearance-none font-medium"
-                  >
-                    <option value="channel_access">解锁私密频道访问</option>
-                    <option value="channel_speak">授予特定频道发言权</option>
-                    <option value="app_access">授予生态应用访问</option>
-                    <option value="custom_role">自动授予专属身份组</option>
-                    <option value="custom">自定义投递</option>
-                  </select>
-                  <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
-                    <ChevronDown size={14} />
+            <div className="space-y-4">
+              {entitlementRules.map((rule, idx) => (
+                <div
+                  key={idx}
+                  className="grid grid-cols-1 md:grid-cols-2 gap-5 p-4 rounded-2xl border border-gray-200 dark:border-border-dim bg-gray-50/60 dark:bg-bg-tertiary/60"
+                >
+                  <FormField label="权益类型">
+                    <div className="relative">
+                      <select
+                        value={rule.type}
+                        onChange={(e) => {
+                          const next = [...entitlementRules]
+                          next[idx] = { ...rule, type: e.target.value as EntitlementRule['type'] }
+                          setEntitlementRules(next)
+                        }}
+                        className="w-full p-3 pr-10 bg-gray-50 dark:bg-bg-tertiary text-gray-900 dark:text-white text-sm rounded-xl border border-gray-200 dark:border-border-dim focus:outline-none focus:border-cyan-500 transition-all appearance-none font-medium"
+                      >
+                        <option value="channel_access">解锁私密频道访问</option>
+                        <option value="channel_speak">授予特定频道发言权</option>
+                        <option value="app_access">授予生态应用访问</option>
+                        <option value="custom_role">自动授予专属身份组</option>
+                        <option value="custom">自定义投递</option>
+                      </select>
+                      <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                        <ChevronDown size={14} />
+                      </div>
+                    </div>
+                  </FormField>
+
+                  <FormField label="目标对象 ID">
+                    <input
+                      type="text"
+                      value={rule.targetId}
+                      onChange={(e) => {
+                        const next = [...entitlementRules]
+                        next[idx] = { ...rule, targetId: e.target.value }
+                        setEntitlementRules(next)
+                      }}
+                      placeholder="例如频道或角色的数字 ID"
+                      className="w-full p-3 bg-gray-50 dark:bg-bg-tertiary text-gray-900 dark:text-white text-sm rounded-xl border border-gray-200 dark:border-border-dim focus:outline-none focus:border-cyan-500 transition-all font-mono"
+                    />
+                  </FormField>
+
+                  <FormField label="生效时长 (秒)">
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                        <Clock size={16} />
+                      </span>
+                      <input
+                        type="number"
+                        value={rule.durationSeconds}
+                        onChange={(e) => {
+                          const next = [...entitlementRules]
+                          next[idx] = { ...rule, durationSeconds: e.target.value }
+                          setEntitlementRules(next)
+                        }}
+                        placeholder="留空即表示永久有效"
+                        className="w-full p-3 pl-10 bg-gray-50 dark:bg-bg-tertiary text-gray-900 dark:text-white text-sm rounded-xl border border-gray-200 dark:border-border-dim focus:outline-none focus:border-cyan-500 transition-all font-mono"
+                      />
+                    </div>
+                  </FormField>
+
+                  <FormField label="面向买家的白话说明">
+                    <input
+                      type="text"
+                      value={rule.privilegeDescription}
+                      onChange={(e) => {
+                        const next = [...entitlementRules]
+                        next[idx] = { ...rule, privilegeDescription: e.target.value }
+                        setEntitlementRules(next)
+                      }}
+                      placeholder="例：付款后自动拥有 VIP 大群浏览发言权限"
+                      className="w-full p-3 bg-gray-50 dark:bg-bg-tertiary text-gray-900 dark:text-white text-sm rounded-xl border border-gray-200 dark:border-border-dim focus:outline-none focus:border-cyan-500 transition-all"
+                    />
+                  </FormField>
+
+                  <div className="md:col-span-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (entitlementRules.length === 1) return
+                        setEntitlementRules(entitlementRules.filter((_, i) => i !== idx))
+                      }}
+                      disabled={entitlementRules.length === 1}
+                      className="px-3 py-1.5 text-xs font-bold text-rose-500 bg-rose-50 dark:bg-rose-900/20 rounded-lg border border-rose-200 dark:border-rose-900/40 disabled:opacity-50"
+                    >
+                      删除该规则
+                    </button>
                   </div>
                 </div>
-              </FormField>
+              ))}
 
-              <FormField label="目标对象 ID">
-                <input
-                  type="text"
-                  value={entTargetId}
-                  onChange={(e) => setEntTargetId(e.target.value)}
-                  placeholder="例如频道或角色的数字 ID"
-                  className="w-full p-3 bg-gray-50 dark:bg-bg-tertiary text-gray-900 dark:text-white text-sm rounded-xl border border-gray-200 dark:border-border-dim focus:outline-none focus:border-cyan-500 transition-all font-mono"
-                />
-              </FormField>
-
-              <FormField label="生效时长 (秒)">
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
-                    <Clock size={16} />
-                  </span>
-                  <input
-                    type="number"
-                    value={entDuration}
-                    onChange={(e) => setEntDuration(e.target.value)}
-                    placeholder="留空即表示永久有效"
-                    className="w-full p-3 pl-10 bg-gray-50 dark:bg-bg-tertiary text-gray-900 dark:text-white text-sm rounded-xl border border-gray-200 dark:border-border-dim focus:outline-none focus:border-cyan-500 transition-all font-mono"
-                  />
-                </div>
-              </FormField>
-
-              <FormField label="面向买家的白话说明">
-                <input
-                  type="text"
-                  value={entDesc}
-                  onChange={(e) => setEntDesc(e.target.value)}
-                  placeholder="例：付款后自动拥有 VIP 大群浏览发言权限"
-                  className="w-full p-3 bg-gray-50 dark:bg-bg-tertiary text-gray-900 dark:text-white text-sm rounded-xl border border-gray-200 dark:border-border-dim focus:outline-none focus:border-cyan-500 transition-all"
-                />
-              </FormField>
+              <button
+                type="button"
+                onClick={() =>
+                  setEntitlementRules([
+                    ...entitlementRules,
+                    {
+                      type: 'channel_access',
+                      targetId: '',
+                      durationSeconds: '',
+                      privilegeDescription: '',
+                    },
+                  ])
+                }
+                className="flex items-center justify-center gap-2 w-full py-3 text-sm font-bold text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/10 hover:bg-cyan-100 dark:hover:bg-cyan-900/30 border border-dashed border-cyan-200 dark:border-cyan-800 rounded-xl transition-all"
+              >
+                <Plus size={16} strokeWidth={3} />
+                新增权益规则
+              </button>
             </div>
           </FormSection>
         )}
@@ -987,7 +1119,35 @@ function CategoryManager({ serverId }: { serverId: string }) {
    ╚═══════════════════════════════════════════╝ */
 
 function OrderManager({ serverId }: { serverId: string }) {
+  const queryClient = useQueryClient()
   const [filterMode, setFilterMode] = useState<'all' | 'pending'>('all')
+  const [trackingInputs, setTrackingInputs] = useState<Record<string, string>>({})
+  const [sellerNotes, setSellerNotes] = useState<Record<string, string>>({})
+
+  const transitionMutation = useMutation({
+    mutationFn: ({
+      orderId,
+      status,
+      trackingNo,
+      sellerNote,
+    }: {
+      orderId: string
+      status: 'processing' | 'shipped' | 'delivered' | 'completed' | 'cancelled' | 'refunded'
+      trackingNo?: string
+      sellerNote?: string
+    }) =>
+      fetchApi(`/api/servers/${serverId}/shop/orders/${orderId}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status, trackingNo, sellerNote }),
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-orders', serverId] })
+      showToast('订单状态已更新', 'success')
+    },
+    onError: (err: Error) => showToast(err.message || '更新订单状态失败', 'error'),
+  })
+
   const { data: orders = [] } = useQuery({
     queryKey: ['admin-orders', serverId, filterMode],
     queryFn: () =>
@@ -996,16 +1156,33 @@ function OrderManager({ serverId }: { serverId: string }) {
       ),
   })
 
+  function nextActions(status: string) {
+    switch (status) {
+      case 'paid':
+        return [{ label: '开始处理', to: 'processing' as const }]
+      case 'processing':
+        return [{ label: '标记已发货', to: 'shipped' as const }]
+      case 'shipped':
+        return [{ label: '标记已送达', to: 'delivered' as const }]
+      case 'delivered':
+        return [{ label: '标记已完成', to: 'completed' as const }]
+      default:
+        return []
+    }
+  }
+
   return (
     <div className="p-4 md:p-6 space-y-4">
       <div className="flex gap-2">
         <button
+          type="button"
           className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${filterMode === 'all' ? 'bg-gray-900 text-white shadow-md dark:bg-white dark:text-gray-900' : 'bg-white text-gray-600 dark:bg-bg-secondary border border-gray-200 dark:border-border-dim'}`}
           onClick={() => setFilterMode('all')}
         >
           全部订单
         </button>
         <button
+          type="button"
           className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${filterMode === 'pending' ? 'bg-cyan-500 text-white shadow-md' : 'bg-white text-gray-600 dark:bg-bg-secondary border border-gray-200 dark:border-border-dim'}`}
           onClick={() => setFilterMode('pending')}
         >
@@ -1072,6 +1249,47 @@ function OrderManager({ serverId }: { serverId: string }) {
                   </div>
                 ))}
               </div>
+
+              {nextActions(order.status).length > 0 && (
+                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-border-dim flex flex-wrap gap-2">
+                  <input
+                    type="text"
+                    placeholder="补充物流单号（可选）"
+                    value={trackingInputs[order.id] || ''}
+                    onChange={(e) =>
+                      setTrackingInputs((prev) => ({ ...prev, [order.id]: e.target.value }))
+                    }
+                    className="w-full p-2 text-xs rounded-lg border border-gray-200 dark:border-border-dim bg-gray-50 dark:bg-bg-tertiary"
+                  />
+                  <textarea
+                    placeholder="订单流转备注（可选）"
+                    value={sellerNotes[order.id] || ''}
+                    onChange={(e) =>
+                      setSellerNotes((prev) => ({ ...prev, [order.id]: e.target.value }))
+                    }
+                    rows={2}
+                    className="w-full p-2 text-xs rounded-lg border border-gray-200 dark:border-border-dim bg-gray-50 dark:bg-bg-tertiary"
+                  />
+                  {nextActions(order.status).map((action) => (
+                    <button
+                      key={action.to}
+                      type="button"
+                      onClick={() =>
+                        transitionMutation.mutate({
+                          orderId: order.id,
+                          status: action.to,
+                          trackingNo: trackingInputs[order.id] || undefined,
+                          sellerNote: sellerNotes[order.id] || undefined,
+                        })
+                      }
+                      disabled={transitionMutation.isPending}
+                      className="px-4 py-2 text-xs font-bold rounded-lg bg-cyan-50 text-cyan-600 border border-cyan-200 hover:bg-cyan-100 dark:bg-cyan-900/20 dark:text-cyan-400 dark:border-cyan-900/40 disabled:opacity-50"
+                    >
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ))
         )}
@@ -1095,6 +1313,19 @@ function ShopSettings({ serverId }: { serverId: string }) {
   const [shopDesc, setShopDesc] = useState(shop?.description || '')
   const [logoUrl, setLogoUrl] = useState(shop?.logoUrl || '')
   const [bannerUrl, setBannerUrl] = useState(shop?.bannerUrl || '')
+  const [supportBuddyUserId, setSupportBuddyUserId] = useState('')
+
+  const { data: members = [] } = useQuery({
+    queryKey: ['server-members', serverId],
+    queryFn: () =>
+      fetchApi<
+        Array<{
+          userId: string
+          role: 'owner' | 'admin' | 'member'
+          user?: { username?: string | null; displayName?: string | null; isBot?: boolean }
+        }>
+      >(`/api/servers/${serverId}/members`),
+  })
 
   useEffect(() => {
     if (shop) {
@@ -1102,6 +1333,7 @@ function ShopSettings({ serverId }: { serverId: string }) {
       setShopDesc(shop.description || '')
       setLogoUrl(shop.logoUrl || '')
       setBannerUrl(shop.bannerUrl || '')
+      setSupportBuddyUserId((shop.settings?.supportBuddyUserId as string | undefined) || '')
     }
   }, [shop])
 
@@ -1114,6 +1346,10 @@ function ShopSettings({ serverId }: { serverId: string }) {
           description: shopDesc,
           logoUrl,
           bannerUrl,
+          settings: {
+            ...(shop?.settings || {}),
+            supportBuddyUserId: supportBuddyUserId || null,
+          },
         }),
       }),
     onSuccess: () => {
@@ -1204,6 +1440,33 @@ function ShopSettings({ serverId }: { serverId: string }) {
             {updateMutation.isPending ? '保存中...' : '保存最新设置'}
           </button>
         </div>
+
+        <div className="mt-6 p-4 rounded-2xl border border-gray-100 dark:border-border-dim bg-gray-50 dark:bg-bg-tertiary">
+          <p className="text-sm font-bold text-gray-900 dark:text-white mb-2">客服 Buddy 配置</p>
+          <p className="text-xs text-gray-500 dark:text-text-muted mb-3">
+            设置后，买家在商品详情页点击客服时会自动创建私有客服频道并拉入该 Buddy。
+          </p>
+          <div className="relative">
+            <select
+              value={supportBuddyUserId}
+              onChange={(e) => setSupportBuddyUserId(e.target.value)}
+              className="w-full p-3 pr-10 bg-white dark:bg-bg-secondary text-sm rounded-xl border border-gray-200 dark:border-border-dim appearance-none"
+            >
+              <option value="">不指定 Buddy（仅店主/管理员接待）</option>
+              {members
+                .filter((m) => !m.user?.isBot)
+                .map((m) => (
+                  <option key={m.userId} value={m.userId}>
+                    {m.user?.displayName || m.user?.username || m.userId.slice(0, 8)}
+                    {m.role === 'owner' ? '（店主）' : m.role === 'admin' ? '（管理员）' : ''}
+                  </option>
+                ))}
+            </select>
+            <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+              <ChevronDown size={14} />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -1275,7 +1538,7 @@ function ImageUploadInput({
         method: 'POST',
         body: formData,
       })
-      if (res && res.url) {
+      if (res?.url) {
         onUpload(res.url)
       }
     } catch (err) {

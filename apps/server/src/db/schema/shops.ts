@@ -1,4 +1,14 @@
-import { boolean, integer, jsonb, pgEnum, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core'
+import {
+  boolean,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  varchar,
+} from 'drizzle-orm/pg-core'
 import { servers } from './servers'
 import { users } from './users'
 
@@ -104,15 +114,23 @@ export const products = pgTable('products', {
   avgRating: integer('avg_rating').default(0).notNull(),
   ratingCount: integer('rating_count').default(0).notNull(),
   /** Entitlement config — only when type = 'entitlement' */
-  entitlementConfig: jsonb('entitlement_config').$type<{
-    type: 'channel_access' | 'channel_speak' | 'app_access' | 'custom_role' | 'custom'
-    /** Target resource ID (channel, app, role) */
-    targetId?: string
-    /** Duration in seconds, null = permanent */
-    durationSeconds?: number | null
-    /** Human-readable description of the privilege */
-    privilegeDescription?: string
-  }>(),
+  entitlementConfig: jsonb('entitlement_config').$type<
+    | {
+        type: 'channel_access' | 'channel_speak' | 'app_access' | 'custom_role' | 'custom'
+        /** Target resource ID (channel, app, role) */
+        targetId?: string
+        /** Duration in seconds, null = permanent */
+        durationSeconds?: number | null
+        /** Human-readable description of the privilege */
+        privilegeDescription?: string
+      }
+    | Array<{
+        type: 'channel_access' | 'channel_speak' | 'app_access' | 'custom_role' | 'custom'
+        targetId?: string
+        durationSeconds?: number | null
+        privilegeDescription?: string
+      }>
+  >(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })
