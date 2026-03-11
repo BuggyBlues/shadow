@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import type { DialogMode } from './workspace-types'
 
 interface WorkspaceDialogsProps {
@@ -67,20 +68,24 @@ function DialogInput({
   confirmLabel: string
   onCancel: () => void
 }) {
-  let inputValue = defaultValue
+  const [inputValue, setInputValue] = useState(defaultValue)
+
+  useEffect(() => {
+    setInputValue(defaultValue)
+  }, [defaultValue])
 
   return (
     <>
       <input
         type="text"
-        defaultValue={defaultValue}
+        value={inputValue}
         onChange={(e) => {
-          inputValue = e.target.value
+          setInputValue(e.target.value)
         }}
         onKeyDown={(e) => {
           e.stopPropagation()
           if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) {
-            const val = (e.target as HTMLInputElement).value.trim()
+            const val = inputValue.trim()
             if (val) onSubmit(val)
           } else if (e.key === 'Escape') {
             onCancel()
@@ -100,11 +105,7 @@ function DialogInput({
         <button
           type="button"
           onClick={() => {
-            // Read from the actual input element
-            const input = document.querySelector<HTMLInputElement>(
-              '.bg-bg-tertiary.text-text-primary',
-            )
-            const val = input?.value.trim() ?? inputValue.trim()
+            const val = inputValue.trim()
             if (val) onSubmit(val)
           }}
           disabled={isPending}

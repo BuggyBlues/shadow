@@ -380,6 +380,25 @@ describe('File CRUD', () => {
     fileId3 = file.id
   })
 
+  it('should create a file without extension', async () => {
+    const res = await req('POST', `/api/servers/${serverId}/workspace/files`, {
+      token: userToken,
+      body: {
+        parentId: materialsFolderId,
+        name: 'LICENSE',
+      },
+    })
+    expect(res.status).toBe(201)
+    const file = await json<{ id: string; name: string; ext: string | null }>(res)
+    expect(file.name).toBe('LICENSE')
+    expect(file.ext).toBeNull()
+
+    const delRes = await req('DELETE', `/api/servers/${serverId}/workspace/files/${file.id}`, {
+      token: userToken,
+    })
+    expect(delRes.status).toBe(200)
+  })
+
   it('should get a file by ID', async () => {
     const res = await req('GET', `/api/servers/${serverId}/workspace/files/${fileId1}`, {
       token: userToken,
