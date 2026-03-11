@@ -125,14 +125,6 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
             const notificationService = container.resolve('notificationService')
             const senderName = message.author?.displayName ?? message.author?.username ?? 'Someone'
 
-            const mentionedUserIds = new Set<string>()
-            const mentionIdRegex = /<@([0-9a-f-]{36})>/gi
-            let idMatch: RegExpExecArray | null = mentionIdRegex.exec(data.content)
-            while (idMatch !== null) {
-              if (idMatch[1]) mentionedUserIds.add(idMatch[1])
-              idMatch = mentionIdRegex.exec(data.content)
-            }
-
             const mentionUsernameRegex = /@([A-Za-z0-9_-]+)/g
             const mentionedUsernames = new Set<string>()
             let match: RegExpExecArray | null = mentionUsernameRegex.exec(data.content)
@@ -141,27 +133,10 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
               match = mentionUsernameRegex.exec(data.content)
             }
 
-            if (mentionedUserIds.size > 0 || mentionedUsernames.size > 0) {
-              for (const mentionedUserId of mentionedUserIds) {
-                if (mentionedUserId === userId) continue
-                const notification = await notificationService.create({
-                  userId: mentionedUserId,
-                  type: 'mention',
-                  title: `${senderName} mentioned you`,
-                  body: data.content.substring(0, 200),
-                  referenceId: message.id,
-                  referenceType: 'message',
-                })
-                io.to(`user:${mentionedUserId}`).emit('notification:new', notification)
-              }
-
+            if (mentionedUsernames.size > 0) {
               for (const username of mentionedUsernames) {
                 const mentionedUser = await userDao.findByUsername(username)
-                if (
-                  mentionedUser &&
-                  mentionedUser.id !== userId &&
-                  !mentionedUserIds.has(mentionedUser.id)
-                ) {
+                if (mentionedUser && mentionedUser.id !== userId) {
                   const notification = await notificationService.create({
                     userId: mentionedUser.id,
                     type: 'mention',

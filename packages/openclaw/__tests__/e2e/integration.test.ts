@@ -18,9 +18,9 @@
  */
 
 import { type ChildProcess, execSync } from 'node:child_process'
+import { ShadowClient } from '@shadowob/sdk'
 import { io as connectSocket, type Socket } from 'socket.io-client'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { ShadowClient } from '../../src/shadow-client.js'
 
 import {
   cleanupOpenClawHome,
@@ -511,9 +511,8 @@ describe('Monitor Subscription E2E', () => {
     await sleep(1_000)
 
     // Send a message AS THE BOT (should be filtered with log)
-    const client = await import('../../src/shadow-client.js').then(
-      (m) => new m.ShadowClient(SHADOW_URL, seed.agentToken),
-    )
+    const { ShadowClient } = await import('@shadowob/sdk')
+    const client = new ShadowClient(SHADOW_URL, seed.agentToken)
     const botContent = `Bot own msg ${Date.now()}`
     await client.sendMessage(seed.channel.id, botContent)
 

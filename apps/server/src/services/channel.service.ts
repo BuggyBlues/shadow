@@ -13,7 +13,11 @@ export class ChannelService {
   ) {}
 
   /** Generate a unique channel name within a server, appending -2, -3, etc. if needed. */
-  private async generateUniqueName(serverId: string, name: string, excludeChannelId?: string): Promise<string> {
+  private async generateUniqueName(
+    serverId: string,
+    name: string,
+    excludeChannelId?: string,
+  ): Promise<string> {
     const existing = await this.deps.channelDao.findByServerIdAndNamePrefix(serverId, name)
     const existingNames = new Set(existing.map((ch) => ch.name.toLowerCase()))
     // If no conflict (or only conflict is the channel being renamed), return as-is

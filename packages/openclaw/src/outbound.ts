@@ -4,13 +4,13 @@
  * Uses the Shadow REST API via ShadowClient to deliver outbound messages.
  */
 
+import type { ShadowMessage } from '@shadowob/sdk'
+import { ShadowClient } from '@shadowob/sdk'
 import { DEFAULT_ACCOUNT_ID, getAccountConfig } from './config.js'
-import { ShadowClient } from './shadow-client.js'
 import type {
   ChannelOutboundAdapter,
   ChannelOutboundContext,
   OutboundDeliveryResult,
-  ShadowMessage,
 } from './types.js'
 
 /** Parse a Shadow target string like "shadowob:channel:<channelId>" */

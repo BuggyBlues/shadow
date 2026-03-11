@@ -4,7 +4,9 @@ import { productCategories } from '../db/schema'
 
 export class ProductCategoryDao {
   constructor(private deps: { db: Database }) {}
-  private get db() { return this.deps.db }
+  private get db() {
+    return this.deps.db
+  }
 
   async findByShopId(shopId: string) {
     return this.db
@@ -15,17 +17,41 @@ export class ProductCategoryDao {
   }
 
   async findById(id: string) {
-    const r = await this.db.select().from(productCategories).where(eq(productCategories.id, id)).limit(1)
+    const r = await this.db
+      .select()
+      .from(productCategories)
+      .where(eq(productCategories.id, id))
+      .limit(1)
     return r[0] ?? null
   }
 
-  async create(data: { shopId: string; name: string; slug: string; parentId?: string; position?: number; iconUrl?: string }) {
+  async create(data: {
+    shopId: string
+    name: string
+    slug: string
+    parentId?: string
+    position?: number
+    iconUrl?: string
+  }) {
     const r = await this.db.insert(productCategories).values(data).returning()
     return r[0] ?? null
   }
 
-  async update(id: string, data: Partial<{ name: string; slug: string; parentId: string | null; position: number; iconUrl: string | null }>) {
-    const r = await this.db.update(productCategories).set(data).where(eq(productCategories.id, id)).returning()
+  async update(
+    id: string,
+    data: Partial<{
+      name: string
+      slug: string
+      parentId: string | null
+      position: number
+      iconUrl: string | null
+    }>,
+  ) {
+    const r = await this.db
+      .update(productCategories)
+      .set(data)
+      .where(eq(productCategories.id, id))
+      .returning()
     return r[0] ?? null
   }
 
@@ -34,7 +60,10 @@ export class ProductCategoryDao {
   }
 
   async countByShopId(shopId: string) {
-    const r = await this.db.select({ count: sql<number>`count(*)::int` }).from(productCategories).where(eq(productCategories.shopId, shopId))
+    const r = await this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(productCategories)
+      .where(eq(productCategories.shopId, shopId))
     return r[0]?.count ?? 0
   }
 }

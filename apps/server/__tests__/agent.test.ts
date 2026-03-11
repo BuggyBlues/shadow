@@ -10,8 +10,8 @@
  * 6. Agent token works with standard auth
  */
 import { describe, expect, it, vi } from 'vitest'
+import { signAccessToken, signAgentToken, verifyToken } from '../src/lib/jwt'
 import { AgentService } from '../src/services/agent.service'
-import { signAgentToken, signAccessToken, verifyToken } from '../src/lib/jwt'
 
 // ─── Mock factories ────────────────────────────────────────────
 
@@ -137,6 +137,7 @@ describe('AgentService', () => {
 
       const result = await service.create({
         name: 'My Bot',
+        username: 'my-bot',
         description: 'A test bot',
         kernelType: 'openclaw',
         config: {},
@@ -146,7 +147,7 @@ describe('AgentService', () => {
       expect(result.id).toBe('agent-1')
       expect(result.botUser.displayName).toBe('My Bot')
       expect(agentDao.createBotUser).toHaveBeenCalledWith({
-        username: 'agent-my-bot',
+        username: 'my-bot',
         displayName: 'My Bot',
       })
       expect(agentDao.create).toHaveBeenCalledWith({
@@ -180,7 +181,9 @@ describe('AgentService', () => {
         create: vi.fn().mockResolvedValue(agent),
       })
       const userDao = createMockUserDao({
-        update: vi.fn().mockResolvedValue({ ...botUser, avatarUrl: 'https://example.com/avatar.png' }),
+        update: vi
+          .fn()
+          .mockResolvedValue({ ...botUser, avatarUrl: 'https://example.com/avatar.png' }),
       })
       const logger = createMockLogger()
 
@@ -192,6 +195,7 @@ describe('AgentService', () => {
 
       const result = await service.create({
         name: 'Avatar Bot',
+        username: 'avatar-bot',
         avatarUrl: 'https://example.com/avatar.png',
         kernelType: 'openclaw',
         config: {},
@@ -353,9 +357,7 @@ describe('AgentService', () => {
 
       const agentDao = createMockAgentDao({
         findById: vi.fn().mockResolvedValue(agent),
-        updateStatus: vi
-          .fn()
-          .mockResolvedValue({ ...agent, status: 'running' }),
+        updateStatus: vi.fn().mockResolvedValue({ ...agent, status: 'running' }),
       })
       const userDao = createMockUserDao()
       const logger = createMockLogger()
@@ -379,9 +381,7 @@ describe('AgentService', () => {
 
       const agentDao = createMockAgentDao({
         findById: vi.fn().mockResolvedValue(agent),
-        updateStatus: vi
-          .fn()
-          .mockResolvedValue({ ...agent, status: 'stopped' }),
+        updateStatus: vi.fn().mockResolvedValue({ ...agent, status: 'stopped' }),
       })
       const userDao = createMockUserDao()
       const logger = createMockLogger()

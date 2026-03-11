@@ -1,5 +1,5 @@
-import type { ShopDao } from '../dao/shop.dao'
 import type { ProductCategoryDao } from '../dao/product-category.dao'
+import type { ShopDao } from '../dao/shop.dao'
 
 /**
  * ShopService — manages shop metadata and categories.
@@ -45,7 +45,10 @@ export class ShopService {
     return this.deps.productCategoryDao.findById(categoryId)
   }
 
-  async createCategory(shopId: string, data: { name: string; slug: string; parentId?: string; position?: number; iconUrl?: string }) {
+  async createCategory(
+    shopId: string,
+    data: { name: string; slug: string; parentId?: string; position?: number; iconUrl?: string },
+  ) {
     return this.deps.productCategoryDao.create({ shopId, ...data })
   }
 

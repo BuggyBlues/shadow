@@ -3,8 +3,8 @@ import { shadowPlugin } from './src/plugin.js'
 import { setShadowRuntime } from './src/runtime.js'
 import type { OpenClawPluginApi, OpenClawPluginDefinition } from './src/types.js'
 
+export { ShadowClient } from '@shadowob/sdk'
 export { monitorShadowProvider } from './src/monitor.js'
-export { ShadowClient } from './src/shadow-client.js'
 export { shadowPlugin } from './src/plugin.js'
 
 const plugin: OpenClawPluginDefinition = {

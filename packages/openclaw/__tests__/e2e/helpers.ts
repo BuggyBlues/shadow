@@ -7,9 +7,9 @@
  */
 
 import { type ChildProcess, spawn } from 'node:child_process'
-import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 // ── Constants ───────────────────────────────────────────────────────────────
 

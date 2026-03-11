@@ -60,7 +60,10 @@ export function DiscoverPage() {
       }),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['servers'] })
-      navigate({ to: '/app/servers/$serverId', params: { serverId: (data as { slug?: string; id: string }).slug ?? data.id } })
+      navigate({
+        to: '/app/servers/$serverId',
+        params: { serverId: (data as { slug?: string; id: string }).slug ?? data.id },
+      })
     },
     onError: (err: unknown, variables) => {
       const status = (err as { status?: number })?.status
@@ -68,7 +71,10 @@ export function DiscoverPage() {
         // Already a member — navigate to the server (find slug from discover list)
         queryClient.invalidateQueries({ queryKey: ['servers'] })
         const srv = servers.find((s) => s.id === variables.serverId)
-        navigate({ to: '/app/servers/$serverId', params: { serverId: srv?.slug ?? variables.serverId } })
+        navigate({
+          to: '/app/servers/$serverId',
+          params: { serverId: srv?.slug ?? variables.serverId },
+        })
       }
     },
   })
@@ -92,7 +98,10 @@ export function DiscoverPage() {
 
           {/* Search */}
           <div className="relative max-w-md">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+            <Search
+              size={18}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+            />
             <input
               type="text"
               value={search}

@@ -9,19 +9,24 @@ import type {
 
 /** Convert a name to a URL-safe slug (lowercase, spaces → hyphens, strip non-alphanumeric). */
 function toSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-]/g, '')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-    || 'server'
+  return (
+    name
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '') || 'server'
+  )
 }
 
 export class ServerService {
   constructor(
-    private deps: { serverDao: ServerDao; channelDao: ChannelDao; channelMemberDao: ChannelMemberDao },
+    private deps: {
+      serverDao: ServerDao
+      channelDao: ChannelDao
+      channelMemberDao: ChannelMemberDao
+    },
   ) {}
 
   /** Generate a unique slug from a name, appending a random suffix if needed. */
@@ -43,9 +48,7 @@ export class ServerService {
 
   async create(input: CreateServerInput, userId: string) {
     // Only set slug if explicitly provided (slug is optional, URL uses UUID otherwise)
-    const slug = input.slug?.trim()
-      ? await this.generateUniqueSlug(input.slug)
-      : null
+    const slug = input.slug?.trim() ? await this.generateUniqueSlug(input.slug) : null
 
     const server = await this.deps.serverDao.create({
       name: input.name,

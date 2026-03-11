@@ -531,6 +531,8 @@
     "createTitle": "创建 Buddy",
     "nameLabel": "Buddy 名称",
     "namePlaceholder": "例如：代码猫",
+    "usernameLabel": "用户名",
+    "usernamePlaceholder": "例如：coding-cat",
     "descLabel": "描述",
     "descPlaceholder": "这个 Buddy 的用途和能力...",
     "avatarLabel": "选择头像",

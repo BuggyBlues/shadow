@@ -41,8 +41,10 @@ let app: Hono
 
 // Test identities
 let adminUserId: string
+let adminUsername: string
 let buyerUserId: string
 let buddyUserId: string
+let buddyUsername: string
 let adminToken: string
 let buyerToken: string
 let serverId: string
@@ -121,6 +123,7 @@ beforeAll(async () => {
     passwordHash: 'not-used',
   })
   adminUserId = admin!.id
+  adminUsername = admin!.username
 
   const buyer = await userDao.create({
     email: `shop-buyer-${ts}@test.local`,
@@ -135,6 +138,7 @@ beforeAll(async () => {
     passwordHash: 'not-used',
   })
   buddyUserId = buddy!.id
+  buddyUsername = buddy!.username
 
   adminToken = signAccessToken({
     userId: adminUserId,
@@ -1275,8 +1279,8 @@ describe('Support ticket workflow', () => {
       .orderBy(messages.createdAt)
 
     const created = latestMessage[latestMessage.length - 1]
-    expect(created?.content).toContain(`<@${adminUserId}>`)
-    expect(created?.content).toContain(`<@${buddyUserId}>`)
+    expect(created?.content).toContain(`@${adminUsername}`)
+    expect(created?.content).toContain(`@${buddyUsername}`)
 
     if (!created) throw new Error('Support message not created')
     const atts = await db.select().from(attachments).where(eq(attachments.messageId, created.id))

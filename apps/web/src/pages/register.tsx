@@ -19,7 +19,9 @@ export function RegisterPage() {
   const [displayName, setDisplayName] = useState('')
   const [password, setPassword] = useState('')
   const [inviteCode, setInviteCode] = useState(searchParams.code ?? '')
-  const [selectedAvatar, setSelectedAvatar] = useState(() => renderCatSvg(generateRandomCatConfig()))
+  const [selectedAvatar, setSelectedAvatar] = useState(() =>
+    renderCatSvg(generateRandomCatConfig()),
+  )
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -175,7 +177,11 @@ export function RegisterPage() {
 
         <p className="mt-4 text-[14px]">
           <span className="text-text-muted">{t('auth.hasAccount')}</span>{' '}
-          <Link to="/login" search={searchParams.redirect ? { redirect: searchParams.redirect } : {}} className="text-[#00a8fc] hover:underline">
+          <Link
+            to="/login"
+            search={searchParams.redirect ? { redirect: searchParams.redirect } : {}}
+            className="text-[#00a8fc] hover:underline"
+          >
             {t('auth.loginLink')}
           </Link>
         </p>

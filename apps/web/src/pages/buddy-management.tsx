@@ -869,15 +869,22 @@ function CreateAgentDialog({
   t: (key: string) => string
 }) {
   const [name, setName] = useState('')
+  const [username, setUsername] = useState('')
   const [description, setDescription] = useState('')
   const [selectedAvatar, setSelectedAvatar] = useState<string | null>(null)
 
   const createMutation = useMutation({
-    mutationFn: (data: { name: string; description?: string; avatarUrl?: string }) =>
+    mutationFn: (data: {
+      name: string
+      username: string
+      description?: string
+      avatarUrl?: string
+    }) =>
       fetchApi<Agent>('/api/agents', {
         method: 'POST',
         body: JSON.stringify({
           name: data.name,
+          username: data.username,
           description: data.description,
           avatarUrl: data.avatarUrl,
           kernelType: 'openclaw',
@@ -905,6 +912,21 @@ function CreateAgentDialog({
             placeholder={t('agentMgmt.namePlaceholder')}
             className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
             maxLength={64}
+          />
+        </div>
+
+        {/* Username */}
+        <div className="mb-4">
+          <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
+            {t('agentMgmt.usernameLabel')}
+          </label>
+          <input
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''))}
+            placeholder={t('agentMgmt.usernamePlaceholder')}
+            className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
+            maxLength={32}
           />
         </div>
 
@@ -942,13 +964,15 @@ function CreateAgentDialog({
           <button
             onClick={() =>
               name.trim() &&
+              username.trim() &&
               createMutation.mutate({
                 name: name.trim(),
+                username: username.trim(),
                 description: description.trim() || undefined,
                 avatarUrl: selectedAvatar ?? undefined,
               })
             }
-            disabled={!name.trim() || createMutation.isPending}
+            disabled={!name.trim() || !username.trim() || createMutation.isPending}
             className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-primary-hover text-white font-bold rounded-lg transition disabled:opacity-50"
           >
             <img src="/Logo.svg" alt="Buddy" className="w-4 h-4" />

@@ -5,9 +5,9 @@
  * Supports channel messaging, threads, @mentions, reactions, and media.
  */
 
+import { ShadowClient } from '@shadowob/sdk'
 import { DEFAULT_ACCOUNT_ID, getAccountConfig, listAccountIds } from './config.js'
 import { parseTarget, shadowOutbound } from './outbound.js'
-import { ShadowClient } from './shadow-client.js'
 import type {
   ChannelAccountSnapshot,
   ChannelCapabilities,
@@ -392,7 +392,11 @@ export const shadowPlugin: ChannelPlugin<ShadowAccountConfig> = {
 
       // get-server — fetch server info (name, description, homepage, etc.)
       if (action === 'get-server') {
-        const serverId = (params.serverId as string) ?? (params.server_id as string) ?? (params.server as string) ?? ''
+        const serverId =
+          (params.serverId as string) ??
+          (params.server_id as string) ??
+          (params.server as string) ??
+          ''
         if (!serverId) {
           return {
             content: [
@@ -425,8 +429,16 @@ export const shadowPlugin: ChannelPlugin<ShadowAccountConfig> = {
 
       // update-homepage — update server homepage HTML for decoration
       if (action === 'update-homepage') {
-        const serverId = (params.serverId as string) ?? (params.server_id as string) ?? (params.server as string) ?? ''
-        const html = (params.html as string) ?? (params.homepageHtml as string) ?? (params.homepage_html as string) ?? null
+        const serverId =
+          (params.serverId as string) ??
+          (params.server_id as string) ??
+          (params.server as string) ??
+          ''
+        const html =
+          (params.html as string) ??
+          (params.homepageHtml as string) ??
+          (params.homepage_html as string) ??
+          null
         if (!serverId) {
           return {
             content: [
@@ -449,7 +461,9 @@ export const shadowPlugin: ChannelPlugin<ShadowAccountConfig> = {
                   action: 'update-homepage',
                   serverId: result.id,
                   slug: result.slug,
-                  homepageHtml: result.homepageHtml ? `(${result.homepageHtml.length} chars)` : null,
+                  homepageHtml: result.homepageHtml
+                    ? `(${result.homepageHtml.length} chars)`
+                    : null,
                 }),
               },
             ],

@@ -17,7 +17,7 @@
   "dependencies": {
     "@hono/node-server": "^1.14.1",
     "@hono/zod-validator": "^0.5.0",
-    "@shadowob/agenthub": "workspace:*",
+    "@shadowob/sdk": "workspace:*",
     "@shadowob/shared": "workspace:*",
     "@types/archiver": "^7.0.0",
     "archiver": "^7.0.1",

@@ -148,31 +148,31 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
       {/* Action buttons — fixed at bottom */}
       <div className="flex flex-col items-center gap-2 pt-2 shrink-0">
         <div className="w-8 h-0.5 bg-divider rounded-full" />
-      <button
-        onClick={() => setShowCreate(!showCreate)}
-        className="w-12 h-12 rounded-[24px] hover:rounded-[16px] bg-bg-primary hover:bg-[#23a559] transition-all duration-200 flex items-center justify-center text-[#23a559] hover:text-white"
-        title={t('server.createServer')}
-      >
-        <Plus size={24} />
-      </button>
+        <button
+          onClick={() => setShowCreate(!showCreate)}
+          className="w-12 h-12 rounded-[24px] hover:rounded-[16px] bg-bg-primary hover:bg-[#23a559] transition-all duration-200 flex items-center justify-center text-[#23a559] hover:text-white"
+          title={t('server.createServer')}
+        >
+          <Plus size={24} />
+        </button>
 
-      {/* Join server */}
-      <button
-        onClick={() => setShowJoin(!showJoin)}
-        className="w-12 h-12 rounded-[24px] hover:rounded-[16px] bg-bg-primary hover:bg-[#5865F2] transition-all duration-200 flex items-center justify-center text-[#5865F2] hover:text-white"
-        title={t('server.joinServer')}
-      >
-        <UserPlus size={20} />
-      </button>
+        {/* Join server */}
+        <button
+          onClick={() => setShowJoin(!showJoin)}
+          className="w-12 h-12 rounded-[24px] hover:rounded-[16px] bg-bg-primary hover:bg-[#5865F2] transition-all duration-200 flex items-center justify-center text-[#5865F2] hover:text-white"
+          title={t('server.joinServer')}
+        >
+          <UserPlus size={20} />
+        </button>
 
-      {/* Discover servers */}
-      <button
-        onClick={() => navigate({ to: '/app/discover' })}
-        className="w-12 h-12 rounded-[24px] hover:rounded-[16px] bg-bg-primary hover:bg-[#23a559] transition-all duration-200 flex items-center justify-center text-[#23a559] hover:text-white"
-        title={t('server.discover')}
-      >
-        <Compass size={24} className="opacity-90" />
-      </button>
+        {/* Discover servers */}
+        <button
+          onClick={() => navigate({ to: '/app/discover' })}
+          className="w-12 h-12 rounded-[24px] hover:rounded-[16px] bg-bg-primary hover:bg-[#23a559] transition-all duration-200 flex items-center justify-center text-[#23a559] hover:text-white"
+          title={t('server.discover')}
+        >
+          <Compass size={24} className="opacity-90" />
+        </button>
       </div>
 
       {/* Simple create dialog */}
@@ -191,7 +191,13 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229 && newName.trim()) {
+                if (
+                  e.key === 'Enter' &&
+                  !e.shiftKey &&
+                  !e.nativeEvent.isComposing &&
+                  e.keyCode !== 229 &&
+                  newName.trim()
+                ) {
                   e.preventDefault()
                   createServer.mutate(newName.trim())
                 }
@@ -236,7 +242,13 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
               value={joinCode}
               onChange={(e) => setJoinCode(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229 && joinCode.trim().length === 8) {
+                if (
+                  e.key === 'Enter' &&
+                  !e.shiftKey &&
+                  !e.nativeEvent.isComposing &&
+                  e.keyCode !== 229 &&
+                  joinCode.trim().length === 8
+                ) {
                   e.preventDefault()
                   joinServer.mutate(joinCode.trim())
                 }

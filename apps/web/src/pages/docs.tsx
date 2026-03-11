@@ -184,7 +184,7 @@ function OpenClawContent() {
       <SubHeading>{t('docs.openclawConfig')}</SubHeading>
       <p className="text-gray-600 leading-relaxed mb-4">{t('docs.openclawConfigDesc')}</p>
       <div className="bg-gray-900 text-green-400 rounded-lg p-4 mt-2 font-mono text-sm overflow-x-auto whitespace-pre">
-{`channels:
+        {`channels:
   shadow:
     token: "<agent-jwt-token>"
     serverUrl: "https://shadowob.com"`}
@@ -204,7 +204,10 @@ function OpenClawContent() {
       <SubHeading>{t('docs.openclawCapabilities')}</SubHeading>
       <div className="grid gap-3 my-4">
         {['messaging', 'threads', 'reactions', 'media', 'mentions', 'editDelete'].map((cap) => (
-          <div key={cap} className="bg-gray-50 rounded-xl p-4 border border-gray-200 flex items-start gap-3">
+          <div
+            key={cap}
+            className="bg-gray-50 rounded-xl p-4 border border-gray-200 flex items-start gap-3"
+          >
             <span className="text-green-500 mt-0.5">✅</span>
             <div>
               <p className="font-bold text-gray-800">{t(`docs.openclawCap_${cap}`)}</p>

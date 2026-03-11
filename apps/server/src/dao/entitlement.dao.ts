@@ -4,7 +4,9 @@ import { entitlements } from '../db/schema'
 
 export class EntitlementDao {
   constructor(private deps: { db: Database }) {}
-  private get db() { return this.deps.db }
+  private get db() {
+    return this.deps.db
+  }
 
   async findActiveByUser(userId: string, serverId: string) {
     return this.db
@@ -28,7 +30,7 @@ export class EntitlementDao {
         and(
           eq(entitlements.userId, userId),
           eq(entitlements.serverId, serverId),
-          eq(entitlements.type, type as typeof entitlements.type.enumValues[number]),
+          eq(entitlements.type, type as (typeof entitlements.type.enumValues)[number]),
           eq(entitlements.targetId, targetId),
           eq(entitlements.isActive, true),
           sql`(${entitlements.expiresAt} IS NULL OR ${entitlements.expiresAt} > NOW())`,
@@ -52,11 +54,18 @@ export class EntitlementDao {
   }
 
   async revoke(id: string) {
-    const r = await this.db.update(entitlements).set({ isActive: false }).where(eq(entitlements.id, id)).returning()
+    const r = await this.db
+      .update(entitlements)
+      .set({ isActive: false })
+      .where(eq(entitlements.id, id))
+      .returning()
     return r[0] ?? null
   }
 
   async revokeByOrder(orderId: string) {
-    await this.db.update(entitlements).set({ isActive: false }).where(eq(entitlements.orderId, orderId))
+    await this.db
+      .update(entitlements)
+      .set({ isActive: false })
+      .where(eq(entitlements.orderId, orderId))
   }
 }

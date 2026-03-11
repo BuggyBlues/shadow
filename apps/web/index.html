@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Nunito:wght@400;700;900&display=swap" rel="stylesheet" />
     <script>
       // Apply saved theme before first paint to prevent flash
-      (function(){
+      (()=> {
         var t = localStorage.getItem('shadow-theme') || 'dark';
         var e = t === 'system'
           ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')

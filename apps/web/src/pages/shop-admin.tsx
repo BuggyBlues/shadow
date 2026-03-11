@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams } from '@tanstack/react-router'
+import { ShopAdmin } from '../components/shop/shop-admin'
 import { fetchApi } from '../lib/api'
 import { useAuthStore } from '../stores/auth.store'
-import { ShopAdmin } from '../components/shop/shop-admin'
 
 export function ShopAdminPageRoute() {
   const { serverId } = useParams({ strict: false }) as { serverId: string }
@@ -26,9 +26,7 @@ export function ShopAdminPageRoute() {
   return (
     <ShopAdmin
       serverId={serverId}
-      onBack={() =>
-        navigate({ to: '/app/servers/$serverId/shop', params: { serverId } })
-      }
+      onBack={() => navigate({ to: '/app/servers/$serverId/shop', params: { serverId } })}
     />
   )
 }

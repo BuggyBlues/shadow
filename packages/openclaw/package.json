@@ -12,12 +12,21 @@
     "directory": "packages/openclaw"
   },
   "homepage": "https://github.com/buggyblues/shadow/tree/main/packages/openclaw#readme",
-  "keywords": ["openclaw", "openclaw-plugin", "shadow", "chat", "channel", "ai-agent"],
+  "keywords": [
+    "openclaw",
+    "openclaw-plugin",
+    "shadow",
+    "chat",
+    "channel",
+    "ai-agent"
+  ],
   "openclaw": {
-    "extensions": ["./index.ts"]
+    "extensions": [
+      "./index.ts"
+    ]
   },
   "dependencies": {
-    "socket.io-client": "^4.8.1",
+    "@shadowob/sdk": "workspace:*",
     "zod": "^3.25.67"
   }
 }

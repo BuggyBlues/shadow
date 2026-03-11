@@ -31,7 +31,10 @@ interface ChannelListItem {
 
 export function ServerPage() {
   const { t } = useTranslation()
-  const { serverId, channelName } = useParams({ strict: false }) as { serverId?: string; channelName?: string }
+  const { serverId, channelName } = useParams({ strict: false }) as {
+    serverId?: string
+    channelName?: string
+  }
   const { activeChannelId, activeServerId, setActiveServer, setActiveChannel } = useChatStore()
   const { mobileView, setMobileView } = useUIStore()
   // Track whether we've restored the channel from URL for this server navigation

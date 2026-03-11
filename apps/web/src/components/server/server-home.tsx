@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Copy, Check, ExternalLink, Settings, Home } from 'lucide-react'
+import { useNavigate } from '@tanstack/react-router'
+import { ArrowLeft, Check, Copy, ExternalLink, Home, Settings } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from '@tanstack/react-router'
 import { fetchApi } from '../../lib/api'
 import { useChatStore } from '../../stores/chat.store'
 import { useUIStore } from '../../stores/ui.store'
@@ -19,10 +19,7 @@ interface ServerDetail {
 }
 
 /** Generate a polished default homepage HTML matching the main site's light glass-morphism style. */
-function generateDefaultHtml(
-  server: ServerDetail,
-  t: (key: string) => string,
-): string {
+function generateDefaultHtml(server: ServerDetail, t: (key: string) => string): string {
   const initial = server.name.charAt(0).toUpperCase()
   const bannerCss = server.bannerUrl
     ? `background-image: url('${server.bannerUrl}'); background-size: cover; background-position: center;`
@@ -35,19 +32,38 @@ function generateDefaultHtml(
   const desc = server.description || t('serverHome.defaultDesc')
 
   const features = [
-    { icon: '💬', title: t('serverHome.chatTitle'), desc: t('serverHome.chatDesc'), color: '#06b6d4' },
+    {
+      icon: '💬',
+      title: t('serverHome.chatTitle'),
+      desc: t('serverHome.chatDesc'),
+      color: '#06b6d4',
+    },
     { icon: '🤖', title: t('serverHome.aiTitle'), desc: t('serverHome.aiDesc'), color: '#f59e0b' },
-    { icon: '📢', title: t('serverHome.announceTitle'), desc: t('serverHome.announceDesc'), color: '#8b5cf6' },
-    { icon: '🎨', title: t('serverHome.customizeTitle'), desc: t('serverHome.customizeDesc'), color: '#ec4899' },
+    {
+      icon: '📢',
+      title: t('serverHome.announceTitle'),
+      desc: t('serverHome.announceDesc'),
+      color: '#8b5cf6',
+    },
+    {
+      icon: '🎨',
+      title: t('serverHome.customizeTitle'),
+      desc: t('serverHome.customizeDesc'),
+      color: '#ec4899',
+    },
   ]
 
-  const featureCards = features.map((f) => `
+  const featureCards = features
+    .map(
+      (f) => `
     <div class="feature-card" style="--accent: ${f.color};">
       <div class="feature-icon">${f.icon}</div>
       <h3>${f.title}</h3>
       <p>${f.desc}</p>
     </div>
-  `).join('')
+  `,
+    )
+    .join('')
 
   return `<!DOCTYPE html>
 <html>
@@ -449,7 +465,7 @@ document.addEventListener('click', function(e) {
                 const slug = server.slug || server.id
                 navigate({ to: '/app/servers/$serverId', params: { serverId: slug } })
               }}
-            className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-modifier-hover rounded-lg transition"
+              className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-modifier-hover rounded-lg transition"
               title={t('serverHome.backToServer')}
             >
               <Settings size={16} />

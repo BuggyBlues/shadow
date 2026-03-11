@@ -4,22 +4,35 @@ import { cartItems } from '../db/schema'
 
 export class CartDao {
   constructor(private deps: { db: Database }) {}
-  private get db() { return this.deps.db }
+  private get db() {
+    return this.deps.db
+  }
 
   async findByUserId(userId: string, shopId?: string) {
     const conditions = [eq(cartItems.userId, userId)]
     if (shopId) conditions.push(eq(cartItems.shopId, shopId))
-    return this.db.select().from(cartItems).where(and(...conditions)).orderBy(cartItems.createdAt)
+    return this.db
+      .select()
+      .from(cartItems)
+      .where(and(...conditions))
+      .orderBy(cartItems.createdAt)
   }
 
-  async upsert(data: { userId: string; shopId: string; productId: string; skuId?: string; quantity: number }) {
-    const conditions = [
-      eq(cartItems.userId, data.userId),
-      eq(cartItems.productId, data.productId),
-    ]
+  async upsert(data: {
+    userId: string
+    shopId: string
+    productId: string
+    skuId?: string
+    quantity: number
+  }) {
+    const conditions = [eq(cartItems.userId, data.userId), eq(cartItems.productId, data.productId)]
     if (data.skuId) conditions.push(eq(cartItems.skuId, data.skuId))
 
-    const existing = await this.db.select().from(cartItems).where(and(...conditions)).limit(1)
+    const existing = await this.db
+      .select()
+      .from(cartItems)
+      .where(and(...conditions))
+      .limit(1)
     if (existing[0]) {
       const r = await this.db
         .update(cartItems)
@@ -46,7 +59,9 @@ export class CartDao {
   }
 
   async clearByShop(userId: string, shopId: string) {
-    await this.db.delete(cartItems).where(and(eq(cartItems.userId, userId), eq(cartItems.shopId, shopId)))
+    await this.db
+      .delete(cartItems)
+      .where(and(eq(cartItems.userId, userId), eq(cartItems.shopId, shopId)))
   }
 
   async countByUser(userId: string, shopId: string) {

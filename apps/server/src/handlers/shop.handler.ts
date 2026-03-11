@@ -504,7 +504,11 @@ export function createShopHandler(container: AppContainer) {
       const prefix = input.productId ? `商品(${input.productId})` : '通用咨询'
       const mentionLine = [ownerId, buddyId]
         .filter((id): id is string => !!id)
-        .map((id) => `<@${id}>`)
+        .map((id) => {
+          const m = members.find((mem) => mem.userId === id)
+          return m?.user?.username ? `@${m.user.username}` : null
+        })
+        .filter((s): s is string => !!s)
         .join(' ')
       const content = [
         `[商城客服] ${prefix}`,

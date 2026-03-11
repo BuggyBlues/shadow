@@ -532,6 +532,8 @@
     "createTitle": "Create Buddy",
     "nameLabel": "Buddy Name",
     "namePlaceholder": "e.g. CodingCat",
+    "usernameLabel": "Username",
+    "usernamePlaceholder": "e.g. coding-cat",
     "descLabel": "Description",
     "descPlaceholder": "What this Buddy does...",
     "avatarLabel": "Choose Avatar",

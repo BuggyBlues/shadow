@@ -44,7 +44,13 @@ export class WalletService {
    * Debit user's wallet for a purchase.
    * Returns the new balance or throws if insufficient funds.
    */
-  async debit(userId: string, amount: number, referenceId: string, referenceType: string, note: string) {
+  async debit(
+    userId: string,
+    amount: number,
+    referenceId: string,
+    referenceType: string,
+    note: string,
+  ) {
     const wallet = await this.deps.walletDao.getOrCreate(userId)
     if (wallet.balance < amount) {
       throw Object.assign(new Error('Insufficient balance'), { status: 400 })
@@ -66,7 +72,13 @@ export class WalletService {
   /**
    * Refund to user's wallet.
    */
-  async refund(userId: string, amount: number, referenceId: string, referenceType: string, note: string) {
+  async refund(
+    userId: string,
+    amount: number,
+    referenceId: string,
+    referenceType: string,
+    note: string,
+  ) {
     const wallet = await this.deps.walletDao.getOrCreate(userId)
     const newBalance = wallet.balance + amount
     await this.deps.walletDao.credit(wallet.id, amount)

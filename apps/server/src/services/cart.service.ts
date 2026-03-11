@@ -25,10 +25,22 @@ export class CartService {
         return {
           ...item,
           product: product
-            ? { id: product.id, name: product.name, status: product.status, basePrice: product.basePrice, type: product.type }
+            ? {
+                id: product.id,
+                name: product.name,
+                status: product.status,
+                basePrice: product.basePrice,
+                type: product.type,
+              }
             : null,
           sku: sku
-            ? { id: sku.id, specValues: sku.specValues, price: sku.price, stock: sku.stock, imageUrl: sku.imageUrl }
+            ? {
+                id: sku.id,
+                specValues: sku.specValues,
+                price: sku.price,
+                stock: sku.stock,
+                imageUrl: sku.imageUrl,
+              }
             : null,
           imageUrl: sku?.imageUrl || media[0]?.url || null,
           unitPrice: sku?.price ?? product?.basePrice ?? 0,

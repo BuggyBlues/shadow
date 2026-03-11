@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams } from '@tanstack/react-router'
+import { ShopPage } from '../components/shop/shop-page'
 import { fetchApi } from '../lib/api'
 import { useAuthStore } from '../stores/auth.store'
-import { ShopPage } from '../components/shop/shop-page'
 
 export function ShopPageRoute() {
   const { serverId } = useParams({ strict: false }) as { serverId: string }
@@ -21,9 +21,7 @@ export function ShopPageRoute() {
     <ShopPage
       serverId={serverId}
       isAdmin={isAdmin}
-      onClose={() =>
-        navigate({ to: '/app/servers/$serverId', params: { serverId } })
-      }
+      onClose={() => navigate({ to: '/app/servers/$serverId', params: { serverId } })}
     />
   )
 }

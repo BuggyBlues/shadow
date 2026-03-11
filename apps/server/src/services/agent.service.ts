@@ -1,7 +1,6 @@
 import type { Logger } from 'pino'
 import type { AgentDao } from '../dao/agent.dao'
 import type { UserDao } from '../dao/user.dao'
-import { randomFixedDigits, sanitizeSlugPart } from '../lib/id'
 import { signAgentToken } from '../lib/jwt'
 
 export class AgentService {
@@ -9,27 +8,21 @@ export class AgentService {
 
   async create(data: {
     name: string
+    username: string
     description?: string
     avatarUrl?: string
     kernelType: string
     config: Record<string, unknown>
     ownerId: string
   }) {
-    // Create a bot user for the agent.
-    // Username format: buddy-<name>-<fixed-digits>, easy to type/memorize and avoids double hyphens.
-    const baseName = sanitizeSlugPart(data.name) || 'bot'
-    let botUser: Awaited<ReturnType<AgentDao['createBotUser']>> | null = null
-    for (let attempt = 0; attempt < 20; attempt++) {
-      const username = `buddy-${baseName}-${randomFixedDigits(6)}`
-      botUser = await this.deps.agentDao.createBotUser({
-        username,
-        displayName: data.name,
-      })
-      if (botUser) break
-    }
+    // Create a bot user for the agent with the provided username.
+    const botUser = await this.deps.agentDao.createBotUser({
+      username: data.username,
+      displayName: data.name,
+    })
 
     if (!botUser) {
-      throw Object.assign(new Error('Failed to create bot user'), { status: 500 })
+      throw Object.assign(new Error('Username already taken'), { status: 409 })
     }
 
     // Update avatar if provided

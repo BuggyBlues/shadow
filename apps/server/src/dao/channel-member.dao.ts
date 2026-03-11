@@ -42,9 +42,7 @@ export class ChannelMemberDao {
     const rows = await this.db
       .select({ channelId: channelMembers.channelId })
       .from(channelMembers)
-      .where(
-        and(eq(channelMembers.userId, userId), inArray(channelMembers.channelId, channelIds)),
-      )
+      .where(and(eq(channelMembers.userId, userId), inArray(channelMembers.channelId, channelIds)))
     return rows.map((r) => r.channelId)
   }
 

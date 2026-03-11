@@ -31,6 +31,7 @@ export function createAgentHandler(container: AppContainer) {
     const input = c.req.valid('json')
     const agent = await agentService.create({
       name: input.name,
+      username: input.username,
       description: input.description,
       avatarUrl: input.avatarUrl,
       kernelType: input.kernelType,

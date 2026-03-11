@@ -1,4 +1,14 @@
-import { Code2, Download, Eye, File, FileArchive, FolderOpen, Maximize2, Minimize2, X } from 'lucide-react'
+import {
+  Code2,
+  Download,
+  Eye,
+  File,
+  FileArchive,
+  FolderOpen,
+  Maximize2,
+  Minimize2,
+  X,
+} from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import ReactMarkdown from 'react-markdown'
@@ -339,7 +349,10 @@ function CSVTable({ text, ext }: { text: string; ext: string }) {
         </thead>
         <tbody>
           {rows.map((row, ri) => (
-            <tr key={ri} className="border-b border-border-subtle hover:bg-white/3 transition-colors">
+            <tr
+              key={ri}
+              className="border-b border-border-subtle hover:bg-white/3 transition-colors"
+            >
               <td className="px-3 py-1.5 text-[11px] text-text-muted text-right border-r border-border-subtle tabular-nums select-none">
                 {ri + 1}
               </td>
@@ -398,7 +411,9 @@ function ExcelTable({ url }: { url: string }) {
         if (!cancelled) setLoading(false)
       }
     })()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [url])
 
   if (loading)
@@ -458,7 +473,10 @@ function ExcelTable({ url }: { url: string }) {
           </thead>
           <tbody>
             {sheet.rows.map((row, ri) => (
-              <tr key={ri} className="border-b border-border-subtle hover:bg-white/3 transition-colors">
+              <tr
+                key={ri}
+                className="border-b border-border-subtle hover:bg-white/3 transition-colors"
+              >
                 <td className="px-3 py-1.5 text-[11px] text-text-muted text-right border-r border-border-subtle tabular-nums select-none">
                   {ri + 1}
                 </td>
@@ -689,36 +707,39 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
   const dragStartX = useRef(0)
   const dragStartWidth = useRef(520)
 
-  const handleDragStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    isDragging.current = true
-    setIsResizing(true)
-    dragStartX.current = e.clientX
-    dragStartWidth.current = panelWidth
-    document.body.style.cursor = 'col-resize'
-    document.body.style.userSelect = 'none'
+  const handleDragStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      isDragging.current = true
+      setIsResizing(true)
+      dragStartX.current = e.clientX
+      dragStartWidth.current = panelWidth
+      document.body.style.cursor = 'col-resize'
+      document.body.style.userSelect = 'none'
 
-    const handleMouseMove = (ev: MouseEvent) => {
-      if (!isDragging.current) return
-      const delta = dragStartX.current - ev.clientX
-      // Limit: min 320px, max = window width minus 400px for message area (at least)
-      const maxWidth = Math.min(window.innerWidth * 0.6, window.innerWidth - 400)
-      const newWidth = Math.max(320, Math.min(maxWidth, dragStartWidth.current + delta))
-      setPanelWidth(newWidth)
-    }
+      const handleMouseMove = (ev: MouseEvent) => {
+        if (!isDragging.current) return
+        const delta = dragStartX.current - ev.clientX
+        // Limit: min 320px, max = window width minus 400px for message area (at least)
+        const maxWidth = Math.min(window.innerWidth * 0.6, window.innerWidth - 400)
+        const newWidth = Math.max(320, Math.min(maxWidth, dragStartWidth.current + delta))
+        setPanelWidth(newWidth)
+      }
 
-    const handleMouseUp = () => {
-      isDragging.current = false
-      setIsResizing(false)
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-    }
+      const handleMouseUp = () => {
+        isDragging.current = false
+        setIsResizing(false)
+        document.body.style.cursor = ''
+        document.body.style.userSelect = ''
+        document.removeEventListener('mousemove', handleMouseMove)
+        document.removeEventListener('mouseup', handleMouseUp)
+      }
 
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
-  }, [panelWidth])
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+    },
+    [panelWidth],
+  )
 
   // Track preview open/close for auto-hiding member list
   useEffect(() => {
@@ -940,71 +961,69 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
         <div className="fixed inset-0 z-40 bg-black/60" onClick={() => setIsFullscreen(false)} />
       )}
       <div className={panelClasses} style={isFullscreen ? undefined : { width: panelWidth }}>
-      {/* Transparent overlay during drag to prevent iframe from capturing mouse events */}
-      {isResizing && (
-        <div className="absolute inset-0 z-20" />
-      )}
-      {/* Drag handle on left edge */}
-      {!isFullscreen && (
-        <div
-          className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/40 transition-colors z-10 group"
-          onMouseDown={handleDragStart}
-        >
-          <div className="absolute inset-y-0 -left-1 w-3" />
-        </div>
-      )}
-      {/* Header */}
-      <div className="h-12 px-4 flex items-center gap-3 border-b border-white/8 shrink-0">
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-text-primary truncate">{attachment.filename}</p>
-          <p className="text-[11px] text-text-muted">{formatFileSize(attachment.size)}</p>
-        </div>
-
-        {showToggle && (
-          <div className="flex items-center gap-0.5 bg-bg-tertiary rounded-lg p-0.5">
-            <TabButton
-              active={mode === 'preview'}
-              icon={Eye}
-              label={t('chat.previewTab')}
-              onClick={() => setMode('preview')}
-            />
-            <TabButton
-              active={mode === 'code'}
-              icon={Code2}
-              label={t('chat.codeTab')}
-              onClick={() => setMode('code')}
-            />
+        {/* Transparent overlay during drag to prevent iframe from capturing mouse events */}
+        {isResizing && <div className="absolute inset-0 z-20" />}
+        {/* Drag handle on left edge */}
+        {!isFullscreen && (
+          <div
+            className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/40 transition-colors z-10 group"
+            onMouseDown={handleDragStart}
+          >
+            <div className="absolute inset-y-0 -left-1 w-3" />
           </div>
         )}
+        {/* Header */}
+        <div className="h-12 px-4 flex items-center gap-3 border-b border-white/8 shrink-0">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-text-primary truncate">{attachment.filename}</p>
+            <p className="text-[11px] text-text-muted">{formatFileSize(attachment.size)}</p>
+          </div>
 
-        <button
-          type="button"
-          onClick={() => setIsFullscreen(!isFullscreen)}
-          className="p-1.5 text-text-muted hover:text-text-primary hover:bg-white/10 rounded-md transition"
-          title={isFullscreen ? t('chat.exitFullscreen') : t('chat.enterFullscreen')}
-        >
-          {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-        </button>
-        <a
-          href={attachment.url}
-          download={attachment.filename}
-          className="p-1.5 text-text-muted hover:text-text-primary hover:bg-white/10 rounded-md transition"
-          title={t('chat.downloadFile')}
-        >
-          <Download size={16} />
-        </a>
-        <button
-          type="button"
-          onClick={onClose}
-          className="p-1.5 text-text-muted hover:text-text-primary hover:bg-white/10 rounded-md transition"
-          title={t('common.close')}
-        >
-          <X size={16} />
-        </button>
-      </div>
+          {showToggle && (
+            <div className="flex items-center gap-0.5 bg-bg-tertiary rounded-lg p-0.5">
+              <TabButton
+                active={mode === 'preview'}
+                icon={Eye}
+                label={t('chat.previewTab')}
+                onClick={() => setMode('preview')}
+              />
+              <TabButton
+                active={mode === 'code'}
+                icon={Code2}
+                label={t('chat.codeTab')}
+                onClick={() => setMode('code')}
+              />
+            </div>
+          )}
 
-      {/* Preview content */}
-      {renderContent()}
+          <button
+            type="button"
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            className="p-1.5 text-text-muted hover:text-text-primary hover:bg-white/10 rounded-md transition"
+            title={isFullscreen ? t('chat.exitFullscreen') : t('chat.enterFullscreen')}
+          >
+            {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+          </button>
+          <a
+            href={attachment.url}
+            download={attachment.filename}
+            className="p-1.5 text-text-muted hover:text-text-primary hover:bg-white/10 rounded-md transition"
+            title={t('chat.downloadFile')}
+          >
+            <Download size={16} />
+          </a>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 text-text-muted hover:text-text-primary hover:bg-white/10 rounded-md transition"
+            title={t('common.close')}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Preview content */}
+        {renderContent()}
       </div>
     </>
   )

@@ -531,6 +531,8 @@
     "createTitle": "Buddy 作成",
     "nameLabel": "Buddy 名",
     "namePlaceholder": "例：コーディングキャット",
+    "usernameLabel": "ユーザー名",
+    "usernamePlaceholder": "例：coding-cat",
     "descLabel": "説明",
     "descPlaceholder": "この Buddy の用途と能力...",
     "avatarLabel": "アバター選択",

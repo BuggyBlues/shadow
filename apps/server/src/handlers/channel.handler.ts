@@ -217,7 +217,7 @@ export function createChannelHandler(container: AppContainer) {
     }
 
     // Determine policy fields based on mode
-    let listen = true
+    const listen = true
     let reply = true
     let mentionOnly = body.mentionOnly ?? false
     const config: Record<string, unknown> = {}

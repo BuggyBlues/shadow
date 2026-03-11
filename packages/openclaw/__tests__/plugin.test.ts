@@ -240,7 +240,7 @@ describe('Plugin Entry Point', () => {
   it('should export a valid OpenClawPluginDefinition', async () => {
     const mod = await import('../index.js')
     const plugin = mod.default
-    expect(plugin.id).toBe('shadowob')
+    expect(plugin.id).toBe('openclaw')
     expect(plugin.name).toBe('ShadowOwnBuddy')
     expect(typeof plugin.register).toBe('function')
   })
@@ -260,10 +260,10 @@ describe('Plugin Entry Point', () => {
 // ── Shadow Client ──────────────────────────────────────────────
 
 describe('ShadowClient', () => {
-  let ShadowClient: typeof import('../src/shadow-client.js').ShadowClient
+  let ShadowClient: typeof import('@shadowob/sdk').ShadowClient
 
   beforeEach(async () => {
-    const mod = await import('../src/shadow-client.js')
+    const mod = await import('@shadowob/sdk')
     ShadowClient = mod.ShadowClient
   })
 

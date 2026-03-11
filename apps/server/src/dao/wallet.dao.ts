@@ -1,10 +1,12 @@
-import { and, eq, sql, desc } from 'drizzle-orm'
+import { and, desc, eq, sql } from 'drizzle-orm'
 import type { Database } from '../db'
 import { wallets, walletTransactions } from '../db/schema'
 
 export class WalletDao {
   constructor(private deps: { db: Database }) {}
-  private get db() { return this.deps.db }
+  private get db() {
+    return this.deps.db
+  }
 
   async findByUserId(userId: string) {
     const r = await this.db.select().from(wallets).where(eq(wallets.userId, userId)).limit(1)
@@ -21,7 +23,11 @@ export class WalletDao {
   }
 
   async updateBalance(id: string, balance: number) {
-    const r = await this.db.update(wallets).set({ balance, updatedAt: new Date() }).where(eq(wallets.id, id)).returning()
+    const r = await this.db
+      .update(wallets)
+      .set({ balance, updatedAt: new Date() })
+      .where(eq(wallets.id, id))
+      .returning()
     return r[0] ?? null
   }
 
@@ -67,7 +73,10 @@ export class WalletDao {
   }
 
   async countTransactions(walletId: string) {
-    const r = await this.db.select({ count: sql<number>`count(*)::int` }).from(walletTransactions).where(eq(walletTransactions.walletId, walletId))
+    const r = await this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(walletTransactions)
+      .where(eq(walletTransactions.walletId, walletId))
     return r[0]?.count ?? 0
   }
 }

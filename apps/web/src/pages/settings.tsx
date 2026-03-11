@@ -1,5 +1,25 @@
 import { useNavigate } from '@tanstack/react-router'
-import { Bot, BookOpen, Check, Compass, Copy, FileText, Link2, LogOut, Monitor, Moon, Paintbrush, Plus, Rocket, Save, Shield, Sun, Trash2, User, X } from 'lucide-react'
+import {
+  BookOpen,
+  Bot,
+  Check,
+  Compass,
+  Copy,
+  FileText,
+  Link2,
+  LogOut,
+  Monitor,
+  Moon,
+  Paintbrush,
+  Plus,
+  Rocket,
+  Save,
+  Shield,
+  Sun,
+  Trash2,
+  User,
+  X,
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { UserAvatar } from '../components/common/avatar'
@@ -29,7 +49,9 @@ export function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [saveSuccess, setSaveSuccess] = useState(false)
-  const [activeTab, setActiveTab] = useState<'quickstart' | 'profile' | 'account' | 'invite' | 'buddy' | 'appearance'>('quickstart')
+  const [activeTab, setActiveTab] = useState<
+    'quickstart' | 'profile' | 'account' | 'invite' | 'buddy' | 'appearance'
+  >('quickstart')
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
   useEffect(() => {
@@ -80,14 +102,14 @@ export function SettingsPage() {
     <div className="flex-1 flex flex-col md:flex-row bg-bg-primary overflow-hidden">
       {/* Mobile tab bar */}
       <div className="md:hidden flex overflow-x-auto border-b border-border-subtle bg-bg-secondary px-2 py-2 gap-1 shrink-0">
-        {([
+        {[
           { key: 'quickstart' as const, icon: Rocket, label: t('settings.tabQuickStart') },
           { key: 'profile' as const, icon: User, label: t('settings.tabProfile') },
           { key: 'appearance' as const, icon: Paintbrush, label: t('settings.tabAppearance') },
           { key: 'buddy' as const, icon: Bot, label: t('settings.tabBuddy') },
           { key: 'account' as const, icon: Shield, label: t('settings.tabAccount') },
           { key: 'invite' as const, icon: Link2, label: t('settings.tabInvite') },
-        ]).map(({ key, icon: Icon, label }) => (
+        ].map(({ key, icon: Icon, label }) => (
           <button
             key={key}
             onClick={() => setActiveTab(key)}
@@ -238,7 +260,9 @@ export function SettingsPage() {
               {/* Hero */}
               <div className="text-center mb-10">
                 <img src="/Logo.svg" alt="Shadow" className="w-16 h-16 mx-auto mb-4 opacity-80" />
-                <h2 className="text-2xl font-bold text-text-primary mb-2">{t('common.welcomeTitle')}</h2>
+                <h2 className="text-2xl font-bold text-text-primary mb-2">
+                  {t('common.welcomeTitle')}
+                </h2>
                 <p className="text-text-secondary text-[15px]">{t('common.welcomeDesc')}</p>
               </div>
 
@@ -249,8 +273,13 @@ export function SettingsPage() {
                   onClick={() => navigate({ to: '/app/discover' })}
                   className="bg-bg-secondary hover:bg-bg-tertiary border border-border-subtle rounded-xl p-5 text-left transition group"
                 >
-                  <Compass size={24} className="text-[#23a559] mb-3 group-hover:scale-110 transition-transform" />
-                  <h3 className="font-bold text-text-primary text-[15px] mb-1">{t('guide.discoverTitle')}</h3>
+                  <Compass
+                    size={24}
+                    className="text-[#23a559] mb-3 group-hover:scale-110 transition-transform"
+                  />
+                  <h3 className="font-bold text-text-primary text-[15px] mb-1">
+                    {t('guide.discoverTitle')}
+                  </h3>
                   <p className="text-text-muted text-[13px]">{t('guide.discoverDesc')}</p>
                 </button>
                 <button
@@ -258,8 +287,13 @@ export function SettingsPage() {
                   onClick={() => setActiveTab('profile')}
                   className="bg-bg-secondary hover:bg-bg-tertiary border border-border-subtle rounded-xl p-5 text-left transition group"
                 >
-                  <User size={24} className="text-text-muted mb-3 group-hover:scale-110 transition-transform" />
-                  <h3 className="font-bold text-text-primary text-[15px] mb-1">{t('guide.settingsTitle')}</h3>
+                  <User
+                    size={24}
+                    className="text-text-muted mb-3 group-hover:scale-110 transition-transform"
+                  />
+                  <h3 className="font-bold text-text-primary text-[15px] mb-1">
+                    {t('guide.settingsTitle')}
+                  </h3>
                   <p className="text-text-muted text-[13px]">{t('guide.settingsDesc')}</p>
                 </button>
                 <button
@@ -267,8 +301,13 @@ export function SettingsPage() {
                   onClick={() => navigate({ to: '/docs' })}
                   className="bg-bg-secondary hover:bg-bg-tertiary border border-border-subtle rounded-xl p-5 text-left transition group"
                 >
-                  <FileText size={24} className="text-[#5865F2] mb-3 group-hover:scale-110 transition-transform" />
-                  <h3 className="font-bold text-text-primary text-[15px] mb-1">{t('guide.docsTitle')}</h3>
+                  <FileText
+                    size={24}
+                    className="text-[#5865F2] mb-3 group-hover:scale-110 transition-transform"
+                  />
+                  <h3 className="font-bold text-text-primary text-[15px] mb-1">
+                    {t('guide.docsTitle')}
+                  </h3>
                   <p className="text-text-muted text-[13px]">{t('guide.docsDesc')}</p>
                 </button>
               </div>
@@ -281,7 +320,9 @@ export function SettingsPage() {
                 </h3>
                 <div className="space-y-4">
                   <div className="flex items-start gap-4">
-                    <div className="w-8 h-8 rounded-full bg-[#5865F2]/10 flex items-center justify-center shrink-0 text-primary font-bold text-sm">1</div>
+                    <div className="w-8 h-8 rounded-full bg-[#5865F2]/10 flex items-center justify-center shrink-0 text-primary font-bold text-sm">
+                      1
+                    </div>
                     <div>
                       <h4 className="font-semibold text-text-primary text-[14px] mb-0.5 flex items-center gap-2">
                         <Plus size={14} className="text-[#23a559]" />
@@ -291,7 +332,9 @@ export function SettingsPage() {
                     </div>
                   </div>
                   <div className="flex items-start gap-4">
-                    <div className="w-8 h-8 rounded-full bg-[#5865F2]/10 flex items-center justify-center shrink-0 text-primary font-bold text-sm">2</div>
+                    <div className="w-8 h-8 rounded-full bg-[#5865F2]/10 flex items-center justify-center shrink-0 text-primary font-bold text-sm">
+                      2
+                    </div>
                     <div>
                       <h4 className="font-semibold text-text-primary text-[14px] mb-0.5 flex items-center gap-2">
                         <Link2 size={14} className="text-[#5865F2]" />
@@ -301,7 +344,9 @@ export function SettingsPage() {
                     </div>
                   </div>
                   <div className="flex items-start gap-4">
-                    <div className="w-8 h-8 rounded-full bg-[#5865F2]/10 flex items-center justify-center shrink-0 text-primary font-bold text-sm">3</div>
+                    <div className="w-8 h-8 rounded-full bg-[#5865F2]/10 flex items-center justify-center shrink-0 text-primary font-bold text-sm">
+                      3
+                    </div>
                     <div>
                       <h4 className="font-semibold text-text-primary text-[14px] mb-0.5 flex items-center gap-2">
                         <Compass size={14} className="text-[#23a559]" />
@@ -321,30 +366,46 @@ export function SettingsPage() {
                 </h3>
                 <div className="space-y-4">
                   <div className="flex items-start gap-4">
-                    <div className="w-8 h-8 rounded-full bg-[#23a559]/10 flex items-center justify-center shrink-0 text-[#23a559] font-bold text-sm">1</div>
+                    <div className="w-8 h-8 rounded-full bg-[#23a559]/10 flex items-center justify-center shrink-0 text-[#23a559] font-bold text-sm">
+                      1
+                    </div>
                     <div>
-                      <h4 className="font-semibold text-text-primary text-[14px] mb-0.5">{t('guide.buddyStep1Title')}</h4>
+                      <h4 className="font-semibold text-text-primary text-[14px] mb-0.5">
+                        {t('guide.buddyStep1Title')}
+                      </h4>
                       <p className="text-text-muted text-[13px]">{t('guide.buddyStep1Desc')}</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-4">
-                    <div className="w-8 h-8 rounded-full bg-[#23a559]/10 flex items-center justify-center shrink-0 text-[#23a559] font-bold text-sm">2</div>
+                    <div className="w-8 h-8 rounded-full bg-[#23a559]/10 flex items-center justify-center shrink-0 text-[#23a559] font-bold text-sm">
+                      2
+                    </div>
                     <div>
-                      <h4 className="font-semibold text-text-primary text-[14px] mb-0.5">{t('guide.buddyStep2Title')}</h4>
+                      <h4 className="font-semibold text-text-primary text-[14px] mb-0.5">
+                        {t('guide.buddyStep2Title')}
+                      </h4>
                       <p className="text-text-muted text-[13px]">{t('guide.buddyStep2Desc')}</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-4">
-                    <div className="w-8 h-8 rounded-full bg-[#23a559]/10 flex items-center justify-center shrink-0 text-[#23a559] font-bold text-sm">3</div>
+                    <div className="w-8 h-8 rounded-full bg-[#23a559]/10 flex items-center justify-center shrink-0 text-[#23a559] font-bold text-sm">
+                      3
+                    </div>
                     <div>
-                      <h4 className="font-semibold text-text-primary text-[14px] mb-0.5">{t('guide.buddyStep3Title')}</h4>
+                      <h4 className="font-semibold text-text-primary text-[14px] mb-0.5">
+                        {t('guide.buddyStep3Title')}
+                      </h4>
                       <p className="text-text-muted text-[13px]">{t('guide.buddyStep3Desc')}</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-4">
-                    <div className="w-8 h-8 rounded-full bg-[#23a559]/10 flex items-center justify-center shrink-0 text-[#23a559] font-bold text-sm">4</div>
+                    <div className="w-8 h-8 rounded-full bg-[#23a559]/10 flex items-center justify-center shrink-0 text-[#23a559] font-bold text-sm">
+                      4
+                    </div>
                     <div>
-                      <h4 className="font-semibold text-text-primary text-[14px] mb-0.5">{t('guide.buddyStep4Title')}</h4>
+                      <h4 className="font-semibold text-text-primary text-[14px] mb-0.5">
+                        {t('guide.buddyStep4Title')}
+                      </h4>
                       <p className="text-text-muted text-[13px]">{t('guide.buddyStep4Desc')}</p>
                     </div>
                   </div>
@@ -427,9 +488,7 @@ export function SettingsPage() {
             </>
           )}
 
-          {activeTab === 'appearance' && (
-            <AppearanceSettings />
-          )}
+          {activeTab === 'appearance' && <AppearanceSettings />}
 
           {activeTab === 'account' && (
             <>
@@ -549,6 +608,7 @@ function InviteManagement() {
     }
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fetch on mount only
   useEffect(() => {
     fetchCodes()
   }, [])
@@ -681,12 +741,11 @@ function InviteManagement() {
                         </span>
                       )}
                     </div>
-                    {code.note && (
-                      <p className="text-xs text-text-muted truncate">{code.note}</p>
-                    )}
+                    {code.note && <p className="text-xs text-text-muted truncate">{code.note}</p>}
                     {isUsed && code.usedByUser && (
                       <p className="text-xs text-text-muted mt-1">
-                        {t('settings.inviteUsedBy')}: {code.usedByUser.displayName || code.usedByUser.username}
+                        {t('settings.inviteUsedBy')}:{' '}
+                        {code.usedByUser.displayName || code.usedByUser.username}
                         {code.usedAt && (
                           <span className="ml-2 text-text-muted/60">
                             {new Date(code.usedAt).toLocaleDateString()}
@@ -706,7 +765,11 @@ function InviteManagement() {
                         className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-modifier-active rounded-lg transition"
                         title={t('settings.inviteCopyLink')}
                       >
-                        {copiedId === code.id ? <Check size={15} className="text-green-400" /> : <Copy size={15} />}
+                        {copiedId === code.id ? (
+                          <Check size={15} className="text-green-400" />
+                        ) : (
+                          <Copy size={15} />
+                        )}
                       </button>
                     )}
                     {isActive && (
@@ -741,16 +804,29 @@ function AppearanceSettings() {
   const { theme, setTheme } = useUIStore()
 
   const options: { value: ThemeMode; icon: typeof Sun; label: string; desc: string }[] = [
-    { value: 'light', icon: Sun, label: t('settings.themeLight'), desc: t('settings.themeLightDesc') },
-    { value: 'dark', icon: Moon, label: t('settings.themeDark'), desc: t('settings.themeDarkDesc') },
-    { value: 'system', icon: Monitor, label: t('settings.themeSystem'), desc: t('settings.themeSystemDesc') },
+    {
+      value: 'light',
+      icon: Sun,
+      label: t('settings.themeLight'),
+      desc: t('settings.themeLightDesc'),
+    },
+    {
+      value: 'dark',
+      icon: Moon,
+      label: t('settings.themeDark'),
+      desc: t('settings.themeDarkDesc'),
+    },
+    {
+      value: 'system',
+      icon: Monitor,
+      label: t('settings.themeSystem'),
+      desc: t('settings.themeSystemDesc'),
+    },
   ]
 
   return (
     <>
-      <h2 className="text-2xl font-bold text-text-primary mb-2">
-        {t('settings.tabAppearance')}
-      </h2>
+      <h2 className="text-2xl font-bold text-text-primary mb-2">{t('settings.tabAppearance')}</h2>
       <p className="text-text-muted text-sm mb-6">{t('settings.appearanceDesc')}</p>
 
       <div className="bg-bg-secondary rounded-xl border border-border-subtle p-6">
@@ -770,7 +846,9 @@ function AppearanceSettings() {
               }`}
             >
               <Icon size={28} className={theme === value ? 'text-primary' : 'text-text-muted'} />
-              <span className={`text-sm font-bold ${theme === value ? 'text-primary' : 'text-text-primary'}`}>
+              <span
+                className={`text-sm font-bold ${theme === value ? 'text-primary' : 'text-text-primary'}`}
+              >
                 {label}
               </span>
               <span className="text-[11px] text-text-muted text-center leading-tight">{desc}</span>

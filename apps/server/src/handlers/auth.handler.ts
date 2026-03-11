@@ -4,8 +4,8 @@ import { z } from 'zod'
 import type { AppContainer } from '../container'
 import { verifyToken } from '../lib/jwt'
 import { authMiddleware } from '../middleware/auth.middleware'
-import { forceDisconnectUser } from '../ws/presence.gateway'
 import { loginSchema, registerSchema } from '../validators/auth.schema'
+import { forceDisconnectUser } from '../ws/presence.gateway'
 
 export function createAuthHandler(container: AppContainer) {
   const authHandler = new Hono()

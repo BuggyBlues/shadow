@@ -179,7 +179,7 @@ describe('ServerService', () => {
         iconUrl: undefined,
         bannerUrl: undefined,
         description: 'Cool',
-        slug: undefined,
+        slug: null,
         isPublic: true,
       })
     })

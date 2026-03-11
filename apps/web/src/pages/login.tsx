@@ -116,7 +116,11 @@ export function LoginPage() {
 
         <p className="mt-4 text-[14px]">
           <span className="text-text-muted">{t('auth.noAccount')}</span>{' '}
-          <Link to="/register" search={searchParams.redirect ? { redirect: searchParams.redirect } : {}} className="text-[#00a8fc] hover:underline">
+          <Link
+            to="/register"
+            search={searchParams.redirect ? { redirect: searchParams.redirect } : {}}
+            className="text-[#00a8fc] hover:underline"
+          >
             {t('auth.registerLink')}
           </Link>
         </p>

@@ -29,7 +29,11 @@
         "noLabelWithoutControl": "warn",
         "noStaticElementInteractions": "warn",
         "useKeyWithClickEvents": "warn",
-        "useSemanticElements": "warn"
+        "useSemanticElements": "warn",
+        "noAutofocus": "warn"
+      },
+      "security": {
+        "noDangerouslySetInnerHtml": "warn"
       },
       "suspicious": {
         "noExplicitAny": "warn",

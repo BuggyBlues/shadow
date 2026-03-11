@@ -47,13 +47,19 @@ export function InvitePage() {
         body: JSON.stringify({ inviteCode: code }),
       }),
     onSuccess: (data) => {
-      navigate({ to: '/app/servers/$serverId', params: { serverId: (data as { slug?: string; id: string }).slug ?? data.id } })
+      navigate({
+        to: '/app/servers/$serverId',
+        params: { serverId: (data as { slug?: string; id: string }).slug ?? data.id },
+      })
     },
     onError: (err: unknown) => {
       const status = (err as { status?: number })?.status
       if (status === 409 && serverInfo) {
         // Already a member, just navigate to the server
-        navigate({ to: '/app/servers/$serverId', params: { serverId: serverInfo.slug ?? serverInfo.id } })
+        navigate({
+          to: '/app/servers/$serverId',
+          params: { serverId: serverInfo.slug ?? serverInfo.id },
+        })
       } else if (status === 401) {
         navigate({ to: '/login' })
       } else {

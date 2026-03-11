@@ -1,7 +1,7 @@
 {
-  "name": "@shadowob/agenthub",
-  "version": "0.0.1",
-  "private": true,
+  "name": "@shadowob/sdk",
+  "version": "0.1.0",
+  "description": "Shadow SDK — typed REST client and real-time Socket.IO event listener for Shadow servers",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
@@ -14,11 +14,6 @@
   },
   "dependencies": {
     "@shadowob/shared": "workspace:*",
-    "socket.io-client": "^4.8.0",
-    "dockerode": "^4.0.6",
-    "zod": "^3.25.67"
-  },
-  "devDependencies": {
-    "@types/dockerode": "^3.3.38"
+    "socket.io-client": "^4.8.1"
   }
 }

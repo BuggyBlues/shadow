@@ -149,13 +149,14 @@ export function MessageInput({
 
       const before = text.slice(0, atIndex)
       const after = text.slice(cursorPos)
-      const newContent = `${before}<@${member.userId}> ${after}`
+      const username = member.user?.username ?? member.userId
+      const newContent = `${before}@${username} ${after}`
       setContent(newContent)
       setMentionQuery(null)
       setMentionIndex(0)
 
       // Restore cursor position after React re-render
-      const mentionToken = `<@${member.userId}> `
+      const mentionToken = `@${username} `
       const newCursorPos = atIndex + mentionToken.length
       requestAnimationFrame(() => {
         textarea.focus()

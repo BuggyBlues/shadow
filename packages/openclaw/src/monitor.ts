@@ -14,18 +14,10 @@
  *   5. dispatchReplyWithBufferedBlockDispatcher()
  */
 
-import { io as connectSocket, type Socket } from 'socket.io-client'
+import type { ShadowChannelPolicy, ShadowMessage, ShadowRemoteConfig } from '@shadowob/sdk'
+import { ShadowClient, ShadowSocket } from '@shadowob/sdk'
 import { getShadowRuntime } from './runtime.js'
-import { ShadowClient } from './shadow-client.js'
-import type {
-  OpenClawConfig,
-  PluginRuntime,
-  ReplyPayload,
-  ShadowAccountConfig,
-  ShadowChannelPolicy,
-  ShadowMessage,
-  ShadowRemoteConfig,
-} from './types.js'
+import type { OpenClawConfig, PluginRuntime, ReplyPayload, ShadowAccountConfig } from './types.js'
 
 export type ShadowMonitorOptions = {
   account: ShadowAccountConfig
@@ -53,10 +45,21 @@ async function processShadowMessage(params: {
   botUsername: string
   channelPolicies: Map<string, ShadowChannelPolicy>
   channelServerMap: Map<string, { serverId: string; serverSlug: string; serverName: string }>
-  socket: Socket
+  socket: ShadowSocket
 }): Promise<void> {
-  const { message, account, accountId, config, runtime, core, botUserId, botUsername, channelPolicies, channelServerMap, socket } =
-    params
+  const {
+    message,
+    account,
+    accountId,
+    config,
+    runtime,
+    core,
+    botUserId,
+    botUsername,
+    channelPolicies,
+    channelServerMap,
+    socket,
+  } = params
   const cfg = config as OpenClawConfig
 
   const senderLabel = message.author?.username ?? message.authorId
@@ -95,19 +98,27 @@ async function processShadowMessage(params: {
     const mentionRegex = new RegExp(`@${escapedUsername}(?:\\s|$)`, 'i')
     const wasMentioned = mentionRegex.test(message.content)
     if (!wasMentioned) {
-      runtime.log?.(`[msg] mentionOnly policy — no @${botUsername} mention found, skipping (${message.id})`)
+      runtime.log?.(
+        `[msg] mentionOnly policy — no @${botUsername} mention found, skipping (${message.id})`,
+      )
       return
     }
-    runtime.log?.(`[msg] mentionOnly policy — @${botUsername} mentioned, processing (${message.id})`)
+    runtime.log?.(
+      `[msg] mentionOnly policy — @${botUsername} mentioned, processing (${message.id})`,
+    )
   }
 
   // Custom policy: replyToUsers — only reply to specific users
-  const policyConfig = policy?.config as { replyToUsers?: string[]; keywords?: string[] } | undefined
+  const policyConfig = policy?.config as
+    | { replyToUsers?: string[]; keywords?: string[] }
+    | undefined
   if (policyConfig?.replyToUsers?.length) {
     const allowedUsers = policyConfig.replyToUsers.map((u) => u.toLowerCase())
     const senderUser = (message.author?.username ?? '').toLowerCase()
     if (!allowedUsers.includes(senderUser)) {
-      runtime.log?.(`[msg] replyToUsers policy — sender "${senderUser}" not in allowed list, skipping (${message.id})`)
+      runtime.log?.(
+        `[msg] replyToUsers policy — sender "${senderUser}" not in allowed list, skipping (${message.id})`,
+      )
       return
     }
   }
@@ -297,11 +308,13 @@ async function processShadowMessage(params: {
     OriginatingChannel: 'shadowob',
     OriginatingTo: `shadowob:channel:${channelId}`,
     // Server context — allows the AI agent to know which server it's operating in
-    ...(serverInfo ? {
-      ServerId: serverInfo.serverId,
-      ServerSlug: serverInfo.serverSlug,
-      ServerName: serverInfo.serverName,
-    } : {}),
+    ...(serverInfo
+      ? {
+          ServerId: serverInfo.serverId,
+          ServerSlug: serverInfo.serverSlug,
+          ServerName: serverInfo.serverName,
+        }
+      : {}),
     ...(message.threadId ? { ThreadId: message.threadId } : {}),
     ...(message.replyToId ? { ReplyToId: message.replyToId } : {}),
     ...mediaCtx,
@@ -331,7 +344,7 @@ async function processShadowMessage(params: {
   const client = new ShadowClient(account.serverUrl, account.token)
 
   // Emit activity: thinking
-  socket.emit('presence:activity', { channelId, activity: 'thinking' })
+  socket.updateActivity(channelId, 'thinking')
 
   await core.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
     ctx: ctxPayload,
@@ -339,7 +352,7 @@ async function processShadowMessage(params: {
     dispatcherOptions: {
       deliver: async (payload: ReplyPayload) => {
         // Emit activity: working (during reply delivery)
-        socket.emit('presence:activity', { channelId, activity: 'working' })
+        socket.updateActivity(channelId, 'working')
 
         await deliverShadowReply({
           payload,
@@ -354,11 +367,11 @@ async function processShadowMessage(params: {
   })
 
   // Emit activity: ready (after reply sent)
-  socket.emit('presence:activity', { channelId, activity: 'ready' })
+  socket.updateActivity(channelId, 'ready')
 
   // Auto-clear activity after 3 seconds
   setTimeout(() => {
-    socket.emit('presence:activity', { channelId, activity: null })
+    socket.updateActivity(channelId, null)
   }, 3000)
 }
 
@@ -457,7 +470,10 @@ export async function monitorShadowProvider(
   // Fetch remote config (servers, channels, policies)
   let remoteConfig: ShadowRemoteConfig | null = null
   const channelPolicies = new Map<string, ShadowChannelPolicy>()
-  const channelServerMap = new Map<string, { serverId: string; serverSlug: string; serverName: string }>()
+  const channelServerMap = new Map<
+    string,
+    { serverId: string; serverSlug: string; serverName: string }
+  >()
   const allChannelIds: string[] = []
 
   if (agentId) {
@@ -518,22 +534,21 @@ export async function monitorShadowProvider(
   // Connect to Shadow Socket.IO
   runtime.log?.(`[ws] Connecting to Shadow WebSocket at ${account.serverUrl}`)
 
-  const socket: Socket = connectSocket(account.serverUrl, {
-    auth: { token: account.token },
+  const socket = new ShadowSocket({
+    serverUrl: account.serverUrl,
+    token: account.token,
     transports: ['websocket', 'polling'],
   })
 
-  socket.on('connect', () => {
-    runtime.log?.(
-      `[ws] Connected (transport=${socket.io.engine?.transport?.name}, sid=${socket.id})`,
-    )
+  socket.onConnect(() => {
+    runtime.log?.(`[ws] Connected (sid=${socket.raw.id})`)
     // Join all monitored channel rooms
     if (allChannelIds.length === 0) {
       runtime.log?.('[ws] No channels to join — allChannelIds is empty')
     }
     for (const chId of allChannelIds) {
       runtime.log?.(`[ws] Emitting channel:join for ${chId}`)
-      socket.emit('channel:join', { channelId: chId }, (ack: { ok: boolean } | undefined) => {
+      socket.joinChannel(chId).then((ack) => {
         if (ack?.ok) {
           runtime.log?.(`[ws] ✓ Joined channel room ${chId} (server confirmed)`)
         } else {
@@ -546,19 +561,19 @@ export async function monitorShadowProvider(
     )
   })
 
-  socket.on('connect_error', (err) => {
+  socket.onConnectError((err) => {
     runtime.error?.(`[ws] Connection error: ${err.message}`)
   })
 
-  socket.on('disconnect', (reason) => {
+  socket.onDisconnect((reason) => {
     runtime.log?.(`[ws] Disconnected: ${reason}`)
   })
 
-  socket.io.on('reconnect', (attempt) => {
+  socket.raw.io.on('reconnect', (attempt: number) => {
     runtime.log?.(`[ws] Reconnected after ${attempt} attempt(s)`)
   })
 
-  socket.io.on('reconnect_attempt', (attempt) => {
+  socket.raw.io.on('reconnect_attempt', (attempt: number) => {
     runtime.log?.(`[ws] Reconnect attempt #${attempt}`)
   })
 
@@ -584,15 +599,11 @@ export async function monitorShadowProvider(
             if (ch.policy.listen) {
               allChannelIds.push(ch.id)
               runtime.log?.(`[config] New channel: #${ch.name} (${ch.id}) — joining`)
-              socket.emit(
-                'channel:join',
-                { channelId: ch.id },
-                (ack: { ok: boolean } | undefined) => {
-                  if (ack?.ok) {
-                    runtime.log?.(`[ws] ✓ Joined new channel room ${ch.id}`)
-                  }
-                },
-              )
+              socket.joinChannel(ch.id).then((ack) => {
+                if (ack?.ok) {
+                  runtime.log?.(`[ws] ✓ Joined new channel room ${ch.id}`)
+                }
+              })
             }
           } else {
             // Update policy if changed
@@ -621,7 +632,14 @@ export async function monitorShadowProvider(
   // Listen for agent:policy-changed — update channel policy in real-time
   socket.on(
     'agent:policy-changed',
-    (data: { agentId: string; serverId: string; channelId: string; mentionOnly: boolean; reply?: boolean; config?: Record<string, unknown> }) => {
+    (data: {
+      agentId: string
+      serverId: string
+      channelId: string
+      mentionOnly: boolean
+      reply?: boolean
+      config?: Record<string, unknown>
+    }) => {
       if (data.agentId !== agentId) return
       runtime.log?.(
         `[ws] Received agent:policy-changed for channel ${data.channelId}: mentionOnly=${data.mentionOnly}, reply=${data.reply}, config=${JSON.stringify(data.config ?? {})}`,
@@ -646,43 +664,38 @@ export async function monitorShadowProvider(
   )
 
   // Listen for channel:member-added — bot added to a channel, join its room
-  socket.on(
-    'channel:member-added',
-    (data: { channelId: string; serverId: string }) => {
-      runtime.log?.(
-        `[ws] Received channel:member-added: channel ${data.channelId} in server ${data.serverId}`,
-      )
-      if (!channelPolicies.has(data.channelId)) {
-        const defaultPolicy: ShadowChannelPolicy = { listen: true, reply: true, mentionOnly: false, config: {} }
-        channelPolicies.set(data.channelId, defaultPolicy)
-        allChannelIds.push(data.channelId)
+  socket.on('channel:member-added', (data: { channelId: string; serverId: string }) => {
+    runtime.log?.(
+      `[ws] Received channel:member-added: channel ${data.channelId} in server ${data.serverId}`,
+    )
+    if (!channelPolicies.has(data.channelId)) {
+      const defaultPolicy: ShadowChannelPolicy = {
+        listen: true,
+        reply: true,
+        mentionOnly: false,
+        config: {},
       }
-      socket.emit(
-        'channel:join',
-        { channelId: data.channelId },
-        (ack: { ok: boolean } | undefined) => {
-          if (ack?.ok) {
-            runtime.log?.(`[ws] ✓ Joined channel room ${data.channelId} after member-added`)
-          }
-        },
-      )
-    },
-  )
+      channelPolicies.set(data.channelId, defaultPolicy)
+      allChannelIds.push(data.channelId)
+    }
+    socket.joinChannel(data.channelId).then((ack) => {
+      if (ack?.ok) {
+        runtime.log?.(`[ws] ✓ Joined channel room ${data.channelId} after member-added`)
+      }
+    })
+  })
 
   // Listen for channel:member-removed — bot removed from a channel, leave its room
-  socket.on(
-    'channel:member-removed',
-    (data: { channelId: string; serverId: string }) => {
-      runtime.log?.(
-        `[ws] Received channel:member-removed: channel ${data.channelId} in server ${data.serverId}`,
-      )
-      channelPolicies.delete(data.channelId)
-      const idx = allChannelIds.indexOf(data.channelId)
-      if (idx !== -1) allChannelIds.splice(idx, 1)
-      socket.emit('channel:leave', { channelId: data.channelId })
-      runtime.log?.(`[ws] Left channel room ${data.channelId} after member-removed`)
-    },
-  )
+  socket.on('channel:member-removed', (data: { channelId: string; serverId: string }) => {
+    runtime.log?.(
+      `[ws] Received channel:member-removed: channel ${data.channelId} in server ${data.serverId}`,
+    )
+    channelPolicies.delete(data.channelId)
+    const idx = allChannelIds.indexOf(data.channelId)
+    if (idx !== -1) allChannelIds.splice(idx, 1)
+    socket.leaveChannel(data.channelId)
+    runtime.log?.(`[ws] Left channel room ${data.channelId} after member-removed`)
+  })
 
   // Listen for new messages
   socket.on('message:new', (message: ShadowMessage) => {
@@ -719,6 +732,9 @@ export async function monitorShadowProvider(
       runtime.error?.(`[ws] Message processing failed: ${String(err)}`)
     })
   })
+
+  // Start the socket connection after all listeners are registered
+  socket.connect()
 
   const stop = () => {
     runtime.log?.('[lifecycle] Stopping Shadow monitor...')

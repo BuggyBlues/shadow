@@ -251,30 +251,29 @@ export function MessageBubble({
 
   const resolveMentionLabel = useCallback(
     (mention: string) => {
-      const idMatch = mention.match(/^<@([0-9a-f-]{36})>$/i)
-      if (idMatch?.[1]) {
-        const byId = membersList.find((m: MemberEntry) => m.userId === idMatch[1])
-        const display = byId?.user?.displayName ?? byId?.user?.username
-        return display ? `@${display}` : mention
-      }
-      return mention
+      if (!mention.startsWith('@')) return mention
+      const username = mention.slice(1)
+      const member = membersList.find(
+        (m: MemberEntry) => m.user?.username === username || m.user?.displayName === username,
+      )
+      const display = member?.user?.displayName ?? member?.user?.username
+      return display ? `@${display}` : mention
     },
     [membersList],
   )
 
   /**
-   * Process React children to highlight mention patterns.
-   * Supports both canonical <@userId> and legacy @username forms.
+   * Process React children to highlight @username mention patterns.
    */
   const renderMentions = (children: React.ReactNode): React.ReactNode => {
     if (!children) return children
     const childArray = Array.isArray(children) ? children : [children]
     return childArray.map((child, idx) => {
       if (typeof child !== 'string') return child
-      const parts = child.split(/(<@[0-9a-f-]{36}>|@[A-Za-z0-9_-]+)/gi)
+      const parts = child.split(/(@[A-Za-z0-9_-]+)/g)
       if (parts.length === 1) return child
       return parts.map((part, pi) => {
-        if (/^<@[0-9a-f-]{36}>$/i.test(part) || /^@[A-Za-z0-9_-]+$/.test(part)) {
+        if (/^@[A-Za-z0-9_-]+$/.test(part)) {
           return (
             <MentionSpan key={`${idx}-${pi}`} mention={part} label={resolveMentionLabel(part)} />
           )
@@ -284,10 +283,7 @@ export function MessageBubble({
     })
   }
 
-  const markdownContent = useMemo(
-    () => message.content.replace(/<@([0-9a-f-]{36})>/gi, (raw) => resolveMentionLabel(raw)),
-    [message.content, resolveMentionLabel],
-  )
+  const markdownContent = useMemo(() => message.content, [message.content])
 
   return (
     <div
@@ -855,14 +851,13 @@ function MentionSpan({ mention, label }: { mention: string; label?: string }) {
   const currentUser = useAuthStore((s) => s.user)
   const queryClient = useQueryClient()
 
-  const mentionedUserId = mention.match(/^<@([0-9a-f-]{36})>$/i)?.[1]
   const username = mention.startsWith('@') ? mention.slice(1) : undefined
 
   // Look up user from cached members query
   const members = queryClient.getQueryData<MemberEntry[]>(['members', activeServerId]) ?? []
-  const member = mentionedUserId
-    ? members.find((m) => m.userId === mentionedUserId)
-    : members.find((m) => m.user?.username === username || m.user?.displayName === username)
+  const member = members.find(
+    (m) => m.user?.username === username || m.user?.displayName === username,
+  )
   const user = member?.user
 
   // Buddy metadata

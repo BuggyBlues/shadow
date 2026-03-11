@@ -26,6 +26,7 @@ export function NotificationBell() {
   const [showPanel, setShowPanel] = useState(false)
   const { setActiveServer, setActiveChannel } = useChatStore()
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: markRead and setShowPanel are stable refs
   const handleNotificationClick = useCallback(
     async (n: Notification) => {
       // Mark as read
@@ -35,9 +36,15 @@ export function NotificationBell() {
       // Navigate to referenced message
       if (n.referenceType === 'message' && n.referenceId) {
         try {
-          const message = await fetchApi<{ id: string; channelId: string }>(`/api/messages/${n.referenceId}`)
-          const channel = await fetchApi<{ id: string; name: string; serverId: string }>(`/api/channels/${message.channelId}`)
-          const server = await fetchApi<{ id: string; slug: string }>(`/api/servers/${channel.serverId}`)
+          const message = await fetchApi<{ id: string; channelId: string }>(
+            `/api/messages/${n.referenceId}`,
+          )
+          const channel = await fetchApi<{ id: string; name: string; serverId: string }>(
+            `/api/channels/${message.channelId}`,
+          )
+          const server = await fetchApi<{ id: string; slug: string }>(
+            `/api/servers/${channel.serverId}`,
+          )
           setShowPanel(false)
           setActiveServer(channel.serverId)
           setActiveChannel(message.channelId)
@@ -50,7 +57,6 @@ export function NotificationBell() {
         }
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [navigate, setActiveServer, setActiveChannel],
   )
 
