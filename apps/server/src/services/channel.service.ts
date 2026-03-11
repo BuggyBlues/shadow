@@ -47,21 +47,11 @@ export class ChannelService {
       topic: input.topic,
     })
 
-    // Add creator and bot members to the new channel
-    // Other human members need to be explicitly invited
-    if (channel) {
+    // Add only the creator to the new channel
+    // Other members (including bots) need to be explicitly invited
+    if (channel && creatorUserId) {
       try {
-        const channelId = channel.id
-        if (creatorUserId) {
-          await this.deps.channelMemberDao.add(channelId, creatorUserId)
-        }
-        // Auto-add bot members so they can respond in the channel
-        const members = await this.deps.serverDao.getMembers(serverId)
-        for (const m of members) {
-          if (m.user?.isBot) {
-            await this.deps.channelMemberDao.add(channelId, m.userId)
-          }
-        }
+        await this.deps.channelMemberDao.add(channel.id, creatorUserId)
       } catch {
         /* channel_members table may not exist yet */
       }

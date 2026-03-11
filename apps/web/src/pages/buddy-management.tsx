@@ -3,11 +3,15 @@ import { useNavigate } from '@tanstack/react-router'
 import {
   ArrowLeft,
   BookOpen,
+  Check,
   CheckCircle,
   ClipboardCopy,
+  Copy,
   Edit2,
   Key,
+  MessageSquare,
   Plus,
+  Terminal,
   Trash2,
   XCircle,
 } from 'lucide-react'
@@ -723,92 +727,245 @@ function AgentDetail({
       </div>
 
       {/* OpenClaw Setup Guide */}
-      <div className="bg-bg-secondary rounded-xl p-6 mb-6 border border-border-subtle">
-        <div className="flex items-center gap-2 mb-3">
-          <BookOpen size={16} className="text-primary" />
-          <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">
-            {t('agentMgmt.openclawGuideTitle')}
-          </h3>
-        </div>
-        <p className="text-sm text-text-muted mb-4">{t('agentMgmt.openclawGuideDesc')}</p>
+      <OpenClawSetupGuide agent={agent} generatedToken={generatedToken} t={t} />
+    </>
+  )
+}
 
-        {/* Step 1: Install */}
-        <div className="mb-4">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">
-              1
-            </span>
-            <span className="text-sm font-bold text-text-primary">
-              {t('docs.openclawStep1Title')}
-            </span>
-          </div>
-          <div className="bg-bg-tertiary rounded-lg p-3 font-mono text-xs text-green-400 border border-border-subtle ml-7">
-            openclaw plugins install @shadowob/openclaw
-          </div>
-        </div>
+/* ── OpenClaw Setup Guide ─────────────────────────────── */
 
-        {/* Step 2: Config */}
-        <div className="mb-4">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">
-              2
-            </span>
-            <span className="text-sm font-bold text-text-primary">{t('docs.openclawConfig')}</span>
-          </div>
-          <p className="text-xs text-text-muted mb-2 ml-7">{t('docs.openclawConfigDesc')}</p>
-          <pre className="bg-bg-tertiary rounded-lg p-3 font-mono text-xs text-text-secondary border border-border-subtle overflow-x-auto ml-7">{`channels:
-  shadow:
-    token: "${(() => {
-      const tk = (agent.config?.lastToken as string | undefined) ?? generatedToken
-      return tk ? `${tk.slice(0, 24)}...` : '<agent-jwt-token>'
-    })()}"
-    serverUrl: "${window.location.origin}"`}</pre>
-        </div>
+function CopyBlock({
+  content,
+  label,
+  t,
+}: {
+  content: string
+  label?: string
+  t: (key: string) => string
+}) {
+  const [copied, setCopied] = useState(false)
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(content)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+  return (
+    <div className="relative group">
+      {label && <p className="text-[10px] font-bold uppercase text-text-muted mb-1">{label}</p>}
+      <pre className="bg-bg-tertiary rounded-lg p-3 pr-10 font-mono text-xs text-text-secondary border border-border-subtle overflow-x-auto whitespace-pre-wrap break-all">
+        {content}
+      </pre>
+      <button
+        type="button"
+        onClick={handleCopy}
+        className="absolute top-1.5 right-1.5 p-1.5 rounded-md bg-bg-secondary/80 text-text-muted hover:text-text-primary hover:bg-bg-secondary transition opacity-0 group-hover:opacity-100"
+        title={t('common.copy')}
+      >
+        {copied ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
+      </button>
+    </div>
+  )
+}
 
-        {/* Step 3: Run */}
-        <div className="mb-4">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">
-              3
-            </span>
-            <span className="text-sm font-bold text-text-primary">
-              {t('agentMgmt.openclawRunTitle')}
-            </span>
-          </div>
-          <div className="bg-bg-tertiary rounded-lg p-3 font-mono text-xs text-green-400 border border-border-subtle ml-7">
-            openclaw start
-          </div>
-        </div>
+function OpenClawSetupGuide({
+  agent,
+  generatedToken,
+  t,
+}: {
+  agent: Agent
+  generatedToken: string | null
+  t: (key: string) => string
+}) {
+  const token = (agent.config?.lastToken as string | undefined) ?? generatedToken ?? ''
+  const serverUrl = window.location.origin
+  const [activeTab, setActiveTab] = useState<'manual' | 'chat'>('manual')
 
-        {/* Capabilities */}
-        <div className="mt-4 pt-4 border-t border-border-subtle">
-          <p className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">
-            {t('docs.openclawCapabilities')}
+  // Bash one-liner for manual setup
+  const bashCommand = `openclaw plugins install @shadowob/openclaw && openclaw config set channels.shadowob.token "${token || '<TOKEN>'}" && openclaw config set channels.shadowob.serverUrl "${serverUrl}" && openclaw start`
+
+  // AI prompt for chat-based setup
+  const aiPrompt = `请帮我安装和配置 ShadowOwnBuddy 插件，连接到 Shadow 服务器。
+
+配置信息：
+- 插件名称：@shadowob/openclaw
+- Token：${token || '<请先生成 Token>'}
+- 服务器地址：${serverUrl}
+
+请执行以下步骤：
+1. 安装插件：openclaw plugins install @shadowob/openclaw
+2. 配置 Token：openclaw config set channels.shadowob.token "${token || '<TOKEN>'}"
+3. 配置服务器地址：openclaw config set channels.shadowob.serverUrl "${serverUrl}"
+4. 启动服务：openclaw start
+
+请依次执行这些命令，并确认每个步骤是否成功。`
+
+  return (
+    <div className="bg-bg-secondary rounded-xl p-6 mb-6 border border-border-subtle">
+      <div className="flex items-center gap-2 mb-3">
+        <BookOpen size={16} className="text-primary" />
+        <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">
+          {t('agentMgmt.openclawGuideTitle')}
+        </h3>
+      </div>
+      <p className="text-sm text-text-muted mb-4">{t('agentMgmt.openclawGuideDesc')}</p>
+
+      {/* Tab selector */}
+      <div className="flex gap-1 mb-4 bg-bg-tertiary rounded-lg p-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab('manual')}
+          className={`flex items-center gap-1.5 flex-1 px-3 py-2 rounded-md text-xs font-bold transition ${
+            activeTab === 'manual'
+              ? 'bg-bg-secondary text-text-primary shadow-sm'
+              : 'text-text-muted hover:text-text-secondary'
+          }`}
+        >
+          <Terminal size={12} />
+          {t('agentMgmt.setupManual')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('chat')}
+          className={`flex items-center gap-1.5 flex-1 px-3 py-2 rounded-md text-xs font-bold transition ${
+            activeTab === 'chat'
+              ? 'bg-bg-secondary text-text-primary shadow-sm'
+              : 'text-text-muted hover:text-text-secondary'
+          }`}
+        >
+          <MessageSquare size={12} />
+          {t('agentMgmt.setupChat')}
+        </button>
+      </div>
+
+      {activeTab === 'manual' ? (
+        <>
+          {/* Quick bash one-liner */}
+          <div className="mb-4">
+            <p className="text-xs font-bold text-text-secondary mb-2">
+              {t('agentMgmt.setupBashTitle')}
+            </p>
+            <CopyBlock content={bashCommand} t={t} />
+            {!token && (
+              <p className="text-[10px] text-yellow-400 mt-1.5 ml-1">
+                ⚠ {t('agentMgmt.setupTokenWarning')}
+              </p>
+            )}
+          </div>
+
+          <div className="h-px bg-border-subtle my-4" />
+
+          {/* Step-by-step */}
+          <p className="text-xs font-bold text-text-muted uppercase tracking-wider mb-3">
+            {t('agentMgmt.setupStepByStep')}
           </p>
-          <div className="grid grid-cols-2 gap-2">
-            {['messaging', 'threads', 'reactions', 'media', 'mentions', 'editDelete'].map((cap) => (
-              <div key={cap} className="flex items-center gap-1.5 text-xs text-text-secondary">
-                <span className="text-green-400">✓</span>
-                {t(`docs.openclawCap_${cap}`)}
-              </div>
-            ))}
-          </div>
-        </div>
 
-        {/* Link to full docs */}
-        <div className="mt-4 pt-3 border-t border-border-subtle">
-          <a
-            href="/docs"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-primary hover:text-primary-hover font-bold flex items-center gap-1 transition"
-          >
-            <BookOpen size={12} />
-            {t('agentMgmt.openclawFullDocs')}
-          </a>
+          {/* Step 1: Install */}
+          <div className="mb-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">
+                1
+              </span>
+              <span className="text-sm font-bold text-text-primary">
+                {t('docs.openclawStep1Title')}
+              </span>
+            </div>
+            <div className="ml-7">
+              <CopyBlock content="openclaw plugins install @shadowob/openclaw" t={t} />
+            </div>
+          </div>
+
+          {/* Step 2: Config Token */}
+          <div className="mb-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">
+                2
+              </span>
+              <span className="text-sm font-bold text-text-primary">
+                {t('agentMgmt.setupConfigToken')}
+              </span>
+            </div>
+            <div className="ml-7">
+              <CopyBlock
+                content={`openclaw config set channels.shadowob.token "${token || '<TOKEN>'}"`}
+                t={t}
+              />
+            </div>
+          </div>
+
+          {/* Step 3: Config Server URL */}
+          <div className="mb-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">
+                3
+              </span>
+              <span className="text-sm font-bold text-text-primary">
+                {t('agentMgmt.setupConfigServer')}
+              </span>
+            </div>
+            <div className="ml-7">
+              <CopyBlock
+                content={`openclaw config set channels.shadowob.serverUrl "${serverUrl}"`}
+                t={t}
+              />
+            </div>
+          </div>
+
+          {/* Step 4: Run */}
+          <div className="mb-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">
+                4
+              </span>
+              <span className="text-sm font-bold text-text-primary">
+                {t('agentMgmt.openclawRunTitle')}
+              </span>
+            </div>
+            <div className="ml-7">
+              <CopyBlock content="openclaw start" t={t} />
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* AI chat prompt */}
+          <p className="text-xs text-text-muted mb-3">{t('agentMgmt.setupChatDesc')}</p>
+          <CopyBlock content={aiPrompt} t={t} />
+          {!token && (
+            <p className="text-[10px] text-yellow-400 mt-1.5 ml-1">
+              ⚠ {t('agentMgmt.setupTokenWarning')}
+            </p>
+          )}
+        </>
+      )}
+
+      {/* Capabilities */}
+      <div className="mt-4 pt-4 border-t border-border-subtle">
+        <p className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">
+          {t('docs.openclawCapabilities')}
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {['messaging', 'threads', 'reactions', 'media', 'mentions', 'editDelete'].map((cap) => (
+            <div key={cap} className="flex items-center gap-1.5 text-xs text-text-secondary">
+              <span className="text-green-400">✓</span>
+              {t(`docs.openclawCap_${cap}`)}
+            </div>
+          ))}
         </div>
       </div>
-    </>
+
+      {/* Link to full docs */}
+      <div className="mt-4 pt-3 border-t border-border-subtle">
+        <a
+          href="/docs"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-primary hover:text-primary-hover font-bold flex items-center gap-1 transition"
+        >
+          <BookOpen size={12} />
+          {t('agentMgmt.openclawFullDocs')}
+        </a>
+      </div>
+    </div>
   )
 }
 

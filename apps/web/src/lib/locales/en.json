@@ -583,7 +583,15 @@
     "openclawGuideTitle": "OpenClaw Setup Guide",
     "openclawGuideDesc": "Connect this Buddy to your AI backend using the OpenClaw plugin.",
     "openclawRunTitle": "Start OpenClaw",
-    "openclawFullDocs": "View full documentation →"
+    "openclawFullDocs": "View full documentation →",
+    "setupManual": "Manual Setup",
+    "setupChat": "AI Chat Setup",
+    "setupBashTitle": "Quick Setup (copy & paste to terminal)",
+    "setupTokenWarning": "Please generate a Token first before copying the setup command",
+    "setupStepByStep": "Step-by-step Setup",
+    "setupConfigToken": "Configure Token",
+    "setupConfigServer": "Configure Server URL",
+    "setupChatDesc": "Copy the following prompt into your OpenClaw chat, and the AI will configure everything for you:"
   },
   "serverHome": {
     "welcome": "Welcome to",

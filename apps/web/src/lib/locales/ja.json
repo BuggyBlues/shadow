@@ -582,7 +582,15 @@
     "openclawGuideTitle": "OpenClaw セットアップガイド",
     "openclawGuideDesc": "OpenClaw プラグインを使用して、この Buddy を AI バックエンドに接続します。",
     "openclawRunTitle": "OpenClaw を起動",
-    "openclawFullDocs": "完全なドキュメントを見る →"
+    "openclawFullDocs": "完全なドキュメントを見る →",
+    "setupManual": "手動設定",
+    "setupChat": "AI チャット設定",
+    "setupBashTitle": "ワンクリック設定（ターミナルに貼り付け）",
+    "setupTokenWarning": "設定コマンドをコピーする前にトークンを生成してください",
+    "setupStepByStep": "ステップバイステップ設定",
+    "setupConfigToken": "トークンを設定",
+    "setupConfigServer": "サーバーURLを設定",
+    "setupChatDesc": "以下のプロンプトを OpenClaw チャットにコピーすると、AIが自動的に設定を行います："
   },
   "serverHome": {
     "welcome": "ようこそ",

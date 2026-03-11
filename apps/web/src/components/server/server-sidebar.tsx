@@ -11,7 +11,7 @@ import { useUIStore } from '../../stores/ui.store'
 import { useConfirmStore } from '../common/confirm-dialog'
 
 interface ServerEntry {
-  server: { id: string; name: string; slug: string | null; iconUrl: string | null }
+  server: { id: string; name: string; slug: string | null; iconUrl: string | null; ownerId: string }
   member: { role: string }
 }
 
@@ -333,25 +333,29 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
               {copiedId ? t('common.copied') : t('server.copyServerId')}
             </button>
 
-            {/* Leave server */}
-            <div className="h-px bg-border-subtle my-1" />
-            <button
-              type="button"
-              onClick={async () => {
-                const name = contextMenu.server.server.name
-                const ok = await useConfirmStore.getState().confirm({
-                  title: t('server.leaveServer'),
-                  message: t('server.leaveConfirm', { name }),
-                })
-                if (ok) {
-                  leaveServer.mutate(contextMenu.server.server.id)
-                }
-              }}
-              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition"
-            >
-              <LogOut size={14} />
-              {t('server.leaveServer')}
-            </button>
+            {/* Leave server — hidden for owners */}
+            {user?.id !== contextMenu.server.server.ownerId && (
+              <>
+                <div className="h-px bg-border-subtle my-1" />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const name = contextMenu.server.server.name
+                    const ok = await useConfirmStore.getState().confirm({
+                      title: t('server.leaveServer'),
+                      message: t('server.leaveConfirm', { name }),
+                    })
+                    if (ok) {
+                      leaveServer.mutate(contextMenu.server.server.id)
+                    }
+                  }}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition"
+                >
+                  <LogOut size={14} />
+                  {t('server.leaveServer')}
+                </button>
+              </>
+            )}
           </div>
         </>
       )}

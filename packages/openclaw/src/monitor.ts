@@ -443,6 +443,49 @@ async function deliverShadowReply(params: {
 }
 
 /**
+ * Session cache — persists remote config to disk so restart recovery is faster.
+ * Saves to ~/.openclaw/shadow/session-cache-<accountId>.json
+ */
+async function getSessionCachePath(accountId: string): Promise<string> {
+  // @ts-expect-error node:path available at runtime
+  const nodePath = await import('node:path')
+  // @ts-expect-error node:os available at runtime
+  const nodeOs = await import('node:os')
+  return nodePath.join(nodeOs.homedir(), '.openclaw', 'shadow', `session-cache-${accountId}.json`)
+}
+
+async function saveSessionCache(
+  accountId: string,
+  data: { remoteConfig: ShadowRemoteConfig; botUserId: string; botUsername: string },
+): Promise<void> {
+  try {
+    // @ts-expect-error node:fs/promises available at runtime
+    const fsPromises = await import('node:fs/promises')
+    // @ts-expect-error node:path available at runtime
+    const nodePath = await import('node:path')
+    const cachePath = await getSessionCachePath(accountId)
+    await fsPromises.mkdir(nodePath.dirname(cachePath), { recursive: true })
+    await fsPromises.writeFile(cachePath, JSON.stringify(data), 'utf-8')
+  } catch {
+    /* non-critical */
+  }
+}
+
+async function loadSessionCache(
+  accountId: string,
+): Promise<{ remoteConfig: ShadowRemoteConfig; botUserId: string; botUsername: string } | null> {
+  try {
+    // @ts-expect-error node:fs/promises available at runtime
+    const fsPromises = await import('node:fs/promises')
+    const cachePath = await getSessionCachePath(accountId)
+    const raw = await fsPromises.readFile(cachePath, 'utf-8')
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+/**
  * Main monitor provider for Shadow.
  *
  * Connects to Shadow's Socket.IO gateway and listens for incoming messages.
@@ -514,9 +557,34 @@ export async function monitorShadowProvider(
       runtime.log?.(
         `[config] Monitoring ${allChannelIds.length} channel(s) across ${remoteConfig.servers.length} server(s)`,
       )
+
+      // Persist to disk for restart recovery
+      void saveSessionCache(accountId, { remoteConfig, botUserId, botUsername: me.username })
     } catch (err) {
       runtime.error?.(`[config] Failed to fetch remote config: ${String(err)}`)
-      runtime.log?.('[config] Falling back to monitoring no channels — add agent to servers first')
+
+      // Try to load from cached session
+      const cached = await loadSessionCache(accountId)
+      if (cached) {
+        runtime.log?.('[config] Loaded session from cache — using cached config')
+        remoteConfig = cached.remoteConfig
+        for (const server of remoteConfig.servers) {
+          for (const ch of server.channels) {
+            channelPolicies.set(ch.id, ch.policy)
+            channelServerMap.set(ch.id, {
+              serverId: server.id,
+              serverSlug: server.slug ?? server.id,
+              serverName: server.name,
+            })
+            if (ch.policy.listen) {
+              allChannelIds.push(ch.id)
+            }
+          }
+        }
+        runtime.log?.(`[config] Restored ${allChannelIds.length} channel(s) from cache`)
+      } else {
+        runtime.log?.('[config] No cached session — falling back to monitoring no channels')
+      }
     }
   }
 

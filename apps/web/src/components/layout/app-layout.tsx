@@ -74,9 +74,9 @@ export function AppLayout() {
         <button
           type="button"
           onClick={openMobileServerSidebar}
-          className="fixed bottom-4 left-4 z-40 md:hidden flex items-center justify-center w-12 h-12 bg-primary rounded-full shadow-lg text-white"
+          className="fixed bottom-20 left-4 z-40 md:hidden flex items-center justify-center w-10 h-10 bg-primary/80 backdrop-blur rounded-full shadow-lg text-white"
         >
-          <Menu size={22} />
+          <Menu size={18} />
         </button>
       )}
 

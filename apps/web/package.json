@@ -25,6 +25,7 @@
     "i18next-browser-languagedetector": "^8.2.1",
     "jszip": "^3.10.1",
     "lucide-react": "^0.513.0",
+    "pinyin-pro": "^3.28.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-dropzone": "^14.3.8",

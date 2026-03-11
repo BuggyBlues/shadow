@@ -582,7 +582,15 @@
     "openclawGuideTitle": "OpenClaw 설정 가이드",
     "openclawGuideDesc": "OpenClaw 플러그인을 사용하여 이 Buddy를 AI 백엔드에 연결하세요.",
     "openclawRunTitle": "OpenClaw 시작",
-    "openclawFullDocs": "전체 문서 보기 →"
+    "openclawFullDocs": "전체 문서 보기 →",
+    "setupManual": "수동 설정",
+    "setupChat": "AI 채팅 설정",
+    "setupBashTitle": "원클릭 설정 (터미널에 붙여넣기)",
+    "setupTokenWarning": "설정 명령을 복사하기 전에 먼저 토큰을 생성하세요",
+    "setupStepByStep": "단계별 설정",
+    "setupConfigToken": "토큰 설정",
+    "setupConfigServer": "서버 URL 설정",
+    "setupChatDesc": "다음 프롬프트를 OpenClaw 채팅에 복사하면 AI가 자동으로 설정을 완료합니다:"
   },
   "serverHome": {
     "welcome": "환영합니다",

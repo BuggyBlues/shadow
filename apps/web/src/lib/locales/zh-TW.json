@@ -582,7 +582,15 @@
     "openclawGuideTitle": "OpenClaw 配置指南",
     "openclawGuideDesc": "透過 OpenClaw 外掛將此 Buddy 連接到你的 AI 後端。",
     "openclawRunTitle": "啟動 OpenClaw",
-    "openclawFullDocs": "查看完整文件 →"
+    "openclawFullDocs": "查看完整文件 →",
+    "setupManual": "手動配置",
+    "setupChat": "AI 對話配置",
+    "setupBashTitle": "一鍵配置（複製到終端執行）",
+    "setupTokenWarning": "請先產生 Token 後再複製配置命令",
+    "setupStepByStep": "手動分步配置",
+    "setupConfigToken": "配置 Token",
+    "setupConfigServer": "配置伺服器地址",
+    "setupChatDesc": "複製以下提示詞到 OpenClaw 對話中，AI 會自動為你完成配置："
   },
   "serverHome": {
     "welcome": "歡迎來到",
