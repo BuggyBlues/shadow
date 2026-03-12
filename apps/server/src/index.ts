@@ -100,7 +100,7 @@ async function main() {
   server.on('upgrade', async (req, socket, head) => {
     try {
       const reqUrl = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`)
-      const match = reqUrl.pathname.match(/^\/api\/app-proxy-ws\/([^/]+)(?:\/(.*))?$/)
+      const match = reqUrl.pathname.match(/^\/api\/app-proxy(?:-ws)?\/([^/]+)(?:\/(.*))?$/)
       if (!match) return
 
       const appId = match[1]

@@ -3,6 +3,7 @@ import { Hono } from 'hono'
 import JSZip from 'jszip'
 import { lookup } from 'mime-types'
 import type { AppContainer } from '../container'
+import { logger } from '../lib/logger'
 import { authMiddleware } from '../middleware/auth.middleware'
 import {
   createAppSchema,
@@ -103,7 +104,14 @@ export function createAppHandler(container: AppContainer) {
       return c.text('Invalid source URL', 400)
     }
 
-    const pathPart = c.req.param('*') || ''
+    const pathPart = (() => {
+      // c.req.param('*') can be empty when mounted via app.route() sub-router.
+      // Extract reliably from the full request path instead.
+      const wild = c.req.param('*')
+      if (wild) return wild
+      const match = c.req.path.match(/\/app-proxy\/[^/]+\/(.+)$/)
+      return match?.[1] ?? ''
+    })()
 
     // Preserve query string from client request.
     const reqUrl = new URL(c.req.url)
@@ -115,6 +123,17 @@ export function createAppHandler(container: AppContainer) {
       ? new URL(`/${pathPart}`, upstreamBase.origin)
       : new URL(upstreamBase.toString())
     upstreamUrl.search = reqUrl.search || (!pathPart ? upstreamBase.search : '')
+
+    logger.info(
+      {
+        appId,
+        pathPart,
+        sourceUrl: app.sourceUrl,
+        upstreamUrl: upstreamUrl.toString(),
+        reqPath: c.req.path,
+      },
+      '[app-proxy] forwarding request',
+    )
 
     const reqHeaders = sanitizeProxyRequestHeaders(new Headers(c.req.raw.headers))
     reqHeaders.set('x-forwarded-proto', reqUrl.protocol.replace(':', ''))
@@ -138,8 +157,16 @@ export function createAppHandler(container: AppContainer) {
       try {
         const loc = new URL(location, upstreamBase)
         if (loc.origin === upstreamBase.origin) {
-          const proxyPathBase = `/api/app-proxy/${app.id}`
-          headers.set('location', `${proxyPathBase}${loc.pathname}${loc.search}${loc.hash}`)
+          const forwardedHost = c.req.header('x-forwarded-host') || ''
+          const isSubdomainProxy = /^app-[0-9a-f-]+\./i.test(forwardedHost)
+          if (isSubdomainProxy) {
+            // Subdomain proxy: browser is on app-<id>.host, use plain path
+            headers.set('location', `${loc.pathname}${loc.search}${loc.hash}`)
+          } else {
+            // Direct path proxy: prefix with proxy route
+            const proxyPathBase = `/api/app-proxy/${app.id}`
+            headers.set('location', `${proxyPathBase}${loc.pathname}${loc.search}${loc.hash}`)
+          }
         }
       } catch {
         // Keep original location if parsing fails.
