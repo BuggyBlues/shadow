@@ -4,6 +4,7 @@ import { cors } from 'hono/cors'
 import type { AppContainer } from './container'
 import { createAdminHandler } from './handlers/admin.handler'
 import { createAgentHandler } from './handlers/agent.handler'
+import { createAppHandler } from './handlers/app.handler'
 import { createAuthHandler } from './handlers/auth.handler'
 import { createChannelHandler } from './handlers/channel.handler'
 import { createDmHandler } from './handlers/dm.handler'
@@ -63,6 +64,7 @@ export function createApp(container: AppContainer) {
   app.route('/api/admin', createAdminHandler(container))
   app.route('/api', createShopHandler(container))
   app.route('/api', createRentalHandler(container))
+  app.route('/api', createAppHandler(container))
   app.route('/api', createWorkspaceHandler(container))
 
   // 404 handler

@@ -2,6 +2,7 @@ import { type AwilixContainer, asClass, asValue, createContainer, InjectionMode 
 import type { Server as SocketIOServer } from 'socket.io'
 import { AgentDao } from './dao/agent.dao'
 import { AgentPolicyDao } from './dao/agent-policy.dao'
+import { AppDao } from './dao/app.dao'
 import { CartDao } from './dao/cart.dao'
 import { ChannelDao } from './dao/channel.dao'
 import { ChannelMemberDao } from './dao/channel-member.dao'
@@ -29,6 +30,7 @@ import type { Database } from './db'
 import { logger } from './lib/logger'
 import { AgentService } from './services/agent.service'
 import { AgentPolicyService } from './services/agent-policy.service'
+import { AppService } from './services/app.service'
 // Service classes
 import { AuthService } from './services/auth.service'
 import { CartService } from './services/cart.service'
@@ -70,6 +72,9 @@ export interface Cradle {
   oauthAppDao: OAuthAppDao
   oauthAccountDao: OAuthAccountDao
 
+  // App DAOs
+  appDao: AppDao
+
   // Shop DAOs
   shopDao: ShopDao
   productDao: ProductDao
@@ -106,6 +111,7 @@ export interface Cradle {
   mediaService: MediaService
   agentService: AgentService
   agentPolicyService: AgentPolicyService
+  appService: AppService
   shopService: ShopService
   productService: ProductService
   walletService: WalletService
@@ -143,6 +149,9 @@ export function createAppContainer(db: Database): AppContainer {
     oauthAppDao: asClass(OAuthAppDao).singleton(),
     oauthAccountDao: asClass(OAuthAccountDao).singleton(),
 
+    // App DAOs
+    appDao: asClass(AppDao).singleton(),
+
     // Shop DAOs
     shopDao: asClass(ShopDao).singleton(),
     productDao: asClass(ProductDao).singleton(),
@@ -179,6 +188,7 @@ export function createAppContainer(db: Database): AppContainer {
     mediaService: asClass(MediaService).singleton(),
     agentService: asClass(AgentService).singleton(),
     agentPolicyService: asClass(AgentPolicyService).singleton(),
+    appService: asClass(AppService).singleton(),
     shopService: asClass(ShopService).singleton(),
     productService: asClass(ProductService).singleton(),
     walletService: asClass(WalletService).singleton(),

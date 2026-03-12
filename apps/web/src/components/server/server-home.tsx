@@ -318,6 +318,15 @@ interface ServerHomeProps {
   standalone?: boolean
 }
 
+interface HomepageApp {
+  id: string
+  name: string
+  sourceType: 'zip' | 'url'
+  sourceUrl: string
+  version: string | null
+  iconUrl: string | null
+}
+
 export function ServerHome({ serverId: propServerId, standalone }: ServerHomeProps = {}) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -338,6 +347,13 @@ export function ServerHome({ serverId: propServerId, standalone }: ServerHomePro
       fetchApi<Array<{ id: string; name: string; type: string }>>(
         `/api/servers/${effectiveServerId}/channels`,
       ),
+    enabled: !!effectiveServerId,
+  })
+
+  // Check for homepage app
+  const { data: homepageApp } = useQuery({
+    queryKey: ['homepage-app', effectiveServerId],
+    queryFn: () => fetchApi<HomepageApp | null>(`/api/servers/${effectiveServerId}/apps/homepage`),
     enabled: !!effectiveServerId,
   })
 
@@ -395,6 +411,13 @@ export function ServerHome({ serverId: propServerId, standalone }: ServerHomePro
 
   // Use custom HTML if set, otherwise generate default with i18n
   const rawHtml = server.homepageHtml || generateDefaultHtml(server, t)
+
+  // If a homepage app exists, resolve its URL for the iframe
+  const homepageAppUrl = homepageApp
+    ? homepageApp.sourceType === 'url'
+      ? homepageApp.sourceUrl
+      : `/api/media/files/${homepageApp.sourceUrl}`
+    : null
 
   // Inject link interceptor script to prevent app-in-app navigation
   const linkInterceptorScript = `<script>
@@ -474,12 +497,22 @@ document.addEventListener('click', function(e) {
       </div>
       {/* HTML content in sandboxed iframe */}
       <div className="flex-1 overflow-auto">
-        <iframe
-          srcDoc={htmlContent}
-          title={`${server.name} homepage`}
-          className="w-full h-full border-0"
-          sandbox="allow-scripts allow-same-origin"
-        />
+        {homepageAppUrl ? (
+          <iframe
+            src={homepageAppUrl}
+            title={`${homepageApp?.name ?? server.name} homepage`}
+            className="w-full h-full border-0"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+            allow="fullscreen; clipboard-write"
+          />
+        ) : (
+          <iframe
+            srcDoc={htmlContent}
+            title={`${server.name} homepage`}
+            className="w-full h-full border-0"
+            sandbox="allow-scripts allow-same-origin"
+          />
+        )}
       </div>
     </div>
   )

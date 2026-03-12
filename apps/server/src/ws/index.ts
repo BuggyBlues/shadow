@@ -2,6 +2,7 @@ import type { Server as SocketIOServer } from 'socket.io'
 import type { AppContainer } from '../container'
 import { verifyToken } from '../lib/jwt'
 import { logger } from '../lib/logger'
+import { setupAppGateway } from './app.gateway'
 import { setupChatGateway } from './chat.gateway'
 import { setupNotificationGateway } from './notification.gateway'
 import { setupPresenceGateway } from './presence.gateway'
@@ -26,6 +27,7 @@ export function setupWebSocket(io: SocketIOServer, container: AppContainer): voi
   })
 
   setupChatGateway(io, container)
+  setupAppGateway(io, container)
   setupPresenceGateway(io, container)
   setupNotificationGateway(io)
 

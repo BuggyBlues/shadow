@@ -67,7 +67,9 @@ export class ChannelService {
 
   /** Get channels for a server, filtered to only those the user is a member of. */
   async getByServerIdForUser(serverId: string, userId: string) {
-    const allChannels = await this.deps.channelDao.findByServerId(serverId)
+    const allChannels = (await this.deps.channelDao.findByServerId(serverId)).filter(
+      (ch) => !ch.name.startsWith('app:'),
+    )
     if (allChannels.length === 0) return []
     try {
       const channelIds = allChannels.map((ch) => ch.id)

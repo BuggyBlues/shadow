@@ -12,6 +12,7 @@ import ReactDOM from 'react-dom/client'
 import { AppLayout } from './components/layout/app-layout'
 import { RootLayout } from './components/layout/root-layout'
 import { queryClient } from './lib/query-client'
+import { AppPageRoute } from './pages/apps'
 import { BuddyMarketPage } from './pages/buddies'
 import { BuddyContractPage } from './pages/buddy-contract'
 import { BuddyManagementPage } from './pages/buddy-management'
@@ -204,6 +205,12 @@ const serverWorkspaceRoute = createRoute({
   component: WorkspacePageRoute,
 })
 
+const serverAppsRoute = createRoute({
+  getParentRoute: () => serverLayoutRoute,
+  path: '/apps',
+  component: AppPageRoute,
+})
+
 const serverHomeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/s/$serverId',
@@ -286,6 +293,7 @@ const routeTree = rootRoute.addChildren([
       serverShopAdminRoute,
       serverShopRoute,
       serverWorkspaceRoute,
+      serverAppsRoute,
     ]),
     settingsRoute,
     buddyMgmtRoute,

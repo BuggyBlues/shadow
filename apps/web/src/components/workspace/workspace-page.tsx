@@ -18,11 +18,12 @@ import { buildVisibleRows, findNodeById, resolveParentForTarget } from './worksp
 interface WorkspacePageProps {
   serverId: string
   onClose?: () => void
+  onPublishAsApp?: (node: WorkspaceNode) => void
 }
 
 /* --- WorkspacePage --- */
 
-export function WorkspacePage({ serverId, onClose }: WorkspacePageProps) {
+export function WorkspacePage({ serverId, onClose, onPublishAsApp }: WorkspacePageProps) {
   const {
     workspace,
     selectedNodeId,
@@ -446,6 +447,7 @@ export function WorkspacePage({ serverId, onClose }: WorkspacePageProps) {
           onRefresh={refetchTree}
           onDownloadZip={handleDownloadZip}
           onDownloadWorkspaceZip={handleDownloadWorkspaceZip}
+          onPublishAsApp={onPublishAsApp}
         />
       )}
 

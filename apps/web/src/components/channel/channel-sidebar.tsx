@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocation, useNavigate } from '@tanstack/react-router'
 import {
+  AppWindow,
   Check,
   ChevronDown,
   ChevronRight,
@@ -409,8 +410,9 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
   const announcementChannels = channels.filter((c) => c.type === 'announcement')
   const isInShop = /\/app\/servers\/[^/]+\/shop(?:\/|$)/.test(location.pathname)
   const isInWorkspace = /\/app\/servers\/[^/]+\/workspace(?:\/|$)/.test(location.pathname)
+  const isInApps = /\/app\/servers\/[^/]+\/apps(?:\/|$)/.test(location.pathname)
   const isInChannel = /\/app\/servers\/[^/]+\/channels\//.test(location.pathname)
-  const isHomeActive = !isInChannel && !isInShop && !isInWorkspace
+  const isHomeActive = !isInChannel && !isInShop && !isInWorkspace && !isInApps
 
   const renderChannelGroup = (label: string, items: Channel[]) => {
     if (items.length === 0) return null
@@ -631,6 +633,30 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
             }`}
           />
           <span className="truncate">{t('serverHome.workspace', '工作区')}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            navigate({
+              to: '/app/servers/$serverSlug/apps',
+              params: { serverSlug: server?.slug ?? serverSlug },
+            })
+            requestMarkScopeRead({ serverId: server?.id ?? serverSlug })
+            setMobileView('chat')
+          }}
+          className={`group flex items-center gap-1.5 px-2 py-[6px] mx-2 mb-2 rounded-md text-[15px] font-medium w-[calc(100%-16px)] text-left transition ${
+            isInApps
+              ? 'bg-bg-modifier-active text-text-primary'
+              : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
+          }`}
+        >
+          <AppWindow
+            size={18}
+            className={`shrink-0 ${
+              isInApps ? 'opacity-80 text-text-primary' : 'opacity-60 group-hover:text-text-primary'
+            }`}
+          />
+          <span className="truncate">应用</span>
         </button>
         <div className="h-px bg-divider mx-4 mb-2" />
         {renderChannelGroup(t('channel.announcement'), announcementChannels)}
