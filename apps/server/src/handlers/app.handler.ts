@@ -142,8 +142,10 @@ export function createAppHandler(container: AppContainer) {
   /* ── All routes below require auth (except /serve public route) ── */
   h.use('*', async (c, next) => {
     const path = c.req.path
-    // Public app runtime endpoint: /api/servers/:serverId/apps/:appId/serve[/...]
-    if (/\/api\/servers\/[^/]+\/apps\/[^/]+\/serve(?:\/.*)?$/.test(path)) {
+    // Public app runtime endpoint:
+    // - /api/servers/:serverId/apps/:appId/serve[/...]
+    // - /servers/:serverId/apps/:appId/serve[/...] (sub-router path)
+    if (/^(?:\/api)?\/servers\/[^/]+\/apps\/[^/]+\/serve(?:\/.*)?$/.test(path)) {
       await next()
       return
     }
