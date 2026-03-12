@@ -104,11 +104,17 @@ export function createAppHandler(container: AppContainer) {
     }
 
     const pathPart = c.req.param('*') || ''
-    const upstreamUrl = new URL(pathPart ? `./${pathPart}` : './', upstreamBase)
 
     // Preserve query string from client request.
     const reqUrl = new URL(c.req.url)
-    upstreamUrl.search = reqUrl.search
+
+    // Behavior:
+    // - root request (/) should open the configured sourceUrl exactly (can include sub-path)
+    // - absolute asset requests (/assets/...) should resolve from upstream origin root
+    const upstreamUrl = pathPart
+      ? new URL(`/${pathPart}`, upstreamBase.origin)
+      : new URL(upstreamBase.toString())
+    upstreamUrl.search = reqUrl.search || (!pathPart ? upstreamBase.search : '')
 
     const reqHeaders = sanitizeProxyRequestHeaders(new Headers(c.req.raw.headers))
     reqHeaders.set('x-forwarded-proto', reqUrl.protocol.replace(':', ''))
