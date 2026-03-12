@@ -3,6 +3,7 @@ import { Hono } from 'hono'
 import JSZip from 'jszip'
 import { lookup } from 'mime-types'
 import type { AppContainer } from '../container'
+import { logger } from '../lib/logger'
 import { authMiddleware } from '../middleware/auth.middleware'
 import {
   createAppSchema,
@@ -115,6 +116,17 @@ export function createAppHandler(container: AppContainer) {
       ? new URL(`/${pathPart}`, upstreamBase.origin)
       : new URL(upstreamBase.toString())
     upstreamUrl.search = reqUrl.search || (!pathPart ? upstreamBase.search : '')
+
+    logger.info(
+      {
+        appId,
+        pathPart,
+        sourceUrl: app.sourceUrl,
+        upstreamUrl: upstreamUrl.toString(),
+        reqPath: c.req.path,
+      },
+      '[app-proxy] forwarding request',
+    )
 
     const reqHeaders = sanitizeProxyRequestHeaders(new Headers(c.req.raw.headers))
     reqHeaders.set('x-forwarded-proto', reqUrl.protocol.replace(':', ''))
