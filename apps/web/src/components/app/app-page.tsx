@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AppWindow,
   ArrowLeft,
+  CheckCircle2,
   Edit3,
   ExternalLink,
   Globe,
@@ -505,6 +506,7 @@ function CreateEditOverlay({
   const [isUploading, setIsUploading] = useState(false)
   const [isUploadingIcon, setIsUploadingIcon] = useState(false)
   const [showFilePicker, setShowFilePicker] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
 
   // For zip: workspace file picker
   const [selectedFileId, setSelectedFileId] = useState(publishFileId ?? '')
@@ -536,6 +538,7 @@ function CreateEditOverlay({
   // Upload icon via /api/media/upload
   const handleIconUpload = async (file: File) => {
     setIsUploadingIcon(true)
+    setErrorMessage('')
     try {
       const formData = new FormData()
       formData.append('file', file)
@@ -544,6 +547,8 @@ function CreateEditOverlay({
         body: formData,
       })
       setIconUrl(result.url)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : '图标上传失败')
     } finally {
       setIsUploadingIcon(false)
     }
@@ -552,6 +557,7 @@ function CreateEditOverlay({
   // Upload zip file via /api/media/upload
   const handleZipUpload = async (file: File) => {
     setIsUploading(true)
+    setErrorMessage('')
     try {
       const formData = new FormData()
       formData.append('file', file)
@@ -562,13 +568,35 @@ function CreateEditOverlay({
       setSourceUrl(result.url)
       setSelectedFileName(file.name)
       setSelectedFileId('')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : '文件上传失败')
     } finally {
       setIsUploading(false)
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setErrorMessage('')
+
+    let finalSourceUrl = sourceUrl
+
+    // If picker selected, resolve file contentRef (works for create + edit)
+    if (sourceType === 'zip' && selectedFileId) {
+      try {
+        const fileNode = await fetchApi<{ contentRef?: string | null }>(
+          `/api/servers/${serverId}/workspace/files/${selectedFileId}`,
+        )
+        if (!fileNode?.contentRef) {
+          setErrorMessage('选中的工作区文件无可用内容引用')
+          return
+        }
+        finalSourceUrl = fileNode.contentRef
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : '获取工作区文件失败')
+        return
+      }
+    }
 
     if (isEdit) {
       update.mutate({
@@ -577,7 +605,7 @@ function CreateEditOverlay({
         description: description || undefined,
         iconUrl: iconUrl || null,
         sourceType,
-        sourceUrl: sourceUrl || undefined,
+        sourceUrl: finalSourceUrl || undefined,
         version: version || undefined,
         isHomepage,
       })
@@ -586,18 +614,23 @@ function CreateEditOverlay({
 
     // Create: if using workspace file, use publish endpoint
     if (sourceType === 'zip' && selectedFileId) {
-      fetchApi(`/api/servers/${serverId}/apps/publish`, {
-        method: 'POST',
-        body: JSON.stringify({
-          name,
-          slug: slug || undefined,
-          description: description || undefined,
-          iconUrl: iconUrl || undefined,
-          fileId: selectedFileId,
-          version: version || undefined,
-          isHomepage,
-        }),
-      }).then(() => onSaved())
+      try {
+        await fetchApi(`/api/servers/${serverId}/apps/publish`, {
+          method: 'POST',
+          body: JSON.stringify({
+            name,
+            slug: slug || undefined,
+            description: description || undefined,
+            iconUrl: iconUrl || undefined,
+            fileId: selectedFileId,
+            version: version || undefined,
+            isHomepage,
+          }),
+        })
+        onSaved()
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : '发布失败')
+      }
       return
     }
 
@@ -607,7 +640,7 @@ function CreateEditOverlay({
       description: description || undefined,
       iconUrl: iconUrl || undefined,
       sourceType,
-      sourceUrl,
+      sourceUrl: finalSourceUrl,
       version: version || undefined,
       isHomepage,
       status: 'active',
@@ -637,6 +670,12 @@ function CreateEditOverlay({
           </button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-3">
+          {errorMessage && (
+            <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+              {errorMessage}
+            </div>
+          )}
+
           {/* Icon upload */}
           <div>
             <label className="block text-xs text-text-muted mb-1">应用图标</label>
@@ -758,9 +797,18 @@ function CreateEditOverlay({
             <div className="space-y-2">
               <label className="block text-xs text-text-muted mb-1">Zip / HTML 文件 *</label>
               {/* Upload file */}
-              <label className="flex items-center gap-2 px-3 py-2 bg-bg-primary border border-border-subtle rounded-lg text-sm text-text-muted hover:text-text-primary hover:border-primary/30 transition cursor-pointer">
-                <Upload size={14} />
-                {isUploading ? '上传中...' : '点击上传文件'}
+              <label className="bg-bg-tertiary border-2 border-dashed border-border-subtle hover:border-primary/50 rounded-lg p-3 flex items-center gap-3 transition-colors cursor-pointer group">
+                <span className="w-8 h-8 rounded-full bg-bg-secondary group-hover:bg-primary/20 flex items-center justify-center transition">
+                  <Upload size={16} className="text-text-primary" />
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm text-text-primary font-medium">
+                    {isUploading ? '上传中...' : '点击上传 Zip / HTML 文件'}
+                  </span>
+                  <span className="block text-xs text-text-muted truncate">
+                    支持 .zip / .html，上传后可直接运行
+                  </span>
+                </span>
                 <input
                   type="file"
                   accept=".zip,.html,application/zip,text/html"
@@ -772,19 +820,35 @@ function CreateEditOverlay({
                 />
               </label>
               {/* Or pick from workspace */}
-              {!isEdit && (
+              <button
+                type="button"
+                onClick={() => setShowFilePicker(true)}
+                className="flex items-center gap-2 w-full px-3 py-2 bg-bg-primary border border-border-subtle rounded-lg text-sm text-text-muted hover:text-text-primary hover:border-primary/30 transition"
+              >
+                <Package size={14} />
+                从工作区选择文件
+              </button>
+
+              {(sourceUrl || selectedFileName) && (
                 <button
                   type="button"
-                  onClick={() => setShowFilePicker(true)}
-                  className="flex items-center gap-2 w-full px-3 py-2 bg-bg-primary border border-border-subtle rounded-lg text-sm text-text-muted hover:text-text-primary hover:border-primary/30 transition"
+                  onClick={() => {
+                    setSelectedFileId('')
+                    setSelectedFileName('')
+                    setSourceUrl('')
+                  }}
+                  className="text-xs text-text-muted hover:text-text-primary transition text-left"
                 >
-                  <Package size={14} />
-                  从工作区选择文件
+                  清空已选文件
                 </button>
               )}
+
               {/* Show selected info */}
               {(sourceUrl || selectedFileName) && (
-                <p className="text-xs text-text-muted">已选择: {selectedFileName || sourceUrl}</p>
+                <p className="text-xs text-text-muted flex items-center gap-1">
+                  <CheckCircle2 size={12} className="text-emerald-400" />
+                  已选择: {selectedFileName || sourceUrl}
+                </p>
               )}
             </div>
           )}
@@ -829,6 +893,7 @@ function CreateEditOverlay({
             setSelectedFileId(result.node.id)
             setSelectedFileName(result.node.name)
             setSourceUrl('')
+            setErrorMessage('')
             setShowFilePicker(false)
           }}
           onClose={() => setShowFilePicker(false)}

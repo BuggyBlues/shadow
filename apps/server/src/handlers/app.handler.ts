@@ -31,6 +31,26 @@ export function createAppHandler(container: AppContainer) {
     await permissionService.requireRole(serverId, userId, 'admin')
   }
 
+  async function loadSourceBuffer(sourceUrl: string): Promise<Buffer | null> {
+    if (!sourceUrl) return null
+
+    // Internal media contentRef, e.g. /shadow/uploads/xxx.zip
+    if (sourceUrl.startsWith('/')) {
+      const mediaService = container.resolve('mediaService')
+      return mediaService.getFileBuffer(sourceUrl)
+    }
+
+    // External URL source
+    try {
+      const res = await fetch(sourceUrl)
+      if (!res.ok) return null
+      const arr = await res.arrayBuffer()
+      return Buffer.from(arr)
+    } catch {
+      return null
+    }
+  }
+
   /* ══════════════════════════════════════════
      Serve App Content (no auth – public)
      ══════════════════════════════════════════ */
@@ -53,8 +73,6 @@ export function createAppHandler(container: AppContainer) {
 
     const filePath = c.req.param('*') || 'index.html'
 
-    const mediaService = container.resolve('mediaService')
-
     if (app.sourceType === 'url') {
       return c.redirect(app.sourceUrl)
     }
@@ -64,7 +82,7 @@ export function createAppHandler(container: AppContainer) {
 
     if (!isZip) {
       // Single HTML file — serve directly
-      const buf = await mediaService.getFileBuffer(app.sourceUrl)
+      const buf = await loadSourceBuffer(app.sourceUrl)
       if (!buf) return c.text('File not found', 404)
       return c.body(new Uint8Array(buf), 200, { 'Content-Type': 'text/html; charset=utf-8' })
     }
@@ -73,7 +91,7 @@ export function createAppHandler(container: AppContainer) {
     const cacheKey = `${app.id}:${app.sourceUrl}`
     let cached = zipCache.get(cacheKey)
     if (!cached || Date.now() - cached.ts > ZIP_CACHE_TTL) {
-      const buf = await mediaService.getFileBuffer(app.sourceUrl)
+      const buf = await loadSourceBuffer(app.sourceUrl)
       if (!buf) return c.text('Zip file not found', 404)
       const zip = await JSZip.loadAsync(buf)
       cached = { zip, ts: Date.now() }
@@ -121,8 +139,16 @@ export function createAppHandler(container: AppContainer) {
     return c.redirect(url.toString(), 301)
   })
 
-  /* ── All routes below require auth ── */
-  h.use('*', authMiddleware)
+  /* ── All routes below require auth (except /serve public route) ── */
+  h.use('*', async (c, next) => {
+    const path = c.req.path
+    // Public app runtime endpoint: /api/servers/:serverId/apps/:appId/serve[/...]
+    if (/\/api\/servers\/[^/]+\/apps\/[^/]+\/serve(?:\/.*)?$/.test(path)) {
+      await next()
+      return
+    }
+    return authMiddleware(c, next)
+  })
 
   /* ══════════════════════════════════════════
      List & Get Apps
