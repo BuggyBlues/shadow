@@ -1,1 +1,2 @@
+pnpm check:migrations
 pnpm exec lint-staged
