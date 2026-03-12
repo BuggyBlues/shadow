@@ -399,12 +399,31 @@ function AppViewer({
       const proxyEnabled = currentApp.settings?.proxyEnabled === true
       if (!proxyEnabled) return currentApp.sourceUrl
 
-      const suffix = (import.meta.env.VITE_APP_PROXY_HOST_SUFFIX as string | undefined)?.trim()
+      const configuredSuffix = (
+        import.meta.env.VITE_APP_PROXY_HOST_SUFFIX as string | undefined
+      )?.trim()
+      const prefix =
+        (import.meta.env.VITE_APP_PROXY_SUBDOMAIN_PREFIX as string | undefined)?.trim() || 'app'
+
+      let suffix = configuredSuffix
+      if (!suffix) {
+        const host = window.location.hostname
+        const isLocalHost =
+          host === 'localhost' ||
+          host === '127.0.0.1' ||
+          host === '0.0.0.0' ||
+          host.endsWith('.local')
+
+        if (!isLocalHost) {
+          // Auto derive: shadowob.com -> shadowob.com, www.shadowob.com -> shadowob.com
+          suffix = host.startsWith('www.') ? host.slice(4) : host
+        }
+      }
+
       if (suffix) {
-        const prefix =
-          (import.meta.env.VITE_APP_PROXY_SUBDOMAIN_PREFIX as string | undefined)?.trim() || 'app'
         return `${window.location.protocol}//${prefix}-${currentApp.id}.${suffix}/`
       }
+
       // Fallback for local dev without wildcard DNS/Caddy subdomain routing
       return `/api/app-proxy/${currentApp.id}/`
     }
