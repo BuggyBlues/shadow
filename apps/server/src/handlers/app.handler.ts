@@ -104,7 +104,14 @@ export function createAppHandler(container: AppContainer) {
       return c.text('Invalid source URL', 400)
     }
 
-    const pathPart = c.req.param('*') || ''
+    const pathPart = (() => {
+      // c.req.param('*') can be empty when mounted via app.route() sub-router.
+      // Extract reliably from the full request path instead.
+      const wild = c.req.param('*')
+      if (wild) return wild
+      const match = c.req.path.match(/\/app-proxy\/[^/]+\/(.+)$/)
+      return match?.[1] ?? ''
+    })()
 
     // Preserve query string from client request.
     const reqUrl = new URL(c.req.url)
