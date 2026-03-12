@@ -138,8 +138,16 @@ export function createAppHandler(container: AppContainer) {
       try {
         const loc = new URL(location, upstreamBase)
         if (loc.origin === upstreamBase.origin) {
-          const proxyPathBase = `/api/app-proxy/${app.id}`
-          headers.set('location', `${proxyPathBase}${loc.pathname}${loc.search}${loc.hash}`)
+          const forwardedHost = c.req.header('x-forwarded-host') || ''
+          const isSubdomainProxy = /^app-[0-9a-f-]+\./i.test(forwardedHost)
+          if (isSubdomainProxy) {
+            // Subdomain proxy: browser is on app-<id>.host, use plain path
+            headers.set('location', `${loc.pathname}${loc.search}${loc.hash}`)
+          } else {
+            // Direct path proxy: prefix with proxy route
+            const proxyPathBase = `/api/app-proxy/${app.id}`
+            headers.set('location', `${proxyPathBase}${loc.pathname}${loc.search}${loc.hash}`)
+          }
         }
       } catch {
         // Keep original location if parsing fails.
