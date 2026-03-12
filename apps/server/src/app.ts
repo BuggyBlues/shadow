@@ -52,6 +52,11 @@ export function createApp(container: AppContainer) {
   // API routes
   app.route('/api/auth', createAuthHandler(container))
   app.route('/api/oauth', createOAuthHandler(container))
+  // IMPORTANT: Mount app/workspace handlers before /api/servers base handler
+  // so nested routes like /api/servers/:serverId/apps/* and
+  // /api/servers/:serverId/workspace/* are not pre-empted by server auth middleware.
+  app.route('/api', createAppHandler(container))
+  app.route('/api', createWorkspaceHandler(container))
   app.route('/api/servers', createServerHandler(container))
   app.route('/api', createChannelHandler(container))
   app.route('/api', createMessageHandler(container))
@@ -64,8 +69,6 @@ export function createApp(container: AppContainer) {
   app.route('/api/admin', createAdminHandler(container))
   app.route('/api', createShopHandler(container))
   app.route('/api', createRentalHandler(container))
-  app.route('/api', createAppHandler(container))
-  app.route('/api', createWorkspaceHandler(container))
 
   // 404 handler
   app.notFound((c) => c.json({ error: 'Not Found' }, 404))
