@@ -30,6 +30,15 @@ export class InviteCodeDao {
     return result[0] ?? null
   }
 
+  async findByUsedBy(userId: string) {
+    const result = await this.db
+      .select()
+      .from(inviteCodes)
+      .where(eq(inviteCodes.usedBy, userId))
+      .limit(1)
+    return result[0] ?? null
+  }
+
   async findAvailable(code: string) {
     const result = await this.db
       .select()

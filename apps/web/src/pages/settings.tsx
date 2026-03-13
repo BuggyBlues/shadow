@@ -18,6 +18,7 @@ import {
   Save,
   Shield,
   Sun,
+  Target,
   Trash2,
   User,
   X,
@@ -27,6 +28,7 @@ import { useTranslation } from 'react-i18next'
 import { UserAvatar } from '../components/common/avatar'
 import { AvatarEditor } from '../components/common/avatar-editor'
 import { LanguageSwitcher } from '../components/common/language-switcher'
+import { PriceDisplay, ShrimpCoinIcon } from '../components/shop/ui/currency'
 import { useAppStatus } from '../hooks/use-app-status'
 import { useUnreadCount } from '../hooks/use-unread-count'
 import { fetchApi } from '../lib/api'
@@ -52,9 +54,20 @@ export function SettingsPage() {
   const [message, setMessage] = useState('')
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [activeTab, setActiveTab] = useState<
-    'quickstart' | 'profile' | 'account' | 'invite' | 'buddy' | 'appearance' | 'notification'
+    | 'quickstart'
+    | 'profile'
+    | 'account'
+    | 'invite'
+    | 'tasks'
+    | 'buddy'
+    | 'appearance'
+    | 'notification'
   >('quickstart')
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+  const { data: wallet } = useQuery({
+    queryKey: ['wallet'],
+    queryFn: () => fetchApi<{ balance: number }>('/api/wallet'),
+  })
 
   useEffect(() => {
     if (user) {
@@ -109,6 +122,7 @@ export function SettingsPage() {
           { key: 'profile' as const, icon: User, label: t('settings.tabProfile') },
           { key: 'appearance' as const, icon: Paintbrush, label: t('settings.tabAppearance') },
           { key: 'notification' as const, icon: Bell, label: '通知' },
+          { key: 'tasks' as const, icon: Target, label: '任务中心' },
           { key: 'buddy' as const, icon: Bot, label: t('settings.tabBuddy') },
           { key: 'account' as const, icon: Shield, label: t('settings.tabAccount') },
           { key: 'invite' as const, icon: Link2, label: t('settings.tabInvite') },
@@ -189,6 +203,20 @@ export function SettingsPage() {
               className={`shrink-0 ${activeTab === 'notification' ? 'opacity-80 text-text-primary' : 'opacity-60 group-hover:text-text-primary'}`}
             />
             通知
+          </button>
+          <button
+            onClick={() => setActiveTab('tasks')}
+            className={`group flex items-center gap-3 w-full px-3 py-2 rounded-md text-[15px] font-medium transition ${
+              activeTab === 'tasks'
+                ? 'bg-bg-modifier-active text-text-primary'
+                : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
+            }`}
+          >
+            <Target
+              size={18}
+              className={`shrink-0 ${activeTab === 'tasks' ? 'opacity-80 text-text-primary' : 'opacity-60 group-hover:text-text-primary'}`}
+            />
+            任务中心
           </button>
           <button
             onClick={() => setActiveTab('buddy')}
@@ -341,6 +369,18 @@ export function SettingsPage() {
                 </a>
                 <button
                   type="button"
+                  onClick={() => setActiveTab('buddy')}
+                  className="bg-bg-secondary hover:bg-bg-tertiary border border-border-subtle rounded-xl p-5 text-left transition group"
+                >
+                  <Bot
+                    size={24}
+                    className="text-emerald-500 mb-3 group-hover:scale-110 transition-transform"
+                  />
+                  <h3 className="font-bold text-text-primary text-[15px] mb-1">Buddy 管理</h3>
+                  <p className="text-text-muted text-[13px]">创建、配置并管理你的 Buddy</p>
+                </button>
+                <button
+                  type="button"
                   onClick={() => navigate({ to: '/buddies' })}
                   className="bg-bg-secondary hover:bg-bg-tertiary border border-border-subtle rounded-xl p-5 text-left transition group"
                 >
@@ -480,6 +520,11 @@ export function SettingsPage() {
                     </h3>
                     <p className="text-sm text-text-muted">@{user.username}</p>
                     <p className="text-xs text-text-muted mt-1">{user.email}</p>
+                    <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-bg-tertiary border border-border-subtle">
+                      <ShrimpCoinIcon className="w-4 h-4 text-rose-400" />
+                      <span className="text-xs text-text-muted">虾币</span>
+                      <PriceDisplay amount={wallet?.balance ?? 0} size={13} className="ml-0.5" />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -578,6 +623,8 @@ export function SettingsPage() {
           )}
 
           {activeTab === 'invite' && <InviteManagement />}
+
+          {activeTab === 'tasks' && <TaskCenter onSwitchTab={setActiveTab} />}
 
           {activeTab === 'buddy' && <BuddyManagementContent />}
         </div>
@@ -767,6 +814,18 @@ interface InviteCode {
 
 function InviteManagement() {
   const { t } = useTranslation()
+  const { data: referralSummary } = useQuery({
+    queryKey: ['task-referral-summary'],
+    queryFn: () =>
+      fetchApi<{
+        rewardPerUser: number
+        rewardForInviter: number
+        rewardForInvitee: number
+        successfulInvites: number
+        totalInviteRewards: number
+        campaignText: string
+      }>('/api/tasks/referral-summary'),
+  })
   const [codes, setCodes] = useState<InviteCode[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
@@ -834,6 +893,16 @@ function InviteManagement() {
 
   return (
     <>
+      <div className="bg-gradient-to-r from-primary/15 to-emerald-500/15 border border-primary/20 rounded-xl p-4 mb-6">
+        <p className="text-sm font-bold text-text-primary">
+          {referralSummary?.campaignText ?? '邀请好友完成注册登录，你和好友均可获得 500 虾币'}
+        </p>
+        <p className="text-xs text-text-muted mt-1">
+          已成功邀请 {referralSummary?.successfulInvites ?? 0} 人，累计获得{' '}
+          {referralSummary?.totalInviteRewards ?? 0} 虾币
+        </p>
+      </div>
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl font-bold text-text-primary">{t('settings.inviteTitle')}</h2>
@@ -972,6 +1041,226 @@ function InviteManagement() {
           })}
         </div>
       )}
+    </>
+  )
+}
+
+function TaskCenter({
+  onSwitchTab,
+}: {
+  onSwitchTab: (
+    tab:
+      | 'quickstart'
+      | 'profile'
+      | 'account'
+      | 'invite'
+      | 'tasks'
+      | 'buddy'
+      | 'appearance'
+      | 'notification',
+  ) => void
+}) {
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
+
+  const getActionLabel = (taskKey: string) => {
+    switch (taskKey) {
+      case 'create_server':
+        return '去创建服务器'
+      case 'create_channel':
+        return '去创建频道'
+      case 'first_message':
+        return '去发消息'
+      case 'create_buddy':
+        return '去创建 Buddy'
+      case 'list_buddy':
+        return '去挂单 Buddy'
+      case 'rent_buddy':
+        return '去租赁 Buddy'
+      case 'list_product':
+        return '去上架商品'
+      case 'invite_signup':
+        return '去邀请好友'
+      default:
+        return '去完成'
+    }
+  }
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['task-center'],
+    queryFn: () =>
+      fetchApi<{
+        wallet: { balance: number }
+        summary: { totalTasks: number; claimableTasks: number; completedTasks: number }
+        tasks: Array<{
+          key: string
+          title: string
+          description: string
+          reward: number
+          type: 'one_time' | 'repeatable'
+          completed: boolean
+          claimable: boolean
+          claimedCount: number
+        }>
+      }>('/api/tasks'),
+  })
+
+  const { data: rewardLogs } = useQuery({
+    queryKey: ['task-reward-history'],
+    queryFn: () =>
+      fetchApi<
+        Array<{
+          id: string
+          rewardKey: string
+          amount: number
+          note: string | null
+          createdAt: string
+        }>
+      >('/api/tasks/rewards?limit=20'),
+  })
+
+  const claimMutation = useMutation({
+    mutationFn: (taskKey: string) => fetchApi(`/api/tasks/${taskKey}/claim`, { method: 'POST' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['task-center'] })
+      queryClient.invalidateQueries({ queryKey: ['task-referral-summary'] })
+    },
+  })
+
+  return (
+    <>
+      <h2 className="text-2xl font-bold text-text-primary mb-2">任务中心</h2>
+      <p className="text-text-muted text-sm mb-6">完成任务赚取虾币，支持一次性任务与活动任务。</p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+        <div className="bg-bg-secondary rounded-xl border border-border-subtle p-4">
+          <p className="text-[11px] text-text-muted uppercase font-bold">任务总数</p>
+          <p className="text-lg font-extrabold text-text-primary">
+            {data?.summary.totalTasks ?? 0}
+          </p>
+        </div>
+        <div className="bg-bg-secondary rounded-xl border border-border-subtle p-4">
+          <p className="text-[11px] text-text-muted uppercase font-bold">可领取</p>
+          <p className="text-lg font-extrabold text-emerald-400">
+            {data?.summary.claimableTasks ?? 0}
+          </p>
+        </div>
+        <div className="bg-bg-secondary rounded-xl border border-border-subtle p-4">
+          <p className="text-[11px] text-text-muted uppercase font-bold">已完成</p>
+          <p className="text-lg font-extrabold text-primary">{data?.summary.completedTasks ?? 0}</p>
+        </div>
+      </div>
+
+      <div className="bg-bg-secondary rounded-xl border border-border-subtle p-5 mb-6">
+        <p className="text-xs text-text-muted uppercase font-bold mb-1">当前虾币</p>
+        <div className="flex items-center gap-2">
+          <ShrimpCoinIcon className="w-5 h-5 text-rose-400" />
+          <PriceDisplay amount={data?.wallet.balance ?? 0} size={20} />
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="text-center text-text-muted py-12">加载任务中…</div>
+      ) : (
+        <div className="space-y-3">
+          {data?.tasks.map((task) => (
+            <div
+              key={task.key}
+              className="bg-bg-secondary rounded-xl border border-border-subtle p-4 flex items-center gap-3"
+            >
+              <div className="flex-1">
+                <p className="text-sm font-bold text-text-primary">{task.title}</p>
+                <p className="text-xs text-text-muted mt-1">{task.description}</p>
+                <div className="text-xs text-emerald-400 mt-1 inline-flex items-center gap-1">
+                  <span>奖励：</span>
+                  <PriceDisplay amount={task.reward} size={12} />
+                </div>
+              </div>
+
+              {task.type === 'repeatable' ? (
+                task.claimedCount > 0 ? (
+                  <span className="text-xs px-2 py-1 rounded bg-emerald-500/15 text-emerald-400">
+                    已完成 {task.claimedCount} 次
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => onSwitchTab('invite')}
+                    className="text-xs px-2 py-1 rounded bg-primary/20 hover:bg-primary/30 text-primary"
+                  >
+                    {getActionLabel(task.key)}
+                  </button>
+                )
+              ) : task.claimable ? (
+                <button
+                  type="button"
+                  onClick={() => claimMutation.mutate(task.key)}
+                  disabled={claimMutation.isPending}
+                  className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-bold disabled:opacity-50"
+                >
+                  领取
+                </button>
+              ) : task.completed ? (
+                <span className="text-xs px-2 py-1 rounded bg-green-500/15 text-green-400">
+                  已领取
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    switch (task.key) {
+                      case 'create_server':
+                      case 'create_channel':
+                      case 'first_message':
+                        navigate({ to: '/app/discover' })
+                        break
+                      case 'create_buddy':
+                      case 'list_buddy':
+                        onSwitchTab('buddy')
+                        break
+                      case 'rent_buddy':
+                        navigate({ to: '/buddies' })
+                        break
+                      case 'list_product':
+                        navigate({ to: '/app/discover' })
+                        break
+                      default:
+                        break
+                    }
+                  }}
+                  className="text-xs px-2 py-1 rounded bg-zinc-500/20 hover:bg-zinc-500/30 text-zinc-200"
+                >
+                  {getActionLabel(task.key)}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-6 bg-bg-secondary rounded-xl border border-border-subtle p-5">
+        <h3 className="text-sm font-bold text-text-primary mb-3">奖励记录</h3>
+        {rewardLogs && rewardLogs.length > 0 ? (
+          <div className="space-y-2">
+            {rewardLogs.map((log) => (
+              <div
+                key={log.id}
+                className="flex items-center justify-between rounded-lg bg-bg-tertiary px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="text-xs text-text-primary truncate">{log.note || log.rewardKey}</p>
+                  <p className="text-[11px] text-text-muted">
+                    {new Date(log.createdAt).toLocaleString()}
+                  </p>
+                </div>
+                <PriceDisplay amount={log.amount} size={13} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-text-muted">暂无奖励记录</p>
+        )}
+      </div>
     </>
   )
 }

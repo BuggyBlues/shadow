@@ -48,6 +48,7 @@ export function RegisterPage() {
           password,
           displayName: displayName || undefined,
           inviteCode,
+          referralCode: searchParams.code,
         }),
       })
 

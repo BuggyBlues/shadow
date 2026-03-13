@@ -5,14 +5,20 @@ import type { UserDao } from '../dao/user.dao'
 import { randomFixedDigits } from '../lib/id'
 import { signAccessToken, signRefreshToken, verifyToken } from '../lib/jwt'
 import type { LoginInput, RegisterInput } from '../validators/auth.schema'
+import type { TaskCenterService } from './task-center.service'
 
 export class AuthService {
   constructor(
-    private deps: { userDao: UserDao; inviteCodeDao: InviteCodeDao; agentDao: AgentDao },
+    private deps: {
+      userDao: UserDao
+      inviteCodeDao: InviteCodeDao
+      agentDao: AgentDao
+      taskCenterService: TaskCenterService
+    },
   ) {}
 
   async register(input: RegisterInput) {
-    const { userDao, inviteCodeDao } = this.deps
+    const { userDao, inviteCodeDao, taskCenterService } = this.deps
 
     // Validate invite code
     const code = await inviteCodeDao.findAvailable(input.inviteCode)
@@ -68,6 +74,9 @@ export class AuthService {
     // Mark invite code as used
     await inviteCodeDao.markUsed(code.id, user.id)
 
+    // Campaign reward: signup bonus
+    await taskCenterService.grantWelcomeReward(user.id)
+
     // Generate tokens
     const payload = { userId: user.id, email: user.email, username: user.username }
     const accessToken = signAccessToken(payload)
@@ -87,7 +96,7 @@ export class AuthService {
   }
 
   async login(input: LoginInput) {
-    const { userDao } = this.deps
+    const { userDao, inviteCodeDao, taskCenterService } = this.deps
 
     const user = await userDao.findByEmail(input.email)
     if (!user) {
@@ -105,6 +114,13 @@ export class AuthService {
 
     // Update user status to online
     await userDao.updateStatus(user.id, 'online')
+
+    // Referral campaign reward trigger: on first successful login after registration.
+    // grantInviteRewards is idempotent by (userId + rewardKey + inviteCodeId).
+    const usedInvite = await inviteCodeDao.findByUsedBy(user.id)
+    if (usedInvite?.createdBy && usedInvite.createdBy !== user.id) {
+      await taskCenterService.grantInviteRewards(usedInvite.createdBy, user.id, usedInvite.id)
+    }
 
     return {
       user: {

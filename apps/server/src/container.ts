@@ -20,6 +20,7 @@ import { RentalContractDao, RentalUsageDao, RentalViolationDao } from './dao/ren
 import { ReviewDao } from './dao/review.dao'
 import { ServerDao } from './dao/server.dao'
 import { ShopDao } from './dao/shop.dao'
+import { TaskCenterDao } from './dao/task-center.dao'
 // DAO classes
 import { UserDao } from './dao/user.dao'
 import { WalletDao } from './dao/wallet.dao'
@@ -50,6 +51,7 @@ import { ReviewService } from './services/review.service'
 import { SearchService } from './services/search.service'
 import { ServerService } from './services/server.service'
 import { ShopService } from './services/shop.service'
+import { TaskCenterService } from './services/task-center.service'
 import { WalletService } from './services/wallet.service'
 import { WorkspaceService } from './services/workspace.service'
 
@@ -71,6 +73,7 @@ export interface Cradle {
   inviteCodeDao: InviteCodeDao
   oauthAppDao: OAuthAppDao
   oauthAccountDao: OAuthAccountDao
+  taskCenterDao: TaskCenterDao
 
   // App DAOs
   appDao: AppDao
@@ -121,6 +124,7 @@ export interface Cradle {
   entitlementService: EntitlementService
   workspaceService: WorkspaceService
   rentalService: RentalService
+  taskCenterService: TaskCenterService
 }
 
 export type AppContainer = AwilixContainer<Cradle>
@@ -148,6 +152,7 @@ export function createAppContainer(db: Database): AppContainer {
     inviteCodeDao: asClass(InviteCodeDao).singleton(),
     oauthAppDao: asClass(OAuthAppDao).singleton(),
     oauthAccountDao: asClass(OAuthAccountDao).singleton(),
+    taskCenterDao: asClass(TaskCenterDao).singleton(),
 
     // App DAOs
     appDao: asClass(AppDao).singleton(),
@@ -198,6 +203,7 @@ export function createAppContainer(db: Database): AppContainer {
     entitlementService: asClass(EntitlementService).singleton(),
     workspaceService: asClass(WorkspaceService).singleton(),
     rentalService: asClass(RentalService).singleton(),
+    taskCenterService: asClass(TaskCenterService).singleton(),
   })
 
   return container

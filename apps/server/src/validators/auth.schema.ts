@@ -17,6 +17,7 @@ export const registerSchema = z.object({
     .max(128, 'Password must be at most 128 characters'),
   displayName: z.string().max(64).optional(),
   inviteCode: z.string().min(1, 'Invite code is required'),
+  referralCode: z.string().max(64).optional(),
 })
 
 export const loginSchema = z.object({

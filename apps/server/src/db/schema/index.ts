@@ -55,6 +55,7 @@ export {
   walletTransactions,
   walletTxTypeEnum,
 } from './shops'
+export { userRewardLogs, userTaskClaims } from './task-center'
 export { threads } from './threads'
 export { userStatusEnum, users } from './users'
 export { workspaceNodeKindEnum, workspaceNodes, workspaces } from './workspaces'
