@@ -824,7 +824,13 @@ function AgentDetail({
       </div>
 
       {/* OpenClaw Setup Guide */}
-      <OpenClawSetupGuide agent={agent} generatedToken={generatedToken} t={t} />
+      <OpenClawSetupGuide
+        agent={agent}
+        generatedToken={generatedToken}
+        onGenerateToken={() => tokenMutation.mutate(agent.id)}
+        generatingToken={tokenMutation.isPending}
+        t={t}
+      />
     </>
   )
 }
@@ -867,34 +873,61 @@ function CopyBlock({
 function OpenClawSetupGuide({
   agent,
   generatedToken,
+  onGenerateToken,
+  generatingToken,
   t,
 }: {
   agent: Agent
   generatedToken: string | null
+  onGenerateToken: () => void
+  generatingToken: boolean
   t: (key: string) => string
 }) {
   const token = (agent.config?.lastToken as string | undefined) ?? generatedToken ?? ''
+  const hasToken = !!token.trim()
   const serverUrl = window.location.origin
   const [activeTab, setActiveTab] = useState<'manual' | 'chat'>('manual')
 
   // Bash one-liner for manual setup
-  const bashCommand = `openclaw plugins install @shadowob/openclaw && openclaw config set channels.shadowob.token "${token || '<TOKEN>'}" && openclaw config set channels.shadowob.serverUrl "${serverUrl}" && openclaw start`
+  const bashCommand = `openclaw plugins install @shadowob/openclaw && openclaw config set channels.shadowob.token "${token || '<TOKEN>'}" && openclaw config set channels.shadowob.serverUrl "${serverUrl}" && openclaw gateway restart`
 
   // AI prompt for chat-based setup
   const aiPrompt = `请帮我安装和配置 ShadowOwnBuddy 插件，连接到 Shadow 服务器。
 
 配置信息：
 - 插件名称：@shadowob/openclaw
-- Token：${token || '<请先生成 Token>'}
 - 服务器地址：${serverUrl}
 
 请执行以下步骤：
 1. 安装插件：openclaw plugins install @shadowob/openclaw
 2. 配置 Token：openclaw config set channels.shadowob.token "${token || '<TOKEN>'}"
 3. 配置服务器地址：openclaw config set channels.shadowob.serverUrl "${serverUrl}"
-4. 启动服务：openclaw start
+4. 重启网关：openclaw gateway restart
 
 请依次执行这些命令，并确认每个步骤是否成功。`
+
+  if (!hasToken) {
+    return (
+      <div className="bg-bg-secondary rounded-xl p-6 mb-6 border border-border-subtle">
+        <div className="flex items-center gap-2 mb-3">
+          <BookOpen size={16} className="text-primary" />
+          <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">
+            {t('agentMgmt.openclawGuideTitle')}
+          </h3>
+        </div>
+        <p className="text-sm text-text-muted mb-4">{t('agentMgmt.setupTokenWarning')}</p>
+        <button
+          type="button"
+          onClick={onGenerateToken}
+          disabled={generatingToken}
+          className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-bold transition disabled:opacity-50"
+        >
+          <Key size={14} />
+          {generatingToken ? t('agentMgmt.generating') : t('agentMgmt.generateToken')}
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="bg-bg-secondary rounded-xl p-6 mb-6 border border-border-subtle">
@@ -982,10 +1015,7 @@ function OpenClawSetupGuide({
               </span>
             </div>
             <div className="ml-7">
-              <CopyBlock
-                content={`openclaw config set channels.shadowob.token "${token || '<TOKEN>'}"`}
-                t={t}
-              />
+              <CopyBlock content={`openclaw config set channels.shadowob.token "${token}"`} t={t} />
             </div>
           </div>
 
@@ -1018,7 +1048,7 @@ function OpenClawSetupGuide({
               </span>
             </div>
             <div className="ml-7">
-              <CopyBlock content="openclaw start" t={t} />
+              <CopyBlock content="openclaw gateway restart" t={t} />
             </div>
           </div>
         </>
@@ -1027,11 +1057,6 @@ function OpenClawSetupGuide({
           {/* AI chat prompt */}
           <p className="text-xs text-text-muted mb-3">{t('agentMgmt.setupChatDesc')}</p>
           <CopyBlock content={aiPrompt} t={t} />
-          {!token && (
-            <p className="text-[10px] text-yellow-400 mt-1.5 ml-1">
-              ⚠ {t('agentMgmt.setupTokenWarning')}
-            </p>
-          )}
         </>
       )}
 
