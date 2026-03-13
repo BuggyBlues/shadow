@@ -20,6 +20,7 @@
     "db:generate": "pnpm --filter @shadowob/server db:generate",
     "db:migrate": "pnpm --filter @shadowob/server db:migrate",
     "db:studio": "pnpm --filter @shadowob/server db:studio",
+    "publish:packages": "node scripts/publish-packages.mjs",
     "prepare": "husky"
   },
   "lint-staged": {
