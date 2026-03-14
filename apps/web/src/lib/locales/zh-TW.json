@@ -542,6 +542,7 @@
     "shopReviews": "評價系統",
     "shopReviewsDesc": "購買的商品可以進行星級評價和文字評論。評價會展示在商品詳情頁，幫助其他使用者參考。支援匿名評價。",
     "shopTip": "蝦幣是社群內部的虛擬貨幣，可以用來激勵內容創作、購買服務和交易商品。",
+    "rentalDoc": "Buddy 租賃",
     "workspaceIntro": "每個伺服器都有一個共享工作區，用於團隊檔案管理和協作。支援資料夾層級結構、多種檔案格式線上預覽、檔案搜尋和聊天整合。",
     "workspaceFeatures": "核心功能",
     "workspaceFeat_fileTree": "資料夾樹狀結構",

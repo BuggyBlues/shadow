@@ -18,6 +18,7 @@ import {
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { UserAvatar } from '../components/common/avatar'
+import { formatDuration, OnlineRank } from '../components/common/online-rank'
 import { useAppStatus } from '../hooks/use-app-status'
 import { fetchApi } from '../lib/api'
 import { useAuthStore } from '../stores/auth.store'
@@ -45,10 +46,14 @@ interface Listing {
   viewCount: number
   rentalCount: number
   tags: string[]
+  totalOnlineSeconds: number
   createdAt: string
 }
 
-const DEVICE_TIER_COLORS: Record<string, { color: string; icon: string; labelKey: string }> = {
+const DEVICE_TIER_COLORS: Record<
+  Listing['deviceTier'],
+  { color: string; icon: string; labelKey: string }
+> = {
   high_end: {
     color: 'from-amber-400 to-orange-500',
     icon: '🔥',
@@ -439,7 +444,7 @@ export function BuddyMarketPage() {
 
 function ListingCard({ listing, onClick }: { listing: Listing; onClick: () => void }) {
   const { t } = useTranslation()
-  const tier = DEVICE_TIER_COLORS[listing.deviceTier] || DEVICE_TIER_COLORS.mid_range
+  const tier = DEVICE_TIER_COLORS[listing.deviceTier]
 
   return (
     <button
@@ -479,6 +484,14 @@ function ListingCard({ listing, onClick }: { listing: Listing; onClick: () => vo
       <p className="text-sm text-gray-500 font-medium line-clamp-2 mb-4 leading-relaxed h-[2.8em]">
         {listing.description || t('marketplace.noDescription')}
       </p>
+
+      {/* Online rank */}
+      {listing.totalOnlineSeconds > 0 && (
+        <div className="flex items-center gap-2 mb-3 text-xs text-gray-400 font-medium">
+          <span>在线 {formatDuration(listing.totalOnlineSeconds)}</span>
+          <OnlineRank totalSeconds={listing.totalOnlineSeconds} />
+        </div>
+      )}
 
       {/* Footer: price left, stats right */}
       <div className="flex items-center justify-between pt-3 border-t border-gray-100">

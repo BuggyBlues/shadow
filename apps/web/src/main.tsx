@@ -37,6 +37,7 @@ import { ServerHomeView } from './pages/server-home-view'
 import { SettingsPage } from './pages/settings'
 import { ShopPageRoute } from './pages/shop'
 import { ShopAdminPageRoute } from './pages/shop-admin'
+import { UserProfilePage } from './pages/user-profile'
 import { WorkspacePageRoute } from './pages/workspace'
 import { useAuthStore } from './stores/auth.store'
 import './styles/globals.css'
@@ -270,6 +271,12 @@ const editListingRoute = createRoute({
   component: CreateListingPage,
 })
 
+const userProfileRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/profile/$userId',
+  component: UserProfilePage,
+})
+
 // Router
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -303,6 +310,7 @@ const routeTree = rootRoute.addChildren([
     createListingRoute,
     editListingRoute,
     marketplaceDetailRoute,
+    userProfileRoute,
   ]),
 ])
 

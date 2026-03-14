@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import {
+  ChevronDown,
   ChevronLeft,
   Clock,
   Edit,
@@ -46,6 +47,11 @@ interface MyListing {
   viewCount: number
   rentalCount: number
   createdAt: string
+  agent?: {
+    status: string
+    lastHeartbeat: string | null
+    totalOnlineSeconds: number
+  } | null
 }
 
 const STATUS_STYLES: Record<string, { labelKey: string; bg: string; text: string }> = {
@@ -71,11 +77,23 @@ const DEVICE_TIERS: Record<string, { icon: string; labelKey: string }> = {
   low_end: { icon: '💡', labelKey: 'marketplace.deviceLowEnd' },
 }
 
+function isAgentOnline(agent?: MyListing['agent']): boolean {
+  if (!agent) return false
+  if (agent.status !== 'running') return false
+  if (!agent.lastHeartbeat) return false
+  return Date.now() - new Date(agent.lastHeartbeat).getTime() < 90_000
+}
+
+function formatOnlineDuration(seconds: number): string {
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}分钟`
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}小时`
+  return `${Math.floor(seconds / 86400)}天${Math.floor((seconds % 86400) / 3600)}小时`
+}
+
 export function MyRentalsPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const { rentalsTab, setRentalsTab } = useMarketplaceStore()
-  const [subTab, setSubTab] = useState<'contracts' | 'listings'>('contracts')
+  const { rentalsTab, setRentalsTab, rentalsSubTab, setRentalsSubTab } = useMarketplaceStore()
 
   // Fetch contracts as tenant
   const { data: rentingContracts, isLoading: isLoadingRenting } = useQuery({
@@ -200,9 +218,9 @@ export function MyRentalsPage() {
           <div className="flex gap-2 mb-6">
             <button
               type="button"
-              onClick={() => setSubTab('contracts')}
+              onClick={() => setRentalsSubTab('contracts')}
               className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${
-                subTab === 'contracts'
+                rentalsSubTab === 'contracts'
                   ? 'bg-amber-100 text-amber-800'
                   : 'text-gray-500 hover:bg-gray-100'
               }`}
@@ -211,9 +229,9 @@ export function MyRentalsPage() {
             </button>
             <button
               type="button"
-              onClick={() => setSubTab('listings')}
+              onClick={() => setRentalsSubTab('listings')}
               className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${
-                subTab === 'listings'
+                rentalsSubTab === 'listings'
                   ? 'bg-amber-100 text-amber-800'
                   : 'text-gray-500 hover:bg-gray-100'
               }`}
@@ -224,7 +242,7 @@ export function MyRentalsPage() {
         )}
 
         {/* Contract List */}
-        {(rentalsTab === 'renting' || subTab === 'contracts') && (
+        {(rentalsTab === 'renting' || rentalsSubTab === 'contracts') && (
           <div className="space-y-4">
             {isLoadingContracts ? (
               [0, 1, 2].map((n) => (
@@ -287,134 +305,226 @@ export function MyRentalsPage() {
         )}
 
         {/* My Listings (owner, sub-tab) */}
-        {rentalsTab === 'renting-out' && subTab === 'listings' && (
-          <div className="space-y-4">
-            {isLoadingListings ? (
-              [0, 1, 2].map((n) => (
-                <div
-                  key={`lskel-${n}`}
-                  className="bg-white/60 rounded-2xl border-2 border-white/90 p-6 animate-pulse h-24"
-                />
-              ))
-            ) : !myListings?.listings?.length ? (
-              <div className="text-center py-16">
-                <div className="text-5xl mb-4">📦</div>
-                <p className="text-gray-400 font-bold">
-                  {t('marketplace.noListings', '还没有挂单，快去创建一个吧')}
-                </p>
-              </div>
-            ) : (
-              myListings.listings.map((l) => {
-                const ls = LISTING_STATUS[l.listingStatus] ?? LISTING_STATUS.draft!
-                return (
-                  <div
-                    key={l.id}
-                    className="bg-white/80 backdrop-blur rounded-2xl border-2 border-white/90 shadow-md p-6"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-1">
-                          <span
-                            className={`px-2.5 py-1 rounded-full text-xs font-bold ${ls.bg} ${ls.text}`}
-                          >
-                            {t(ls.labelKey)}
-                          </span>
-                          <span className="text-xs text-gray-400">
-                            {(() => {
-                              const d = DEVICE_TIERS[l.deviceTier]
-                              return d ? `${d.icon} ${t(d.labelKey)}` : ''
-                            })()} · {l.osType}
-                          </span>
-                        </div>
-                        <h3 className="font-bold text-lg">{l.title}</h3>
-                        <div className="flex items-center gap-4 text-sm text-gray-500 mt-1">
-                          <span>{l.hourlyRate} 🦐/h</span>
-                          <span className="flex items-center gap-1">
-                            <Eye className="w-3.5 h-3.5" /> {l.viewCount}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Users className="w-3.5 h-3.5" /> {l.rentalCount}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        {/* Delist button for active listed items */}
-                        {l.listingStatus === 'active' && l.isListed && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (
-                                window.confirm(
-                                  t('marketplace.confirmDelist', '确定要下架此 Claw 吗？'),
-                                )
-                              ) {
-                                delistMutation.mutate(l.id)
-                              }
-                            }}
-                            className="p-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
-                            title={t('marketplace.delistClaw', '下架 Claw')}
-                          >
-                            <PackageMinus className="w-4 h-4" />
-                          </button>
-                        )}
-                        {l.listingStatus === 'active' && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              toggleMutation.mutate({ id: l.id, listingStatus: 'paused' })
-                            }
-                            className="p-2 rounded-lg text-yellow-600 hover:bg-yellow-50 transition-colors"
-                            title={t('marketplace.pause', '暂停')}
-                          >
-                            <Pause className="w-4 h-4" />
-                          </button>
-                        )}
-                        {l.listingStatus === 'paused' && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              toggleMutation.mutate({ id: l.id, listingStatus: 'active' })
-                            }
-                            className="p-2 rounded-lg text-green-600 hover:bg-green-50 transition-colors"
-                            title={t('marketplace.resume', '恢复')}
-                          >
-                            <Play className="w-4 h-4" />
-                          </button>
-                        )}
-                        <Link
-                          to={`/app/marketplace/edit/${l.id}`}
-                          className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
-                          title={t('marketplace.edit', '编辑')}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Link>
-                        {(l.listingStatus === 'draft' ||
-                          l.listingStatus === 'paused' ||
-                          l.listingStatus === 'closed') && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (
-                                window.confirm(t('marketplace.confirmDelete', '确定删除此挂单？'))
-                              ) {
-                                deleteMutation.mutate(l.id)
-                              }
-                            }}
-                            className="p-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
-                            title={t('marketplace.delete', '删除')}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )
-              })
-            )}
-          </div>
+        {rentalsTab === 'renting-out' && rentalsSubTab === 'listings' && (
+          <ListingsSection
+            myListings={myListings}
+            isLoadingListings={isLoadingListings}
+            t={t}
+            toggleMutation={toggleMutation}
+            delistMutation={delistMutation}
+            deleteMutation={deleteMutation}
+          />
         )}
+      </div>
+    </div>
+  )
+}
+
+/* ──────────────── Listings Section with Online Status ──────────────── */
+
+function ListingsSection({
+  myListings,
+  isLoadingListings,
+  t,
+  toggleMutation,
+  delistMutation,
+  deleteMutation,
+}: {
+  myListings: { listings: MyListing[] } | undefined
+  isLoadingListings: boolean
+  t: (key: string, fallback?: string) => string
+  toggleMutation: { mutate: (p: { id: string; listingStatus: string }) => void }
+  delistMutation: { mutate: (id: string) => void }
+  deleteMutation: { mutate: (id: string) => void }
+}) {
+  const [showOffline, setShowOffline] = useState(false)
+
+  if (isLoadingListings) {
+    return (
+      <div className="space-y-4">
+        {[0, 1, 2].map((n) => (
+          <div
+            key={`lskel-${n}`}
+            className="bg-white/60 rounded-2xl border-2 border-white/90 p-6 animate-pulse h-24"
+          />
+        ))}
+      </div>
+    )
+  }
+
+  if (!myListings?.listings?.length) {
+    return (
+      <div className="text-center py-16">
+        <div className="text-5xl mb-4">📦</div>
+        <p className="text-gray-400 font-bold">
+          {t('marketplace.noListings', '还没有挂单，快去创建一个吧')}
+        </p>
+      </div>
+    )
+  }
+
+  const onlineListings = myListings.listings.filter((l) => isAgentOnline(l.agent))
+  const offlineListings = myListings.listings.filter((l) => !isAgentOnline(l.agent))
+
+  return (
+    <div className="space-y-4">
+      {onlineListings.map((l) => (
+        <ListingCard
+          key={l.id}
+          listing={l}
+          t={t}
+          toggleMutation={toggleMutation}
+          delistMutation={delistMutation}
+          deleteMutation={deleteMutation}
+        />
+      ))}
+
+      {offlineListings.length > 0 && (
+        <>
+          <button
+            type="button"
+            onClick={() => setShowOffline(!showOffline)}
+            className="flex items-center gap-2 text-sm font-bold text-gray-400 hover:text-gray-600 transition-colors w-full"
+          >
+            <ChevronDown
+              className={`w-4 h-4 transition-transform ${showOffline ? 'rotate-180' : ''}`}
+            />
+            {t('marketplace.offlineListings', '离线 Buddy')} ({offlineListings.length})
+          </button>
+          {showOffline &&
+            offlineListings.map((l) => (
+              <ListingCard
+                key={l.id}
+                listing={l}
+                t={t}
+                toggleMutation={toggleMutation}
+                delistMutation={delistMutation}
+                deleteMutation={deleteMutation}
+              />
+            ))}
+        </>
+      )}
+    </div>
+  )
+}
+
+function ListingCard({
+  listing: l,
+  t,
+  toggleMutation,
+  delistMutation,
+  deleteMutation,
+}: {
+  listing: MyListing
+  t: (key: string, fallback?: string) => string
+  toggleMutation: { mutate: (p: { id: string; listingStatus: string }) => void }
+  delistMutation: { mutate: (id: string) => void }
+  deleteMutation: { mutate: (id: string) => void }
+}) {
+  const ls = LISTING_STATUS[l.listingStatus] ?? LISTING_STATUS.draft!
+  const online = isAgentOnline(l.agent)
+
+  return (
+    <div className="bg-white/80 backdrop-blur rounded-2xl border-2 border-white/90 shadow-md p-6">
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
+          <div className="flex items-center gap-3 mb-1">
+            <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${ls.bg} ${ls.text}`}>
+              {t(ls.labelKey)}
+            </span>
+            {/* Online status indicator */}
+            <span className="flex items-center gap-1.5 text-xs">
+              <span
+                className={`w-2 h-2 rounded-full ${online ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`}
+              />
+              <span className={online ? 'text-green-600 font-bold' : 'text-gray-400'}>
+                {online ? '在线' : '离线'}
+              </span>
+            </span>
+            {l.agent?.totalOnlineSeconds ? (
+              <span className="text-xs text-gray-400 flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                累计 {formatOnlineDuration(l.agent.totalOnlineSeconds)}
+              </span>
+            ) : null}
+            <span className="text-xs text-gray-400">
+              {(() => {
+                const d = DEVICE_TIERS[l.deviceTier]
+                return d ? `${d.icon} ${t(d.labelKey)}` : ''
+              })()} · {l.osType}
+            </span>
+          </div>
+          <h3 className="font-bold text-lg">{l.title}</h3>
+          <div className="flex items-center gap-4 text-sm text-gray-500 mt-1">
+            <span>{l.hourlyRate} 🦐/h</span>
+            <span className="flex items-center gap-1">
+              <Eye className="w-3.5 h-3.5" /> {l.viewCount}
+            </span>
+            <span className="flex items-center gap-1">
+              <Users className="w-3.5 h-3.5" /> {l.rentalCount}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {l.listingStatus === 'active' && l.isListed && (
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm(t('marketplace.confirmDelist', '确定要下架此 Claw 吗？'))) {
+                  delistMutation.mutate(l.id)
+                }
+              }}
+              className="p-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
+              title={t('marketplace.delistClaw', '下架 Claw')}
+            >
+              <PackageMinus className="w-4 h-4" />
+            </button>
+          )}
+          {l.listingStatus === 'active' && (
+            <button
+              type="button"
+              onClick={() => toggleMutation.mutate({ id: l.id, listingStatus: 'paused' })}
+              className="p-2 rounded-lg text-yellow-600 hover:bg-yellow-50 transition-colors"
+              title={t('marketplace.pause', '暂停')}
+            >
+              <Pause className="w-4 h-4" />
+            </button>
+          )}
+          {l.listingStatus === 'paused' && (
+            <button
+              type="button"
+              onClick={() => toggleMutation.mutate({ id: l.id, listingStatus: 'active' })}
+              className="p-2 rounded-lg text-green-600 hover:bg-green-50 transition-colors"
+              title={t('marketplace.resume', '恢复')}
+            >
+              <Play className="w-4 h-4" />
+            </button>
+          )}
+          <Link
+            to={`/app/marketplace/edit/${l.id}`}
+            className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+            title={t('marketplace.edit', '编辑')}
+          >
+            <Edit className="w-4 h-4" />
+          </Link>
+          {(l.listingStatus === 'draft' ||
+            l.listingStatus === 'paused' ||
+            l.listingStatus === 'closed') && (
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm(t('marketplace.confirmDelete', '确定删除此挂单？'))) {
+                  deleteMutation.mutate(l.id)
+                }
+              }}
+              className="p-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
+              title={t('marketplace.delete', '删除')}
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )

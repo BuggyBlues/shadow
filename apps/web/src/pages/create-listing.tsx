@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../lib/api'
 import { showToast } from '../lib/toast'
+import { useMarketplaceStore } from '../stores/marketplace.store'
 
 interface AgentOption {
   id: string
@@ -141,6 +142,8 @@ export function CreateListingPage() {
           : t('marketplace.listingCreated', '挂单已创建'),
         'success',
       )
+      useMarketplaceStore.getState().setRentalsTab('renting-out')
+      useMarketplaceStore.getState().setRentalsSubTab('listings')
       navigate({ to: '/app/marketplace/my-rentals' })
     },
     onError: (err: Error) => showToast(err.message, 'error'),

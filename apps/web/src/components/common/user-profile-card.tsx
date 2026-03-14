@@ -1,5 +1,7 @@
+import { useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { UserAvatar } from './avatar'
+import { formatDuration, OnlineRank } from './online-rank'
 
 interface UserProfileCardProps {
   user: {
@@ -12,6 +14,8 @@ interface UserProfileCardProps {
   }
   role?: 'owner' | 'admin' | 'member' | null
   ownerName?: string
+  ownerId?: string
+  ownerAvatarUrl?: string | null
   description?: string
   totalOnlineSeconds?: number
   className?: string
@@ -31,75 +35,23 @@ const statusLabels: Record<string, string> = {
   offline: 'member.offline',
 }
 
-/** QQ-style rank: stars (<100h) → moons (100-500h) → suns (500h+) */
-function OnlineRank({ totalSeconds }: { totalSeconds: number }) {
-  const hours = totalSeconds / 3600
-  let suns = 0
-  let moons = 0
-  let stars = 0
-
-  if (hours >= 500) {
-    suns = Math.min(Math.floor(hours / 500), 4)
-    const remainAfterSuns = hours - suns * 500
-    moons = Math.min(Math.floor(remainAfterSuns / 100), 3)
-    const remainAfterMoons = remainAfterSuns - moons * 100
-    stars = Math.min(Math.floor(remainAfterMoons / 16), 3)
-  } else if (hours >= 100) {
-    moons = Math.min(Math.floor(hours / 100), 3)
-    const remain = hours - moons * 100
-    stars = Math.min(Math.floor(remain / 16), 3)
-  } else {
-    stars = Math.min(Math.floor(hours / 16), 3)
-  }
-
-  if (suns === 0 && moons === 0 && stars === 0) {
-    stars = hours >= 1 ? 1 : 0
-  }
-
-  if (suns === 0 && moons === 0 && stars === 0) return null
-
-  return (
-    <span className="inline-flex items-center gap-0.5">
-      {Array.from({ length: suns }, (_, i) => (
-        <span key={`sun-${i}`} className="text-amber-400 text-xs" title="太阳">
-          ☀️
-        </span>
-      ))}
-      {Array.from({ length: moons }, (_, i) => (
-        <span key={`moon-${i}`} className="text-yellow-300 text-xs" title="月亮">
-          🌙
-        </span>
-      ))}
-      {Array.from({ length: stars }, (_, i) => (
-        <span key={`star-${i}`} className="text-yellow-400 text-xs" title="星星">
-          ⭐
-        </span>
-      ))}
-    </span>
-  )
-}
-
-function formatDuration(totalSeconds: number): string {
-  if (totalSeconds < 60) return `${totalSeconds}秒`
-  const hours = Math.floor(totalSeconds / 3600)
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-  if (hours === 0) return `${minutes}分钟`
-  if (hours < 24) return `${hours}小时${minutes > 0 ? `${minutes}分钟` : ''}`
-  const days = Math.floor(hours / 24)
-  const remainHours = hours % 24
-  return `${days}天${remainHours > 0 ? `${remainHours}小时` : ''}`
-}
-
 export function UserProfileCard({
   user,
   role,
   ownerName,
+  ownerId,
+  ownerAvatarUrl,
   description,
   totalOnlineSeconds,
   className = '',
 }: UserProfileCardProps) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const status = user.status ?? 'offline'
+
+  const goToProfile = (userId: string) => {
+    navigate({ to: '/app/profile/$userId', params: { userId } })
+  }
 
   return (
     <div
@@ -128,7 +80,13 @@ export function UserProfileCard({
       {/* User info */}
       <div className="px-4 pt-2 pb-4">
         <div className="flex items-center gap-1.5">
-          <h3 className="text-base font-bold text-text-primary truncate">{user.displayName}</h3>
+          <button
+            type="button"
+            onClick={() => goToProfile(user.id)}
+            className="text-base font-bold text-text-primary truncate hover:text-primary hover:underline transition cursor-pointer"
+          >
+            {user.displayName}
+          </button>
           {user.isBot && (
             <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-medium shrink-0">
               {t('common.bot')}
@@ -172,8 +130,24 @@ export function UserProfileCard({
 
         {user.isBot && ownerName && (
           <div className="mt-3 pt-3 border-t border-border-subtle">
-            <p className="text-[10px] uppercase tracking-wide text-text-muted">OWNER / 主人</p>
-            <p className="text-sm text-text-primary mt-1 truncate">{ownerName}</p>
+            <p className="text-[10px] uppercase tracking-wide text-text-muted mb-1">OWNER / 主人</p>
+            {ownerId ? (
+              <button
+                type="button"
+                onClick={() => goToProfile(ownerId)}
+                className="flex items-center gap-2 w-full hover:bg-bg-modifier-hover rounded-md p-1 transition cursor-pointer"
+              >
+                <UserAvatar
+                  userId={ownerId}
+                  avatarUrl={ownerAvatarUrl ?? null}
+                  displayName={ownerName}
+                  size="xs"
+                />
+                <span className="text-sm text-primary truncate hover:underline">{ownerName}</span>
+              </button>
+            ) : (
+              <p className="text-sm text-text-primary mt-1 truncate">{ownerName}</p>
+            )}
           </div>
         )}
 

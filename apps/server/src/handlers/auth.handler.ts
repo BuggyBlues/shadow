@@ -67,6 +67,90 @@ export function createAuthHandler(container: AppContainer) {
     },
   )
 
+  // GET /api/auth/users/:id — public user profile (limited fields)
+  authHandler.get('/users/:id', authMiddleware, async (c) => {
+    const userDao = container.resolve('userDao')
+    const agentDao = container.resolve('agentDao')
+    const id = c.req.param('id')
+    const user = await userDao.findById(id)
+    if (!user) return c.json({ error: 'User not found' }, 404)
+
+    // If the user is a bot, also return agent info + owner profile
+    let agent = null
+    let ownerProfile: {
+      id: string
+      username: string
+      displayName: string
+      avatarUrl: string | null
+    } | null = null
+    if (user.isBot) {
+      agent = await agentDao.findByUserId(user.id)
+      if (agent?.ownerId) {
+        const owner = await userDao.findById(agent.ownerId)
+        if (owner) {
+          ownerProfile = {
+            id: owner.id,
+            username: owner.username,
+            displayName: owner.displayName ?? owner.username,
+            avatarUrl: owner.avatarUrl,
+          }
+        }
+      }
+    }
+
+    // If the user is a regular user, return their owned agents
+    let ownedAgents: Array<{
+      id: string
+      userId: string
+      status: string
+      totalOnlineSeconds: number
+      botUser?: { id: string; username: string; displayName: string; avatarUrl: string | null }
+    }> = []
+    if (!user.isBot) {
+      const agents = await agentDao.findByOwnerId(user.id)
+      ownedAgents = await Promise.all(
+        agents.map(async (a) => {
+          const botUser = await userDao.findById(a.userId)
+          return {
+            id: a.id,
+            userId: a.userId,
+            status: a.status,
+            totalOnlineSeconds: a.totalOnlineSeconds ?? 0,
+            botUser: botUser
+              ? {
+                  id: botUser.id,
+                  username: botUser.username,
+                  displayName: botUser.displayName ?? botUser.username,
+                  avatarUrl: botUser.avatarUrl,
+                }
+              : undefined,
+          }
+        }),
+      )
+    }
+
+    return c.json({
+      id: user.id,
+      username: user.username,
+      displayName: user.displayName ?? user.username,
+      avatarUrl: user.avatarUrl,
+      isBot: user.isBot,
+      status: user.status,
+      createdAt: user.createdAt,
+      agent: agent
+        ? {
+            id: agent.id,
+            ownerId: agent.ownerId,
+            status: agent.status,
+            totalOnlineSeconds: agent.totalOnlineSeconds ?? 0,
+            config: { description: (agent.config as Record<string, unknown>)?.description },
+          }
+        : undefined,
+      ownerProfile,
+      ownedAgents,
+    })
+  })
+
   // POST /api/auth/disconnect — beacon-based disconnect on page close
   authHandler.post('/disconnect', async (c) => {
     try {

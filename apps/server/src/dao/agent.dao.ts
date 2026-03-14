@@ -46,18 +46,18 @@ export class AgentDao {
   }
 
   async updateHeartbeat(id: string) {
-    const now = new Date()
     // Accumulate online seconds: if lastHeartbeat is recent (<= 120s), add the delta
+    // Use NOW() to avoid JS Date serialization issues with PostgreSQL timestamptz casts
     const result = await this.db
       .update(agents)
       .set({
-        lastHeartbeat: now,
+        lastHeartbeat: sql`NOW()`,
         status: 'running',
-        updatedAt: now,
+        updatedAt: sql`NOW()`,
         totalOnlineSeconds: sql`${agents.totalOnlineSeconds} + CASE
           WHEN ${agents.lastHeartbeat} IS NOT NULL
-            AND EXTRACT(EPOCH FROM (${now}::timestamptz - ${agents.lastHeartbeat})) <= 120
-          THEN FLOOR(EXTRACT(EPOCH FROM (${now}::timestamptz - ${agents.lastHeartbeat})))::int
+            AND EXTRACT(EPOCH FROM (NOW() - ${agents.lastHeartbeat})) <= 120
+          THEN FLOOR(EXTRACT(EPOCH FROM (NOW() - ${agents.lastHeartbeat})))::int
           ELSE 0 END`,
       })
       .where(eq(agents.id, id))

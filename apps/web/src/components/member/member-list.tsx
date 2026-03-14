@@ -10,6 +10,7 @@ import { useChatStore } from '../../stores/chat.store'
 import { useUIStore } from '../../stores/ui.store'
 import { UserAvatar } from '../common/avatar'
 import { useConfirmStore } from '../common/confirm-dialog'
+import { OnlineRank } from '../common/online-rank'
 import { UserProfileCard } from '../common/user-profile-card'
 
 interface MemberUser {
@@ -40,6 +41,7 @@ interface BuddyAgent {
     id: string
     username: string
     displayName: string | null
+    avatarUrl: string | null
   } | null
   botUser?: {
     id: string
@@ -74,6 +76,8 @@ export function MemberList() {
   const [hoveredCard, setHoveredCard] = useState<{
     member: Member
     ownerName?: string
+    ownerId?: string
+    ownerAvatarUrl?: string | null
     description?: string
     totalOnlineSeconds?: number
     anchorRect: DOMRect
@@ -186,7 +190,13 @@ export function MemberList() {
     (
       member: Member,
       anchorEl: HTMLElement,
-      buddyMeta?: { ownerName?: string; description?: string; totalOnlineSeconds?: number },
+      buddyMeta?: {
+        ownerName?: string
+        ownerId?: string
+        ownerAvatarUrl?: string | null
+        description?: string
+        totalOnlineSeconds?: number
+      },
     ) => {
       if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
       hoverTimeoutRef.current = setTimeout(() => {
@@ -194,6 +204,8 @@ export function MemberList() {
         setHoveredCard({
           member,
           ownerName: buddyMeta?.ownerName,
+          ownerId: buddyMeta?.ownerId,
+          ownerAvatarUrl: buddyMeta?.ownerAvatarUrl,
           description: buddyMeta?.description,
           totalOnlineSeconds: buddyMeta?.totalOnlineSeconds,
           anchorRect: anchorEl.getBoundingClientRect(),
@@ -245,7 +257,13 @@ export function MemberList() {
           const botOwnerByUserId = new Map<string, string>()
           const buddyMetaByUserId = new Map<
             string,
-            { ownerName?: string; description?: string; totalOnlineSeconds?: number }
+            {
+              ownerName?: string
+              ownerId?: string
+              ownerAvatarUrl?: string | null
+              description?: string
+              totalOnlineSeconds?: number
+            }
           >()
           for (const a of buddyAgents) {
             const botUserId = a.botUser?.id
@@ -256,6 +274,8 @@ export function MemberList() {
                 typeof a.config?.description === 'string' ? a.config.description : undefined
               buddyMetaByUserId.set(botUserId, {
                 ownerName,
+                ownerId: a.ownerId,
+                ownerAvatarUrl: a.owner?.avatarUrl ?? null,
                 description,
                 totalOnlineSeconds: a.totalOnlineSeconds,
               })
@@ -300,6 +320,8 @@ export function MemberList() {
                   onMouseEnter={(e) =>
                     handleMemberMouseEnter(member, e.currentTarget, {
                       ownerName: buddyMeta?.ownerName,
+                      ownerId: buddyMeta?.ownerId,
+                      ownerAvatarUrl: buddyMeta?.ownerAvatarUrl,
                       description: buddyMeta?.description,
                     })
                   }
@@ -336,6 +358,11 @@ export function MemberList() {
                       )}
                     </div>
                     {badge && <span className={`text-[10px] ${badge.color}`}>{badge.label}</span>}
+                    {user.isBot &&
+                      buddyMeta?.totalOnlineSeconds != null &&
+                      buddyMeta.totalOnlineSeconds > 0 && (
+                        <OnlineRank totalSeconds={buddyMeta.totalOnlineSeconds} />
+                      )}
                   </div>
                 </button>
 
@@ -525,6 +552,17 @@ export function MemberList() {
                     undefined)
                   : undefined
               }
+              ownerId={
+                profileMember.user.isBot
+                  ? buddyAgents.find((a) => a.botUser?.id === profileMember.user?.id)?.ownerId
+                  : undefined
+              }
+              ownerAvatarUrl={
+                profileMember.user.isBot
+                  ? (buddyAgents.find((a) => a.botUser?.id === profileMember.user?.id)?.owner
+                      ?.avatarUrl ?? null)
+                  : undefined
+              }
               description={
                 profileMember.user.isBot
                   ? (() => {
@@ -565,6 +603,8 @@ export function MemberList() {
               user={hoveredCard.member.user}
               role={hoveredCard.member.role}
               ownerName={hoveredCard.ownerName}
+              ownerId={hoveredCard.ownerId}
+              ownerAvatarUrl={hoveredCard.ownerAvatarUrl}
               description={hoveredCard.description}
               totalOnlineSeconds={hoveredCard.totalOnlineSeconds}
             />

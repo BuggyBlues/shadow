@@ -59,10 +59,29 @@ export function createRentalHandler(container: AppContainer) {
   h.get('/marketplace/my-listings', async (c) => {
     const user = c.get('user')
     const rentalService = container.resolve('rentalService')
+    const agentDao = container.resolve('agentDao')
     const limit = Number(c.req.query('limit') || '50')
     const offset = Number(c.req.query('offset') || '0')
     const listings = await rentalService.getMyListings(user.userId, { limit, offset })
-    return c.json({ listings })
+
+    // Enrich listings with agent online status
+    const enriched = await Promise.all(
+      listings.map(async (l) => {
+        if (!l.agentId) return { ...l, agent: null }
+        const agent = await agentDao.findById(l.agentId)
+        if (!agent) return { ...l, agent: null }
+        return {
+          ...l,
+          agent: {
+            status: agent.status,
+            lastHeartbeat: agent.lastHeartbeat,
+            totalOnlineSeconds: agent.totalOnlineSeconds,
+          },
+        }
+      }),
+    )
+
+    return c.json({ listings: enriched })
   })
 
   /** Create a new listing */

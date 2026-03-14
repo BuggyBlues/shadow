@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { formatDuration, OnlineRank } from '../components/common/online-rank'
 import { fetchApi } from '../lib/api'
 import { showToast } from '../lib/toast'
 import { useAuthStore } from '../stores/auth.store'
@@ -38,6 +39,7 @@ interface Listing {
   viewCount: number
   rentalCount: number
   tags: string[]
+  totalOnlineSeconds: number
   availableFrom: string | null
   availableUntil: string | null
   createdAt: string
@@ -105,7 +107,7 @@ export function MarketplaceDetailPage() {
   // Sign contract mutation
   const signMutation = useMutation({
     mutationFn: () =>
-      fetchApi('/api/marketplace/contracts', {
+      fetchApi<{ id: string }>('/api/marketplace/contracts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -114,11 +116,18 @@ export function MarketplaceDetailPage() {
           agreedToTerms: true,
         }),
       }),
-    onSuccess: () => {
+    onSuccess: (contract) => {
       setSigned(true)
       queryClient.invalidateQueries({ queryKey: ['marketplace'] })
       showToast(t('marketplace.contractSigned', '合同签署成功！'), 'success')
-      setTimeout(() => navigate({ to: '/app/marketplace/my-rentals' }), 2500)
+      setTimeout(
+        () =>
+          navigate({
+            to: '/app/marketplace/contracts/$contractId',
+            params: { contractId: contract.id },
+          }),
+        2500,
+      )
     },
     onError: (err: Error) => {
       showToast(err.message, 'error')
@@ -217,6 +226,16 @@ export function MarketplaceDetailPage() {
                 <p className="text-gray-600 font-medium leading-relaxed mb-6">
                   {listing.description}
                 </p>
+              )}
+
+              {/* Online rank */}
+              {listing.totalOnlineSeconds > 0 && (
+                <div className="flex items-center gap-3 mb-6 bg-amber-50 rounded-xl p-3">
+                  <span className="text-sm font-bold text-gray-600">
+                    累计在线 {formatDuration(listing.totalOnlineSeconds)}
+                  </span>
+                  <OnlineRank totalSeconds={listing.totalOnlineSeconds} />
+                </div>
               )}
 
               {/* Skills */}

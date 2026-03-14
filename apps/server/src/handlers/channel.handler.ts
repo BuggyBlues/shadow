@@ -133,7 +133,15 @@ export function createChannelHandler(container: AppContainer) {
       return c.json({ error: 'Not a member of this server' }, 403)
     }
     if (!targetServerMember) {
-      return c.json({ error: 'Target user is not a server member' }, 400)
+      // If target is a bot, auto-add to server as member
+      const userDao = container.resolve('userDao')
+      const targetUser = await userDao.findById(targetUserId)
+      if (targetUser?.isBot) {
+        const serverService = container.resolve('serverService')
+        await serverService.addBotMember(channel.serverId, targetUserId)
+      } else {
+        return c.json({ error: 'Target user is not a server member' }, 400)
+      }
     }
 
     const isSelfJoin = requesterId === targetUserId

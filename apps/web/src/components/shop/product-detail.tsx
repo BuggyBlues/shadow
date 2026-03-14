@@ -17,6 +17,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchApi } from '../../lib/api'
 import { showToast } from '../../lib/toast'
+import { OrderConfirm } from './order-confirm'
 import type { Product, ProductMediaItem, SkuItem } from './shop-page'
 import { PriceDisplay } from './ui/currency'
 
@@ -78,25 +79,10 @@ export function ProductDetail({
     onError: (err: Error) => showToast(err.message || '加入购物车失败', 'error'),
   })
 
-  const buyNow = useMutation({
-    mutationFn: (data: { items: Array<{ productId: string; skuId?: string; quantity: number }> }) =>
-      fetchApi(`/api/servers/${serverId}/shop/orders`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['shop-orders', serverId] })
-      queryClient.invalidateQueries({ queryKey: ['wallet'] })
-      setPurchased(true)
-      showToast('购买成功！', 'success')
-    },
-    onError: (err: Error) => showToast(err.message || '购买失败，请检查余额或库存', 'error'),
-  })
-
   const [selectedSkuId, setSelectedSkuId] = useState<string | null>(null)
   const [quantity, setQuantity] = useState(1)
   const [addedToCart, setAddedToCart] = useState(false)
-  const [purchased, setPurchased] = useState(false)
+  const [showOrderConfirm, setShowOrderConfirm] = useState(false)
   const [activeTab, setActiveTab] = useState<'detail' | 'reviews'>('detail')
   const [isFavorite, setIsFavorite] = useState(false)
   const [supportOpen, setSupportOpen] = useState(false)
@@ -194,9 +180,20 @@ export function ProductDetail({
   }
 
   const handleBuyNow = () => {
-    buyNow.mutate({
-      items: [{ productId: product.id, skuId: selectedSkuId ?? undefined, quantity }],
-    })
+    setShowOrderConfirm(true)
+  }
+
+  // Show order confirmation view
+  if (showOrderConfirm) {
+    return (
+      <OrderConfirm
+        serverId={serverId}
+        productId={product.id}
+        skuId={selectedSkuId ?? undefined}
+        quantity={quantity}
+        onBack={() => setShowOrderConfirm(false)}
+      />
+    )
   }
 
   const handleToggleFavorite = () => {
@@ -566,10 +563,10 @@ export function ProductDetail({
                   <button
                     type="button"
                     onClick={handleBuyNow}
-                    disabled={buyNow.isPending || stock === 0}
+                    disabled={stock === 0}
                     className="flex-1 py-4 px-6 rounded-xl font-bold text-sm bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/30 hover:shadow-cyan-500/50 disabled:opacity-50 transition-all hover:-translate-y-0.5 active:scale-95"
                   >
-                    {purchased ? '购买成功' : '立即购买'}
+                    立即购买
                   </button>
                 </div>
               </div>
@@ -704,10 +701,10 @@ export function ProductDetail({
           <button
             type="button"
             onClick={handleBuyNow}
-            disabled={buyNow.isPending || stock === 0}
+            disabled={stock === 0}
             className="flex-1 py-3 px-4 rounded-xl font-bold text-sm bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/30 disabled:opacity-50 active:scale-[0.98] transition-transform"
           >
-            {purchased ? '购买成功' : '立即购买'}
+            立即购买
           </button>
         </div>
       </div>

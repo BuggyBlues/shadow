@@ -541,6 +541,7 @@
     "shopReviews": "Review System",
     "shopReviewsDesc": "Rate purchased products with stars and write text reviews. Reviews are displayed on product detail pages to help other users. Anonymous reviews are supported.",
     "shopTip": "Shrimp Coins are the in-community virtual currency, used to incentivize content creation, purchase services, and trade products.",
+    "rentalDoc": "Buddy Rental",
     "workspaceDoc": "Shared Workspace",
     "workspaceIntro": "Every server has a shared workspace for team file management and collaboration. Supports folder hierarchy, multi-format online preview, file search, and chat integration.",
     "workspaceFeatures": "Core Features",

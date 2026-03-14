@@ -141,7 +141,13 @@ export class RentalService {
     if (!listing) throw Object.assign(new Error('Listing not found'), { status: 404 })
     // Increment view count
     await this.deps.clawListingDao.incrementViewCount(id)
-    return listing
+    // Enrich with agent online time
+    let totalOnlineSeconds = 0
+    if (listing.agentId) {
+      const agent = await this.deps.agentDao.findById(listing.agentId)
+      totalOnlineSeconds = agent?.totalOnlineSeconds ?? 0
+    }
+    return { ...listing, totalOnlineSeconds }
   }
 
   async getMyListings(ownerId: string, opts?: { limit?: number; offset?: number }) {
@@ -160,7 +166,15 @@ export class RentalService {
       this.deps.clawListingDao.browse(opts),
       this.deps.clawListingDao.countBrowse(opts),
     ])
-    return { listings, total }
+    // Enrich listings with agent totalOnlineSeconds
+    const enriched = await Promise.all(
+      listings.map(async (l) => {
+        if (!l.agentId) return { ...l, totalOnlineSeconds: 0 }
+        const agent = await this.deps.agentDao.findById(l.agentId)
+        return { ...l, totalOnlineSeconds: agent?.totalOnlineSeconds ?? 0 }
+      }),
+    )
+    return { listings: enriched, total }
   }
 
   async deleteListing(id: string, ownerId: string) {
