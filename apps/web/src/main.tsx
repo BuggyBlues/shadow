@@ -20,6 +20,7 @@ import { ChannelView } from './pages/channel-view'
 import { ContractDetailPage } from './pages/contract-detail'
 import { CreateListingPage } from './pages/create-listing'
 import { DiscoverPage } from './pages/discover'
+import { DmChatPage } from './pages/dm-chat'
 import { DocsPage } from './pages/docs'
 import { FeaturesPage } from './pages/features'
 import { HomePage } from './pages/home'
@@ -277,6 +278,12 @@ const userProfileRoute = createRoute({
   component: UserProfilePage,
 })
 
+const dmChatRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/dm/$dmChannelId',
+  component: DmChatPage,
+})
+
 // Router
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -311,6 +318,7 @@ const routeTree = rootRoute.addChildren([
     editListingRoute,
     marketplaceDetailRoute,
     userProfileRoute,
+    dmChatRoute,
   ]),
 ])
 

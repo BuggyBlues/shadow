@@ -166,6 +166,97 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
       socket.to(`channel:${channelId}`).emit('message:typing', { channelId, userId, username })
     })
 
+    // ---- DM (Direct Message) Events ----
+
+    // dm:join — join a DM channel room
+    socket.on('dm:join', async ({ dmChannelId }: { dmChannelId: string }) => {
+      if (!userId) return
+      // Verify user is a participant
+      try {
+        const dmService = container.resolve('dmService')
+        const channel = await dmService.getChannelById(dmChannelId)
+        if (!channel || (channel.userAId !== userId && channel.userBId !== userId)) {
+          return
+        }
+        await socket.join(`dm:${dmChannelId}`)
+        logger.info({ userId, dmChannelId, socketId: socket.id }, 'Joined DM room')
+      } catch {
+        /* ignore */
+      }
+    })
+
+    // dm:leave — leave a DM channel room
+    socket.on('dm:leave', async ({ dmChannelId }: { dmChannelId: string }) => {
+      await socket.leave(`dm:${dmChannelId}`)
+    })
+
+    // dm:send — send a DM message
+    socket.on('dm:send', async (data: { dmChannelId: string; content: string }) => {
+      if (!userId) return
+      try {
+        const dmService = container.resolve('dmService')
+        const channel = await dmService.getChannelById(data.dmChannelId)
+        if (!channel || (channel.userAId !== userId && channel.userBId !== userId)) {
+          socket.emit('error', { message: 'Not a participant of this DM' })
+          return
+        }
+
+        const message = await dmService.sendMessage(data.dmChannelId, userId, data.content)
+
+        // Broadcast to DM room
+        io.to(`dm:${data.dmChannelId}`).emit('dm:message', message)
+
+        // Send notification to the other user
+        const otherUserId = channel.userAId === userId ? channel.userBId : channel.userAId
+        try {
+          const notificationService = container.resolve('notificationService')
+          const senderName = message.author?.displayName ?? message.author?.username ?? 'Someone'
+          const notification = await notificationService.create({
+            userId: otherUserId,
+            type: 'dm',
+            title: `${senderName} sent you a message`,
+            body: data.content.substring(0, 200),
+            referenceId: data.dmChannelId,
+            referenceType: 'dm_channel',
+          })
+          io.to(`user:${otherUserId}`).emit('notification:new', notification)
+        } catch {
+          /* notification failed, non-critical */
+        }
+
+        // Relay DM to bot user's monitor (for claw/agent AI processing)
+        try {
+          const userDao = container.resolve('userDao')
+          const otherUser = await userDao.findById(otherUserId)
+          if (otherUser?.isBot) {
+            io.to(`user:${otherUserId}`).emit('dm:message:new', {
+              id: message.id,
+              content: data.content,
+              dmChannelId: data.dmChannelId,
+              channelId: `dm:${data.dmChannelId}`,
+              authorId: userId,
+              author: message.author,
+              senderId: userId,
+              receiverId: otherUserId,
+              createdAt: message.createdAt,
+            })
+          }
+        } catch {
+          /* bot relay failed, non-critical */
+        }
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Failed to send DM'
+        socket.emit('error', { message: msg })
+      }
+    })
+
+    // dm:typing — typing indicator in DM
+    socket.on('dm:typing', ({ dmChannelId }: { dmChannelId: string }) => {
+      if (!userId) return
+      const username = socket.data.username as string
+      socket.to(`dm:${dmChannelId}`).emit('dm:typing', { dmChannelId, userId, username })
+    })
+
     // Disconnect
     socket.on('disconnect', (reason) => {
       logger.info({ socketId: socket.id, userId, reason }, 'Client disconnected')

@@ -50,6 +50,36 @@ export function createDmHandler(container: AppContainer) {
       const { content } = c.req.valid('json')
       const user = c.get('user')
       const message = await dmService.sendMessage(id, user.userId, content)
+
+      // Broadcast to DM room via WebSocket
+      const io = container.resolve('io')
+      io.to(`dm:${id}`).emit('dm:message', message)
+
+      // Relay to bot user if recipient is a bot (for AI processing)
+      try {
+        const channel = await dmService.getChannelById(id)
+        if (channel) {
+          const otherUserId = channel.userAId === user.userId ? channel.userBId : channel.userAId
+          const userDao = container.resolve('userDao')
+          const otherUser = await userDao.findById(otherUserId)
+          if (otherUser?.isBot) {
+            io.to(`user:${otherUserId}`).emit('dm:message:new', {
+              id: message.id,
+              content,
+              dmChannelId: id,
+              channelId: `dm:${id}`,
+              authorId: user.userId,
+              author: message.author,
+              senderId: user.userId,
+              receiverId: otherUserId,
+              createdAt: message.createdAt,
+            })
+          }
+        }
+      } catch {
+        /* bot relay failed, non-critical */
+      }
+
       return c.json(message, 201)
     },
   )

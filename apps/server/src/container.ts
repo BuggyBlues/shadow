@@ -8,6 +8,7 @@ import { ChannelDao } from './dao/channel.dao'
 import { ChannelMemberDao } from './dao/channel-member.dao'
 import { ClawListingDao } from './dao/claw-listing.dao'
 import { EntitlementDao } from './dao/entitlement.dao'
+import { FriendshipDao } from './dao/friendship.dao'
 import { InviteCodeDao } from './dao/invite-code.dao'
 import { MessageDao } from './dao/message.dao'
 import { NotificationDao } from './dao/notification.dao'
@@ -39,6 +40,7 @@ import { ChannelService } from './services/channel.service'
 import { DmService } from './services/dm.service'
 import { EntitlementService } from './services/entitlement.service'
 import { ExternalOAuthService } from './services/external-oauth.service'
+import { FriendshipService } from './services/friendship.service'
 import { MediaService } from './services/media.service'
 import { MessageService } from './services/message.service'
 import { NotificationService } from './services/notification.service'
@@ -70,6 +72,7 @@ export interface Cradle {
   notificationDao: NotificationDao
   agentDao: AgentDao
   agentPolicyDao: AgentPolicyDao
+  friendshipDao: FriendshipDao
   inviteCodeDao: InviteCodeDao
   oauthAppDao: OAuthAppDao
   oauthAccountDao: OAuthAccountDao
@@ -111,6 +114,7 @@ export interface Cradle {
   notificationService: NotificationService
   permissionService: PermissionService
   dmService: DmService
+  friendshipService: FriendshipService
   mediaService: MediaService
   agentService: AgentService
   agentPolicyService: AgentPolicyService
@@ -149,6 +153,7 @@ export function createAppContainer(db: Database): AppContainer {
     notificationDao: asClass(NotificationDao).singleton(),
     agentDao: asClass(AgentDao).singleton(),
     agentPolicyDao: asClass(AgentPolicyDao).singleton(),
+    friendshipDao: asClass(FriendshipDao).singleton(),
     inviteCodeDao: asClass(InviteCodeDao).singleton(),
     oauthAppDao: asClass(OAuthAppDao).singleton(),
     oauthAccountDao: asClass(OAuthAccountDao).singleton(),
@@ -190,6 +195,7 @@ export function createAppContainer(db: Database): AppContainer {
     notificationService: asClass(NotificationService).singleton(),
     permissionService: asClass(PermissionService).singleton(),
     dmService: asClass(DmService).singleton(),
+    friendshipService: asClass(FriendshipService).singleton(),
     mediaService: asClass(MediaService).singleton(),
     agentService: asClass(AgentService).singleton(),
     agentPolicyService: asClass(AgentPolicyService).singleton(),

@@ -8,6 +8,7 @@ import { createAppHandler } from './handlers/app.handler'
 import { createAuthHandler } from './handlers/auth.handler'
 import { createChannelHandler } from './handlers/channel.handler'
 import { createDmHandler } from './handlers/dm.handler'
+import { createFriendshipHandler } from './handlers/friendship.handler'
 import { createInviteHandler } from './handlers/invite.handler'
 import { createMediaHandler } from './handlers/media.handler'
 import { createMessageHandler } from './handlers/message.handler'
@@ -63,6 +64,7 @@ export function createApp(container: AppContainer) {
   app.route('/api', createMessageHandler(container))
   app.route('/api/search', createSearchHandler(container))
   app.route('/api/dm', createDmHandler(container))
+  app.route('/api/friends', createFriendshipHandler(container))
   app.route('/api/notifications', createNotificationHandler(container))
   app.route('/api/media', createMediaHandler(container))
   app.route('/api/agents', createAgentHandler(container))

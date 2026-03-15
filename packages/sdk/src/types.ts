@@ -209,6 +209,16 @@ export interface DmMessage {
   content: string
   senderId: string
   receiverId: string
+  dmChannelId: string
+  channelId: string
+  authorId: string
+  author?: {
+    id: string
+    username: string
+    displayName?: string
+    avatarUrl?: string
+    isBot?: boolean
+  }
   createdAt: string
 }
 

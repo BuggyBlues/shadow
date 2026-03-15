@@ -443,6 +443,184 @@ async function deliverShadowReply(params: {
 }
 
 /**
+ * Process an incoming DM message and dispatch to the AI pipeline.
+ * Similar to processShadowMessage but for direct messages.
+ */
+async function processShadowDmMessage(params: {
+  dmMessage: {
+    id: string
+    content: string
+    dmChannelId: string
+    channelId: string
+    authorId: string
+    senderId: string
+    receiverId: string
+    author?: {
+      id: string
+      username: string
+      displayName?: string
+      avatarUrl?: string
+      isBot?: boolean
+    }
+    createdAt: string
+  }
+  account: ShadowAccountConfig
+  accountId: string
+  config: unknown
+  runtime: { log?: (msg: string) => void; error?: (msg: string) => void }
+  core: PluginRuntime
+  botUserId: string
+  botUsername: string
+  socket: ShadowSocket
+}): Promise<void> {
+  const { dmMessage, account, accountId, config, runtime, core, botUserId, botUsername, socket } =
+    params
+  const cfg = config as OpenClawConfig
+
+  const senderLabel = dmMessage.author?.username ?? dmMessage.senderId
+
+  // Skip own messages
+  if (dmMessage.senderId === botUserId || dmMessage.authorId === botUserId) {
+    runtime.log?.(`[dm] Skipping own DM message ${dmMessage.id}`)
+    return
+  }
+  // Skip messages from other bots
+  if (dmMessage.author?.isBot) {
+    runtime.log?.(`[dm] Skipping bot DM from ${senderLabel} (${dmMessage.id})`)
+    return
+  }
+
+  runtime.log?.(
+    `[dm] Processing DM from ${senderLabel}: "${dmMessage.content.slice(0, 80)}" (${dmMessage.id})`,
+  )
+
+  const senderName = dmMessage.author?.displayName ?? dmMessage.author?.username ?? 'Unknown'
+  const senderUsername = dmMessage.author?.username ?? ''
+  const senderId = dmMessage.senderId
+  const rawBody = dmMessage.content
+  const dmChannelId = dmMessage.dmChannelId
+
+  // 1. Resolve agent route — use dmChannelId for session isolation
+  const peerId = `dm:${dmChannelId}`
+  const route = core.channel.routing.resolveAgentRoute({
+    cfg,
+    channel: 'shadowob',
+    accountId,
+    peer: {
+      kind: 'private',
+      id: peerId,
+    },
+  })
+
+  // 2. Build envelope
+  const body = core.channel.reply.formatAgentEnvelope({
+    channel: 'Shadow DM',
+    from: senderName,
+    timestamp: new Date(dmMessage.createdAt).getTime(),
+    envelope: core.channel.reply.resolveEnvelopeFormatOptions(cfg),
+    body: rawBody,
+  })
+
+  // 3. Build and finalize MsgContext for DM
+  const ctxPayload = core.channel.reply.finalizeInboundContext({
+    Body: body,
+    BodyForAgent: rawBody,
+    RawBody: rawBody,
+    CommandBody: rawBody,
+    From: `shadowob:user:${senderId}`,
+    To: `shadowob:dm:${dmChannelId}`,
+    SessionKey: route.sessionKey,
+    AccountId: route.accountId,
+    ChatType: 'dm',
+    ConversationLabel: peerId,
+    SenderName: senderName,
+    SenderId: senderId,
+    SenderUsername: senderUsername,
+    Provider: 'shadowob',
+    Surface: 'shadowob',
+    MessageSid: dmMessage.id,
+    WasMentioned: true, // Always "mentioned" in DM
+    OriginatingChannel: 'shadowob',
+    OriginatingTo: `shadowob:dm:${dmChannelId}`,
+  })
+
+  // 4. Record session
+  const storePath = core.channel.session.resolveStorePath(cfg.session?.store, {
+    agentId: route.agentId,
+  })
+  await core.channel.session.recordInboundSession({
+    storePath,
+    sessionKey: ctxPayload.SessionKey ?? route.sessionKey,
+    ctx: ctxPayload,
+    onRecordError: (err) => {
+      runtime.error?.(`Failed updating DM session meta: ${String(err)}`)
+    },
+  })
+
+  // 5. Dispatch to AI + deliver reply via DM
+  runtime.log?.(`[dm] Dispatching to AI pipeline for DM message ${dmMessage.id}`)
+  const client = new ShadowClient(account.serverUrl, account.token)
+
+  try {
+    await core.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
+      ctx: ctxPayload,
+      cfg,
+      dispatcherOptions: {
+        deliver: async (payload: ReplyPayload) => {
+          await deliverShadowDmReply({
+            payload,
+            dmChannelId,
+            client,
+            runtime,
+          })
+        },
+      },
+    })
+  } catch (err) {
+    runtime.error?.(`[dm] AI dispatch failed for DM message ${dmMessage.id}: ${String(err)}`)
+    throw err
+  }
+}
+
+/**
+ * Deliver a reply to a Shadow DM channel.
+ */
+async function deliverShadowDmReply(params: {
+  payload: ReplyPayload
+  dmChannelId: string
+  client: ShadowClient
+  runtime: { log?: (msg: string) => void; error?: (msg: string) => void }
+}): Promise<void> {
+  const { payload, dmChannelId, client, runtime } = params
+
+  try {
+    if (!payload.text && !(payload.mediaUrl || payload.mediaUrls?.length)) {
+      runtime.error?.('[dm-reply] No text or media in DM reply payload')
+      return
+    }
+
+    const text = payload.text ?? ''
+    runtime.log?.(`[dm-reply] Sending DM reply to channel ${dmChannelId}: "${text.slice(0, 80)}"`)
+
+    if (text) {
+      await client.sendDmMessage(dmChannelId, text)
+      runtime.log?.(`[dm-reply] DM reply delivered successfully`)
+    }
+
+    // Upload media if present
+    const mediaUrls = [payload.mediaUrl, ...(payload.mediaUrls ?? [])].filter(Boolean) as string[]
+    if (mediaUrls.length > 0 && !text) {
+      // Send placeholder for media-only
+      await client.sendDmMessage(dmChannelId, '\u200B')
+    }
+
+    runtime.log?.(`[dm-reply] DM reply delivered successfully`)
+  } catch (err) {
+    runtime.error?.(`[dm-reply] Failed to send DM reply: ${String(err)}`)
+  }
+}
+
+/**
  * Session cache — persists remote config to disk so restart recovery is faster.
  * Saves to ~/.openclaw/shadow/session-cache-<accountId>.json
  */
@@ -770,6 +948,66 @@ export async function monitorShadowProvider(
     socket.leaveChannel(data.channelId)
     runtime.log?.(`[ws] Left channel room ${data.channelId} after member-removed`)
   })
+
+  // Listen for DM messages (relayed to bot's user room by the server)
+  socket.on(
+    'dm:message:new',
+    (dmMessage: {
+      id: string
+      content: string
+      dmChannelId: string
+      channelId: string
+      authorId: string
+      senderId: string
+      receiverId: string
+      author?: {
+        id: string
+        username: string
+        displayName?: string
+        avatarUrl?: string
+        isBot?: boolean
+      }
+      createdAt: string
+    }) => {
+      const senderLabel = dmMessage.author?.username ?? dmMessage.senderId
+      runtime.log?.(
+        `[ws] ← dm:message:new from ${senderLabel} in DM ${dmMessage.dmChannelId}: "${dmMessage.content?.slice(0, 60)}" (${dmMessage.id})`,
+      )
+
+      if (stopped) {
+        runtime.log?.('[ws] Monitor stopped, ignoring DM message')
+        return
+      }
+
+      // Retry-aware DM message processing
+      const processWithRetry = async (attempt = 0) => {
+        try {
+          await processShadowDmMessage({
+            dmMessage,
+            account,
+            accountId,
+            config,
+            runtime,
+            core,
+            botUserId,
+            botUsername: me.username,
+            socket,
+          })
+        } catch (err) {
+          const MAX_RETRIES = 2
+          runtime.error?.(`[ws] DM processing failed (attempt ${attempt + 1}): ${String(err)}`)
+          if (attempt < MAX_RETRIES) {
+            await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)))
+            return processWithRetry(attempt + 1)
+          }
+          runtime.error?.(
+            `[ws] DM permanently failed after ${MAX_RETRIES + 1} attempts: ${dmMessage.id}`,
+          )
+        }
+      }
+      void processWithRetry()
+    },
+  )
 
   // Listen for new messages
   socket.on('message:new', (message: ShadowMessage) => {
