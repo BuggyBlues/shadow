@@ -4,6 +4,11 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing git tag to attach assets to (e.g. v0.1.0-beta)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -12,6 +17,7 @@ jobs:
   build-macos-notarized:
     name: macOS ${{ matrix.arch }} notarized
     runs-on: ${{ matrix.runner }}
+    environment: ShadowOB Mac
     strategy:
       fail-fast: false
       matrix:
@@ -79,8 +85,10 @@ jobs:
         run: pnpm --dir ./apps/desktop release:mac:${{ matrix.arch }}
 
       - name: Upload release assets
+        if: ${{ github.event_name == 'release' || github.event.inputs.tag != '' }}
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event.release.tag_name || github.event.inputs.tag }}
           files: |
             apps/desktop/out/make/**/*.dmg
             apps/desktop/out/make/**/*.zip
@@ -122,7 +130,9 @@ jobs:
         run: pnpm --dir ./apps/desktop ${{ matrix.make_script }}
 
       - name: Upload release assets
+        if: ${{ github.event_name == 'release' || github.event.inputs.tag != '' }}
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event.release.tag_name || github.event.inputs.tag }}
           files: ${{ matrix.files }}
           fail_on_unmatched_files: false
