@@ -50,6 +50,24 @@ const desktopAPI = {
       downloadUrl: string
       releaseNotes: string
     }>,
+  getUpdateState: () =>
+    ipcRenderer.invoke('desktop:getUpdateState') as Promise<{
+      status: 'idle' | 'checking' | 'update-available' | 'up-to-date' | 'error'
+      checkedAt: number | null
+      info: {
+        hasUpdate: boolean
+        version: string
+        downloadUrl: string
+        releaseNotes: string
+      } | null
+      error: string | null
+    }>,
+  getUpdateSettings: () =>
+    ipcRenderer.invoke('desktop:getUpdateSettings') as Promise<{ autoCheckOnLaunch: boolean }>,
+  setUpdateSettings: (settings: { autoCheckOnLaunch: boolean }) =>
+    ipcRenderer.invoke('desktop:setUpdateSettings', settings) as Promise<{
+      autoCheckOnLaunch: boolean
+    }>,
   downloadUpdate: (url: string) =>
     ipcRenderer.invoke('desktop:downloadUpdate', url) as Promise<boolean>,
   setOpenAtLogin: (v: boolean) => {
@@ -74,6 +92,36 @@ const desktopAPI = {
     ) => callback(data)
     ipcRenderer.on('desktop:agentExited', handler)
     return () => ipcRenderer.removeListener('desktop:agentExited', handler)
+  },
+  onUpdateState: (
+    callback: (data: {
+      status: 'idle' | 'checking' | 'update-available' | 'up-to-date' | 'error'
+      checkedAt: number | null
+      info: {
+        hasUpdate: boolean
+        version: string
+        downloadUrl: string
+        releaseNotes: string
+      } | null
+      error: string | null
+    }) => void,
+  ) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      data: {
+        status: 'idle' | 'checking' | 'update-available' | 'up-to-date' | 'error'
+        checkedAt: number | null
+        info: {
+          hasUpdate: boolean
+          version: string
+          downloadUrl: string
+          releaseNotes: string
+        } | null
+        error: string | null
+      },
+    ) => callback(data)
+    ipcRenderer.on('desktop:updateState', handler)
+    return () => ipcRenderer.removeListener('desktop:updateState', handler)
   },
 }
 

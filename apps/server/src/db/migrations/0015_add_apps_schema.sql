@@ -1,6 +1,15 @@
 -- Apps — server applications (zip upload or external URL)
-CREATE TYPE "app_source" AS ENUM ('zip', 'url');
-CREATE TYPE "app_status" AS ENUM ('draft', 'active', 'archived');
+DO $$ BEGIN
+  CREATE TYPE "app_source" AS ENUM ('zip', 'url');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE "app_status" AS ENUM ('draft', 'active', 'archived');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE TABLE IF NOT EXISTS "apps" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),

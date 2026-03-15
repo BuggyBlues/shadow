@@ -11,6 +11,34 @@ interface DesktopSettingsAPI {
     downloadUrl: string
     releaseNotes: string
   }>
+  getUpdateSettings: () => Promise<{ autoCheckOnLaunch: boolean }>
+  setUpdateSettings: (settings: { autoCheckOnLaunch: boolean }) => Promise<{
+    autoCheckOnLaunch: boolean
+  }>
+  getUpdateState: () => Promise<{
+    status: 'idle' | 'checking' | 'update-available' | 'up-to-date' | 'error'
+    checkedAt: number | null
+    info: {
+      hasUpdate: boolean
+      version: string
+      downloadUrl: string
+      releaseNotes: string
+    } | null
+    error: string | null
+  }>
+  onUpdateState?: (
+    cb: (data: {
+      status: 'idle' | 'checking' | 'update-available' | 'up-to-date' | 'error'
+      checkedAt: number | null
+      info: {
+        hasUpdate: boolean
+        version: string
+        downloadUrl: string
+        releaseNotes: string
+      } | null
+      error: string | null
+    }) => void,
+  ) => () => void
   downloadUpdate: (url: string) => Promise<boolean>
   setOpenAtLogin: (v: boolean) => void
   getOpenAtLogin: () => Promise<boolean>
@@ -24,6 +52,10 @@ function getAPI(): DesktopSettingsAPI | null {
       platform: api.platform as string,
       getVersion: api.getVersion as DesktopSettingsAPI['getVersion'],
       checkForUpdate: api.checkForUpdate as DesktopSettingsAPI['checkForUpdate'],
+      getUpdateSettings: api.getUpdateSettings as DesktopSettingsAPI['getUpdateSettings'],
+      setUpdateSettings: api.setUpdateSettings as DesktopSettingsAPI['setUpdateSettings'],
+      getUpdateState: api.getUpdateState as DesktopSettingsAPI['getUpdateState'],
+      onUpdateState: api.onUpdateState as DesktopSettingsAPI['onUpdateState'],
       downloadUpdate: api.downloadUpdate as DesktopSettingsAPI['downloadUpdate'],
       setOpenAtLogin: api.setOpenAtLogin as DesktopSettingsAPI['setOpenAtLogin'],
       getOpenAtLogin: api.getOpenAtLogin as DesktopSettingsAPI['getOpenAtLogin'],
@@ -40,6 +72,7 @@ export function DesktopSettingsPage({ onBack }: { onBack: () => void }) {
   const [version, setVersion] = useState('')
   const [openAtLogin, setOpenAtLogin] = useState(false)
   const [checking, setChecking] = useState(false)
+  const [autoCheckOnLaunch, setAutoCheckOnLaunch] = useState(true)
   const [updateInfo, setUpdateInfo] = useState<{
     hasUpdate: boolean
     version: string
@@ -50,6 +83,19 @@ export function DesktopSettingsPage({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     api?.getVersion().then(setVersion)
     api?.getOpenAtLogin().then(setOpenAtLogin)
+    api?.getUpdateSettings().then((s) => setAutoCheckOnLaunch(s.autoCheckOnLaunch))
+    api?.getUpdateState().then((state) => {
+      if (state.info) setUpdateInfo(state.info)
+      setChecking(state.status === 'checking')
+    })
+
+    const unsubscribe = api?.onUpdateState?.((state) => {
+      if (state.info) setUpdateInfo(state.info)
+      setChecking(state.status === 'checking')
+    })
+    return () => {
+      unsubscribe?.()
+    }
   }, [api])
 
   const handleCheckUpdate = useCallback(async () => {
@@ -72,6 +118,14 @@ export function DesktopSettingsPage({ onBack }: { onBack: () => void }) {
     (v: boolean) => {
       setOpenAtLogin(v)
       api?.setOpenAtLogin(v)
+    },
+    [api],
+  )
+
+  const handleAutoCheckToggle = useCallback(
+    async (v: boolean) => {
+      setAutoCheckOnLaunch(v)
+      await api?.setUpdateSettings({ autoCheckOnLaunch: v })
     },
     [api],
   )
@@ -123,6 +177,40 @@ export function DesktopSettingsPage({ onBack }: { onBack: () => void }) {
             {t('desktop.update', '应用更新')}
           </h3>
           <div className="bg-bg-secondary rounded-xl p-4 space-y-4">
+            <label className="flex items-center justify-between cursor-pointer">
+              <div>
+                <p className="text-sm font-medium text-text-primary">
+                  {t('desktop.autoCheckOnLaunch', '启动时自动检查更新')}
+                </p>
+                <p className="text-xs text-text-muted mt-0.5">
+                  {t('desktop.autoCheckOnLaunchDesc', '应用启动后自动检查是否有新版本')}
+                </p>
+              </div>
+              <div
+                role="switch"
+                aria-checked={autoCheckOnLaunch}
+                tabIndex={0}
+                onClick={() => {
+                  void handleAutoCheckToggle(!autoCheckOnLaunch)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    void handleAutoCheckToggle(!autoCheckOnLaunch)
+                  }
+                }}
+                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
+                  autoCheckOnLaunch ? 'bg-primary' : 'bg-bg-tertiary'
+                }`}
+              >
+                <div
+                  className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                    autoCheckOnLaunch ? 'translate-x-5' : ''
+                  }`}
+                />
+              </div>
+            </label>
+
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-text-primary">
