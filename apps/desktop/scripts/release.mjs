@@ -44,7 +44,7 @@ if (notarize && platform === 'darwin') {
 }
 
 const makeOrPackage = mode === 'package' ? 'package' : 'make'
-const base = `pnpm --dir ./apps/desktop ${makeOrPackage}`
+const base = `pnpm run ${makeOrPackage} --`
 
 if (platform === 'all') {
   const targets = [
