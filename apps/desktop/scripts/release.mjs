@@ -15,65 +15,20 @@ const arch = arg('arch', process.arch)
 const mode = arg('mode', 'make') // make|package
 const notarize = hasFlag('notarize')
 
-function getRunEnv(targetPlatform) {
-  const env = { ...process.env }
-
-  if (!(notarize && targetPlatform === 'darwin')) {
-    return env
-  }
-
-  const hasApiKey = !!env.APPLE_API_KEY && !!env.APPLE_API_KEY_ID && !!env.APPLE_API_ISSUER
-  const hasAppleIdPassword = !!env.APPLE_ID && !!env.APPLE_APP_SPECIFIC_PASSWORD
-
-  if (hasApiKey) {
-    // Keep API key mode only
-    delete env.APPLE_ID
-    delete env.APPLE_APP_SPECIFIC_PASSWORD
-    delete env.APPLE_KEYCHAIN
-    delete env.APPLE_KEYCHAIN_PROFILE
-    delete env.APPLE_KEYCHAIN_PASSWORD
-    console.log('[release] notarization auth mode: App Store Connect API key')
-    return env
-  }
-
-  if (hasAppleIdPassword) {
-    // Keep Apple ID mode only
-    delete env.APPLE_API_KEY
-    delete env.APPLE_API_KEY_ID
-    delete env.APPLE_API_ISSUER
-    delete env.APPLE_KEYCHAIN
-    delete env.APPLE_KEYCHAIN_PROFILE
-    delete env.APPLE_KEYCHAIN_PASSWORD
-    console.log('[release] notarization auth mode: Apple ID + app-specific password')
-    return env
-  }
-
-  return env
-}
-
 function runForTarget(targetPlatform, targetArch) {
-  const runEnv = getRunEnv(targetPlatform)
   const cmd = `${base} --platform=${targetPlatform} --arch=${targetArch}`
   console.log(`\n[release] ${cmd}`)
-  execSync(cmd, { stdio: 'inherit', env: runEnv })
+  execSync(cmd, { stdio: 'inherit', env: process.env })
 }
 
 function validateNotarizationEnv() {
-  const required = ['APPLE_TEAM_ID']
   const hasApiKey =
     !!process.env.APPLE_API_KEY && !!process.env.APPLE_API_KEY_ID && !!process.env.APPLE_API_ISSUER
-  const hasAppleIdPassword = !!process.env.APPLE_ID && !!process.env.APPLE_APP_SPECIFIC_PASSWORD
 
-  if (!hasApiKey && !hasAppleIdPassword) {
+  if (!hasApiKey) {
     throw new Error(
-      '[release] notarization requires either API key trio (APPLE_API_KEY, APPLE_API_KEY_ID, APPLE_API_ISSUER) or Apple ID credentials (APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD)',
+      '[release] notarization requires API key trio (APPLE_API_KEY, APPLE_API_KEY_ID, APPLE_API_ISSUER)',
     )
-  }
-
-  for (const key of required) {
-    if (!process.env[key]) {
-      throw new Error(`[release] missing required env: ${key}`)
-    }
   }
 }
 

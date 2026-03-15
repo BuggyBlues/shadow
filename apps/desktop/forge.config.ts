@@ -7,9 +7,7 @@ import type { ForgeConfig } from '@electron-forge/shared-types'
 const isMac = process.platform === 'darwin'
 const hasNotaryApiKey =
   !!process.env.APPLE_API_KEY && !!process.env.APPLE_API_KEY_ID && !!process.env.APPLE_API_ISSUER
-const hasAppleIdAuth = !!process.env.APPLE_ID && !!process.env.APPLE_APP_SPECIFIC_PASSWORD
-const shouldSignAndNotarize =
-  isMac && !!process.env.APPLE_TEAM_ID && (hasNotaryApiKey || hasAppleIdAuth)
+const shouldSignAndNotarize = isMac && hasNotaryApiKey
 
 const config: ForgeConfig = {
   packagerConfig: {
@@ -37,14 +35,8 @@ const config: ForgeConfig = {
                 appleApiKey: process.env.APPLE_API_KEY,
                 appleApiKeyId: process.env.APPLE_API_KEY_ID,
                 appleApiIssuer: process.env.APPLE_API_ISSUER,
-                teamId: process.env.APPLE_TEAM_ID,
               }
-            : {
-                tool: 'notarytool',
-                appleId: process.env.APPLE_ID,
-                appleIdPassword: process.env.APPLE_APP_SPECIFIC_PASSWORD,
-                teamId: process.env.APPLE_TEAM_ID,
-              },
+            : undefined,
         }
       : {}),
     protocols: [
@@ -62,7 +54,6 @@ const config: ForgeConfig = {
   makers: [
     new MakerSquirrel({
       name: 'Shadow',
-      setupIcon: './assets/icon.ico',
     }),
     new MakerDMG(
       {
