@@ -19,3 +19,6 @@ export function slugify(text: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
 }
+
+export * from './avatar-generator'
+export * from './pixel-cats'

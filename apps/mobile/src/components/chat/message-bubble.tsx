@@ -1,0 +1,863 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { formatDistanceToNow } from 'date-fns'
+import * as Clipboard from 'expo-clipboard'
+import { Image } from 'expo-image'
+import { useRouter } from 'expo-router'
+import {
+  Check,
+  Copy,
+  Download,
+  FileArchive,
+  FileCode,
+  FileText,
+  Film,
+  Music,
+  Pencil,
+  Reply,
+  Trash2,
+  X,
+} from 'lucide-react-native'
+import type React from 'react'
+import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import {
+  Alert,
+  Linking,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native'
+import type { EmojiType } from 'rn-emoji-keyboard'
+import RNEmojiPicker from 'rn-emoji-keyboard'
+import { fetchApi, getImageUrl } from '../../lib/api'
+import { useAuthStore } from '../../stores/auth.store'
+import { fontSize, radius, spacing, useColors } from '../../theme'
+import type { Attachment, Message } from '../../types/message'
+import { Avatar } from '../common/avatar'
+
+const QUICK_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔', '👀']
+
+interface MessageBubbleProps {
+  message: Message
+  onReply: () => void
+  channelId: string
+  allMessages?: Message[]
+  isGrouped?: boolean
+}
+
+export function MessageBubble({
+  message,
+  onReply,
+  channelId,
+  allMessages = [],
+  isGrouped = false,
+}: MessageBubbleProps) {
+  const { t } = useTranslation()
+  const colors = useColors()
+  const router = useRouter()
+  const currentUser = useAuthStore((s) => s.user)
+  const _queryClient = useQueryClient()
+  const [showActions, setShowActions] = useState(false)
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editText, setEditText] = useState(message.content)
+  const isOwn = currentUser?.id === message.authorId
+
+  // Resolve reply reference
+  const replyTarget = useMemo(() => {
+    if (!message.replyToId) return null
+    return allMessages.find((m) => m.id === message.replyToId) ?? null
+  }, [message.replyToId, allMessages])
+
+  const deleteMutation = useMutation({
+    mutationFn: () => fetchApi(`/api/messages/${message.id}`, { method: 'DELETE' }),
+  })
+
+  const editMutation = useMutation({
+    mutationFn: (content: string) =>
+      fetchApi(`/api/messages/${message.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ content }),
+      }),
+    onSuccess: () => setIsEditing(false),
+  })
+
+  const reactionMutation = useMutation({
+    mutationFn: (emoji: string) =>
+      fetchApi(`/api/messages/${message.id}/reactions`, {
+        method: 'POST',
+        body: JSON.stringify({ emoji }),
+      }),
+  })
+
+  const handleLongPress = () => setShowActions(true)
+
+  const handleCopy = async () => {
+    await Clipboard.setStringAsync(message.content)
+    setShowActions(false)
+  }
+
+  const handleDelete = () => {
+    Alert.alert(t('chat.deleteMessage'), t('chat.deleteConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.delete'), style: 'destructive', onPress: () => deleteMutation.mutate() },
+    ])
+    setShowActions(false)
+  }
+
+  const handleEdit = () => {
+    setEditText(message.content)
+    setIsEditing(true)
+    setShowActions(false)
+  }
+
+  const handleSaveEdit = () => {
+    const trimmed = editText.trim()
+    if (trimmed && trimmed !== message.content) {
+      editMutation.mutate(trimmed)
+    } else {
+      setIsEditing(false)
+    }
+  }
+
+  const handleReaction = (emoji: string) => {
+    reactionMutation.mutate(emoji)
+    setShowActions(false)
+  }
+
+  const displayName = message.author?.displayName || message.author?.username || '?'
+  const timeAgo = formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })
+  const isBot = message.author?.isBot ?? false
+
+  const getAttachmentContentType = (att: Attachment) =>
+    att.contentType ?? att.mimeType ?? 'application/octet-stream'
+
+  const isImageAtt = (att: Attachment) => getAttachmentContentType(att).startsWith('image/')
+
+  const getFileIcon = (contentType: string) => {
+    if (contentType.startsWith('audio/')) return Music
+    if (contentType.startsWith('video/')) return Film
+    if (
+      contentType.includes('zip') ||
+      contentType.includes('archive') ||
+      contentType.includes('tar') ||
+      contentType.includes('rar')
+    )
+      return FileArchive
+    if (
+      contentType.includes('json') ||
+      contentType.includes('javascript') ||
+      contentType.includes('typescript') ||
+      contentType.includes('xml') ||
+      contentType.includes('html') ||
+      contentType.includes('css') ||
+      contentType.includes('python') ||
+      contentType.includes('java') ||
+      contentType.includes('ruby') ||
+      contentType.includes('go') ||
+      contentType.includes('rust') ||
+      contentType.includes('swift') ||
+      contentType.includes('kotlin')
+    )
+      return FileCode
+    return FileText
+  }
+
+  const getFileAccentColor = (contentType: string) => {
+    if (contentType.startsWith('audio/')) return '#E879F9'
+    if (contentType.startsWith('video/')) return '#F97316'
+    if (
+      contentType.includes('zip') ||
+      contentType.includes('archive') ||
+      contentType.includes('tar') ||
+      contentType.includes('rar')
+    )
+      return '#FBBF24'
+    if (contentType.includes('pdf')) return '#EF4444'
+    if (
+      contentType.includes('json') ||
+      contentType.includes('javascript') ||
+      contentType.includes('typescript') ||
+      contentType.includes('xml') ||
+      contentType.includes('html') ||
+      contentType.includes('css') ||
+      contentType.includes('python') ||
+      contentType.includes('java')
+    )
+      return '#22D3EE'
+    if (
+      contentType.includes('word') ||
+      contentType.includes('document') ||
+      contentType.includes('text/')
+    )
+      return '#3B82F6'
+    if (contentType.includes('spreadsheet') || contentType.includes('excel')) return '#22C55E'
+    return colors.primary
+  }
+
+  const getFileExtension = (filename: string) => {
+    const parts = filename.split('.')
+    return parts.length > 1 ? parts[parts.length - 1]!.toUpperCase() : ''
+  }
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+
+  // Markdown rendering with code blocks, inline code, bold, italic, links, strikethrough
+  const renderContent = (text: string) => {
+    if (!text || text === '\u200B') return null
+
+    const parts: React.ReactNode[] = []
+    const codeBlockRegex = /```(\w+)?\n?([\s\S]*?)```|`([^`\n]+)`/g
+    let lastIndex = 0
+    let match: RegExpExecArray | null
+
+    const processInline = (segment: string, key: string) => {
+      const inlineParts: React.ReactNode[] = []
+      const inlineRegex =
+        /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(\[([^\]]+)\]\(([^)]+)\))|(https?:\/\/[^\s]+)|(~~(.+?)~~)/g
+      let iLastIndex = 0
+      let iMatch: RegExpExecArray | null
+
+      // biome-ignore lint/suspicious/noAssignInExpressions: regex exec loop pattern
+      while ((iMatch = inlineRegex.exec(segment)) !== null) {
+        if (iMatch.index > iLastIndex) {
+          inlineParts.push(segment.slice(iLastIndex, iMatch.index))
+        }
+        if (iMatch[2]) {
+          inlineParts.push(
+            <Text key={`${key}-b-${iMatch.index}`} style={{ fontWeight: '700' }}>
+              {iMatch[2]}
+            </Text>,
+          )
+        } else if (iMatch[4]) {
+          inlineParts.push(
+            <Text key={`${key}-i-${iMatch.index}`} style={{ fontStyle: 'italic' }}>
+              {iMatch[4]}
+            </Text>,
+          )
+        } else if (iMatch[6] && iMatch[7]) {
+          inlineParts.push(
+            <Text
+              key={`${key}-l-${iMatch.index}`}
+              style={{ color: colors.primary, textDecorationLine: 'underline' }}
+              onPress={() => Linking.openURL(iMatch![7])}
+            >
+              {iMatch[6]}
+            </Text>,
+          )
+        } else if (iMatch[0].startsWith('http')) {
+          inlineParts.push(
+            <Text
+              key={`${key}-u-${iMatch.index}`}
+              style={{ color: colors.primary, textDecorationLine: 'underline' }}
+              onPress={() => Linking.openURL(iMatch![0])}
+            >
+              {iMatch[0]}
+            </Text>,
+          )
+        } else if (iMatch[10]) {
+          inlineParts.push(
+            <Text
+              key={`${key}-s-${iMatch.index}`}
+              style={{ textDecorationLine: 'line-through', color: colors.textMuted }}
+            >
+              {iMatch[10]}
+            </Text>,
+          )
+        }
+        iLastIndex = iMatch.index + iMatch[0].length
+      }
+      if (iLastIndex < segment.length) {
+        inlineParts.push(segment.slice(iLastIndex))
+      }
+      return inlineParts.length > 0 ? inlineParts : [segment]
+    }
+
+    // biome-ignore lint/suspicious/noAssignInExpressions: regex exec loop pattern
+    while ((match = codeBlockRegex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(
+          <Text key={`t-${lastIndex}`} style={[styles.content, { color: colors.text }]}>
+            {processInline(text.slice(lastIndex, match.index), `t-${lastIndex}`)}
+          </Text>,
+        )
+      }
+      if (match[3]) {
+        // Inline code
+        parts.push(
+          <Text
+            key={`ic-${match.index}`}
+            style={[
+              styles.inlineCode,
+              { backgroundColor: colors.inputBackground, color: colors.text },
+            ]}
+          >
+            {match[3]}
+          </Text>,
+        )
+      } else {
+        // Block code with optional language label
+        const lang = match[1] || ''
+        const code = match[2]?.replace(/\n$/, '') || ''
+        parts.push(
+          <View
+            key={`c-${match.index}`}
+            style={[styles.codeBlock, { backgroundColor: colors.inputBackground }]}
+          >
+            {lang ? (
+              <View style={[styles.codeLangRow, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.codeLangLabel, { color: colors.textMuted }]}>{lang}</Text>
+              </View>
+            ) : null}
+            <Text style={[styles.codeText, { color: colors.text }]}>{code}</Text>
+          </View>,
+        )
+      }
+      lastIndex = match.index + match[0].length
+    }
+    if (lastIndex < text.length) {
+      parts.push(
+        <Text key={`t-${lastIndex}`} style={[styles.content, { color: colors.text }]}>
+          {processInline(text.slice(lastIndex), `t-${lastIndex}`)}
+        </Text>,
+      )
+    }
+
+    return parts
+  }
+
+  return (
+    <Pressable
+      style={[
+        styles.container,
+        isGrouped && styles.containerGrouped,
+        showActions && { backgroundColor: colors.messageHover },
+      ]}
+      onLongPress={handleLongPress}
+      onPress={() => showActions && setShowActions(false)}
+    >
+      {/* Reply reference */}
+      {replyTarget && (
+        <View style={[styles.replyRef, { borderLeftColor: colors.primary }]}>
+          <Text style={[styles.replyRefAuthor, { color: colors.primary }]}>
+            {replyTarget.author?.displayName || replyTarget.author?.username}
+          </Text>
+          <Text style={[styles.replyRefText, { color: colors.textMuted }]} numberOfLines={1}>
+            {replyTarget.content}
+          </Text>
+        </View>
+      )}
+
+      <View style={styles.row}>
+        {isGrouped ? (
+          <View style={styles.groupedGutter} />
+        ) : (
+          <Avatar
+            uri={message.author?.avatarUrl}
+            name={displayName}
+            size={36}
+            userId={message.authorId}
+          />
+        )}
+        <View style={styles.bubble}>
+          {!isGrouped && (
+            <View style={styles.header}>
+              <Text style={[styles.username, { color: colors.text }]}>{displayName}</Text>
+              {isBot && (
+                <View style={[styles.botBadge, { backgroundColor: colors.primary }]}>
+                  <Text style={styles.botBadgeText}>BOT</Text>
+                </View>
+              )}
+              <Text style={[styles.time, { color: colors.textMuted }]}>{timeAgo}</Text>
+              {message.isEdited && (
+                <Text style={[styles.edited, { color: colors.textMuted }]}>
+                  ({t('chat.edited')})
+                </Text>
+              )}
+            </View>
+          )}
+
+          {/* Content or editing */}
+          {isEditing ? (
+            <View style={styles.editContainer}>
+              <TextInput
+                style={[
+                  styles.editInput,
+                  {
+                    backgroundColor: colors.inputBackground,
+                    color: colors.text,
+                    borderColor: colors.primary,
+                  },
+                ]}
+                value={editText}
+                onChangeText={setEditText}
+                multiline
+                autoFocus
+              />
+              <View style={styles.editActions}>
+                <Pressable onPress={() => setIsEditing(false)} style={styles.editBtn}>
+                  <X size={16} color={colors.textMuted} />
+                </Pressable>
+                <Pressable onPress={handleSaveEdit} style={styles.editBtn}>
+                  <Check size={16} color={colors.success} />
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <View>{renderContent(message.content)}</View>
+          )}
+
+          {/* Attachments */}
+          {message.attachments?.map((att) => {
+            const contentType = getAttachmentContentType(att)
+            if (isImageAtt(att)) {
+              return (
+                <Pressable
+                  key={att.id}
+                  style={styles.imageAttachment}
+                  onPress={() => {
+                    router.push({
+                      pathname: '/(main)/media-preview',
+                      params: {
+                        url: att.url,
+                        filename: att.filename,
+                        contentType,
+                      },
+                    })
+                  }}
+                >
+                  <Image
+                    source={{ uri: getImageUrl(att.url) ?? att.url }}
+                    style={styles.attachmentImage}
+                    contentFit="cover"
+                    transition={200}
+                  />
+                </Pressable>
+              )
+            }
+            const FileIcon = getFileIcon(contentType)
+            const accentColor = getFileAccentColor(contentType)
+            const ext = getFileExtension(att.filename)
+            return (
+              <Pressable
+                key={att.id}
+                style={[
+                  styles.fileCard,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}
+                onPress={() => {
+                  router.push({
+                    pathname: '/(main)/media-preview',
+                    params: {
+                      url: att.url,
+                      filename: att.filename,
+                      contentType,
+                    },
+                  })
+                }}
+              >
+                <View style={[styles.fileIconWrap, { backgroundColor: `${accentColor}18` }]}>
+                  <FileIcon size={20} color={accentColor} />
+                </View>
+                <View style={styles.fileInfo}>
+                  <Text style={[styles.fileName, { color: colors.text }]} numberOfLines={1}>
+                    {att.filename}
+                  </Text>
+                  <View style={styles.fileMetaRow}>
+                    {ext ? (
+                      <Text style={[styles.fileExt, { color: accentColor }]}>{ext}</Text>
+                    ) : null}
+                    <Text style={[styles.fileMeta, { color: colors.textMuted }]}>
+                      {formatSize(att.size)}
+                    </Text>
+                  </View>
+                </View>
+                <Download size={16} color={colors.textMuted} />
+              </Pressable>
+            )
+          })}
+
+          {/* Reactions */}
+          {message.reactions && message.reactions.length > 0 && (
+            <View style={styles.reactions}>
+              {message.reactions.map((r) => {
+                const isReacted = currentUser ? r.userIds.includes(currentUser.id) : false
+                return (
+                  <Pressable
+                    key={r.emoji}
+                    style={[
+                      styles.reaction,
+                      {
+                        backgroundColor: isReacted ? `${colors.primary}20` : colors.surface,
+                        borderColor: isReacted ? colors.primary : colors.border,
+                      },
+                    ]}
+                    onPress={() => handleReaction(r.emoji)}
+                  >
+                    <Text style={styles.reactionEmoji}>{r.emoji}</Text>
+                    <Text
+                      style={[
+                        styles.reactionCount,
+                        { color: isReacted ? colors.primary : colors.textSecondary },
+                      ]}
+                    >
+                      {r.count}
+                    </Text>
+                  </Pressable>
+                )
+              })}
+              <Pressable
+                style={[
+                  styles.reactionAdd,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}
+                onPress={() => setShowActions(true)}
+              >
+                <Text style={[styles.reactionAddText, { color: colors.textMuted }]}>+</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* Action bar */}
+      {showActions && (
+        <View
+          style={[
+            styles.actionsOverlay,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          {/* Quick emoji row */}
+          <View style={styles.quickEmojiRow}>
+            {QUICK_EMOJIS.map((emoji) => (
+              <Pressable
+                key={emoji}
+                style={styles.quickEmojiBtn}
+                onPress={() => handleReaction(emoji)}
+              >
+                <Text style={styles.quickEmoji}>{emoji}</Text>
+              </Pressable>
+            ))}
+            <Pressable
+              style={[styles.quickEmojiBtn, { backgroundColor: colors.inputBackground }]}
+              onPress={() => {
+                setShowActions(false)
+                setShowEmojiPicker(true)
+              }}
+            >
+              <Text style={styles.quickEmoji}>+</Text>
+            </Pressable>
+          </View>
+          <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
+          {/* Action buttons */}
+          <View style={styles.actionRow}>
+            <Pressable
+              style={styles.actionBtn}
+              onPress={() => {
+                onReply()
+                setShowActions(false)
+              }}
+            >
+              <Reply size={18} color={colors.textSecondary} />
+              <Text style={[styles.actionLabel, { color: colors.textSecondary }]}>
+                {t('chat.reply')}
+              </Text>
+            </Pressable>
+            <Pressable style={styles.actionBtn} onPress={handleCopy}>
+              <Copy size={18} color={colors.textSecondary} />
+              <Text style={[styles.actionLabel, { color: colors.textSecondary }]}>
+                {t('chat.copy')}
+              </Text>
+            </Pressable>
+            {isOwn && (
+              <Pressable style={styles.actionBtn} onPress={handleEdit}>
+                <Pencil size={18} color={colors.textSecondary} />
+                <Text style={[styles.actionLabel, { color: colors.textSecondary }]}>
+                  {t('chat.edit')}
+                </Text>
+              </Pressable>
+            )}
+            {isOwn && (
+              <Pressable style={styles.actionBtn} onPress={handleDelete}>
+                <Trash2 size={18} color={colors.error} />
+                <Text style={[styles.actionLabel, { color: colors.error }]}>
+                  {t('common.delete')}
+                </Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* Full emoji picker (rn-emoji-keyboard) */}
+      <RNEmojiPicker
+        open={showEmojiPicker}
+        onClose={() => setShowEmojiPicker(false)}
+        onEmojiSelected={(emoji: EmojiType) => handleReaction(emoji.emoji)}
+        enableSearchBar
+        enableRecentlyUsed
+        categoryPosition="top"
+      />
+    </Pressable>
+  )
+}
+
+const styles = StyleSheet.create({
+  container: {
+    paddingVertical: 2,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.sm,
+    marginBottom: 1,
+  },
+  containerGrouped: {
+    paddingVertical: 0,
+    marginBottom: 0,
+  },
+  // Reply reference
+  replyRef: {
+    borderLeftWidth: 2,
+    paddingLeft: spacing.sm,
+    marginLeft: 44,
+    marginBottom: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  replyRefAuthor: {
+    fontSize: fontSize.xs,
+    fontWeight: '600',
+  },
+  replyRefText: {
+    fontSize: fontSize.xs,
+    flex: 1,
+  },
+  // Message row
+  row: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  bubble: {
+    flex: 1,
+  },
+  groupedGutter: {
+    width: 36,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: 1,
+  },
+  username: {
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+  },
+  botBadge: {
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 3,
+  },
+  botBadgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  time: {
+    fontSize: fontSize.xs,
+  },
+  edited: {
+    fontSize: fontSize.xs,
+    fontStyle: 'italic',
+  },
+  content: {
+    fontSize: fontSize.md,
+    lineHeight: 22,
+  },
+  // Code blocks
+  codeBlock: {
+    borderRadius: radius.md,
+    overflow: 'hidden',
+    marginVertical: spacing.xs,
+  },
+  codeLangRow: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  codeLangLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  codeText: {
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontSize: fontSize.xs,
+    padding: spacing.sm,
+    lineHeight: 18,
+  },
+  inlineCode: {
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontSize: fontSize.xs,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  // Editing
+  editContainer: {
+    marginTop: spacing.xs,
+  },
+  editInput: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    padding: spacing.sm,
+    fontSize: fontSize.md,
+    minHeight: 36,
+    maxHeight: 120,
+  },
+  editActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  editBtn: {
+    padding: spacing.xs,
+  },
+  // Attachments
+  imageAttachment: {
+    marginTop: spacing.xs,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+  },
+  attachmentImage: {
+    width: 250,
+    height: 180,
+    borderRadius: radius.lg,
+  },
+  fileCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    marginTop: spacing.xs,
+    borderWidth: 1,
+    gap: spacing.sm,
+  },
+  fileIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fileInfo: {
+    flex: 1,
+  },
+  fileName: {
+    fontSize: fontSize.sm,
+    fontWeight: '600',
+  },
+  fileMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: 2,
+  },
+  fileExt: {
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  fileMeta: {
+    fontSize: fontSize.xs,
+  },
+  // Reactions
+  reactions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  reaction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radius.full,
+    borderWidth: 1,
+  },
+  reactionEmoji: {
+    fontSize: 14,
+  },
+  reactionCount: {
+    fontSize: fontSize.xs,
+    fontWeight: '600',
+  },
+  reactionAdd: {
+    width: 28,
+    height: 24,
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  reactionAddText: {
+    fontSize: 14,
+  },
+  // Actions overlay
+  actionsOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: spacing.sm,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    overflow: 'hidden',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    zIndex: 10,
+  },
+  quickEmojiRow: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    gap: spacing.xs,
+  },
+  quickEmojiBtn: {
+    padding: 4,
+  },
+  quickEmoji: {
+    fontSize: 20,
+  },
+  actionDivider: {
+    height: 1,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
+  actionBtn: {
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    gap: 2,
+  },
+  actionLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+})

@@ -6,6 +6,7 @@ import type {
   RentalUsageDao,
   RentalViolationDao,
 } from '../dao/rental-contract.dao'
+import type { UserDao } from '../dao/user.dao'
 import type { WalletService } from './wallet.service'
 
 /* ──────────────── Pricing Constants ──────────────── */
@@ -54,6 +55,7 @@ export class RentalService {
       rentalViolationDao: RentalViolationDao
       walletService: WalletService
       agentDao: AgentDao
+      userDao: UserDao
     },
   ) {}
 
@@ -166,12 +168,27 @@ export class RentalService {
       this.deps.clawListingDao.browse(opts),
       this.deps.clawListingDao.countBrowse(opts),
     ])
-    // Enrich listings with agent totalOnlineSeconds
+    // Enrich listings with agent totalOnlineSeconds and owner info
     const enriched = await Promise.all(
       listings.map(async (l) => {
-        if (!l.agentId) return { ...l, totalOnlineSeconds: 0 }
-        const agent = await this.deps.agentDao.findById(l.agentId)
-        return { ...l, totalOnlineSeconds: agent?.totalOnlineSeconds ?? 0 }
+        let totalOnlineSeconds = 0
+        if (l.agentId) {
+          const agent = await this.deps.agentDao.findById(l.agentId)
+          totalOnlineSeconds = agent?.totalOnlineSeconds ?? 0
+        }
+        const owner = await this.deps.userDao.findById(l.ownerId)
+        return {
+          ...l,
+          totalOnlineSeconds,
+          owner: owner
+            ? {
+                id: owner.id,
+                username: owner.username,
+                displayName: owner.displayName,
+                avatarUrl: owner.avatarUrl,
+              }
+            : null,
+        }
       }),
     )
     return { listings: enriched, total }

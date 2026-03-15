@@ -17,5 +17,6 @@
     "noUncheckedIndexedAccess": true,
     "noEmit": true
   },
-  "exclude": ["node_modules", "dist", "build", ".turbo"]
+  "exclude": ["node_modules", "dist", "build", ".turbo"],
+  "extends": "expo/tsconfig.base"
 }

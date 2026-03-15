@@ -44,3 +44,6 @@ docker/data/
 *.tsbuildinfo
 
 .research
+
+# Expo
+.expo/
