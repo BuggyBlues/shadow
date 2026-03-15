@@ -400,6 +400,51 @@ export function HomePage() {
         </div>
       </section>
 
+      {/* Desktop Download & Install */}
+      <section className="max-w-5xl mx-auto w-full px-8 md:px-16 py-12 relative z-10">
+        <div className="glass-card bg-gradient-to-r from-sky-50 to-cyan-50 p-10 md:p-12 rounded-[36px] shadow-xl">
+          <div className="flex flex-col gap-6">
+            <div>
+              <h3 className="zcool text-3xl md:text-4xl font-bold mb-3 text-gray-800">
+                桌面端下载
+              </h3>
+              <p className="text-base md:text-lg font-bold text-gray-600">
+                macOS（Intel/Apple Silicon）已签名并公证，发布后可直接下载安装。
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-4">
+              <a
+                href="https://github.com/BuggyBlues/shadow/releases/latest"
+                target="_blank"
+                rel="noreferrer"
+                className="btn-primary zcool text-lg px-7 py-3 inline-flex items-center gap-2"
+              >
+                下载最新版（Latest Release）
+              </a>
+              <a
+                href="https://github.com/BuggyBlues/shadow/releases"
+                target="_blank"
+                rel="noreferrer"
+                className="btn-secondary zcool text-lg px-7 py-3 inline-flex items-center gap-2"
+              >
+                所有版本（All Releases）
+              </a>
+            </div>
+
+            <div className="bg-white/70 border border-white/80 rounded-2xl p-5">
+              <h4 className="zcool text-2xl text-gray-800 mb-3">安装教程</h4>
+              <ol className="list-decimal pl-5 space-y-2 text-gray-700 font-bold">
+                <li>打开 Latest Release 页面并下载对应系统安装包。</li>
+                <li>macOS 选择对应架构：Apple Silicon 设备下载 arm64，Intel 设备下载 x64。</li>
+                <li>打开 DMG，把 Shadow 拖到 Applications 文件夹。</li>
+                <li>首次启动若出现系统提示，右键应用选择“打开”即可。</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Banner */}
       <section id="cta" className="max-w-5xl mx-auto w-full px-8 md:px-16 py-12 mb-20">
         <div className="glass-card bg-gradient-to-r from-cyan-50 to-yellow-50 p-10 md:p-12 text-center rounded-[36px] relative overflow-hidden shadow-2xl transition-all duration-500 hover:shadow-cyan-500/20">
