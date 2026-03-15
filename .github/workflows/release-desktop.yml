@@ -25,6 +25,7 @@ jobs:
       APPLE_CODESIGN_IDENTITY: ${{ secrets.APPLE_CODESIGN_IDENTITY }}
       APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
       APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+      APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
       APPLE_ID: ${{ secrets.APPLE_ID }}
       APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
     steps:
@@ -45,11 +46,15 @@ jobs:
         run: pnpm i --frozen-lockfile
 
       - name: Prepare App Store Connect API key
-        if: ${{ secrets.APPLE_API_KEY_P8 != '' }}
         run: |
-          mkdir -p ./.secrets
-          printf '%s' "${{ secrets.APPLE_API_KEY_P8 }}" > ./.secrets/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8
-          echo "APPLE_API_KEY=$PWD/.secrets/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8" >> "$GITHUB_ENV"
+          if [ -n "${APPLE_API_KEY_P8:-}" ]; then
+            mkdir -p ./.secrets
+            printf '%s' "$APPLE_API_KEY_P8" > ./.secrets/AuthKey_${APPLE_API_KEY_ID}.p8
+            echo "APPLE_API_KEY=$PWD/.secrets/AuthKey_${APPLE_API_KEY_ID}.p8" >> "$GITHUB_ENV"
+            echo "Using App Store Connect API key notarization"
+          else
+            echo "APPLE_API_KEY_P8 not provided, fallback to Apple ID notarization"
+          fi
 
       - name: Import Apple certificate
         env:
@@ -65,7 +70,7 @@ jobs:
             import base64, os
             data = os.environ['APPLE_CERT_P12_BASE64']
             with open('certificate.p12', 'wb') as f:
-              f.write(base64.b64decode(data))
+                f.write(base64.b64decode(data))
             PY
           security import certificate.p12 -k build.keychain -P "$APPLE_CERT_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "build" build.keychain
