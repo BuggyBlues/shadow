@@ -103,7 +103,7 @@ export default function ServerHomeScreen() {
 
   // ── Queries ─────────────────────────────────────
 
-  const { data: server } = useQuery({
+  const { data: server, isLoading: isServerLoading } = useQuery({
     queryKey: ['server', serverSlug],
     queryFn: () => fetchApi<Server>(`/api/servers/${serverSlug}`),
     enabled: !!serverSlug,
@@ -248,7 +248,7 @@ export default function ServerHomeScreen() {
     }
   }
 
-  if (isLoading) return <LoadingScreen />
+  if (isServerLoading || isLoading || !server) return <LoadingScreen />
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

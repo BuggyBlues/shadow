@@ -2,7 +2,8 @@ import type { ExpoConfig } from 'expo/config'
 
 const config: ExpoConfig = {
   name: '虾豆 Shadow',
-  slug: 'shadow',
+  owner: 'buggyblues',
+  slug: 'shadowob',
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
@@ -18,6 +19,12 @@ const config: ExpoConfig = {
     supportsTablet: true,
     bundleIdentifier: 'com.shadowob.mobile',
     associatedDomains: ['applinks:shadow.example.com'],
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false,
+      NSSpeechRecognitionUsageDescription:
+        'This app uses speech recognition to convert voice to text for chat input.',
+      NSMicrophoneUsageDescription: 'This app uses the microphone for voice input in chat.',
+    },
   },
   android: {
     adaptiveIcon: {
@@ -36,8 +43,10 @@ const config: ExpoConfig = {
   },
   plugins: [
     'expo-router',
+    'expo-font',
     'expo-secure-store',
     'expo-image-picker',
+    'expo-speech-recognition',
     [
       'expo-notifications',
       {
@@ -48,7 +57,7 @@ const config: ExpoConfig = {
   ],
   extra: {
     eas: {
-      projectId: 'your-project-id',
+      projectId: 'a978bcc2-9214-4f87-900b-ad192ccad5fc',
     },
   },
 }

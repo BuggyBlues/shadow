@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import * as Clipboard from 'expo-clipboard'
 import { Image } from 'expo-image'
 import * as ImagePicker from 'expo-image-picker'
-import { useLocalSearchParams, useRouter } from 'expo-router'
-import { Camera, Save, Trash2 } from 'lucide-react-native'
-import React, { useState } from 'react'
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
+import { Camera, Copy, Save, Trash2 } from 'lucide-react-native'
+import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ActivityIndicator,
@@ -27,6 +28,7 @@ export default function ServerSettingsScreen() {
   const { t } = useTranslation()
   const colors = useColors()
   const router = useRouter()
+  const navigation = useNavigation()
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
 
@@ -42,6 +44,7 @@ export default function ServerSettingsScreen() {
         bannerUrl: string | null
         ownerId: string
         isPublic: boolean
+        inviteCode: string
       }>(`/api/servers/${serverSlug}`),
     enabled: !!serverSlug,
   })
@@ -64,6 +67,23 @@ export default function ServerSettingsScreen() {
   }, [server])
 
   const isOwner = server?.ownerId === user?.id
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: handleSave reads state directly
+  useEffect(() => {
+    if (isOwner) {
+      navigation.setOptions({
+        headerRight: () => (
+          <Pressable onPress={handleSave} disabled={saving} hitSlop={8}>
+            {saving ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Save size={22} color={colors.primary} />
+            )}
+          </Pressable>
+        ),
+      })
+    }
+  }, [navigation, isOwner, saving, colors.primary, name, description, iconUrl, bannerUrl])
 
   const pickAndUploadImage = async (
     aspect: [number, number],
@@ -251,19 +271,6 @@ export default function ServerSettingsScreen() {
         placeholderTextColor={colors.textMuted}
       />
 
-      {isOwner && (
-        <Pressable
-          style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: saving ? 0.6 : 1 }]}
-          onPress={handleSave}
-          disabled={saving}
-        >
-          <Save size={16} color="#fff" />
-          <Text style={styles.saveBtnText}>
-            {saving ? t('common.saving') : t('common.saveChanges')}
-          </Text>
-        </Pressable>
-      )}
-
       {/* Server info */}
       <View style={[styles.infoCard, { backgroundColor: colors.surface }]}>
         <View style={styles.infoRow}>
@@ -287,6 +294,30 @@ export default function ServerSettingsScreen() {
           <Text style={{ color: colors.text }}>
             {server.isPublic ? t('common.yes') : t('common.no')}
           </Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
+            {t('server.inviteCode')}
+          </Text>
+          <Pressable
+            style={styles.inviteCodeRow}
+            onPress={() => {
+              Clipboard.setStringAsync(server.inviteCode)
+              showToast(t('common.copied'), 'success')
+            }}
+          >
+            <Text
+              style={{
+                color: colors.text,
+                fontSize: fontSize.sm,
+                fontFamily: 'monospace',
+                fontWeight: '600',
+              }}
+            >
+              {server.inviteCode}
+            </Text>
+            <Copy size={14} color={colors.textMuted} />
+          </Pressable>
         </View>
       </View>
 
@@ -371,16 +402,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   textArea: { height: 100, paddingTop: spacing.md, textAlignVertical: 'top' },
-  saveBtn: {
-    flexDirection: 'row',
-    height: 44,
-    borderRadius: radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.xl,
-  },
-  saveBtnText: { color: '#fff', fontWeight: '700', fontSize: fontSize.md },
   infoCard: { padding: spacing.lg, borderRadius: radius.xl, marginTop: spacing.xl },
   infoRow: { marginBottom: spacing.md },
   infoLabel: {
@@ -388,6 +409,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
     marginBottom: 4,
+  },
+  inviteCodeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   dangerZone: {
     borderWidth: 1,

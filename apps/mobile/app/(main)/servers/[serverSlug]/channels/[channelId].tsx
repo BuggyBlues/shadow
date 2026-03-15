@@ -1,4 +1,3 @@
-import { FlashList } from '@shopify/flash-list'
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as DocumentPicker from 'expo-document-picker'
 import * as ImagePicker from 'expo-image-picker'
@@ -7,6 +6,8 @@ import {
   ArrowUp,
   ChevronDown,
   Hash,
+  Mic,
+  MicOff,
   Paperclip,
   Search,
   Smile,
@@ -57,6 +58,36 @@ import type {
 import { normalizeMessage } from '../../../../../src/types/message'
 
 const PAGE_SIZE = 50
+
+type SpeechResultEvent = {
+  results?: Array<{ transcript?: string }>
+}
+
+type SpeechModuleLike = {
+  start: (options?: Record<string, unknown>) => void
+  stop: () => void
+  requestPermissionsAsync: () => Promise<{ granted: boolean }>
+}
+
+let speechModule: SpeechModuleLike | null = null
+let useSpeechRecognitionEventSafe: (
+  eventName: string,
+  listener: (event: SpeechResultEvent) => void,
+) => void = () => {}
+
+try {
+  const speech = require('expo-speech-recognition') as {
+    ExpoSpeechRecognitionModule?: SpeechModuleLike
+    useSpeechRecognitionEvent?: (
+      eventName: string,
+      listener: (event: SpeechResultEvent) => void,
+    ) => void
+  }
+  speechModule = speech.ExpoSpeechRecognitionModule ?? null
+  useSpeechRecognitionEventSafe = speech.useSpeechRecognitionEvent ?? (() => {})
+} catch {
+  speechModule = null
+}
 
 function TypingDots() {
   const colors = useColors()
@@ -110,7 +141,7 @@ export default function ChannelViewScreen() {
   const navigation = useNavigation()
   const router = useRouter()
   const queryClient = useQueryClient()
-  const flatListRef = useRef<FlashList<TimelineItem>>(null)
+  const flatListRef = useRef<FlatList<TimelineItem>>(null)
   const scrollOffsetRef = useRef<Record<string, number>>({})
   const setActiveChannel = useChatStore((s) => s.setActiveChannel)
   const currentUser = useAuthStore((s) => s.user)
@@ -133,6 +164,8 @@ export default function ChannelViewScreen() {
   const [showInvitePanel, setShowInvitePanel] = useState(false)
   const [inviteSearch, setInviteSearch] = useState('')
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)
+  const [keyboardVisible, setKeyboardVisible] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
   const inputRef = useRef<TextInput>(null)
 
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -251,6 +284,54 @@ export default function ChannelViewScreen() {
     }
     return () => setActiveChannel(null)
   }, [channel, navigation, setActiveChannel])
+
+  // ---------- Keyboard visibility tracking ----------
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide'
+    const showSub = Keyboard.addListener(showEvent, () => {
+      setKeyboardVisible(true)
+      // Auto-scroll to newest messages when keyboard appears if near bottom
+      const offset = channelId ? (scrollOffsetRef.current[channelId] ?? 0) : 0
+      if (offset < 200) {
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: true })
+      }
+    })
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false))
+    return () => {
+      showSub.remove()
+      hideSub.remove()
+    }
+  }, [channelId])
+
+  // ---------- Speech recognition ----------
+  useSpeechRecognitionEventSafe('result', (event) => {
+    const transcript = event.results[0]?.transcript
+    if (transcript) {
+      setInputText((prev) => (prev ? `${prev} ${transcript}` : transcript))
+    }
+  })
+  useSpeechRecognitionEventSafe('end', () => setIsRecording(false))
+  useSpeechRecognitionEventSafe('error', () => setIsRecording(false))
+
+  const toggleVoiceInput = async () => {
+    if (!speechModule) {
+      Alert.alert(t('common.error'), t('chat.voiceInputUnavailable'))
+      return
+    }
+
+    if (isRecording) {
+      speechModule.stop()
+      return
+    }
+    const { granted } = await speechModule.requestPermissionsAsync()
+    if (!granted) {
+      Alert.alert(t('common.error'), t('chat.micPermissionDenied'))
+      return
+    }
+    speechModule.start({ lang: t('chat.speechLang'), interimResults: false })
+    setIsRecording(true)
+  }
 
   // ---------- Infinite scroll messages ----------
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, refetch } =
@@ -899,14 +980,13 @@ export default function ChannelViewScreen() {
           </Text>
         </Pressable>
       ) : (
-        <FlashList
+        <FlatList
           ref={flatListRef}
           data={timeline}
           keyExtractor={getItemKey}
           renderItem={renderTimelineItem}
           contentContainerStyle={styles.messageList}
           inverted
-          estimatedItemSize={72}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.3}
           ListFooterComponent={
@@ -1067,7 +1147,7 @@ export default function ChannelViewScreen() {
           {
             backgroundColor: colors.surface,
             borderTopColor: colors.border,
-            paddingBottom: Math.max(spacing.sm, insets.bottom),
+            paddingBottom: keyboardVisible ? spacing.sm : Math.max(spacing.sm, insets.bottom),
           },
         ]}
       >
@@ -1105,6 +1185,13 @@ export default function ChannelViewScreen() {
         />
         <Pressable style={styles.attachBtn} onPress={() => setShowInputEmojiPicker(true)}>
           <Smile size={20} color={showInputEmojiPicker ? colors.primary : colors.textMuted} />
+        </Pressable>
+        <Pressable style={styles.attachBtn} onPress={toggleVoiceInput}>
+          {isRecording ? (
+            <MicOff size={20} color={colors.error} />
+          ) : (
+            <Mic size={20} color={colors.textMuted} />
+          )}
         </Pressable>
         <Pressable
           style={[

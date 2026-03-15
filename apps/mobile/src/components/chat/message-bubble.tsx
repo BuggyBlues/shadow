@@ -209,7 +209,7 @@ export function MessageBubble({
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
-  // Markdown rendering with code blocks, inline code, bold, italic, links, strikethrough
+  // Markdown rendering with code blocks, inline code, bold, italic, links, strikethrough, tables, @mentions
   const renderContent = (text: string) => {
     if (!text || text === '\u200B') return null
 
@@ -221,7 +221,7 @@ export function MessageBubble({
     const processInline = (segment: string, key: string) => {
       const inlineParts: React.ReactNode[] = []
       const inlineRegex =
-        /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(\[([^\]]+)\]\(([^)]+)\))|(https?:\/\/[^\s]+)|(~~(.+?)~~)/g
+        /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(\[([^\]]+)\]\(([^)]+)\))|(https?:\/\/[^\s]+)|(~~(.+?)~~)|(@(\w+))/g
       let iLastIndex = 0
       let iMatch: RegExpExecArray | null
 
@@ -271,6 +271,23 @@ export function MessageBubble({
               {iMatch[10]}
             </Text>,
           )
+        } else if (iMatch[12]) {
+          // @mention — tappable link to user profile
+          const mentionUsername = iMatch[12]
+          inlineParts.push(
+            <Text
+              key={`${key}-m-${iMatch.index}`}
+              style={{ color: colors.primary, fontWeight: '600' }}
+              onPress={() => {
+                const member = allMessages
+                  .map((m) => m.author)
+                  .find((a) => a?.username === mentionUsername)
+                if (member) router.push(`/(main)/profile/${member.id}` as any)
+              }}
+            >
+              @{mentionUsername}
+            </Text>,
+          )
         }
         iLastIndex = iMatch.index + iMatch[0].length
       }
@@ -280,14 +297,120 @@ export function MessageBubble({
       return inlineParts.length > 0 ? inlineParts : [segment]
     }
 
+    // Parse markdown table block
+    const renderTable = (tableText: string, tableKey: string) => {
+      const lines = tableText
+        .trim()
+        .split('\n')
+        .filter((l) => l.trim())
+      if (lines.length < 2) return null
+      const parseRow = (line: string) =>
+        line
+          .split('|')
+          .map((c) => c.trim())
+          .filter((c) => c.length > 0)
+      const headers = parseRow(lines[0]!)
+      // lines[1] is the separator (---|---)
+      const bodyRows = lines.slice(2).map(parseRow)
+      return (
+        <View key={tableKey} style={[styles.table, { borderColor: colors.border }]}>
+          <View
+            style={[
+              styles.tableRow,
+              styles.tableHeaderRow,
+              { backgroundColor: colors.inputBackground },
+            ]}
+          >
+            {headers.map((h, i) => (
+              <View
+                key={`${tableKey}-h-${i}`}
+                style={[
+                  styles.tableCell,
+                  i > 0 && {
+                    borderLeftWidth: StyleSheet.hairlineWidth,
+                    borderLeftColor: colors.border,
+                  },
+                ]}
+              >
+                <Text style={[styles.tableHeaderText, { color: colors.text }]}>{h}</Text>
+              </View>
+            ))}
+          </View>
+          {bodyRows.map((row, ri) => (
+            <View
+              key={`${tableKey}-r-${ri}`}
+              style={[
+                styles.tableRow,
+                { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+              ]}
+            >
+              {headers.map((_, ci) => (
+                <View
+                  key={`${tableKey}-r-${ri}-c-${ci}`}
+                  style={[
+                    styles.tableCell,
+                    ci > 0 && {
+                      borderLeftWidth: StyleSheet.hairlineWidth,
+                      borderLeftColor: colors.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.tableCellText, { color: colors.text }]}>
+                    {row[ci] ?? ''}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ))}
+        </View>
+      )
+    }
+
+    // Pre-process: extract table blocks before code block processing
+    const tableBlockRegex = /(?:^|\n)(\|.+\|\n\|[\s:|-]+\|\n(?:\|.+\|\n?)+)/g
+    const tableBlocks: { start: number; end: number; content: string }[] = []
+    let tMatch: RegExpExecArray | null
+    // biome-ignore lint/suspicious/noAssignInExpressions: regex exec loop pattern
+    while ((tMatch = tableBlockRegex.exec(text)) !== null) {
+      const offset = tMatch[0].startsWith('\n') ? 1 : 0
+      tableBlocks.push({
+        start: tMatch.index + offset,
+        end: tMatch.index + tMatch[0].length,
+        content: tMatch[1]!,
+      })
+    }
+
     // biome-ignore lint/suspicious/noAssignInExpressions: regex exec loop pattern
     while ((match = codeBlockRegex.exec(text)) !== null) {
       if (match.index > lastIndex) {
-        parts.push(
-          <Text key={`t-${lastIndex}`} style={[styles.content, { color: colors.text }]}>
-            {processInline(text.slice(lastIndex, match.index), `t-${lastIndex}`)}
-          </Text>,
-        )
+        const segment = text.slice(lastIndex, match.index)
+        // Check if this segment contains a table
+        const segTable = tableBlocks.find((tb) => tb.start >= lastIndex && tb.end <= match!.index)
+        if (segTable) {
+          const before = text.slice(lastIndex, segTable.start)
+          if (before.trim()) {
+            parts.push(
+              <Text key={`t-${lastIndex}`} style={[styles.content, { color: colors.text }]}>
+                {processInline(before, `t-${lastIndex}`)}
+              </Text>,
+            )
+          }
+          parts.push(renderTable(segTable.content, `tbl-${segTable.start}`))
+          const after = text.slice(segTable.end, match.index)
+          if (after.trim()) {
+            parts.push(
+              <Text key={`t-${segTable.end}`} style={[styles.content, { color: colors.text }]}>
+                {processInline(after, `t-${segTable.end}`)}
+              </Text>,
+            )
+          }
+        } else {
+          parts.push(
+            <Text key={`t-${lastIndex}`} style={[styles.content, { color: colors.text }]}>
+              {processInline(segment, `t-${lastIndex}`)}
+            </Text>,
+          )
+        }
       }
       if (match[3]) {
         // Inline code
@@ -323,11 +446,34 @@ export function MessageBubble({
       lastIndex = match.index + match[0].length
     }
     if (lastIndex < text.length) {
-      parts.push(
-        <Text key={`t-${lastIndex}`} style={[styles.content, { color: colors.text }]}>
-          {processInline(text.slice(lastIndex), `t-${lastIndex}`)}
-        </Text>,
-      )
+      const remaining = text.slice(lastIndex)
+      // Check for tables in the remaining text
+      const remainingTable = tableBlocks.find((tb) => tb.start >= lastIndex)
+      if (remainingTable) {
+        const before = text.slice(lastIndex, remainingTable.start)
+        if (before.trim()) {
+          parts.push(
+            <Text key={`t-${lastIndex}`} style={[styles.content, { color: colors.text }]}>
+              {processInline(before, `t-${lastIndex}`)}
+            </Text>,
+          )
+        }
+        parts.push(renderTable(remainingTable.content, `tbl-${remainingTable.start}`))
+        const after = text.slice(remainingTable.end)
+        if (after.trim()) {
+          parts.push(
+            <Text key={`t-${remainingTable.end}`} style={[styles.content, { color: colors.text }]}>
+              {processInline(after, `t-${remainingTable.end}`)}
+            </Text>,
+          )
+        }
+      } else {
+        parts.push(
+          <Text key={`t-${lastIndex}`} style={[styles.content, { color: colors.text }]}>
+            {processInline(remaining, `t-${lastIndex}`)}
+          </Text>,
+        )
+      }
     }
 
     return parts
@@ -359,17 +505,21 @@ export function MessageBubble({
         {isGrouped ? (
           <View style={styles.groupedGutter} />
         ) : (
-          <Avatar
-            uri={message.author?.avatarUrl}
-            name={displayName}
-            size={36}
-            userId={message.authorId}
-          />
+          <Pressable onPress={() => router.push(`/(main)/profile/${message.authorId}` as any)}>
+            <Avatar
+              uri={message.author?.avatarUrl}
+              name={displayName}
+              size={36}
+              userId={message.authorId}
+            />
+          </Pressable>
         )}
         <View style={styles.bubble}>
           {!isGrouped && (
             <View style={styles.header}>
-              <Text style={[styles.username, { color: colors.text }]}>{displayName}</Text>
+              <Pressable onPress={() => router.push(`/(main)/profile/${message.authorId}` as any)}>
+                <Text style={[styles.username, { color: colors.text }]}>{displayName}</Text>
+              </Pressable>
               {isBot && (
                 <View style={[styles.botBadge, { backgroundColor: colors.primary }]}>
                   <Text style={styles.botBadgeText}>BOT</Text>
@@ -859,5 +1009,28 @@ const styles = StyleSheet.create({
   actionLabel: {
     fontSize: 10,
     fontWeight: '600',
+  },
+  // Table styles
+  table: {
+    borderWidth: 1,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+    marginVertical: spacing.xs,
+  },
+  tableRow: {
+    flexDirection: 'row',
+  },
+  tableHeaderRow: {},
+  tableCell: {
+    flex: 1,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+  },
+  tableHeaderText: {
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+  },
+  tableCellText: {
+    fontSize: fontSize.xs,
   },
 })

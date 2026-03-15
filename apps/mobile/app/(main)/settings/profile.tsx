@@ -1,7 +1,16 @@
+import { useNavigation } from 'expo-router'
 import { Save } from 'lucide-react-native'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native'
 import { Avatar } from '../../../src/components/common/avatar'
 import { AvatarEditor } from '../../../src/components/common/avatar-editor'
 import { LanguageSwitcher } from '../../../src/components/common/language-switcher'
@@ -12,6 +21,7 @@ import { fontSize, radius, spacing, useColors } from '../../../src/theme'
 export default function ProfileSettingsScreen() {
   const { t } = useTranslation()
   const colors = useColors()
+  const navigation = useNavigation()
   const { user, setUser } = useAuthStore()
   const [displayName, setDisplayName] = useState(user?.displayName ?? '')
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl ?? '')
@@ -43,6 +53,21 @@ export default function ProfileSettingsScreen() {
       setSaving(false)
     }
   }
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: handleSave reads state directly
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable onPress={handleSave} disabled={saving} hitSlop={8}>
+          {saving ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <Save size={22} color={colors.primary} />
+          )}
+        </Pressable>
+      ),
+    })
+  }, [navigation, saving, colors.primary, displayName, avatarUrl])
 
   if (!user) return null
 
@@ -100,17 +125,6 @@ export default function ProfileSettingsScreen() {
         <LanguageSwitcher />
       </View>
 
-      {/* Save */}
-      <Pressable
-        style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: saving ? 0.6 : 1 }]}
-        onPress={handleSave}
-        disabled={saving}
-      >
-        <Save size={16} color="#fff" />
-        <Text style={styles.saveBtnText}>
-          {saving ? t('common.saving') : t('common.saveChanges')}
-        </Text>
-      </Pressable>
       {message ? (
         <Text
           style={{
@@ -148,14 +162,4 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     borderWidth: 1,
   },
-  saveBtn: {
-    flexDirection: 'row',
-    height: 48,
-    borderRadius: radius.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    marginHorizontal: spacing.md,
-  },
-  saveBtnText: { color: '#fff', fontSize: fontSize.md, fontWeight: '700' },
 })
