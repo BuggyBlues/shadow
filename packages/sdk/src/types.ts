@@ -222,6 +222,182 @@ export interface DmMessage {
   createdAt: string
 }
 
+// ─── Friendship Types ───────────────────────────────────────────────────────
+
+export interface ShadowFriendship {
+  id: string
+  userId: string
+  friendId: string
+  status: 'pending' | 'accepted' | 'rejected'
+  createdAt: string
+  user?: ShadowUser
+  friend?: ShadowUser
+}
+
+// ─── OAuth App Types ────────────────────────────────────────────────────────
+
+export interface ShadowOAuthApp {
+  id: string
+  name: string
+  clientId: string
+  clientSecret?: string
+  redirectUris: string[]
+  scopes: string[]
+  createdAt: string
+}
+
+export interface ShadowOAuthConsent {
+  id: string
+  appId: string
+  appName: string
+  scopes: string[]
+  createdAt: string
+}
+
+export interface ShadowOAuthToken {
+  access_token: string
+  token_type: string
+  expires_in: number
+  refresh_token?: string
+  scope: string
+}
+
+// ─── Marketplace / Rental Types ─────────────────────────────────────────────
+
+export interface ShadowListing {
+  id: string
+  agentId: string
+  title: string
+  description: string
+  pricePerHour: number
+  currency: string
+  tags: string[]
+  isActive: boolean
+  createdAt: string
+  agent?: { id: string; name: string; status: string }
+}
+
+export interface ShadowContract {
+  id: string
+  listingId: string
+  tenantId: string
+  ownerId: string
+  status: string
+  startedAt: string
+  expiresAt: string
+  totalCost: number
+  createdAt: string
+}
+
+// ─── Shop Types ─────────────────────────────────────────────────────────────
+
+export interface ShadowShop {
+  id: string
+  serverId: string
+  name: string
+  description?: string | null
+  isEnabled: boolean
+}
+
+export interface ShadowCategory {
+  id: string
+  shopId: string
+  name: string
+  description?: string | null
+  position: number
+}
+
+export interface ShadowProduct {
+  id: string
+  shopId: string
+  categoryId?: string | null
+  name: string
+  description?: string | null
+  price: number
+  currency: string
+  stock: number
+  status: string
+  images: string[]
+  createdAt: string
+}
+
+export interface ShadowCartItem {
+  id: string
+  productId: string
+  quantity: number
+  product?: ShadowProduct
+}
+
+export interface ShadowOrder {
+  id: string
+  shopId: string
+  buyerId: string
+  status: string
+  totalAmount: number
+  currency: string
+  items: { productId: string; quantity: number; price: number }[]
+  createdAt: string
+}
+
+export interface ShadowReview {
+  id: string
+  orderId: string
+  productId: string
+  userId: string
+  rating: number
+  content: string
+  reply?: string | null
+  createdAt: string
+}
+
+export interface ShadowWallet {
+  id: string
+  userId: string
+  balance: number
+  currency: string
+}
+
+export interface ShadowTransaction {
+  id: string
+  walletId: string
+  type: string
+  amount: number
+  description?: string | null
+  createdAt: string
+}
+
+// ─── Task Center Types ──────────────────────────────────────────────────────
+
+export interface ShadowTask {
+  key: string
+  title: string
+  description: string
+  reward: number
+  status: string
+  claimedAt?: string | null
+}
+
+// ─── App Types ──────────────────────────────────────────────────────────────
+
+export interface ShadowApp {
+  id: string
+  serverId: string
+  name: string
+  slug: string
+  type: string
+  url?: string | null
+  status: string
+  createdAt: string
+}
+
+// ─── Notification Preferences ───────────────────────────────────────────────
+
+export interface ShadowNotificationPreferences {
+  strategy: 'all' | 'mention_only' | 'none'
+  mutedServerIds: string[]
+  mutedChannelIds: string[]
+}
+
 // ─── Socket Event Map ───────────────────────────────────────────────────────
 
 /** Events the server pushes to the client */

@@ -30,6 +30,49 @@ ask_continue() {
 }
 
 MOBILE_DIR="$(cd "$(dirname "$0")/../apps/mobile" && pwd)"
+PROFILE="production"
+PLATFORM="ios"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -p|--profile)
+      PROFILE="${2:-}"
+      shift 2
+      ;;
+    --platform)
+      PLATFORM="${2:-}"
+      shift 2
+      ;;
+    -h|--help)
+      echo "Usage: $0 [--profile <name>] [--platform ios]"
+      exit 0
+      ;;
+    *)
+      error "Unknown argument: $1"
+      echo "Usage: $0 [--profile <name>] [--platform ios]"
+      exit 1
+      ;;
+  esac
+done
+
+if [[ "$PLATFORM" != "ios" ]]; then
+  error "Only iOS TestFlight deployment is supported by this script."
+  exit 1
+fi
+
+json_get() {
+  local json="$1"
+  local js_expr="$2"
+  printf "%s" "$json" | node -e "
+    let data='';
+    process.stdin.on('data', c => data += c);
+    process.stdin.on('end', () => {
+      const obj = JSON.parse(data || '{}');
+      const val = ${js_expr};
+      process.stdout.write((val ?? '').toString());
+    });
+  "
+}
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 header "Step 1 / 7 — Prerequisites Check"
@@ -85,12 +128,18 @@ header "Step 3 / 7 — EAS Project Setup"
 cd "$MOBILE_DIR"
 info "Working directory: $MOBILE_DIR"
 
-# Check if project ID is configured
-CURRENT_PROJECT_ID=$(node -e "
-  const config = require('./app.config.ts').default || require('./app.config.ts');
-  console.log(config?.extra?.eas?.projectId || '');
-" 2>/dev/null || echo "")
+EXPO_CONFIG_JSON="$(npx expo config --json 2>/dev/null || true)"
+if [[ -z "$EXPO_CONFIG_JSON" ]]; then
+  error "Unable to read Expo config. Run this script after dependencies are installed."
+  exit 1
+fi
 
+APP_NAME="$(json_get "$EXPO_CONFIG_JSON" "obj.name")"
+BUNDLE_ID="$(json_get "$EXPO_CONFIG_JSON" "obj.ios?.bundleIdentifier")"
+APP_VERSION="$(json_get "$EXPO_CONFIG_JSON" "obj.version")"
+CURRENT_PROJECT_ID="$(json_get "$EXPO_CONFIG_JSON" "obj.extra?.eas?.projectId")"
+
+# Check if project ID is configured
 if [[ "$CURRENT_PROJECT_ID" == "your-project-id" || -z "$CURRENT_PROJECT_ID" ]]; then
   warn "EAS project ID not configured in app.config.ts"
   info "This will link your project to an EAS project and set the project ID."
@@ -154,11 +203,11 @@ fi
 header "Step 5 / 7 — Configuration Review"
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-echo "  App name:          虾豆 Shadow"
-echo "  Bundle ID:         com.shadowob.mobile"
-echo "  Version:           1.0.0"
-echo "  Build profile:     production"
-echo "  Platform:          iOS"
+echo "  App name:          ${APP_NAME:-N/A}"
+echo "  Bundle ID:         ${BUNDLE_ID:-N/A}"
+echo "  Version:           ${APP_VERSION:-N/A}"
+echo "  Build profile:     ${PROFILE}"
+echo "  Platform:          ${PLATFORM}"
 echo "  Submit to:         TestFlight"
 echo ""
 
@@ -167,7 +216,7 @@ info "eas.json build profiles:"
 node -e "const c = JSON.parse(require('fs').readFileSync('eas.json','utf8')); Object.keys(c.build).forEach(p => console.log('  -', p, JSON.stringify(c.build[p])));"
 echo ""
 
-if ! ask_continue "Proceed with iOS production build?"; then
+if ! ask_continue "Proceed with ${PLATFORM} ${PROFILE} build?"; then
   info "Aborted. You can re-run this script when ready."
   exit 0
 fi
@@ -176,14 +225,21 @@ fi
 header "Step 6 / 7 — Build for iOS"
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-info "Starting EAS Build (production profile, iOS)..."
+info "Starting EAS Build (${PROFILE} profile, ${PLATFORM})..."
 info "This runs in the cloud — typically takes 10-30 minutes."
 echo ""
 
-BUILD_FLAGS=(--platform ios --profile production --non-interactive)
+PRE_BUILDS_JSON="$(eas build:list --platform "$PLATFORM" --build-profile "$PROFILE" --limit 20 --json 2>/dev/null || echo '[]')"
+PRE_BUILD_IDS="$(json_get "$PRE_BUILDS_JSON" "Array.isArray(obj) ? obj.map(x => x.id).join(',') : ''")"
+
+BUILD_FLAGS=(--platform "$PLATFORM" --profile "$PROFILE")
 
 if [[ -n "${EXPO_APPLE_KEY_PATH:-}" ]]; then
   info "Using App Store Connect API key for credentials."
+fi
+
+if [[ "${CI:-}" == "true" ]]; then
+  BUILD_FLAGS+=(--non-interactive)
 fi
 
 eas build "${BUILD_FLAGS[@]}"
@@ -191,15 +247,41 @@ eas build "${BUILD_FLAGS[@]}"
 success "iOS build completed!"
 echo ""
 
+LATEST_FINISHED_JSON="$(eas build:list --platform "$PLATFORM" --build-profile "$PROFILE" --status finished --limit 20 --json 2>/dev/null || echo '[]')"
+LATEST_BUILD_ID="$(json_get "$LATEST_FINISHED_JSON" "Array.isArray(obj) && obj.length > 0 ? obj[0].id : ''")"
+
+if [[ -z "$LATEST_BUILD_ID" ]]; then
+  warn "Could not detect latest finished build ID automatically."
+  warn "Submission can still be done manually from EAS dashboard or with 'eas submit --latest'."
+fi
+
+if [[ -n "$LATEST_BUILD_ID" && ",$PRE_BUILD_IDS," == *",$LATEST_BUILD_ID,"* ]]; then
+  warn "Detected latest finished build ID already existed before this run: $LATEST_BUILD_ID"
+  warn "If this looks wrong, wait 1-2 minutes and submit manually by selecting the intended build in EAS."
+fi
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 header "Step 7 / 7 — Submit to TestFlight"
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-info "Submitting the latest iOS build to App Store Connect (TestFlight)..."
+info "Submitting iOS build to App Store Connect (TestFlight)..."
 echo ""
 
 if ask_continue "Submit to TestFlight now?"; then
-  eas submit --platform ios --profile production --latest
+  SUBMIT_FLAGS=(--platform "$PLATFORM" --profile "$PROFILE")
+  if [[ -n "$LATEST_BUILD_ID" ]]; then
+    SUBMIT_FLAGS+=(--id "$LATEST_BUILD_ID")
+    info "Submitting explicit build ID: $LATEST_BUILD_ID"
+  else
+    SUBMIT_FLAGS+=(--latest)
+    warn "Falling back to --latest because build ID is unavailable."
+  fi
+
+  if [[ "${CI:-}" == "true" ]]; then
+    SUBMIT_FLAGS+=(--non-interactive)
+  fi
+
+  eas submit "${SUBMIT_FLAGS[@]}"
   success "Build submitted to App Store Connect!"
   echo ""
   info "Next steps:"
@@ -211,7 +293,11 @@ if ask_continue "Submit to TestFlight now?"; then
 else
   echo ""
   info "You can submit later with:"
-  echo "  cd apps/mobile && eas submit --platform ios --profile production --latest"
+  if [[ -n "$LATEST_BUILD_ID" ]]; then
+    echo "  cd apps/mobile && eas submit --platform ios --profile $PROFILE --id $LATEST_BUILD_ID"
+  else
+    echo "  cd apps/mobile && eas submit --platform ios --profile $PROFILE --latest"
+  fi
 fi
 
 echo ""

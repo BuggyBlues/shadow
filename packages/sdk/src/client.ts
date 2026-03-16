@@ -1,14 +1,31 @@
 import type {
+  ShadowApp,
+  ShadowCartItem,
+  ShadowCategory,
   ShadowChannel,
+  ShadowContract,
   ShadowDmChannel,
+  ShadowFriendship,
   ShadowInviteCode,
+  ShadowListing,
   ShadowMember,
   ShadowMessage,
   ShadowNotification,
+  ShadowNotificationPreferences,
+  ShadowOAuthApp,
+  ShadowOAuthConsent,
+  ShadowOAuthToken,
+  ShadowOrder,
+  ShadowProduct,
   ShadowRemoteConfig,
+  ShadowReview,
   ShadowServer,
+  ShadowShop,
+  ShadowTask,
   ShadowThread,
+  ShadowTransaction,
   ShadowUser,
+  ShadowWallet,
 } from './types'
 
 /**
@@ -964,5 +981,567 @@ export class ShadowClient {
       `/api/servers/${serverId}/workspace/folders/${folderId}/download`,
     )
     return res.arrayBuffer()
+  }
+
+  // ── Auth (extended) ───────────────────────────────────────────────────
+
+  async getUserProfile(userId: string): Promise<ShadowUser> {
+    return this.request(`/api/auth/users/${userId}`)
+  }
+
+  async listOAuthAccounts(): Promise<
+    { id: string; provider: string; providerAccountId: string }[]
+  > {
+    return this.request('/api/auth/oauth/accounts')
+  }
+
+  async unlinkOAuthAccount(accountId: string): Promise<{ success: boolean }> {
+    return this.request(`/api/auth/oauth/accounts/${accountId}`, { method: 'DELETE' })
+  }
+
+  // ── Friendships ───────────────────────────────────────────────────────
+
+  async sendFriendRequest(username: string): Promise<ShadowFriendship> {
+    return this.request('/api/friends/request', {
+      method: 'POST',
+      body: JSON.stringify({ username }),
+    })
+  }
+
+  async acceptFriendRequest(requestId: string): Promise<ShadowFriendship> {
+    return this.request(`/api/friends/${requestId}/accept`, { method: 'POST' })
+  }
+
+  async rejectFriendRequest(requestId: string): Promise<ShadowFriendship> {
+    return this.request(`/api/friends/${requestId}/reject`, { method: 'POST' })
+  }
+
+  async removeFriend(friendshipId: string): Promise<{ success: boolean }> {
+    return this.request(`/api/friends/${friendshipId}`, { method: 'DELETE' })
+  }
+
+  async listFriends(): Promise<ShadowFriendship[]> {
+    return this.request('/api/friends')
+  }
+
+  async listPendingFriendRequests(): Promise<ShadowFriendship[]> {
+    return this.request('/api/friends/pending')
+  }
+
+  async listSentFriendRequests(): Promise<ShadowFriendship[]> {
+    return this.request('/api/friends/sent')
+  }
+
+  // ── Notifications (extended) ──────────────────────────────────────────
+
+  async markScopeRead(scope: {
+    serverId?: string
+    channelId?: string
+  }): Promise<{ success: boolean }> {
+    return this.request('/api/notifications/read-scope', {
+      method: 'POST',
+      body: JSON.stringify(scope),
+    })
+  }
+
+  async getScopedUnread(): Promise<Record<string, number>> {
+    return this.request('/api/notifications/scoped-unread')
+  }
+
+  async getNotificationPreferences(): Promise<ShadowNotificationPreferences> {
+    return this.request('/api/notifications/preferences')
+  }
+
+  async updateNotificationPreferences(
+    data: Partial<ShadowNotificationPreferences>,
+  ): Promise<ShadowNotificationPreferences> {
+    return this.request('/api/notifications/preferences', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  }
+
+  // ── OAuth Apps ────────────────────────────────────────────────────────
+
+  async createOAuthApp(data: {
+    name: string
+    redirectUris: string[]
+    scopes?: string[]
+  }): Promise<ShadowOAuthApp> {
+    return this.request('/api/oauth/apps', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async listOAuthApps(): Promise<ShadowOAuthApp[]> {
+    return this.request('/api/oauth/apps')
+  }
+
+  async updateOAuthApp(
+    appId: string,
+    data: { name?: string; redirectUris?: string[]; scopes?: string[] },
+  ): Promise<ShadowOAuthApp> {
+    return this.request(`/api/oauth/apps/${appId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteOAuthApp(appId: string): Promise<{ success: boolean }> {
+    return this.request(`/api/oauth/apps/${appId}`, { method: 'DELETE' })
+  }
+
+  async resetOAuthAppSecret(appId: string): Promise<{ clientSecret: string }> {
+    return this.request(`/api/oauth/apps/${appId}/reset-secret`, { method: 'POST' })
+  }
+
+  async getOAuthAuthorization(params: {
+    client_id: string
+    redirect_uri: string
+    scope?: string
+    state?: string
+  }): Promise<{ app: ShadowOAuthApp }> {
+    const qs = new URLSearchParams(params)
+    return this.request(`/api/oauth/authorize?${qs}`)
+  }
+
+  async approveOAuthAuthorization(data: {
+    client_id: string
+    redirect_uri: string
+    scope?: string
+    state?: string
+  }): Promise<{ redirectUrl: string }> {
+    return this.request('/api/oauth/authorize', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async exchangeOAuthToken(data: {
+    grant_type: 'authorization_code' | 'refresh_token'
+    code?: string
+    refresh_token?: string
+    client_id: string
+    client_secret: string
+    redirect_uri?: string
+  }): Promise<ShadowOAuthToken> {
+    return this.request('/api/oauth/token', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async listOAuthConsents(): Promise<ShadowOAuthConsent[]> {
+    return this.request('/api/oauth/consents')
+  }
+
+  async revokeOAuthConsent(appId: string): Promise<{ success: boolean }> {
+    return this.request('/api/oauth/revoke', {
+      method: 'POST',
+      body: JSON.stringify({ appId }),
+    })
+  }
+
+  // ── Marketplace / Rentals ─────────────────────────────────────────────
+
+  async browseListings(params?: {
+    search?: string
+    tags?: string[]
+    minPrice?: number
+    maxPrice?: number
+    limit?: number
+    offset?: number
+  }): Promise<{ listings: ShadowListing[]; total: number }> {
+    const qs = new URLSearchParams()
+    if (params?.search) qs.set('search', params.search)
+    if (params?.tags) for (const t of params.tags) qs.append('tags', t)
+    if (params?.minPrice != null) qs.set('minPrice', String(params.minPrice))
+    if (params?.maxPrice != null) qs.set('maxPrice', String(params.maxPrice))
+    if (params?.limit) qs.set('limit', String(params.limit))
+    if (params?.offset) qs.set('offset', String(params.offset))
+    return this.request(`/api/marketplace/listings?${qs}`)
+  }
+
+  async getListing(listingId: string): Promise<ShadowListing> {
+    return this.request(`/api/marketplace/listings/${listingId}`)
+  }
+
+  async estimateRentalCost(
+    listingId: string,
+    hours: number,
+  ): Promise<{ totalCost: number; currency: string }> {
+    const qs = new URLSearchParams({ hours: String(hours) })
+    return this.request(`/api/marketplace/listings/${listingId}/estimate?${qs}`)
+  }
+
+  async listMyListings(): Promise<ShadowListing[]> {
+    return this.request('/api/marketplace/my-listings')
+  }
+
+  async createListing(data: {
+    agentId: string
+    title: string
+    description: string
+    pricePerHour: number
+    currency?: string
+    tags?: string[]
+  }): Promise<ShadowListing> {
+    return this.request('/api/marketplace/listings', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateListing(
+    listingId: string,
+    data: Partial<{ title: string; description: string; pricePerHour: number; tags: string[] }>,
+  ): Promise<ShadowListing> {
+    return this.request(`/api/marketplace/listings/${listingId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async toggleListing(listingId: string): Promise<ShadowListing> {
+    return this.request(`/api/marketplace/listings/${listingId}/toggle`, { method: 'PUT' })
+  }
+
+  async deleteListing(listingId: string): Promise<{ success: boolean }> {
+    return this.request(`/api/marketplace/listings/${listingId}`, { method: 'DELETE' })
+  }
+
+  async signContract(data: { listingId: string; hours: number }): Promise<ShadowContract> {
+    return this.request('/api/marketplace/contracts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async listContracts(params?: {
+    role?: 'tenant' | 'owner'
+    status?: string
+  }): Promise<ShadowContract[]> {
+    const qs = new URLSearchParams()
+    if (params?.role) qs.set('role', params.role)
+    if (params?.status) qs.set('status', params.status)
+    return this.request(`/api/marketplace/contracts?${qs}`)
+  }
+
+  async getContract(contractId: string): Promise<ShadowContract> {
+    return this.request(`/api/marketplace/contracts/${contractId}`)
+  }
+
+  async terminateContract(contractId: string): Promise<ShadowContract> {
+    return this.request(`/api/marketplace/contracts/${contractId}/terminate`, { method: 'POST' })
+  }
+
+  async recordUsageSession(
+    contractId: string,
+    data: { durationMinutes: number; description?: string },
+  ): Promise<{ success: boolean }> {
+    return this.request(`/api/marketplace/contracts/${contractId}/usage`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async reportViolation(
+    contractId: string,
+    data: { reason: string },
+  ): Promise<{ success: boolean }> {
+    return this.request(`/api/marketplace/contracts/${contractId}/violate`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  // ── Shop ──────────────────────────────────────────────────────────────
+
+  async getShop(serverId: string): Promise<ShadowShop> {
+    return this.request(`/api/servers/${serverId}/shop`)
+  }
+
+  async updateShop(
+    serverId: string,
+    data: Partial<{ name: string; description: string | null; isEnabled: boolean }>,
+  ): Promise<ShadowShop> {
+    return this.request(`/api/servers/${serverId}/shop`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async listCategories(serverId: string): Promise<ShadowCategory[]> {
+    return this.request(`/api/servers/${serverId}/shop/categories`)
+  }
+
+  async createCategory(
+    serverId: string,
+    data: { name: string; description?: string },
+  ): Promise<ShadowCategory> {
+    return this.request(`/api/servers/${serverId}/shop/categories`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateCategory(
+    serverId: string,
+    categoryId: string,
+    data: Partial<{ name: string; description: string | null; position: number }>,
+  ): Promise<ShadowCategory> {
+    return this.request(`/api/servers/${serverId}/shop/categories/${categoryId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteCategory(serverId: string, categoryId: string): Promise<{ success: boolean }> {
+    return this.request(`/api/servers/${serverId}/shop/categories/${categoryId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async listProducts(
+    serverId: string,
+    params?: {
+      status?: string
+      categoryId?: string
+      keyword?: string
+      limit?: number
+      offset?: number
+    },
+  ): Promise<{ products: ShadowProduct[]; total: number }> {
+    const qs = new URLSearchParams()
+    if (params?.status) qs.set('status', params.status)
+    if (params?.categoryId) qs.set('categoryId', params.categoryId)
+    if (params?.keyword) qs.set('keyword', params.keyword)
+    if (params?.limit) qs.set('limit', String(params.limit))
+    if (params?.offset) qs.set('offset', String(params.offset))
+    return this.request(`/api/servers/${serverId}/shop/products?${qs}`)
+  }
+
+  async getProduct(serverId: string, productId: string): Promise<ShadowProduct> {
+    return this.request(`/api/servers/${serverId}/shop/products/${productId}`)
+  }
+
+  async createProduct(
+    serverId: string,
+    data: {
+      name: string
+      description?: string
+      price: number
+      currency?: string
+      stock: number
+      categoryId?: string
+      images?: string[]
+    },
+  ): Promise<ShadowProduct> {
+    return this.request(`/api/servers/${serverId}/shop/products`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateProduct(
+    serverId: string,
+    productId: string,
+    data: Partial<{
+      name: string
+      description: string | null
+      price: number
+      stock: number
+      status: string
+      categoryId: string | null
+      images: string[]
+    }>,
+  ): Promise<ShadowProduct> {
+    return this.request(`/api/servers/${serverId}/shop/products/${productId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteProduct(serverId: string, productId: string): Promise<{ success: boolean }> {
+    return this.request(`/api/servers/${serverId}/shop/products/${productId}`, { method: 'DELETE' })
+  }
+
+  async getCart(serverId: string): Promise<ShadowCartItem[]> {
+    return this.request(`/api/servers/${serverId}/shop/cart`)
+  }
+
+  async addToCart(
+    serverId: string,
+    data: { productId: string; quantity: number },
+  ): Promise<ShadowCartItem> {
+    return this.request(`/api/servers/${serverId}/shop/cart`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateCartItem(
+    serverId: string,
+    itemId: string,
+    quantity: number,
+  ): Promise<ShadowCartItem> {
+    return this.request(`/api/servers/${serverId}/shop/cart/${itemId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ quantity }),
+    })
+  }
+
+  async removeCartItem(serverId: string, itemId: string): Promise<{ success: boolean }> {
+    return this.request(`/api/servers/${serverId}/shop/cart/${itemId}`, { method: 'DELETE' })
+  }
+
+  async createOrder(
+    serverId: string,
+    data?: { items?: { productId: string; quantity: number }[] },
+  ): Promise<ShadowOrder> {
+    return this.request(`/api/servers/${serverId}/shop/orders`, {
+      method: 'POST',
+      body: JSON.stringify(data ?? {}),
+    })
+  }
+
+  async listOrders(serverId: string): Promise<ShadowOrder[]> {
+    return this.request(`/api/servers/${serverId}/shop/orders`)
+  }
+
+  async listShopOrders(serverId: string): Promise<ShadowOrder[]> {
+    return this.request(`/api/servers/${serverId}/shop/orders/manage`)
+  }
+
+  async getOrder(serverId: string, orderId: string): Promise<ShadowOrder> {
+    return this.request(`/api/servers/${serverId}/shop/orders/${orderId}`)
+  }
+
+  async updateOrderStatus(serverId: string, orderId: string, status: string): Promise<ShadowOrder> {
+    return this.request(`/api/servers/${serverId}/shop/orders/${orderId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    })
+  }
+
+  async cancelOrder(serverId: string, orderId: string): Promise<ShadowOrder> {
+    return this.request(`/api/servers/${serverId}/shop/orders/${orderId}/cancel`, {
+      method: 'POST',
+    })
+  }
+
+  async getProductReviews(serverId: string, productId: string): Promise<ShadowReview[]> {
+    return this.request(`/api/servers/${serverId}/shop/products/${productId}/reviews`)
+  }
+
+  async createReview(
+    serverId: string,
+    orderId: string,
+    data: { productId: string; rating: number; content: string },
+  ): Promise<ShadowReview> {
+    return this.request(`/api/servers/${serverId}/shop/orders/${orderId}/review`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async replyToReview(serverId: string, reviewId: string, reply: string): Promise<ShadowReview> {
+    return this.request(`/api/servers/${serverId}/shop/reviews/${reviewId}/reply`, {
+      method: 'PUT',
+      body: JSON.stringify({ reply }),
+    })
+  }
+
+  async getWallet(): Promise<ShadowWallet> {
+    return this.request('/api/wallet')
+  }
+
+  async topUpWallet(amount: number): Promise<ShadowWallet> {
+    return this.request('/api/wallet/topup', {
+      method: 'POST',
+      body: JSON.stringify({ amount }),
+    })
+  }
+
+  async getWalletTransactions(): Promise<ShadowTransaction[]> {
+    return this.request('/api/wallet/transactions')
+  }
+
+  async getEntitlements(serverId: string): Promise<Record<string, unknown>[]> {
+    return this.request(`/api/servers/${serverId}/shop/entitlements`)
+  }
+
+  // ── Task Center ───────────────────────────────────────────────────────
+
+  async getTaskCenter(): Promise<{ tasks: ShadowTask[] }> {
+    return this.request('/api/tasks')
+  }
+
+  async claimTask(taskKey: string): Promise<{ success: boolean; reward: number }> {
+    return this.request(`/api/tasks/${taskKey}/claim`, { method: 'POST' })
+  }
+
+  async getReferralSummary(): Promise<{ count: number; rewards: number }> {
+    return this.request('/api/tasks/referral-summary')
+  }
+
+  async getRewardHistory(): Promise<{
+    rewards: { amount: number; reason: string; createdAt: string }[]
+  }> {
+    return this.request('/api/tasks/rewards')
+  }
+
+  // ── Server Apps ───────────────────────────────────────────────────────
+
+  async listApps(
+    serverId: string,
+    params?: { status?: string; limit?: number; offset?: number },
+  ): Promise<{ apps: ShadowApp[]; total: number }> {
+    const qs = new URLSearchParams()
+    if (params?.status) qs.set('status', params.status)
+    if (params?.limit) qs.set('limit', String(params.limit))
+    if (params?.offset) qs.set('offset', String(params.offset))
+    return this.request(`/api/servers/${serverId}/apps?${qs}`)
+  }
+
+  async getHomepageApp(serverId: string): Promise<ShadowApp | null> {
+    return this.request(`/api/servers/${serverId}/apps/homepage`)
+  }
+
+  async getApp(serverId: string, appId: string): Promise<ShadowApp> {
+    return this.request(`/api/servers/${serverId}/apps/${appId}`)
+  }
+
+  async createApp(
+    serverId: string,
+    data: { name: string; slug: string; type: string; url?: string },
+  ): Promise<ShadowApp> {
+    return this.request(`/api/servers/${serverId}/apps`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateApp(
+    serverId: string,
+    appId: string,
+    data: Partial<{ name: string; slug: string; type: string; url: string; status: string }>,
+  ): Promise<ShadowApp> {
+    return this.request(`/api/servers/${serverId}/apps/${appId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteApp(serverId: string, appId: string): Promise<{ success: boolean }> {
+    return this.request(`/api/servers/${serverId}/apps/${appId}`, { method: 'DELETE' })
+  }
+
+  async publishApp(serverId: string, data: { name: string; slug: string }): Promise<ShadowApp> {
+    return this.request(`/api/servers/${serverId}/apps/publish`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
   }
 }

@@ -7,6 +7,7 @@
  *   1. REST API — auth, messages, reactions, threads, channels, servers
  *   2. Socket.IO — real-time events, room joins, typing, presence
  *   3. Integration — send via REST, receive via Socket; send via Socket, verify via REST
+ *   4. Friendships, Notifications, Search, Invites
  *
  * Requires: docker compose postgres running on localhost:5432
  */
@@ -427,5 +428,245 @@ describe('ShadowSocket connection lifecycle', () => {
 
     await expect(badSocket.waitForConnect(500)).rejects.toThrow('timeout')
     badSocket.disconnect()
+  })
+})
+
+/* ═══════════════════════════════════════════════════════
+   Additional REST API Tests — Friendships
+   ═══════════════════════════════════════════════════════ */
+
+describe('ShadowClient Friendships', () => {
+  let friendRequestId: string
+
+  it('sendFriendRequest() sends a request', async () => {
+    const me2 = await client2.getMe()
+    const result = await client.sendFriendRequest(me2.username)
+    expect(result).toBeDefined()
+    friendRequestId = result.id
+  })
+
+  it('listSentFriendRequests() shows pending', async () => {
+    const sent = await client.listSentFriendRequests()
+    expect(sent.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('listPendingFriendRequests() shows pending for recipient', async () => {
+    const pending = await client2.listPendingFriendRequests()
+    expect(pending.length).toBeGreaterThanOrEqual(1)
+    friendRequestId = pending[0].id
+  })
+
+  it('acceptFriendRequest() accepts', async () => {
+    const result = await client2.acceptFriendRequest(friendRequestId)
+    expect(result).toBeDefined()
+  })
+
+  it('listFriends() shows friends', async () => {
+    const friends = await client.listFriends()
+    expect(friends.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('removeFriend() removes the friend', async () => {
+    const friends = await client.listFriends()
+    const f = friends[0]
+    const result = await client.removeFriend(f.id)
+    expect(result.success).toBe(true)
+  })
+})
+
+/* ═══════════════════════════════════════════════════════
+   Additional REST API Tests — Notifications
+   ═══════════════════════════════════════════════════════ */
+
+describe('ShadowClient Notifications (extended)', () => {
+  it('getUnreadCount() returns a count', async () => {
+    const result = await client.getUnreadCount()
+    expect(result).toHaveProperty('count')
+    expect(typeof result.count).toBe('number')
+  })
+
+  it('markAllNotificationsRead() succeeds', async () => {
+    const result = await client.markAllNotificationsRead()
+    expect(result.success).toBe(true)
+  })
+
+  it('getNotificationPreferences() returns preferences', async () => {
+    const prefs = await client.getNotificationPreferences()
+    expect(prefs).toHaveProperty('strategy')
+  })
+
+  it('updateNotificationPreferences() updates strategy', async () => {
+    const updated = await client.updateNotificationPreferences({
+      strategy: 'mention_only',
+    })
+    expect(updated.strategy).toBe('mention_only')
+
+    // Reset
+    await client.updateNotificationPreferences({ strategy: 'all' })
+  })
+
+  it('getScopedUnread() returns scoped readouts', async () => {
+    const scoped = await client.getScopedUnread()
+    expect(scoped).toBeDefined()
+  })
+})
+
+/* ═══════════════════════════════════════════════════════
+   Additional REST API Tests — Invites
+   ═══════════════════════════════════════════════════════ */
+
+describe('ShadowClient Invites', () => {
+  let inviteId: string
+
+  it('createInvites() creates invite codes', async () => {
+    const codes = await client.createInvites(2, 'SDK test invites')
+    expect(codes.length).toBe(2)
+    expect(codes[0].code).toBeDefined()
+    inviteId = codes[0].id
+  })
+
+  it('listInvites() returns codes', async () => {
+    const codes = await client.listInvites()
+    expect(codes.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('deactivateInvite() deactivates', async () => {
+    const result = await client.deactivateInvite(inviteId)
+    expect(result.isActive).toBe(false)
+  })
+
+  it('deleteInvite() removes code', async () => {
+    const result = await client.deleteInvite(inviteId)
+    expect(result.success).toBe(true)
+  })
+})
+
+/* ═══════════════════════════════════════════════════════
+   Additional REST API Tests — Search
+   ═══════════════════════════════════════════════════════ */
+
+describe('ShadowClient Search', () => {
+  it('searchMessages() returns results', async () => {
+    // First send a message with unique content
+    await client.sendMessage(channelId, 'Unique search term xyz123')
+    // Small delay for indexing
+    await new Promise((r) => setTimeout(r, 300))
+    const result = await client.searchMessages({
+      q: 'xyz123',
+      serverId,
+    })
+    expect(result.messages).toBeDefined()
+  })
+})
+
+/* ═══════════════════════════════════════════════════════
+   Additional REST API Tests — Channels (extended)
+   ═══════════════════════════════════════════════════════ */
+
+describe('ShadowClient Channels (extended)', () => {
+  let newChannelId: string
+
+  it('createChannel() creates a new channel', async () => {
+    const ch = await client.createChannel(serverId, {
+      name: 'sdk-extra-channel',
+      type: 'text',
+      description: 'Created by SDK e2e test',
+    })
+    expect(ch.id).toBeDefined()
+    expect(ch.name).toBe('sdk-extra-channel')
+    newChannelId = ch.id
+  })
+
+  it('getChannel() returns channel details', async () => {
+    const ch = await client.getChannel(newChannelId)
+    expect(ch.id).toBe(newChannelId)
+    expect(ch.description).toBe('Created by SDK e2e test')
+  })
+
+  it('updateChannel() updates channel', async () => {
+    const updated = await client.updateChannel(newChannelId, {
+      description: 'Updated description',
+    })
+    expect(updated.description).toBe('Updated description')
+  })
+
+  it('getChannelMembers() returns members', async () => {
+    const members = await client.getChannelMembers(channelId)
+    expect(members).toBeDefined()
+  })
+
+  it('deleteChannel() removes channel', async () => {
+    const result = await client.deleteChannel(newChannelId)
+    expect(result.success).toBe(true)
+  })
+})
+
+/* ═══════════════════════════════════════════════════════
+   Additional REST API Tests — Pins & Reactions
+   ═══════════════════════════════════════════════════════ */
+
+describe('ShadowClient Pins & Reactions', () => {
+  let msgId: string
+
+  it('pin and unpin a message', async () => {
+    const msg = await client.sendMessage(channelId, 'Pin me!')
+    msgId = msg.id
+
+    await client.pinMessage(msgId)
+    const pinned = await client.getPinnedMessages(channelId)
+    expect(pinned.some((m: { id: string }) => m.id === msgId)).toBe(true)
+
+    await client.unpinMessage(msgId)
+    const pinned2 = await client.getPinnedMessages(channelId)
+    expect(pinned2.some((m: { id: string }) => m.id === msgId)).toBe(false)
+  })
+
+  it('getReactions() returns reaction data', async () => {
+    await client.addReaction(msgId, '🎉')
+    const reactions = await client.getReactions(msgId)
+    expect(reactions.length).toBeGreaterThanOrEqual(1)
+    expect(reactions[0].emoji).toBe('🎉')
+    expect(reactions[0].count).toBe(1)
+    await client.removeReaction(msgId, '🎉')
+  })
+})
+
+/* ═══════════════════════════════════════════════════════
+   Additional REST API Tests — User Profile
+   ═══════════════════════════════════════════════════════ */
+
+describe('ShadowClient User Profile', () => {
+  it('getUserProfile() returns public profile', async () => {
+    const profile = await client.getUserProfile(user2Id)
+    expect(profile.id).toBe(user2Id)
+    expect(profile.username).toBeDefined()
+  })
+
+  it('updateProfile() updates display name', async () => {
+    const updated = await client.updateProfile({ displayName: 'SDK Tester' })
+    expect(updated.displayName).toBe('SDK Tester')
+  })
+})
+
+/* ═══════════════════════════════════════════════════════
+   Additional REST API Tests — Server Members
+   ═══════════════════════════════════════════════════════ */
+
+describe('ShadowClient Server Members', () => {
+  it('getMembers() returns server members', async () => {
+    const members = await client.getMembers(serverId)
+    expect(members.length).toBeGreaterThanOrEqual(2)
+    expect(members.some((m: { userId: string }) => m.userId === userId)).toBe(true)
+    expect(members.some((m: { userId: string }) => m.userId === user2Id)).toBe(true)
+  })
+
+  it('listServers() returns user servers', async () => {
+    const servers = await client.listServers()
+    expect(servers.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('discoverServers() is accessible', async () => {
+    const servers = await client.discoverServers()
+    expect(servers).toBeDefined()
   })
 })
