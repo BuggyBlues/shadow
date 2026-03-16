@@ -20,6 +20,7 @@ interface FriendEntry {
   friendshipId: string
   source: 'friend' | 'owned_claw' | 'rented_claw'
   user: FriendUser
+  clawStatus?: 'available' | 'listed' | 'rented_out'
   createdAt: string
 }
 
@@ -209,65 +210,93 @@ export function FriendsContent({ onStartChat }: { onStartChat?: (userId: string)
               </div>
             ) : (
               <div className="space-y-0.5">
-                {filteredFriends.map((f) => (
-                  <div
-                    key={f.friendshipId}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-bg-modifier-hover group transition"
-                  >
-                    <div className="relative">
-                      <UserAvatar
-                        userId={f.user.id}
-                        avatarUrl={f.user.avatarUrl}
-                        displayName={f.user.displayName ?? f.user.username}
-                        size="md"
-                      />
-                      <span
-                        className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-bg-primary ${statusColor[f.user.status] ?? statusColor.offline}`}
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-text-primary text-sm truncate">
-                          {f.user.displayName ?? f.user.username}
-                        </span>
-                        {f.user.isBot && (
-                          <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-bold">
-                            BOT
+                {filteredFriends.map((f) => {
+                  const isChatDisabled =
+                    f.source === 'owned_claw' &&
+                    (f.clawStatus === 'listed' || f.clawStatus === 'rented_out')
+
+                  return (
+                    <div
+                      key={f.friendshipId}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-bg-modifier-hover group transition"
+                    >
+                      <div className="relative">
+                        <UserAvatar
+                          userId={f.user.id}
+                          avatarUrl={f.user.avatarUrl}
+                          displayName={f.user.displayName ?? f.user.username}
+                          size="md"
+                        />
+                        <span
+                          className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-bg-primary ${statusColor[f.user.status] ?? statusColor.offline}`}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-text-primary text-sm truncate">
+                            {f.user.displayName ?? f.user.username}
                           </span>
+                          {f.user.isBot && (
+                            <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-bold">
+                              BOT
+                            </span>
+                          )}
+                          {f.source === 'owned_claw' && f.clawStatus === 'listed' && (
+                            <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 text-[10px] font-bold">
+                              {t('friends.clawListed', '挂单中')}
+                            </span>
+                          )}
+                          {f.source === 'owned_claw' && f.clawStatus === 'rented_out' && (
+                            <span className="px-1.5 py-0.5 rounded bg-danger/10 text-danger text-[10px] font-bold">
+                              {t('friends.clawRentedOut', '已出租')}
+                            </span>
+                          )}
+                          {f.source === 'owned_claw' && f.clawStatus === 'available' && (
+                            <span className="px-1.5 py-0.5 rounded bg-[#23a559]/10 text-[#23a559] text-[10px] font-bold">
+                              {t('friends.ownedClaw', '我的 Claw')}
+                            </span>
+                          )}
+                          {f.source === 'rented_claw' && (
+                            <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 text-[10px] font-bold">
+                              {t('friends.rentedClaw', '租赁中')}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-text-muted text-xs">@{f.user.username}</span>
+                      </div>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                        {isChatDisabled ? (
+                          <span
+                            className="w-9 h-9 rounded-full bg-bg-secondary flex items-center justify-center text-text-muted cursor-not-allowed"
+                            title={t(
+                              'friends.chatDisabledTooltip',
+                              '该 Claw 已挂单或出租，无法私聊',
+                            )}
+                          >
+                            <MessageCircle size={18} />
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => startChat.mutate(f.user.id)}
+                            className="w-9 h-9 rounded-full bg-bg-secondary hover:bg-bg-tertiary flex items-center justify-center text-text-secondary hover:text-text-primary transition"
+                            title={t('friends.chat', '聊天')}
+                          >
+                            <MessageCircle size={18} />
+                          </button>
                         )}
-                        {f.source === 'owned_claw' && (
-                          <span className="px-1.5 py-0.5 rounded bg-[#23a559]/10 text-[#23a559] text-[10px] font-bold">
-                            {t('friends.ownedClaw', '我的 Claw')}
-                          </span>
-                        )}
-                        {f.source === 'rented_claw' && (
-                          <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 text-[10px] font-bold">
-                            {t('friends.rentedClaw', '租赁中')}
-                          </span>
+                        {f.source === 'friend' && (
+                          <button
+                            onClick={() => removeFriend.mutate(f.friendshipId)}
+                            className="w-9 h-9 rounded-full bg-bg-secondary hover:bg-danger/10 flex items-center justify-center text-text-secondary hover:text-danger transition"
+                            title={t('friends.remove', '删除好友')}
+                          >
+                            <Trash2 size={18} />
+                          </button>
                         )}
                       </div>
-                      <span className="text-text-muted text-xs">@{f.user.username}</span>
                     </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
-                      <button
-                        onClick={() => startChat.mutate(f.user.id)}
-                        className="w-9 h-9 rounded-full bg-bg-secondary hover:bg-bg-tertiary flex items-center justify-center text-text-secondary hover:text-text-primary transition"
-                        title={t('friends.chat', '聊天')}
-                      >
-                        <MessageCircle size={18} />
-                      </button>
-                      {f.source === 'friend' && (
-                        <button
-                          onClick={() => removeFriend.mutate(f.friendshipId)}
-                          className="w-9 h-9 rounded-full bg-bg-secondary hover:bg-danger/10 flex items-center justify-center text-text-secondary hover:text-danger transition"
-                          title={t('friends.remove', '删除好友')}
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>

@@ -95,6 +95,7 @@ export class FriendshipService {
         status: string
         isBot: boolean
       }
+      clawStatus?: 'available' | 'listed' | 'rented_out'
       createdAt: Date
     }> = []
 
@@ -130,9 +131,22 @@ export class FriendshipService {
       const botUser = await this.deps.userDao.findById(agent.userId)
       if (botUser) {
         addedUserIds.add(botUser.id)
+
+        // Determine claw marketplace status
+        let clawStatus: 'available' | 'listed' | 'rented_out' = 'available'
+        const listings = await this.deps.clawListingDao.findByAgentIds([agent.id])
+        const activeListing = listings.find((l) => l.listingStatus === 'active' && l.isListed)
+        if (activeListing) {
+          const activeContract = await this.deps.rentalContractDao.findActiveByListingId(
+            activeListing.id,
+          )
+          clawStatus = activeContract ? 'rented_out' : 'listed'
+        }
+
         results.push({
           friendshipId: `claw:owned:${agent.id}`,
           source: 'owned_claw',
+          clawStatus,
           user: {
             id: botUser.id,
             username: botUser.username,

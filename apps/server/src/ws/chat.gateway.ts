@@ -3,9 +3,31 @@ import type { AppContainer } from '../container'
 import { logger } from '../lib/logger'
 
 export function setupChatGateway(io: SocketIOServer, container: AppContainer): void {
-  io.on('connection', (socket: Socket) => {
+  io.on('connection', async (socket: Socket) => {
     const userId = socket.data.userId as string | undefined
     logger.info({ socketId: socket.id, userId }, 'Client connected')
+
+    // Auto-join bot users to their DM channel rooms (mirrors channel:join pattern)
+    if (userId) {
+      try {
+        const userDao = container.resolve('userDao')
+        const currentUser = await userDao.findById(userId)
+        if (currentUser?.isBot) {
+          const dmService = container.resolve('dmService')
+          const dmChs = await dmService.getUserChannels(userId)
+          for (const ch of dmChs) {
+            await socket.join(`dm:${ch.id}`)
+            logger.info(
+              { userId, dmChannelId: ch.id, socketId: socket.id },
+              'Bot auto-joined DM room',
+            )
+          }
+          logger.info({ userId, count: dmChs.length }, 'Bot auto-joined all DM rooms')
+        }
+      } catch (err) {
+        logger.error({ err, userId }, 'Failed to auto-join bot DM rooms')
+      }
+    }
 
     // channel:join
     socket.on(
@@ -229,7 +251,17 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
           const userDao = container.resolve('userDao')
           const otherUser = await userDao.findById(otherUserId)
           if (otherUser?.isBot) {
-            io.to(`user:${otherUserId}`).emit('dm:message:new', {
+            // Ensure bot socket is in this DM room (handles new channels)
+            const botSockets = await io.in(`user:${otherUserId}`).fetchSockets()
+            for (const bs of botSockets) {
+              bs.join(`dm:${data.dmChannelId}`)
+            }
+            logger.info(
+              { otherUserId, dmChannelId: data.dmChannelId, botSocketCount: botSockets.length },
+              'Relaying DM to bot',
+            )
+
+            const dmPayload = {
               id: message.id,
               content: data.content,
               dmChannelId: data.dmChannelId,
@@ -239,10 +271,14 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
               senderId: userId,
               receiverId: otherUserId,
               createdAt: message.createdAt,
-            })
+            }
+            // Emit to DM room (bot is joined, mirrors channel pattern)
+            io.to(`dm:${data.dmChannelId}`).emit('dm:message:new', dmPayload)
+            // Also emit to user room as fallback
+            io.to(`user:${otherUserId}`).emit('dm:message:new', dmPayload)
           }
-        } catch {
-          /* bot relay failed, non-critical */
+        } catch (err) {
+          logger.error({ err, dmChannelId: data.dmChannelId }, 'Bot DM relay failed')
         }
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Failed to send DM'

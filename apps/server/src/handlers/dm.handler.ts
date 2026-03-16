@@ -2,6 +2,7 @@ import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { AppContainer } from '../container'
+import { logger } from '../lib/logger'
 import { authMiddleware } from '../middleware/auth.middleware'
 
 export function createDmHandler(container: AppContainer) {
@@ -63,7 +64,17 @@ export function createDmHandler(container: AppContainer) {
           const userDao = container.resolve('userDao')
           const otherUser = await userDao.findById(otherUserId)
           if (otherUser?.isBot) {
-            io.to(`user:${otherUserId}`).emit('dm:message:new', {
+            // Ensure bot socket is in DM room
+            const botSockets = await io.in(`user:${otherUserId}`).fetchSockets()
+            for (const bs of botSockets) {
+              bs.join(`dm:${id}`)
+            }
+            logger.info(
+              { otherUserId, dmChannelId: id, botSocketCount: botSockets.length },
+              'REST: Relaying DM to bot',
+            )
+
+            const dmPayload = {
               id: message.id,
               content,
               dmChannelId: id,
@@ -73,11 +84,15 @@ export function createDmHandler(container: AppContainer) {
               senderId: user.userId,
               receiverId: otherUserId,
               createdAt: message.createdAt,
-            })
+            }
+            // Emit to DM room (bot is joined, mirrors channel pattern)
+            io.to(`dm:${id}`).emit('dm:message:new', dmPayload)
+            // Also emit to user room as fallback
+            io.to(`user:${otherUserId}`).emit('dm:message:new', dmPayload)
           }
         }
-      } catch {
-        /* bot relay failed, non-critical */
+      } catch (err) {
+        logger.error({ err, dmChannelId: id }, 'REST: Bot DM relay failed')
       }
 
       return c.json(message, 201)

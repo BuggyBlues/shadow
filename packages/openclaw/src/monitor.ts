@@ -692,7 +692,7 @@ async function processShadowDmMessage(params: {
   // Build typing callbacks for DM channel
   const typingCbs = createTypingCallbacks({
     start: async () => {
-      socket.sendTyping(dmChannelId)
+      socket.sendDmTyping(dmChannelId)
     },
     onStartError: (err) => {
       runtime.error?.(`[dm-typing] Failed to send typing indicator: ${String(err)}`)
@@ -709,7 +709,7 @@ async function processShadowDmMessage(params: {
       dispatcherOptions: {
         deliver: async (payload: ReplyPayload) => {
           // Re-emit typing during delivery
-          socket.sendTyping(dmChannelId)
+          socket.sendDmTyping(dmChannelId)
 
           await deliverShadowDmReply({
             payload,
@@ -958,6 +958,20 @@ export async function monitorShadowProvider(
     runtime.log?.(
       `[ws] Emitted channel:join for ${allChannelIds.length} channel(s), listening for messages`,
     )
+
+    // Join all DM channel rooms (mirrors channel:join pattern for DM support)
+    ;(async () => {
+      try {
+        const dmChannels = await client.listDmChannels()
+        for (const ch of dmChannels) {
+          socket.joinDmChannel(ch.id)
+          runtime.log?.(`[ws] Joined DM room dm:${ch.id}`)
+        }
+        runtime.log?.(`[ws] Joined ${dmChannels.length} DM channel room(s)`)
+      } catch (err) {
+        runtime.error?.(`[ws] Failed to join DM rooms: ${String(err)}`)
+      }
+    })()
   })
 
   socket.onConnectError((err) => {
@@ -1098,7 +1112,9 @@ export async function monitorShadowProvider(
     runtime.log?.(`[ws] Left channel room ${data.channelId} after member-removed`)
   })
 
-  // Listen for DM messages (relayed to bot's user room by the server)
+  // Listen for DM messages (relayed to bot's DM room and user room by the server)
+  // Dedup set to avoid processing duplicate events from overlapping rooms
+  const processedDmIds = new Set<string>()
   socket.on(
     'dm:message:new',
     (dmMessage: {
@@ -1118,6 +1134,18 @@ export async function monitorShadowProvider(
       }
       createdAt: string
     }) => {
+      // Dedup: skip if already processing this message
+      if (processedDmIds.has(dmMessage.id)) {
+        runtime.log?.(`[ws] Skipping duplicate dm:message:new ${dmMessage.id}`)
+        return
+      }
+      processedDmIds.add(dmMessage.id)
+      // Evict old entries to prevent memory leak
+      if (processedDmIds.size > 500) {
+        const first = processedDmIds.values().next().value
+        if (first) processedDmIds.delete(first)
+      }
+
       const senderLabel = dmMessage.author?.username ?? dmMessage.senderId
       runtime.log?.(
         `[ws] ← dm:message:new from ${senderLabel} in DM ${dmMessage.dmChannelId}: "${dmMessage.content?.slice(0, 60)}" (${dmMessage.id})`,

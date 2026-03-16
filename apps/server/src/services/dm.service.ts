@@ -1,6 +1,6 @@
 import { and, desc, eq, lt, or } from 'drizzle-orm'
 import type { Database } from '../db'
-import { dmChannels, messages, users } from '../db/schema'
+import { dmChannels, dmMessages, users } from '../db/schema'
 
 export class DmService {
   constructor(private deps: { db: Database }) {}
@@ -68,20 +68,17 @@ export class DmService {
   }
 
   async getMessages(dmChannelId: string, limit = 50, cursor?: string) {
-    // DM messages use the same messages table with a special channelId convention:
-    // channelId = `dm:${dmChannelId}`
-    const channelId = `dm:${dmChannelId}`
-    const conditions = [eq(messages.channelId, channelId)]
+    const conditions = [eq(dmMessages.dmChannelId, dmChannelId)]
 
     if (cursor) {
-      conditions.push(lt(messages.createdAt, new Date(cursor)))
+      conditions.push(lt(dmMessages.createdAt, new Date(cursor)))
     }
 
     const rows = await this.deps.db
       .select()
-      .from(messages)
+      .from(dmMessages)
       .where(and(...conditions))
-      .orderBy(desc(messages.createdAt))
+      .orderBy(desc(dmMessages.createdAt))
       .limit(limit)
 
     // Enrich with author info
@@ -109,10 +106,9 @@ export class DmService {
   }
 
   async sendMessage(dmChannelId: string, authorId: string, content: string) {
-    const channelId = `dm:${dmChannelId}`
     const result = await this.deps.db
-      .insert(messages)
-      .values({ content, channelId, authorId })
+      .insert(dmMessages)
+      .values({ content, dmChannelId, authorId })
       .returning()
 
     // Update last_message_at

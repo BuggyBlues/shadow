@@ -3,7 +3,6 @@ import { useNavigate, useParams } from '@tanstack/react-router'
 import { ArrowLeft, Loader2, Send, Smile } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { MessageBubble } from '../components/chat/message-bubble'
 import { UserAvatar } from '../components/common/avatar'
 import { EmojiPicker } from '../components/common/emoji-picker'
 import { useSocketEvent } from '../hooks/use-socket'
@@ -23,12 +22,9 @@ interface Author {
 interface DmMessage {
   id: string
   content: string
-  channelId: string
+  dmChannelId: string
   authorId: string
-  threadId: string | null
-  replyToId: string | null
   isEdited: boolean
-  isPinned: boolean
   createdAt: string
   updatedAt?: string
   author?: Author
@@ -50,10 +46,9 @@ interface DmChannelInfo {
   }
 }
 
-export function DmChatPage() {
-  const { dmChannelId } = useParams({ strict: false }) as { dmChannelId: string }
+/** Reusable DM chat view — can be embedded inline or used as standalone page */
+export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBack?: () => void }) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -105,7 +100,7 @@ export function DmChatPage() {
 
   // Listen for new DM messages
   useSocketEvent<DmMessage>('dm:message', (msg) => {
-    if (msg.channelId !== `dm:${dmChannelId}`) return
+    if (msg.dmChannelId !== dmChannelId) return
     queryClient.setQueryData(
       ['dm-messages', dmChannelId],
       (old: { pages: DmMessage[][]; pageParams: (string | undefined)[] } | undefined) => {
@@ -186,7 +181,7 @@ export function DmChatPage() {
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border-subtle bg-bg-primary shrink-0 shadow-sm">
         <button
-          onClick={() => navigate({ to: '/settings' })}
+          onClick={() => onBack?.()}
           className="md:hidden w-8 h-8 rounded-full hover:bg-bg-modifier-hover flex items-center justify-center text-text-secondary"
         >
           <ArrowLeft size={18} />
@@ -383,4 +378,11 @@ export function DmChatPage() {
       </div>
     </div>
   )
+}
+
+/** Standalone DM chat page (used by router) */
+export function DmChatPage() {
+  const { dmChannelId } = useParams({ strict: false }) as { dmChannelId: string }
+  const navigate = useNavigate()
+  return <DmChatView dmChannelId={dmChannelId} onBack={() => navigate({ to: '/settings' })} />
 }

@@ -38,6 +38,7 @@ import { disconnectSocket } from '../lib/socket'
 import { useAuthStore } from '../stores/auth.store'
 import { type ThemeMode, useUIStore } from '../stores/ui.store'
 import { BuddyManagementContent } from './buddy-management'
+import { DmChatView } from './dm-chat'
 import { FriendsContent } from './friends'
 
 export function SettingsPage() {
@@ -69,6 +70,7 @@ export function SettingsPage() {
     | 'chat'
   >('quickstart')
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+  const [activeDmChannelId, setActiveDmChannelId] = useState<string | null>(null)
   const { data: wallet } = useQuery({
     queryKey: ['wallet'],
     queryFn: () => fetchApi<{ balance: number }>('/api/wallet'),
@@ -679,16 +681,38 @@ export function SettingsPage() {
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           <FriendsContent
             onStartChat={(dmChannelId) => {
-              navigate({ to: '/dm/$dmChannelId', params: { dmChannelId } })
+              setActiveDmChannelId(dmChannelId)
+              setActiveTab('chat')
             }}
           />
         </div>
       )}
 
-      {/* Chat / DM list — full width */}
+      {/* Chat / DM — split layout: channel list + chat view */}
       {activeTab === 'chat' && (
-        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          <DmChannelList />
+        <div className="flex-1 flex min-h-0 overflow-hidden">
+          {/* DM channel list sidebar (hidden on mobile when chat is open) */}
+          <div
+            className={`${activeDmChannelId ? 'hidden md:flex' : 'flex'} w-full md:w-72 lg:w-80 flex-col border-r border-border-subtle shrink-0`}
+          >
+            <DmChannelList
+              activeDmChannelId={activeDmChannelId}
+              onSelectChannel={setActiveDmChannelId}
+            />
+          </div>
+          {/* Chat view */}
+          <div
+            className={`${activeDmChannelId ? 'flex' : 'hidden md:flex'} flex-1 flex-col min-w-0`}
+          >
+            {activeDmChannelId ? (
+              <DmChatView
+                dmChannelId={activeDmChannelId}
+                onBack={() => setActiveDmChannelId(null)}
+              />
+            ) : (
+              <DmChatEmptyState />
+            )}
+          </div>
         </div>
       )}
 
@@ -1497,8 +1521,30 @@ function AppearanceSettings() {
   )
 }
 
+/** Empty state when no conversation is selected */
+function DmChatEmptyState() {
+  const { t } = useTranslation()
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
+      <MessageCircle size={56} className="text-text-muted/20 mb-4" />
+      <h3 className="text-lg font-semibold text-text-secondary mb-2">
+        {t('dm.selectConversation', '选择一个对话')}
+      </h3>
+      <p className="text-text-muted text-sm max-w-xs">
+        {t('dm.selectConversationDesc', '从左侧列表选择一个好友开始聊天，或者去好友列表添加新好友')}
+      </p>
+    </div>
+  )
+}
+
 /** DM channel list — shows recent conversations as a sidebar */
-function DmChannelList() {
+function DmChannelList({
+  activeDmChannelId,
+  onSelectChannel,
+}: {
+  activeDmChannelId?: string | null
+  onSelectChannel?: (id: string) => void
+}) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
@@ -1594,8 +1640,16 @@ function DmChannelList() {
             {filtered.map((ch) => (
               <button
                 key={ch.id}
-                onClick={() => navigate({ to: '/dm/$dmChannelId', params: { dmChannelId: ch.id } })}
-                className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg hover:bg-bg-modifier-hover transition text-left group"
+                onClick={() => {
+                  if (onSelectChannel) {
+                    onSelectChannel(ch.id)
+                  } else {
+                    navigate({ to: '/dm/$dmChannelId', params: { dmChannelId: ch.id } })
+                  }
+                }}
+                className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg hover:bg-bg-modifier-hover transition text-left group ${
+                  activeDmChannelId === ch.id ? 'bg-bg-modifier-active' : ''
+                }`}
               >
                 <div className="relative">
                   <UserAvatar
