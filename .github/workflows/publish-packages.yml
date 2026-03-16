@@ -1,0 +1,115 @@
+name: publish-packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      publish_npm:
+        description: 'Publish npm packages (@shadowob/sdk, @shadowob/shared)'
+        type: boolean
+        default: true
+      publish_pypi:
+        description: 'Publish Python SDK to PyPI (shadowob-sdk)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    name: Publish packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - uses: actions/setup-python@v5
+        if: inputs.publish_pypi
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ── Compute new version ──────────────────────────────────────
+      - name: Compute new version
+        id: version
+        run: |
+          CURRENT=$(node -e "console.log(require('./packages/sdk/package.json').version)")
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          case "${{ inputs.bump }}" in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH + 1)) ;;
+          esac
+          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "New version: $NEW_VERSION"
+
+      # ── Bump all SDK versions consistently ───────────────────────
+      - name: Bump versions
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          # npm packages
+          cd packages/sdk
+          npm version "$VERSION" --no-git-tag-version
+          cd ../shared
+          npm version "$VERSION" --no-git-tag-version
+          cd ../..
+
+          # Python SDK
+          sed -i "s/^version = .*/version = \"$VERSION\"/" packages/sdk-python/pyproject.toml
+
+          echo "All SDK versions bumped to $VERSION"
+
+      # ── Publish npm ──────────────────────────────────────────────
+      - name: Publish npm packages
+        if: inputs.publish_npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          cd packages/shared
+          pnpm publish --no-git-checks --access public
+          cd ../sdk
+          pnpm publish --no-git-checks --access public
+
+      # ── Publish PyPI ─────────────────────────────────────────────
+      - name: Build and publish to PyPI
+        if: inputs.publish_pypi
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          pip install build twine
+          cd packages/sdk-python
+          python -m build
+          twine upload dist/*
+
+      # ── Commit & Tag ─────────────────────────────────────────────
+      - name: Commit version bump and tag
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: release SDK v${VERSION}"
+          git tag "sdk-v${VERSION}"
+          git push
+          git push --tags

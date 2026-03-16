@@ -241,7 +241,7 @@ export function SettingsPage() {
           </div>
           {'desktopAPI' in window && (
             <button
-              onClick={() => navigate({ to: '/app/desktop-settings' })}
+              onClick={() => navigate({ to: '/desktop-settings' })}
               className="group flex items-center gap-3 w-full px-3 py-2 rounded-md text-[15px] font-medium text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary transition"
             >
               <Monitor size={18} className="shrink-0 opacity-60 group-hover:text-text-primary" />
@@ -353,7 +353,7 @@ export function SettingsPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
                   <button
                     type="button"
-                    onClick={() => navigate({ to: '/app/discover' })}
+                    onClick={() => navigate({ to: '/discover' })}
                     className="bg-bg-secondary hover:bg-bg-tertiary border border-border-subtle rounded-xl p-5 text-left transition group"
                   >
                     <Compass
@@ -679,7 +679,7 @@ export function SettingsPage() {
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           <FriendsContent
             onStartChat={(dmChannelId) => {
-              navigate({ to: '/app/dm/$dmChannelId', params: { dmChannelId } })
+              navigate({ to: '/dm/$dmChannelId', params: { dmChannelId } })
             }}
           />
         </div>
@@ -1316,14 +1316,14 @@ function TaskCenter({
                           switch (task.key) {
                             case 'create_server':
                               setPendingAction('create-server')
-                              navigate({ to: '/app/discover' })
+                              navigate({ to: '/discover' })
                               break
                             case 'create_channel': {
                               const firstSlug = servers[0]?.server?.slug
                               if (firstSlug) {
                                 setPendingAction('create-channel')
                                 navigate({
-                                  to: '/app/servers/$serverSlug',
+                                  to: '/servers/$serverSlug',
                                   params: { serverSlug: firstSlug },
                                 })
                               }
@@ -1333,7 +1333,7 @@ function TaskCenter({
                               const slug = servers[0]?.server?.slug
                               if (slug) {
                                 navigate({
-                                  to: '/app/servers/$serverSlug',
+                                  to: '/servers/$serverSlug',
                                   params: { serverSlug: slug },
                                 })
                               }
@@ -1353,7 +1353,7 @@ function TaskCenter({
                               const shopSlug = servers[0]?.server?.slug
                               if (shopSlug) {
                                 navigate({
-                                  to: '/app/servers/$serverSlug/shop/admin',
+                                  to: '/servers/$serverSlug/shop/admin',
                                   params: { serverSlug: shopSlug },
                                 })
                               }
@@ -1594,9 +1594,7 @@ function DmChannelList() {
             {filtered.map((ch) => (
               <button
                 key={ch.id}
-                onClick={() =>
-                  navigate({ to: '/app/dm/$dmChannelId', params: { dmChannelId: ch.id } })
-                }
+                onClick={() => navigate({ to: '/dm/$dmChannelId', params: { dmChannelId: ch.id } })}
                 className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg hover:bg-bg-modifier-hover transition text-left group"
               >
                 <div className="relative">

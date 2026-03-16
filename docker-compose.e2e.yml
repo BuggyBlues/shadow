@@ -1,0 +1,93 @@
+name: shadow-e2e
+
+x-e2e-node: &e2e-node
+  build:
+    context: .
+    dockerfile: Dockerfile.e2e
+  working_dir: /workspace
+  init: true
+  environment:
+    ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@shadowob.app}
+    ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123456}
+    E2E_ORIGIN: http://web:3000
+    E2E_APP_BASE_URL: http://web:3000/app/
+    E2E_SESSION_PATH: /workspace/docs/e2e/session.json
+    E2E_SCREENSHOT_DIR: /workspace/docs/e2e/screenshots
+    PLAYWRIGHT_WEB_BASE_URL: http://web:3000/app/
+  volumes:
+    - ./docs/e2e:/workspace/docs/e2e
+    - ./apps/desktop/playwright-report-web:/workspace/apps/desktop/playwright-report-web
+    - ./apps/desktop/test-results:/workspace/apps/desktop/test-results
+
+services:
+  postgres:
+    extends:
+      file: ./docker-compose.yml
+      service: postgres
+    ports: []
+
+  redis:
+    extends:
+      file: ./docker-compose.yml
+      service: redis
+    ports: []
+
+  minio:
+    extends:
+      file: ./docker-compose.yml
+      service: minio
+    ports: []
+
+  server:
+    extends:
+      file: ./docker-compose.yml
+      service: server
+    ports: []
+    environment:
+      DATABASE_URL: postgresql://shadow:shadow@postgres:5432/shadow
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-shadow-dev-secret}
+      JWT_EXPIRES_IN: 7d
+      PORT: 3002
+      HOST: 0.0.0.0
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_USE_SSL: false
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: shadow
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@shadowob.app}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123456}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      OAUTH_BASE_URL: ${OAUTH_BASE_URL:-http://web:3000}
+      CORS_ORIGIN: http://web:3000
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+
+  web:
+    extends:
+      file: ./docker-compose.yml
+      service: web
+    ports: []
+    depends_on:
+      - server
+
+  e2e-seed:
+    <<: *e2e-node
+    depends_on:
+      - web
+    command: node scripts/e2e/seed-screenshot-env.mjs
+
+  e2e-runner:
+    <<: *e2e-node
+    depends_on:
+      e2e-seed:
+        condition: service_completed_successfully
+    command: pnpm --filter @shadowob/desktop exec playwright test -c apps/desktop/playwright.web.config.ts
+
+volumes:
+  pg_data:
+  redis_data:
+  minio_data:

@@ -1,0 +1,228 @@
+---
+pageType: custom
+---
+
+import { PublicFooter } from '../../components/Layout'
+import { CatSvgDefs, AgentCatSvg, WorkCatSvg, ChannelCatSvg } from '../../components/CatSvg'
+import { SparkleIcon, ChatIcon, BuddyIcon, BoltIcon, RocketIcon, PawIcon, BookIcon, CodeIcon, HandshakeIcon, ShieldIcon } from '../../components/Icons'
+
+export const HomePage = () => {
+  const base = (typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL || '/').replace(/\/$/, '')
+  return (
+    <div className="shadow-page relative flex flex-col">
+      <CatSvgDefs />
+
+      <div className="hero-blob" style={{ background: '#67e8f9', width: '24rem', height: '24rem', top: '5rem', left: '2.5rem' }} />
+      <div className="hero-blob" style={{ background: '#fde68a', width: '20rem', height: '20rem', top: '10rem', right: '5rem' }} />
+      <div className="hero-blob" style={{ background: '#a5f3fc', width: '24rem', height: '24rem', bottom: '5rem', left: '33%' }} />
+
+      <main className="flex-grow pt-8 pb-20 px-8 md:px-16 flex flex-col md:flex-row items-center justify-between max-w-7xl mx-auto w-full gap-16">
+        <div className="md:w-1/2 flex flex-col gap-5 relative z-10">
+          <div className="bg-white/80 border-2 border-gray-800 text-gray-800 font-bold px-4 py-1.5 rounded-full inline-flex items-center gap-1.5 w-max mb-2" style={{ transform: 'rotate(-2deg)' }}>
+            <SparkleIcon className="w-4 h-4 text-yellow-500" /> Open Source & Free
+          </div>
+          <h1 className="zcool text-5xl md:text-7xl leading-tight">
+            Shadow
+            <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-cyan-400">
+              OwnBuddy
+            </span>
+          </h1>
+          <p className="text-lg md:text-xl font-bold text-gray-600 bg-white/50 p-3 rounded-xl border-l-4 border-yellow-400">
+            The super community for sovereign individuals.
+          </p>
+          <blockquote className="mt-4 pl-5 border-l-4 border-cyan-400 italic text-base md:text-lg text-gray-500 leading-relaxed">
+            "Give every creator their own AI community, shop, and workspace — no servers, no code, ready out of the box."
+          </blockquote>
+          <div className="flex flex-wrap gap-4 mt-4">
+            <a href={`${base}/pricing`} className="btn-primary zcool text-xl px-7 py-3.5 flex items-center gap-2 hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-cyan-500/30 group" style={{ textDecoration: 'none' }}>
+              Create workspace <PawIcon className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+            </a>
+            <a href={`${base}/product`} className="btn-secondary zcool text-xl px-7 py-3.5 flex items-center gap-2 hover:scale-105 transition-all duration-300 shadow-md hover:shadow-gray-400/20 group" style={{ textDecoration: 'none' }}>
+              View docs <BookIcon className="w-5 h-5 group-hover:-rotate-12 transition-transform" />
+            </a>
+          </div>
+        </div>
+
+        <div className="md:w-1/2 relative flex justify-center float z-10 group overflow-visible">
+          <img src={`${base}/hero-halo.svg`} alt="" aria-hidden="true" className="absolute -z-10 w-[520px] h-[520px] md:w-[620px] md:h-[620px] object-contain opacity-90 pointer-events-none" />
+          <img src={`${base}/Logo.svg`} alt="Shadow Hero Cat" className="w-[320px] h-[320px] md:w-[380px] md:h-[380px] drop-shadow-2xl transition-transform duration-700 group-hover:scale-105" />
+          <div className="absolute top-6 -left-4 md:-left-8 bg-white border-3 border-gray-800 rounded-2xl px-4 py-3 shadow-xl float-delay-1 zcool text-lg flex items-center gap-2 transition-transform hover:scale-110 cursor-default" style={{ transform: 'rotate(-6deg)' }}>
+            <ChatIcon className="w-5 h-5 text-cyan-500" /> Channel Chat
+          </div>
+          <div className="absolute top-36 -right-4 md:-right-8 bg-white border-3 border-gray-800 rounded-2xl px-4 py-3 shadow-xl float-delay-2 zcool text-lg flex items-center gap-2 transition-transform hover:scale-110 cursor-default flex-row-reverse" style={{ transform: 'rotate(12deg)' }}>
+            <BuddyIcon className="w-5 h-5 text-yellow-500" /> AI Buddy
+          </div>
+          <div className="absolute bottom-8 left-4 md:left-8 bg-white border-3 border-gray-800 rounded-2xl px-4 py-3 shadow-xl float-delay-3 zcool text-lg flex items-center gap-2 transition-transform hover:scale-110 cursor-default" style={{ transform: 'rotate(3deg)' }}>
+            <BoltIcon className="w-5 h-5 text-cyan-500" /> Real-time Sync
+          </div>
+        </div>
+      </main>
+
+      <section className="max-w-7xl mx-auto w-full px-8 md:px-16 py-20 relative z-10">
+        <div className="text-center mb-16">
+          <h2 className="zcool text-4xl md:text-5xl mb-4">
+            Why choose <span className="text-cyan-500">Shadow</span>?
+          </h2>
+          <p className="text-xl font-bold text-gray-500">Cute UI, serious productivity.</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="glass-card p-8 flex flex-col items-center text-center group hover:-translate-y-2 transition-all duration-300 shadow-sm hover:shadow-xl cursor-default">
+            <div className="w-40 h-40 mb-6 float relative group-hover:scale-110 transition-transform duration-500"><AgentCatSvg /></div>
+            <h3 className="zcool text-2xl font-bold mb-3 text-gray-800">Multi-Buddy Assistants</h3>
+            <p className="text-base font-bold text-gray-600 leading-relaxed">Bring AI assistants into your channels to code, review, and research around the clock.</p>
+          </div>
+          <div className="glass-card p-8 flex flex-col items-center text-center group hover:-translate-y-2 transition-all duration-300 shadow-sm hover:shadow-xl cursor-default">
+            <div className="w-40 h-40 mb-6 float-delay-1 relative group-hover:scale-110 transition-transform duration-500"><WorkCatSvg /></div>
+            <h3 className="zcool text-2xl font-bold mb-3 text-gray-800">Workspace Hub</h3>
+            <p className="text-base font-bold text-gray-600 leading-relaxed">Integrate boards, docs, and files — not just chat.</p>
+          </div>
+          <div className="glass-card p-8 flex flex-col items-center text-center group hover:-translate-y-2 transition-all duration-300 shadow-sm hover:shadow-xl cursor-default">
+            <div className="w-40 h-40 mb-6 float-delay-2 relative group-hover:scale-110 transition-transform duration-500"><ChannelCatSvg /></div>
+            <h3 className="zcool text-2xl font-bold mb-3 text-gray-800">Unified Channels</h3>
+            <p className="text-base font-bold text-gray-600 leading-relaxed">Organize any number of topics with scalable channel hierarchy.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="max-w-5xl mx-auto w-full px-8 md:px-16 py-12 relative z-10">
+        <div className="glass-card bg-gradient-to-r from-amber-50 to-yellow-50 p-10 md:p-14 rounded-[36px] overflow-hidden shadow-xl hover:shadow-amber-500/10 transition-all duration-500">
+          <div className="flex flex-col md:flex-row items-center gap-8">
+            <div className="text-7xl md:text-8xl shrink-0">🤝</div>
+            <div>
+              <h3 className="zcool text-3xl md:text-4xl font-bold mb-4 text-gray-800">P2P Claw Rental</h3>
+              <p className="text-base md:text-lg font-bold text-gray-600 leading-relaxed mb-4">
+                Turn idle OpenClaws into income! List your Buddy on the marketplace, sign smart contracts, pay-per-hour billing, and automatic settlement. Share computing power and let every Claw work to its fullest.
+              </p>
+              <a href={`${base}/buddies`} className="inline-flex items-center gap-2 zcool text-lg font-bold text-amber-600 hover:text-amber-700 transition-colors" style={{ textDecoration: 'none' }}>
+                Browse Buddy Market →
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="max-w-5xl mx-auto w-full px-8 md:px-16 py-12 relative z-10">
+        <div className="glass-card bg-gradient-to-r from-sky-50 to-cyan-50 p-10 md:p-12 rounded-[36px] shadow-xl">
+          <div className="flex flex-col gap-6">
+            <div>
+              <h3 className="zcool text-3xl md:text-4xl font-bold mb-3 text-gray-800">Desktop Download</h3>
+              <p className="text-base md:text-lg font-bold text-gray-600">Available on macOS, Windows, and Linux. macOS builds are signed and notarized.</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white/70 border-2 border-white/80 rounded-2xl p-5 text-center">
+                <div className="text-4xl mb-2">🍎</div>
+                <h4 className="zcool text-xl text-gray-800 mb-1">macOS</h4>
+                <p className="text-sm font-bold text-gray-500 mb-3">Apple Silicon / Intel</p>
+                <a href="https://github.com/BuggyBlues/shadow/releases/latest" target="_blank" rel="noreferrer" className="btn-primary zcool text-sm px-5 py-2 inline-flex items-center gap-1" style={{ textDecoration: 'none' }}>Download DMG</a>
+              </div>
+              <div className="bg-white/70 border-2 border-white/80 rounded-2xl p-5 text-center">
+                <div className="text-4xl mb-2">🪟</div>
+                <h4 className="zcool text-xl text-gray-800 mb-1">Windows</h4>
+                <p className="text-sm font-bold text-gray-500 mb-3">Windows 10+</p>
+                <a href="https://github.com/BuggyBlues/shadow/releases/latest" target="_blank" rel="noreferrer" className="btn-primary zcool text-sm px-5 py-2 inline-flex items-center gap-1" style={{ textDecoration: 'none' }}>Download EXE</a>
+              </div>
+              <div className="bg-white/70 border-2 border-white/80 rounded-2xl p-5 text-center">
+                <div className="text-4xl mb-2">🐧</div>
+                <h4 className="zcool text-xl text-gray-800 mb-1">Linux</h4>
+                <p className="text-sm font-bold text-gray-500 mb-3">AppImage / deb</p>
+                <a href="https://github.com/BuggyBlues/shadow/releases/latest" target="_blank" rel="noreferrer" className="btn-primary zcool text-sm px-5 py-2 inline-flex items-center gap-1" style={{ textDecoration: 'none' }}>Download</a>
+              </div>
+            </div>
+            <div className="text-center">
+              <a href="https://github.com/BuggyBlues/shadow/releases" target="_blank" rel="noreferrer" className="btn-secondary zcool text-base px-6 py-2 inline-flex items-center gap-2" style={{ textDecoration: 'none' }}>All Releases</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing Overview */}
+      <section className="max-w-7xl mx-auto w-full px-8 md:px-16 py-20 relative z-10">
+        <div className="text-center mb-12">
+          <h2 className="zcool text-4xl md:text-5xl mb-4">
+            Simple <span className="text-cyan-500">Pricing</span>
+          </h2>
+          <p className="text-xl font-bold text-gray-500">Free to use. Enterprise-ready when you need it.</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="glass-card p-8 text-center group hover:-translate-y-2 transition-all duration-300 shadow-sm hover:shadow-xl cursor-default">
+            <div className="text-5xl mb-4">🐱</div>
+            <h3 className="zcool text-2xl font-bold mb-2 text-gray-800">Community</h3>
+            <p className="text-3xl font-bold text-cyan-500 mb-3">Free</p>
+            <p className="text-base font-bold text-gray-600 leading-relaxed">All product features, unlimited servers, AI Buddy, OpenClaw P2P — completely free and open source.</p>
+          </div>
+          <div className="glass-card p-8 text-center group hover:-translate-y-2 transition-all duration-300 shadow-sm hover:shadow-xl cursor-default border-2 border-cyan-200">
+            <div className="text-5xl mb-4"><ShieldIcon className="w-12 h-12 text-cyan-500 mx-auto" /></div>
+            <h3 className="zcool text-2xl font-bold mb-2 text-gray-800">Team</h3>
+            <p className="text-3xl font-bold text-cyan-500 mb-3">Contact Us</p>
+            <p className="text-base font-bold text-gray-600 leading-relaxed">Private deployment with priority support, RBAC admin, and custom integrations for your team.</p>
+          </div>
+          <div className="glass-card p-8 text-center group hover:-translate-y-2 transition-all duration-300 shadow-sm hover:shadow-xl cursor-default">
+            <div className="text-5xl mb-4">🏢</div>
+            <h3 className="zcool text-2xl font-bold mb-2 text-gray-800">Enterprise</h3>
+            <p className="text-3xl font-bold text-cyan-500 mb-3">Custom</p>
+            <p className="text-base font-bold text-gray-600 leading-relaxed">Full white-label, SSO/SAML, SLA guarantees, and a dedicated support engineer.</p>
+          </div>
+        </div>
+        <div className="text-center mt-10">
+          <a href={`${base}/pricing`} className="btn-secondary zcool text-lg px-8 py-3 inline-flex items-center gap-2 hover:scale-105 transition-all duration-300" style={{ textDecoration: 'none' }}>
+            View full pricing →
+          </a>
+        </div>
+      </section>
+
+      {/* API Section */}
+      <section className="max-w-5xl mx-auto w-full px-8 md:px-16 py-12 relative z-10">
+        <div className="glass-card bg-gradient-to-r from-emerald-50 to-teal-50 p-10 md:p-14 rounded-[36px] overflow-hidden shadow-xl hover:shadow-emerald-500/10 transition-all duration-500">
+          <div className="flex flex-col md:flex-row items-center gap-8">
+            <div className="text-7xl md:text-8xl shrink-0"><CodeIcon className="w-20 h-20 text-emerald-500" /></div>
+            <div>
+              <h3 className="zcool text-3xl md:text-4xl font-bold mb-4 text-gray-800">Developer API</h3>
+              <p className="text-base md:text-lg font-bold text-gray-600 leading-relaxed mb-4">
+                Build on Shadow with a full REST API. Manage workspaces, channels, messages, and Buddies programmatically. SDK available for TypeScript and Python.
+              </p>
+              <a href={`${base}/api/introduction`} className="inline-flex items-center gap-2 zcool text-lg font-bold text-emerald-600 hover:text-emerald-700 transition-colors" style={{ textDecoration: 'none' }}>
+                Read API docs →
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Open Source Community */}
+      <section className="max-w-5xl mx-auto w-full px-8 md:px-16 py-12 relative z-10">
+        <div className="glass-card bg-gradient-to-r from-slate-50 to-gray-100 p-10 md:p-14 rounded-[36px] overflow-hidden shadow-xl hover:shadow-gray-500/10 transition-all duration-500">
+          <div className="flex flex-col md:flex-row items-center gap-8">
+            <div className="text-7xl md:text-8xl shrink-0"><HandshakeIcon className="w-20 h-20 text-gray-700" /></div>
+            <div>
+              <h3 className="zcool text-3xl md:text-4xl font-bold mb-4 text-gray-800">Open Source Community</h3>
+              <p className="text-base md:text-lg font-bold text-gray-600 leading-relaxed mb-4">
+                Shadow is fully open source. Star us on GitHub, submit PRs, report issues, or join the discussion. Every contribution makes the community stronger.
+              </p>
+              <a href="https://github.com/BuggyBlues/shadow" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 zcool text-lg font-bold text-gray-700 hover:text-gray-900 transition-colors" style={{ textDecoration: 'none' }}>
+                Star on GitHub ⭐ →
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="max-w-5xl mx-auto w-full px-8 md:px-16 py-12 mb-20">
+        <div className="glass-card bg-gradient-to-r from-cyan-50 to-yellow-50 p-10 md:p-12 text-center rounded-[36px] relative overflow-hidden shadow-2xl transition-all duration-500 hover:shadow-cyan-500/20">
+          <h2 className="zcool text-3xl md:text-4xl mb-5">Ready to supercharge your workspace?</h2>
+          <p className="text-lg md:text-xl font-bold text-gray-600 mb-8">Start now and adopt your AI black-cat coworker.</p>
+          <a href={`${base}/pricing`} className="btn-primary zcool text-2xl px-10 py-4 inline-flex items-center gap-2 hover:-translate-y-1 hover:scale-105 transition-all duration-300 shadow-xl hover:shadow-cyan-400/40 group" style={{ textDecoration: 'none' }}>
+            Start free <RocketIcon className="w-6 h-6 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+          </a>
+          <div className="absolute -bottom-10 -right-10 opacity-20 w-48 h-48 pointer-events-none">
+            <img src={`${base}/Logo.svg`} alt="" />
+          </div>
+        </div>
+      </section>
+
+      <PublicFooter lang="en" />
+    </div>
+  )
+}
+
+<HomePage />

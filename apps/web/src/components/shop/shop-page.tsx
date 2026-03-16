@@ -248,7 +248,7 @@ export function ShopPage({ serverId, isAdmin, onClose }: ShopPageProps) {
               type="button"
               onClick={() =>
                 navigate({
-                  to: '/app/servers/$serverSlug/shop/admin',
+                  to: '/servers/$serverSlug/shop/admin',
                   params: { serverSlug: serverId },
                 })
               }

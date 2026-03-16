@@ -143,7 +143,7 @@ export function ProductDetail({
       setSupportMessage('')
       setSupportImages([])
       navigate({
-        to: '/app/servers/$serverSlug/channels/$channelId',
+        to: '/servers/$serverSlug/channels/$channelId',
         params: { serverSlug: serverId, channelId: res.channelId },
       })
       if (res.buddyUserId) {

@@ -1,15 +1,23 @@
+import path from 'node:path'
 import { defineConfig } from 'rspress/config'
+import remarkCodeGroup from './plugins/remarkCodeGroup'
 
 const BASE = process.env.DOCS_BASE ?? '/'
 
 export default defineConfig({
   root: 'docs',
   base: BASE,
-  title: 'Shadow API',
-  description: 'Shadow API Documentation — REST API, WebSocket events, and multi-language SDKs',
-  icon: '',
-  logo: '',
+  title: 'Shadow',
+  description:
+    'Shadow — AI-native community platform with Buddy collaboration, P2P rental, and shared workspace',
+  icon: '/Logo.svg',
+  logo: '/Logo.svg',
   lang: 'en',
+  markdown: {
+    mdxRs: false,
+    remarkPlugins: [remarkCodeGroup],
+    globalComponents: [path.join(__dirname, 'components/CodeGroup.tsx')],
+  },
   locales: [
     {
       lang: 'en',
@@ -22,29 +30,45 @@ export default defineConfig({
   ],
   themeConfig: {
     socialLinks: [
-      { icon: 'github', mode: 'link', content: 'https://github.com/anthropics/shadow' },
+      { icon: 'github', mode: 'link', content: 'https://github.com/BuggyBlues/shadow' },
     ],
     locales: [
       {
         lang: 'en',
         label: 'English',
         nav: [
-          { text: 'Guide', link: '/guide/introduction' },
-          { text: 'API Reference', link: '/api/auth' },
+          { text: 'Features', link: '/features' },
+          { text: 'Buddy Market', link: '/buddies' },
+          { text: 'Pricing', link: '/pricing' },
+          { text: 'API', link: '/api/introduction' },
         ],
         sidebar: {
-          '/guide/': [
+          '/product/': [
             {
-              text: 'Getting Started',
+              text: 'Product Docs',
               items: [
-                { text: 'Introduction', link: '/guide/introduction' },
-                { text: 'Authentication', link: '/guide/authentication' },
-                { text: 'SDKs', link: '/guide/sdks' },
-                { text: 'Errors', link: '/guide/errors' },
+                { text: 'Getting Started', link: '/product/' },
+                { text: 'Communities & Servers', link: '/product/communities' },
+                { text: 'Channels & Messages', link: '/product/channels' },
+                { text: 'AI Assistants', link: '/product/ai-assistants' },
+                { text: 'Community Shop', link: '/product/shop' },
+                { text: 'Buddy Rental', link: '/product/buddy-rental' },
+                { text: 'Shared Workspace', link: '/product/workspace' },
+                { text: 'OpenClaw Plugin', link: '/product/openclaw' },
+                { text: 'FAQ', link: '/product/faq' },
               ],
             },
           ],
           '/api/': [
+            {
+              text: 'Getting Started',
+              items: [
+                { text: 'Introduction', link: '/api/introduction' },
+                { text: 'Authentication', link: '/api/authentication' },
+                { text: 'SDKs', link: '/api/sdks' },
+                { text: 'Errors', link: '/api/errors' },
+              ],
+            },
             {
               text: 'Core',
               items: [
@@ -97,22 +121,38 @@ export default defineConfig({
         lang: 'zh',
         label: '中文',
         nav: [
-          { text: '指南', link: '/zh/guide/introduction' },
-          { text: 'API 参考', link: '/zh/api/auth' },
+          { text: '特色功能', link: '/zh/features' },
+          { text: 'Buddy 集市', link: '/zh/buddies' },
+          { text: '定价', link: '/zh/pricing' },
+          { text: 'API', link: '/zh/api/introduction' },
         ],
         sidebar: {
-          '/zh/guide/': [
+          '/zh/product/': [
             {
-              text: '快速开始',
+              text: '产品文档',
               items: [
-                { text: '简介', link: '/zh/guide/introduction' },
-                { text: '认证', link: '/zh/guide/authentication' },
-                { text: 'SDK', link: '/zh/guide/sdks' },
-                { text: '错误处理', link: '/zh/guide/errors' },
+                { text: '使用指南', link: '/zh/product/' },
+                { text: '社区与服务器', link: '/zh/product/communities' },
+                { text: '频道与消息', link: '/zh/product/channels' },
+                { text: 'AI 助手', link: '/zh/product/ai-assistants' },
+                { text: '社区店铺', link: '/zh/product/shop' },
+                { text: 'Buddy 租赁', link: '/zh/product/buddy-rental' },
+                { text: '共享工作区', link: '/zh/product/workspace' },
+                { text: 'OpenClaw 插件', link: '/zh/product/openclaw' },
+                { text: '常见问题', link: '/zh/product/faq' },
               ],
             },
           ],
           '/zh/api/': [
+            {
+              text: '快速开始',
+              items: [
+                { text: '简介', link: '/zh/api/introduction' },
+                { text: '认证', link: '/zh/api/authentication' },
+                { text: 'SDK', link: '/zh/api/sdks' },
+                { text: '错误处理', link: '/zh/api/errors' },
+              ],
+            },
             {
               text: '核心',
               items: [

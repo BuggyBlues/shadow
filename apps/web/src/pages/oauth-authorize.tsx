@@ -88,7 +88,7 @@ export function OAuthAuthorizePage() {
       }
       window.location.href = url.toString()
     } else {
-      navigate({ to: '/app' })
+      navigate({ to: '/' })
     }
   }
 

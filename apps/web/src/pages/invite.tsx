@@ -48,7 +48,7 @@ export function InvitePage() {
       }),
     onSuccess: (data) => {
       navigate({
-        to: '/app/servers/$serverSlug',
+        to: '/servers/$serverSlug',
         params: { serverSlug: (data as { slug?: string; id: string }).slug ?? data.id },
       })
     },
@@ -57,7 +57,7 @@ export function InvitePage() {
       if (status === 409 && serverInfo) {
         // Already a member, just navigate to the server
         navigate({
-          to: '/app/servers/$serverSlug',
+          to: '/servers/$serverSlug',
           params: { serverSlug: serverInfo.slug ?? serverInfo.id },
         })
       } else if (status === 401) {
@@ -111,7 +111,7 @@ export function InvitePage() {
           <p className="text-[#f23f43] text-sm mb-4">{error ?? t('invite.invalidCode')}</p>
           <button
             type="button"
-            onClick={() => navigate({ to: '/app' })}
+            onClick={() => navigate({ to: '/' })}
             className="px-4 py-2 bg-bg-secondary hover:bg-bg-modifier-hover text-text-primary rounded-lg transition"
           >
             {t('common.back')}

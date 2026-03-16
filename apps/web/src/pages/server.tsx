@@ -44,7 +44,7 @@ export function ServerLayout() {
   useEffect(() => {
     if (server?.slug && serverSlug !== server.slug) {
       navigate({
-        to: '/app/servers/$serverSlug',
+        to: '/servers/$serverSlug',
         params: { serverSlug: server.slug },
         replace: true,
       })

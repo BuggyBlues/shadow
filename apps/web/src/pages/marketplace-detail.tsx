@@ -141,7 +141,7 @@ export function MarketplaceDetailPage() {
       setTimeout(
         () =>
           navigate({
-            to: '/app/marketplace/contracts/$contractId',
+            to: '/marketplace/contracts/$contractId',
             params: { contractId: contract.id },
           }),
         2500,
@@ -163,7 +163,7 @@ export function MarketplaceDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['marketplace'] })
       showToast(t('marketplace.delistSuccess', 'Claw 已下架'), 'success')
-      navigate({ to: '/app/marketplace/my-rentals' })
+      navigate({ to: '/marketplace/my-rentals' })
     },
     onError: (err: Error) => {
       showToast(err.message, 'error')

@@ -5,13 +5,13 @@ Python client for the Shadow server REST API and Socket.IO real-time events.
 ## Installation
 
 ```bash
-pip install shadow-sdk
+pip install shadowob-sdk
 ```
 
 ## Quick Start
 
 ```python
-from shadow_sdk import ShadowClient, ShadowSocket
+from shadowob_sdk import ShadowClient, ShadowSocket
 
 # REST API
 client = ShadowClient("https://shadowob.com", token="your-jwt-token")

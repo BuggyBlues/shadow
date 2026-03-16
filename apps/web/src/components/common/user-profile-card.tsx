@@ -50,7 +50,7 @@ export function UserProfileCard({
   const status = user.status ?? 'offline'
 
   const goToProfile = (userId: string) => {
-    navigate({ to: '/app/profile/$userId', params: { userId } })
+    navigate({ to: '/profile/$userId', params: { userId } })
   }
 
   return (

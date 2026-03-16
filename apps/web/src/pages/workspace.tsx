@@ -39,13 +39,13 @@ export function WorkspacePageRoute() {
   ) : (
     <WorkspacePage
       serverId={serverSlug}
-      onClose={() => navigate({ to: '/app/servers/$serverSlug', params: { serverSlug } })}
+      onClose={() => navigate({ to: '/servers/$serverSlug', params: { serverSlug } })}
       onPublishAsApp={(node) => {
         const { setPublishFile, setOverlay, setEditingApp } = useAppStore.getState()
         setEditingApp(null)
         setPublishFile(node.id, node.name)
         setOverlay('create')
-        navigate({ to: '/app/servers/$serverSlug/apps', params: { serverSlug } })
+        navigate({ to: '/servers/$serverSlug/apps', params: { serverSlug } })
       }}
     />
   )

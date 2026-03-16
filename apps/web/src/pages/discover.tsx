@@ -61,7 +61,7 @@ export function DiscoverPage() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['servers'] })
       navigate({
-        to: '/app/servers/$serverSlug',
+        to: '/servers/$serverSlug',
         params: { serverSlug: (data as { slug?: string; id: string }).slug ?? data.id },
       })
     },
@@ -72,7 +72,7 @@ export function DiscoverPage() {
         queryClient.invalidateQueries({ queryKey: ['servers'] })
         const srv = servers.find((s) => s.id === variables.serverId)
         navigate({
-          to: '/app/servers/$serverSlug',
+          to: '/servers/$serverSlug',
           params: { serverSlug: srv?.slug ?? variables.serverId },
         })
       }
@@ -129,7 +129,7 @@ export function DiscoverPage() {
                   onClick={() => {
                     if (isJoined) {
                       navigate({
-                        to: '/app/servers/$serverSlug',
+                        to: '/servers/$serverSlug',
                         params: { serverSlug: server.slug ?? server.id },
                       })
                     }
@@ -204,7 +204,7 @@ export function DiscoverPage() {
                           onClick={(e) => {
                             e.stopPropagation()
                             navigate({
-                              to: '/app/servers/$serverSlug',
+                              to: '/servers/$serverSlug',
                               params: { serverSlug: server.slug ?? server.id },
                             })
                           }}

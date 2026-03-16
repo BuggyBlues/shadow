@@ -15,13 +15,13 @@ COPY packages/ packages/
 COPY apps/web/ apps/web/
 COPY website/ website/
 
-RUN DOCS_BASE=/docs/ pnpm --filter @shadowob/website build
+RUN pnpm --filter @shadowob/website build
 RUN pnpm --filter @shadowob/web build
 
 # ── Serve stage ─────────────────────────────────────
 FROM nginx:alpine AS runner
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
-COPY --from=builder /app/website/doc_build /usr/share/nginx/html/docs
+COPY --from=builder /app/website/doc_build /usr/share/nginx/html
+COPY --from=builder /app/apps/web/dist /usr/share/nginx/html/app
 EXPOSE 3000
 CMD ["nginx", "-g", "daemon off;"]

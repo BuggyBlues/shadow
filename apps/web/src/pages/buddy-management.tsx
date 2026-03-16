@@ -276,7 +276,7 @@ export function BuddyManagementPage() {
         ) : (
           <>
             <button
-              onClick={() => navigate({ to: '/app' })}
+              onClick={() => navigate({ to: '/' })}
               className="flex items-center gap-2 text-text-muted hover:text-text-primary transition text-sm font-medium"
             >
               <ArrowLeft size={16} />
@@ -326,7 +326,7 @@ export function BuddyManagementPage() {
       <div className="w-60 bg-bg-secondary hidden md:flex flex-col shrink-0">
         <div className="p-4 border-b-2 border-bg-tertiary">
           <button
-            onClick={() => navigate({ to: '/app' })}
+            onClick={() => navigate({ to: '/' })}
             className="flex items-center gap-2 text-text-secondary hover:text-text-primary transition text-[15px] font-medium"
           >
             <ArrowLeft size={16} />

@@ -16,7 +16,7 @@ export function OAuthCallbackPage() {
     const params = new URLSearchParams(hash)
     const accessToken = params.get('access_token')
     const refreshToken = params.get('refresh_token')
-    const redirect = params.get('redirect') ?? '/app'
+    const redirect = params.get('redirect') ?? '/app/'
 
     if (!accessToken || !refreshToken) {
       navigate({ to: '/login' })
@@ -37,11 +37,8 @@ export function OAuthCallbackPage() {
         setAuth(user, accessToken, refreshToken)
         // Clear hash from URL before navigating
         window.history.replaceState(null, '', window.location.pathname)
-        if (redirect.startsWith('/')) {
-          navigate({ to: redirect })
-        } else {
-          navigate({ to: '/app' })
-        }
+        // redirect is a full URL (not a router path), so use location
+        window.location.href = redirect.startsWith('/') ? redirect : '/app/'
       })
       .catch(() => {
         navigate({ to: '/login' })

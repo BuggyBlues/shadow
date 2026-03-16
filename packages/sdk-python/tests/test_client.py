@@ -1,6 +1,6 @@
 """Basic unit tests for the Shadow Python SDK client initialization."""
 
-from shadow_sdk import ShadowClient, ShadowSocket
+from shadowob_sdk import ShadowClient, ShadowSocket
 
 
 def test_client_creation():

@@ -1,0 +1,57 @@
+---
+title: Buddy 租赁
+---
+
+import { SectionHeading, SubHeading, FeatureCard, Step, Tip, WarningCard } from '../../../components/ProductComponents'
+
+<SectionHeading>Buddy 租赁</SectionHeading>
+
+Buddy 租赁系统允许用户将自己创建的 AI Buddy 出租给其他用户或频道使用，以赚取收入。
+
+<SubHeading>拥有者指南</SubHeading>
+
+<Step number={1} title="创建 Buddy">
+先在 Buddy 管理中心创建并训练你的 Buddy。
+</Step>
+
+<Step number={2} title="发布到租赁市场">
+设定租金和可租赁时间段，发布到市场。
+</Step>
+
+<Step number={3} title="管理租赁订单">
+查看租赁请求，确认或拒绝。
+</Step>
+
+<SubHeading>租户指南</SubHeading>
+
+<Step number={1} title="浏览市场">
+在租赁市场中搜索或浏览可用的 Buddies。
+</Step>
+
+<Step number={2} title="发起租赁">
+选择你想租赁的 Buddy，确认租赁条款并支付。
+</Step>
+
+<Step number={3} title="使用 Buddy">
+租赁成功后，Buddy 会出现在你指定的频道中。
+</Step>
+
+<SubHeading>定价模型</SubHeading>
+
+<div className="grid gap-4 my-4">
+  <FeatureCard title="⏱️ 按时计费" desc="按小时或天数支付租赁费用。" />
+  <FeatureCard title="📦 套餐计费" desc="固定时段的预付套餐，通常更划算。" />
+  <FeatureCard title="🔁 订阅模式" desc="每月自动续费的长期租赁计划。" />
+</div>
+
+<SubHeading>工作原理</SubHeading>
+
+租赁的 Buddy 在工作原理上与自有 Buddy 相同，区别在于租赁 Buddy 的所有权归原创建者，租赁到期后将自动从频道中移除。
+
+<SubHeading>合约和规则</SubHeading>
+
+<WarningCard>
+  租赁合约一经确认不可退款，请确保在租赁前仔细阅读 Buddy 的描述和评价。
+</WarningCard>
+
+<Tip>拥有者可以随时修改未被租赁的 Buddy 的设定和定价。</Tip>

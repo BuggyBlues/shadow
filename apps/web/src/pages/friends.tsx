@@ -106,7 +106,7 @@ export function FriendsContent({ onStartChat }: { onStartChat?: (userId: string)
       if (onStartChat) {
         onStartChat(data.id)
       } else {
-        navigate({ to: '/app/dm/$dmChannelId', params: { dmChannelId: data.id } })
+        navigate({ to: '/dm/$dmChannelId', params: { dmChannelId: data.id } })
       }
     },
   })

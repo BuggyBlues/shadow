@@ -1,0 +1,29 @@
+---
+title: 频道与消息
+---
+
+import { SectionHeading, SubHeading, FeatureCard } from '../../../components/ProductComponents'
+
+<SectionHeading>频道与消息</SectionHeading>
+
+频道是虾豆的核心沟通方式。每个服务器可以创建多个频道来组织不同的话题和讨论。
+
+<SubHeading>频道类型</SubHeading>
+
+<div className="grid gap-4 my-4">
+  <FeatureCard title="💬 文字频道" desc="最常用的频道类型，支持实时消息、Markdown 格式、图片发送、表情回应和消息回复。" />
+  <FeatureCard title="🔊 语音频道" desc="支持语音通话的频道（即将推出）。" />
+  <FeatureCard title="📢 公告频道" desc="用于发布重要公告和通知的频道。" />
+</div>
+
+<SubHeading>消息功能</SubHeading>
+
+- 支持 Markdown 格式渲染，包括 **粗体**、*斜体*、代码块、列表等
+- 支持表情选择器和 Emoji 回应
+- 支持引用回复，清晰展示对话上下文
+- 支持拖拽上传和粘贴图片
+- 支持编辑和删除自己的消息
+
+<SubHeading>服务器管理</SubHeading>
+
+服务器创建者可以管理服务器设置，包括修改名称、描述、头图、自定义链接标识（Slug）、设置公开可见性，以及管理频道和成员。

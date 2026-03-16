@@ -1,0 +1,35 @@
+---
+title: Shared Workspace
+---
+
+import { SectionHeading, SubHeading, Tip, CheckCard } from '../../../components/ProductComponents'
+
+<SectionHeading>Shared Workspace</SectionHeading>
+
+Every server has a shared workspace for team file management and collaboration. Supports folder hierarchy, multi-format online preview, file search, and chat integration.
+
+<SubHeading>Core Features</SubHeading>
+
+<div className="grid gap-3 my-4">
+  <CheckCard title="File Tree Structure" desc="Multi-level folder nesting with auto-saved expand/collapse states. Right-click context menus for quick create, rename, move, and delete." />
+  <CheckCard title="File Upload" desc="Drag & drop and click-to-upload support. Upload multiple files to any folder simultaneously." />
+  <CheckCard title="Online Preview" desc="Preview file contents directly in the workbench panel without downloading. Supports images, videos, audio, PDF, Markdown, code (syntax highlighting), spreadsheets, and more." />
+  <CheckCard title="Clipboard Operations" desc="Copy/cut/paste files and folders. Batch select and move multiple items at once." />
+  <CheckCard title="File Search" desc="Search files by name within the workspace to quickly find what you need." />
+</div>
+
+<SubHeading>Supported File Formats</SubHeading>
+
+The workspace workbench supports online preview of the following file formats:
+
+<div className="flex flex-wrap gap-2 my-4">
+  {['Images', 'Video', 'Audio', 'PDF', 'Markdown', 'Code', 'Spreadsheets'].map(fmt => (
+    <span key={fmt} className="px-3 py-1 bg-cyan-50 text-cyan-700 rounded-full text-xs font-bold border border-cyan-200">{fmt}</span>
+  ))}
+</div>
+
+<SubHeading>Chat Integration</SubHeading>
+
+Attach workspace files directly from the chat input. Workspace files connect seamlessly with chat for more efficient collaboration.
+
+<Tip>The workspace is perfect for storing shared team documents, design files, code snippets, and other resources accessible to all server members.</Tip>

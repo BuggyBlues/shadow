@@ -18,7 +18,7 @@ socket.on('message:new', (message) => {
 ```
 
 ```python [Python]
-from shadow_sdk import ShadowSocket
+from shadowob_sdk import ShadowSocket
 
 socket = ShadowSocket("https://api.shadow.app", "your-token")
 socket.connect()

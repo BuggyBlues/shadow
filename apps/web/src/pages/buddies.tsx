@@ -199,12 +199,12 @@ export function BuddyMarketPage() {
     try {
       const agents = await fetchApi<{ id: string }[]>('/api/agents')
       if (!agents || agents.length === 0) {
-        navigate({ to: '/app/buddies' })
+        navigate({ to: '/buddies' })
       } else {
-        navigate({ to: '/app/marketplace/create' })
+        navigate({ to: '/marketplace/create' })
       }
     } catch {
-      navigate({ to: '/app/marketplace/create' })
+      navigate({ to: '/marketplace/create' })
     } finally {
       setListMyClawLoading(false)
     }

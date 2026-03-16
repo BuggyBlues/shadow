@@ -57,7 +57,7 @@ const indexRoute = createRoute({
   }),
   beforeLoad: ({ search }) => {
     if (useAuthStore.getState().isAuthenticated && !search.forceHome) {
-      throw redirect({ to: '/app' })
+      throw redirect({ to: '/settings' })
     }
   },
 })
@@ -68,7 +68,7 @@ const loginRoute = createRoute({
   component: LoginPage,
   beforeLoad: () => {
     if (useAuthStore.getState().isAuthenticated) {
-      throw redirect({ to: '/app' })
+      throw redirect({ to: '/settings' })
     }
   },
 })
@@ -79,7 +79,7 @@ const registerRoute = createRoute({
   component: RegisterPage,
   beforeLoad: () => {
     if (useAuthStore.getState().isAuthenticated) {
-      throw redirect({ to: '/app' })
+      throw redirect({ to: '/settings' })
     }
   },
 })
@@ -149,25 +149,16 @@ const oauthAuthorizeRoute = createRoute({
   },
 })
 
-// Authenticated layout route
+// Authenticated layout route (pathless — basepath '/app' provides the URL prefix)
 const appRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/app',
+  id: 'authenticated',
   component: AppLayout,
   beforeLoad: () => {
     if (!useAuthStore.getState().isAuthenticated) {
       throw redirect({ to: '/login' })
     }
   },
-})
-
-const appIndexRoute = createRoute({
-  getParentRoute: () => appRoute,
-  path: '/',
-  beforeLoad: () => {
-    throw redirect({ to: '/app/settings' })
-  },
-  component: () => null,
 })
 
 // --- Server layout with nested child routes ---
@@ -300,7 +291,6 @@ const routeTree = rootRoute.addChildren([
   oauthAuthorizeRoute,
   serverHomeRoute,
   appRoute.addChildren([
-    appIndexRoute,
     serverLayoutRoute.addChildren([
       serverIndexRoute,
       channelRoute,
@@ -322,7 +312,7 @@ const routeTree = rootRoute.addChildren([
   ]),
 ])
 
-const router = createRouter({ routeTree })
+const router = createRouter({ routeTree, basepath: '/app' })
 
 // Render
 const root = document.getElementById('root')

@@ -234,7 +234,7 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
       setShowServerEdit(false)
       // Redirect to slug-based URL if slug changed
       if (updatedServer.slug !== serverSlug) {
-        navigate({ to: '/app/servers/$serverSlug', params: { serverSlug: updatedServer.slug } })
+        navigate({ to: '/servers/$serverSlug', params: { serverSlug: updatedServer.slug } })
       }
     },
   })
@@ -243,7 +243,7 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
     mutationFn: () => fetchApi(`/api/servers/${serverSlug}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['servers'] })
-      navigate({ to: '/app' })
+      navigate({ to: '/' })
     },
   })
 
@@ -322,7 +322,7 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
           // No channels left — go to server home
           setActiveChannel(null)
           navigate({
-            to: '/app/servers/$serverSlug',
+            to: '/servers/$serverSlug',
             params: { serverSlug: server?.slug ?? serverSlug },
           })
         }
@@ -374,7 +374,7 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
       setMobileView('chat')
       // Navigate to channel URL using channel ID
       navigate({
-        to: '/app/servers/$serverSlug/channels/$channelId',
+        to: '/servers/$serverSlug/channels/$channelId',
         params: { serverSlug: server?.slug ?? serverSlug, channelId },
       })
     },
@@ -578,7 +578,7 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
           type="button"
           onClick={() => {
             navigate({
-              to: '/app/servers/$serverSlug',
+              to: '/servers/$serverSlug',
               params: { serverSlug: server?.slug ?? serverSlug },
             })
             requestMarkScopeRead({ serverId: server?.id ?? serverSlug })
@@ -600,7 +600,7 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
           type="button"
           onClick={() => {
             navigate({
-              to: '/app/servers/$serverSlug/shop',
+              to: '/servers/$serverSlug/shop',
               params: { serverSlug: server?.slug ?? serverSlug },
             })
             requestMarkScopeRead({ serverId: server?.id ?? serverSlug })
@@ -622,7 +622,7 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
           type="button"
           onClick={() => {
             navigate({
-              to: '/app/servers/$serverSlug/workspace',
+              to: '/servers/$serverSlug/workspace',
               params: { serverSlug: server?.slug ?? serverSlug },
             })
             requestMarkScopeRead({ serverId: server?.id ?? serverSlug })
@@ -648,7 +648,7 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
           type="button"
           onClick={() => {
             navigate({
-              to: '/app/servers/$serverSlug/apps',
+              to: '/servers/$serverSlug/apps',
               params: { serverSlug: server?.slug ?? serverSlug },
             })
             requestMarkScopeRead({ serverId: server?.id ?? serverSlug })

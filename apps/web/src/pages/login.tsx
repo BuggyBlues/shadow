@@ -48,7 +48,7 @@ export function LoginPage() {
       if (redirectTo && redirectTo.startsWith('/')) {
         navigate({ to: redirectTo })
       } else {
-        navigate({ to: '/app' })
+        navigate({ to: '/' })
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : t('auth.loginFailed'))

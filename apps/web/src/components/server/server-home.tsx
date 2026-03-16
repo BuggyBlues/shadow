@@ -370,7 +370,7 @@ export function ServerHome({ serverId: propServerId, standalone }: ServerHomePro
           : channels?.[0]
         if (targetChannel && server) {
           void navigate({
-            to: '/app/servers/$serverSlug/channels/$channelId',
+            to: '/servers/$serverSlug/channels/$channelId',
             params: { serverSlug: server.slug || server.id, channelId: targetChannel.id },
           })
         }
@@ -485,7 +485,7 @@ document.addEventListener('click', function(e) {
               type="button"
               onClick={() => {
                 const slug = server.slug || server.id
-                navigate({ to: '/app/servers/$serverSlug', params: { serverSlug: slug } })
+                navigate({ to: '/servers/$serverSlug', params: { serverSlug: slug } })
               }}
               className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-modifier-hover rounded-lg transition"
               title={t('serverHome.backToServer')}

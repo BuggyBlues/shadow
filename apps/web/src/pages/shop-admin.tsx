@@ -19,14 +19,14 @@ export function ShopAdminPageRoute() {
 
   // Non-admins get redirected back to shop
   if (server && !isAdmin) {
-    navigate({ to: '/app/servers/$serverSlug/shop', params: { serverSlug } })
+    navigate({ to: '/servers/$serverSlug/shop', params: { serverSlug } })
     return null
   }
 
   return (
     <ShopAdmin
       serverId={serverSlug}
-      onBack={() => navigate({ to: '/app/servers/$serverSlug/shop', params: { serverSlug } })}
+      onBack={() => navigate({ to: '/servers/$serverSlug/shop', params: { serverSlug } })}
     />
   )
 }

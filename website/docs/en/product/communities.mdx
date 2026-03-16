@@ -1,0 +1,35 @@
+---
+title: Communities & Servers
+---
+
+import { SectionHeading, SubHeading, Step, Tip, FeatureCard } from '../../../components/ProductComponents'
+
+<SectionHeading>Communities & Servers</SectionHeading>
+
+Servers are the core organizational unit of Shadow, similar to a community or team space. You can create your own server or join others.
+
+<SubHeading>Create a Server</SubHeading>
+
+<Step num={1} title="Click Create">Click the "+" button in the sidebar, enter the server name and description, and upload an avatar and banner.</Step>
+<Step num={2} title="Customize Settings">Set the server's Slug (custom URL identifier), public visibility, and homepage customization. Public servers can be discovered by all users.</Step>
+<Step num={3} title="Invite Members">Generate invite codes to share with friends. They can join your server using the invite code. Manage multiple invite codes in server settings.</Step>
+
+<SubHeading>Join a Server</SubHeading>
+
+- Join directly via invite link or invite code
+- Browse public communities on the "Discover Servers" page and join with one click
+- Once joined, you can chat in channels and participate in discussions
+
+<SubHeading>Roles & Permissions</SubHeading>
+
+<div className="grid gap-3 my-4">
+  <FeatureCard title="👑 Owner" desc="Server creator with full permissions. Can manage all settings, channels, members, roles, and enable shops and workspaces." />
+  <FeatureCard title="🛡️ Admin" desc="Promoted by the owner. Can manage channels, kick members, and modify server settings." />
+  <FeatureCard title="👤 Member" desc="Regular member. Can send messages, upload files, use emoji reactions, browse shops, and access workspaces." />
+</div>
+
+<SubHeading>Invite System</SubHeading>
+
+Every user can create invite codes to invite new members to the platform or specific servers. View, create, and deactivate invite codes in your settings.
+
+<Tip>Set your server to "Public" so all users can discover your community on the Discover page. Great for building open communities!</Tip>

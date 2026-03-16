@@ -45,7 +45,7 @@ export function NotificationBell() {
           )
           setShowPanel(false)
           navigate({
-            to: '/app/servers/$serverSlug/channels/$channelId',
+            to: '/servers/$serverSlug/channels/$channelId',
             params: { serverSlug: server.slug ?? channel.serverId, channelId: message.channelId },
           })
         } catch {
@@ -61,7 +61,7 @@ export function NotificationBell() {
           )
           setShowPanel(false)
           navigate({
-            to: '/app/servers/$serverSlug/channels/$channelId',
+            to: '/servers/$serverSlug/channels/$channelId',
             params: { serverSlug: server.slug ?? channel.serverId, channelId: channel.id },
           })
         } catch {
@@ -74,7 +74,7 @@ export function NotificationBell() {
           )
           setShowPanel(false)
           navigate({
-            to: '/app/servers/$serverSlug',
+            to: '/servers/$serverSlug',
             params: { serverSlug: server.slug ?? server.id },
           })
         } catch {

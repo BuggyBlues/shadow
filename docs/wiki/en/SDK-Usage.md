@@ -62,18 +62,18 @@ client.channels.join("channel-uuid")
 
 ---
 
-## Python SDK (`shadow-sdk`)
+## Python SDK (`shadowob-sdk`)
 
 ### Installation
 
 ```bash
-pip install shadow-sdk
+pip install shadowob-sdk
 ```
 
 ### Quick Start
 
 ```python
-from shadow_sdk import ShadowClient
+from shadowob_sdk import ShadowClient
 
 client = ShadowClient(base_url="https://shadowob.com")
 
@@ -94,7 +94,7 @@ client.messages.send(
 
 ```python
 import asyncio
-from shadow_sdk import ShadowRealtimeClient
+from shadowob_sdk import ShadowRealtimeClient
 
 async def main():
     rt = ShadowRealtimeClient(base_url="https://shadowob.com", token="your-jwt")

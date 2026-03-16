@@ -157,7 +157,7 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['servers'] })
       setContextMenu(null)
-      navigate({ to: '/app' })
+      navigate({ to: '/' })
     },
   })
 
@@ -176,11 +176,11 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
     const lastChannelId = getLastChannelId(serverId)
     if (lastChannelId) {
       navigate({
-        to: '/app/servers/$serverSlug/channels/$channelId',
+        to: '/servers/$serverSlug/channels/$channelId',
         params: { serverSlug, channelId: lastChannelId },
       })
     } else {
-      navigate({ to: '/app/servers/$serverSlug', params: { serverSlug } })
+      navigate({ to: '/servers/$serverSlug', params: { serverSlug } })
     }
     requestMarkScopeRead({ serverId })
     onNavigate?.()
@@ -191,7 +191,7 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
       {/* User avatar → settings/profile */}
       <div className="relative group/user shrink-0">
         <button
-          onClick={() => navigate({ to: '/app/settings' })}
+          onClick={() => navigate({ to: '/settings' })}
           className="w-12 h-12 rounded-full bg-bg-primary hover:ring-2 hover:ring-primary/60 transition-all duration-200 flex items-center justify-center overflow-hidden"
           title={user?.displayName || user?.username || t('settings.tabProfile')}
         >
@@ -266,7 +266,7 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
 
         {/* Discover servers */}
         <button
-          onClick={() => navigate({ to: '/app/discover' })}
+          onClick={() => navigate({ to: '/discover' })}
           className="w-12 h-12 rounded-[24px] hover:rounded-[16px] bg-bg-primary hover:bg-[#23a559] transition-all duration-200 flex items-center justify-center text-[#23a559] hover:text-white"
           title={t('server.discover')}
         >

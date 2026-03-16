@@ -1,0 +1,9 @@
+FROM mcr.microsoft.com/playwright:v1.52.0-jammy
+
+RUN corepack enable && corepack prepare pnpm@10.19.0 --activate
+
+WORKDIR /workspace
+
+COPY . .
+
+RUN pnpm install --frozen-lockfile --ignore-scripts

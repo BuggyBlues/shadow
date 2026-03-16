@@ -186,7 +186,7 @@ export function DmChatPage() {
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border-subtle bg-bg-primary shrink-0 shadow-sm">
         <button
-          onClick={() => navigate({ to: '/app/settings' })}
+          onClick={() => navigate({ to: '/settings' })}
           className="md:hidden w-8 h-8 rounded-full hover:bg-bg-modifier-hover flex items-center justify-center text-text-secondary"
         >
           <ArrowLeft size={18} />

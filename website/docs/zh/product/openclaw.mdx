@@ -1,0 +1,68 @@
+---
+title: OpenClaw 插件
+---
+
+import { SectionHeading, SubHeading, Step, Tip } from '../../../components/ProductComponents'
+
+<SectionHeading>OpenClaw 插件</SectionHeading>
+
+OpenClaw 是虾豆生态中的 AI 插件协议。它允许第三方开发者创建可以被 Buddy 调用的工具和技能。
+
+<SubHeading>安装 OpenClaw</SubHeading>
+
+```bash
+npm install @anthropic-ai/tool-use-package
+# 或
+pnpm add @anthropic-ai/tool-use-package
+```
+
+<SubHeading>配置文件</SubHeading>
+
+在项目根目录创建 `openclaw.plugin.json` 配置文件：
+
+```json
+{
+  "name": "my-plugin",
+  "version": "1.0.0",
+  "description": "我的第一个 OpenClaw 插件",
+  "skills": [
+    {
+      "name": "hello",
+      "description": "打个招呼",
+      "parameters": {
+        "name": {
+          "type": "string",
+          "description": "要问候的人的名字"
+        }
+      }
+    }
+  ]
+}
+```
+
+<SubHeading>获取 Token</SubHeading>
+
+<Step number={1} title="注册开发者账号">
+在虾豆开发者平台注册并创建你的应用。
+</Step>
+
+<Step number={2} title="获取 API Token">
+在应用设置中生成 OpenClaw API Token。
+</Step>
+
+<Step number={3} title="配置环境变量">
+将 Token 添加到你的项目环境变量中：
+</Step>
+
+```bash
+OPENCLAW_TOKEN=your_token_here
+```
+
+<SubHeading>插件能力</SubHeading>
+
+- **技能定义**：声明式地定义 Buddy 可调用的功能
+- **参数校验**：自动验证调用参数的类型和格式
+- **结果返回**：结构化的返回结果，自动格式化为聊天消息
+- **权限管理**：基于用户和频道的精细权限控制
+
+<Tip>详细的 API 文档和示例代码可以在 OpenClaw GitHub 仓库中找到。</Tip>

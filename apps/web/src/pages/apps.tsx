@@ -42,7 +42,7 @@ export function AppPageRoute() {
     <AppPage
       serverId={serverSlug}
       isAdmin={isAdmin}
-      onClose={() => navigate({ to: '/app/servers/$serverSlug', params: { serverSlug } })}
+      onClose={() => navigate({ to: '/servers/$serverSlug', params: { serverSlug } })}
     />
   )
 }

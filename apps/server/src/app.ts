@@ -51,6 +51,16 @@ export function createApp(container: AppContainer) {
   // Health check
   app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }))
 
+  // Public endpoint for homepage / Buddy Market (no auth required)
+  app.get('/api/public/marketplace', async (c) => {
+    const rentalService = container.resolve('rentalService')
+    const result = await rentalService.browseListings({
+      sortBy: 'popular',
+      limit: 20,
+    })
+    return c.json(result)
+  })
+
   // API routes
   app.route('/api/auth', createAuthHandler(container))
   app.route('/api/oauth', createOAuthHandler(container))

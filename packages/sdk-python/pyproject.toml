@@ -3,8 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "shadow-sdk"
-version = "0.1.0"
+name = "shadowob-sdk"
+version = "0.2.2"
 description = "Shadow SDK — Python client for Shadow server REST API and Socket.IO real-time events"
 readme = "README.md"
 license = "MIT"

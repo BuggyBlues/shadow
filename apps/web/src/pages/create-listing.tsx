@@ -171,7 +171,7 @@ export function CreateListingPage() {
       )
       useMarketplaceStore.getState().setRentalsTab('renting-out')
       useMarketplaceStore.getState().setRentalsSubTab('listings')
-      navigate({ to: '/app/marketplace/my-rentals' })
+      navigate({ to: '/marketplace/my-rentals' })
     },
     onError: (err: Error) => showToast(err.message, 'error'),
   })

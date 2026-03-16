@@ -1,0 +1,53 @@
+---
+title: 社区店铺
+---
+
+import { SectionHeading, SubHeading, FeatureCard, Step, Tip } from '../../../components/ProductComponents'
+
+<SectionHeading>社区店铺</SectionHeading>
+
+社区店铺让服务器可以托管自己的数字商城，支持出售数字商品、会员资格等。
+
+<SubHeading>买家指南</SubHeading>
+
+<Step number={1} title="进入店铺">
+在服务器侧边栏中点击"店铺"入口。
+</Step>
+
+<Step number={2} title="浏览商品">
+你可以查看商品列表、搜索商品或按分类筛选。
+</Step>
+
+<Step number={3} title="下单购买">
+选择商品后点击购买，确认信息并完成支付。
+</Step>
+
+<SubHeading>卖家指南</SubHeading>
+
+<Step number={1} title="创建店铺">
+在你的服务器设置中启用店铺功能。
+</Step>
+
+<Step number={2} title="上架商品">
+填写商品标题、描述、价格和图片后发布即可。
+</Step>
+
+<Step number={3} title="管理订单">
+在店铺后台查看和管理订单状态。
+</Step>
+
+<SubHeading>商品类型</SubHeading>
+
+<div className="grid gap-4 my-4">
+  <FeatureCard title="📦 数字商品" desc="可交付的数字文件或内容，如模板、教程、素材等。" />
+  <FeatureCard title="🎫 会员资格" desc="限时访问权限或专属内容解锁。" />
+  <FeatureCard title="🎨 定制服务" desc="一对一的定制化服务或咨询。" />
+</div>
+
+<SubHeading>钱包与收入</SubHeading>
+
+<Tip>所有交易通过虾豆内置钱包系统完成，支持提现到外部账户。</Tip>
+
+<SubHeading>评价系统</SubHeading>
+
+买家可以在完成交易后给商品留下评价和星级评分，帮助其他用户了解商品质量。

@@ -16,7 +16,7 @@ shadow/
 │   ├── shared/              # @shadowob/shared — types, constants, utils
 │   ├── ui/                  # @shadowob/ui — reusable UI components
 │   ├── sdk/                 # @shadowob/sdk — typed REST + Socket.IO client
-│   ├── sdk-python/          # shadow-sdk — Python client
+│   ├── sdk-python/          # shadowob-sdk — Python client
 │   ├── openclaw/            # @shadowob/openclaw — AI agent plugin
 │   └── oauth/               # @shadowob/oauth — OAuth SDK
 ├── docs/                    # Documentation

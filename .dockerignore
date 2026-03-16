@@ -8,3 +8,10 @@ node_modules
 .husky
 *.md
 *.log
+website/doc_build
+docs/e2e
+apps/desktop/out
+apps/desktop/playwright-report
+apps/desktop/playwright-report-web
+apps/desktop/test-results
+apps/desktop/.research

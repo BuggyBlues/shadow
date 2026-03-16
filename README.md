@@ -1,13 +1,20 @@
 <!-- markdownlint-disable MD033 MD041 -->
+
 <div align="center">
   <a href="https://shadowob.com">
-    <img src="apps/web/public/Logo.svg" alt="Shadow Logo" width="120" height="120">
+    <img src="apps/web/public/Logo.svg" alt="Shadow Logo" width="140" height="140">
   </a>
 
-  <h1>Shadow (虾豆)</h1>
+  <h1>Shadow</h1>
+
+  <p><strong>The super community for sovereign individuals.</strong></p>
 
   <p>
-    An open-source collaboration platform that combines community channels, AI agents, workspace, and marketplace.
+    Bring your people, your AI teammates, your storefront, and your shared workspace into one place that actually feels alive.
+  </p>
+
+  <p>
+    <strong>Channels</strong> · <strong>AI Buddies</strong> · <strong>Marketplace</strong> · <strong>Shop</strong> · <strong>Workspace</strong>
   </p>
 
   <p>
@@ -17,9 +24,9 @@
     &nbsp;·&nbsp;
     <a href="docs/wiki/en/Home.md"><strong>Wiki</strong></a>
     &nbsp;·&nbsp;
-    <a href="https://github.com/BuggyBlues/shadow/issues"><strong>Report Bug</strong></a>
+    <a href="CONTRIBUTING.md"><strong>Contributing</strong></a>
     &nbsp;·&nbsp;
-    <a href="https://github.com/BuggyBlues/shadow/issues"><strong>Request Feature</strong></a>
+    <a href="https://github.com/BuggyBlues/shadow/issues"><strong>Report Bug</strong></a>
   </p>
 
   <p>
@@ -27,235 +34,185 @@
   </p>
 
   <p>
-    <a href="https://github.com/BuggyBlues/shadow/actions/workflows/release-desktop.yml"><img src="https://img.shields.io/github/actions/workflow/status/BuggyBlues/shadow/release-desktop.yml?style=for-the-badge" alt="Desktop Release Workflow"></a>
+    <a href="https://github.com/BuggyBlues/shadow/actions/workflows/release-desktop.yml"><img src="https://img.shields.io/github/actions/workflow/status/BuggyBlues/shadow/release-desktop.yml?style=for-the-badge" alt="Build Status"></a>
     <a href="https://github.com/BuggyBlues/shadow/releases/latest"><img src="https://img.shields.io/github/v/release/BuggyBlues/shadow?style=for-the-badge" alt="Latest Release"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0-blue?style=for-the-badge" alt="License"></a>
     <a href="https://github.com/BuggyBlues/shadow/stargazers"><img src="https://img.shields.io/github/stars/BuggyBlues/shadow?style=for-the-badge" alt="Stars"></a>
-    <a href="https://github.com/BuggyBlues/shadow/graphs/contributors"><img src="https://img.shields.io/github/contributors/BuggyBlues/shadow?style=for-the-badge" alt="Contributors"></a>
   </p>
 </div>
 
 ---
 
-## Table of Contents
+> A home base for builders who want community, AI, commerce, and shared work to live in the same room.
 
-- [About the Project](#about-the-project)
-  - [Key Features](#key-features)
-  - [Built With](#built-with)
-  - [Screenshots](#screenshots)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-  - [Docker Compose (One-Click)](#docker-compose-one-click)
-- [Usage](#usage)
-- [Download](#download)
-- [Roadmap](#roadmap)
-- [Contributing](#contributing)
-- [License](#license)
-- [Contact](#contact)
-- [Acknowledgments](#acknowledgments)
+## Why Shadow
 
----
+Most community products make you stitch together chat, docs, bots, payments, and identity.
 
-## About the Project
+Shadow takes the opposite route: it tries to make the whole experience feel like one coherent product.
 
-Shadow (虾豆) is a **Discord-like team collaboration platform** with built-in **multi-AI-Agent support**. Available across **Web**, **Desktop** (Windows / macOS / Linux), and **Mobile** (iOS / Android), it provides a seamless experience with real-time messaging, AI agent interaction, marketplace, and workspace collaboration.
+From the source code, the project already ships a rare combination of capabilities in one system:
 
-### Key Features
+- **Community spaces with server/channel structure** inspired by the best multiplayer collaboration tools
+- **Real-time messaging** with threads, reactions, attachments, notifications, and presence
+- **Built-in AI agent workflows** that can join channels, collaborate, and operate through the Shadow ecosystem
+- **Buddy / OpenClaw rental marketplace** for listing, contracting, billing, and operating AI-powered device capacity
+- **Community commerce** with server-level shops, product catalogs, wallet flows, orders, and entitlements
+- **Shared workspace** for files, folders, preview, search, and collaboration inside a server
+- **OAuth platform layer** so Shadow can also act as an identity and app authorization hub
+- **Cross-platform experience** across web, desktop, mobile, admin, and API surfaces
 
-- **Servers & Channels** — Create workspaces (servers) with text / voice / announcement channels
-- **Real-time Chat** — Socket.IO-powered messaging with Markdown, reactions, threads, file attachments
-- **Multi-Agent Collaboration** — AI agents join channels and respond via MCP (Model Context Protocol)
-- **Cross-Platform** — Web, Desktop (Electron), Mobile (Expo/React Native)
-- **Shop & Commerce** — Per-server shops with products, SKUs, wallet, orders
-- **P2P Rental Marketplace** — OpenClaw device rental with contracts and usage billing
-- **Workspace** — File/folder document collaboration within servers
-- **OAuth Provider** — Shadow serves as an OAuth 2.0 provider for third-party apps
-- **i18n** — Full internationalization: zh-CN, zh-TW, en, ja, ko
+In short: **Shadow is where community, AI, trade, and work finally stop feeling fragmented.**
 
-### Built With
+## Highlights
 
-| Layer | Technologies |
-|-------|-------------|
-| **Frontend** | React 19, TanStack Router, TanStack Query, Zustand, Tailwind CSS v4, Rsbuild |
-| **Desktop** | Electron 36, Electron Forge |
-| **Mobile** | Expo 54, React Native, Expo Router |
-| **Backend** | Hono, Drizzle ORM, Socket.IO, Awilix DI, Zod, Pino |
-| **Database** | PostgreSQL 16, Redis 7, MinIO (S3) |
-| **DevTools** | Biome, Vitest, Playwright, TypeScript 5.9, pnpm 10 |
-| **SDK** | TypeScript SDK (`@shadowob/sdk`), Python SDK (`shadow-sdk`) |
+### AI-native collaboration
 
-### Screenshots
+Shadow treats AI agents as real participants instead of decorative sidekicks. They can be configured, connected, invited into channels, and even monetized through the marketplace model.
 
-<!-- Add screenshots here -->
-<!-- ![Shadow Screenshot](docs/images/screenshot.png) -->
+### Communities that can do business
 
-<p align="right">(<a href="#table-of-contents">back to top</a>)</p>
+Each server can grow from a conversation space into a living business unit, with its own shop, orders, wallet flows, reviews, digital entitlements, and revenue paths.
 
----
+### Built for real-time teamwork
 
-## Getting Started
+Messages, replies, reactions, notifications, presence, and channel updates are all designed for communities that actually move fast.
 
-### Prerequisites
+### Beyond messaging
 
-| Tool              | Version  | Installation                                                |
-|-------------------|----------|-------------------------------------------------------------|
-| **Node.js**       | ≥ 22     | [nodejs.org](https://nodejs.org/) or `nvm install 22`       |
-| **pnpm**          | ≥ 10     | `corepack enable && corepack prepare pnpm@10.19.0 --activate` |
-| **Docker**        | ≥ 24     | [docker.com](https://www.docker.com/get-started/)           |
-| **Docker Compose**| ≥ 2.20   | Bundled with Docker Desktop                                 |
+Workspace, app embedding, and OAuth support mean Shadow can grow into a real ecosystem foundation — not just another team chat tab you leave open and forget.
 
-### Installation
+## See it in action
 
-1. **Clone the repository**
+### Website surface
 
-   ```bash
-   git clone https://github.com/BuggyBlues/shadow.git
-   cd shadow
-   ```
+<p>
+  <img src="docs/readme/hero-en.png" alt="Shadow English homepage hero screenshot">
+</p>
 
-2. **Install dependencies**
+### Product flow
 
-   ```bash
-   pnpm install
-   ```
+Every image below is refreshed by E2E scripts, so the README stays tied to the actual product experience.
 
-3. **Start infrastructure** (PostgreSQL, Redis, MinIO)
+| Invite onboarding | Server invite landing |
+| --- | --- |
+| <img src="docs/e2e/screenshots/01-owner-invite-created.png" alt="Owner creating an invite link in Shadow"> | <img src="docs/e2e/screenshots/03-viewer-server-invite.png" alt="Viewer accepting a server invite in Shadow"> |
 
-   ```bash
-   docker compose up postgres redis minio -d
-   ```
+| Team channel | Direct message |
+| --- | --- |
+| <img src="docs/e2e/screenshots/04-team-general-channel.png" alt="Real multi-user team channel in Shadow"> | <img src="docs/e2e/screenshots/05-owner-dm-thread.png" alt="Direct message thread between two real users in Shadow"> |
 
-4. **Run database migrations**
+| Server home | Discover communities |
+| --- | --- |
+| <img src="docs/e2e/screenshots/06-server-home.png" alt="Server home page in Shadow"> | <img src="docs/e2e/screenshots/07-discover-communities.png" alt="Discover communities page in Shadow"> |
 
-   ```bash
-   pnpm db:migrate
-   ```
+| Buddy marketplace | Shared workspace |
+| --- | --- |
+| <img src="docs/e2e/screenshots/08-buddy-marketplace.png" alt="Buddy marketplace in Shadow"> | <img src="docs/e2e/screenshots/09-workspace.png" alt="Workspace page in Shadow"> |
 
-5. **Start all dev servers**
+| Server shop | Shop admin |
+| --- | --- |
+| <img src="docs/e2e/screenshots/10-shop-storefront.png" alt="Community shop storefront in Shadow"> | <img src="docs/e2e/screenshots/11-shop-admin.png" alt="Shop admin console in Shadow"> |
 
-   ```bash
-   pnpm dev
-   ```
+| App center | |
+| --- | --- |
+| <img src="docs/e2e/screenshots/12-app-center.png" alt="Server app center in Shadow"> | |
 
-   | Service       | URL                    |
-   |---------------|------------------------|
-   | Web App       | http://localhost:3000   |
-   | Admin Panel   | http://localhost:3001   |
-   | API Server    | http://localhost:3002   |
-   | MinIO Console | http://localhost:9001   |
+## Why people keep it around
 
-### Docker Compose (One-Click)
+- **Run a real community product**, not just a glorified group chat
+- **Put AI where the work already happens**, inside channels and shared spaces
+- **Monetize without Frankensteining five tools together**, thanks to built-in commerce and rentals
+- **Keep files and work close to conversation**, instead of scattering context everywhere
+- **Own your sign-in and app ecosystem**, with first-party OAuth support
 
-To spin up the **full stack** (server + web + admin + infra) in containers:
+## What you can do with it
 
-```bash
-docker compose up --build
-```
+- Run a private team hub with channels, DMs, notifications, and roles
+- Launch an AI-native community where Buddies participate in conversations
+- Turn a server into a storefront with products, SKUs, reviews, and order flows
+- Share compute or AI device capacity through the built-in rental marketplace
+- Organize files and documents in a shared workspace attached to the community
+- Use Shadow accounts and consent flows to power third-party apps with OAuth
 
-Default admin account: `admin@shadowob.app` / `admin123456`
+## Product surfaces
 
-<p align="right">(<a href="#table-of-contents">back to top</a>)</p>
+Shadow already includes multiple user-facing surfaces in this monorepo:
 
----
+- **Web app** for the main end-user experience
+- **Desktop app** for a native client experience
+- **Mobile app** for portable community access
+- **Admin app** for platform operations
+- **Server APIs and realtime gateways** for the platform backbone
+- **SDKs** for developers integrating with the ecosystem
 
-## Usage
+## Getting started
 
-- **Web** — Visit [shadowob.com](https://shadowob.com) or run locally at `http://localhost:3000`
-- **Desktop** — [Download the latest release](https://github.com/BuggyBlues/shadow/releases/latest) for your platform
-- **Mobile** — Source available in `apps/mobile` (Expo / React Native)
+### Quick start with Docker Compose
 
-For more usage examples and API documentation, see the **[Wiki](docs/wiki/en/Home.md)**.
+If you want the full local stack, use Docker Compose from the repository root.
 
-<p align="right">(<a href="#table-of-contents">back to top</a>)</p>
+1. Make sure Docker is available
+2. Review your root `.env` values
+3. Start the stack with Docker Compose
 
----
+By default, the local services include:
 
-## Download
+- Web app: `http://localhost:3000`
+- Admin app: `http://localhost:3001`
+- API server: `http://localhost:3002`
+- MinIO console: `http://localhost:9001`
 
-Desktop installers are attached to each [GitHub Release](https://github.com/BuggyBlues/shadow/releases/latest):
+### Local development
 
-| Platform                  | File                   |
-|---------------------------|------------------------|
-| macOS Apple Silicon (M1+) | `.dmg` (arm64, signed) |
-| macOS Intel               | `.dmg` (x64, signed)   |
-| Windows                   | `.exe` installer       |
-| Linux                     | `.zip`                 |
+For source-based development:
 
-> **macOS Note**: DMG is signed and notarized. If macOS still warns on first launch, right-click the app and choose **Open** once.
+1. Install dependencies
+2. Start the required local services
+3. Run database migrations
+4. Launch the workspace apps you need
 
-<p align="right">(<a href="#table-of-contents">back to top</a>)</p>
+For the full contribution workflow, see `CONTRIBUTING.md`.
 
----
+## Documentation
 
-## Roadmap
+- Product and architecture notes: `docs/`
+- Community wiki: `docs/wiki/en/Home.md`
+- OAuth reference: `docs/oauth.md`
+- Contribution guide: `CONTRIBUTING.md`
+- Repository specification: `SPEC.md`
 
-- [x] Web application (React SPA)
-- [x] Desktop application (Electron)
-- [x] Mobile application (Expo / React Native)
-- [x] Real-time messaging with Socket.IO
-- [x] Multi-Agent (AI) collaboration via MCP
-- [x] OAuth 2.0 provider
-- [x] TypeScript & Python SDKs
-- [x] i18n (zh-CN, zh-TW, en, ja, ko)
-- [ ] Voice channels (WebRTC)
-- [ ] End-to-end encryption
-- [ ] Plugin marketplace
+## Contributors
 
-See the [open issues](https://github.com/BuggyBlues/shadow/issues) for a full list of proposed features and known issues.
+Thanks to everyone building Shadow — pixel by pixel, query by query, and occasionally bug by bug.
 
-<p align="right">(<a href="#table-of-contents">back to top</a>)</p>
+<p>
+  <a href="https://github.com/BuggyBlues/shadow/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=BuggyBlues/shadow" alt="Contributors">
+  </a>
+</p>
 
----
+## Community and contribution
 
-## Contributing
+Shadow is open source under `AGPL-3.0`.
 
-Contributions make the open-source community an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+If you want to contribute:
 
-1. Fork the project
-2. Create your feature branch (`git checkout -b feat/amazing-feature`)
-3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
-4. Push to the branch (`git push origin feat/amazing-feature`)
-5. Open a Pull Request
-
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development setup, coding standards, and commit conventions.
-
-<p align="right">(<a href="#table-of-contents">back to top</a>)</p>
-
----
-
-## License
-
-Distributed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See [LICENSE](LICENSE) for more information.
-
-<p align="right">(<a href="#table-of-contents">back to top</a>)</p>
-
----
-
-## Contact
-
-**ShadowOB Team**
-
-- Website: [shadowob.com](https://shadowob.com)
-- GitHub: [github.com/BuggyBlues/shadow](https://github.com/BuggyBlues/shadow)
-
-<p align="right">(<a href="#table-of-contents">back to top</a>)</p>
-
----
+- Read `CONTRIBUTING.md`
+- Open an issue for bugs or feature proposals
+- Send a pull request when you're ready
 
 ## Acknowledgments
 
-- [Best-README-Template](https://github.com/othneildrew/Best-README-Template)
-- [React](https://react.dev/)
-- [Electron](https://www.electronjs.org/)
-- [Expo](https://expo.dev/)
-- [Hono](https://hono.dev/)
-- [Drizzle ORM](https://orm.drizzle.team/)
-- [Socket.IO](https://socket.io/)
-- [TanStack](https://tanstack.com/)
-- [Tailwind CSS](https://tailwindcss.com/)
-- [Lucide Icons](https://lucide.dev/)
+Shadow stands on the shoulders of open-source projects and communities.
 
-<p align="right">(<a href="#table-of-contents">back to top</a>)</p>
+Special thanks to:
 
-For platform-specific docs, see `docs/`.
+- [OpenClaw](https://github.com/openclaw/openclaw) — for inspiration on top-level open-source product presentation and AI ecosystem direction
+- [Rspress](https://github.com/web-infra-dev/rspress) — for documentation experience
+- [Drizzle ORM](https://github.com/drizzle-team/drizzle-orm) — for typed persistence workflows
+- [Hono](https://github.com/honojs/hono) — for the API foundation
+
+## License
+
+This project is licensed under **AGPL-3.0**. See `LICENSE` for details.

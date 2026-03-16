@@ -1,0 +1,34 @@
+{
+  "generatedAt": "2026-03-16T12:35:18.448Z",
+  "runId": "mmt6250j",
+  "origin": "http://127.0.0.1:3000",
+  "appBaseUrl": "http://127.0.0.1:3000/app/",
+  "owner": {
+    "email": "owner.e2e@shadowob.local",
+    "password": "ShadowE2E123!",
+    "displayName": "Ava Owner"
+  },
+  "viewer": {
+    "email": "viewer.mmt6250j@shadowob.local",
+    "password": "ShadowE2E123!",
+    "displayName": "Ben Viewer"
+  },
+  "server": {
+    "id": "ed5f88cd-038e-48ab-a14e-18f9893684cf",
+    "slug": "e2e-studio",
+    "name": "E2E Studio",
+    "inviteCode": "wdK8Z1po"
+  },
+  "channels": {
+    "generalId": "f081577c-b5b6-409e-b3bf-fb82e897288e",
+    "announcementsId": "0d4e1af7-3afd-4518-80b4-6988b7503e30"
+  },
+  "shop": {
+    "categoryId": "9faf11b0-f9e7-4016-a699-52d6814555c3",
+    "categoryName": "Studio Kits",
+    "productNames": ["Focus Sprint Bundle", "Buddy Ops Pass"]
+  },
+  "apps": {
+    "names": ["Launchpad", "Ops Console"]
+  }
+}

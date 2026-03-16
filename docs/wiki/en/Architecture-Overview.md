@@ -60,7 +60,7 @@ Shadow is a monorepo comprising **5 deployable applications** and **6 shared pac
 | `@shadowob/sdk` | `packages/sdk` | Typed REST client + Socket.IO event listener |
 | `@shadowob/openclaw` | `packages/openclaw` | OpenClaw agent channel plugin |
 | `@shadowob/oauth` | `packages/oauth` | OAuth SDK for third-party apps |
-| `shadow-sdk` (Python) | `packages/sdk-python` | Python client for Shadow API |
+| `shadowob-sdk` (Python) | `packages/sdk-python` | Python client for Shadow API |
 
 ## Package Dependency Graph
 

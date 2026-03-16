@@ -1,0 +1,329 @@
+/* ===== Google Fonts (must come before all other rules) ===== */
+@import url("https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Nunito:wght@400;700;900&display=swap");
+
+/* ===== TailwindCSS v4 (utilities only — no preflight to preserve Rspress styles) ===== */
+@import "tailwindcss/theme" layer(theme);
+@import "tailwindcss/utilities" layer(utilities);
+
+/* ===== Dark mode CSS variables ===== */
+:root {
+  --shadow-bg: #f2f7fc;
+  --shadow-dot: #c2d2ea;
+  --shadow-text: #2d3748;
+  --shadow-text-muted: #4a5568;
+  --shadow-text-dim: #718096;
+  --shadow-card-bg: rgba(255, 255, 255, 0.65);
+  --shadow-card-border: rgba(255, 255, 255, 0.9);
+  --shadow-nav-bg: rgba(255, 255, 255, 0.75);
+  --shadow-section-from: #fefce8;
+  --shadow-section-to: #ecfdf5;
+}
+
+html.dark {
+  --shadow-bg: #0f1117;
+  --shadow-dot: #1e2028;
+  --shadow-text: #e2e8f0;
+  --shadow-text-muted: #a0aec0;
+  --shadow-text-dim: #718096;
+  --shadow-card-bg: rgba(25, 28, 36, 0.75);
+  --shadow-card-border: rgba(55, 58, 68, 0.6);
+  --shadow-nav-bg: rgba(15, 17, 23, 0.82);
+  --shadow-section-from: rgba(30, 25, 10, 0.5);
+  --shadow-section-to: rgba(10, 30, 25, 0.5);
+}
+
+/* ZCOOL KuaiLe shorthand */
+.zcool {
+  font-family: "ZCOOL KuaiLe", cursive, sans-serif;
+}
+
+/* Glass navigation bar */
+.glass-nav {
+  background: var(--shadow-nav-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 2px solid var(--shadow-card-border);
+}
+
+/* Glass card */
+.glass-card {
+  background: var(--shadow-card-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 3px solid var(--shadow-card-border);
+  border-radius: 36px;
+  box-shadow: 0 12px 40px rgba(31, 41, 55, 0.08);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+html.dark .glass-card {
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+}
+.glass-card:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 20px 50px rgba(31, 41, 55, 0.12);
+  border-color: #00f3ff;
+}
+html.dark .glass-card:hover {
+  box-shadow: 0 20px 50px rgba(0, 243, 255, 0.15);
+}
+
+/* Primary CTA button */
+.btn-primary {
+  background: linear-gradient(135deg, #00f3ff, #00a2ff);
+  box-shadow: 0 6px 20px rgba(0, 243, 255, 0.4);
+  border: 3px solid #1a1a1c;
+  border-radius: 9999px;
+  color: #1a1a1c;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+.btn-primary:hover {
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 10px 25px rgba(0, 243, 255, 0.6);
+  background: linear-gradient(135deg, #33f5ff, #33b5ff);
+}
+
+/* Secondary CTA button */
+.btn-secondary {
+  background: linear-gradient(135deg, #f8e71c, #ffb300);
+  box-shadow: 0 6px 20px rgba(248, 231, 28, 0.4);
+  border: 3px solid #1a1a1c;
+  border-radius: 9999px;
+  color: #1a1a1c;
+  transition: all 0.2s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+.btn-secondary:hover {
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 10px 25px rgba(248, 231, 28, 0.6);
+}
+
+/* Hero blob */
+.hero-blob {
+  position: absolute;
+  filter: blur(80px);
+  opacity: 0.5;
+  border-radius: 50%;
+}
+html.dark .hero-blob {
+  opacity: 0.25;
+}
+
+/* Float animations */
+.float {
+  animation: floatAnim 4s ease-in-out infinite;
+}
+.float-delay-1 {
+  animation: floatAnim 5s ease-in-out infinite 0.5s;
+}
+.float-delay-2 {
+  animation: floatAnim 4.5s ease-in-out infinite 1.2s;
+}
+.float-delay-3 {
+  animation: floatAnim 3.8s ease-in-out infinite 0.8s;
+}
+
+@keyframes floatAnim {
+  0% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-18px) rotate(3deg);
+  }
+  100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+}
+
+/* Shadow page root — dark mode aware */
+.shadow-page {
+  font-family: "Nunito", "ZCOOL KuaiLe", sans-serif;
+  background-color: var(--shadow-bg);
+  background-image: radial-gradient(var(--shadow-dot) 3px, transparent 3px);
+  background-size: 40px 40px;
+  color: var(--shadow-text);
+  min-height: 100vh;
+  isolation: isolate;
+}
+
+/* Dark mode text overrides for inline-styled elements */
+html.dark .shadow-page .text-gray-800 {
+  color: #e2e8f0;
+}
+html.dark .shadow-page .text-gray-700 {
+  color: #cbd5e1;
+}
+html.dark .shadow-page .text-gray-600 {
+  color: #a0aec0;
+}
+html.dark .shadow-page .text-gray-500 {
+  color: #718096;
+}
+html.dark .shadow-page .text-gray-400 {
+  color: #4a5568;
+}
+html.dark .shadow-page .bg-white\/70 {
+  background: var(--shadow-card-bg);
+}
+html.dark .shadow-page .bg-white\/80 {
+  background: rgba(25, 28, 36, 0.8);
+}
+html.dark .shadow-page .bg-white\/50 {
+  background: rgba(25, 28, 36, 0.5);
+}
+html.dark .shadow-page .border-white\/90 {
+  border-color: var(--shadow-card-border);
+}
+html.dark .shadow-page .border-gray-100 {
+  border-color: rgba(55, 58, 68, 0.4);
+}
+html.dark .shadow-page .bg-gradient-to-r.from-amber-50 {
+  --tw-gradient-from: rgba(30, 25, 10, 0.5);
+}
+html.dark .shadow-page .bg-gradient-to-r.from-sky-50 {
+  --tw-gradient-from: rgba(10, 25, 35, 0.5);
+}
+html.dark .shadow-page .bg-gradient-to-r.from-cyan-50 {
+  --tw-gradient-from: rgba(10, 30, 30, 0.5);
+}
+html.dark .shadow-page .bg-gradient-to-r.from-yellow-50 {
+  --tw-gradient-from: rgba(30, 28, 10, 0.5);
+}
+html.dark .shadow-page .bg-cyan-50 {
+  background-color: rgba(10, 40, 45, 0.6);
+}
+html.dark .shadow-page .bg-yellow-50 {
+  background-color: rgba(40, 35, 10, 0.6);
+}
+html.dark .shadow-page .bg-pink-50 {
+  background-color: rgba(40, 15, 25, 0.6);
+}
+html.dark .shadow-page .bg-green-50 {
+  background-color: rgba(10, 40, 20, 0.6);
+}
+html.dark .shadow-page .bg-orange-50 {
+  background-color: rgba(40, 25, 10, 0.6);
+}
+html.dark .shadow-page .bg-amber-50 {
+  background-color: rgba(40, 30, 10, 0.6);
+}
+html.dark .shadow-page .bg-\[\#f2f7fc\] {
+  background-color: var(--shadow-bg);
+}
+
+/* Dark mode footer */
+html.dark .glass-nav {
+  border-color: var(--shadow-card-border);
+}
+
+/* ===== Dark mode cat eye glow animation ===== */
+html.dark .cat-eye-yellow {
+  filter: url(#glowYellow);
+  animation: eyeGlowYellow 3s ease-in-out infinite;
+}
+html.dark .cat-eye-cyan {
+  filter: url(#glowCyan);
+  animation: eyeGlowCyan 3s ease-in-out infinite 0.5s;
+}
+@keyframes eyeGlowYellow {
+  0%,
+  100% {
+    filter: url(#glowYellow) drop-shadow(0 0 4px #f8e71c);
+  }
+  50% {
+    filter: url(#glowYellow) drop-shadow(0 0 12px #f8e71c)
+      drop-shadow(0 0 24px rgba(248, 231, 28, 0.4));
+  }
+}
+@keyframes eyeGlowCyan {
+  0%,
+  100% {
+    filter: url(#glowCyan) drop-shadow(0 0 4px #00f3ff);
+  }
+  50% {
+    filter: url(#glowCyan) drop-shadow(0 0 12px #00f3ff)
+      drop-shadow(0 0 24px rgba(0, 243, 255, 0.4));
+  }
+}
+
+/* Override Rspress dark background for page wrapper */
+html.dark #root > section {
+  background-color: transparent;
+}
+
+/* ===== Rspress nav styling — glass morphism ===== */
+.rspress-nav {
+  background: var(--shadow-nav-bg) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border-bottom: 2px solid var(--shadow-card-border) !important;
+}
+
+/* Logo font in Rspress nav */
+[class*="navBarTitle"] {
+  font-family: "ZCOOL KuaiLe", cursive, sans-serif;
+}
+
+/* Nav menu item styling */
+.rspress-nav-menu-item {
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+}
+
+/* Launch button in nav — hide on mobile hamburger */
+[class*="mobileNavMenu"] .btn-primary {
+  display: none;
+}
+
+/* ===== Code Group Tabs ===== */
+.code-group-container {
+  margin: 1rem 0;
+  border: 1px solid var(--rp-c-divider, #e2e8f0);
+  border-radius: 8px;
+  overflow: hidden;
+}
+html.dark .code-group-container {
+  border-color: rgba(55, 58, 68, 0.6);
+}
+.code-group-tabs {
+  display: flex;
+  background: var(--rp-c-bg-soft, #f7f8fa);
+  border-bottom: 1px solid var(--rp-c-divider, #e2e8f0);
+  overflow-x: auto;
+}
+html.dark .code-group-tabs {
+  background: rgba(25, 28, 36, 0.6);
+  border-color: rgba(55, 58, 68, 0.6);
+}
+.code-group-tab {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rp-c-text-2, #6b7280);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color 0.2s,
+    border-color 0.2s;
+}
+.code-group-tab:hover {
+  color: var(--rp-c-text-1, #374151);
+}
+.code-group-tab.active {
+  color: var(--rp-c-brand, #00a2ff);
+  border-bottom-color: var(--rp-c-brand, #00a2ff);
+}
+.code-group-container pre {
+  margin: 0 !important;
+  border-radius: 0 !important;
+  border: none !important;
+}
