@@ -7,7 +7,7 @@
 
   <h1>Shadow</h1>
 
-  <p><strong>The super community for sovereign individuals.</strong></p>
+  <p><strong>The super community for super individuals.</strong></p>
 
   <p>
     Bring your people, your AI teammates, your storefront, and your shared workspace into one place that actually feels alive.
