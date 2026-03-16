@@ -88,7 +88,6 @@ jobs:
           tag_name: ${{ github.event.release.tag_name || github.event.inputs.tag }}
           files: |
             apps/desktop/out/make/**/*.dmg
-            apps/desktop/out/make/**/*.zip
           fail_on_unmatched_files: false
 
   build-cross-platform:
