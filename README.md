@@ -20,13 +20,13 @@
   <p>
     <a href="https://shadowob.com"><strong>Website</strong></a>
     &nbsp;·&nbsp;
-    <a href="https://github.com/BuggyBlues/shadow/releases/latest"><strong>Download Desktop</strong></a>
+    <a href="https://github.com/buggyblues/shadow/releases/latest"><strong>Download Desktop</strong></a>
     &nbsp;·&nbsp;
     <a href="docs/wiki/en/Home.md"><strong>Wiki</strong></a>
     &nbsp;·&nbsp;
     <a href="CONTRIBUTING.md"><strong>Contributing</strong></a>
     &nbsp;·&nbsp;
-    <a href="https://github.com/BuggyBlues/shadow/issues"><strong>Report Bug</strong></a>
+    <a href="https://github.com/buggyblues/shadow/issues"><strong>Report Bug</strong></a>
   </p>
 
   <p>
@@ -34,10 +34,10 @@
   </p>
 
   <p>
-    <a href="https://github.com/BuggyBlues/shadow/actions/workflows/release-desktop.yml"><img src="https://img.shields.io/github/actions/workflow/status/BuggyBlues/shadow/release-desktop.yml?style=for-the-badge" alt="Build Status"></a>
-    <a href="https://github.com/BuggyBlues/shadow/releases/latest"><img src="https://img.shields.io/github/v/release/BuggyBlues/shadow?style=for-the-badge" alt="Latest Release"></a>
+    <a href="https://github.com/buggyblues/shadow/actions/workflows/release-desktop.yml"><img src="https://img.shields.io/github/actions/workflow/status/BuggyBlues/shadow/release-desktop.yml?style=for-the-badge" alt="Build Status"></a>
+    <a href="https://github.com/buggyblues/shadow/releases/latest"><img src="https://img.shields.io/github/v/release/BuggyBlues/shadow?style=for-the-badge" alt="Latest Release"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0-blue?style=for-the-badge" alt="License"></a>
-    <a href="https://github.com/BuggyBlues/shadow/stargazers"><img src="https://img.shields.io/github/stars/BuggyBlues/shadow?style=for-the-badge" alt="Stars"></a>
+    <a href="https://github.com/buggyblues/shadow/stargazers"><img src="https://img.shields.io/github/stars/BuggyBlues/shadow?style=for-the-badge" alt="Stars"></a>
   </p>
 </div>
 
@@ -187,7 +187,7 @@ For the full contribution workflow, see `CONTRIBUTING.md`.
 Thanks to everyone building Shadow — pixel by pixel, query by query, and occasionally bug by bug.
 
 <p>
-  <a href="https://github.com/BuggyBlues/shadow/graphs/contributors">
+  <a href="https://github.com/buggyblues/shadow/graphs/contributors">
     <img src="https://contrib.rocks/image?repo=BuggyBlues/shadow" alt="Contributors">
   </a>
 </p>

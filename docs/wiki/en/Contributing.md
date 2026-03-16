@@ -10,8 +10,8 @@ This project follows the [Contributor Covenant Code of Conduct](https://www.cont
 
 ### Reporting Bugs
 
-1. Check [existing issues](https://github.com/BuggyBlues/shadow/issues) to avoid duplicates
-2. Create a [new issue](https://github.com/BuggyBlues/shadow/issues/new) with:
+1. Check [existing issues](https://github.com/buggyblues/shadow/issues) to avoid duplicates
+2. Create a [new issue](https://github.com/buggyblues/shadow/issues/new) with:
    - Clear title and description
    - Steps to reproduce
    - Expected vs actual behavior
@@ -19,7 +19,7 @@ This project follows the [Contributor Covenant Code of Conduct](https://www.cont
 
 ### Suggesting Features
 
-1. Open a [new issue](https://github.com/BuggyBlues/shadow/issues/new) with the `enhancement` label
+1. Open a [new issue](https://github.com/buggyblues/shadow/issues/new) with the `enhancement` label
 2. Describe the feature and its use case
 3. Discuss with maintainers before implementing
 

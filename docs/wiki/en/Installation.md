@@ -15,7 +15,7 @@ This guide walks you through setting up the Shadow development environment from 
 ## Clone the Repository
 
 ```bash
-git clone https://github.com/BuggyBlues/shadow.git
+git clone https://github.com/buggyblues/shadow.git
 cd shadow
 ```
 

@@ -67,7 +67,7 @@ Right-click the app and choose **Open**. This only needs to be done once — the
 
 ### How do I update the desktop app?
 
-Download the latest version from the [Releases page](https://github.com/BuggyBlues/shadow/releases/latest).
+Download the latest version from the [Releases page](https://github.com/buggyblues/shadow/releases/latest).
 
 ---
 

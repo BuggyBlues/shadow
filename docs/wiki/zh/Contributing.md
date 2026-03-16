@@ -10,8 +10,8 @@
 
 ### 报告 Bug
 
-1. 检查[已有 issues](https://github.com/BuggyBlues/shadow/issues) 避免重复
-2. 创建[新 issue](https://github.com/BuggyBlues/shadow/issues/new)，包含：
+1. 检查[已有 issues](https://github.com/buggyblues/shadow/issues) 避免重复
+2. 创建[新 issue](https://github.com/buggyblues/shadow/issues/new)，包含：
    - 清晰的标题和描述
    - 复现步骤
    - 预期行为 vs 实际行为
@@ -19,7 +19,7 @@
 
 ### 功能建议
 
-1. 创建[新 issue](https://github.com/BuggyBlues/shadow/issues/new) 并添加 `enhancement` 标签
+1. 创建[新 issue](https://github.com/buggyblues/shadow/issues/new) 并添加 `enhancement` 标签
 2. 描述功能及其使用场景
 3. 在实现前与维护者讨论
 

@@ -20,13 +20,13 @@
   <p>
     <a href="https://shadowob.com"><strong>官网</strong></a>
     &nbsp;·&nbsp;
-    <a href="https://github.com/BuggyBlues/shadow/releases/latest"><strong>下载桌面端</strong></a>
+    <a href="https://github.com/buggyblues/shadow/releases/latest"><strong>下载桌面端</strong></a>
     &nbsp;·&nbsp;
     <a href="docs/wiki/zh/Home.md"><strong>Wiki</strong></a>
     &nbsp;·&nbsp;
     <a href="CONTRIBUTING.md"><strong>参与贡献</strong></a>
     &nbsp;·&nbsp;
-    <a href="https://github.com/BuggyBlues/shadow/issues"><strong>反馈问题</strong></a>
+    <a href="https://github.com/buggyblues/shadow/issues"><strong>反馈问题</strong></a>
   </p>
 
   <p>
@@ -34,10 +34,10 @@
   </p>
 
   <p>
-    <a href="https://github.com/BuggyBlues/shadow/actions/workflows/release-desktop.yml"><img src="https://img.shields.io/github/actions/workflow/status/BuggyBlues/shadow/release-desktop.yml?style=for-the-badge" alt="构建状态"></a>
-    <a href="https://github.com/BuggyBlues/shadow/releases/latest"><img src="https://img.shields.io/github/v/release/BuggyBlues/shadow?style=for-the-badge" alt="最新版本"></a>
+    <a href="https://github.com/buggyblues/shadow/actions/workflows/release-desktop.yml"><img src="https://img.shields.io/github/actions/workflow/status/BuggyBlues/shadow/release-desktop.yml?style=for-the-badge" alt="构建状态"></a>
+    <a href="https://github.com/buggyblues/shadow/releases/latest"><img src="https://img.shields.io/github/v/release/BuggyBlues/shadow?style=for-the-badge" alt="最新版本"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0-blue?style=for-the-badge" alt="许可证"></a>
-    <a href="https://github.com/BuggyBlues/shadow/stargazers"><img src="https://img.shields.io/github/stars/BuggyBlues/shadow?style=for-the-badge" alt="Stars"></a>
+    <a href="https://github.com/buggyblues/shadow/stargazers"><img src="https://img.shields.io/github/stars/BuggyBlues/shadow?style=for-the-badge" alt="Stars"></a>
   </p>
 </div>
 
@@ -187,7 +187,7 @@
 感谢所有为虾豆添砖加瓦的贡献者——有人写功能，有人修 Bug，还有人顺手把猫猫画得更可爱一点。
 
 <p>
-  <a href="https://github.com/BuggyBlues/shadow/graphs/contributors">
+  <a href="https://github.com/buggyblues/shadow/graphs/contributors">
     <img src="https://contrib.rocks/image?repo=BuggyBlues/shadow" alt="贡献者">
   </a>
 </p>

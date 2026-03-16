@@ -415,7 +415,7 @@ export function HomePage() {
 
             <div className="flex flex-wrap gap-4">
               <a
-                href="https://github.com/BuggyBlues/shadow/releases/latest"
+                href="https://github.com/buggyblues/shadow/releases/latest"
                 target="_blank"
                 rel="noreferrer"
                 className="btn-primary zcool text-lg px-7 py-3 inline-flex items-center gap-2"
@@ -423,7 +423,7 @@ export function HomePage() {
                 下载最新版（Latest Release）
               </a>
               <a
-                href="https://github.com/BuggyBlues/shadow/releases"
+                href="https://github.com/buggyblues/shadow/releases"
                 target="_blank"
                 rel="noreferrer"
                 className="btn-secondary zcool text-lg px-7 py-3 inline-flex items-center gap-2"

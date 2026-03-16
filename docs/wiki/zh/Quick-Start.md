@@ -6,7 +6,7 @@
 
 ```bash
 # 克隆并进入项目
-git clone https://github.com/BuggyBlues/shadow.git && cd shadow
+git clone https://github.com/buggyblues/shadow.git && cd shadow
 
 # 安装依赖
 pnpm install

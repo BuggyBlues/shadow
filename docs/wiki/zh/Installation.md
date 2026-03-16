@@ -15,7 +15,7 @@
 ## 克隆仓库
 
 ```bash
-git clone https://github.com/BuggyBlues/shadow.git
+git clone https://github.com/buggyblues/shadow.git
 cd shadow
 ```
 

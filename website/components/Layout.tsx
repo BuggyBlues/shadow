@@ -88,7 +88,7 @@ function DarkModeToggle() {
 function GitHubLink() {
   return (
     <a
-      href="https://github.com/BuggyBlues/shadow"
+      href="https://github.com/buggyblues/shadow"
       target="_blank"
       rel="noreferrer"
       className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-gray-100 transition"

@@ -6,7 +6,7 @@ Get Shadow running locally in under 5 minutes.
 
 ```bash
 # Clone and enter the project
-git clone https://github.com/BuggyBlues/shadow.git && cd shadow
+git clone https://github.com/buggyblues/shadow.git && cd shadow
 
 # Install dependencies
 pnpm install

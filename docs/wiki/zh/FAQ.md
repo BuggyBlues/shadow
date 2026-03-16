@@ -67,7 +67,7 @@ pnpm lint:fix
 
 ### 如何更新桌面应用？
 
-从[发布页面](https://github.com/BuggyBlues/shadow/releases/latest)下载最新版本。
+从[发布页面](https://github.com/buggyblues/shadow/releases/latest)下载最新版本。
 
 ---
 

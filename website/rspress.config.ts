@@ -30,7 +30,7 @@ export default defineConfig({
   ],
   themeConfig: {
     socialLinks: [
-      { icon: 'github', mode: 'link', content: 'https://github.com/BuggyBlues/shadow' },
+      { icon: 'github', mode: 'link', content: 'https://github.com/buggyblues/shadow' },
     ],
     locales: [
       {
