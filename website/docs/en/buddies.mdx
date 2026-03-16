@@ -2,7 +2,7 @@
 pageType: custom
 ---
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { PublicFooter } from '../../components/Layout'
 import { SearchIcon } from '../../components/Icons'
 
@@ -15,12 +15,12 @@ export const DEVICE_TIERS = {
 export const SORT_OPTIONS = [
   { value: 'popular', label: 'Most Popular' },
   { value: 'newest', label: 'Newest' },
-  { value: 'price-asc', label: 'Price: Low → High' },
-  { value: 'price-desc', label: 'Price: High → Low' },
+  { value: 'price-asc', label: 'Price: Low→High' },
+  { value: 'price-desc', label: 'Price: High→Low' },
 ]
 
 export const TIER_FILTERS = [
-  { value: '', label: 'All Tiers' },
+  { value: '', label: 'All' },
   { value: 'high_end', label: '🔥 High-end' },
   { value: 'mid_range', label: '⚡ Mid-range' },
   { value: 'low_end', label: '💡 Low-end' },
@@ -43,6 +43,16 @@ export const BuddiesPage = () => {
   const [keyword, setKeyword] = useState('')
   const [sortBy, setSortBy] = useState('popular')
   const [deviceTier, setDeviceTier] = useState('')
+  const [filterOpen, setFilterOpen] = useState(false)
+  const filterRef = useRef(null)
+
+  const activeFilterCount = (sortBy !== 'popular' ? 1 : 0) + (deviceTier ? 1 : 0)
+
+  useEffect(() => {
+    const onClick = (e) => { if (filterRef.current && !filterRef.current.contains(e.target)) setFilterOpen(false) }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
 
   const fetchListings = (params) => {
     setLoading(true)
@@ -70,37 +80,83 @@ export const BuddiesPage = () => {
   return (
     <div className="shadow-page" style={{ fontFamily: "'Nunito', 'ZCOOL KuaiLe', sans-serif" }}>
 
-      {/* Hero + Search */}
-      <section className="pt-10 pb-8 px-8 md:px-16 max-w-6xl mx-auto text-center relative overflow-hidden">
+      {/* Hero + Search + Filter */}
+      <section className="pt-10 pb-6 px-6 md:px-16 max-w-6xl mx-auto text-center relative">
         <div className="absolute top-20 left-10 w-72 h-72 bg-yellow-300/15 rounded-full blur-3xl -z-10" />
         <div className="absolute top-32 right-10 w-80 h-80 bg-cyan-300/15 rounded-full blur-3xl -z-10" />
-        <h1 className="zcool text-4xl md:text-6xl mb-6 leading-tight">Buddy Market</h1>
+        <h1 className="zcool text-4xl md:text-6xl mb-4 leading-tight">Buddy Market</h1>
         <p className="text-lg md:text-xl font-bold max-w-2xl mx-auto mb-8" style={{ color: 'var(--shadow-text-muted)' }}>
           Browse the Shadow Buddy Market and pick the perfect AI assistant for your team — or build your own!
         </p>
-        <form onSubmit={handleSearch} className="max-w-xl mx-auto flex gap-2">
+
+        {/* Search bar + Filter button */}
+        <form onSubmit={handleSearch} className="max-w-2xl mx-auto flex gap-2 items-center">
           <div className="flex-1 relative">
             <SearchIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--shadow-text-dim)' }} />
-            <input type="text" value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Search Buddies..." className="w-full pl-12 pr-4 py-3 rounded-2xl border-2 border-white/90 bg-white/70 backdrop-blur-lg text-base font-bold outline-none focus:border-cyan-400 transition-colors" style={{ color: 'var(--shadow-text)' }} />
+            <input type="text" value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Search Buddies..."
+              className="w-full pl-12 pr-4 py-3 rounded-2xl text-base font-bold outline-none transition-colors"
+              style={{ color: 'var(--shadow-text)', background: 'var(--shadow-card-bg)', border: '2px solid var(--shadow-card-border)' }}
+              onFocus={(e) => { e.target.style.borderColor = 'var(--shadow-accent)' }}
+              onBlur={(e) => { e.target.style.borderColor = 'var(--shadow-card-border)' }}
+            />
           </div>
           <button type="submit" className="btn-primary zcool text-base px-6 py-3">Search</button>
+
+          {/* Filter toggle */}
+          <div className="relative" ref={filterRef}>
+            <button type="button" onClick={() => setFilterOpen(!filterOpen)}
+              className="relative flex items-center justify-center w-12 h-12 rounded-2xl transition-all"
+              style={{ background: 'var(--shadow-card-bg)', border: '2px solid var(--shadow-card-border)' }}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ color: 'var(--shadow-text-muted)' }}>
+                <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              {activeFilterCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-cyan-500 text-white text-[10px] font-bold flex items-center justify-center">{activeFilterCount}</span>
+              )}
+            </button>
+
+            {/* Filter popover */}
+            {filterOpen && (
+              <div className="absolute right-0 top-14 w-72 rounded-2xl p-5 shadow-xl z-50"
+                style={{ background: 'var(--shadow-card-bg)', border: '2px solid var(--shadow-card-border)', backdropFilter: 'blur(16px)' }}>
+                <div className="mb-4">
+                  <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--shadow-text-dim)' }}>Sort by</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {SORT_OPTIONS.map((o) => (
+                      <button key={o.value} type="button" onClick={() => setSortBy(o.value)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                        style={sortBy === o.value
+                          ? { background: 'var(--shadow-accent)', color: 'var(--shadow-button-text)' }
+                          : { background: 'transparent', color: 'var(--shadow-text-muted)', border: '1px solid var(--shadow-card-border)' }
+                        }>
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--shadow-text-dim)' }}>Device Tier</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {TIER_FILTERS.map((o) => (
+                      <button key={o.value} type="button" onClick={() => setDeviceTier(o.value)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                        style={deviceTier === o.value
+                          ? { background: 'var(--shadow-accent)', color: 'var(--shadow-button-text)' }
+                          : { background: 'transparent', color: 'var(--shadow-text-muted)', border: '1px solid var(--shadow-card-border)' }
+                        }>
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </form>
       </section>
 
-      {/* Filters */}
-      <section className="max-w-7xl mx-auto px-8 md:px-16 pb-2">
-        <div className="flex items-center gap-3 flex-wrap">
-          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="px-4 py-2 rounded-xl border-2 border-white/90 bg-white/70 backdrop-blur-lg text-sm font-bold outline-none focus:border-cyan-400 transition-colors cursor-pointer" style={{ color: 'var(--shadow-text)' }}>
-            {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-          <select value={deviceTier} onChange={(e) => setDeviceTier(e.target.value)} className="px-4 py-2 rounded-xl border-2 border-white/90 bg-white/70 backdrop-blur-lg text-sm font-bold outline-none focus:border-cyan-400 transition-colors cursor-pointer" style={{ color: 'var(--shadow-text)' }}>
-            {TIER_FILTERS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-        </div>
-      </section>
-
-      {/* Toolbar */}
-      <section className="max-w-7xl mx-auto px-8 md:px-16 pt-4 pb-8">
+      {/* Toolbar + Cards */}
+      <section className="max-w-7xl mx-auto px-6 md:px-16 pt-4 pb-8">
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <span className="text-sm font-bold" style={{ color: 'var(--shadow-text-dim)' }}>
             {loading ? 'Loading...' : `${total} OpenClaw listings available`}
@@ -119,9 +175,7 @@ export const BuddiesPage = () => {
         {error && (
           <div className="text-center py-12">
             <p className="text-amber-600 font-bold mb-4">Unable to load listings. The API server may be offline.</p>
-            <button type="button" onClick={fetchListings} className="btn-primary zcool text-base px-6 py-2">
-              Retry
-            </button>
+            <button type="button" onClick={fetchListings} className="btn-primary zcool text-base px-6 py-2">Retry</button>
           </div>
         )}
 
@@ -133,15 +187,19 @@ export const BuddiesPage = () => {
 
         {/* Listing Cards Grid */}
         {!loading && !error && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {listings.map((l) => {
               const tier = DEVICE_TIERS[l.deviceTier] || DEVICE_TIERS.mid_range
               return (
-                <a key={l.id} href={`/app/marketplace/${l.id}`} className="bg-white/70 backdrop-blur-lg border-2 border-white/90 rounded-2xl p-6 hover:-translate-y-1.5 hover:shadow-xl transition-all cursor-pointer group block" style={{ textDecoration: 'none', color: 'inherit' }}>
-                  <div className="flex items-center justify-between mb-4">
+                <a key={l.id} href={`/app/marketplace/${l.id}`}
+                  className="rounded-2xl p-5 hover:-translate-y-1 transition-all cursor-pointer group block"
+                  style={{ textDecoration: 'none', color: 'inherit', background: 'var(--shadow-card-bg)', border: '2px solid var(--shadow-card-border)', boxShadow: '0 4px 16px color-mix(in oklab, var(--shadow-text) 6%, transparent)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--shadow-accent)'; e.currentTarget.style.boxShadow = '0 12px 32px color-mix(in oklab, var(--shadow-accent) 15%, transparent)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--shadow-card-border)'; e.currentTarget.style.boxShadow = '0 4px 16px color-mix(in oklab, var(--shadow-text) 6%, transparent)' }}>
+                  <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-9 h-9 rounded-full bg-gray-800 flex items-center justify-center shrink-0">
-                        <img src={`${base}/Logo.svg`} alt="" className="w-5 h-5" />
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: 'var(--shadow-card-border)' }}>
+                        <img src={`${base}/Logo.svg`} alt="" className="w-4 h-4" />
                       </div>
                       <span className="text-xs font-bold truncate" style={{ color: 'var(--shadow-text-dim)' }}>{l.owner?.username || 'Anonymous'}</span>
                     </div>
@@ -149,14 +207,14 @@ export const BuddiesPage = () => {
                       {tier.icon} {tier.label}
                     </span>
                   </div>
-                  <h3 className="zcool text-lg font-bold mb-2 line-clamp-1 group-hover:text-cyan-600 transition-colors">{l.title}</h3>
-                  <p className="text-sm font-medium line-clamp-2 mb-4 leading-relaxed" style={{ color: 'var(--shadow-text-dim)', height: '2.8em' }}>{l.description || ''}</p>
+                  <h3 className="zcool text-lg font-bold mb-1.5 line-clamp-1 transition-colors" style={{ color: 'var(--shadow-text)' }}>{l.title}</h3>
+                  <p className="text-sm font-medium line-clamp-2 mb-3 leading-relaxed" style={{ color: 'var(--shadow-text-dim)', height: '2.8em' }}>{l.description || ''}</p>
                   <div className="flex items-center gap-2 mb-3 text-xs font-medium" style={{ color: 'var(--shadow-text-dim)' }}>
                     <span>Online {formatOnline(l.totalOnlineSeconds)}</span>
                   </div>
-                  <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                  <div className="flex items-center justify-between pt-3" style={{ borderTop: '1px solid var(--shadow-card-border)' }}>
                     <div className="flex items-center gap-1">
-                      <span className="text-lg font-bold text-amber-600">{l.hourlyRate}</span>
+                      <span className="text-lg font-bold" style={{ color: 'var(--shadow-accent)' }}>{l.hourlyRate}</span>
                       <span className="text-xs font-bold" style={{ color: 'var(--shadow-text-dim)' }}>🦐/h</span>
                     </div>
                     <div className="flex items-center gap-3 text-xs font-bold" style={{ color: 'var(--shadow-text-dim)' }}>
@@ -184,7 +242,7 @@ export const BuddiesPage = () => {
       </section>
 
       {/* CTA */}
-      <section className="max-w-4xl mx-auto px-8 md:px-16 pb-20">
+      <section className="max-w-4xl mx-auto px-6 md:px-16 pb-20">
         <div className="glass-card p-10 md:p-14 text-center">
           <h2 className="zcool text-3xl md:text-4xl mb-4">Want to build your own Buddy?</h2>
           <p className="text-lg font-bold mb-8" style={{ color: 'var(--shadow-text-muted)' }}>Connect your AI model with a Buddy Token and the OpenClaw plugin — up and running in minutes.</p>

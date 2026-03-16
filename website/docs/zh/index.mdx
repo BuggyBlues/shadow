@@ -46,16 +46,16 @@ export const HomePage = () => {
           </div>
         </div>
 
-        <div className="md:w-1/2 relative flex justify-center float z-10 group overflow-visible">
+        <div className="md:w-1/2 relative flex justify-center float z-10 group overflow-visible text-foreground" style={{color: 'var(--shadow-button-text)'}}>
           <img src={`${base}/hero-halo.svg`} alt="" aria-hidden="true" className="absolute -z-10 w-[520px] h-[520px] md:w-[620px] md:h-[620px] object-contain opacity-90 pointer-events-none" />
           <img src={`${base}/Logo.svg`} alt="Shadow Hero Cat" className="w-[320px] h-[320px] md:w-[380px] md:h-[380px] drop-shadow-2xl transition-transform duration-700 group-hover:scale-105" />
-          <div className="absolute top-6 -left-4 md:-left-8 bg-white border-3 border-gray-800 rounded-2xl px-4 py-3 shadow-xl float-delay-1 zcool text-lg flex items-center gap-2 transition-transform hover:scale-110 cursor-default" style={{ transform: 'rotate(-6deg)' }}>
+          <div className="absolute top-6 -left-4 md:-left-8 bg-background border-3 border-gray-800 rounded-2xl px-4 py-3 shadow-xl float-delay-1 zcool text-lg flex items-center gap-2 transition-transform hover:scale-110 cursor-default" style={{ transform: 'rotate(-6deg)' }}>
             <ChatIcon className="w-5 h-5 text-cyan-500" /> 频道畅聊
           </div>
-          <div className="absolute top-36 -right-4 md:-right-8 bg-white border-3 border-gray-800 rounded-2xl px-4 py-3 shadow-xl float-delay-2 zcool text-lg flex items-center gap-2 transition-transform hover:scale-110 cursor-default flex-row-reverse" style={{ transform: 'rotate(12deg)' }}>
+          <div className="absolute top-36 -right-4 md:-right-8 bg-background border-3 border-gray-800 rounded-2xl px-4 py-3 shadow-xl float-delay-2 zcool text-lg flex items-center gap-2 transition-transform hover:scale-110 cursor-default flex-row-reverse" style={{ transform: 'rotate(12deg)' }}>
             <BuddyIcon className="w-5 h-5 text-yellow-500" /> AI Buddies（AI 小跟班）
           </div>
-          <div className="absolute bottom-8 left-4 md:left-8 bg-white border-3 border-gray-800 rounded-2xl px-4 py-3 shadow-xl float-delay-3 zcool text-lg flex items-center gap-2 transition-transform hover:scale-110 cursor-default" style={{ transform: 'rotate(3deg)' }}>
+          <div className="absolute bottom-8 left-4 md:left-8 bg-background border-3 border-gray-800 rounded-2xl px-4 py-3 shadow-xl float-delay-3 zcool text-lg flex items-center gap-2 transition-transform hover:scale-110 cursor-default" style={{ transform: 'rotate(3deg)' }}>
             <BoltIcon className="w-5 h-5 text-cyan-500" /> 极速协同
           </div>
         </div>
