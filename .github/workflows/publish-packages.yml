@@ -89,8 +89,11 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
 
-          pnpm --dir packages/sdk version "$VERSION" --no-git-tag-version
-          sed -i "s/^version = \".*\"/version = \"$VERSION\"/" packages/sdk-python/pyproject.toml
+          # Bump npm package version - use cd instead of pnpm flags
+          (cd packages/sdk && pnpm version "$VERSION" --no-git-tag-version)
+          
+          # Bump Python package version using sed
+          sed -i "s/^version = \".*\"/version = \"${VERSION}\"/" packages/sdk-python/pyproject.toml
 
           pnpm check:sdk-versions
 
@@ -105,7 +108,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          pnpm --filter @shadowob/sdk publish --no-git-checks --access public
+          (cd packages/sdk && pnpm publish --no-git-checks --access public)
 
       - name: Publish shadowob-sdk to PyPI
         if: inputs.publish_pypi && !inputs.dry_run
