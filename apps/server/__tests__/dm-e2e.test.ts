@@ -6,6 +6,11 @@
  *   - DM message sending via REST + WebSocket
  *   - DM message receiving via WebSocket broadcast
  *   - DM typing indicators
+ *   - DM message edit and delete
+ *   - DM reactions (add, remove, fetch)
+ *   - DM reply / quote (replyToId)
+ *   - Bot relay (relayDmToBot → dm:message:new)
+ *   - Bot reply (bot REST send → human receives dm:message)
  *   - Friend list API with claw status
  *
  * Requires: docker compose postgres running on localhost:5432
@@ -349,6 +354,613 @@ describe('DM Chat E2E', () => {
 
     expect(receivedError).toBe(true)
     ws3.disconnect()
+  })
+})
+
+describe('DM Message Edit & Delete', () => {
+  let dmChannelId: string
+  let messageId: string
+
+  it('setup: create DM channel and message', async () => {
+    const res = await fetch(`${baseUrl}/api/dm/channels`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${userToken}`,
+      },
+      body: JSON.stringify({ userId: user2Id }),
+    })
+    const channel = (await res.json()) as { id: string }
+    dmChannelId = channel.id
+
+    const msgRes = await fetch(`${baseUrl}/api/dm/channels/${dmChannelId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${userToken}`,
+      },
+      body: JSON.stringify({ content: 'Original content' }),
+    })
+    const msg = (await msgRes.json()) as { id: string }
+    messageId = msg.id
+  })
+
+  it('edits a DM message via REST', async () => {
+    const res = await fetch(`${baseUrl}/api/dm/channels/${dmChannelId}/messages/${messageId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${userToken}`,
+      },
+      body: JSON.stringify({ content: 'Edited content' }),
+    })
+    expect(res.status).toBe(200)
+
+    const updated = (await res.json()) as { id: string; content: string; isEdited: boolean }
+    expect(updated.content).toBe('Edited content')
+    expect(updated.isEdited).toBe(true)
+  })
+
+  it('non-author cannot edit a DM message', async () => {
+    const res = await fetch(`${baseUrl}/api/dm/channels/${dmChannelId}/messages/${messageId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${user2Token}`,
+      },
+      body: JSON.stringify({ content: 'Hack attempt' }),
+    })
+    expect(res.status).toBe(403)
+  })
+
+  it('user2 receives dm:message:updated via WebSocket on edit', async () => {
+    ws1.raw.emit('dm:join', { dmChannelId })
+    ws2.raw.emit('dm:join', { dmChannelId })
+    await new Promise((r) => setTimeout(r, 200))
+
+    const received = waitForRawEvent<{ id: string; content: string; isEdited: boolean }>(
+      ws2,
+      'dm:message:updated',
+    )
+
+    await fetch(`${baseUrl}/api/dm/channels/${dmChannelId}/messages/${messageId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${userToken}`,
+      },
+      body: JSON.stringify({ content: 'Edited again' }),
+    })
+
+    const msg = await received
+    expect(msg.id).toBe(messageId)
+    expect(msg.content).toBe('Edited again')
+    expect(msg.isEdited).toBe(true)
+  })
+
+  it('deletes a DM message via REST', async () => {
+    const res = await fetch(`${baseUrl}/api/dm/channels/${dmChannelId}/messages/${messageId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${userToken}` },
+    })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { success: boolean }
+    expect(body.success).toBe(true)
+  })
+
+  it('user2 receives dm:message:deleted via WebSocket on delete', async () => {
+    // Create a new message to delete
+    const msgRes = await fetch(`${baseUrl}/api/dm/channels/${dmChannelId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${userToken}`,
+      },
+      body: JSON.stringify({ content: 'Will be deleted' }),
+    })
+    const msg = (await msgRes.json()) as { id: string }
+
+    const received = waitForRawEvent<{ id: string; dmChannelId: string }>(ws2, 'dm:message:deleted')
+
+    await fetch(`${baseUrl}/api/dm/channels/${dmChannelId}/messages/${msg.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${userToken}` },
+    })
+
+    const deleted = await received
+    expect(deleted.id).toBe(msg.id)
+    expect(deleted.dmChannelId).toBe(dmChannelId)
+  })
+
+  it('non-author cannot delete a DM message', async () => {
+    // Create message from user1
+    const msgRes = await fetch(`${baseUrl}/api/dm/channels/${dmChannelId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${userToken}`,
+      },
+      body: JSON.stringify({ content: 'User1 message' }),
+    })
+    const msg = (await msgRes.json()) as { id: string }
+
+    // User2 tries to delete it
+    const res = await fetch(`${baseUrl}/api/dm/channels/${dmChannelId}/messages/${msg.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${user2Token}` },
+    })
+    expect(res.status).toBe(403)
+  })
+})
+
+describe('DM Reactions', () => {
+  let dmChannelId: string
+  let messageId: string
+
+  it('setup: create DM channel and message', async () => {
+    const res = await fetch(`${baseUrl}/api/dm/channels`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${userToken}`,
+      },
+      body: JSON.stringify({ userId: user2Id }),
+    })
+    const channel = (await res.json()) as { id: string }
+    dmChannelId = channel.id
+
+    const msgRes = await fetch(`${baseUrl}/api/dm/channels/${dmChannelId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${userToken}`,
+      },
+      body: JSON.stringify({ content: 'React to this' }),
+    })
+    const msg = (await msgRes.json()) as { id: string }
+    messageId = msg.id
+  })
+
+  it('adds a reaction to a DM message', async () => {
+    const res = await fetch(`${baseUrl}/api/dm/messages/${messageId}/reactions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${userToken}`,
+      },
+      body: JSON.stringify({ emoji: '👍' }),
+    })
+    expect(res.status).toBe(201)
+  })
+
+  it('fetches reactions for a DM message', async () => {
+    const res = await fetch(`${baseUrl}/api/dm/messages/${messageId}/reactions`, {
+      headers: { Authorization: `Bearer ${userToken}` },
+    })
+    expect(res.status).toBe(200)
+
+    const reactions = (await res.json()) as Array<{
+      emoji: string
+      count: number
+      userIds: string[]
+    }>
+    expect(reactions.length).toBe(1)
+    expect(reactions[0]!.emoji).toBe('👍')
+    expect(reactions[0]!.count).toBe(1)
+    expect(reactions[0]!.userIds).toContain(userId)
+  })
+
+  it('user2 also adds a reaction', async () => {
+    const res = await fetch(`${baseUrl}/api/dm/messages/${messageId}/reactions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${user2Token}`,
+      },
+      body: JSON.stringify({ emoji: '👍' }),
+    })
+    expect(res.status).toBe(201)
+
+    // Verify count is now 2
+    const reactionsRes = await fetch(`${baseUrl}/api/dm/messages/${messageId}/reactions`, {
+      headers: { Authorization: `Bearer ${userToken}` },
+    })
+    const reactions = (await reactionsRes.json()) as Array<{
+      emoji: string
+      count: number
+      userIds: string[]
+    }>
+    expect(reactions[0]!.count).toBe(2)
+  })
+
+  it('broadcasts dm:reaction:updated via WebSocket', async () => {
+    ws1.raw.emit('dm:join', { dmChannelId })
+    ws2.raw.emit('dm:join', { dmChannelId })
+    await new Promise((r) => setTimeout(r, 200))
+
+    const received = waitForRawEvent<{
+      dmMessageId: string
+      reactions: Array<{ emoji: string; count: number }>
+    }>(ws1, 'dm:reaction:updated')
+
+    await fetch(`${baseUrl}/api/dm/messages/${messageId}/reactions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${user2Token}`,
+      },
+      body: JSON.stringify({ emoji: '❤️' }),
+    })
+
+    const payload = await received
+    expect(payload.dmMessageId).toBe(messageId)
+    expect(payload.reactions.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('removes a reaction from a DM message', async () => {
+    const res = await fetch(
+      `${baseUrl}/api/dm/messages/${messageId}/reactions/${encodeURIComponent('👍')}`,
+      {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${userToken}` },
+      },
+    )
+    expect(res.status).toBe(200)
+
+    // Verify reaction count decreased
+    const reactionsRes = await fetch(`${baseUrl}/api/dm/messages/${messageId}/reactions`, {
+      headers: { Authorization: `Bearer ${userToken}` },
+    })
+    const reactions = (await reactionsRes.json()) as Array<{
+      emoji: string
+      count: number
+      userIds: string[]
+    }>
+    const thumbsUp = reactions.find((r) => r.emoji === '👍')
+    if (thumbsUp) {
+      expect(thumbsUp.userIds).not.toContain(userId)
+    }
+  })
+})
+
+describe('DM Reply / Quote', () => {
+  let dmChannelId: string
+  let originalMessageId: string
+
+  it('setup: create DM channel and original message', async () => {
+    const res = await fetch(`${baseUrl}/api/dm/channels`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${userToken}`,
+      },
+      body: JSON.stringify({ userId: user2Id }),
+    })
+    const channel = (await res.json()) as { id: string }
+    dmChannelId = channel.id
+
+    const msgRes = await fetch(`${baseUrl}/api/dm/channels/${dmChannelId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${userToken}`,
+      },
+      body: JSON.stringify({ content: 'Original message' }),
+    })
+    const msg = (await msgRes.json()) as { id: string }
+    originalMessageId = msg.id
+  })
+
+  it('sends a DM reply with replyToId via REST', async () => {
+    const res = await fetch(`${baseUrl}/api/dm/channels/${dmChannelId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${user2Token}`,
+      },
+      body: JSON.stringify({
+        content: 'This is a reply',
+        replyToId: originalMessageId,
+      }),
+    })
+    expect(res.status).toBe(201)
+
+    const msg = (await res.json()) as {
+      id: string
+      content: string
+      replyToId: string | null
+    }
+    expect(msg.content).toBe('This is a reply')
+    expect(msg.replyToId).toBe(originalMessageId)
+  })
+
+  it('sends a DM reply with replyToId via WebSocket', async () => {
+    ws1.raw.emit('dm:join', { dmChannelId })
+    ws2.raw.emit('dm:join', { dmChannelId })
+    await new Promise((r) => setTimeout(r, 200))
+
+    const received = waitForRawEvent<{
+      content: string
+      replyToId: string | null
+    }>(ws1, 'dm:message')
+
+    ws2.raw.emit('dm:send', {
+      dmChannelId,
+      content: 'WS reply',
+      replyToId: originalMessageId,
+    })
+
+    const msg = await received
+    expect(msg.content).toBe('WS reply')
+    expect(msg.replyToId).toBe(originalMessageId)
+  })
+
+  it('fetched messages include replyToId', async () => {
+    const res = await fetch(`${baseUrl}/api/dm/channels/${dmChannelId}/messages?limit=10`, {
+      headers: { Authorization: `Bearer ${userToken}` },
+    })
+    const msgs = (await res.json()) as Array<{
+      id: string
+      content: string
+      replyToId: string | null
+    }>
+
+    const replyMsg = msgs.find((m) => m.content === 'This is a reply')
+    expect(replyMsg).toBeDefined()
+    expect(replyMsg!.replyToId).toBe(originalMessageId)
+  })
+})
+
+describe('Bot DM Relay', () => {
+  let botUserId: string
+  let botToken: string
+  let wsBotClient: ShadowSocket
+  let dmChannelId: string
+
+  it('setup: create bot user and connect', async () => {
+    const userDao = container.resolve('userDao')
+    const ts = Date.now()
+
+    const botUser = await userDao.create({
+      email: `relay-bot-${ts}@test.local`,
+      username: `relay_bot_${ts}`,
+      passwordHash: 'not-used',
+    })
+    botUserId = botUser!.id
+
+    // Mark as bot
+    await db.update(schema.users).set({ isBot: true }).where(eq(schema.users.id, botUserId))
+
+    botToken = signAccessToken({
+      userId: botUserId,
+      email: botUser!.email,
+      username: botUser!.username,
+    })
+
+    // Connect bot WebSocket
+    wsBotClient = new ShadowSocket({ serverUrl: baseUrl, token: botToken })
+    wsBotClient.connect()
+    await wsBotClient.waitForConnect()
+  })
+
+  it('creates DM channel between user and bot', async () => {
+    const res = await fetch(`${baseUrl}/api/dm/channels`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${userToken}`,
+      },
+      body: JSON.stringify({ userId: botUserId }),
+    })
+    expect(res.status).toBe(201)
+    const channel = (await res.json()) as { id: string }
+    dmChannelId = channel.id
+  })
+
+  it('bot receives dm:message:new when user sends DM via REST', async () => {
+    // User joins DM room
+    ws1.raw.emit('dm:join', { dmChannelId })
+    await new Promise((r) => setTimeout(r, 200))
+
+    const botReceived = waitForRawEvent<{
+      id: string
+      content: string
+      dmChannelId: string
+      senderId: string
+      receiverId: string
+      authorId: string
+      replyToId: string | null
+      attachments: unknown[]
+    }>(wsBotClient, 'dm:message:new')
+
+    await fetch(`${baseUrl}/api/dm/channels/${dmChannelId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${userToken}`,
+      },
+      body: JSON.stringify({ content: 'Hello bot!' }),
+    })
+
+    const msg = await botReceived
+    expect(msg.content).toBe('Hello bot!')
+    expect(msg.dmChannelId).toBe(dmChannelId)
+    expect(msg.senderId).toBe(userId)
+    expect(msg.receiverId).toBe(botUserId)
+    expect(msg.attachments).toBeDefined()
+    expect(msg.replyToId).toBeNull()
+  })
+
+  it('bot receives dm:message:new when user sends DM via WebSocket', async () => {
+    const botReceived = waitForRawEvent<{
+      content: string
+      dmChannelId: string
+      senderId: string
+    }>(wsBotClient, 'dm:message:new')
+
+    ws1.raw.emit('dm:send', { dmChannelId, content: 'Hello bot via WS!' })
+
+    const msg = await botReceived
+    expect(msg.content).toBe('Hello bot via WS!')
+    expect(msg.dmChannelId).toBe(dmChannelId)
+    expect(msg.senderId).toBe(userId)
+  })
+
+  it('bot receives dm:message:new with replyToId when user quotes', async () => {
+    // Send an original message first
+    const originalRes = await fetch(`${baseUrl}/api/dm/channels/${dmChannelId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${userToken}`,
+      },
+      body: JSON.stringify({ content: 'Original for bot reply test' }),
+    })
+    const original = (await originalRes.json()) as { id: string }
+
+    // Drain the dm:message:new from the original message
+    await waitForRawEvent(wsBotClient, 'dm:message:new')
+
+    const botReceived = waitForRawEvent<{
+      content: string
+      replyToId: string | null
+    }>(wsBotClient, 'dm:message:new')
+
+    await fetch(`${baseUrl}/api/dm/channels/${dmChannelId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${userToken}`,
+      },
+      body: JSON.stringify({
+        content: 'Quoting you',
+        replyToId: original.id,
+      }),
+    })
+
+    const msg = await botReceived
+    expect(msg.content).toBe('Quoting you')
+    expect(msg.replyToId).toBe(original.id)
+  })
+
+  it('user receives dm:message when bot replies via REST', async () => {
+    ws1.raw.emit('dm:join', { dmChannelId })
+    await new Promise((r) => setTimeout(r, 200))
+
+    // Clear any pending events
+    ws1.raw.removeAllListeners('dm:message')
+
+    const userReceived = waitForRawEvent<{
+      content: string
+      authorId: string
+      dmChannelId: string
+      author?: { id: string; isBot?: boolean }
+    }>(ws1, 'dm:message')
+
+    // Bot sends a reply via REST (same as ShadowClient.sendDmMessage)
+    const res = await fetch(`${baseUrl}/api/dm/channels/${dmChannelId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${botToken}`,
+      },
+      body: JSON.stringify({ content: 'Bot reply!' }),
+    })
+    expect(res.status).toBe(201)
+
+    const msg = await userReceived
+    expect(msg.content).toBe('Bot reply!')
+    expect(msg.authorId).toBe(botUserId)
+    expect(msg.dmChannelId).toBe(dmChannelId)
+  })
+
+  it('bot reply does NOT trigger relay back to human (human is not a bot)', async () => {
+    // The relayDmToBot should skip since the other user (user1) is not a bot.
+    // We verify by ensuring user1 does NOT receive dm:message:new (only dm:message).
+    let receivedDmMessageNew = false
+    const handler = () => {
+      receivedDmMessageNew = true
+    }
+    ws1.raw.on('dm:message:new', handler)
+
+    await fetch(`${baseUrl}/api/dm/channels/${dmChannelId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${botToken}`,
+      },
+      body: JSON.stringify({ content: 'Another bot message' }),
+    })
+    await new Promise((r) => setTimeout(r, 500))
+
+    expect(receivedDmMessageNew).toBe(false)
+    ws1.raw.off('dm:message:new', handler)
+  })
+
+  it('cleanup: disconnect bot client', () => {
+    wsBotClient?.disconnect()
+  })
+})
+
+describe('DM WebSocket Edit & Delete Events', () => {
+  let dmChannelId: string
+
+  it('setup: get or create DM channel', async () => {
+    const res = await fetch(`${baseUrl}/api/dm/channels`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${userToken}`,
+      },
+      body: JSON.stringify({ userId: user2Id }),
+    })
+    const channel = (await res.json()) as { id: string }
+    dmChannelId = channel.id
+
+    ws1.raw.emit('dm:join', { dmChannelId })
+    ws2.raw.emit('dm:join', { dmChannelId })
+    await new Promise((r) => setTimeout(r, 200))
+  })
+
+  it('dm:edit updates a message and broadcasts dm:message:updated', async () => {
+    // Send a message first
+    const sendReceived = waitForRawEvent<{ id: string; content: string }>(ws2, 'dm:message')
+    ws1.raw.emit('dm:send', { dmChannelId, content: 'Before edit' })
+    const sent = await sendReceived
+
+    // Edit via socket
+    const editReceived = waitForRawEvent<{ id: string; content: string; isEdited: boolean }>(
+      ws2,
+      'dm:message:updated',
+    )
+    ws1.raw.emit('dm:edit', {
+      dmChannelId,
+      messageId: sent.id,
+      content: 'After WS edit',
+    })
+
+    const edited = await editReceived
+    expect(edited.id).toBe(sent.id)
+    expect(edited.content).toBe('After WS edit')
+    expect(edited.isEdited).toBe(true)
+  })
+
+  it('dm:delete removes a message and broadcasts dm:message:deleted', async () => {
+    // Send a message first
+    const sendReceived = waitForRawEvent<{ id: string }>(ws2, 'dm:message')
+    ws1.raw.emit('dm:send', { dmChannelId, content: 'Will be WS deleted' })
+    const sent = await sendReceived
+
+    // Delete via socket
+    const deleteReceived = waitForRawEvent<{ id: string; dmChannelId: string }>(
+      ws2,
+      'dm:message:deleted',
+    )
+    ws1.raw.emit('dm:delete', { dmChannelId, messageId: sent.id })
+
+    const deleted = await deleteReceived
+    expect(deleted.id).toBe(sent.id)
+    expect(deleted.dmChannelId).toBe(dmChannelId)
   })
 })
 

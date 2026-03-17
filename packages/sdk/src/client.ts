@@ -567,10 +567,14 @@ export class ShadowClient {
     return this.request(`/api/dm/channels/${channelId}/messages?${params}`)
   }
 
-  async sendDmMessage(channelId: string, content: string): Promise<ShadowMessage> {
+  async sendDmMessage(
+    channelId: string,
+    content: string,
+    options?: { replyToId?: string },
+  ): Promise<ShadowMessage> {
     return this.request(`/api/dm/channels/${channelId}/messages`, {
       method: 'POST',
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, replyToId: options?.replyToId }),
     })
   }
 

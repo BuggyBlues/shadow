@@ -278,15 +278,22 @@ export function FriendsContent({ onStartChat }: { onStartChat?: (userId: string)
                       </div>
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
                         {isChatDisabled ? (
-                          <span
-                            className="w-9 h-9 rounded-full bg-bg-secondary flex items-center justify-center text-text-muted cursor-not-allowed"
+                          <button
+                            type="button"
+                            onClick={() => {
+                              showToast(
+                                t('friends.chatDisabledTooltip', '该 Claw 已挂单或出租，无法私聊'),
+                                'error',
+                              )
+                            }}
+                            className="w-9 h-9 rounded-full bg-bg-secondary flex items-center justify-center text-text-muted cursor-not-allowed opacity-50"
                             title={t(
                               'friends.chatDisabledTooltip',
                               '该 Claw 已挂单或出租，无法私聊',
                             )}
                           >
                             <MessageCircle size={18} />
-                          </span>
+                          </button>
                         ) : (
                           <button
                             onClick={() => startChat.mutate(f.user.id)}
