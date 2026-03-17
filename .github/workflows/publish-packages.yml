@@ -67,15 +67,12 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
 
-          # npm packages
-          cd packages/sdk
-          npm version "$VERSION" --no-git-tag-version
-          cd ../shared
-          npm version "$VERSION" --no-git-tag-version
-          cd ../..
+          # npm packages - use pnpm --filter to avoid directory switching issues
+          pnpm --filter @shadowob/sdk exec npm version "$VERSION" --no-git-tag-version
+          pnpm --filter @shadowob/shared exec npm version "$VERSION" --no-git-tag-version
 
           # Python SDK
-          sed -i "s/^version = .*/version = \"$VERSION\"/" packages/sdk-python/pyproject.toml
+          sed -i "s/^version = .*/version = \"$VERSION\"/' packages/sdk-python/pyproject.toml
 
           echo "All SDK versions bumped to $VERSION"
 
@@ -85,10 +82,8 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          cd packages/shared
-          pnpm publish --no-git-checks --access public
-          cd ../sdk
-          pnpm publish --no-git-checks --access public
+          pnpm --filter @shadowob/shared publish --no-git-checks --access public
+          pnpm --filter @shadowob/sdk publish --no-git-checks --access public
 
       # ── Publish PyPI ─────────────────────────────────────────────
       - name: Build and publish to PyPI
