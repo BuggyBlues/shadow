@@ -16,7 +16,14 @@ export async function relayDmToBot(
   dmChannelId: string,
   senderId: string,
   otherUserId: string,
-  message: { id: string; content: string; author?: unknown; createdAt: unknown },
+  message: {
+    id: string
+    content: string
+    author?: unknown
+    createdAt: unknown
+    replyToId?: string | null
+    attachments?: { id: string; filename: string; url: string; contentType: string; size: number }[]
+  },
 ) {
   const userDao = container.resolve('userDao')
   const otherUser = await userDao.findById(otherUserId)
@@ -29,6 +36,10 @@ export async function relayDmToBot(
   }
   logger.info({ otherUserId, dmChannelId, botSocketCount: botSockets.length }, 'Relaying DM to bot')
 
+  if (botSockets.length === 0) {
+    logger.warn({ otherUserId, dmChannelId }, 'Bot has no active sockets — DM relay may be missed')
+  }
+
   const dmPayload = {
     id: message.id,
     content: message.content,
@@ -39,6 +50,8 @@ export async function relayDmToBot(
     senderId,
     receiverId: otherUserId,
     createdAt: message.createdAt,
+    replyToId: message.replyToId ?? null,
+    attachments: message.attachments ?? [],
   }
   io.to(`dm:${dmChannelId}`).emit('dm:message:new', dmPayload)
   io.to(`user:${otherUserId}`).emit('dm:message:new', dmPayload)
@@ -133,9 +146,11 @@ export function createDmHandler(container: AppContainer) {
           const otherUserId = channel.userAId === user.userId ? channel.userBId : channel.userAId
           await relayDmToBot(io, container, id, user.userId, otherUserId, {
             id: message.id,
-            content,
+            content: message.content ?? content,
             author: message.author,
             createdAt: message.createdAt,
+            replyToId: message.replyToId,
+            attachments: message.attachments,
           })
         }
       } catch (err) {

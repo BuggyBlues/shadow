@@ -12,7 +12,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import ReactMarkdown from 'react-markdown'
@@ -89,6 +89,31 @@ export interface MessageBubbleProps {
 
 const quickEmojis = ['👍', '❤️', '😂', '🎉', '🤔', '👀']
 
+/**
+ * Global active message id — ensures only one message toolbar is shown at a time.
+ * When a message becomes hovered, it sets itself as active and the others read
+ * this value to know they should hide.
+ */
+let _globalActiveMessageId: string | null = null
+const _globalListeners = new Set<() => void>()
+function setGlobalActiveMessage(id: string | null) {
+  _globalActiveMessageId = id
+  for (const fn of _globalListeners) fn()
+}
+function useGlobalActiveMessage(messageId: string) {
+  const [isActive, setIsActive] = useState(false)
+  useEffect(() => {
+    const handler = () => setIsActive(_globalActiveMessageId === messageId)
+    _globalListeners.add(handler)
+    // sync immediately
+    handler()
+    return () => {
+      _globalListeners.delete(handler)
+    }
+  }, [messageId])
+  return isActive
+}
+
 function isImageType(contentType: string): boolean {
   return contentType.startsWith('image/')
 }
@@ -109,7 +134,6 @@ export function MessageBubble({
   replyToMessage,
 }: MessageBubbleProps) {
   const { t, i18n } = useTranslation()
-  const [showActions, setShowActions] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showFullPicker, setShowFullPicker] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
@@ -130,6 +154,44 @@ export function MessageBubble({
   } | null>(null)
   const avatarHoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Global active message tracking — only one toolbar visible at a time
+  const isGlobalActive = useGlobalActiveMessage(message.id)
+  const showActions = isGlobalActive
+
+  // Close all menus on scroll (find nearest scrollable ancestor)
+  useEffect(() => {
+    if (!showActions && !showEmojiPicker && !showFullPicker && !showMoreMenu) return
+    const scrollParent = messageRef.current?.closest(
+      '[class*="overflow-y-auto"]',
+    ) as HTMLElement | null
+    if (!scrollParent) return
+    const handleScroll = () => {
+      setGlobalActiveMessage(null)
+      setShowEmojiPicker(false)
+      setShowFullPicker(false)
+      setShowMoreMenu(false)
+    }
+    scrollParent.addEventListener('scroll', handleScroll, { passive: true })
+    return () => scrollParent.removeEventListener('scroll', handleScroll)
+  }, [showActions, showEmojiPicker, showFullPicker, showMoreMenu])
+
+  const activateHover = useCallback(() => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
+    setGlobalActiveMessage(message.id)
+  }, [message.id])
+
+  const deactivateHover = useCallback(() => {
+    if (showMoreMenu || showEmojiPicker || showFullPicker) return
+    hoverTimeoutRef.current = setTimeout(() => {
+      if (_globalActiveMessageId === message.id) {
+        setGlobalActiveMessage(null)
+      }
+      setShowEmojiPicker(false)
+      setShowFullPicker(false)
+    }, 150)
+  }, [message.id, showMoreMenu, showEmojiPicker, showFullPicker])
 
   const isOwn = message.authorId === currentUserId
   const currentUser = useAuthStore((s) => s.user)
@@ -311,22 +373,18 @@ export function MessageBubble({
 
   const markdownContent = useMemo(() => message.content, [message.content])
 
+  const isDmOwn = variant === 'dm' && isOwn
+
   return (
     <div
       ref={messageRef}
       id={`msg-${message.id}`}
-      className={`group relative flex gap-4 px-4 py-1.5 message-row ${highlight ? 'bg-primary/10 animate-pulse' : 'mt-[2px]'}`}
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => {
-        if (!showMoreMenu) {
-          setShowActions(false)
-          setShowEmojiPicker(false)
-          setShowFullPicker(false)
-        }
-      }}
+      className={`group relative flex gap-4 px-4 py-1.5 message-row ${isDmOwn ? 'flex-row-reverse' : ''} ${highlight ? 'bg-primary/10 animate-pulse' : 'mt-[2px]'}`}
+      onMouseEnter={activateHover}
+      onMouseLeave={deactivateHover}
       onTouchStart={() => {
         longPressTimerRef.current = setTimeout(() => {
-          setShowActions(true)
+          setGlobalActiveMessage(message.id)
         }, 500)
       }}
       onTouchEnd={() => {
@@ -360,7 +418,7 @@ export function MessageBubble({
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-w-0">
+      <div className={`flex-1 min-w-0 ${isDmOwn ? 'text-right' : ''}`}>
         {/* Reply reference */}
         {replyToMessage && (
           <button
@@ -369,7 +427,7 @@ export function MessageBubble({
               const el = document.getElementById(`msg-${replyToMessage.id}`)
               el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
             }}
-            className="flex items-center gap-1.5 mb-1 text-xs text-text-muted hover:text-text-secondary transition"
+            className={`flex items-center gap-1.5 mb-1 text-xs text-text-muted hover:text-text-secondary transition ${isDmOwn ? 'ml-auto flex-row-reverse' : ''}`}
           >
             <Reply size={12} className="shrink-0" />
             <span className="font-medium">
@@ -380,7 +438,9 @@ export function MessageBubble({
             <span className="truncate max-w-[300px] opacity-70">{replyToMessage.content}</span>
           </button>
         )}
-        <div className="flex items-baseline gap-2 leading-none mb-1">
+        <div
+          className={`flex items-baseline gap-2 leading-none mb-1 ${isDmOwn ? 'flex-row-reverse' : ''}`}
+        >
           <span
             className={`font-medium text-[15px] hover:underline cursor-pointer ${author?.isBot ? 'text-primary' : 'text-text-primary'}`}
           >
@@ -527,7 +587,7 @@ export function MessageBubble({
 
         {/* Reactions */}
         {message.reactions && message.reactions.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1.5">
+          <div className={`flex flex-wrap gap-1 mt-1.5 ${isDmOwn ? 'justify-end' : ''}`}>
             {message.reactions.map((r) => (
               <button
                 type="button"
@@ -555,7 +615,7 @@ export function MessageBubble({
             className="fixed inset-0 z-[69]"
             onClick={() => {
               setShowMoreMenu(false)
-              setShowActions(false)
+              setGlobalActiveMessage(null)
               setShowEmojiPicker(false)
               setShowFullPicker(false)
             }}
@@ -568,18 +628,15 @@ export function MessageBubble({
         createPortal(
           (() => {
             const rect = messageRef.current!.getBoundingClientRect()
+            const posStyle = isDmOwn
+              ? { top: rect.top - 6, left: rect.left + 16 }
+              : { top: rect.top - 6, right: window.innerWidth - rect.right + 16 }
             return (
               <div
                 className="fixed flex items-center bg-bg-tertiary border border-border-dim rounded-lg shadow-lg z-[70]"
-                style={{ top: rect.top - 6, right: window.innerWidth - rect.right + 16 }}
-                onMouseEnter={() => setShowActions(true)}
-                onMouseLeave={() => {
-                  if (!showMoreMenu) {
-                    setShowActions(false)
-                    setShowEmojiPicker(false)
-                    setShowFullPicker(false)
-                  }
-                }}
+                style={posStyle}
+                onMouseEnter={activateHover}
+                onMouseLeave={deactivateHover}
               >
                 <button
                   type="button"
@@ -663,14 +720,21 @@ export function MessageBubble({
         createPortal(
           (() => {
             const rect = messageRef.current!.getBoundingClientRect()
+            const emojiPosStyle = isDmOwn
+              ? { top: rect.top - 34, left: rect.left + 16 }
+              : { top: rect.top - 34, right: window.innerWidth - rect.right + 16 }
             return (
               <div
                 className="fixed flex items-center gap-1 bg-bg-tertiary border border-border-dim rounded-lg shadow-lg p-1 z-[70]"
-                style={{ top: rect.top - 34, right: window.innerWidth - rect.right + 16 }}
-                onMouseEnter={() => setShowActions(true)}
+                style={emojiPosStyle}
+                onMouseEnter={activateHover}
                 onMouseLeave={() => {
-                  setShowActions(false)
-                  setShowEmojiPicker(false)
+                  hoverTimeoutRef.current = setTimeout(() => {
+                    if (_globalActiveMessageId === message.id) {
+                      setGlobalActiveMessage(null)
+                    }
+                    setShowEmojiPicker(false)
+                  }, 150)
                 }}
               >
                 {quickEmojis.map((emoji) => (
@@ -711,13 +775,20 @@ export function MessageBubble({
           (() => {
             const rect = messageRef.current!.getBoundingClientRect()
             const top = Math.max(8, rect.top - 440)
+            const fullPickerPosStyle = isDmOwn
+              ? { top, left: rect.left + 16 }
+              : { top, right: window.innerWidth - rect.right + 16 }
             return (
               <div
                 className="fixed z-[70]"
-                style={{ top, right: window.innerWidth - rect.right + 16 }}
+                style={fullPickerPosStyle}
                 onMouseLeave={() => {
                   setShowFullPicker(false)
-                  setShowActions(false)
+                  hoverTimeoutRef.current = setTimeout(() => {
+                    if (_globalActiveMessageId === message.id) {
+                      setGlobalActiveMessage(null)
+                    }
+                  }, 150)
                 }}
               >
                 <EmojiPicker

@@ -584,6 +584,8 @@ async function processShadowDmMessage(params: {
     authorId: string
     senderId: string
     receiverId: string
+    replyToId?: string | null
+    attachments?: { id: string; filename: string; url: string; contentType: string; size: number }[]
     author?: {
       id: string
       username: string
@@ -628,6 +630,18 @@ async function processShadowDmMessage(params: {
   const rawBody = dmMessage.content
   const dmChannelId = dmMessage.dmChannelId
 
+  // Build attachment context for AI (if any)
+  const attachments = dmMessage.attachments ?? []
+  let bodyWithAttachments = rawBody
+  if (attachments.length > 0) {
+    const attachmentLines = attachments.map(
+      (a) => `[Attachment: ${a.filename} (${a.contentType}): ${a.url}]`,
+    )
+    bodyWithAttachments = rawBody
+      ? `${rawBody}\n${attachmentLines.join('\n')}`
+      : attachmentLines.join('\n')
+  }
+
   // 1. Resolve agent route — use dmChannelId for session isolation
   const peerId = `dm:${dmChannelId}`
   const route = core.channel.routing.resolveAgentRoute({
@@ -646,13 +660,13 @@ async function processShadowDmMessage(params: {
     from: senderName,
     timestamp: new Date(dmMessage.createdAt).getTime(),
     envelope: core.channel.reply.resolveEnvelopeFormatOptions(cfg),
-    body: rawBody,
+    body: bodyWithAttachments,
   })
 
   // 3. Build and finalize MsgContext for DM
   const ctxPayload = core.channel.reply.finalizeInboundContext({
     Body: body,
-    BodyForAgent: rawBody,
+    BodyForAgent: bodyWithAttachments,
     RawBody: rawBody,
     CommandBody: rawBody,
     From: `shadowob:user:${senderId}`,
@@ -714,6 +728,7 @@ async function processShadowDmMessage(params: {
           await deliverShadowDmReply({
             payload,
             dmChannelId,
+            replyToId: dmMessage.id,
             client,
             runtime,
           })
@@ -731,14 +746,16 @@ async function processShadowDmMessage(params: {
 
 /**
  * Deliver a reply to a Shadow DM channel.
+ * Mirrors deliverShadowReply but for DM channels.
  */
 async function deliverShadowDmReply(params: {
   payload: ReplyPayload
   dmChannelId: string
+  replyToId?: string
   client: ShadowClient
   runtime: { log?: (msg: string) => void; error?: (msg: string) => void }
 }): Promise<void> {
-  const { payload, dmChannelId, client, runtime } = params
+  const { payload, dmChannelId, replyToId, client, runtime } = params
 
   try {
     if (!payload.text && !(payload.mediaUrl || payload.mediaUrls?.length)) {
@@ -749,16 +766,31 @@ async function deliverShadowDmReply(params: {
     const text = payload.text ?? ''
     runtime.log?.(`[dm-reply] Sending DM reply to channel ${dmChannelId}: "${text.slice(0, 80)}"`)
 
-    if (text) {
-      await client.sendDmMessage(dmChannelId, text)
-      runtime.log?.(`[dm-reply] DM reply delivered successfully`)
+    // Collect media URLs first so we know whether media is present
+    const mediaUrls = [payload.mediaUrl, ...(payload.mediaUrls ?? [])].filter(Boolean) as string[]
+
+    // Send the text message first (or a placeholder if media-only)
+    let sentMessage: ShadowMessage | null = null
+    if (text || mediaUrls.length > 0) {
+      const contentToSend = text || '\u200B' // zero-width space placeholder for media-only
+      sentMessage = await client.sendDmMessage(dmChannelId, contentToSend, { replyToId })
+      runtime.log?.(
+        `[dm-reply] DM message created (${sentMessage.id})${text ? '' : ' [media-only placeholder]'}`,
+      )
     }
 
-    // Upload media if present
-    const mediaUrls = [payload.mediaUrl, ...(payload.mediaUrls ?? [])].filter(Boolean) as string[]
-    if (mediaUrls.length > 0 && !text) {
-      // Send placeholder for media-only
-      await client.sendDmMessage(dmChannelId, '\u200B')
+    // Upload media files and attach to the message
+    if (mediaUrls.length > 0) {
+      const messageId = sentMessage?.id
+      for (const mediaUrl of mediaUrls) {
+        try {
+          runtime.log?.(`[dm-reply] Uploading media: ${mediaUrl}`)
+          await client.uploadMediaFromUrl(mediaUrl, messageId)
+          runtime.log?.(`[dm-reply] Media uploaded successfully`)
+        } catch (err) {
+          runtime.error?.(`[dm-reply] Failed to upload media ${mediaUrl}: ${String(err)}`)
+        }
+      }
     }
 
     runtime.log?.(`[dm-reply] DM reply delivered successfully`)
@@ -1125,6 +1157,14 @@ export async function monitorShadowProvider(
       authorId: string
       senderId: string
       receiverId: string
+      replyToId?: string | null
+      attachments?: {
+        id: string
+        filename: string
+        url: string
+        contentType: string
+        size: number
+      }[]
       author?: {
         id: string
         username: string

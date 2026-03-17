@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from '@tanstack/react-router'
-import { ArrowLeft, Loader2, Paperclip, Send, Smile, X } from 'lucide-react'
+import { ArrowLeft, Loader2, Paperclip, Reply, Send, Smile, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { type Message, MessageBubble, type ReactionGroup } from '../components/chat/message-bubble'
@@ -87,6 +87,7 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
   const [typingUsers, setTypingUsers] = useState<string[]>([])
   const [showEmoji, setShowEmoji] = useState(false)
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
+  const [replyToId, setReplyToId] = useState<string | null>(null)
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const lastTypingSent = useRef(0)
 
@@ -255,11 +256,15 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
         const contentToSend = content || '\u200B'
         await fetchApi(`/api/dm/channels/${dmChannelId}/messages`, {
           method: 'POST',
-          body: JSON.stringify({ content: contentToSend, attachments: uploadedAttachments }),
+          body: JSON.stringify({
+            content: contentToSend,
+            attachments: uploadedAttachments,
+            replyToId: replyToId ?? undefined,
+          }),
         })
         playSendSound()
       } else {
-        sendDmMessage({ dmChannelId, content })
+        sendDmMessage({ dmChannelId, content, replyToId: replyToId ?? undefined })
         playSendSound()
       }
     } catch (err) {
@@ -267,9 +272,10 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
     }
 
     setMessageText('')
+    setReplyToId(null)
     setPendingFiles([])
     inputRef.current?.focus()
-  }, [messageText, pendingFiles, dmChannelId])
+  }, [messageText, pendingFiles, dmChannelId, replyToId])
 
   // Handle typing events
   const handleTyping = useCallback(() => {
@@ -383,6 +389,10 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
                   message={msg}
                   currentUserId={user?.id ?? ''}
                   variant="dm"
+                  onReply={(id) => {
+                    setReplyToId(id)
+                    inputRef.current?.focus()
+                  }}
                   onReact={(messageId, emoji) => {
                     addDmReaction({ dmChannelId, dmMessageId: messageId, emoji })
                   }}
@@ -409,6 +419,11 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
                       method: 'DELETE',
                     })
                   }}
+                  replyToMessage={
+                    msg.replyToId
+                      ? (allMessages.map(toMessage).find((m) => m.id === msg.replyToId) ?? null)
+                      : null
+                  }
                 />
               )
             })}
@@ -426,6 +441,30 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
 
       {/* Message input */}
       <div className="px-4 pb-4 pt-1 shrink-0">
+        {/* Reply preview */}
+        {replyToId &&
+          (() => {
+            const replyMsg = allMessages.find((m) => m.id === replyToId)
+            return (
+              <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-bg-secondary border border-border-subtle rounded-lg text-xs">
+                <Reply size={14} className="text-primary shrink-0" />
+                <span className="text-text-muted">{t('chat.replyingTo', '回复')}</span>
+                <span className="font-medium text-text-primary truncate">
+                  {replyMsg?.author?.displayName ??
+                    replyMsg?.author?.username ??
+                    t('common.unknownUser')}
+                </span>
+                <span className="text-text-muted truncate max-w-[200px]">{replyMsg?.content}</span>
+                <button
+                  type="button"
+                  onClick={() => setReplyToId(null)}
+                  className="ml-auto p-0.5 text-text-muted hover:text-text-primary transition shrink-0"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )
+          })()}
         {/* Pending file previews */}
         {pendingFiles.length > 0 && (
           <div className="flex gap-2 mb-2 flex-wrap">

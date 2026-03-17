@@ -236,9 +236,11 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
           try {
             await relayDmToBot(io, container, data.dmChannelId, userId, otherUserId, {
               id: message.id,
-              content: data.content,
+              content: message.content ?? data.content,
               author: message.author,
               createdAt: message.createdAt,
+              replyToId: message.replyToId,
+              attachments: message.attachments,
             })
           } catch (err) {
             logger.error({ err, dmChannelId: data.dmChannelId }, 'Bot DM relay failed')
