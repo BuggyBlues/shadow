@@ -21,27 +21,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Lint
-        run: pnpm exec biome lint . --diagnostic-level=error
-
-      - name: SDK version consistency
-        run: pnpm check:sdk-versions
-
-      - name: Run all non-E2E tests
+      - name: Run unit/integration tests in docker-compose
+        shell: bash
         run: |
-          pnpm -r --if-present --filter "./apps/**" --filter "./packages/**" --filter "!./apps/desktop" test
-          pnpm test
+          docker compose -f docker-compose.ci-tests.yml up --build --abort-on-container-exit --exit-code-from ci-tests ci-tests
+
+      - name: Cleanup Docker
+        if: always()
+        run: docker compose -f docker-compose.ci-tests.yml down -v --remove-orphans
 
   e2e:
     name: E2E via docker-compose
