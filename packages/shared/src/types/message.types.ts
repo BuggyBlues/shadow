@@ -87,3 +87,40 @@ export interface DmChannel {
     status: string
   }
 }
+
+/** DM message — mirrors channel Message but scoped to DM channels */
+export interface DmMessage {
+  id: string
+  content: string
+  dmChannelId: string
+  authorId: string
+  replyToId: string | null
+  isEdited: boolean
+  createdAt: string
+  updatedAt: string
+  author?: {
+    id: string
+    username: string
+    displayName: string
+    avatarUrl: string | null
+    isBot: boolean
+  }
+  attachments?: DmAttachment[]
+  reactions?: ReactionGroup[]
+}
+
+export interface DmAttachment {
+  id: string
+  dmMessageId: string
+  filename: string
+  url: string
+  contentType: string
+  size: number
+  width: number | null
+  height: number | null
+  createdAt: string
+}
+
+export interface UpdateDmMessageRequest {
+  content: string
+}

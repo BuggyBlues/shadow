@@ -4,6 +4,7 @@ import { Check, MessageCircle, Search, Trash2, UserPlus, Users, X } from 'lucide
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { UserAvatar } from '../components/common/avatar'
+import { useSocketEvent } from '../hooks/use-socket'
 import { fetchApi } from '../lib/api'
 import { showToast } from '../lib/toast'
 
@@ -50,6 +51,17 @@ export function FriendsContent({ onStartChat }: { onStartChat?: (userId: string)
   const { data: pendingSent = [] } = useQuery({
     queryKey: ['friends-sent'],
     queryFn: () => fetchApi<FriendEntry[]>('/api/friends/sent'),
+  })
+
+  // Real-time: refresh pending list when a friend request is received
+  useSocketEvent('friend:request', () => {
+    queryClient.invalidateQueries({ queryKey: ['friends-pending'] })
+  })
+
+  // Real-time: refresh friends list when a friend request is accepted
+  useSocketEvent('friend:accepted', () => {
+    queryClient.invalidateQueries({ queryKey: ['friends'] })
+    queryClient.invalidateQueries({ queryKey: ['friends-sent'] })
   })
 
   // Send friend request

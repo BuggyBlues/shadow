@@ -18,6 +18,36 @@ export function createFriendshipHandler(container: AppContainer) {
       const user = c.get('user')
       const { username } = c.req.valid('json')
       const result = await friendshipService.sendRequest(user.userId, username)
+
+      // Notify the target user via WebSocket so their UI updates in real-time
+      try {
+        const io = container.resolve('io')
+        const userDao = container.resolve('userDao')
+        const targetUser = await userDao.findByUsername(username)
+        if (targetUser) {
+          const requester = await userDao.findById(user.userId)
+          const senderName = requester?.displayName ?? requester?.username ?? 'Someone'
+
+          // Emit friend request event for real-time UI updates
+          io.to(`user:${targetUser.id}`).emit('friend:request', result)
+
+          // Also send a notification
+          if (result) {
+            const notificationService = container.resolve('notificationService')
+            const notification = await notificationService.create({
+              userId: targetUser.id,
+              type: 'system',
+              title: `${senderName} sent you a friend request`,
+              referenceId: result.id,
+              referenceType: 'friendship',
+            })
+            io.to(`user:${targetUser.id}`).emit('notification:new', notification)
+          }
+        }
+      } catch {
+        /* notification failed, non-critical */
+      }
+
       return c.json(result, 201)
     },
   )
@@ -28,6 +58,17 @@ export function createFriendshipHandler(container: AppContainer) {
     const user = c.get('user')
     const id = c.req.param('id')
     const result = await friendshipService.acceptRequest(user.userId, id)
+
+    // Notify the requester that their friend request was accepted
+    try {
+      const io = container.resolve('io')
+      if (result?.requesterId) {
+        io.to(`user:${result.requesterId}`).emit('friend:accepted', result)
+      }
+    } catch {
+      /* non-critical */
+    }
+
     return c.json(result)
   })
 

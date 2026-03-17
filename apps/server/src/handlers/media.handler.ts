@@ -22,7 +22,7 @@ export function createMediaHandler(container: AppContainer) {
     const buffer = Buffer.from(await file.arrayBuffer())
     const result = await mediaService.upload(buffer, file.name, file.type)
 
-    // If messageId is provided, create attachment record
+    // If messageId is provided, create attachment record (channel message)
     const messageId = body.messageId
     if (typeof messageId === 'string') {
       await messageDao.createAttachment({
@@ -57,6 +57,48 @@ export function createMediaHandler(container: AppContainer) {
         }
       } catch (err) {
         console.error('[media] Failed to broadcast message:updated after attachment creation:', err)
+      }
+    }
+
+    // If dmMessageId is provided, create DM attachment record
+    const dmMessageId = body.dmMessageId
+    if (typeof dmMessageId === 'string') {
+      const dmService = container.resolve('dmService')
+      await dmService.createAttachment({
+        dmMessageId,
+        filename: file.name,
+        url: result.url,
+        contentType: file.type,
+        size: result.size,
+      })
+
+      // Broadcast DM message update
+      try {
+        const io = container.resolve('io')
+        const msg = await dmService.getMessageById(dmMessageId)
+        if (msg) {
+          const author = await userDao.findById(msg.authorId)
+          const attachments = await dmService.getAttachments(dmMessageId)
+          io.to(`dm:${msg.dmChannelId}`).emit('dm:message:updated', {
+            ...msg,
+            author: author
+              ? {
+                  id: author.id,
+                  username: author.username,
+                  displayName: author.displayName,
+                  avatarUrl: author.avatarUrl,
+                  status: author.status,
+                  isBot: author.isBot,
+                }
+              : null,
+            attachments,
+          })
+        }
+      } catch (err) {
+        console.error(
+          '[media] Failed to broadcast dm:message:updated after attachment creation:',
+          err,
+        )
       }
     }
 

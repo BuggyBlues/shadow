@@ -117,10 +117,42 @@ export function leaveDm(dmChannelId: string): void {
   getSocket().emit('dm:leave', { dmChannelId })
 }
 
-export function sendDmMessage(data: { dmChannelId: string; content: string }): void {
+export function sendDmMessage(data: {
+  dmChannelId: string
+  content: string
+  replyToId?: string
+}): void {
   getSocket().emit('dm:send', data)
 }
 
 export function sendDmTyping(dmChannelId: string): void {
   getSocket().emit('dm:typing', { dmChannelId })
+}
+
+export function editDmMessage(data: {
+  dmChannelId: string
+  messageId: string
+  content: string
+}): void {
+  getSocket().emit('dm:edit', data)
+}
+
+export function deleteDmMessage(data: { dmChannelId: string; messageId: string }): void {
+  getSocket().emit('dm:delete', data)
+}
+
+export function addDmReaction(data: {
+  dmChannelId: string
+  dmMessageId: string
+  emoji: string
+}): void {
+  getSocket().emit('dm:react', data)
+}
+
+export function removeDmReaction(data: {
+  dmChannelId: string
+  dmMessageId: string
+  emoji: string
+}): void {
+  getSocket().emit('dm:unreact', data)
 }

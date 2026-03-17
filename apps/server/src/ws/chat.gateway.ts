@@ -1,5 +1,6 @@
 import type { Socket, Server as SocketIOServer } from 'socket.io'
 import type { AppContainer } from '../container'
+import { relayDmToBot } from '../handlers/dm.handler'
 import { logger } from '../lib/logger'
 
 export function setupChatGateway(io: SocketIOServer, container: AppContainer): void {
@@ -191,75 +192,104 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
     })
 
     // dm:send — send a DM message
-    socket.on('dm:send', async (data: { dmChannelId: string; content: string }) => {
+    socket.on(
+      'dm:send',
+      async (data: { dmChannelId: string; content: string; replyToId?: string }) => {
+        if (!userId) return
+        try {
+          const dmService = container.resolve('dmService')
+          const channel = await dmService.getChannelById(data.dmChannelId)
+          if (!channel || (channel.userAId !== userId && channel.userBId !== userId)) {
+            socket.emit('error', { message: 'Not a participant of this DM' })
+            return
+          }
+
+          const message = await dmService.sendMessage(
+            data.dmChannelId,
+            userId,
+            data.content,
+            data.replyToId,
+          )
+
+          // Broadcast to DM room
+          io.to(`dm:${data.dmChannelId}`).emit('dm:message', message)
+
+          // Send notification to the other user
+          const otherUserId = channel.userAId === userId ? channel.userBId : channel.userAId
+          try {
+            const notificationService = container.resolve('notificationService')
+            const senderName = message.author?.displayName ?? message.author?.username ?? 'Someone'
+            const notification = await notificationService.create({
+              userId: otherUserId,
+              type: 'dm',
+              title: `${senderName} sent you a message`,
+              body: data.content.substring(0, 200),
+              referenceId: data.dmChannelId,
+              referenceType: 'dm_channel',
+            })
+            io.to(`user:${otherUserId}`).emit('notification:new', notification)
+          } catch {
+            /* notification failed, non-critical */
+          }
+
+          // Relay to bot using shared helper
+          try {
+            await relayDmToBot(io, container, data.dmChannelId, userId, otherUserId, {
+              id: message.id,
+              content: data.content,
+              author: message.author,
+              createdAt: message.createdAt,
+            })
+          } catch (err) {
+            logger.error({ err, dmChannelId: data.dmChannelId }, 'Bot DM relay failed')
+          }
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : 'Failed to send DM'
+          socket.emit('error', { message: msg })
+        }
+      },
+    )
+
+    // dm:edit — edit a DM message
+    socket.on(
+      'dm:edit',
+      async (data: { dmChannelId: string; messageId: string; content: string }) => {
+        if (!userId) return
+        try {
+          const dmService = container.resolve('dmService')
+          const isParticipant = await dmService.isParticipant(data.dmChannelId, userId)
+          if (!isParticipant) {
+            socket.emit('error', { message: 'Not a participant of this DM' })
+            return
+          }
+
+          const updated = await dmService.editMessage(data.messageId, userId, data.content)
+          io.to(`dm:${data.dmChannelId}`).emit('dm:message:updated', updated)
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : 'Failed to edit DM'
+          socket.emit('error', { message: msg })
+        }
+      },
+    )
+
+    // dm:delete — delete a DM message
+    socket.on('dm:delete', async (data: { dmChannelId: string; messageId: string }) => {
       if (!userId) return
       try {
         const dmService = container.resolve('dmService')
-        const channel = await dmService.getChannelById(data.dmChannelId)
-        if (!channel || (channel.userAId !== userId && channel.userBId !== userId)) {
+        const isParticipant = await dmService.isParticipant(data.dmChannelId, userId)
+        if (!isParticipant) {
           socket.emit('error', { message: 'Not a participant of this DM' })
           return
         }
 
-        const message = await dmService.sendMessage(data.dmChannelId, userId, data.content)
-
-        // Broadcast to DM room
-        io.to(`dm:${data.dmChannelId}`).emit('dm:message', message)
-
-        // Send notification to the other user
-        const otherUserId = channel.userAId === userId ? channel.userBId : channel.userAId
-        try {
-          const notificationService = container.resolve('notificationService')
-          const senderName = message.author?.displayName ?? message.author?.username ?? 'Someone'
-          const notification = await notificationService.create({
-            userId: otherUserId,
-            type: 'dm',
-            title: `${senderName} sent you a message`,
-            body: data.content.substring(0, 200),
-            referenceId: data.dmChannelId,
-            referenceType: 'dm_channel',
-          })
-          io.to(`user:${otherUserId}`).emit('notification:new', notification)
-        } catch {
-          /* notification failed, non-critical */
-        }
-
-        // Relay DM to bot user's monitor (for claw/agent AI processing)
-        try {
-          const userDao = container.resolve('userDao')
-          const otherUser = await userDao.findById(otherUserId)
-          if (otherUser?.isBot) {
-            // Ensure bot socket is in this DM room (handles new channels)
-            const botSockets = await io.in(`user:${otherUserId}`).fetchSockets()
-            for (const bs of botSockets) {
-              bs.join(`dm:${data.dmChannelId}`)
-            }
-            logger.info(
-              { otherUserId, dmChannelId: data.dmChannelId, botSocketCount: botSockets.length },
-              'Relaying DM to bot',
-            )
-
-            const dmPayload = {
-              id: message.id,
-              content: data.content,
-              dmChannelId: data.dmChannelId,
-              channelId: `dm:${data.dmChannelId}`,
-              authorId: userId,
-              author: message.author,
-              senderId: userId,
-              receiverId: otherUserId,
-              createdAt: message.createdAt,
-            }
-            // Emit to DM room (bot is joined, mirrors channel pattern)
-            io.to(`dm:${data.dmChannelId}`).emit('dm:message:new', dmPayload)
-            // Also emit to user room as fallback
-            io.to(`user:${otherUserId}`).emit('dm:message:new', dmPayload)
-          }
-        } catch (err) {
-          logger.error({ err, dmChannelId: data.dmChannelId }, 'Bot DM relay failed')
-        }
+        await dmService.deleteMessage(data.messageId, userId)
+        io.to(`dm:${data.dmChannelId}`).emit('dm:message:deleted', {
+          id: data.messageId,
+          dmChannelId: data.dmChannelId,
+        })
       } catch (error) {
-        const msg = error instanceof Error ? error.message : 'Failed to send DM'
+        const msg = error instanceof Error ? error.message : 'Failed to delete DM'
         socket.emit('error', { message: msg })
       }
     })
@@ -270,6 +300,60 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
       const username = socket.data.username as string
       socket.to(`dm:${dmChannelId}`).emit('dm:typing', { dmChannelId, userId, username })
     })
+
+    // dm:react — add a reaction to a DM message
+    socket.on(
+      'dm:react',
+      async (data: { dmChannelId: string; dmMessageId: string; emoji: string }) => {
+        if (!userId) return
+        try {
+          const dmService = container.resolve('dmService')
+          const isParticipant = await dmService.isParticipant(data.dmChannelId, userId)
+          if (!isParticipant) {
+            socket.emit('error', { message: 'Not a participant of this DM' })
+            return
+          }
+
+          await dmService.addReaction(data.dmMessageId, userId, data.emoji)
+          const reactions = await dmService.getReactions(data.dmMessageId)
+          io.to(`dm:${data.dmChannelId}`).emit('dm:reaction:updated', {
+            dmMessageId: data.dmMessageId,
+            dmChannelId: data.dmChannelId,
+            reactions,
+          })
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : 'Failed to add reaction'
+          socket.emit('error', { message: msg })
+        }
+      },
+    )
+
+    // dm:unreact — remove a reaction from a DM message
+    socket.on(
+      'dm:unreact',
+      async (data: { dmChannelId: string; dmMessageId: string; emoji: string }) => {
+        if (!userId) return
+        try {
+          const dmService = container.resolve('dmService')
+          const isParticipant = await dmService.isParticipant(data.dmChannelId, userId)
+          if (!isParticipant) {
+            socket.emit('error', { message: 'Not a participant of this DM' })
+            return
+          }
+
+          await dmService.removeReaction(data.dmMessageId, userId, data.emoji)
+          const reactions = await dmService.getReactions(data.dmMessageId)
+          io.to(`dm:${data.dmChannelId}`).emit('dm:reaction:updated', {
+            dmMessageId: data.dmMessageId,
+            dmChannelId: data.dmChannelId,
+            reactions,
+          })
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : 'Failed to remove reaction'
+          socket.emit('error', { message: msg })
+        }
+      },
+    )
 
     // Disconnect
     socket.on('disconnect', (reason) => {

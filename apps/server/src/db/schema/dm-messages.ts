@@ -11,6 +11,7 @@ export const dmMessages = pgTable('dm_messages', {
   authorId: uuid('author_id')
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
+  replyToId: uuid('reply_to_id'),
   isEdited: boolean('is_edited').default(false).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
