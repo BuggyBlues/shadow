@@ -328,14 +328,30 @@ async function shadowApi<T = unknown>(
     ...(init.headers as Record<string, string>),
   }
 
-  const res = await fetch(`${SHADOW_URL}${path}`, { ...init, headers })
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(`${SHADOW_URL}${path}`, { ...init, headers })
 
-  if (!res.ok) {
-    const body = await res.text().catch(() => '')
-    throw new Error(`Shadow API ${init.method ?? 'GET'} ${path} failed (${res.status}): ${body}`)
+      if (!res.ok) {
+        const body = await res.text().catch(() => '')
+        throw new Error(
+          `Shadow API ${init.method ?? 'GET'} ${path} failed (${res.status}): ${body}`,
+        )
+      }
+
+      return res.json() as Promise<T>
+    } catch (err: unknown) {
+      const isRetryable =
+        err instanceof TypeError ||
+        (err instanceof Error && /ECONNRESET|ECONNREFUSED|fetch failed/i.test(err.message))
+      if (isRetryable && attempt < 2) {
+        await sleep(1000 * (attempt + 1))
+        continue
+      }
+      throw err
+    }
   }
-
-  return res.json() as Promise<T>
+  throw new Error('unreachable')
 }
 
 export type SeedData = {

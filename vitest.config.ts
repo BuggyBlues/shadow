@@ -11,6 +11,8 @@ export default defineConfig({
       '**/build/**',
       '.research',
       'apps/desktop/e2e/**',
+      'apps/**',
+      'packages/**',
     ],
     coverage: {
       provider: 'v8',
