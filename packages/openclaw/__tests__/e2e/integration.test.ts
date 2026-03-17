@@ -227,7 +227,7 @@ describe('WebSocket Integration', () => {
         clearTimeout(timer)
         resolve()
       })
-      botSocket.on('connect_error', (err) => {
+      botSocket.on('connect_error', (err: Error) => {
         clearTimeout(timer)
         reject(new Error(`WebSocket connect error: ${err.message}`))
       })
@@ -264,7 +264,7 @@ describe('WebSocket Integration', () => {
         clearTimeout(timer)
         resolve()
       })
-      userSocket.on('connect_error', (err) => {
+      userSocket.on('connect_error', (err: Error) => {
         clearTimeout(timer)
         reject(err)
       })
@@ -428,7 +428,7 @@ describe('Monitor Subscription E2E', () => {
         clearTimeout(timer)
         resolve()
       })
-      userSocket.on('connect_error', (err) => {
+      userSocket.on('connect_error', (err: Error) => {
         clearTimeout(timer)
         reject(err)
       })
@@ -542,7 +542,7 @@ describe('Outbound Adapter Integration', () => {
 
     const cfg = {
       channels: {
-        shadow: {
+        shadowob: {
           token: seed.agentToken,
           serverUrl: SHADOW_URL,
         },
@@ -551,7 +551,7 @@ describe('Outbound Adapter Integration', () => {
 
     const result = await shadowOutbound.sendText!({
       cfg,
-      to: `shadow:channel:${seed.channel.id}`,
+      to: `shadowob:channel:${seed.channel.id}`,
       text: 'Outbound adapter E2E test',
     })
 
@@ -569,7 +569,7 @@ describe('Outbound Adapter Integration', () => {
 
     const cfg = {
       channels: {
-        shadow: {
+        shadowob: {
           token: seed.agentToken,
           serverUrl: SHADOW_URL,
         },
@@ -578,7 +578,7 @@ describe('Outbound Adapter Integration', () => {
 
     const result = await shadowOutbound.sendMedia!({
       cfg,
-      to: `shadow:channel:${seed.channel.id}`,
+      to: `shadowob:channel:${seed.channel.id}`,
       text: 'Image attached',
       mediaUrl: 'https://shadowob.com/test.png',
     })
@@ -598,7 +598,7 @@ describe('Plugin Config Integration', () => {
 
     const cfg = {
       channels: {
-        shadow: {
+        shadowob: {
           token: seed.agentToken,
           serverUrl: SHADOW_URL,
           enabled: true,
@@ -624,7 +624,7 @@ describe('Plugin Config Integration', () => {
       enabled: true,
     }
 
-    expect(shadowPlugin.config.isConfigured?.(account)).toBe(true)
+    expect(shadowPlugin.config.isConfigured?.(account, {} as any)).toBe(true)
   })
 
   it('plugin status.probeAccount succeeds with real agent token', async () => {

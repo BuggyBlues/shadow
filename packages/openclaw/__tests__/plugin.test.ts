@@ -240,7 +240,7 @@ describe('Plugin Entry Point', () => {
   it('should export a valid OpenClawPluginDefinition', async () => {
     const mod = await import('../index.js')
     const plugin = mod.default
-    expect(plugin.id).toBe('openclaw')
+    expect(plugin.id).toBe('shadowob')
     expect(plugin.name).toBe('ShadowOwnBuddy')
     expect(typeof plugin.register).toBe('function')
   })

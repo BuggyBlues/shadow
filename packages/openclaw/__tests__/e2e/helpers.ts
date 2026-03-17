@@ -220,13 +220,13 @@ export function writeOpenClawConfig(agentToken: string) {
         paths: [PLUGIN_DIR],
       },
       entries: {
-        shadow: {
+        shadowob: {
           enabled: true,
         },
       },
     },
     channels: {
-      shadow: {
+      shadowob: {
         token: agentToken,
         serverUrl: SHADOW_URL,
         enabled: true,

@@ -41,7 +41,7 @@ Add the Shadow channel to your `openclaw.yaml`:
 
 ```yaml
 channels:
-  shadow:
+  shadowob:
     token: "<agent-jwt-token>"
     serverUrl: "https://shadowob.com"
 ```
@@ -50,7 +50,7 @@ channels:
 
 ```yaml
 channels:
-  shadow:
+  shadowob:
     accounts:
       main:
         token: "<token-1>"
@@ -71,29 +71,29 @@ channels:
 
 ## Config Reference
 
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `token` | string | Yes | — | Agent JWT token |
-| `serverUrl` | string | Yes | `https://shadowob.com` | Shadow server base URL |
-| `serverId` | string | Yes | — | Shadow server UUID |
-| `channelIds` | string[] | No | all | Channel IDs to monitor |
-| `enabled` | boolean | No | `true` | Whether this account is active |
+|Field|Type|Required|Default|Description|
+|-----|----|--------|-------|-----------|
+|`token`|string|Yes|—|Agent JWT token|
+|`serverUrl`|string|Yes|`https://shadowob.com`|Shadow server base URL|
+|`serverId`|string|Yes|—|Shadow server UUID|
+|`channelIds`|string[]|No|all|Channel IDs to monitor|
+|`enabled`|boolean|No|`true`|Whether this account is active|
 
 ## Capabilities
 
-| Capability | Supported |
-|-----------|-----------|
-| Channel messages | ✅ |
-| Thread messages | ✅ |
-| Reactions | ✅ |
-| Media / attachments | ✅ |
-| Reply to message | ✅ |
-| Edit message | ✅ |
-| Delete (unsend) message | ✅ |
-| @Mentions | ✅ |
-| Typing indicators | ✅ |
-| Server homepage decoration | ✅ |
-| Get server info | ✅ |
+|Capability|Supported|
+|----------|---------|
+|Channel messages|✅|
+|Thread messages|✅|
+|Reactions|✅|
+|Media / attachments|✅|
+|Reply to message|✅|
+|Edit message|✅|
+|Delete (unsend) message|✅|
+|@Mentions|✅|
+|Typing indicators|✅|
+|Server homepage decoration|✅|
+|Get server info|✅|
 
 ## Server Homepage Decoration
 
