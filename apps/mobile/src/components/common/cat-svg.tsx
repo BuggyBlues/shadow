@@ -32,6 +32,7 @@ export function CatSvgDefs() {
   )
 }
 
+// Members: Cat Family
 export function AgentCatSvg({
   width = 100,
   height = 100,
@@ -39,95 +40,99 @@ export function AgentCatSvg({
 }: {
   width?: number
   height?: number
-  // biome-ignore lint/suspicious/noExplicitAny: Any prop
   style?: any
 }) {
   return (
     <Svg viewBox="0 0 100 100" width={width} height={height} style={style}>
       <CatSvgDefs />
+      {/* Mom Cat (Left) */}
       <Path
-        d="M 22,47 Q 15,24 28,24 Q 34,24 40,40"
+        d="M 15,35 Q 10,18 20,18 Q 25,18 30,30"
         fill="url(#catBody)"
         stroke="#1a1a1c"
-        strokeWidth="2.5"
+        strokeWidth="2"
         strokeLinecap="round"
-        strokeLinejoin="round"
       />
       <Path
-        d="M 78,47 Q 85,24 72,24 Q 66,24 60,40"
+        d="M 45,35 Q 50,18 40,18 Q 35,18 30,30"
         fill="url(#catBody)"
         stroke="#1a1a1c"
-        strokeWidth="2.5"
+        strokeWidth="2"
         strokeLinecap="round"
-        strokeLinejoin="round"
       />
       <Ellipse
-        cx="50"
-        cy="62"
-        rx="38"
-        ry="26"
+        cx="30"
+        cy="45"
+        rx="20"
+        ry="16"
         fill="url(#catBody)"
         stroke="#1a1a1c"
-        strokeWidth="2.5"
+        strokeWidth="2"
       />
-      <Circle cx="32" cy="57" r="6.5" fill="url(#eyeYellow)" stroke="#1a1a1c" strokeWidth="1.5" />
-      <Circle cx="30" cy="54.5" r="2.2" fill="#ffffff" />
-      <Circle cx="68" cy="57" r="6.5" fill="url(#eyeCyan)" stroke="#1a1a1c" strokeWidth="1.5" />
-      <Circle cx="66" cy="54.5" r="2.2" fill="#ffffff" />
-      <Ellipse cx="50" cy="64" rx="4" ry="2.5" fill="#3a2a26" />
+      <Circle cx="22" cy="42" r="3.5" fill="url(#eyeYellow)" stroke="#1a1a1c" strokeWidth="1" />
+      <Circle cx="38" cy="42" r="3.5" fill="url(#eyeYellow)" stroke="#1a1a1c" strokeWidth="1" />
+      <Ellipse cx="30" cy="46" rx="2" ry="1.5" fill="#3a2a26" />
+
+      {/* Dad Cat (Right) */}
       <Path
-        d="M 40,69 Q 45,74.5 50,69"
-        fill="none"
+        d="M 55,30 Q 50,12 62,12 Q 68,12 72,25"
+        fill="url(#catBody)"
         stroke="#1a1a1c"
-        strokeWidth="2.5"
+        strokeWidth="2"
         strokeLinecap="round"
       />
       <Path
-        d="M 50,69 Q 55,74.5 60,69"
-        fill="none"
+        d="M 89,30 Q 94,12 82,12 Q 76,12 72,25"
+        fill="url(#catBody)"
         stroke="#1a1a1c"
-        strokeWidth="2.5"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <Ellipse
+        cx="72"
+        cy="42"
+        rx="22"
+        ry="18"
+        fill="url(#catBody)"
+        stroke="#1a1a1c"
+        strokeWidth="2"
+      />
+      <Circle cx="64" cy="38" r="4" fill="url(#eyeCyan)" stroke="#1a1a1c" strokeWidth="1" />
+      <Circle cx="80" cy="38" r="4" fill="url(#eyeCyan)" stroke="#1a1a1c" strokeWidth="1" />
+      <Ellipse cx="72" cy="42" rx="2.5" ry="2" fill="#3a2a26" />
+
+      {/* Kitten (Center Front) */}
+      <Path
+        d="M 40,75 Q 36,62 44,62 Q 48,62 52,70"
+        fill="url(#catBody)"
+        stroke="#1a1a1c"
+        strokeWidth="1.5"
         strokeLinecap="round"
       />
       <Path
-        d="M 12,50 A 42 42 0 0 1 88 50"
-        fill="none"
-        stroke="#00f3ff"
-        strokeWidth="4"
+        d="M 64,75 Q 68,62 60,62 Q 56,62 52,70"
+        fill="url(#catBody)"
+        stroke="#1a1a1c"
+        strokeWidth="1.5"
         strokeLinecap="round"
       />
-      <Rect
-        x="6"
-        y="45"
-        width="12"
-        height="28"
-        rx="6"
-        fill="#ff7da5"
+      <Ellipse
+        cx="52"
+        cy="80"
+        rx="14"
+        ry="11"
+        fill="url(#catBody)"
         stroke="#1a1a1c"
-        strokeWidth="2.5"
+        strokeWidth="1.5"
       />
-      <Rect
-        x="82"
-        y="45"
-        width="12"
-        height="28"
-        rx="6"
-        fill="#00f3ff"
-        stroke="#1a1a1c"
-        strokeWidth="2.5"
-      />
-      <Path
-        d="M 12,68 Q 20,80 30,75"
-        fill="none"
-        stroke="#1a1a1c"
-        strokeWidth="3"
-        strokeLinecap="round"
-      />
-      <Circle cx="30" cy="75" r="3.5" fill="#f8e71c" stroke="#1a1a1c" strokeWidth="2" />
+      <Circle cx="46" cy="78" r="2.5" fill="url(#eyeYellow)" stroke="#1a1a1c" strokeWidth="1" />
+      <Circle cx="58" cy="78" r="2.5" fill="url(#eyeCyan)" stroke="#1a1a1c" strokeWidth="1" />
+      <Ellipse cx="52" cy="81" rx="1.5" ry="1" fill="#3a2a26" />
     </Svg>
   )
 }
 
+// Workspace: Cat organizing files
 export function WorkCatSvg({
   width = 100,
   height = 100,
@@ -135,7 +140,6 @@ export function WorkCatSvg({
 }: {
   width?: number
   height?: number
-  // biome-ignore lint/suspicious/noExplicitAny: Any prop
   style?: any
 }) {
   return (
@@ -170,44 +174,57 @@ export function WorkCatSvg({
       <Circle cx="32" cy="43" r="2" fill="#ffffff" />
       <Circle cx="66" cy="45" r="6" fill="url(#eyeCyan)" stroke="#1a1a1c" strokeWidth="1.5" />
       <Circle cx="64" cy="43" r="2" fill="#ffffff" />
+
+      {/* File folders */}
       <Path
-        d="M 32,60 Q 32,48 40,48 Q 45,48 45,55"
+        d="M 20,65 L 45,65 L 45,85 L 20,85 Z"
+        fill="#3B82F6"
+        stroke="#1a1a1c"
+        strokeWidth="2.5"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M 20,65 L 25,60 L 40,60 L 45,65"
+        fill="#60A5FA"
+        stroke="#1a1a1c"
+        strokeWidth="2.5"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M 30,75 L 80,75 L 80,95 L 30,95 Z"
+        fill="#10B981"
+        stroke="#1a1a1c"
+        strokeWidth="2.5"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M 30,75 L 35,70 L 50,70 L 55,75"
+        fill="#34D399"
+        stroke="#1a1a1c"
+        strokeWidth="2.5"
+        strokeLinejoin="round"
+      />
+
+      {/* Paw holding file */}
+      <Path
+        d="M 68,60 Q 68,48 60,48 Q 55,48 55,55 L 60,80"
         fill="url(#catBody)"
         stroke="#1a1a1c"
         strokeWidth="2.5"
         strokeLinecap="round"
       />
       <Path
-        d="M 68,60 Q 68,48 60,48 Q 55,48 55,55"
+        d="M 32,60 Q 32,48 40,48 Q 45,48 45,55 L 40,75"
         fill="url(#catBody)"
         stroke="#1a1a1c"
         strokeWidth="2.5"
         strokeLinecap="round"
-      />
-      <Path
-        d="M 15,55 L 85,55 L 90,85 L 10,85 Z"
-        fill="#ff7da5"
-        stroke="#1a1a1c"
-        strokeWidth="3"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M 12,85 L 88,85 L 88,88 Q 50,92 12,88 Z"
-        fill="#e85b85"
-        stroke="#1a1a1c"
-        strokeWidth="3"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M 50,62 L 52,66 L 57,66 L 53,69 L 55,73 L 50,70 L 45,73 L 47,69 L 43,66 L 48,66 Z"
-        fill="#f8e71c"
-        stroke="#1a1a1c"
-        strokeWidth="1.5"
       />
     </Svg>
   )
 }
 
+// Apps: Cat playing xbox controller
 export function ChannelCatSvg({
   width = 100,
   height = 100,
@@ -215,21 +232,20 @@ export function ChannelCatSvg({
 }: {
   width?: number
   height?: number
-  // biome-ignore lint/suspicious/noExplicitAny: Any prop
   style?: any
 }) {
   return (
     <Svg viewBox="0 0 100 100" width={width} height={height} style={style}>
       <CatSvgDefs />
       <Path
-        d="M 22,35 Q 15,12 28,12 Q 34,12 40,28"
+        d="M 28,35 Q 22,12 32,12 Q 38,12 42,28"
         fill="url(#catBody)"
         stroke="#1a1a1c"
         strokeWidth="2.5"
         strokeLinecap="round"
       />
       <Path
-        d="M 78,35 Q 85,12 72,12 Q 66,12 60,28"
+        d="M 72,35 Q 78,12 68,12 Q 62,12 58,28"
         fill="url(#catBody)"
         stroke="#1a1a1c"
         strokeWidth="2.5"
@@ -237,69 +253,57 @@ export function ChannelCatSvg({
       />
       <Ellipse
         cx="50"
-        cy="50"
-        rx="38"
-        ry="26"
+        cy="45"
+        rx="35"
+        ry="24"
         fill="url(#catBody)"
         stroke="#1a1a1c"
         strokeWidth="2.5"
       />
-      <Circle cx="34" cy="45" r="7" fill="url(#eyeYellow)" stroke="#1a1a1c" strokeWidth="1.5" />
-      <Circle cx="32" cy="42.5" r="2.5" fill="#ffffff" />
-      <Circle cx="66" cy="45" r="7" fill="url(#eyeCyan)" stroke="#1a1a1c" strokeWidth="1.5" />
-      <Circle cx="64" cy="42.5" r="2.5" fill="#ffffff" />
-      <Ellipse cx="50" cy="52" rx="3" ry="2" fill="#3a2a26" />
-      <Circle cx="50" cy="58" r="3" fill="#ff7da5" stroke="#1a1a1c" strokeWidth="2" />
+      <Circle cx="34" cy="40" r="6" fill="url(#eyeYellow)" stroke="#1a1a1c" strokeWidth="1.5" />
+      <Circle cx="32" cy="38" r="2" fill="#ffffff" />
+      <Circle cx="66" cy="40" r="6" fill="url(#eyeCyan)" stroke="#1a1a1c" strokeWidth="1.5" />
+      <Circle cx="64" cy="38" r="2" fill="#ffffff" />
+      <Ellipse cx="50" cy="46" rx="3" ry="2" fill="#3a2a26" />
 
-      <G transform="rotate(-10 27 75)">
-        <Rect
-          x="15"
-          y="65"
-          width="25"
-          height="25"
-          rx="6"
-          fill="#f8e71c"
-          stroke="#1a1a1c"
-          strokeWidth="2.5"
-        />
-        <SvgText x="27" y="83" fontWeight="900" fontSize="18" fill="#1a1a1c" textAnchor="middle">
-          #
-        </SvgText>
-      </G>
-
-      <Rect
-        x="40"
-        y="60"
-        width="25"
-        height="25"
-        rx="6"
-        fill="#00f3ff"
+      {/* Xbox Controller */}
+      <Path
+        d="M 20,70 Q 15,60 30,60 L 70,60 Q 85,60 80,70 Q 78,85 65,80 L 50,85 L 35,80 Q 22,85 20,70 Z"
+        fill="#e2e8f0"
         stroke="#1a1a1c"
         strokeWidth="2.5"
       />
-      <SvgText x="52" y="78" fontWeight="900" fontSize="18" fill="#1a1a1c" textAnchor="middle">
-        @
-      </SvgText>
+      {/* D-Pad */}
+      <Path
+        d="M 32,68 L 35,68 L 35,65 L 39,65 L 39,68 L 42,68 L 42,72 L 39,72 L 39,75 L 35,75 L 35,72 L 32,72 Z"
+        fill="#1a1a1c"
+      />
+      {/* Buttons */}
+      <Circle cx="68" cy="65" r="3" fill="#F59E0B" />
+      <Circle cx="62" cy="70" r="3" fill="#3B82F6" />
+      <Circle cx="74" cy="70" r="3" fill="#EF4444" />
+      <Circle cx="68" cy="75" r="3" fill="#10B981" />
 
-      <G transform="rotate(15 77 82)">
-        <Rect
-          x="65"
-          y="70"
-          width="25"
-          height="25"
-          rx="6"
-          fill="#ff7da5"
-          stroke="#1a1a1c"
-          strokeWidth="2.5"
-        />
-        <SvgText x="77" y="88" fontWeight="900" fontSize="16" fill="#1a1a1c" textAnchor="middle">
-          !!
-        </SvgText>
-      </G>
+      {/* Paws */}
+      <Path
+        d="M 32,55 Q 32,45 25,45 Q 18,45 20,55 L 25,72"
+        fill="url(#catBody)"
+        stroke="#1a1a1c"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+      />
+      <Path
+        d="M 68,55 Q 68,45 75,45 Q 82,45 80,55 L 75,72"
+        fill="url(#catBody)"
+        stroke="#1a1a1c"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+      />
     </Svg>
   )
 }
 
+// Shop: Fortune Cat (Maneki-neko)
 export function ShopCatSvg({
   width = 100,
   height = 100,
@@ -307,7 +311,6 @@ export function ShopCatSvg({
 }: {
   width?: number
   height?: number
-  // biome-ignore lint/suspicious/noExplicitAny: Any prop
   style?: any
 }) {
   return (
@@ -329,55 +332,65 @@ export function ShopCatSvg({
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Ellipse
-        cx="50"
-        cy="50"
-        rx="35"
-        ry="24"
-        fill="url(#catBody)"
-        stroke="#1a1a1c"
-        strokeWidth="2.5"
-      />
-      <Circle cx="34" cy="45" r="6" fill="url(#eyeYellow)" stroke="#1a1a1c" strokeWidth="1.5" />
-      <Circle cx="32" cy="43" r="2" fill="#ffffff" />
-      <Circle cx="66" cy="45" r="6" fill="url(#eyeCyan)" stroke="#1a1a1c" strokeWidth="1.5" />
-      <Circle cx="64" cy="43" r="2" fill="#ffffff" />
+
+      {/* Raised Left Paw (from cat's perspective, so right side of SVG) */}
       <Path
-        d="M 32,60 Q 32,48 40,48 Q 45,48 45,55"
-        fill="url(#catBody)"
-        stroke="#1a1a1c"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-      />
-      <Path
-        d="M 68,60 Q 68,48 60,48 Q 55,48 55,55"
+        d="M 70,50 Q 85,30 85,15 Q 75,10 65,30"
         fill="url(#catBody)"
         stroke="#1a1a1c"
         strokeWidth="2.5"
         strokeLinecap="round"
       />
 
-      {/* Shopping Bag instead of laptop */}
-      <Path
-        d="M 35,70 L 65,70 L 70,95 L 30,95 Z"
-        fill="#F59E0B"
+      <Ellipse
+        cx="50"
+        cy="55"
+        rx="35"
+        ry="28"
+        fill="url(#catBody)"
         stroke="#1a1a1c"
         strokeWidth="2.5"
-        strokeLinejoin="round"
       />
+      <Circle cx="34" cy="48" r="6" fill="url(#eyeYellow)" stroke="#1a1a1c" strokeWidth="1.5" />
+      <Circle cx="32" cy="46" r="2" fill="#ffffff" />
+      <Circle cx="66" cy="48" r="6" fill="url(#eyeCyan)" stroke="#1a1a1c" strokeWidth="1.5" />
+      <Circle cx="64" cy="46" r="2" fill="#ffffff" />
+      <Ellipse cx="50" cy="50" rx="3" ry="2" fill="#3a2a26" />
       <Path
-        d="M 42,70 Q 50,55 58,70"
+        d="M 45,54 Q 50,58 55,54"
         fill="none"
+        stroke="#1a1a1c"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+
+      {/* Red Collar & Bell */}
+      <Path
+        d="M 25,65 Q 50,75 75,65"
+        fill="none"
+        stroke="#EF4444"
+        strokeWidth="4"
+        strokeLinecap="round"
+      />
+      <Circle cx="50" cy="68" r="5" fill="#FBBF24" stroke="#1a1a1c" strokeWidth="1.5" />
+      <Path d="M 48,70 L 52,70 M 50,68 L 50,72" stroke="#1a1a1c" strokeWidth="1" />
+
+      {/* Koban (Gold Coin) held by right paw (left side of SVG) */}
+      <Ellipse cx="35" cy="78" rx="12" ry="18" fill="#FBBF24" stroke="#1a1a1c" strokeWidth="2" />
+      <Path
+        d="M 30,70 L 40,70 M 30,78 L 40,78 M 30,86 L 40,86"
+        stroke="#1a1a1c"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+
+      {/* Right Paw holding coin */}
+      <Path
+        d="M 20,55 Q 15,65 25,75 L 32,70"
+        fill="url(#catBody)"
         stroke="#1a1a1c"
         strokeWidth="2.5"
         strokeLinecap="round"
-      />
-      {/* Little star on bag */}
-      <Path
-        d="M 50,78 L 52,82 L 56,82 L 53,85 L 54,89 L 50,86 L 46,89 L 47,85 L 44,82 L 48,82 Z"
-        fill="#f8e71c"
-        stroke="#1a1a1c"
-        strokeWidth="1.5"
       />
     </Svg>
   )

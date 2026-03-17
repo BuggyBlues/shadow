@@ -261,34 +261,69 @@ export default function ServerHomeScreen() {
 
   return (
     <DottedBackground>
-      {/* Custom Header Floating */}
-      <View style={[styles.floatingHeader, { paddingTop: insets.top + 8 }]}>
-        <SquishyCard
+      {/* Custom navigation header bar */}
+      <View
+        style={[styles.customHeader, { backgroundColor: colors.surface, paddingTop: insets.top }]}
+      >
+        <Pressable
           onPress={() => router.back()}
-          style={[
-            styles.floatingBtn,
-            { backgroundColor: glassCardStyle.backgroundColor, borderColor: colors.border },
-          ]}
+          hitSlop={8}
+          style={({ pressed }) => [styles.headerBackBtn, pressed && { opacity: 0.5 }]}
         >
-          <ChevronLeft size={24} color={colors.text} />
-        </SquishyCard>
-        <View style={{ flex: 1 }} />
-        {isOwner && (
-          <SquishyCard
-            onPress={() => router.push(`/(main)/servers/${serverSlug}/server-settings` as any)}
-            style={[
-              styles.floatingBtn,
-              { backgroundColor: glassCardStyle.backgroundColor, borderColor: colors.border },
-            ]}
-          >
-            <Settings size={22} color={colors.text} />
-          </SquishyCard>
-        )}
+          <ChevronLeft size={26} color={colors.text} />
+        </Pressable>
+
+        <Pressable
+          onPress={() => router.push(`/(main)/servers/${serverSlug}/detail` as any)}
+          style={styles.headerTitleRow}
+        >
+          {server?.iconUrl ? (
+            <Image
+              source={{ uri: getImageUrl(server.iconUrl)! }}
+              style={styles.headerServerIcon}
+              contentFit="cover"
+            />
+          ) : (
+            <View
+              style={[
+                styles.headerServerIcon,
+                { backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center' },
+              ]}
+            >
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '800' }}>
+                {server?.name?.[0] ?? '?'}
+              </Text>
+            </View>
+          )}
+          <View style={styles.headerTextCol}>
+            <Text style={[styles.headerServerName, { color: colors.text }]} numberOfLines={1}>
+              {server?.name ?? '...'} ›
+            </Text>
+            <View style={styles.headerOnlineRow}>
+              <View style={[styles.headerOnlineDot, { backgroundColor: '#34D399' }]} />
+              <Text style={[styles.headerOnlineText, { color: colors.textMuted }]}>
+                {onlineCount} {t('server.membersOnline')}
+              </Text>
+            </View>
+          </View>
+        </Pressable>
+
+        <View style={styles.headerRight}>
+          {isOwner && (
+            <Pressable
+              onPress={() => router.push(`/(main)/servers/${serverSlug}/server-settings` as any)}
+              hitSlop={8}
+              style={({ pressed }) => [styles.headerIconBtn, pressed && { opacity: 0.5 }]}
+            >
+              <Settings size={22} color={colors.text} />
+            </Pressable>
+          )}
+        </View>
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingTop: insets.top + 60, paddingBottom: 100 }}
+        contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: 100 }}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
@@ -297,61 +332,6 @@ export default function ServerHomeScreen() {
           />
         }
       >
-        {/* ── Compact Server Header Card ─────────────────────── */}
-        <View style={[styles.compactHeroCard, glassCardStyle, { marginHorizontal: spacing.md }]}>
-          <LinearGradient
-            colors={['#00f3ff20', '#ff7da520', '#f8e71c20']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFillObject}
-          />
-          <View style={styles.compactHeroContent}>
-            <View style={[styles.compactServerIconWrap, { borderColor: colors.background }]}>
-              {server?.iconUrl ? (
-                <Image
-                  source={{ uri: getImageUrl(server.iconUrl)! }}
-                  style={styles.compactServerIcon}
-                  contentFit="cover"
-                />
-              ) : (
-                <View
-                  style={[
-                    styles.compactServerIcon,
-                    {
-                      backgroundColor: colors.primary,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                    },
-                  ]}
-                >
-                  <Text style={styles.compactServerIconText}>{server?.name?.[0] ?? '?'}</Text>
-                </View>
-              )}
-            </View>
-
-            <View style={styles.compactHeroTextCol}>
-              <Text style={[styles.compactServerName, { color: colors.text }]} numberOfLines={1}>
-                {server?.name}
-              </Text>
-              <View style={styles.neonPillsRow}>
-                <View
-                  style={[
-                    styles.neonPill,
-                    { borderColor: '#34D399', backgroundColor: '#34D39915' },
-                  ]}
-                >
-                  <View
-                    style={[styles.neonDot, { backgroundColor: '#34D399', shadowColor: '#34D399' }]}
-                  />
-                  <Text style={[styles.neonText, { color: '#34D399' }]}>
-                    {onlineCount} {t('server.membersOnline')}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        </View>
-
         {/* ── Horizontal 1x4 Actions ────────────────────── */}
         <View style={styles.actionRow}>
           {/* Workspace */}
@@ -695,95 +675,67 @@ export default function ServerHomeScreen() {
 // ── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  floatingHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
+  customHeader: {
     flexDirection: 'row',
-    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
     zIndex: 100,
   },
-  floatingBtn: {
+  headerBackBtn: {
     width: 44,
     height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
   },
-
-  // Compact Hero
-  compactHeroCard: {
-    overflow: 'hidden',
-    marginBottom: spacing.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 6,
-    position: 'relative',
-  },
-  compactHeroContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  compactServerIconWrap: {
-    borderWidth: 3,
-    borderRadius: 28,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 3,
-    marginRight: spacing.md,
-  },
-  compactServerIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-  },
-  compactServerIconText: { color: '#fff', fontSize: 24, fontWeight: '900' },
-  compactHeroTextCol: {
+  headerTitleRow: {
     flex: 1,
-    justifyContent: 'center',
-  },
-  compactServerName: {
-    fontSize: 20,
-    fontWeight: '900',
-    marginBottom: 4,
-  },
-  neonPillsRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  neonPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 16,
-    borderWidth: 2,
-    gap: 6,
+    marginLeft: 4,
   },
-  neonDot: {
+  headerServerIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: 10,
+    borderWidth: 2,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  headerTextCol: {
+    justifyContent: 'center',
+  },
+  headerServerName: {
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  headerOnlineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerOnlineDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
+    marginRight: 4,
   },
-  neonText: {
+  headerOnlineText: {
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '600',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: 4,
+  },
+  headerIconBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   // Horizontal 1x4 Actions
