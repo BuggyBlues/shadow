@@ -49,15 +49,16 @@ interface Attachment {
   size: number
 }
 
-interface Message {
+export interface Message {
   id: string
   content: string
-  channelId: string
+  channelId?: string
+  dmChannelId?: string
   authorId: string
-  threadId: string | null
+  threadId?: string | null
   replyToId: string | null
   isEdited: boolean
-  isPinned: boolean
+  isPinned?: boolean
   createdAt: string
   updatedAt?: string
   author?: Author
@@ -65,15 +66,23 @@ interface Message {
   attachments?: Attachment[]
 }
 
-interface MessageBubbleProps {
+export type { Author, ReactionGroup, Attachment }
+
+export interface MessageBubbleProps {
   message: Message
   currentUserId: string
+  /** 'channel' (default) enables server-member features; 'dm' disables them */
+  variant?: 'channel' | 'dm'
   onReply?: (messageId: string) => void
   onReact?: (messageId: string, emoji: string) => void
   onMessageUpdate?: (msg: Message) => void
   onMessageDelete?: (msgId: string) => void
   onPreviewFile?: (attachment: Attachment) => void
   onSaveToWorkspace?: (attachment: Attachment) => void
+  /** Custom edit API — defaults to PATCH /api/messages/:id */
+  editApi?: (messageId: string, content: string) => Promise<Message>
+  /** Custom delete API — defaults to DELETE /api/messages/:id */
+  deleteApi?: (messageId: string) => Promise<void>
   highlight?: boolean
   replyToMessage?: Message | null
 }
@@ -87,12 +96,15 @@ function isImageType(contentType: string): boolean {
 export function MessageBubble({
   message,
   currentUserId,
+  variant = 'channel',
   onReply,
   onReact,
   onMessageUpdate,
   onMessageDelete,
   onPreviewFile,
   onSaveToWorkspace,
+  editApi,
+  deleteApi,
   highlight,
   replyToMessage,
 }: MessageBubbleProps) {
@@ -138,16 +150,18 @@ export function MessageBubble({
       return
     }
     try {
-      const updated = await fetchApi<Message>(`/api/messages/${message.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ content: editContent.trim() }),
-      })
+      const updated = editApi
+        ? await editApi(message.id, editContent.trim())
+        : await fetchApi<Message>(`/api/messages/${message.id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ content: editContent.trim() }),
+          })
       onMessageUpdate?.(updated)
       setIsEditing(false)
     } catch {
       /* keep editing on error */
     }
-  }, [editContent, message.id, message.content, onMessageUpdate])
+  }, [editContent, message.id, message.content, onMessageUpdate, editApi])
 
   const handleDelete = useCallback(async () => {
     setShowMoreMenu(false)
@@ -157,12 +171,16 @@ export function MessageBubble({
     })
     if (!ok) return
     try {
-      await fetchApi(`/api/messages/${message.id}`, { method: 'DELETE' })
+      if (deleteApi) {
+        await deleteApi(message.id)
+      } else {
+        await fetchApi(`/api/messages/${message.id}`, { method: 'DELETE' })
+      }
       onMessageDelete?.(message.id)
     } catch {
       /* ignore */
     }
-  }, [message.id, onMessageDelete, t])
+  }, [message.id, onMessageDelete, deleteApi, t])
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(message.content)
@@ -225,16 +243,23 @@ export function MessageBubble({
     setAvatarHover(false)
   }, [])
 
-  // Look up member info from cache for role/buddy metadata
-  const membersList = queryClient.getQueryData<MemberEntry[]>(['members', activeServerId]) ?? []
+  // Look up member info from cache for role/buddy metadata (channel mode only)
+  const membersList =
+    variant === 'channel'
+      ? (queryClient.getQueryData<MemberEntry[]>(['members', activeServerId]) ?? [])
+      : []
   const authorMember = membersList.find((m: MemberEntry) => m.userId === author?.id)
   const buddyAgentsList =
-    queryClient.getQueryData<BuddyAgentEntry[]>(['members-buddy-agents', activeServerId]) ?? []
+    variant === 'channel'
+      ? (queryClient.getQueryData<BuddyAgentEntry[]>(['members-buddy-agents', activeServerId]) ??
+        [])
+      : []
   const buddyAgent = author?.isBot
     ? buddyAgentsList.find((a: BuddyAgentEntry) => a.botUser?.id === author.id)
     : undefined
   const currentMember = membersList.find((m: MemberEntry) => m.userId === currentUser?.id)
-  const canKick = currentMember?.role === 'owner' || currentMember?.role === 'admin'
+  const canKick =
+    variant === 'channel' && (currentMember?.role === 'owner' || currentMember?.role === 'admin')
   // Allow deletion for own messages OR messages from a bot owned by the current user
   const canDelete = isOwn || (author?.isBot && buddyAgent?.ownerId === currentUser?.id)
 

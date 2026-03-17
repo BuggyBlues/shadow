@@ -1,33 +1,62 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from '@tanstack/react-router'
-import { ArrowLeft, Loader2, Send, Smile } from 'lucide-react'
+import { ArrowLeft, Loader2, Paperclip, Send, Smile, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { type Message, MessageBubble, type ReactionGroup } from '../components/chat/message-bubble'
 import { UserAvatar } from '../components/common/avatar'
 import { EmojiPicker } from '../components/common/emoji-picker'
 import { useSocketEvent } from '../hooks/use-socket'
 import { fetchApi } from '../lib/api'
-import { joinDm, leaveDm, sendDmMessage, sendDmTyping } from '../lib/socket'
+import { addDmReaction, joinDm, leaveDm, sendDmMessage, sendDmTyping } from '../lib/socket'
 import { playReceiveSound, playSendSound } from '../lib/sounds'
 import { useAuthStore } from '../stores/auth.store'
 
-interface Author {
-  id: string
-  username: string
-  displayName: string
-  avatarUrl: string | null
-  isBot: boolean
-}
-
-interface DmMessage {
+interface DmMessageRaw {
   id: string
   content: string
   dmChannelId: string
   authorId: string
+  replyToId: string | null
   isEdited: boolean
   createdAt: string
   updatedAt?: string
-  author?: Author
+  author?: {
+    id: string
+    username: string
+    displayName: string
+    avatarUrl: string | null
+    isBot: boolean
+  }
+  attachments?: {
+    id: string
+    dmMessageId: string
+    filename: string
+    url: string
+    contentType: string
+    size: number
+    width: number | null
+    height: number | null
+  }[]
+  reactions?: ReactionGroup[]
+}
+
+/** Convert a DM message to the unified Message shape used by MessageBubble */
+function toMessage(m: DmMessageRaw): Message {
+  return {
+    ...m,
+    dmChannelId: m.dmChannelId,
+    replyToId: m.replyToId,
+    isEdited: m.isEdited,
+    attachments: m.attachments?.map((a) => ({
+      id: a.id,
+      filename: a.filename,
+      url: a.url,
+      contentType: a.contentType,
+      size: a.size,
+    })),
+    reactions: m.reactions,
+  }
 }
 
 interface DmChannelInfo {
@@ -53,9 +82,11 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
   const user = useAuthStore((s) => s.user)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [messageText, setMessageText] = useState('')
   const [typingUsers, setTypingUsers] = useState<string[]>([])
   const [showEmoji, setShowEmoji] = useState(false)
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const lastTypingSent = useRef(0)
 
@@ -78,7 +109,7 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
   } = useInfiniteQuery({
     queryKey: ['dm-messages', dmChannelId],
     queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
-      fetchApi<DmMessage[]>(
+      fetchApi<DmMessageRaw[]>(
         `/api/dm/channels/${dmChannelId}/messages?limit=50${pageParam ? `&cursor=${pageParam}` : ''}`,
       ),
     initialPageParam: undefined as string | undefined,
@@ -98,18 +129,45 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
     }
   }, [dmChannelId])
 
-  // Listen for new DM messages
-  useSocketEvent<DmMessage>('dm:message', (msg) => {
-    if (msg.dmChannelId !== dmChannelId) return
-    queryClient.setQueryData(
-      ['dm-messages', dmChannelId],
-      (old: { pages: DmMessage[][]; pageParams: (string | undefined)[] } | undefined) => {
+  type DmPages = { pages: DmMessageRaw[][]; pageParams: (string | undefined)[] }
+
+  // Helper to update a message in the query cache
+  const updateMessageInCache = useCallback(
+    (updated: DmMessageRaw) => {
+      queryClient.setQueryData(['dm-messages', dmChannelId], (old: DmPages | undefined) => {
         if (!old) return old
-        const newPages = [...old.pages]
-        newPages[0] = [msg, ...(newPages[0] ?? [])]
-        return { ...old, pages: newPages }
-      },
-    )
+        return {
+          ...old,
+          pages: old.pages.map((page) => page.map((m) => (m.id === updated.id ? updated : m))),
+        }
+      })
+    },
+    [queryClient, dmChannelId],
+  )
+
+  // Helper to remove a message from the query cache
+  const removeMessageFromCache = useCallback(
+    (id: string) => {
+      queryClient.setQueryData(['dm-messages', dmChannelId], (old: DmPages | undefined) => {
+        if (!old) return old
+        return {
+          ...old,
+          pages: old.pages.map((page) => page.filter((m) => m.id !== id)),
+        }
+      })
+    },
+    [queryClient, dmChannelId],
+  )
+
+  // Listen for new DM messages
+  useSocketEvent<DmMessageRaw>('dm:message', (msg) => {
+    if (msg.dmChannelId !== dmChannelId) return
+    queryClient.setQueryData(['dm-messages', dmChannelId], (old: DmPages | undefined) => {
+      if (!old) return old
+      const newPages = [...old.pages]
+      newPages[0] = [msg, ...(newPages[0] ?? [])]
+      return { ...old, pages: newPages }
+    })
     // Play sound if not from self
     if (msg.authorId !== user?.id) {
       playReceiveSound()
@@ -119,6 +177,34 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
     })
   })
+
+  // Listen for DM message updates (edit)
+  useSocketEvent<DmMessageRaw>('dm:message:updated', (msg) => {
+    if (msg.dmChannelId !== dmChannelId) return
+    updateMessageInCache(msg)
+  })
+
+  // Listen for DM message deletions
+  useSocketEvent<{ id: string; dmChannelId: string }>('dm:message:deleted', (data) => {
+    if (data.dmChannelId !== dmChannelId) return
+    removeMessageFromCache(data.id)
+  })
+
+  // Listen for DM reaction updates
+  useSocketEvent<{ dmMessageId: string; reactions: ReactionGroup[] }>(
+    'dm:reaction:updated',
+    (data) => {
+      queryClient.setQueryData(['dm-messages', dmChannelId], (old: DmPages | undefined) => {
+        if (!old) return old
+        return {
+          ...old,
+          pages: old.pages.map((page) =>
+            page.map((m) => (m.id === data.dmMessageId ? { ...m, reactions: data.reactions } : m)),
+          ),
+        }
+      })
+    },
+  )
 
   // Typing indicator
   useSocketEvent<{ dmChannelId: string; userId: string; username: string }>('dm:typing', (data) => {
@@ -138,15 +224,52 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
     }
   }, [isLoading, allMessages.length])
 
-  // Send message
-  const handleSend = useCallback(() => {
+  // Send message (with optional attachments)
+  const handleSend = useCallback(async () => {
     const content = messageText.trim()
-    if (!content) return
-    sendDmMessage({ dmChannelId, content })
-    playSendSound()
+    if (!content && pendingFiles.length === 0) return
+
+    try {
+      if (pendingFiles.length > 0) {
+        // Upload files first, then send via REST with attachments
+        const uploadedAttachments: {
+          filename: string
+          url: string
+          contentType: string
+          size: number
+        }[] = []
+        for (const f of pendingFiles) {
+          const formData = new FormData()
+          formData.append('file', f)
+          const result = await fetchApi<{ url: string; size: number }>('/api/media/upload', {
+            method: 'POST',
+            body: formData,
+          })
+          uploadedAttachments.push({
+            filename: f.name,
+            url: result.url,
+            contentType: f.type || 'application/octet-stream',
+            size: result.size,
+          })
+        }
+        const contentToSend = content || '\u200B'
+        await fetchApi(`/api/dm/channels/${dmChannelId}/messages`, {
+          method: 'POST',
+          body: JSON.stringify({ content: contentToSend, attachments: uploadedAttachments }),
+        })
+        playSendSound()
+      } else {
+        sendDmMessage({ dmChannelId, content })
+        playSendSound()
+      }
+    } catch (err) {
+      console.error('Failed to send DM:', err)
+    }
+
     setMessageText('')
+    setPendingFiles([])
     inputRef.current?.focus()
-  }, [messageText, dmChannelId])
+  }, [messageText, pendingFiles, dmChannelId])
 
   // Handle typing events
   const handleTyping = useCallback(() => {
@@ -251,50 +374,42 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
           </div>
         ) : (
           <div className="space-y-0.5">
-            {allMessages.map((msg, idx) => {
-              const prevMsg = idx > 0 ? allMessages[idx - 1] : null
-              const showHeader =
-                !prevMsg ||
-                prevMsg.authorId !== msg.authorId ||
-                new Date(msg.createdAt).getTime() - new Date(prevMsg.createdAt).getTime() >
-                  5 * 60 * 1000
+            {allMessages.map((raw, idx) => {
+              const msg = toMessage(raw)
 
               return (
-                <div
+                <MessageBubble
                   key={msg.id}
-                  className={`group flex gap-3 px-2 py-0.5 hover:bg-bg-modifier-hover rounded transition ${showHeader ? 'mt-4' : ''}`}
-                >
-                  {showHeader ? (
-                    <UserAvatar
-                      userId={msg.author?.id ?? msg.authorId}
-                      avatarUrl={msg.author?.avatarUrl ?? null}
-                      displayName={msg.author?.displayName ?? msg.author?.username ?? '?'}
-                      size="md"
-                    />
-                  ) : (
-                    <div className="w-10 shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    {showHeader && (
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="font-semibold text-text-primary text-sm">
-                          {msg.author?.displayName ?? msg.author?.username ?? '?'}
-                        </span>
-                        {msg.author?.isBot && (
-                          <span className="px-1 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-bold">
-                            BOT
-                          </span>
-                        )}
-                        <span className="text-text-muted text-[11px]">
-                          {new Date(msg.createdAt).toLocaleString()}
-                        </span>
-                      </div>
-                    )}
-                    <div className="text-text-primary text-sm whitespace-pre-wrap break-words">
-                      {msg.content}
-                    </div>
-                  </div>
-                </div>
+                  message={msg}
+                  currentUserId={user?.id ?? ''}
+                  variant="dm"
+                  onReact={(messageId, emoji) => {
+                    addDmReaction({ dmChannelId, dmMessageId: messageId, emoji })
+                  }}
+                  onMessageUpdate={(updated) => {
+                    // Convert back to DmMessageRaw for cache
+                    const rawUpdated: DmMessageRaw = {
+                      ...raw,
+                      content: updated.content,
+                      isEdited: updated.isEdited,
+                      updatedAt: updated.updatedAt,
+                    }
+                    updateMessageInCache(rawUpdated)
+                  }}
+                  onMessageDelete={(id) => removeMessageFromCache(id)}
+                  editApi={async (messageId, content) => {
+                    const res = await fetchApi<DmMessageRaw>(
+                      `/api/dm/channels/${dmChannelId}/messages/${messageId}`,
+                      { method: 'PATCH', body: JSON.stringify({ content }) },
+                    )
+                    return toMessage(res)
+                  }}
+                  deleteApi={async (messageId) => {
+                    await fetchApi(`/api/dm/channels/${dmChannelId}/messages/${messageId}`, {
+                      method: 'DELETE',
+                    })
+                  }}
+                />
               )
             })}
           </div>
@@ -311,7 +426,55 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
 
       {/* Message input */}
       <div className="px-4 pb-4 pt-1 shrink-0">
+        {/* Pending file previews */}
+        {pendingFiles.length > 0 && (
+          <div className="flex gap-2 mb-2 flex-wrap">
+            {pendingFiles.map((file, i) => (
+              <div
+                key={i}
+                className="relative group bg-bg-secondary border border-border-subtle rounded-lg p-2 flex items-center gap-2 text-xs text-text-secondary"
+              >
+                {file.type.startsWith('image/') ? (
+                  <img
+                    src={URL.createObjectURL(file)}
+                    alt={file.name}
+                    className="w-12 h-12 object-cover rounded"
+                  />
+                ) : (
+                  <div className="w-12 h-12 bg-bg-modifier-hover rounded flex items-center justify-center text-text-muted">
+                    <Paperclip size={16} />
+                  </div>
+                )}
+                <span className="max-w-[120px] truncate">{file.name}</span>
+                <button
+                  onClick={() => setPendingFiles((prev) => prev.filter((_, j) => j !== i))}
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-danger text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files) {
+              setPendingFiles((prev) => [...prev, ...Array.from(e.target.files!)])
+              e.target.value = ''
+            }
+          }}
+        />
         <div className="flex items-end gap-2 bg-bg-secondary rounded-lg border border-border-subtle">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="w-8 h-8 ml-2 mb-2 rounded hover:bg-bg-modifier-hover flex items-center justify-center text-text-muted hover:text-text-primary transition shrink-0"
+          >
+            <Paperclip size={18} />
+          </button>
           <textarea
             ref={inputRef}
             value={messageText}
@@ -368,7 +531,7 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
             </div>
             <button
               onClick={handleSend}
-              disabled={!messageText.trim()}
+              disabled={!messageText.trim() && pendingFiles.length === 0}
               className="w-8 h-8 rounded hover:bg-primary/10 flex items-center justify-center text-primary disabled:text-text-muted disabled:hover:bg-transparent transition"
             >
               <Send size={18} />
