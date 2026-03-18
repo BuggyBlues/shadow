@@ -38,9 +38,9 @@ function TabIconShell({
   return (
     <View
       style={{
-        width: 34,
-        height: 34,
-        borderRadius: 17,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: focused ? `${activeColor}20` : 'transparent',
@@ -69,30 +69,30 @@ export default function TabsLayout() {
         },
         tabBarStyle: {
           position: 'absolute',
-          bottom: Platform.OS === 'ios' ? 24 : 16,
-          left: 24,
-          right: 24,
-          height: 68,
-          backgroundColor: `${colors.surface}E6`,
-          borderTopWidth: 0,
-          borderWidth: 1,
+          bottom: Platform.OS === 'ios' ? 28 : 20,
+          left: 20,
+          right: 20,
+          height: 74,
+          backgroundColor: `${colors.surface}DD`, // slightly more transparent for blur
+          borderTopWidth: 2, // thicker borders
+          borderWidth: 2,
           borderColor: colors.border,
-          borderRadius: 34,
+          borderRadius: 37, // half of 74
           elevation: 0,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.14,
-          shadowRadius: 14,
+          shadowColor: colors.primary, // cute glow effect
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.15,
+          shadowRadius: 16,
           paddingBottom: 0,
           paddingHorizontal: 12,
         },
         tabBarBackground: () => (
-          <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', borderRadius: 34 }]}>
-            <BlurView tint="light" intensity={60} style={StyleSheet.absoluteFill} />
+          <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', borderRadius: 37 }]}>
+            <BlurView tint="default" intensity={80} style={StyleSheet.absoluteFill} />
           </View>
         ),
         tabBarItemStyle: {
-          paddingVertical: 7,
+          paddingVertical: 8,
           borderRadius: 22,
         },
         tabBarActiveTintColor: colors.primary,

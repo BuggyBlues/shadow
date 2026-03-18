@@ -1,4 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Asset } from 'expo-asset'
+import { Image } from 'expo-image'
+import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
 import { ChevronRight, Compass, Hash, Plus, Search, Users, X } from 'lucide-react-native'
 import { useMemo, useRef, useState } from 'react'
@@ -21,6 +24,8 @@ import {
 import Reanimated, { FadeIn, FadeInDown, FadeInRight } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Avatar } from '../../../src/components/common/avatar'
+import { AgentCatSvg, WorkCatSvg } from '../../../src/components/common/cat-svg'
+import { DottedBackground } from '../../../src/components/common/dotted-background'
 import { EmptyState } from '../../../src/components/common/empty-state'
 import { LoadingScreen } from '../../../src/components/common/loading-screen'
 import { NotificationBell } from '../../../src/components/notification/notification-bell'
@@ -171,11 +176,11 @@ export default function ServersScreen() {
   if (isLoading) return <LoadingScreen />
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <DottedBackground>
       {/* Navigation bar */}
       <Reanimated.View
         entering={FadeIn.duration(400)}
-        style={[styles.navBar, { paddingTop: insets.top + 8, backgroundColor: colors.surface }]}
+        style={[styles.navBar, { paddingTop: insets.top + 8, backgroundColor: 'transparent' }]}
       >
         <Pressable
           onPress={() => {
@@ -192,20 +197,25 @@ export default function ServersScreen() {
         </Pressable>
         <View style={styles.navActions}>
           <NotificationBell onPress={() => router.push('/(main)/notifications' as never)} />
-          <Pressable
-            onPress={() => setShowCreateServer(true)}
-            hitSlop={8}
-            style={({ pressed }) => [styles.navBtn, pressed && { opacity: 0.5 }]}
-          >
-            <Plus size={20} color={colors.text} />
-          </Pressable>
+          <SquishyRow onPress={() => setShowCreateServer(true)}>
+            <View
+              style={[styles.navPlusBubble, { backgroundColor: '#00f3ff', borderColor: '#00c3cc' }]}
+            >
+              <Plus size={20} color="#1a1a1c" strokeWidth={3} />
+            </View>
+          </SquishyRow>
         </View>
       </Reanimated.View>
 
       {/* Search bar */}
-      <View style={[styles.searchWrap, { backgroundColor: colors.surface }]}>
-        <View style={[styles.searchBox, { backgroundColor: colors.inputBackground }]}>
-          <Search size={16} color={colors.textMuted} />
+      <View style={[styles.searchWrap]}>
+        <View
+          style={[
+            styles.searchBox,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
+          <Search size={18} color={colors.textMuted} strokeWidth={2.5} />
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
             value={search}
@@ -215,7 +225,7 @@ export default function ServersScreen() {
           />
           {search.length > 0 && (
             <Pressable onPress={() => setSearch('')} hitSlop={8}>
-              <X size={14} color={colors.textMuted} />
+              <X size={16} color={colors.textMuted} strokeWidth={2.5} />
             </Pressable>
           )}
         </View>
@@ -264,12 +274,17 @@ export default function ServersScreen() {
           }
           contentContainerStyle={{ paddingBottom: 100 }}
           ListHeaderComponent={
-            <>
+            <View style={styles.quickEntryWrapper}>
               <SquishyRow
-                style={[styles.quickEntryRow, { backgroundColor: colors.background }]}
+                style={[
+                  styles.quickEntryCard,
+                  { backgroundColor: `${colors.surface}E6`, borderColor: colors.border },
+                ]}
                 onPress={() => router.push('/(main)/friends' as never)}
               >
-                <Avatar uri={null} name="好友与私信" size={48} userId="friends-entry" />
+                <LinearGradient colors={['#EF4444', '#F87171']} style={styles.actionBubbleGlow}>
+                  <AgentCatSvg width={36} height={36} />
+                </LinearGradient>
                 <View style={styles.quickEntryInfo}>
                   <Text style={[styles.quickEntryTitle, { color: colors.text }]}>好友与私信</Text>
                   <Text style={[styles.quickEntryDesc, { color: colors.textMuted }]}>
@@ -283,13 +298,17 @@ export default function ServersScreen() {
                 )}
                 <ChevronRight size={16} color={colors.textMuted} />
               </SquishyRow>
+
               <SquishyRow
-                style={[styles.quickEntryRow, { backgroundColor: colors.background }]}
+                style={[
+                  styles.quickEntryCard,
+                  { backgroundColor: `${colors.surface}E6`, borderColor: colors.border },
+                ]}
                 onPress={() => router.push('/(main)/discover' as never)}
               >
-                <View style={[styles.quickExploreIcon, { backgroundColor: `${colors.primary}15` }]}>
-                  <Compass size={18} color={colors.primary} />
-                </View>
+                <LinearGradient colors={['#3B82F6', '#60A5FA']} style={styles.actionBubbleGlow}>
+                  <WorkCatSvg width={36} height={36} />
+                </LinearGradient>
                 <View style={styles.quickEntryInfo}>
                   <Text style={[styles.quickEntryTitle, { color: colors.text }]}>探索服务器</Text>
                   <Text style={[styles.quickEntryDesc, { color: colors.textMuted }]}>
@@ -298,11 +317,10 @@ export default function ServersScreen() {
                 </View>
                 <ChevronRight size={16} color={colors.textMuted} />
               </SquishyRow>
-              <View style={[styles.separator, { backgroundColor: colors.border }]} />
-            </>
+            </View>
           }
           renderSectionHeader={({ section }) => (
-            <View style={[styles.sectionHeader, { backgroundColor: colors.background }]}>
+            <View style={[styles.sectionHeader]}>
               <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
                 {section.title}
               </Text>
@@ -316,22 +334,14 @@ export default function ServersScreen() {
             const desc = isPublicResult
               ? item.server.description || '公开服务器'
               : item.server.description || getRoleLabel(item.member.role)
-            const isFirst = index === 0
-            const isLast = index === section.data.length - 1
             return (
               <Reanimated.View entering={FadeInRight.delay(index * 40).springify()}>
                 <SquishyRow
                   style={[
-                    styles.serverRow,
+                    styles.serverCard,
                     {
-                      backgroundColor: colors.surface,
+                      backgroundColor: `${colors.surface}E6`,
                       borderColor: colors.border,
-                      borderTopLeftRadius: isFirst ? radius.xl : 0,
-                      borderTopRightRadius: isFirst ? radius.xl : 0,
-                      borderBottomLeftRadius: isLast ? radius.xl : 0,
-                      borderBottomRightRadius: isLast ? radius.xl : 0,
-                      borderTopWidth: isFirst ? 1 : StyleSheet.hairlineWidth,
-                      borderBottomWidth: isLast ? 1 : 0,
                     },
                   ]}
                   onPress={() => {
@@ -400,11 +410,12 @@ export default function ServersScreen() {
                       </Text>
                     )}
                   </View>
+                  <ChevronRight size={16} color={colors.textMuted} />
                 </SquishyRow>
               </Reanimated.View>
             )
           }}
-          SectionSeparatorComponent={() => <View style={styles.groupGap} />}
+          SectionSeparatorComponent={() => <View style={{ height: 4 }} />}
         />
       )}
 
@@ -482,7 +493,7 @@ export default function ServersScreen() {
           </Reanimated.View>
         </KeyboardAvoidingView>
       </Modal>
-    </View>
+    </DottedBackground>
   )
 }
 
@@ -502,6 +513,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.lg,
   },
+  navPlusBubble: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+  },
   navBtn: {
     padding: 4,
   },
@@ -515,36 +534,48 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
-    borderRadius: radius.lg,
-    height: 36,
-    gap: spacing.xs,
+    borderRadius: 24, // Make it rounder
+    height: 48, // Taller search bar
+    gap: spacing.sm,
+    borderWidth: 2,
   },
   searchInput: {
     flex: 1,
-    fontSize: fontSize.sm,
+    fontSize: fontSize.md,
     paddingVertical: 0,
   },
 
-  quickEntryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  quickEntryWrapper: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
+    gap: spacing.sm,
+  },
+  quickEntryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
     gap: spacing.md,
+    borderRadius: 24,
+    borderWidth: 2,
   },
-  quickEntryInfo: {
-    flex: 1,
-  },
-  quickExploreIcon: {
+  actionBubbleGlow: {
     width: 48,
     height: 48,
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  quickEntryInfo: {
+    flex: 1,
   },
   quickEntryTitle: {
     fontSize: fontSize.md,
-    fontWeight: '700',
+    fontWeight: '800', // Making it bolder
   },
   quickEntryDesc: {
     fontSize: fontSize.xs,
@@ -587,14 +618,15 @@ const styles = StyleSheet.create({
   },
 
   // Server list item
-  serverRow: {
+  serverCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    padding: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
     gap: spacing.md,
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
+    borderRadius: 24,
+    borderWidth: 2,
   },
   serverInfo: {
     flex: 1,
@@ -633,10 +665,6 @@ const styles = StyleSheet.create({
   serverMeta: {
     fontSize: fontSize.xs,
   },
-  separator: {
-    height: StyleSheet.hairlineWidth,
-    marginLeft: 48 + spacing.lg + spacing.md,
-  },
   groupGap: {
     height: spacing.md,
   },
@@ -653,9 +681,9 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '85%',
-    borderRadius: radius.xl,
+    borderRadius: 32, // Bubbly modal
     padding: spacing.xl,
-    borderWidth: 1,
+    borderWidth: 2,
     gap: spacing.sm,
   },
   modalHeader: {
@@ -674,10 +702,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   input: {
-    height: 44,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    paddingHorizontal: spacing.md,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    paddingHorizontal: spacing.lg,
     fontSize: fontSize.md,
   },
   switchRow: {
@@ -691,10 +719,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   createBtn: {
-    height: 44,
-    borderRadius: radius.lg,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: spacing.xs,
+    marginTop: spacing.md,
   },
 })
