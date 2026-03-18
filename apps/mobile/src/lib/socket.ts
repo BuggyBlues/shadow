@@ -16,7 +16,7 @@ export function getSocket(): Socket {
       transports: ['websocket'],
       autoConnect: false,
       reconnection: true,
-      reconnectionAttempts: 10,
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 10000,
     })
@@ -120,4 +120,54 @@ export function leaveApp(appId: string): void {
 
 export function broadcastAppState(appId: string, type: string, payload: unknown): void {
   getSocket().emit('app:broadcast', { appId, type, payload })
+}
+
+// ── DM helpers ──────────────────────────────────────────────────────────────
+
+export function joinDm(dmChannelId: string): void {
+  getSocket().emit('dm:join', { dmChannelId })
+}
+
+export function leaveDm(dmChannelId: string): void {
+  getSocket().emit('dm:leave', { dmChannelId })
+}
+
+export function sendDmMessage(data: {
+  dmChannelId: string
+  content: string
+  replyToId?: string
+}): void {
+  getSocket().emit('dm:send', data)
+}
+
+export function sendDmTyping(dmChannelId: string): void {
+  getSocket().emit('dm:typing', { dmChannelId })
+}
+
+export function editDmMessage(data: {
+  dmChannelId: string
+  messageId: string
+  content: string
+}): void {
+  getSocket().emit('dm:edit', data)
+}
+
+export function deleteDmMessage(data: { dmChannelId: string; messageId: string }): void {
+  getSocket().emit('dm:delete', data)
+}
+
+export function addDmReaction(data: {
+  dmChannelId: string
+  dmMessageId: string
+  emoji: string
+}): void {
+  getSocket().emit('dm:react', data)
+}
+
+export function removeDmReaction(data: {
+  dmChannelId: string
+  dmMessageId: string
+  emoji: string
+}): void {
+  getSocket().emit('dm:unreact', data)
 }

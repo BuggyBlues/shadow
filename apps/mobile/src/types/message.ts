@@ -47,6 +47,8 @@ export interface Message {
   author?: Author
   attachments?: Attachment[]
   reactions?: ReactionGroup[]
+  /** Optimistic send status — only set on client-side pending messages */
+  sendStatus?: 'sending' | 'failed'
 }
 
 export interface MessagesPage {

@@ -5,6 +5,7 @@ import { Image } from 'expo-image'
 import { useRouter } from 'expo-router'
 import * as Sharing from 'expo-sharing'
 import {
+  AlertCircle,
   Check,
   Copy,
   Download,
@@ -15,6 +16,7 @@ import {
   Film,
   Music,
   Pencil,
+  RefreshCw,
   Reply,
   Save,
   Share2,
@@ -38,17 +40,23 @@ const QUICK_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔', '👀']
 interface MessageBubbleProps {
   message: Message
   onReply: () => void
+  onRetry?: (message: Message) => void
   channelId: string
   allMessages?: Message[]
   isGrouped?: boolean
+  variant?: 'channel' | 'dm'
+  dmChannelId?: string
 }
 
 function MessageBubbleInner({
   message,
   onReply,
+  onRetry,
   channelId: _channelId,
   allMessages = [],
   isGrouped = false,
+  variant = 'channel',
+  dmChannelId,
 }: MessageBubbleProps) {
   const { t } = useTranslation()
   const colors = useColors()
@@ -106,24 +114,37 @@ function MessageBubbleInner({
   }, [message.replyToId, allMessages])
 
   const deleteMutation = useMutation({
-    mutationFn: () => fetchApi(`/api/messages/${message.id}`, { method: 'DELETE' }),
+    mutationFn: () =>
+      variant === 'dm' && dmChannelId
+        ? fetchApi(`/api/dm/channels/${dmChannelId}/messages/${message.id}`, { method: 'DELETE' })
+        : fetchApi(`/api/messages/${message.id}`, { method: 'DELETE' }),
   })
 
   const editMutation = useMutation({
     mutationFn: (content: string) =>
-      fetchApi(`/api/messages/${message.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ content }),
-      }),
+      variant === 'dm' && dmChannelId
+        ? fetchApi(`/api/dm/channels/${dmChannelId}/messages/${message.id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ content }),
+          })
+        : fetchApi(`/api/messages/${message.id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ content }),
+          }),
     onSuccess: () => setIsEditing(false),
   })
 
   const reactionMutation = useMutation({
     mutationFn: (emoji: string) =>
-      fetchApi(`/api/messages/${message.id}/reactions`, {
-        method: 'POST',
-        body: JSON.stringify({ emoji }),
-      }),
+      variant === 'dm'
+        ? fetchApi(`/api/dm/messages/${message.id}/reactions`, {
+            method: 'POST',
+            body: JSON.stringify({ emoji }),
+          })
+        : fetchApi(`/api/messages/${message.id}/reactions`, {
+            method: 'POST',
+            body: JSON.stringify({ emoji }),
+          }),
   })
 
   const handleLongPress = () => setShowActions(true)
@@ -452,6 +473,25 @@ function MessageBubbleInner({
               </Pressable>
             </View>
           )}
+          {/* Send status indicator — only show on failure */}
+          {message.sendStatus === 'failed' && (
+            <View style={styles.sendStatus}>
+              <AlertCircle size={12} color={colors.error} />
+              <Text style={[styles.sendStatusText, { color: colors.error }]}>
+                {t('chat.sendFailed', '发送失败')}
+              </Text>
+              <Pressable
+                style={[styles.retryBtn, { backgroundColor: `${colors.error}15` }]}
+                onPress={() => onRetry?.(message)}
+                hitSlop={8}
+              >
+                <RefreshCw size={12} color={colors.error} />
+                <Text style={[styles.retryText, { color: colors.error }]}>
+                  {t('chat.retry', '重试')}
+                </Text>
+              </Pressable>
+            </View>
+          )}
         </View>
       </View>
 
@@ -597,7 +637,8 @@ export const MessageBubble = memo(MessageBubbleInner, (prev, next) => {
     prev.message === next.message &&
     prev.channelId === next.channelId &&
     prev.isGrouped === next.isGrouped &&
-    prev.allMessages === next.allMessages
+    prev.allMessages === next.allMessages &&
+    prev.onRetry === next.onRetry
   )
 })
 
@@ -855,5 +896,28 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: radius.md,
     marginTop: spacing.sm,
+  },
+  // Send status
+  sendStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  sendStatusText: {
+    fontSize: fontSize.xs,
+  },
+  retryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    marginLeft: 4,
+  },
+  retryText: {
+    fontSize: fontSize.xs,
+    fontWeight: '600',
   },
 })

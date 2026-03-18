@@ -10,6 +10,10 @@ export function getSocket(): Socket {
       },
       transports: ['websocket'],
       autoConnect: false,
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 10000,
     })
   }
   return socket

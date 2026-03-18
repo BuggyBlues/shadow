@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'expo-router'
-import { Plus, Search, X } from 'lucide-react-native'
+import { Hash, Plus, Search, Users, X } from 'lucide-react-native'
 import { useMemo, useRef, useState } from 'react'
 import {
   Animated,
@@ -323,18 +323,26 @@ export default function ServersScreen() {
                         </View>
                       )}
                     </View>
-                    <Text
-                      style={[styles.serverDesc, { color: colors.textMuted }]}
-                      numberOfLines={1}
-                    >
-                      {desc}
-                    </Text>
-                    {!isPublicResult &&
-                      (item.server.memberCount != null || item.server.channelCount != null) && (
+                    {!isPublicResult && (
+                      <View style={styles.serverMetaRow}>
+                        <Users size={12} color={colors.textMuted} />
                         <Text style={[styles.serverMeta, { color: colors.textMuted }]}>
-                          {item.server.memberCount ?? 0}成员 · {item.server.channelCount ?? 0}频道
+                          {item.server.memberCount ?? 0}
                         </Text>
-                      )}
+                        <Hash size={12} color={colors.textMuted} style={{ marginLeft: 6 }} />
+                        <Text style={[styles.serverMeta, { color: colors.textMuted }]}>
+                          {item.server.channelCount ?? 0}
+                        </Text>
+                      </View>
+                    )}
+                    {isPublicResult && (
+                      <Text
+                        style={[styles.serverDesc, { color: colors.textMuted }]}
+                        numberOfLines={1}
+                      >
+                        {desc}
+                      </Text>
+                    )}
                   </View>
                 </SquishyRow>
               </Reanimated.View>
@@ -519,9 +527,14 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     marginTop: 1,
   },
+  serverMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginTop: 3,
+  },
   serverMeta: {
     fontSize: fontSize.xs,
-    marginTop: 2,
   },
   separator: {
     height: StyleSheet.hairlineWidth,

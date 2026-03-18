@@ -47,8 +47,6 @@ export class WorkspaceService {
         serverId,
         name: '工作区',
       }))!
-      // Bootstrap default folders
-      await this.bootstrapWorkspace(workspace.id)
     }
     return workspace!
   }

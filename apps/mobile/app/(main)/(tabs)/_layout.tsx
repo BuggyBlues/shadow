@@ -1,6 +1,7 @@
 import { BlurView } from 'expo-blur'
 import { Image } from 'expo-image'
 import { Tabs } from 'expo-router'
+import { MessageCircle } from 'lucide-react-native'
 import { useEffect } from 'react'
 import { Platform, StyleSheet, View } from 'react-native'
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated'
@@ -85,6 +86,18 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, focused }) => (
             <AnimatedTabIcon focused={focused}>
               <TabHomeSvg size={24} color={color} />
+            </AnimatedTabIcon>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="friends"
+        options={{
+          headerShown: false,
+          title: '好友',
+          tabBarIcon: ({ color, focused }) => (
+            <AnimatedTabIcon focused={focused}>
+              <MessageCircle size={22} color={color} />
             </AnimatedTabIcon>
           ),
         }}

@@ -50,7 +50,7 @@ function createTypingCallbacks(params: CreateTypingCallbacksParams): TypingCallb
     stop,
     onStartError,
     onStopError,
-    keepaliveIntervalMs = 3000,
+    keepaliveIntervalMs = 2000,
     maxDurationMs = 120_000,
   } = params
 

@@ -1,7 +1,9 @@
 import { Image } from 'expo-image'
 import { useRouter } from 'expo-router'
-import { useMemo } from 'react'
-import { Linking, Platform, StyleSheet } from 'react-native'
+import * as Clipboard from 'expo-clipboard'
+import { Check, Copy } from 'lucide-react-native'
+import { useMemo, useState } from 'react'
+import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import Markdown, { type RenderRules } from 'react-native-markdown-display'
 import { useColors } from '../../theme'
 
@@ -10,6 +12,56 @@ interface MarkdownRendererProps {
   /** Map of username → userId for @mention navigation */
   mentionMap?: Map<string, string>
 }
+
+function CodeBlockWithCopy({
+  code,
+  style,
+  colors,
+}: {
+  code: string
+  style: Record<string, unknown>
+  colors: { textMuted: string; inputBackground: string }
+}) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    await Clipboard.setStringAsync(code)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <View style={codeBlockStyles.wrapper}>
+      <Text style={style} selectable>
+        {code}
+      </Text>
+      <Pressable
+        style={[codeBlockStyles.copyBtn, { backgroundColor: colors.inputBackground }]}
+        onPress={handleCopy}
+        hitSlop={8}
+      >
+        {copied ? (
+          <Check size={14} color={colors.textMuted} />
+        ) : (
+          <Copy size={14} color={colors.textMuted} />
+        )}
+      </Pressable>
+    </View>
+  )
+}
+
+const codeBlockStyles = StyleSheet.create({
+  wrapper: {
+    position: 'relative',
+  },
+  copyBtn: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    padding: 4,
+    borderRadius: 4,
+  },
+})
 
 export function MarkdownRenderer({ content, mentionMap }: MarkdownRendererProps) {
   const colors = useColors()
@@ -140,8 +192,19 @@ export function MarkdownRenderer({ content, mentionMap }: MarkdownRendererProps)
           />
         )
       },
+      fence: (node, _children, _parent, styles) => {
+        const code = node.content || ''
+        return (
+          <CodeBlockWithCopy
+            key={node.key}
+            code={code}
+            style={styles.fence}
+            colors={colors}
+          />
+        )
+      },
     }),
-    [],
+    [colors],
   )
 
   if (!processedContent) return null

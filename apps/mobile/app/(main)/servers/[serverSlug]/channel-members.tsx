@@ -72,9 +72,10 @@ interface BuddyAgent {
 type PolicyMode = 'replyAll' | 'mentionOnly' | 'disabled'
 
 export default function ChannelMembersScreen() {
-  const { serverSlug, channelId } = useLocalSearchParams<{
+  const { serverSlug, channelId, autoInvite } = useLocalSearchParams<{
     serverSlug: string
     channelId: string
+    autoInvite?: string
   }>()
   const { t } = useTranslation()
   const colors = useColors()
@@ -83,7 +84,7 @@ export default function ChannelMembersScreen() {
   const currentUser = useAuthStore((s) => s.user)
 
   const [policySheet, setPolicySheet] = useState<ChannelMember | null>(null)
-  const [showInviteSheet, setShowInviteSheet] = useState(false)
+  const [showInviteSheet, setShowInviteSheet] = useState(autoInvite === '1')
   const [inviteSearch, setInviteSearch] = useState('')
 
   // Channel info

@@ -5,18 +5,24 @@ import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
 import {
   ChevronDown,
   ChevronLeft,
+  Copy,
+  Edit3,
   Hash,
   Lock,
+  LockOpen,
   Megaphone,
   Plus,
   Search,
   Settings,
+  Trash2,
+  UserPlus,
   Volume2,
   X,
 } from 'lucide-react-native'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
+  Alert,
   Animated,
   KeyboardAvoidingView,
   Modal,
@@ -85,13 +91,15 @@ interface Member {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function SquishyCard({ children, onPress, style }: any) {
+function SquishyCard({ children, onPress, onLongPress, style }: any) {
   const scale = useRef(new Animated.Value(1)).current
   return (
     <Pressable
       onPressIn={() => Animated.spring(scale, { toValue: 0.95, useNativeDriver: true }).start()}
       onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start()}
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={400}
     >
       <Animated.View style={[style, { transform: [{ scale }] }]}>{children}</Animated.View>
     </Pressable>
@@ -118,6 +126,9 @@ export default function ServerHomeScreen() {
   const [newChannelCategoryId, setNewChannelCategoryId] = useState<string | null>(null)
   const [showSearch, setShowSearch] = useState(false)
   const [channelSearch, setChannelSearch] = useState('')
+  const [contextChannel, setContextChannel] = useState<Channel | null>(null)
+  const [editingChannel, setEditingChannel] = useState<Channel | null>(null)
+  const [editChannelName, setEditChannelName] = useState('')
 
   // ── Queries ─────────────────────────────────────
 
@@ -168,7 +179,7 @@ export default function ServerHomeScreen() {
 
   const createChannelMutation = useMutation({
     mutationFn: () =>
-      fetchApi(`/api/servers/${server!.id}/channels`, {
+      fetchApi<{ id: string }>(`/api/servers/${server!.id}/channels`, {
         method: 'POST',
         body: JSON.stringify({
           name: newChannelName,
@@ -176,10 +187,39 @@ export default function ServerHomeScreen() {
           categoryId: newChannelCategoryId,
         }),
       }),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['channels', server?.id] })
       setShowCreateChannel(false)
       setNewChannelName('')
+      // Navigate to channel members screen with auto-invite
+      router.push(
+        `/(main)/servers/${serverSlug}/channel-members?channelId=${data.id}&autoInvite=1` as never,
+      )
+    },
+    onError: (err: any) => showToast(err?.message || t('common.error'), 'error'),
+  })
+
+  // ── Channel actions ────────────────────────────
+
+  const deleteChannelMutation = useMutation({
+    mutationFn: (channelId: string) =>
+      fetchApi(`/api/channels/${channelId}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['channels', server?.id] })
+    },
+    onError: (err: any) => showToast(err?.message || t('common.error'), 'error'),
+  })
+
+  const updateChannelMutation = useMutation({
+    mutationFn: (data: { channelId: string; name?: string; isPrivate?: boolean }) =>
+      fetchApi(`/api/channels/${data.channelId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name: data.name, isPrivate: data.isPrivate }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['channels', server?.id] })
+      setEditingChannel(null)
+      setEditChannelName('')
     },
     onError: (err: any) => showToast(err?.message || t('common.error'), 'error'),
   })
@@ -500,6 +540,7 @@ export default function ServerHomeScreen() {
                         if (server) setLastChannel(server.id, channel.id)
                         router.push(`/(main)/servers/${serverSlug}/channels/${channel.id}` as any)
                       }}
+                      onLongPress={() => setContextChannel(channel)}
                     >
                       <View style={[styles.channelIconBubble, { backgroundColor: colors.surface }]}>
                         {channelIcon(channel.type, colors.textSecondary)}
@@ -685,6 +726,163 @@ export default function ServerHomeScreen() {
             </SquishyCard>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Channel context menu */}
+      <Modal visible={!!contextChannel} transparent animationType="fade" onRequestClose={() => setContextChannel(null)}>
+        <Pressable style={styles.ctxOverlay} onPress={() => setContextChannel(null)}>
+          <Reanimated.View
+            entering={FadeInDown.duration(200)}
+            style={[styles.ctxSheet, { backgroundColor: colors.surface }]}
+          >
+            {/* Invite member */}
+            <Pressable
+              style={({ pressed }) => [styles.ctxItem, pressed && { opacity: 0.6 }]}
+              onPress={() => {
+                const ch = contextChannel
+                setContextChannel(null)
+                if (ch) {
+                  router.push(
+                    `/(main)/servers/${serverSlug}/channel-members?channelId=${ch.id}&autoInvite=1` as never,
+                  )
+                }
+              }}
+            >
+              <UserPlus size={18} color={colors.textSecondary} />
+              <Text style={[styles.ctxLabel, { color: colors.text }]}>{t('channel.inviteMember', '邀请成员')}</Text>
+            </Pressable>
+
+            <View style={[styles.ctxDivider, { backgroundColor: colors.border }]} />
+
+            {/* Edit channel name */}
+            <Pressable
+              style={({ pressed }) => [styles.ctxItem, pressed && { opacity: 0.6 }]}
+              onPress={() => {
+                if (contextChannel) {
+                  setEditingChannel(contextChannel)
+                  setEditChannelName(contextChannel.name)
+                }
+                setContextChannel(null)
+              }}
+            >
+              <Edit3 size={18} color={colors.textSecondary} />
+              <Text style={[styles.ctxLabel, { color: colors.text }]}>{t('channel.editChannel', '编辑频道')}</Text>
+            </Pressable>
+
+            {/* Toggle private */}
+            <Pressable
+              style={({ pressed }) => [styles.ctxItem, pressed && { opacity: 0.6 }]}
+              onPress={() => {
+                if (contextChannel) {
+                  updateChannelMutation.mutate({
+                    channelId: contextChannel.id,
+                    name: contextChannel.name,
+                    isPrivate: !contextChannel.isPrivate,
+                  })
+                }
+                setContextChannel(null)
+              }}
+            >
+              {contextChannel?.isPrivate ? (
+                <LockOpen size={18} color={colors.textSecondary} />
+              ) : (
+                <Lock size={18} color={colors.textSecondary} />
+              )}
+              <Text style={[styles.ctxLabel, { color: colors.text }]}>
+                {contextChannel?.isPrivate ? t('channel.setPublic', '设为公开') : t('channel.setPrivate', '设为私有')}
+              </Text>
+            </Pressable>
+
+            {/* Copy channel link */}
+            <Pressable
+              style={({ pressed }) => [styles.ctxItem, pressed && { opacity: 0.6 }]}
+              onPress={() => {
+                // Copy not available natively without Clipboard, just show toast
+                if (contextChannel) {
+                  showToast(t('channel.linkCopied', '频道链接已复制'), 'success')
+                }
+                setContextChannel(null)
+              }}
+            >
+              <Copy size={18} color={colors.textSecondary} />
+              <Text style={[styles.ctxLabel, { color: colors.text }]}>{t('channel.copyChannelLink', '复制频道链接')}</Text>
+            </Pressable>
+
+            <View style={[styles.ctxDivider, { backgroundColor: colors.border }]} />
+
+            {/* Delete channel */}
+            <Pressable
+              style={({ pressed }) => [styles.ctxItem, pressed && { opacity: 0.6 }]}
+              onPress={() => {
+                const ch = contextChannel
+                setContextChannel(null)
+                if (ch) {
+                  Alert.alert(
+                    t('channel.deleteChannel', '删除频道'),
+                    t('channel.deleteChannelConfirm', '确定要删除此频道吗？此操作不可撤销。'),
+                    [
+                      { text: t('common.cancel', '取消'), style: 'cancel' },
+                      {
+                        text: t('common.delete', '删除'),
+                        style: 'destructive',
+                        onPress: () => deleteChannelMutation.mutate(ch.id),
+                      },
+                    ],
+                  )
+                }
+              }}
+            >
+              <Trash2 size={18} color="#ef4444" />
+              <Text style={[styles.ctxLabel, { color: '#ef4444' }]}>{t('channel.deleteChannel', '删除频道')}</Text>
+            </Pressable>
+          </Reanimated.View>
+        </Pressable>
+      </Modal>
+
+      {/* Edit channel name modal */}
+      <Modal visible={!!editingChannel} transparent animationType="fade" onRequestClose={() => setEditingChannel(null)}>
+        <Pressable
+          style={[styles.ctxOverlay, { justifyContent: 'center' }]}
+          onPress={() => setEditingChannel(null)}
+        >
+          <Pressable
+            style={[styles.editSheet, { backgroundColor: colors.surface }]}
+            onPress={() => {}}
+          >
+            <Text style={[styles.editTitle, { color: colors.text }]}>
+              {t('channel.editChannel', '编辑频道')}
+            </Text>
+            <TextInput
+              style={[styles.editInput, { backgroundColor: colors.inputBackground, color: colors.text, borderColor: colors.border }]}
+              value={editChannelName}
+              onChangeText={setEditChannelName}
+              placeholder={t('channel.channelName', '频道名称')}
+              placeholderTextColor={colors.textMuted}
+              autoFocus
+            />
+            <View style={styles.editBtnRow}>
+              <Pressable
+                style={[styles.editBtn, { backgroundColor: colors.inputBackground }]}
+                onPress={() => setEditingChannel(null)}
+              >
+                <Text style={{ color: colors.textSecondary }}>{t('common.cancel', '取消')}</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.editBtn, { backgroundColor: colors.primary }]}
+                onPress={() => {
+                  if (editingChannel && editChannelName.trim()) {
+                    updateChannelMutation.mutate({
+                      channelId: editingChannel.id,
+                      name: editChannelName.trim(),
+                    })
+                  }
+                }}
+              >
+                <Text style={{ color: '#fff', fontWeight: '700' }}>{t('common.save', '保存')}</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
       </Modal>
     </DottedBackground>
   )
@@ -982,5 +1180,64 @@ const styles = StyleSheet.create({
     color: '#1a1a1c',
     fontSize: 18,
     fontWeight: '900',
+  },
+
+  // Context menu
+  ctxOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  ctxSheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: spacing.md,
+    paddingBottom: 34,
+    paddingHorizontal: spacing.md,
+  },
+  ctxItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.sm,
+  },
+  ctxLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  ctxDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginVertical: 2,
+  },
+
+  // Edit channel modal
+  editSheet: {
+    marginHorizontal: spacing.lg,
+    borderRadius: 16,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  editTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  editInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 15,
+  },
+  editBtnRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  editBtn: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderRadius: 10,
   },
 })

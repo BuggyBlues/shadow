@@ -63,6 +63,7 @@ const PAGE_SIZE = 50
 
 type SpeechResultEvent = {
   results?: Array<{ transcript?: string }>
+  isFinal?: boolean
 }
 
 type SpeechModuleLike = {
@@ -180,6 +181,7 @@ export default function ChannelViewScreen() {
 
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const typingUsersTimeout = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+  const lastCommittedTranscript = useRef('')
 
   // ---------- Channel info ----------
   const { data: channel } = useQuery({
@@ -355,6 +357,7 @@ export default function ChannelViewScreen() {
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide'
     const showSub = Keyboard.addListener(showEvent, () => {
       setKeyboardVisible(true)
+      setShowPlusMenu(false)
       // Auto-scroll to newest messages when keyboard appears if near bottom
       const offset = channelId ? (scrollOffsetRef.current[channelId] ?? 0) : 0
       if (offset < 200) {
@@ -371,19 +374,29 @@ export default function ChannelViewScreen() {
   // ---------- Speech recognition ----------
   useSpeechRecognitionEventSafe('result', (event) => {
     const transcript = event.results?.[0]?.transcript
-    if (transcript) {
-      // Show interim transcript as live preview
+    if (!transcript) return
+
+    if (event.isFinal) {
+      // Commit final transcript to input, skip if already committed (dedup)
+      if (transcript !== lastCommittedTranscript.current) {
+        lastCommittedTranscript.current = transcript
+        setInputText((prev) => (prev ? `${prev} ${transcript}` : transcript))
+      }
+      setVoiceTranscript('')
+    } else {
+      // Show interim transcript as live preview only
       setVoiceTranscript(transcript)
-      // Append final result to input
-      setInputText((prev) => (prev ? `${prev} ${transcript}` : transcript))
     }
   })
   useSpeechRecognitionEventSafe('end', () => {
     setIsRecording(false)
+    // Reset committed ref for next session
+    lastCommittedTranscript.current = ''
     setVoiceTranscript('')
   })
   useSpeechRecognitionEventSafe('error', () => {
     setIsRecording(false)
+    lastCommittedTranscript.current = ''
     setVoiceTranscript('')
   })
 
@@ -403,6 +416,7 @@ export default function ChannelViewScreen() {
       return
     }
     setVoiceTranscript('')
+    lastCommittedTranscript.current = ''
     speechModule.start({ lang: t('chat.speechLang'), interimResults: true })
     setIsRecording(true)
   }
@@ -588,13 +602,13 @@ export default function ChannelViewScreen() {
     }
   }, [channelId, joinChannelWithAck])
 
-  // Reconnection: refetch on reconnect
+  // Reconnection: invalidate messages cache on reconnect to catch any missed while offline
   useEffect(() => {
     const socket = getSocket()
     const onReconnect = () => {
       if (channelId) {
         joinChannelWithAck(channelId)
-        refetch()
+        queryClient.invalidateQueries({ queryKey: ['messages', channelId] })
       }
     }
     socket.on('connect', onReconnect)
@@ -634,7 +648,7 @@ export default function ChannelViewScreen() {
         if (!old) return old
         const firstPage = old.pages[0]
         if (!firstPage) return old
-        // Deduplicate: if message already exists, update it
+        // Deduplicate: if message already exists (by server ID), update it
         if (firstPage.messages.some((m) => m.id === msg.id)) {
           return {
             ...old,
@@ -642,6 +656,25 @@ export default function ChannelViewScreen() {
               ...page,
               messages: page.messages.map((m) => (m.id === msg.id ? msg : m)),
             })),
+          }
+        }
+        // Check if this is confirmation of an optimistic message from us
+        // Match by temp ID prefix + same author + similar content
+        if (msg.authorId === currentUser?.id) {
+          const tempIdx = firstPage.messages.findIndex(
+            (m) => m.id.startsWith('temp-') && m.authorId === msg.authorId,
+          )
+          if (tempIdx >= 0) {
+            return {
+              ...old,
+              pages: [
+                {
+                  ...firstPage,
+                  messages: firstPage.messages.map((m, i) => (i === tempIdx ? msg : m)),
+                },
+                ...old.pages.slice(1),
+              ],
+            }
           }
         }
         // Append new message to the first page (messages are oldest-first within page)
@@ -863,6 +896,11 @@ export default function ChannelViewScreen() {
 
   const handlePickImage = async () => {
     try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if (!perm.granted) {
+        Alert.alert(t('common.error'), t('chat.mediaPermissionDenied', '需要相册访问权限'))
+        return
+      }
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images', 'videos'],
         allowsMultipleSelection: true,
@@ -888,18 +926,115 @@ export default function ChannelViewScreen() {
   }
 
   // ---------- Send message ----------
+  const insertOptimisticMessage = useCallback(
+    (content: string, replyToId?: string) => {
+      const tempId = `temp-${Date.now()}`
+      const optimisticMsg: Message = {
+        id: tempId,
+        content,
+        channelId: channelId!,
+        authorId: currentUser?.id ?? '',
+        threadId: null,
+        replyToId: replyToId ?? null,
+        isEdited: false,
+        isPinned: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        author: currentUser
+          ? {
+              id: currentUser.id,
+              username: currentUser.username,
+              displayName: currentUser.displayName ?? currentUser.username,
+              avatarUrl: currentUser.avatarUrl ?? null,
+            }
+          : undefined,
+        sendStatus: 'sending',
+      }
+
+      queryClient.setQueryData<InfiniteData>(['messages', channelId], (old) => {
+        if (!old) return old
+        const firstPage = old.pages[0]
+        if (!firstPage) return old
+        return {
+          ...old,
+          pages: [
+            { ...firstPage, messages: [...firstPage.messages, optimisticMsg] },
+            ...old.pages.slice(1),
+          ],
+        }
+      })
+
+      // Scroll to newest
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          flatListRef.current?.scrollToOffset({ offset: 0, animated: true })
+        }, 100)
+      })
+
+      return tempId
+    },
+    [channelId, currentUser, queryClient],
+  )
+
+  const markMessageFailed = useCallback(
+    (tempId: string) => {
+      queryClient.setQueryData<InfiniteData>(['messages', channelId], (old) => {
+        if (!old) return old
+        return {
+          ...old,
+          pages: old.pages.map((page) => ({
+            ...page,
+            messages: page.messages.map((m) =>
+              m.id === tempId ? { ...m, sendStatus: 'failed' as const } : m,
+            ),
+          })),
+        }
+      })
+    },
+    [channelId, queryClient],
+  )
+
+  const removeMessage = useCallback(
+    (tempId: string) => {
+      queryClient.setQueryData<InfiniteData>(['messages', channelId], (old) => {
+        if (!old) return old
+        return {
+          ...old,
+          pages: old.pages.map((page) => ({
+            ...page,
+            messages: page.messages.filter((m) => m.id !== tempId),
+          })),
+        }
+      })
+    },
+    [channelId, queryClient],
+  )
+
   const handleSend = async () => {
     const content = inputText.trim()
     if (!content && pendingFiles.length === 0) return
     if (sending) return
     setSending(true)
+
+    // Insert optimistic message immediately
+    const tempId = content ? insertOptimisticMessage(content, replyTo?.id) : null
+
+    // Clear input immediately for responsiveness
+    const savedContent = content
+    const savedReplyTo = replyTo
+    const savedPendingFiles = [...pendingFiles]
+    setInputText('')
+    setReplyTo(null)
+    setPendingFiles([])
+    playSendSound()
+
     try {
       let uploadedAttachments:
         | Array<{ url: string; filename: string; contentType: string; size: number }>
         | undefined
-      if (pendingFiles.length > 0) {
+      if (savedPendingFiles.length > 0) {
         uploadedAttachments = []
-        for (const file of pendingFiles) {
+        for (const file of savedPendingFiles) {
           const formData = new FormData()
           // biome-ignore lint/suspicious/noExplicitAny: React Native FormData requires this shape
           formData.append('file', { uri: file.uri, name: file.name, type: file.type } as any)
@@ -920,7 +1055,32 @@ export default function ChannelViewScreen() {
       // Try WebSocket for text-only messages, fall back to REST
       const sock = getSocket()
       if (!uploadedAttachments && sock.connected) {
-        sendWsMessage({ channelId: channelId!, content, replyToId: replyTo?.id })
+        sendWsMessage({ channelId: channelId!, content: savedContent, replyToId: savedReplyTo?.id })
+        // WS send: message will be confirmed via message:new event which replaces the temp message
+        // Set a timeout to mark as failed if no confirmation arrives
+        if (tempId) {
+          setTimeout(() => {
+            queryClient.setQueryData<InfiniteData>(['messages', channelId], (old) => {
+              if (!old) return old
+              // Check if temp message still exists (not yet replaced by server confirmation)
+              const stillPending = old.pages.some((p) =>
+                p.messages.some((m) => m.id === tempId && m.sendStatus === 'sending'),
+              )
+              if (stillPending) {
+                return {
+                  ...old,
+                  pages: old.pages.map((page) => ({
+                    ...page,
+                    messages: page.messages.map((m) =>
+                      m.id === tempId ? { ...m, sendStatus: 'failed' as const } : m,
+                    ),
+                  })),
+                }
+              }
+              return old
+            })
+          }, 10000)
+        }
       } else {
         // Use REST API — always works and returns the created message
         const created = await fetchApi<Record<string, unknown>>(
@@ -928,28 +1088,78 @@ export default function ChannelViewScreen() {
           {
             method: 'POST',
             body: JSON.stringify({
-              content: content || '\u200B',
-              replyToId: replyTo?.id,
+              content: savedContent || '\u200B',
+              replyToId: savedReplyTo?.id,
               ...(uploadedAttachments ? { attachments: uploadedAttachments } : {}),
             }),
           },
         )
-        // Add the created message to cache immediately for instant feedback
-        appendMessage(created)
+        // Replace optimistic message with the real one or add if no optimistic
+        if (tempId) {
+          const realMsg = normalizeMessage(created)
+          queryClient.setQueryData<InfiniteData>(['messages', channelId], (old) => {
+            if (!old) return old
+            return {
+              ...old,
+              pages: old.pages.map((page) => ({
+                ...page,
+                messages: page.messages.map((m) => (m.id === tempId ? realMsg : m)),
+              })),
+            }
+          })
+        } else {
+          appendMessage(created)
+        }
       }
 
-      setInputText('')
-      setReplyTo(null)
-      setPendingFiles([])
-      playSendSound()
       // Keep input focused for continuous messaging
       setTimeout(() => inputRef.current?.focus(), 50)
     } catch (err) {
-      Alert.alert(t('common.error'), (err as Error).message || t('chat.sendFailed'))
+      // Mark optimistic message as failed
+      if (tempId) {
+        markMessageFailed(tempId)
+      } else {
+        Alert.alert(t('common.error'), (err as Error).message || t('chat.sendFailed'))
+      }
     } finally {
       setSending(false)
     }
   }
+
+  const handleRetry = useCallback(
+    async (failedMsg: Message) => {
+      // Remove the failed message
+      removeMessage(failedMsg.id)
+      // Re-insert as optimistic and try again
+      const tempId = insertOptimisticMessage(failedMsg.content, failedMsg.replyToId ?? undefined)
+      try {
+        const created = await fetchApi<Record<string, unknown>>(
+          `/api/channels/${channelId}/messages`,
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              content: failedMsg.content,
+              replyToId: failedMsg.replyToId ?? undefined,
+            }),
+          },
+        )
+        const realMsg = normalizeMessage(created)
+        queryClient.setQueryData<InfiniteData>(['messages', channelId], (old) => {
+          if (!old) return old
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              messages: page.messages.map((m) => (m.id === tempId ? realMsg : m)),
+            })),
+          }
+        })
+      } catch {
+        markMessageFailed(tempId)
+      }
+    },
+    [channelId, queryClient, insertOptimisticMessage, removeMessage, markMessageFailed],
+  )
 
   const handleTyping = useCallback(() => {
     if (!channelId) return
@@ -957,7 +1167,7 @@ export default function ChannelViewScreen() {
     sendTyping(channelId)
     typingTimeout.current = setTimeout(() => {
       typingTimeout.current = null
-    }, 3000)
+    }, 2000)
   }, [channelId])
 
   // @mention detection on input text change
@@ -1049,6 +1259,7 @@ export default function ChannelViewScreen() {
           <MessageBubble
             message={item.data}
             onReply={() => handleReply(item.data)}
+            onRetry={handleRetry}
             channelId={channelId!}
             allMessages={messages}
             isGrouped={isGrouped}
@@ -1056,7 +1267,7 @@ export default function ChannelViewScreen() {
         </View>
       )
     },
-    [colors, t, channelId, handleReply, messages, timeline, highlightMessageId],
+    [colors, t, channelId, handleReply, handleRetry, messages, timeline, highlightMessageId],
   )
 
   const getItemKey = useCallback((item: TimelineItem) => {
@@ -1378,7 +1589,10 @@ export default function ChannelViewScreen() {
         </View>
 
         {/* Emoji button */}
-        <Pressable style={styles.actionBtn} onPress={() => setShowInputEmojiPicker(true)}>
+        <Pressable style={styles.actionBtn} onPress={() => {
+          setShowPlusMenu(false)
+          setShowInputEmojiPicker(true)
+        }}>
           <Smile size={24} color={showInputEmojiPicker ? colors.primary : colors.textMuted} />
         </Pressable>
 
@@ -1388,9 +1602,18 @@ export default function ChannelViewScreen() {
             styles.actionBtn,
             { borderColor: colors.border, borderWidth: 1.5, borderRadius: 23 },
           ]}
-          onPress={() => setShowPlusMenu(true)}
+          onPress={() => {
+            if (showPlusMenu) {
+              setShowPlusMenu(false)
+              inputRef.current?.focus()
+            } else {
+              Keyboard.dismiss()
+              setShowInputEmojiPicker(false)
+              setShowPlusMenu(true)
+            }
+          }}
         >
-          <Plus size={22} color={colors.textMuted} />
+          <Plus size={22} color={showPlusMenu ? colors.primary : colors.textMuted} />
         </Pressable>
       </View>
 
@@ -1428,46 +1651,56 @@ export default function ChannelViewScreen() {
         />
       )}
 
-      {/* Plus menu: attach image/file */}
-      <Modal
-        visible={showPlusMenu}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowPlusMenu(false)}
-      >
-        <Pressable style={styles.plusMenuOverlay} onPress={() => setShowPlusMenu(false)}>
-          <View style={[styles.plusMenuSheet, { backgroundColor: colors.surface }]}>
+      {/* Plus menu panel — inline, replaces keyboard area like WeChat */}
+      {showPlusMenu && (
+        <View
+          style={[
+            styles.plusPanel,
+            {
+              backgroundColor: colors.surface,
+              borderTopColor: colors.border,
+              paddingBottom: Math.max(insets.bottom, 16),
+            },
+          ]}
+        >
+          <View style={styles.plusPanelGrid}>
             <Pressable
-              style={({ pressed }) => [styles.plusMenuItem, { opacity: pressed ? 0.7 : 1 }]}
+              style={({ pressed }) => [
+                styles.plusPanelItem,
+                pressed && { opacity: 0.6 },
+              ]}
               onPress={() => {
                 setShowPlusMenu(false)
                 handlePickImage()
               }}
             >
-              <View style={[styles.plusMenuIcon, { backgroundColor: `${colors.primary}18` }]}>
-                <ImageIcon size={20} color={colors.primary} />
+              <View style={[styles.plusPanelIcon, { backgroundColor: `${colors.primary}15` }]}>
+                <ImageIcon size={24} color={colors.primary} />
               </View>
-              <Text style={[styles.plusMenuLabel, { color: colors.text }]}>
-                {t('chat.pickImage', '选择图片')}
+              <Text style={[styles.plusPanelLabel, { color: colors.textSecondary }]}>
+                {t('chat.pickImage', '图片')}
               </Text>
             </Pressable>
             <Pressable
-              style={({ pressed }) => [styles.plusMenuItem, { opacity: pressed ? 0.7 : 1 }]}
+              style={({ pressed }) => [
+                styles.plusPanelItem,
+                pressed && { opacity: 0.6 },
+              ]}
               onPress={() => {
                 setShowPlusMenu(false)
                 handlePickFile()
               }}
             >
-              <View style={[styles.plusMenuIcon, { backgroundColor: '#f59e0b18' }]}>
-                <File size={20} color="#f59e0b" />
+              <View style={[styles.plusPanelIcon, { backgroundColor: '#f59e0b15' }]}>
+                <File size={24} color="#f59e0b" />
               </View>
-              <Text style={[styles.plusMenuLabel, { color: colors.text }]}>
-                {t('chat.pickFile', '选择文件')}
+              <Text style={[styles.plusPanelLabel, { color: colors.textSecondary }]}>
+                {t('chat.pickFile', '文件')}
               </Text>
             </Pressable>
           </View>
-        </Pressable>
-      </Modal>
+        </View>
+      )}
 
       {/* Member list modal */}
       <Modal
@@ -2372,36 +2605,31 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: fontSize.sm,
   },
-  plusMenuOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
+  plusPanel: {
+    borderTopWidth: 1,
+    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
   },
-  plusMenuSheet: {
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    padding: spacing.lg,
-    paddingBottom: 34,
-    gap: spacing.sm,
-  },
-  plusMenuItem: {
+  plusPanelGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: 14,
-    paddingHorizontal: spacing.sm,
-    borderRadius: radius.md,
+    flexWrap: 'wrap',
+    gap: spacing.lg,
   },
-  plusMenuIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  plusPanelItem: {
+    alignItems: 'center',
+    width: 64,
+    gap: spacing.xs,
+  },
+  plusPanelIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  plusMenuLabel: {
-    fontSize: fontSize.md,
-    fontWeight: '500',
+  plusPanelLabel: {
+    fontSize: fontSize.xs,
+    marginTop: 4,
   },
   // Search panel
   searchPanel: {

@@ -1,7 +1,23 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigation, useRouter } from 'expo-router'
-import { ChevronLeft } from 'lucide-react-native'
+import {
+  Bot,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Coins,
+  Gift,
+  Globe,
+  Heart,
+  Home,
+  ListChecks,
+  Star,
+  Target,
+  Wallet,
+} from 'lucide-react-native'
 import { useEffect } from 'react'
+import type { LucideIcon } from 'lucide-react-native'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import Reanimated, { FadeIn, FadeInDown } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -46,20 +62,20 @@ export default function DashboardScreen() {
     ? Math.floor((Date.now() - new Date(data.memberSince).getTime()) / 86400000)
     : 0
 
-  const stats = [
-    { label: '创建服务器', value: data?.serversOwned ?? 0, icon: '🏠', color: '#5865F2' },
-    { label: '加入服务器', value: data?.serversJoined ?? 0, icon: '🌐', color: '#3B82F6' },
-    { label: 'Buddy 数量', value: data?.buddyCount ?? 0, icon: '🤖', color: '#00C8D6' },
-    { label: 'Buddy 在线', value: `${data?.buddyOnlineHours ?? 0}h`, icon: '⏱️', color: '#10B981' },
-    { label: '虾币余额', value: data?.walletBalance ?? 0, icon: '🦐', color: '#F0B132' },
+  const stats: { label: string; value: string | number; Icon: LucideIcon; color: string }[] = [
+    { label: '创建服务器', value: data?.serversOwned ?? 0, Icon: Home, color: '#5865F2' },
+    { label: '加入服务器', value: data?.serversJoined ?? 0, Icon: Globe, color: '#3B82F6' },
+    { label: 'Buddy 数量', value: data?.buddyCount ?? 0, Icon: Bot, color: '#00C8D6' },
+    { label: 'Buddy 在线', value: `${data?.buddyOnlineHours ?? 0}h`, Icon: Clock, color: '#10B981' },
+    { label: '虾币余额', value: data?.walletBalance ?? 0, Icon: Coins, color: '#F0B132' },
     {
       label: '任务完成',
       value: `${data?.tasksCompleted ?? 0}/${data?.tasksTotal ?? 0}`,
-      icon: '🎯',
+      Icon: Target,
       color: '#ED4245',
     },
-    { label: '邀请好友', value: data?.referralCount ?? 0, icon: '💌', color: '#EB459E' },
-    { label: '邀请奖励', value: data?.referralRewards ?? 0, icon: '🎁', color: '#23A559' },
+    { label: '邀请好友', value: data?.referralCount ?? 0, Icon: Heart, color: '#EB459E' },
+    { label: '邀请奖励', value: data?.referralRewards ?? 0, Icon: Gift, color: '#23A559' },
   ]
 
   return (
@@ -97,7 +113,7 @@ export default function DashboardScreen() {
             </View>
             {/* Days active badge */}
             <View style={[styles.daysBadge, { backgroundColor: `${colors.primary}12` }]}>
-              <Text style={{ fontSize: 16 }}>📅</Text>
+              <Calendar size={16} color={colors.primary} />
               <Text style={[styles.daysText, { color: colors.primary }]}>
                 已活跃 {memberDays} 天
               </Text>
@@ -115,7 +131,7 @@ export default function DashboardScreen() {
             >
               <View style={[styles.statCard, { backgroundColor: colors.surface }]}>
                 <View style={[styles.statIconWrap, { backgroundColor: `${stat.color}15` }]}>
-                  <Text style={{ fontSize: 20 }}>{stat.icon}</Text>
+                  <stat.Icon size={22} color={stat.color} />
                 </View>
                 <Text style={[styles.statValue, { color: colors.text }]}>{stat.value}</Text>
                 <Text style={[styles.statLabel, { color: colors.textMuted }]}>{stat.label}</Text>
@@ -130,7 +146,7 @@ export default function DashboardScreen() {
             <Text style={[styles.sectionTitle, { color: colors.text }]}>成长等级</Text>
             <View style={styles.levelRow}>
               <View style={[styles.levelBadge, { backgroundColor: `${colors.primary}15` }]}>
-                <Text style={{ fontSize: 24 }}>⭐</Text>
+                <Star size={24} color={colors.primary} />
                 <Text style={[styles.levelNum, { color: colors.primary }]}>
                   Lv.{Math.min(Math.floor((data?.tasksCompleted ?? 0) / 2) + 1, 99)}
                 </Text>
@@ -159,12 +175,14 @@ export default function DashboardScreen() {
         <Reanimated.View entering={FadeInDown.delay(800).springify()}>
           <View style={[styles.linksCard, { backgroundColor: colors.surface }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>快捷入口</Text>
-            {[
-              { label: '任务中心', icon: '🎯', route: '/(main)/settings/tasks' },
-              { label: '邀请好友', icon: '💌', route: '/(main)/settings/invite' },
-              { label: 'Buddy 管理', icon: '🤖', route: '/(main)/settings/buddy' },
-              { label: '钱包明细', icon: '🦐', route: '/(main)/settings/tasks' },
-            ].map((link, idx) => (
+            {(
+              [
+                { label: '任务中心', Icon: Target, color: '#ED4245', route: '/(main)/settings/tasks' },
+                { label: '邀请好友', Icon: Heart, color: '#EB459E', route: '/(main)/settings/invite' },
+                { label: 'Buddy 管理', Icon: Bot, color: '#00C8D6', route: '/(main)/settings/buddy' },
+                { label: '钱包明细', Icon: Wallet, color: '#F0B132', route: '/(main)/settings/tasks' },
+              ] as const
+            ).map((link, idx) => (
               <Pressable
                 key={link.label}
                 style={({ pressed }) => [
@@ -175,13 +193,9 @@ export default function DashboardScreen() {
                 ]}
                 onPress={() => router.push(link.route as any)}
               >
-                <Text style={{ fontSize: 16 }}>{link.icon}</Text>
+                <link.Icon size={16} color={link.color} />
                 <Text style={[styles.linkLabel, { color: colors.text }]}>{link.label}</Text>
-                <ChevronLeft
-                  size={14}
-                  color={colors.textMuted}
-                  style={{ transform: [{ rotate: '180deg' }] }}
-                />
+                <ChevronRight size={14} color={colors.textMuted} />
               </Pressable>
             ))}
           </View>

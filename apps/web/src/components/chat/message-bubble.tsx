@@ -1,7 +1,8 @@
-import { useQueryClient } from '@tanstack/react-query'
+import { type InfiniteData, useQueryClient } from '@tanstack/react-query'
 import { format, formatDistanceToNow, type Locale } from 'date-fns'
 import { enUS, ja, ko, zhCN, zhTW } from 'date-fns/locale'
 import {
+  AlertCircle,
   Check,
   Copy,
   ExternalLink,
@@ -64,9 +65,16 @@ export interface Message {
   author?: Author
   reactions?: ReactionGroup[]
   attachments?: Attachment[]
+  /** Optimistic send status — only set on client-side pending messages */
+  sendStatus?: 'sending' | 'failed'
 }
 
 export type { Author, ReactionGroup, Attachment }
+
+interface MessagesPage {
+  messages: Message[]
+  hasMore: boolean
+}
 
 export interface MessageBubbleProps {
   message: Message
@@ -116,6 +124,45 @@ function useGlobalActiveMessage(messageId: string) {
 
 function isImageType(contentType: string): boolean {
   return contentType.startsWith('image/')
+}
+
+function CodeBlockWithCopy({ children }: { children: React.ReactNode }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopyCode = () => {
+    // Extract text content from the code element inside pre
+    const codeEl = document.createElement('div')
+    // Use a temporary container approach to get inner text
+    let text = ''
+    const extractText = (node: React.ReactNode): string => {
+      if (typeof node === 'string') return node
+      if (typeof node === 'number') return String(node)
+      if (!node) return ''
+      if (Array.isArray(node)) return node.map(extractText).join('')
+      if (typeof node === 'object' && node !== null && 'props' in (node as unknown as Record<string, unknown>)) {
+        return extractText((node as React.ReactElement<{ children?: React.ReactNode }>).props.children)
+      }
+      return ''
+    }
+    text = extractText(children)
+    navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div className="relative group">
+      <pre>{children}</pre>
+      <button
+        type="button"
+        onClick={handleCopyCode}
+        className="absolute top-2 right-2 p-1.5 rounded-md bg-bg-secondary/80 hover:bg-bg-secondary text-text-muted hover:text-text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+        title="Copy code"
+      >
+        {copied ? <Check size={14} /> : <Copy size={14} />}
+      </button>
+    </div>
+  )
 }
 
 export function MessageBubble({
@@ -530,6 +577,7 @@ export function MessageBubble({
                   p: ({ children }) => <p>{renderMentions(children)}</p>,
                   li: ({ children }) => <li>{renderMentions(children)}</li>,
                   td: ({ children }) => <td>{renderMentions(children)}</td>,
+                  pre: ({ children }) => <CodeBlockWithCopy>{children}</CodeBlockWithCopy>,
                 }}
               >
                 {markdownContent}
@@ -603,6 +651,71 @@ export function MessageBubble({
                 <span>{r.count}</span>
               </button>
             ))}
+          </div>
+        )}
+
+        {/* Send status indicator — only show on failure */}
+        {message.sendStatus === 'failed' && (
+          <div className="flex items-center gap-1.5 mt-1 text-xs text-red-500">
+            <AlertCircle size={12} />
+            <span>{t('chat.sendFailed', '发送失败')}</span>
+            <button
+              type="button"
+              onClick={() => {
+                // Retry: remove failed message and re-send via REST
+                const channelId = message.channelId ?? message.dmChannelId
+                if (!channelId) return
+                queryClient.setQueryData<InfiniteData<MessagesPage>>(
+                  ['messages', channelId],
+                  (old) => {
+                    if (!old) return old
+                    return {
+                      ...old,
+                      pages: old.pages.map((page) => ({
+                        ...page,
+                        messages: page.messages.filter((m) => m.id !== message.id),
+                      })),
+                    }
+                  },
+                )
+                // Re-insert as optimistic and retry via REST
+                const tempId = `temp-${Date.now()}`
+                const retryMsg = { ...message, id: tempId, sendStatus: 'sending' as const }
+                queryClient.setQueryData<InfiniteData<MessagesPage>>(
+                  ['messages', channelId],
+                  (old) => {
+                    if (!old || old.pages.length === 0) return old
+                    const pages = [...old.pages]
+                    const firstPage = pages[0]!
+                    pages[0] = { ...firstPage, messages: [...firstPage.messages, retryMsg] }
+                    return { ...old, pages }
+                  },
+                )
+                fetchApi(`/api/channels/${channelId}/messages`, {
+                  method: 'POST',
+                  body: JSON.stringify({ content: message.content, replyToId: message.replyToId }),
+                }).catch(() => {
+                  queryClient.setQueryData<InfiniteData<MessagesPage>>(
+                    ['messages', channelId],
+                    (old) => {
+                      if (!old) return old
+                      return {
+                        ...old,
+                        pages: old.pages.map((page) => ({
+                          ...page,
+                          messages: page.messages.map((m) =>
+                            m.id === tempId ? { ...m, sendStatus: 'failed' as const } : m,
+                          ),
+                        })),
+                      }
+                    },
+                  )
+                })
+              }}
+              className="ml-1 px-2 py-0.5 bg-red-500/10 hover:bg-red-500/20 rounded text-red-500 text-xs font-medium transition"
+            >
+              {t('chat.retry', '重试')}
+            </button>
           </div>
         )}
       </div>

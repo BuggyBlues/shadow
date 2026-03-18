@@ -170,7 +170,7 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
 
   const createChannel = useMutation({
     mutationFn: (data: { name: string; type: string; isPrivate?: boolean }) =>
-      fetchApi<{ id: string }>(`/api/servers/${serverSlug}/channels`, {
+      fetchApi<Channel>(`/api/servers/${serverSlug}/channels`, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
@@ -181,6 +181,9 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
       setNewIsPrivate(false)
       // Auto-navigate to the newly created channel
       handleSelectChannel(data.id)
+      // Show invite panel for the new channel
+      setInviteTargetChannel(data)
+      setShowInvitePanel(true)
     },
   })
 

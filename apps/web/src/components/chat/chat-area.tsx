@@ -50,6 +50,8 @@ interface Message {
   author?: Author
   reactions?: ReactionGroup[]
   attachments?: { id: string; filename: string; url: string; contentType: string; size: number }[]
+  /** Optimistic send status — only set on client-side pending messages */
+  sendStatus?: 'sending' | 'failed'
 }
 
 interface MessagesPage {
@@ -213,9 +215,33 @@ export function ChatArea() {
 
       queryClient.setQueryData<InfiniteData<MessagesPage>>(['messages', activeChannelId], (old) => {
         if (!old || old.pages.length === 0) return old
-        // Append to the first page (latest messages)
         const pages = [...old.pages]
         const firstPage = pages[0]!
+
+        // Deduplicate: if message already exists, update it
+        if (firstPage.messages.some((m) => m.id === msg.id)) {
+          pages[0] = {
+            ...firstPage,
+            messages: firstPage.messages.map((m) => (m.id === msg.id ? msg : m)),
+          }
+          return { ...old, pages }
+        }
+
+        // Check if this is confirmation of an optimistic message from us
+        if (msg.authorId === user?.id) {
+          const tempIdx = firstPage.messages.findIndex(
+            (m) => m.id.startsWith('temp-') && m.authorId === msg.authorId,
+          )
+          if (tempIdx >= 0) {
+            pages[0] = {
+              ...firstPage,
+              messages: firstPage.messages.map((m, i) => (i === tempIdx ? msg : m)),
+            }
+            return { ...old, pages }
+          }
+        }
+
+        // Append new message
         pages[0] = {
           ...firstPage,
           messages: [...firstPage.messages, msg],
@@ -396,6 +422,13 @@ export function ChatArea() {
     setSystemEvents([])
     setActivityUsers([])
   }, [activeChannelId])
+
+  // Refetch messages on socket reconnect to catch any missed while offline
+  useSocketEvent('connect', () => {
+    if (activeChannelId) {
+      queryClient.invalidateQueries({ queryKey: ['messages', activeChannelId] })
+    }
+  })
 
   // Add reaction
   const addReaction = useMutation({

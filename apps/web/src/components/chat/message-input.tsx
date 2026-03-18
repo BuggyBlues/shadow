@@ -1,11 +1,12 @@
-import { useQuery } from '@tanstack/react-query'
+import { type InfiniteData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FileText, FolderOpen, Image as ImageIcon, Plus, Send, Smile, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../../lib/api'
 import { matchPinyin } from '../../lib/pinyin'
-import { sendTyping, sendWsMessage } from '../../lib/socket'
+import { getSocket, sendTyping, sendWsMessage } from '../../lib/socket'
 import { playSendSound } from '../../lib/sounds'
+import { useAuthStore } from '../../stores/auth.store'
 import { useChatStore } from '../../stores/chat.store'
 import { UserAvatar } from '../common/avatar'
 import { EmojiPicker } from '../common/emoji-picker'
@@ -55,6 +56,7 @@ export function MessageInput({
 }: MessageInputProps) {
   const { t } = useTranslation()
   const { activeServerId } = useChatStore()
+  const queryClient = useQueryClient()
   const [content, setContent] = useState('')
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([])
   const [uploading, setUploading] = useState(false)
@@ -186,19 +188,74 @@ export function MessageInput({
 
     setUploading(true)
 
+    // Insert optimistic message immediately for text-only sends
+    const currentUser = useAuthStore.getState().user
+    const tempId = `temp-${Date.now()}`
+    type MessagesPage = { messages: Record<string, unknown>[]; hasMore: boolean }
+
+    if (text && pendingFiles.length === 0) {
+      const optimisticMsg = {
+        id: tempId,
+        content: text,
+        channelId,
+        authorId: currentUser?.id ?? '',
+        threadId: null,
+        replyToId: replyToId ?? null,
+        isEdited: false,
+        isPinned: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        author: currentUser
+          ? {
+              id: currentUser.id,
+              username: currentUser.username,
+              displayName: currentUser.displayName ?? currentUser.username,
+              avatarUrl: currentUser.avatarUrl,
+              isBot: false,
+            }
+          : undefined,
+        sendStatus: 'sending' as const,
+      }
+
+      queryClient.setQueryData<InfiniteData<MessagesPage>>(
+        ['messages', channelId],
+        (old) => {
+          if (!old || old.pages.length === 0) return old
+          const pages = [...old.pages]
+          const firstPage = pages[0]!
+          pages[0] = {
+            ...firstPage,
+            messages: [...firstPage.messages, optimisticMsg],
+          }
+          return { ...old, pages }
+        },
+      )
+    }
+
+    // Clear input immediately for responsiveness
+    const savedContent = text
+    const savedReplyTo = replyToId
+    const savedPendingFiles = [...pendingFiles]
+    setContent('')
+    setPendingFiles([])
+    onClearReply?.()
+
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+    }
+
+    playSendSound()
+
     try {
-      if (pendingFiles.length > 0) {
-        // Upload files first, then create the message with all attachments
-        // so the broadcast includes complete attachment data for AI agents.
+      if (savedPendingFiles.length > 0) {
         const uploadedAttachments: {
           filename: string
           url: string
           contentType: string
           size: number
         }[] = []
-        for (const pf of pendingFiles) {
+        for (const pf of savedPendingFiles) {
           if (pf.workspaceUrl) {
-            // Workspace file: already has a URL, skip re-upload
             uploadedAttachments.push({
               filename: pf.workspaceName ?? pf.file.name,
               url: pf.workspaceUrl,
@@ -221,41 +278,87 @@ export function MessageInput({
           }
         }
 
-        // Create message with pre-uploaded attachments via REST
-        const contentToSend = text || '\u200B' // zero-width space for file-only messages
+        const contentToSend = savedContent || '\u200B'
         await fetchApi(`/api/channels/${channelId}/messages`, {
           method: 'POST',
           body: JSON.stringify({
             content: contentToSend,
-            ...(replyToId ? { replyToId } : {}),
+            ...(savedReplyTo ? { replyToId: savedReplyTo } : {}),
             attachments: uploadedAttachments,
           }),
         })
-
-        playSendSound()
-      } else if (text) {
-        // Text-only message — use WebSocket for low latency
-        sendWsMessage({
-          channelId,
-          content: text,
-          replyToId: replyToId ?? undefined,
-        })
-        playSendSound()
-      }
-
-      setContent('')
-      setPendingFiles([])
-      onClearReply?.()
-
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto'
+      } else if (savedContent) {
+        const sock = getSocket()
+        if (sock.connected) {
+          sendWsMessage({
+            channelId,
+            content: savedContent,
+            replyToId: savedReplyTo ?? undefined,
+          })
+          // WS: message:new will replace the temp message via dedup in chat-area
+          // Set timeout to mark as failed if no confirmation
+          setTimeout(() => {
+            queryClient.setQueryData<InfiniteData<MessagesPage>>(
+              ['messages', channelId],
+              (old) => {
+                if (!old) return old
+                const stillPending = old.pages.some((p) =>
+                  p.messages.some(
+                    (m) =>
+                      (m as { id: string; sendStatus?: string }).id === tempId &&
+                      (m as { sendStatus?: string }).sendStatus === 'sending',
+                  ),
+                )
+                if (stillPending) {
+                  return {
+                    ...old,
+                    pages: old.pages.map((page) => ({
+                      ...page,
+                      messages: page.messages.map((m) =>
+                        (m as { id: string }).id === tempId
+                          ? { ...m, sendStatus: 'failed' }
+                          : m,
+                      ),
+                    })),
+                  }
+                }
+                return old
+              },
+            )
+          }, 10000)
+        } else {
+          // Socket not connected — use REST fallback
+          await fetchApi(`/api/channels/${channelId}/messages`, {
+            method: 'POST',
+            body: JSON.stringify({
+              content: savedContent,
+              ...(savedReplyTo ? { replyToId: savedReplyTo } : {}),
+            }),
+          })
+        }
       }
     } catch (err) {
       console.error('Failed to send message:', err)
+      // Mark optimistic message as failed
+      queryClient.setQueryData<InfiniteData<MessagesPage>>(
+        ['messages', channelId],
+        (old) => {
+          if (!old) return old
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              messages: page.messages.map((m) =>
+                (m as { id: string }).id === tempId ? { ...m, sendStatus: 'failed' } : m,
+              ),
+            })),
+          }
+        },
+      )
     } finally {
       setUploading(false)
     }
-  }, [channelId, content, pendingFiles, replyToId, onClearReply])
+  }, [channelId, content, pendingFiles, replyToId, onClearReply, queryClient])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // Handle mention autocomplete navigation
@@ -313,12 +416,12 @@ export function MessageInput({
       setMentionIndex(0)
     }
 
-    // Typing indicator (throttled)
+    // Typing indicator (heartbeat: send every 2s while typing)
     if (!typingTimerRef.current) {
       sendTyping(channelId)
       typingTimerRef.current = setTimeout(() => {
         typingTimerRef.current = null
-      }, 3000)
+      }, 2000)
     }
   }
 

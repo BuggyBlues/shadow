@@ -46,6 +46,7 @@ const config: ExpoConfig = {
     'expo-font',
     'expo-secure-store',
     'expo-image-picker',
+    'expo-document-picker',
     'expo-speech-recognition',
   ],
   extra: {
