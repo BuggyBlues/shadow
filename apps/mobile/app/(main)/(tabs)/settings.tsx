@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Avatar } from '../../../src/components/common/avatar'
 import { DottedBackground } from '../../../src/components/common/dotted-background'
 import { LoadingScreen } from '../../../src/components/common/loading-screen'
+import { ShrimpCoin } from '../../../src/components/common/shrimp-coin'
 import { fetchApi } from '../../../src/lib/api'
 import { disconnectSocket } from '../../../src/lib/socket'
 import { useAuthStore } from '../../../src/stores/auth.store'
@@ -207,7 +208,7 @@ export default function SettingsScreen() {
               <View style={styles.profileStatsRow}>
                 {wallet && (
                   <View style={[styles.profileStat, { backgroundColor: `${colors.primary}10` }]}>
-                    <Text style={{ fontSize: 14 }}>🦐</Text>
+                    <ShrimpCoin size={16} color={colors.primary} />
                     <Text
                       style={{ color: colors.primary, fontWeight: '800', fontSize: fontSize.sm }}
                     >
