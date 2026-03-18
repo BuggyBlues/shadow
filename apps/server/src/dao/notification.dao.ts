@@ -36,6 +36,8 @@ export class NotificationDao {
     body?: string
     referenceId?: string
     referenceType?: string
+    senderId?: string
+    senderAvatarUrl?: string
   }) {
     const result = await this.db.insert(notifications).values(data).returning()
     return result[0]
