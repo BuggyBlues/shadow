@@ -119,6 +119,7 @@ export default function MainLayout() {
       <Stack.Screen name="servers/[serverSlug]" />
       <Stack.Screen name="dm/[dmChannelId]" options={{ headerShown: false }} />
       <Stack.Screen name="friends" options={{ headerShown: false }} />
+      <Stack.Screen name="friends/new-friends" options={{ headerShown: false }} />
       <Stack.Screen name="settings" options={{ headerShown: false }} />
       <Stack.Screen name="dashboard" options={{ headerShown: false }} />
       <Stack.Screen name="create-server" options={{ headerShown: true, title: '', headerLeft }} />
