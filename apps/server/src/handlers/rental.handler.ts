@@ -145,6 +145,7 @@ export function createRentalHandler(container: AppContainer) {
     const user = c.get('user')
     const rentalService = container.resolve('rentalService')
     const clawListingDao = container.resolve('clawListingDao')
+    const agentDao = container.resolve('agentDao')
     const role = c.req.query('role') as 'tenant' | 'owner' | undefined
     const status = c.req.query('status')
     const limit = Number(c.req.query('limit') || '50')
@@ -155,15 +156,21 @@ export function createRentalHandler(container: AppContainer) {
       limit,
       offset,
     })
-    // Enrich each contract with listing summary
+    // Enrich each contract with listing summary and agent bot user ID
     const enriched = await Promise.all(
       contracts.map(async (contract) => {
         const listing = await clawListingDao.findById(contract.listingId)
+        let agentUserId: string | null = null
+        if (listing?.agentId) {
+          const agent = await agentDao.findById(listing.agentId)
+          if (agent) agentUserId = agent.userId
+        }
         return {
           ...contract,
           listing: listing
             ? { title: listing.title, deviceTier: listing.deviceTier, osType: listing.osType }
             : null,
+          agentUserId,
         }
       }),
     )
@@ -175,18 +182,25 @@ export function createRentalHandler(container: AppContainer) {
     const user = c.get('user')
     const rentalService = container.resolve('rentalService')
     const clawListingDao = container.resolve('clawListingDao')
+    const agentDao = container.resolve('agentDao')
     const detail = await rentalService.getContractDetail(c.req.param('contractId'))
     // Ensure the user is a party to the contract
     if (detail.tenantId !== user.userId && detail.ownerId !== user.userId) {
       throw Object.assign(new Error('Not a party to this contract'), { status: 403 })
     }
-    // Enrich with listing summary
+    // Enrich with listing summary and agent bot user ID
     const listing = await clawListingDao.findById(detail.listingId)
+    let agentUserId: string | null = null
+    if (listing?.agentId) {
+      const agent = await agentDao.findById(listing.agentId)
+      if (agent) agentUserId = agent.userId
+    }
     return c.json({
       ...detail,
       listing: listing
         ? { title: listing.title, deviceTier: listing.deviceTier, osType: listing.osType }
         : null,
+      agentUserId,
     })
   })
 

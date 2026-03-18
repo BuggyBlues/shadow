@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useParams } from '@tanstack/react-router'
+import { Link, useNavigate, useParams } from '@tanstack/react-router'
+import type { TFunction } from 'i18next'
 import {
   AlertTriangle,
   CheckCircle2,
@@ -7,11 +8,12 @@ import {
   Clock,
   DollarSign,
   FileText,
+  MessageCircle,
   Shield,
   XCircle,
   Zap,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../lib/api'
 import { showToast } from '../lib/toast'
@@ -34,6 +36,7 @@ interface ContractDetail {
   ownerTerms: string | null
   platformTerms: string | null
   listing?: { title: string; deviceTier: string; osType: string } | null
+  agentUserId?: string | null
   createdAt: string
 }
 
@@ -92,6 +95,7 @@ const STATUS_STYLES: Record<
 
 export function ContractDetailPage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const { contractId } = useParams({ strict: false }) as { contractId: string }
   const queryClient = useQueryClient()
   const userId = useAuthStore((s) => s.user?.id)
@@ -130,6 +134,19 @@ export function ContractDetailPage() {
     onError: (err: Error) => showToast(err.message, 'error'),
   })
 
+  // Start chat with rented claw
+  const startChatMutation = useMutation({
+    mutationFn: (agentUserId: string) =>
+      fetchApi<{ id: string }>('/api/dm/channels', {
+        method: 'POST',
+        body: JSON.stringify({ userId: agentUserId }),
+      }),
+    onSuccess: (data) => {
+      navigate({ to: '/dm/$dmChannelId', params: { dmChannelId: data.id } })
+    },
+    onError: (err: Error) => showToast(err.message, 'error'),
+  })
+
   if (isLoading || !contract) {
     return (
       <div className="min-h-screen bg-[#f2f7fc] flex items-center justify-center">
@@ -155,7 +172,7 @@ export function ContractDetailPage() {
       <div className="max-w-4xl mx-auto px-6 py-8">
         {/* Back */}
         <Link
-          to="/app/marketplace/my-rentals"
+          to="/marketplace/my-rentals"
           className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-800 transition-colors font-bold mb-6"
         >
           <ChevronLeft className="w-5 h-5" />
@@ -223,6 +240,36 @@ export function ContractDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* Use Claw & Countdown */}
+        {isTenant && contract.status === 'active' && (
+          <div className="bg-white/80 backdrop-blur rounded-2xl border-2 border-white/90 shadow-lg p-8 mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                {contract.expiresAt && <CountdownTimer expiresAt={contract.expiresAt} t={t} />}
+                {!contract.expiresAt && (
+                  <p className="text-sm text-gray-500 font-medium">
+                    {t('marketplace.unlimitedUsage', '不限时使用')}
+                  </p>
+                )}
+              </div>
+              {contract.agentUserId && (
+                <button
+                  type="button"
+                  onClick={() => startChatMutation.mutate(contract.agentUserId!)}
+                  disabled={startChatMutation.isPending}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-cyan-500 text-white font-bold hover:from-cyan-500 hover:to-cyan-600 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-50"
+                  style={{ fontFamily: "'ZCOOL KuaiLe', cursive" }}
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  {startChatMutation.isPending
+                    ? t('common.loading', '处理中...')
+                    : t('marketplace.useClaw', '开始使用')}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Usage Records */}
         <div className="bg-white/80 backdrop-blur rounded-2xl border-2 border-white/90 shadow-lg p-8 mb-6">
@@ -351,4 +398,48 @@ export function ContractDetailPage() {
       </div>
     </div>
   )
+}
+
+/* ──────────────── Countdown Timer ──────────────── */
+
+function CountdownTimer({ expiresAt, t }: { expiresAt: string; t: TFunction }) {
+  const [remaining, setRemaining] = useState(() => calcRemaining(expiresAt))
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setRemaining(calcRemaining(expiresAt))
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [expiresAt])
+
+  if (remaining <= 0) {
+    return (
+      <div className="text-sm font-bold text-red-500">{t('marketplace.expired', '租赁已到期')}</div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <Clock className="w-4 h-4 text-cyan-500" />
+      <span className="text-sm font-bold text-gray-600">
+        {t('marketplace.remainingTime', '剩余时间')}
+      </span>
+      <span className="font-mono font-bold text-cyan-700">{formatCountdown(remaining)}</span>
+    </div>
+  )
+}
+
+function calcRemaining(expiresAt: string): number {
+  return Math.max(0, new Date(expiresAt).getTime() - Date.now())
+}
+
+function formatCountdown(ms: number): string {
+  const totalSec = Math.floor(ms / 1000)
+  const d = Math.floor(totalSec / 86400)
+  const h = Math.floor((totalSec % 86400) / 3600)
+  const m = Math.floor((totalSec % 3600) / 60)
+  const s = totalSec % 60
+  if (d > 0) return `${d}天 ${h}时 ${m}分`
+  if (h > 0) return `${h}时 ${m}分 ${s}秒`
+  return `${m}分 ${s}秒`
 }
