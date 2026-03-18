@@ -41,7 +41,6 @@ import {
   HelpBuddySvg,
   HelpProductSvg,
   HelpStartSvg,
-  TabHomeSvg,
   WorkCatSvg,
 } from '../../../src/components/common/cat-svg'
 import { DottedBackground } from '../../../src/components/common/dotted-background'
@@ -108,6 +107,7 @@ export default function ServersScreen() {
   const [showHelpTutorial, setShowHelpTutorial] = useState(false)
   const [hideHelpIcon, setHideHelpIcon] = useState(false)
   const [dontShowAgain, setDontShowAgain] = useState(false)
+  const [tutorialPageIndex, setTutorialPageIndex] = useState(0)
 
   useEffect(() => {
     AsyncStorage.getItem('hideHomeHelpIcon').then((val) => {
@@ -215,6 +215,44 @@ export default function ServersScreen() {
 
   const { width: screenWidth } = Dimensions.get('window')
   const tutorialWidth = screenWidth * 0.85
+  const tutorialInnerWidth = tutorialWidth - spacing.xl * 2
+  const tutorialPages = [
+    {
+      key: 'positioning',
+      title: '超萌可爱的界面下',
+      desc: '隐藏着硬核的生产力工具！你可以在这里拥有自己的 AI 社区、店铺和工作区。',
+      tags: ['产品定位', '超级社区', '协作空间'],
+      renderIcon: () => <HelpProductSvg size={88} color={colors.primary} />,
+    },
+    {
+      key: 'server',
+      title: '什么是服务器？',
+      desc: '服务器是你的社区“主空间”，承载成员、频道、规则和资源。可公开，也可私密。',
+      tags: ['成员管理', '公开/私密', '社区中枢'],
+      renderIcon: () => <WorkCatSvg width={88} height={88} />,
+    },
+    {
+      key: 'channel',
+      title: '什么是频道？',
+      desc: '频道是服务器里的话题房间。你可以按讨论主题拆分，让信息更清晰不混乱。',
+      tags: ['话题分区', '信息沉淀', '高效沟通'],
+      renderIcon: () => <ChannelCatSvg width={88} height={88} />,
+    },
+    {
+      key: 'buddy',
+      title: '什么是 Buddy？',
+      desc: 'Buddy 是黑猫打工仔：能写代码、审方案、查资料，24 小时在线协作。',
+      tags: ['多 Agent', '自动协作', '持续产出'],
+      renderIcon: () => <HelpBuddySvg size={88} color="#f59e0b" />,
+    },
+    {
+      key: 'start',
+      title: '开始奇妙之旅',
+      desc: '点击右上角 + 创建服务器，接着建频道、邀请成员，再召唤 Buddy 开始协作。',
+      tags: ['创建服务器', '搭建频道', '召唤 Buddy'],
+      renderIcon: () => <HelpStartSvg size={88} color="#3b82f6" />,
+    },
+  ]
 
   return (
     <DottedBackground>
@@ -569,42 +607,58 @@ export default function ServersScreen() {
               horizontal
               pagingEnabled
               showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={(event) => {
+                const next = Math.round(event.nativeEvent.contentOffset.x / tutorialInnerWidth)
+                setTutorialPageIndex(Math.max(0, Math.min(next, tutorialPages.length - 1)))
+              }}
               style={{
-                width: tutorialWidth - spacing.xl * 2,
-                height: tutorialWidth - spacing.xl * 2,
+                width: tutorialInnerWidth,
+                height: tutorialInnerWidth,
                 maxHeight: 280,
                 borderRadius: 24,
                 backgroundColor: colors.background,
               }}
             >
-              <View style={[styles.tutorialPage, { width: tutorialWidth - spacing.xl * 2 }]}>
-                <HelpProductSvg size={88} color={colors.primary} />
-                <Text style={[styles.tutorialPageTitle, { color: colors.text }]}>
-                  超萌可爱的界面下
-                </Text>
-                <Text style={[styles.tutorialPageDesc, { color: colors.textMuted }]}>
-                  隐藏着硬核的生产力工具！在这里你可以拥有自己的 AI 社区、店铺和工作区。
-                </Text>
-              </View>
-              <View style={[styles.tutorialPage, { width: tutorialWidth - spacing.xl * 2 }]}>
-                <HelpBuddySvg size={88} color="#f59e0b" />
-                <Text style={[styles.tutorialPageTitle, { color: colors.text }]}>
-                  黑猫打工仔 Buddy
-                </Text>
-                <Text style={[styles.tutorialPageDesc, { color: colors.textMuted }]}>
-                  多 Agent 小助手 24 小时在线协作，写代码、审方案、查资料，持续输出生产力。
-                </Text>
-              </View>
-              <View style={[styles.tutorialPage, { width: tutorialWidth - spacing.xl * 2 }]}>
-                <HelpStartSvg size={88} color="#3b82f6" />
-                <Text style={[styles.tutorialPageTitle, { color: colors.text }]}>
-                  超级个体就玩超级社区
-                </Text>
-                <Text style={[styles.tutorialPageDesc, { color: colors.textMuted }]}>
-                  点击右上角 + 创建服务器，开始搭建你的频道、工作流与社群协作空间。
-                </Text>
-              </View>
+              {tutorialPages.map((page) => (
+                <View key={page.key} style={[styles.tutorialPage, { width: tutorialInnerWidth }]}>
+                  {page.renderIcon()}
+                  <Text style={[styles.tutorialPageTitle, { color: colors.text }]}>
+                    {page.title}
+                  </Text>
+                  <Text style={[styles.tutorialPageDesc, { color: colors.textMuted }]}>
+                    {page.desc}
+                  </Text>
+                  <View style={styles.tutorialTagRow}>
+                    {page.tags.map((tag) => (
+                      <View
+                        key={`${page.key}-${tag}`}
+                        style={[styles.tutorialTag, { backgroundColor: `${colors.primary}14` }]}
+                      >
+                        <Text style={[styles.tutorialTagText, { color: colors.primary }]}>
+                          {tag}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ))}
             </ScrollView>
+
+            <View style={styles.tutorialIndicatorRow}>
+              {tutorialPages.map((page, idx) => (
+                <View
+                  key={`dot-${page.key}`}
+                  style={[
+                    styles.tutorialIndicatorDot,
+                    {
+                      backgroundColor:
+                        idx === tutorialPageIndex ? colors.primary : `${colors.textMuted}40`,
+                      width: idx === tutorialPageIndex ? 16 : 7,
+                    },
+                  ]}
+                />
+              ))}
+            </View>
 
             <Pressable style={styles.switchRow} onPress={() => setDontShowAgain(!dontShowAgain)}>
               <Text style={[styles.switchLabel, { color: colors.text, fontSize: fontSize.sm }]}>
@@ -890,5 +944,32 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  tutorialTagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  tutorialTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+  },
+  tutorialTagText: {
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+  },
+  tutorialIndicatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: spacing.sm,
+  },
+  tutorialIndicatorDot: {
+    height: 7,
+    borderRadius: 99,
   },
 })

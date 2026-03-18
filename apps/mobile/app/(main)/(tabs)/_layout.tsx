@@ -2,6 +2,7 @@ import { BlurView } from 'expo-blur'
 import { Image } from 'expo-image'
 import { Tabs } from 'expo-router'
 import { StyleSheet, Text, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   TabBellSvg,
   TabBuddySvg,
@@ -19,6 +20,7 @@ export default function TabsLayout() {
   const currentUser = useAuthStore((s) => s.user)
   const theme = useUIStore((s) => s.effectiveTheme)
   const unreadCount = useUnreadCount()
+  const insets = useSafeAreaInsets()
 
   return (
     <Tabs
@@ -31,30 +33,29 @@ export default function TabsLayout() {
         tabBarLabelStyle: {
           fontSize: 10,
           fontWeight: '700',
-          marginBottom: 4,
+          marginBottom: 2,
         },
         tabBarStyle: {
           position: 'absolute',
-          bottom: 8,
-          left: 10,
-          right: 10,
-          height: 66,
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: 58 + insets.bottom,
           backgroundColor: theme === 'light' ? 'rgba(255,255,255,0.85)' : `${colors.surface}EE`,
           borderTopWidth: StyleSheet.hairlineWidth,
-          borderWidth: StyleSheet.hairlineWidth,
+          borderWidth: 0,
           borderColor: colors.border,
-          borderRadius: 22,
           elevation: 0,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: theme === 'light' ? 0.08 : 0.16,
           shadowRadius: 10,
-          paddingBottom: 6,
-          paddingTop: 8,
+          paddingBottom: Math.max(insets.bottom, 6),
+          paddingTop: 4,
           paddingHorizontal: 0,
         },
         tabBarBackground: () => (
-          <View style={[StyleSheet.absoluteFill, { borderRadius: 22, overflow: 'hidden' }]}>
+          <View style={StyleSheet.absoluteFill}>
             <BlurView
               tint={theme === 'light' ? 'light' : 'dark'}
               intensity={80}
@@ -62,8 +63,11 @@ export default function TabsLayout() {
             />
           </View>
         ),
+        tabBarIconStyle: {
+          marginTop: -2,
+        },
         tabBarItemStyle: {
-          paddingVertical: 4,
+          paddingVertical: 2,
         },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
