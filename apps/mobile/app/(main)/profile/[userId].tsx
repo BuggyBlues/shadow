@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Clock, User } from 'lucide-react-native'
 import { useTranslation } from 'react-i18next'
@@ -7,6 +7,8 @@ import { Avatar } from '../../../src/components/common/avatar'
 import { LoadingScreen } from '../../../src/components/common/loading-screen'
 import { StatusBadge } from '../../../src/components/common/status-badge'
 import { fetchApi } from '../../../src/lib/api'
+import { showToast } from '../../../src/lib/toast'
+import { useAuthStore } from '../../../src/stores/auth.store'
 import { fontSize, radius, spacing, useColors } from '../../../src/theme'
 
 interface UserProfile {
@@ -52,6 +54,8 @@ export default function UserProfileScreen() {
   const { t } = useTranslation()
   const colors = useColors()
   const router = useRouter()
+  const queryClient = useQueryClient()
+  const currentUser = useAuthStore((s) => s.user)
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ['user-profile', userId],
@@ -59,7 +63,24 @@ export default function UserProfileScreen() {
     enabled: !!userId,
   })
 
+  const sendFriendRequest = useMutation({
+    mutationFn: () =>
+      fetchApi('/api/friends/request', {
+        method: 'POST',
+        body: JSON.stringify({ username: profile?.username }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['friends-sent'] })
+      showToast(t('friends.requestSent', '好友请求已发送'), 'success')
+    },
+    onError: (err: Error) => {
+      showToast(err.message || t('common.error', '操作失败'), 'error')
+    },
+  })
+
   if (isLoading || !profile) return <LoadingScreen />
+
+  const isSelf = Boolean(currentUser?.id && profile.id === currentUser.id)
 
   const statusColors: Record<string, string> = {
     online: '#22c55e',
@@ -101,6 +122,23 @@ export default function UserProfileScreen() {
           )}
         </View>
         <Text style={[styles.username, { color: colors.textMuted }]}>@{profile.username}</Text>
+
+        {!isSelf && !profile.isBot && (
+          <Pressable
+            style={({ pressed }) => [
+              styles.addFriendBtn,
+              { backgroundColor: pressed ? `${colors.primary}DD` : colors.primary },
+            ]}
+            disabled={sendFriendRequest.isPending}
+            onPress={() => sendFriendRequest.mutate()}
+          >
+            <Text style={styles.addFriendText}>
+              {sendFriendRequest.isPending
+                ? t('common.saving', '处理中...')
+                : t('friends.addFriend', '添加好友')}
+            </Text>
+          </Pressable>
+        )}
 
         {/* Status */}
         <View style={styles.statusRow}>
@@ -289,6 +327,19 @@ const styles = StyleSheet.create({
   username: {
     fontSize: fontSize.md,
     marginTop: 4,
+  },
+  addFriendBtn: {
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.lg,
+    height: 38,
+    borderRadius: radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addFriendText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: fontSize.sm,
   },
   statusRow: {
     flexDirection: 'row',

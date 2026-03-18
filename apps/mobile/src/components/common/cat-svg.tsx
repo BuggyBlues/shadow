@@ -1,4 +1,17 @@
+import { useEffect } from 'react'
+import Animated, {
+  interpolate,
+  useAnimatedProps,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated'
 import Svg, { Circle, Ellipse, Line, Path, Rect } from 'react-native-svg'
+
+const AnimatedPath = Animated.createAnimatedComponent(Path)
+const AnimatedRect = Animated.createAnimatedComponent(Rect)
+const AnimatedCircle = Animated.createAnimatedComponent(Circle)
 
 // Members: Abstract people group icon
 export function AgentCatSvg({
@@ -150,7 +163,29 @@ export function ChannelCatSvg({
 // ── Tab Bar Icons (Catty SVG) ────────────────────────────────────────────
 
 // Tab Home Icon: Cat face peeking over a chat bubble
-export function TabHomeSvg({ size = 24, color = '#888' }: { size?: number; color?: string }) {
+export function TabHomeSvg({
+  size = 24,
+  color = '#888',
+  focused = false,
+}: {
+  size?: number
+  color?: string
+  focused?: boolean
+}) {
+  const progress = useSharedValue(focused ? 1 : 0)
+
+  useEffect(() => {
+    progress.value = withTiming(focused ? 1 : 0, { duration: 220 })
+  }, [focused, progress])
+
+  const mouthAnimatedProps = useAnimatedProps(() => {
+    const smile = 'M10.5 13.5Q12 15 13.5 13.5'
+    const sad = 'M10.5 14.5Q12 13 13.5 14.5'
+    return {
+      d: progress.value > 0.5 ? smile : sad,
+    }
+  })
+
   return (
     <Svg viewBox="0 0 24 24" width={size} height={size}>
       {/* Chat bubble */}
@@ -168,8 +203,8 @@ export function TabHomeSvg({ size = 24, color = '#888' }: { size?: number; color
       <Circle cx="9" cy="10" r="1.2" fill={color} />
       <Circle cx="15" cy="10" r="1.2" fill={color} />
       <Ellipse cx="12" cy="12" rx="1" ry="0.7" fill={color} />
-      <Path
-        d="M10.5 13.5Q12 15 13.5 13.5"
+      <AnimatedPath
+        animatedProps={mouthAnimatedProps}
         fill="none"
         stroke={color}
         strokeWidth="1"
@@ -180,7 +215,28 @@ export function TabHomeSvg({ size = 24, color = '#888' }: { size?: number; color
 }
 
 // Tab Buddies/Marketplace Icon: Store awning with cat peeking
-export function TabBuddySvg({ size = 24, color = '#888' }: { size?: number; color?: string }) {
+export function TabBuddySvg({
+  size = 24,
+  color = '#888',
+  focused = false,
+}: {
+  size?: number
+  color?: string
+  focused?: boolean
+}) {
+  const progress = useSharedValue(focused ? 1 : 0)
+
+  useEffect(() => {
+    progress.value = withTiming(focused ? 1 : 0, { duration: 220 })
+  }, [focused, progress])
+
+  const doorAnimatedProps = useAnimatedProps(() => {
+    const width = interpolate(progress.value, [0, 1], [5, 1.6])
+    return {
+      width,
+    }
+  })
+
   return (
     <Svg viewBox="0 0 24 24" width={size} height={size}>
       {/* Store body */}
@@ -211,10 +267,11 @@ export function TabBuddySvg({ size = 24, color = '#888' }: { size?: number; colo
       />
       <Path d="M20 10Q21.5 13 22 10" fill="none" stroke={color} strokeWidth="1.4" />
       {/* Door */}
-      <Rect
+      <AnimatedRect
+        animatedProps={doorAnimatedProps}
         x="9.5"
         y="15"
-        width="5"
+        width={5}
         height="6"
         rx="1"
         fill="none"
@@ -227,6 +284,66 @@ export function TabBuddySvg({ size = 24, color = '#888' }: { size?: number; colo
       {/* Cat eyes behind door */}
       <Circle cx="11" cy="17.5" r="0.7" fill={color} />
       <Circle cx="13.5" cy="17.5" r="0.7" fill={color} />
+    </Svg>
+  )
+}
+
+// Tab Notifications Icon: Bell wiggle + unread dot
+export function TabBellSvg({
+  size = 24,
+  color = '#888',
+  focused = false,
+}: {
+  size?: number
+  color?: string
+  focused?: boolean
+}) {
+  const rotate = useSharedValue(0)
+  const dotScale = useSharedValue(focused ? 1 : 0)
+
+  useEffect(() => {
+    if (focused) {
+      rotate.value = withSequence(
+        withTiming(-12, { duration: 90 }),
+        withTiming(10, { duration: 100 }),
+        withTiming(-8, { duration: 90 }),
+        withTiming(6, { duration: 80 }),
+        withTiming(0, { duration: 70 }),
+      )
+      dotScale.value = withSpring(1, { damping: 10, stiffness: 180 })
+      return
+    }
+    rotate.value = withTiming(0, { duration: 150 })
+    dotScale.value = withTiming(0, { duration: 120 })
+  }, [focused, rotate, dotScale])
+
+  const bellAnimatedProps = useAnimatedProps(() => ({
+    transform: `rotate(${rotate.value} 12 12)`,
+  }))
+
+  const dotAnimatedProps = useAnimatedProps(() => ({
+    r: 2.6 * dotScale.value,
+  }))
+
+  return (
+    <Svg viewBox="0 0 24 24" width={size} height={size}>
+      <AnimatedPath
+        animatedProps={bellAnimatedProps}
+        d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"
+        fill="none"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M13.73 21a2 2 0 01-3.46 0"
+        fill="none"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <AnimatedCircle animatedProps={dotAnimatedProps} cx="17.5" cy="6" fill="#ef4444" />
     </Svg>
   )
 }
@@ -291,7 +408,16 @@ export function TabDiscoverSvg({ size = 24, color = '#888' }: { size?: number; c
 }
 
 // Tab Me/Settings Icon: Cat silhouette face
-export function TabMeSvg({ size = 24, color = '#888' }: { size?: number; color?: string }) {
+export function TabMeSvg({
+  size = 24,
+  color = '#888',
+  focused = false,
+}: {
+  size?: number
+  color?: string
+  focused?: boolean
+}) {
+  void focused
   return (
     <Svg viewBox="0 0 24 24" width={size} height={size}>
       {/* Cat head outline */}
