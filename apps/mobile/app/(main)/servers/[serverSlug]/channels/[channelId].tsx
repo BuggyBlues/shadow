@@ -3,17 +3,12 @@ import * as DocumentPicker from 'expo-document-picker'
 import * as ImagePicker from 'expo-image-picker'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import {
-  AtSign,
   ChevronDown,
   ChevronLeft,
   File,
   Hash,
-  Image as ImageIcon,
   MessageSquare,
-  Mic,
-  Plus,
   Search,
-  Smile,
   UserPlus,
   Users,
   X,
@@ -23,7 +18,6 @@ import { useTranslation } from 'react-i18next'
 import {
   ActivityIndicator,
   Alert,
-  Animated,
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
@@ -36,11 +30,11 @@ import {
   View,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import type { EmojiType } from 'rn-emoji-keyboard'
-import EmojiPicker from 'rn-emoji-keyboard'
+import { ChatComposer } from '../../../../../src/components/chat/chat-composer'
 import { MessageBubble } from '../../../../../src/components/chat/message-bubble'
 import { Avatar } from '../../../../../src/components/common/avatar'
 import { StatusBadge } from '../../../../../src/components/common/status-badge'
+import { useChatVoiceInput } from '../../../../../src/hooks/use-chat-voice-input'
 import { useSocketEvent } from '../../../../../src/hooks/use-socket'
 import { fetchApi } from '../../../../../src/lib/api'
 import { setLastChannel } from '../../../../../src/lib/last-channel'
@@ -60,79 +54,6 @@ import type {
 import { normalizeMessage } from '../../../../../src/types/message'
 
 const PAGE_SIZE = 50
-
-type SpeechResultEvent = {
-  results?: Array<{ transcript?: string }>
-  isFinal?: boolean
-}
-
-type SpeechModuleLike = {
-  start: (options?: Record<string, unknown>) => void
-  stop: () => void
-  requestPermissionsAsync: () => Promise<{ granted: boolean }>
-}
-
-let speechModule: SpeechModuleLike | null = null
-let useSpeechRecognitionEventSafe: (
-  eventName: string,
-  listener: (event: SpeechResultEvent) => void,
-) => void = () => {}
-
-try {
-  const speech = require('expo-speech-recognition') as {
-    ExpoSpeechRecognitionModule?: SpeechModuleLike
-    useSpeechRecognitionEvent?: (
-      eventName: string,
-      listener: (event: SpeechResultEvent) => void,
-    ) => void
-  }
-  speechModule = speech.ExpoSpeechRecognitionModule ?? null
-  useSpeechRecognitionEventSafe = speech.useSpeechRecognitionEvent ?? (() => {})
-} catch {
-  speechModule = null
-}
-
-function TypingDots() {
-  const colors = useColors()
-  const anims = useRef([
-    new Animated.Value(0),
-    new Animated.Value(0),
-    new Animated.Value(0),
-  ]).current
-  useEffect(() => {
-    const animations = anims.map((anim, i) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(i * 150),
-          Animated.timing(anim, { toValue: 1, duration: 300, useNativeDriver: true }),
-          Animated.timing(anim, { toValue: 0, duration: 300, useNativeDriver: true }),
-        ]),
-      ),
-    )
-    for (const a of animations) a.start()
-    return () => {
-      for (const a of animations) a.stop()
-    }
-  }, [anims])
-  return (
-    <View style={styles.typingDots}>
-      {anims.map((anim, i) => (
-        <Animated.View
-          key={['dot-a', 'dot-b', 'dot-c'][i]}
-          style={[
-            styles.typingDot,
-            {
-              backgroundColor: colors.textMuted,
-              transform: [
-                { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [0, -3] }) },
-              ],
-            },
-          ]}
-        />
-      ))}
-    </View>
-  )
-}
 
 export default function ChannelViewScreen() {
   const { serverSlug, channelId } = useLocalSearchParams<{
@@ -168,8 +89,6 @@ export default function ChannelViewScreen() {
   const [inviteSearch, setInviteSearch] = useState('')
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)
   const [keyboardVisible, setKeyboardVisible] = useState(false)
-  const [isRecording, setIsRecording] = useState(false)
-  const [voiceTranscript, setVoiceTranscript] = useState('')
   const [showSearchPanel, setShowSearchPanel] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchFromUser, setSearchFromUser] = useState<string | null>(null)
@@ -181,7 +100,14 @@ export default function ChannelViewScreen() {
 
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const typingUsersTimeout = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
-  const lastCommittedTranscript = useRef('')
+  const { isRecording, voiceTranscript, toggleVoiceInput, speechSupported } = useChatVoiceInput({
+    speechLang: t('chat.speechLang'),
+    onPermissionDenied: () => Alert.alert(t('common.error'), t('chat.micPermissionDenied')),
+    onUnavailable: () => Alert.alert(t('common.error'), t('chat.voiceInputUnavailable')),
+    onCommitTranscript: (transcript) => {
+      setInputText((prev) => (prev ? `${prev} ${transcript}` : transcript))
+    },
+  })
 
   // ---------- Channel info ----------
   const { data: channel } = useQuery({
@@ -370,56 +296,6 @@ export default function ChannelViewScreen() {
       hideSub.remove()
     }
   }, [channelId])
-
-  // ---------- Speech recognition ----------
-  useSpeechRecognitionEventSafe('result', (event) => {
-    const transcript = event.results?.[0]?.transcript
-    if (!transcript) return
-
-    if (event.isFinal) {
-      // Commit final transcript to input, skip if already committed (dedup)
-      if (transcript !== lastCommittedTranscript.current) {
-        lastCommittedTranscript.current = transcript
-        setInputText((prev) => (prev ? `${prev} ${transcript}` : transcript))
-      }
-      setVoiceTranscript('')
-    } else {
-      // Show interim transcript as live preview only
-      setVoiceTranscript(transcript)
-    }
-  })
-  useSpeechRecognitionEventSafe('end', () => {
-    setIsRecording(false)
-    // Reset committed ref for next session
-    lastCommittedTranscript.current = ''
-    setVoiceTranscript('')
-  })
-  useSpeechRecognitionEventSafe('error', () => {
-    setIsRecording(false)
-    lastCommittedTranscript.current = ''
-    setVoiceTranscript('')
-  })
-
-  const toggleVoiceInput = async () => {
-    if (!speechModule) {
-      Alert.alert(t('common.error'), t('chat.voiceInputUnavailable'))
-      return
-    }
-
-    if (isRecording) {
-      speechModule.stop()
-      return
-    }
-    const { granted } = await speechModule.requestPermissionsAsync()
-    if (!granted) {
-      Alert.alert(t('common.error'), t('chat.micPermissionDenied'))
-      return
-    }
-    setVoiceTranscript('')
-    lastCommittedTranscript.current = ''
-    speechModule.start({ lang: t('chat.speechLang'), interimResults: true })
-    setIsRecording(true)
-  }
 
   // ---------- Infinite scroll messages ----------
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, refetch } =
@@ -615,7 +491,7 @@ export default function ChannelViewScreen() {
     return () => {
       socket.off('connect', onReconnect)
     }
-  }, [channelId, joinChannelWithAck, refetch])
+  }, [channelId, joinChannelWithAck, queryClient])
 
   // Listen for socket errors (e.g. message:send denied by server)
   useEffect(() => {
@@ -1406,66 +1282,6 @@ export default function ChannelViewScreen() {
       )}
 
       {/* Typing indicator */}
-      {typingUsers.length > 0 && (
-        <View style={styles.typingBar}>
-          <TypingDots />
-          <Text style={{ color: colors.textMuted, fontSize: fontSize.xs }} numberOfLines={1}>
-            {typingUsers.join(', ')}{' '}
-            {typingUsers.length === 1 ? t('chat.isTyping') : t('chat.areTyping')}
-          </Text>
-        </View>
-      )}
-
-      {/* Pending files preview */}
-      {pendingFiles.length > 0 && (
-        <View
-          style={[
-            styles.pendingFilesBar,
-            { backgroundColor: colors.surface, borderTopColor: colors.border },
-          ]}
-        >
-          {pendingFiles.map((file, idx) => (
-            <View
-              key={file.uri}
-              style={[styles.pendingFileChip, { backgroundColor: colors.inputBackground }]}
-            >
-              <Text
-                style={[styles.pendingFileName, { color: colors.textSecondary }]}
-                numberOfLines={1}
-              >
-                {file.type.startsWith('image/') ? '🖼 ' : '📎 '}
-                {file.name}
-              </Text>
-              <Pressable onPress={() => removePendingFile(idx)} hitSlop={8}>
-                <X size={14} color={colors.textMuted} />
-              </Pressable>
-            </View>
-          ))}
-        </View>
-      )}
-
-      {/* Reply bar */}
-      {replyTo && (
-        <View
-          style={[
-            styles.replyBar,
-            { backgroundColor: colors.surface, borderTopColor: colors.border },
-          ]}
-        >
-          <View style={[styles.replyBarAccent, { backgroundColor: colors.primary }]} />
-          <View style={styles.replyBarContent}>
-            <Text style={[styles.replyBarLabel, { color: colors.primary }]}>
-              {t('chat.replyingTo')} {replyTo.author?.displayName || replyTo.author?.username}
-            </Text>
-            <Text style={[styles.replyBarPreview, { color: colors.textMuted }]} numberOfLines={1}>
-              {replyTo.content}
-            </Text>
-          </View>
-          <Pressable onPress={() => setReplyTo(null)} hitSlop={8}>
-            <X size={18} color={colors.textMuted} />
-          </Pressable>
-        </View>
-      )}
 
       {/* @mention autocomplete dropdown */}
       {mentionResults.length > 0 && mentionQuery !== null && (
@@ -1506,201 +1322,35 @@ export default function ChannelViewScreen() {
         </View>
       )}
 
-      {/* Voice recording indicator */}
-      {isRecording && (
-        <View
-          style={[
-            styles.voiceRecordingBar,
-            { backgroundColor: colors.surface, borderTopColor: colors.border },
-          ]}
-        >
-          <View style={styles.voiceRecordingDot} />
-          <Text style={[styles.voiceRecordingLabel, { color: colors.error }]}>
-            {t('chat.recording', '正在录音...')}
-          </Text>
-          {voiceTranscript ? (
-            <Text style={[styles.voiceTranscript, { color: colors.text }]} numberOfLines={1}>
-              {voiceTranscript}
-            </Text>
-          ) : (
-            <Text style={[styles.voiceTranscript, { color: colors.textMuted }]}>
-              {t('chat.speakNow', '请说话...')}
-            </Text>
-          )}
-          <Pressable onPress={toggleVoiceInput} hitSlop={12}>
-            <X size={18} color={colors.textMuted} />
-          </Pressable>
-        </View>
-      )}
-
-      {/* Input bar */}
-      <View
-        style={[
-          styles.inputBar,
-          {
-            backgroundColor: colors.surface,
-            borderTopColor: colors.border,
-            paddingBottom: keyboardVisible ? 6 : Math.max(6, insets.bottom + 2),
-          },
-        ]}
-      >
-        {/* @ mention button */}
-        <Pressable
-          style={[styles.actionBtn, { backgroundColor: colors.inputBackground }]}
-          onPress={() => {
-            setInputText((prev) => `${prev}@`)
-            setMentionQuery('')
-            inputRef.current?.focus()
-          }}
-        >
-          <AtSign size={22} color={colors.textMuted} />
-        </Pressable>
-
-        {/* Input field with embedded mic */}
-        <View style={[styles.inputWrapper, { backgroundColor: colors.inputBackground }]}>
-          <TextInput
-            ref={inputRef}
-            style={[styles.textInput, { color: colors.text }]}
-            value={inputText}
-            onChangeText={handleTextChange}
-            placeholder={
-              channel
-                ? t('chat.messagePlaceholderChannel', {
-                    channelName:
-                      channel.name.length > 12 ? `${channel.name.slice(0, 12)}…` : channel.name,
-                  })
-                : t('chat.messagePlaceholder')
-            }
-            placeholderTextColor={colors.textMuted}
-            multiline
-            maxLength={4000}
-            blurOnSubmit={false}
-            submitBehavior="submit"
-            onSubmitEditing={handleSend}
-            returnKeyType="send"
-            keyboardAppearance="dark"
-          />
-          <Pressable
-            style={[styles.inputMicBtn, isRecording && { backgroundColor: colors.primary }]}
-            onPress={toggleVoiceInput}
-          >
-            <Mic size={18} color={isRecording ? '#fff' : colors.textMuted} />
-          </Pressable>
-        </View>
-
-        {/* Emoji button */}
-        <Pressable style={styles.actionBtn} onPress={() => {
-          setShowPlusMenu(false)
-          setShowInputEmojiPicker(true)
-        }}>
-          <Smile size={24} color={showInputEmojiPicker ? colors.primary : colors.textMuted} />
-        </Pressable>
-
-        {/* Plus/attach button */}
-        <Pressable
-          style={[
-            styles.actionBtn,
-            { borderColor: colors.border, borderWidth: 1.5, borderRadius: 23 },
-          ]}
-          onPress={() => {
-            if (showPlusMenu) {
-              setShowPlusMenu(false)
-              inputRef.current?.focus()
-            } else {
-              Keyboard.dismiss()
-              setShowInputEmojiPicker(false)
-              setShowPlusMenu(true)
-            }
-          }}
-        >
-          <Plus size={22} color={showPlusMenu ? colors.primary : colors.textMuted} />
-        </Pressable>
-      </View>
-
-      {/* Emoji picker (rn-emoji-keyboard) — conditionally rendered to avoid ghost overlay */}
-      {showInputEmojiPicker && (
-        <EmojiPicker
-          open={showInputEmojiPicker}
-          onClose={() => setShowInputEmojiPicker(false)}
-          onEmojiSelected={(emoji: EmojiType) => {
-            setInputText((prev) => prev + emoji.emoji)
-            setTimeout(() => inputRef.current?.focus(), 100)
-          }}
-          enableSearchBar
-          enableRecentlyUsed
-          categoryPosition="top"
-          theme={{
-            backdrop: 'rgba(0,0,0,0.3)',
-            knob: colors.textMuted,
-            container: colors.surface,
-            header: colors.text,
-            category: {
-              icon: colors.textMuted,
-              iconActive: colors.primary,
-              container: colors.surface,
-              containerActive: colors.surfaceHover,
-            },
-            search: {
-              background: colors.inputBackground,
-              text: colors.text,
-              placeholder: colors.textMuted,
-              icon: colors.textMuted,
-            },
-            emoji: { selected: colors.surfaceHover },
-          }}
-        />
-      )}
-
-      {/* Plus menu panel — inline, replaces keyboard area like WeChat */}
-      {showPlusMenu && (
-        <View
-          style={[
-            styles.plusPanel,
-            {
-              backgroundColor: colors.surface,
-              borderTopColor: colors.border,
-              paddingBottom: Math.max(insets.bottom, 16),
-            },
-          ]}
-        >
-          <View style={styles.plusPanelGrid}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.plusPanelItem,
-                pressed && { opacity: 0.6 },
-              ]}
-              onPress={() => {
-                setShowPlusMenu(false)
-                handlePickImage()
-              }}
-            >
-              <View style={[styles.plusPanelIcon, { backgroundColor: `${colors.primary}15` }]}>
-                <ImageIcon size={24} color={colors.primary} />
-              </View>
-              <Text style={[styles.plusPanelLabel, { color: colors.textSecondary }]}>
-                {t('chat.pickImage', '图片')}
-              </Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [
-                styles.plusPanelItem,
-                pressed && { opacity: 0.6 },
-              ]}
-              onPress={() => {
-                setShowPlusMenu(false)
-                handlePickFile()
-              }}
-            >
-              <View style={[styles.plusPanelIcon, { backgroundColor: '#f59e0b15' }]}>
-                <File size={24} color="#f59e0b" />
-              </View>
-              <Text style={[styles.plusPanelLabel, { color: colors.textSecondary }]}>
-                {t('chat.pickFile', '文件')}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-      )}
+      <ChatComposer
+        inputText={inputText}
+        onInputChange={handleTextChange}
+        onSend={handleSend}
+        inputRef={inputRef}
+        pendingFiles={pendingFiles}
+        onRemovePendingFile={removePendingFile}
+        replyTo={replyTo}
+        onClearReply={() => setReplyTo(null)}
+        typingUsers={typingUsers}
+        isRecording={isRecording}
+        voiceTranscript={voiceTranscript}
+        keyboardVisible={keyboardVisible}
+        insetsBottom={insets.bottom}
+        canUseVoice={speechSupported}
+        onToggleVoice={toggleVoiceInput}
+        showAtButton
+        onPressAt={() => {
+          setInputText((prev) => `${prev}@`)
+          setMentionQuery('')
+          inputRef.current?.focus()
+        }}
+        showEmojiPicker={showInputEmojiPicker}
+        setShowEmojiPicker={setShowInputEmojiPicker}
+        showPlusMenu={showPlusMenu}
+        setShowPlusMenu={setShowPlusMenu}
+        onPickImage={handlePickImage}
+        onPickFile={handlePickFile}
+      />
 
       {/* Member list modal */}
       <Modal

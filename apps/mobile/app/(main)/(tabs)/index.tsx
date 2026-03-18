@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'expo-router'
-import { Hash, Plus, Search, Users, X } from 'lucide-react-native'
+import { ChevronRight, Hash, Plus, Search, Users, X } from 'lucide-react-native'
 import { useMemo, useRef, useState } from 'react'
 import {
   Animated,
@@ -10,11 +10,13 @@ import {
   Pressable,
   RefreshControl,
   SectionList,
+  type StyleProp,
   StyleSheet,
   Switch,
   Text,
   TextInput,
   View,
+  type ViewStyle,
 } from 'react-native'
 import Reanimated, { FadeIn, FadeInDown, FadeInRight } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -26,7 +28,6 @@ import { fetchApi } from '../../../src/lib/api'
 import { useAuthStore } from '../../../src/stores/auth.store'
 import { fontSize, radius, spacing, useColors } from '../../../src/theme'
 
-// biome-ignore lint/suspicious/noExplicitAny: style prop
 function SquishyRow({
   children,
   onPress,
@@ -34,7 +35,7 @@ function SquishyRow({
 }: {
   children: React.ReactNode
   onPress: () => void
-  style?: any
+  style?: StyleProp<ViewStyle>
 }) {
   const scale = useRef(new Animated.Value(1)).current
   return (
@@ -94,6 +95,11 @@ export default function ServersScreen() {
   const { data: discoverServers = [] } = useQuery({
     queryKey: ['discover-servers'],
     queryFn: () => fetchApi<DiscoverServer[]>('/api/servers/discover'),
+  })
+
+  const { data: pendingReceived = [] } = useQuery({
+    queryKey: ['friends-pending'],
+    queryFn: () => fetchApi<Array<{ friendshipId: string }>>('/api/friends/pending'),
   })
 
   const [refreshing, setRefreshing] = useState(false)
@@ -173,8 +179,7 @@ export default function ServersScreen() {
       >
         <Pressable
           onPress={() => {
-            // biome-ignore lint/suspicious/noExplicitAny: Expo Router route typing
-            router.push('/(main)/dashboard' as any)
+            router.push('/(main)/dashboard' as never)
           }}
           hitSlop={8}
         >
@@ -186,7 +191,7 @@ export default function ServersScreen() {
           />
         </Pressable>
         <View style={styles.navActions}>
-          <NotificationBell onPress={() => router.push('/(main)/notifications' as any)} />
+          <NotificationBell onPress={() => router.push('/(main)/notifications' as never)} />
           <Pressable
             onPress={() => setShowCreateServer(true)}
             hitSlop={8}
@@ -258,6 +263,29 @@ export default function ServersScreen() {
             />
           }
           contentContainerStyle={{ paddingBottom: 100 }}
+          ListHeaderComponent={
+            <>
+              <SquishyRow
+                style={[styles.quickEntryRow, { backgroundColor: colors.background }]}
+                onPress={() => router.push('/(main)/friends' as never)}
+              >
+                <Avatar uri={null} name="好友与私信" size={48} userId="friends-entry" />
+                <View style={styles.quickEntryInfo}>
+                  <Text style={[styles.quickEntryTitle, { color: colors.text }]}>好友与私信</Text>
+                  <Text style={[styles.quickEntryDesc, { color: colors.textMuted }]}>
+                    查看好友、请求与私信会话
+                  </Text>
+                </View>
+                {pendingReceived.length > 0 && (
+                  <View style={styles.quickEntryBadge}>
+                    <Text style={styles.quickEntryBadgeText}>{pendingReceived.length}</Text>
+                  </View>
+                )}
+                <ChevronRight size={16} color={colors.textMuted} />
+              </SquishyRow>
+              <View style={[styles.separator, { backgroundColor: colors.border }]} />
+            </>
+          }
           renderSectionHeader={({ section }) => (
             <View style={[styles.sectionHeader, { backgroundColor: colors.background }]}>
               <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
@@ -279,8 +307,7 @@ export default function ServersScreen() {
                   style={[styles.serverRow, { backgroundColor: colors.background }]}
                   onPress={() => {
                     if (isPublicResult) {
-                      // biome-ignore lint/suspicious/noExplicitAny: route typing
-                      router.push('/(main)/(tabs)/discover' as any)
+                      router.push('/(main)/(tabs)/discover' as never)
                     } else {
                       router.push(`/(main)/servers/${item.server.slug ?? item.server.id}`)
                     }
@@ -469,6 +496,40 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: fontSize.sm,
     paddingVertical: 0,
+  },
+
+  quickEntryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.md,
+  },
+  quickEntryInfo: {
+    flex: 1,
+  },
+  quickEntryTitle: {
+    fontSize: fontSize.md,
+    fontWeight: '700',
+  },
+  quickEntryDesc: {
+    fontSize: fontSize.xs,
+    marginTop: 1,
+  },
+  quickEntryBadge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ed4245',
+    marginRight: 2,
+  },
+  quickEntryBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '800',
   },
 
   // Section headers
