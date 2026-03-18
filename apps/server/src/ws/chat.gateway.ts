@@ -112,7 +112,6 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
                   referenceId: message.id,
                   referenceType: 'message',
                   senderId: userId,
-                  senderAvatarUrl: message.author?.avatarUrl ?? undefined,
                 })
                 // Push notification to the target user via WS
                 io.to(`user:${originalMessage.authorId}`).emit('notification:new', notification)
@@ -148,7 +147,6 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
                     referenceId: message.id,
                     referenceType: 'message',
                     senderId: userId,
-                    senderAvatarUrl: message.author?.avatarUrl ?? undefined,
                   })
                   io.to(`user:${mentionedUser.id}`).emit('notification:new', notification)
                 }
@@ -231,7 +229,6 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
               referenceId: data.dmChannelId,
               referenceType: 'dm_channel',
               senderId: userId,
-              senderAvatarUrl: message.author?.avatarUrl ?? undefined,
             })
             io.to(`user:${otherUserId}`).emit('notification:new', notification)
           } catch {

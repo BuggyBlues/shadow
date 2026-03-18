@@ -120,7 +120,6 @@ export class NotificationService {
     referenceId?: string
     referenceType?: string
     senderId?: string
-    senderAvatarUrl?: string
   }) {
     return this.deps.notificationDao.create(data)
   }

@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray } from 'drizzle-orm'
 import type { Database } from '../db'
-import { channels, messages, notificationPreferences, notifications } from '../db/schema'
+import { channels, messages, notificationPreferences, notifications, users } from '../db/schema'
 
 type NotificationStrategy = 'all' | 'mention_only' | 'none'
 
@@ -12,21 +12,39 @@ export class NotificationDao {
   }
 
   async findByUserId(userId: string, limit = 50, offset = 0) {
-    return this.db
-      .select()
+    const result = await this.db
+      .select({
+        notification: notifications,
+        senderAvatarUrl: users.avatarUrl,
+      })
       .from(notifications)
+      .leftJoin(users, eq(notifications.senderId, users.id))
       .where(eq(notifications.userId, userId))
       .orderBy(desc(notifications.createdAt))
       .limit(limit)
       .offset(offset)
+    
+    return result.map(r => ({
+      ...r.notification,
+      senderAvatarUrl: r.senderAvatarUrl,
+    }))
   }
 
   async findUnreadByUserId(userId: string) {
-    return this.db
-      .select()
+    const result = await this.db
+      .select({
+        notification: notifications,
+        senderAvatarUrl: users.avatarUrl,
+      })
       .from(notifications)
+      .leftJoin(users, eq(notifications.senderId, users.id))
       .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)))
       .orderBy(desc(notifications.createdAt))
+    
+    return result.map(r => ({
+      ...r.notification,
+      senderAvatarUrl: r.senderAvatarUrl,
+    }))
   }
 
   async create(data: {
@@ -37,7 +55,6 @@ export class NotificationDao {
     referenceId?: string
     referenceType?: string
     senderId?: string
-    senderAvatarUrl?: string
   }) {
     const result = await this.db.insert(notifications).values(data).returning()
     return result[0]

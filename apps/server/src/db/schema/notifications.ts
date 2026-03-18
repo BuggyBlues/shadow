@@ -25,7 +25,6 @@ export const notifications = pgTable('notifications', {
   referenceId: uuid('reference_id'),
   referenceType: varchar('reference_type', { length: 50 }),
   senderId: uuid('sender_id').references(() => users.id, { onDelete: 'set null' }),
-  senderAvatarUrl: text('sender_avatar_url'),
   isRead: boolean('is_read').default(false).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 })

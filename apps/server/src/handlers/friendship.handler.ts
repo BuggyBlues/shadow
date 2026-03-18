@@ -34,7 +34,6 @@ export function createFriendshipHandler(container: AppContainer) {
           // Also send a notification
           if (result) {
             const notificationService = container.resolve('notificationService')
-            const requester = await userDao.findById(user.userId)
             const notification = await notificationService.create({
               userId: targetUser.id,
               type: 'system',
@@ -42,7 +41,6 @@ export function createFriendshipHandler(container: AppContainer) {
               referenceId: result.id,
               referenceType: 'friendship',
               senderId: user.userId,
-              senderAvatarUrl: requester?.avatarUrl ?? undefined,
             })
             io.to(`user:${targetUser.id}`).emit('notification:new', notification)
           }
