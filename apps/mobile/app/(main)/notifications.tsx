@@ -90,6 +90,12 @@ export default function NotificationsScreen() {
     async (n: Notification) => {
       if (!n.isRead) markRead.mutate(n.id)
 
+      if (n.type === 'dm' && n.referenceId) {
+        // DM notification - navigate to DM chat
+        router.push(`/(main)/dm/${n.referenceId}` as never)
+        return
+      }
+
       if (n.referenceType === 'message' && n.referenceId) {
         try {
           const message = await fetchApi<{ id: string; channelId: string }>(

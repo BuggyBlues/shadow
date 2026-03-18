@@ -16,6 +16,7 @@ import {
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Avatar } from '../../../src/components/common/avatar'
 import { DottedBackground } from '../../../src/components/common/dotted-background'
 import { LoadingScreen } from '../../../src/components/common/loading-screen'
@@ -28,6 +29,7 @@ export default function SettingsScreen() {
   const { t } = useTranslation()
   const colors = useColors()
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const { user, logout } = useAuthStore()
 
   const { data: wallet } = useQuery({
@@ -302,7 +304,7 @@ export default function SettingsScreen() {
             </Text>
           </Pressable>
 
-          <View style={{ height: 40 }} />
+          <View style={{ height: insets.bottom + 100 }} />
         </ScrollView>
       </View>
     </DottedBackground>
