@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'expo-router'
-import { ChevronRight, Hash, Plus, Search, Users, X } from 'lucide-react-native'
+import { ChevronRight, Compass, Hash, Plus, Search, Users, X } from 'lucide-react-native'
 import { useMemo, useRef, useState } from 'react'
 import {
   Animated,
@@ -283,6 +283,21 @@ export default function ServersScreen() {
                 )}
                 <ChevronRight size={16} color={colors.textMuted} />
               </SquishyRow>
+              <SquishyRow
+                style={[styles.quickEntryRow, { backgroundColor: colors.background }]}
+                onPress={() => router.push('/(main)/discover' as never)}
+              >
+                <View style={[styles.quickExploreIcon, { backgroundColor: `${colors.primary}15` }]}>
+                  <Compass size={18} color={colors.primary} />
+                </View>
+                <View style={styles.quickEntryInfo}>
+                  <Text style={[styles.quickEntryTitle, { color: colors.text }]}>探索服务器</Text>
+                  <Text style={[styles.quickEntryDesc, { color: colors.textMuted }]}>
+                    发现公开服务器并快速加入
+                  </Text>
+                </View>
+                <ChevronRight size={16} color={colors.textMuted} />
+              </SquishyRow>
               <View style={[styles.separator, { backgroundColor: colors.border }]} />
             </>
           }
@@ -296,18 +311,32 @@ export default function ServersScreen() {
               </Text>
             </View>
           )}
-          renderItem={({ item, index }) => {
+          renderItem={({ item, index, section }) => {
             const isPublicResult = item.member.role === '_public'
             const desc = isPublicResult
               ? item.server.description || '公开服务器'
               : item.server.description || getRoleLabel(item.member.role)
+            const isFirst = index === 0
+            const isLast = index === section.data.length - 1
             return (
               <Reanimated.View entering={FadeInRight.delay(index * 40).springify()}>
                 <SquishyRow
-                  style={[styles.serverRow, { backgroundColor: colors.background }]}
+                  style={[
+                    styles.serverRow,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                      borderTopLeftRadius: isFirst ? radius.xl : 0,
+                      borderTopRightRadius: isFirst ? radius.xl : 0,
+                      borderBottomLeftRadius: isLast ? radius.xl : 0,
+                      borderBottomRightRadius: isLast ? radius.xl : 0,
+                      borderTopWidth: isFirst ? 1 : StyleSheet.hairlineWidth,
+                      borderBottomWidth: isLast ? 1 : 0,
+                    },
+                  ]}
                   onPress={() => {
                     if (isPublicResult) {
-                      router.push('/(main)/(tabs)/discover' as never)
+                      router.push('/(main)/discover' as never)
                     } else {
                       router.push(`/(main)/servers/${item.server.slug ?? item.server.id}`)
                     }
@@ -375,9 +404,7 @@ export default function ServersScreen() {
               </Reanimated.View>
             )
           }}
-          ItemSeparatorComponent={() => (
-            <View style={[styles.separator, { backgroundColor: colors.border }]} />
-          )}
+          SectionSeparatorComponent={() => <View style={styles.groupGap} />}
         />
       )}
 
@@ -508,6 +535,13 @@ const styles = StyleSheet.create({
   quickEntryInfo: {
     flex: 1,
   },
+  quickExploreIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   quickEntryTitle: {
     fontSize: fontSize.md,
     fontWeight: '700',
@@ -559,6 +593,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     gap: spacing.md,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
   },
   serverInfo: {
     flex: 1,
@@ -600,6 +636,9 @@ const styles = StyleSheet.create({
   separator: {
     height: StyleSheet.hairlineWidth,
     marginLeft: 48 + spacing.lg + spacing.md,
+  },
+  groupGap: {
+    height: spacing.md,
   },
 
   // Modal — compact
