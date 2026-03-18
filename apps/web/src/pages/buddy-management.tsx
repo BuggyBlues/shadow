@@ -1176,6 +1176,8 @@ function EmptyState({
 
 /* ── Create Agent Dialog ──────────────────────────────── */
 
+import { BuddyPreset, BuddyPresetSelector, BUDDY_PRESETS } from '../components/common/buddy-presets'
+
 function CreateAgentDialog({
   onClose,
   onSuccess,
@@ -1191,6 +1193,16 @@ function CreateAgentDialog({
   const [username, setUsername] = useState('')
   const [description, setDescription] = useState('')
   const [selectedAvatar, setSelectedAvatar] = useState<string | null>(null)
+  const [selectedPreset, setSelectedPreset] = useState<BuddyPreset | null>(null)
+
+  const handlePresetSelect = (preset: BuddyPreset) => {
+    setSelectedPreset(preset)
+    if (preset.id !== 'custom') {
+      setName(preset.suggestedName)
+      setUsername(preset.suggestedUsername)
+      setDescription(preset.suggestedDesc)
+    }
+  }
 
   const createMutation = useMutation({
     mutationFn: (data: {
@@ -1216,8 +1228,14 @@ function CreateAgentDialog({
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-bg-secondary rounded-xl p-6 w-full max-w-[480px] mx-4 max-h-[80vh] overflow-y-auto border border-border-subtle">
+      <div className="bg-bg-secondary rounded-xl p-6 w-full max-w-[600px] mx-4 max-h-[85vh] overflow-y-auto border border-border-subtle">
         <h2 className="text-xl font-bold text-text-primary mb-6">{t('agentMgmt.createTitle')}</h2>
+
+        {/* Preset Selector */}
+        <BuddyPresetSelector
+          onSelect={handlePresetSelect}
+          selectedId={selectedPreset?.id}
+        />
 
         {/* Name */}
         <div className="mb-4">

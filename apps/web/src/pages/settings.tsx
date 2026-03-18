@@ -30,6 +30,7 @@ import { useTranslation } from 'react-i18next'
 import { UserAvatar } from '../components/common/avatar'
 import { AvatarEditor } from '../components/common/avatar-editor'
 import { LanguageSwitcher } from '../components/common/language-switcher'
+import { OnboardingModal } from '../components/common/onboarding-modal'
 import { PriceDisplay } from '../components/shop/ui/currency'
 import { useAppStatus } from '../hooks/use-app-status'
 import { useUnreadCount } from '../hooks/use-unread-count'
@@ -71,6 +72,7 @@ export function SettingsPage() {
   >('quickstart')
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [activeDmChannelId, setActiveDmChannelId] = useState<string | null>(null)
+  const [showOnboarding, setShowOnboarding] = useState(false)
   const { data: wallet } = useQuery({
     queryKey: ['wallet'],
     queryFn: () => fetchApi<{ balance: number }>('/api/wallet'),
@@ -80,6 +82,12 @@ export function SettingsPage() {
     if (user) {
       setDisplayName(user.displayName ?? '')
       setSelectedAvatar(user.avatarUrl ?? null)
+    }
+    
+    // Check if user has seen onboarding
+    const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding')
+    if (!hasSeenOnboarding) {
+      setShowOnboarding(true)
     }
   }, [user])
 
@@ -1685,5 +1693,31 @@ function DmChannelList({
         )}
       </div>
     </div>
+  )
+}
+
+/* ── Onboarding Integration ───────────────────────────── */
+
+function OnboardingWrapper() {
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding')
+    if (!hasSeenOnboarding) {
+      setShowOnboarding(true)
+    }
+  }, [])
+
+  return (
+    <OnboardingModal
+      isOpen={showOnboarding}
+      onClose={() => setShowOnboarding(false)}
+      onCreateServer={() => {
+        setShowOnboarding(false)
+        navigate({ to: '/settings' })
+        // Trigger server creation via UI store
+      }}
+    />
   )
 }
