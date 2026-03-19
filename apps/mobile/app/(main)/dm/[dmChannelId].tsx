@@ -77,7 +77,7 @@ export default function DmChatScreen() {
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const typingUsersTimeout = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
-  const { isRecording, voiceTranscript, toggleVoiceInput, speechSupported } = useChatVoiceInput({
+  const { isRecording, voiceTranscript, toggleVoiceInput } = useChatVoiceInput({
     speechLang: t('chat.speechLang'),
     onPermissionDenied: () => Alert.alert(t('chat.micPermission', '需要麦克风权限')),
     onUnavailable: () => Alert.alert(t('chat.voiceNotSupported', '语音输入不可用')),
@@ -374,6 +374,30 @@ export default function DmChatScreen() {
     }
   }
 
+  const handleTakePhoto = async () => {
+    setShowPlusMenu(false)
+    const { status } = await ImagePicker.requestCameraPermissionsAsync()
+    if (status !== 'granted') {
+      Alert.alert('需要相机权限', '请在设置中开启相机权限以拍摄照片')
+      return
+    }
+    const res = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      quality: 0.8,
+    })
+    if (!res.canceled) {
+      setPendingFiles((prev) => [
+        ...prev,
+        ...res.assets.map((a) => ({
+          uri: a.uri,
+          name: a.fileName || `photo-${Date.now()}.jpg`,
+          type: a.mimeType || 'image/jpeg',
+          size: a.fileSize,
+        })),
+      ])
+    }
+  }
+
   const handlePickFile = async () => {
     setShowPlusMenu(false)
     const res = await DocumentPicker.getDocumentAsync({ multiple: true })
@@ -657,7 +681,6 @@ export default function DmChatScreen() {
         voiceTranscript={voiceTranscript}
         keyboardVisible={keyboardVisible}
         insetsBottom={insets.bottom}
-        canUseVoice={speechSupported}
         onToggleVoice={toggleVoiceInput}
         showAtButton={false}
         showEmojiPicker={showInputEmojiPicker}
@@ -666,6 +689,7 @@ export default function DmChatScreen() {
         setShowPlusMenu={setShowPlusMenu}
         onPickImage={handlePickImage}
         onPickFile={handlePickFile}
+        onTakePhoto={handleTakePhoto}
       />
     </KeyboardAvoidingView>
   )

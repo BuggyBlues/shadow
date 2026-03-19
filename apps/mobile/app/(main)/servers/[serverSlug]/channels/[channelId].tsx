@@ -100,7 +100,7 @@ export default function ChannelViewScreen() {
 
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const typingUsersTimeout = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
-  const { isRecording, voiceTranscript, toggleVoiceInput, speechSupported } = useChatVoiceInput({
+  const { isRecording, voiceTranscript, toggleVoiceInput } = useChatVoiceInput({
     speechLang: t('chat.speechLang'),
     onPermissionDenied: () => Alert.alert(t('common.error'), t('chat.micPermissionDenied')),
     onUnavailable: () => Alert.alert(t('common.error'), t('chat.voiceInputUnavailable')),
@@ -797,6 +797,32 @@ export default function ChannelViewScreen() {
     }
   }
 
+  const handleTakePhoto = async () => {
+    try {
+      const perm = await ImagePicker.requestCameraPermissionsAsync()
+      if (!perm.granted) {
+        Alert.alert(t('common.error'), t('chat.cameraPermissionDenied', '需要相机权限'))
+        return
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+      })
+      if (result.canceled || !result.assets) return
+      setPendingFiles((prev) => [
+        ...prev,
+        ...result.assets.map((a) => ({
+          uri: a.uri,
+          name: a.fileName ?? `photo_${Date.now()}.jpg`,
+          type: a.mimeType ?? 'image/jpeg',
+          size: a.fileSize,
+        })),
+      ])
+    } catch {
+      /* cancelled */
+    }
+  }
+
   const removePendingFile = (index: number) => {
     setPendingFiles((prev) => prev.filter((_, i) => i !== index))
   }
@@ -1336,7 +1362,6 @@ export default function ChannelViewScreen() {
         voiceTranscript={voiceTranscript}
         keyboardVisible={keyboardVisible}
         insetsBottom={insets.bottom}
-        canUseVoice={speechSupported}
         onToggleVoice={toggleVoiceInput}
         showAtButton
         onPressAt={() => {
@@ -1350,6 +1375,7 @@ export default function ChannelViewScreen() {
         setShowPlusMenu={setShowPlusMenu}
         onPickImage={handlePickImage}
         onPickFile={handlePickFile}
+        onTakePhoto={handleTakePhoto}
       />
 
       {/* Member list modal */}

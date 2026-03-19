@@ -176,6 +176,20 @@
       "when": 1774504800000,
       "tag": "0024_add_dm_attachments_and_reactions",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1774591200000,
+      "tag": "0025_add_notification_sender",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1774591300000,
+      "tag": "0026_add_channel_last_message_at",
+      "breakpoints": true
     }
   ]
 }
