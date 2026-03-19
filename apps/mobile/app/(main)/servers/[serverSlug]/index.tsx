@@ -6,7 +6,6 @@ import {
   ArrowDown,
   ArrowUp,
   Calendar,
-  Check,
   ChevronDown,
   ChevronLeft,
   Clock,
@@ -31,8 +30,6 @@ import { useTranslation } from 'react-i18next'
 import {
   Alert,
   Animated,
-  Dimensions,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -46,7 +43,7 @@ import {
 } from 'react-native'
 import Reanimated, { FadeInDown } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { Avatar } from '../../../../src/components/common/avatar'
+
 import {
   AgentCatSvg,
   ChannelCatSvg,
@@ -141,21 +138,12 @@ export default function ServerHomeScreen() {
 
   // State
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
-  const [showCreateChannel, setShowCreateChannel] = useState(false)
-  const [newChannelName, setNewChannelName] = useState('')
-  const [newChannelType, setNewChannelType] = useState<'text' | 'voice' | 'announcement'>('text')
-  const [newChannelCategoryId, setNewChannelCategoryId] = useState<string | null>(null)
   const [showSearch, setShowSearch] = useState(false)
   const [channelSearch, setChannelSearch] = useState('')
   const [contextChannel, setContextChannel] = useState<ServerChannel | null>(null)
   const [editingChannel, setEditingChannel] = useState<ServerChannel | null>(null)
   const [editChannelName, setEditChannelName] = useState('')
   const [showSortModal, setShowSortModal] = useState(false)
-
-  // Create channel member selection state
-  const [memberSearch, setMemberSearch] = useState('')
-  const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set())
-  const [selectedAgents, setSelectedAgents] = useState<Set<string>>(new Set())
 
   // ── Queries ─────────────────────────────────────
 
@@ -201,12 +189,6 @@ export default function ServerHomeScreen() {
 
   const members = memberData ?? []
 
-  // User's buddy agents for invite
-  const { data: myAgents = [] } = useQuery({
-    queryKey: ['my-agents-for-channel-create'],
-    queryFn: () => fetchApi<BuddyAgent[]>('/api/agents'),
-    enabled: showCreateChannel,
-  })
   const onlineCount = members.filter(
     (m) => m.user && ((m as { user: { status?: string } }).user.status ?? 'offline') !== 'offline',
   ).length
@@ -219,136 +201,6 @@ export default function ServerHomeScreen() {
       headerShown: false,
     })
   }, [navigation])
-
-  // ── Create Channel ─────────────────────────────
-
-  // Filter members for selection (exclude bots)
-  const selectableMembers = useMemo(() => {
-    const q = memberSearch.toLowerCase()
-    return members
-      .filter((m) => !m.user.isBot)
-      .filter((m) => {
-        if (!q) return true
-        const name = (m.user.displayName || m.user.username).toLowerCase()
-        return name.includes(q) || m.user.username.toLowerCase().includes(q)
-      })
-  }, [members, memberSearch])
-
-  // Filter server bots for selection
-  const selectableBots = useMemo(() => {
-    const q = memberSearch.toLowerCase()
-    return members
-      .filter((m) => m.user.isBot)
-      .filter((m) => {
-        if (!q) return true
-        const name = (m.user.displayName || m.user.username).toLowerCase()
-        return name.includes(q)
-      })
-  }, [members, memberSearch])
-
-  // Filter user's agents not on server
-  const serverBotUserIds = useMemo(
-    () => new Set(members.filter((m) => m.user.isBot).map((m) => m.user.id)),
-    [members],
-  )
-
-  const selectableMyAgents = useMemo(() => {
-    const q = memberSearch.toLowerCase()
-    return myAgents
-      .filter((a) => a.botUser && !serverBotUserIds.has(a.botUser.id))
-      .filter((a) => {
-        if (!q) return true
-        const name = (a.botUser?.displayName || a.botUser?.username || '').toLowerCase()
-        return name.includes(q)
-      })
-  }, [myAgents, serverBotUserIds, memberSearch])
-
-  const toggleMemberSelection = (userId: string) => {
-    setSelectedMembers((prev) => {
-      const next = new Set(prev)
-      if (next.has(userId)) next.delete(userId)
-      else next.add(userId)
-      return next
-    })
-  }
-
-  const toggleAgentSelection = (agentId: string) => {
-    setSelectedAgents((prev) => {
-      const next = new Set(prev)
-      if (next.has(agentId)) next.delete(agentId)
-      else next.add(agentId)
-      return next
-    })
-  }
-
-  const resetCreateChannelState = () => {
-    setShowCreateChannel(false)
-    setNewChannelName('')
-    setNewChannelType('text')
-    setNewChannelCategoryId(null)
-    setMemberSearch('')
-    setSelectedMembers(new Set())
-    setSelectedAgents(new Set())
-  }
-
-  const createChannelMutation = useMutation({
-    mutationFn: async () => {
-      // 1. Create channel
-      const channel = await fetchApi<{ id: string }>(`/api/servers/${server!.id}/channels`, {
-        method: 'POST',
-        body: JSON.stringify({
-          name: newChannelName,
-          type: newChannelType,
-          categoryId: newChannelCategoryId,
-        }),
-      })
-
-      // 2. Add selected members to channel
-      const memberPromises = Array.from(selectedMembers).map((userId) =>
-        fetchApi(`/api/channels/${channel.id}/members`, {
-          method: 'POST',
-          body: JSON.stringify({ userId }),
-        }),
-      )
-
-      // 3. Add selected server bots to channel
-      const botPromises = selectableBots
-        .filter((b) => selectedMembers.has(b.user.id))
-        .map((b) =>
-          fetchApi(`/api/channels/${channel.id}/members`, {
-            method: 'POST',
-            body: JSON.stringify({ userId: b.user.id }),
-          }),
-        )
-
-      // 4. Add selected my agents to server then channel
-      const agentPromises = Array.from(selectedAgents).map(async (agentId) => {
-        const agent = myAgents.find((a) => a.id === agentId)
-        if (!agent) return
-        await fetchApi(`/api/servers/${server!.id}/agents`, {
-          method: 'POST',
-          body: JSON.stringify({ agentIds: [agent.id] }),
-        })
-        if (agent.botUser?.id) {
-          await fetchApi(`/api/channels/${channel.id}/members`, {
-            method: 'POST',
-            body: JSON.stringify({ userId: agent.botUser.id }),
-          })
-        }
-      })
-
-      await Promise.all([...memberPromises, ...botPromises, ...agentPromises])
-
-      return channel
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['channels', server?.id] })
-      resetCreateChannelState()
-      // Navigate directly to the new channel
-      router.push(`/(main)/servers/${serverSlug}/channels/${data.id}` as never)
-    },
-    onError: (err: any) => showToast(err?.message || t('common.error'), 'error'),
-  })
 
   // ── Channel actions ────────────────────────────
 
@@ -622,7 +474,9 @@ export default function ServerHomeScreen() {
               </View>
             </SquishyCard>
             {isOwner && (
-              <SquishyCard onPress={() => setShowCreateChannel(true)}>
+              <SquishyCard
+                onPress={() => router.push(`/(main)/servers/${serverSlug}/create-channel` as never)}
+              >
                 <View
                   style={[
                     styles.actionBubble,
@@ -736,7 +590,11 @@ export default function ServerHomeScreen() {
                 {t('server.noChannels')}
               </Text>
               {isOwner && (
-                <SquishyCard onPress={() => setShowCreateChannel(true)}>
+                <SquishyCard
+                  onPress={() =>
+                    router.push(`/(main)/servers/${serverSlug}/create-channel` as never)
+                  }
+                >
                   <LinearGradient colors={['#00f3ff', '#00a2ff']} style={styles.cuteCreateBtn}>
                     <Plus size={18} color="#1a1a1c" strokeWidth={3} />
                     <Text style={styles.cuteCreateBtnText}>{t('server.createChannel')}</Text>
@@ -747,351 +605,6 @@ export default function ServerHomeScreen() {
           )}
         </View>
       </ScrollView>
-
-      {/* ── Create Channel Modal ──────────────────── */}
-      <Modal visible={showCreateChannel} transparent animationType="fade">
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View
-            style={[
-              styles.modalContent,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>
-                {t('server.createChannel')}
-              </Text>
-              <Pressable onPress={resetCreateChannelState} hitSlop={8}>
-                <X size={24} color={colors.textMuted} strokeWidth={2.5} />
-              </Pressable>
-            </View>
-
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              style={{ height: Dimensions.get('window').height * 0.6 }}
-              contentContainerStyle={{ paddingBottom: spacing.lg }}
-            >
-              <Text style={[styles.cuteLabel, { color: colors.text }]}>
-                {t('server.channelName')}
-              </Text>
-              <TextInput
-                style={[
-                  styles.cuteInput,
-                  {
-                    backgroundColor: colors.inputBackground,
-                    color: colors.text,
-                    borderColor: colors.border,
-                  },
-                ]}
-                value={newChannelName}
-                onChangeText={setNewChannelName}
-                placeholder={t('server.channelNamePlaceholder')}
-                placeholderTextColor={colors.textMuted}
-                autoFocus
-              />
-
-              <Text style={[styles.cuteLabel, { color: colors.text, marginTop: spacing.lg }]}>
-                {t('server.channelType')}
-              </Text>
-              <View style={styles.typeRow}>
-                {(['text', 'voice', 'announcement'] as const).map((type) => (
-                  <Pressable
-                    key={type}
-                    style={[
-                      styles.cuteTypeBtn,
-                      {
-                        backgroundColor:
-                          newChannelType === type ? '#00f3ff20' : colors.inputBackground,
-                        borderColor: newChannelType === type ? '#00f3ff' : colors.border,
-                      },
-                    ]}
-                    onPress={() => setNewChannelType(type)}
-                  >
-                    {channelIcon(type, newChannelType === type ? '#00c3cc' : colors.textMuted, 24)}
-                    <Text
-                      style={[
-                        styles.typeBtnText,
-                        { color: newChannelType === type ? '#00c3cc' : colors.text },
-                      ]}
-                    >
-                      {channelTypeLabel(type)}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-
-              {categories.length > 0 && (
-                <>
-                  <Text style={[styles.cuteLabel, { color: colors.text, marginTop: spacing.lg }]}>
-                    {t('server.channelCategory')}
-                  </Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    style={{ flexGrow: 0 }}
-                    contentContainerStyle={{ gap: spacing.sm }}
-                  >
-                    <Pressable
-                      style={[
-                        styles.cuteCatChip,
-                        {
-                          backgroundColor: !newChannelCategoryId
-                            ? '#ff7da520'
-                            : colors.inputBackground,
-                          borderColor: !newChannelCategoryId ? '#ff7da5' : colors.border,
-                        },
-                      ]}
-                      onPress={() => setNewChannelCategoryId(null)}
-                    >
-                      <Text
-                        style={[
-                          styles.catChipText,
-                          { color: !newChannelCategoryId ? '#e85b85' : colors.text },
-                        ]}
-                      >
-                        {t('server.noCategory')}
-                      </Text>
-                    </Pressable>
-                    {categories.map((cat) => (
-                      <Pressable
-                        key={cat.id}
-                        style={[
-                          styles.cuteCatChip,
-                          {
-                            backgroundColor:
-                              newChannelCategoryId === cat.id
-                                ? '#f8e71c20'
-                                : colors.inputBackground,
-                            borderColor:
-                              newChannelCategoryId === cat.id ? '#f8e71c' : colors.border,
-                          },
-                        ]}
-                        onPress={() => setNewChannelCategoryId(cat.id)}
-                      >
-                        <Text
-                          style={[
-                            styles.catChipText,
-                            { color: newChannelCategoryId === cat.id ? '#b3a100' : colors.text },
-                          ]}
-                        >
-                          {cat.name}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </ScrollView>
-                </>
-              )}
-
-              {/* Member Selection Section */}
-              <Text style={[styles.cuteLabel, { color: colors.text, marginTop: spacing.lg }]}>
-                {t('server.addMembers', '添加成员（可选）')}
-              </Text>
-
-              {/* Search */}
-              <View style={[styles.memberSearchRow, { backgroundColor: colors.inputBackground }]}>
-                <Search size={16} color={colors.textMuted} />
-                <TextInput
-                  style={[styles.memberSearchInput, { color: colors.text }]}
-                  value={memberSearch}
-                  onChangeText={setMemberSearch}
-                  placeholder={t('common.search', '搜索...')}
-                  placeholderTextColor={colors.textMuted}
-                />
-                {memberSearch.length > 0 && (
-                  <Pressable onPress={() => setMemberSearch('')} hitSlop={8}>
-                    <X size={14} color={colors.textMuted} />
-                  </Pressable>
-                )}
-              </View>
-
-              {/* Selected count */}
-              {(selectedMembers.size > 0 || selectedAgents.size > 0) && (
-                <Text style={[styles.selectedCount, { color: colors.textMuted }]}>
-                  {t('server.selectedCount', '已选择 {{count}} 人', {
-                    count: selectedMembers.size + selectedAgents.size,
-                  })}
-                </Text>
-              )}
-
-              {/* Server Members */}
-              {selectableMembers.length > 0 && (
-                <>
-                  <Text style={[styles.memberSectionTitle, { color: colors.textMuted }]}>
-                    {t('members.serverMembers', '服务器成员')}
-                  </Text>
-                  {selectableMembers.map((m) => (
-                    <Pressable
-                      key={m.user.id}
-                      style={styles.selectableMemberRow}
-                      onPress={() => toggleMemberSelection(m.user.id)}
-                    >
-                      <Avatar
-                        uri={m.user.avatarUrl}
-                        name={m.user.displayName || m.user.username}
-                        size={36}
-                        userId={m.user.id}
-                      />
-                      <Text
-                        style={[styles.selectableMemberName, { color: colors.text }]}
-                        numberOfLines={1}
-                      >
-                        {m.user.displayName || m.user.username}
-                      </Text>
-                      <View
-                        style={[
-                          styles.checkbox,
-                          {
-                            backgroundColor: selectedMembers.has(m.user.id)
-                              ? colors.primary
-                              : 'transparent',
-                            borderColor: selectedMembers.has(m.user.id)
-                              ? colors.primary
-                              : colors.border,
-                          },
-                        ]}
-                      >
-                        {selectedMembers.has(m.user.id) && <Check size={14} color="#fff" />}
-                      </View>
-                    </Pressable>
-                  ))}
-                </>
-              )}
-
-              {/* Server Bots */}
-              {selectableBots.length > 0 && (
-                <>
-                  <Text style={[styles.memberSectionTitle, { color: colors.textMuted }]}>
-                    {t('members.serverBuddies', '服务器 Buddy')}
-                  </Text>
-                  {selectableBots.map((m) => (
-                    <Pressable
-                      key={m.user.id}
-                      style={styles.selectableMemberRow}
-                      onPress={() => toggleMemberSelection(m.user.id)}
-                    >
-                      <Avatar
-                        uri={m.user.avatarUrl}
-                        name={m.user.displayName || m.user.username}
-                        size={36}
-                        userId={m.user.id}
-                      />
-                      <View style={{ flex: 1 }}>
-                        <Text
-                          style={[styles.selectableMemberName, { color: colors.primary }]}
-                          numberOfLines={1}
-                        >
-                          {m.user.displayName || m.user.username}
-                        </Text>
-                      </View>
-                      <View
-                        style={[
-                          styles.checkbox,
-                          {
-                            backgroundColor: selectedMembers.has(m.user.id)
-                              ? colors.primary
-                              : 'transparent',
-                            borderColor: selectedMembers.has(m.user.id)
-                              ? colors.primary
-                              : colors.border,
-                          },
-                        ]}
-                      >
-                        {selectedMembers.has(m.user.id) && <Check size={14} color="#fff" />}
-                      </View>
-                    </Pressable>
-                  ))}
-                </>
-              )}
-
-              {/* My Agents */}
-              {selectableMyAgents.length > 0 && (
-                <>
-                  <Text style={[styles.memberSectionTitle, { color: colors.textMuted }]}>
-                    {t('members.myBuddies', '我的 Buddy')}
-                  </Text>
-                  {selectableMyAgents.map((a) => (
-                    <Pressable
-                      key={a.id}
-                      style={styles.selectableMemberRow}
-                      onPress={() => toggleAgentSelection(a.id)}
-                    >
-                      <Avatar
-                        uri={a.botUser?.avatarUrl ?? null}
-                        name={a.botUser?.displayName || a.botUser?.username || '?'}
-                        size={36}
-                        userId={a.botUser?.id}
-                      />
-                      <View style={{ flex: 1 }}>
-                        <Text
-                          style={[styles.selectableMemberName, { color: colors.primary }]}
-                          numberOfLines={1}
-                        >
-                          {a.botUser?.displayName || a.botUser?.username || '?'}
-                        </Text>
-                        <Text style={{ color: colors.textMuted, fontSize: fontSize.xs }}>
-                          {t('members.notOnServer', '未加入服务器')}
-                        </Text>
-                      </View>
-                      <View
-                        style={[
-                          styles.checkbox,
-                          {
-                            backgroundColor: selectedAgents.has(a.id)
-                              ? colors.primary
-                              : 'transparent',
-                            borderColor: selectedAgents.has(a.id) ? colors.primary : colors.border,
-                          },
-                        ]}
-                      >
-                        {selectedAgents.has(a.id) && <Check size={14} color="#fff" />}
-                      </View>
-                    </Pressable>
-                  ))}
-                </>
-              )}
-
-              {/* Empty state */}
-              {selectableMembers.length === 0 &&
-                selectableBots.length === 0 &&
-                selectableMyAgents.length === 0 && (
-                  <Text
-                    style={{
-                      color: colors.textMuted,
-                      fontSize: fontSize.sm,
-                      textAlign: 'center',
-                      paddingTop: spacing.lg,
-                    }}
-                  >
-                    {t('members.noInvitable', '没有可邀请的成员')}
-                  </Text>
-                )}
-            </ScrollView>
-
-            <SquishyCard
-              onPress={() => createChannelMutation.mutate()}
-              disabled={!newChannelName.trim() || createChannelMutation.isPending}
-              style={{ marginTop: spacing.md }}
-            >
-              <LinearGradient
-                colors={['#00f3ff', '#00a2ff']}
-                style={[
-                  styles.cuteModalBtn,
-                  { opacity: !newChannelName.trim() || createChannelMutation.isPending ? 0.5 : 1 },
-                ]}
-              >
-                <Text style={styles.cuteModalBtnText}>
-                  {createChannelMutation.isPending
-                    ? t('common.creating', '创建中...')
-                    : t('common.create')}
-                </Text>
-              </LinearGradient>
-            </SquishyCard>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
 
       {/* Channel context menu */}
       <Modal
@@ -1586,7 +1099,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
     padding: spacing.xl,
     paddingBottom: 40,
-    maxHeight: Dimensions.get('window').height * 0.85,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -8 },
     shadowOpacity: 0.15,
@@ -1638,59 +1150,6 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 24,
   },
-  cuteModalBtnText: {
-    color: '#1a1a1c',
-    fontSize: 18,
-    fontWeight: '900',
-  },
-
-  // Member selection styles
-  memberSearchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    height: 44,
-    borderRadius: radius.lg,
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  memberSearchInput: {
-    flex: 1,
-    fontSize: fontSize.md,
-    height: 44,
-  },
-  selectedCount: {
-    fontSize: fontSize.sm,
-    fontWeight: '600',
-    marginBottom: spacing.sm,
-  },
-  memberSectionTitle: {
-    fontSize: fontSize.xs,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-  },
-  selectableMemberRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  selectableMemberName: {
-    flex: 1,
-    fontSize: fontSize.md,
-    fontWeight: '500',
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
   // Context menu
   ctxOverlay: {
     flex: 1,
