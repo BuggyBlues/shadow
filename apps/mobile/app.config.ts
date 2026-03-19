@@ -48,6 +48,7 @@ const config: ExpoConfig = {
     'expo-image-picker',
     'expo-document-picker',
     'expo-speech-recognition',
+    'expo-asset',
   ],
   extra: {
     eas: {
