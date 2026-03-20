@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 
 /** QQ-style online rank: stars (<100h) → moons (100-500h) → suns (500h+) */
@@ -27,23 +28,23 @@ export function OnlineRank({ totalSeconds }: { totalSeconds: number }) {
 
   if (suns === 0 && moons === 0 && stars === 0) return null
 
+  const renderIcons = (count: number, prefix: 'sun' | 'moon' | 'star', icon: string) => {
+    const items: ReactNode[] = []
+    for (let n = count; n >= 1; n--) {
+      items.push(
+        <Text key={`${prefix}-${n}`} style={styles.icon}>
+          {icon}
+        </Text>,
+      )
+    }
+    return items
+  }
+
   return (
     <View style={styles.container}>
-      {Array.from({ length: suns }, (_, i) => (
-        <Text key={`sun-${i}`} style={styles.icon}>
-          ☀️
-        </Text>
-      ))}
-      {Array.from({ length: moons }, (_, i) => (
-        <Text key={`moon-${i}`} style={styles.icon}>
-          🌙
-        </Text>
-      ))}
-      {Array.from({ length: stars }, (_, i) => (
-        <Text key={`star-${i}`} style={styles.icon}>
-          ⭐
-        </Text>
-      ))}
+      {renderIcons(suns, 'sun', '☀️')}
+      {renderIcons(moons, 'moon', '🌙')}
+      {renderIcons(stars, 'star', '⭐')}
     </View>
   )
 }

@@ -120,7 +120,7 @@ export default function ServerDetailScreen() {
 
           <Pressable
             style={[styles.inviteBtn, { backgroundColor: colors.primary }]}
-            onPress={() => router.push(`/(main)/servers/${serverSlug}/invite` as any)}
+            onPress={() => router.push(`/(main)/servers/${serverSlug}/invite` as never)}
           >
             <Share size={18} color="#fff" strokeWidth={2.5} />
             <Text style={styles.inviteBtnText}>{t('server.inviteMembers', 'Invite Friends')}</Text>

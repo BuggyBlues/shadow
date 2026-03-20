@@ -280,7 +280,7 @@ export default function WorkspaceScreen() {
         uri: asset.uri,
         name: asset.name,
         type: asset.mimeType ?? 'application/octet-stream',
-      } as any)
+      } as unknown as Blob)
       if (currentFolderId) formData.append('parentId', currentFolderId)
 
       await fetchApi(`/api/servers/${server!.id}/workspace/upload`, {

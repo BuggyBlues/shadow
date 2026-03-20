@@ -45,7 +45,7 @@ export function AvatarEditor({ value, userId, onChange }: AvatarEditorProps) {
         uri: asset.uri,
         name: asset.fileName || 'avatar.jpg',
         type: asset.mimeType || 'image/jpeg',
-      } as any)
+      } as unknown as Blob)
 
       const data = await fetchApi<{ url: string }>('/api/media/upload', {
         method: 'POST',

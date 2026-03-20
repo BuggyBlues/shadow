@@ -24,15 +24,16 @@ export default function InviteScreen() {
       }),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['servers'] })
-      router.replace(`/(main)/servers/${data.slug ?? data.id}` as any)
+      router.replace(`/(main)/servers/${data.slug ?? data.id}` as never)
     },
-    onError: (err: any) => {
-      if (err?.status === 409) {
+    onError: (err: unknown) => {
+      const error = err as { status?: number; message?: string }
+      if (error?.status === 409) {
         // Already a member
         queryClient.invalidateQueries({ queryKey: ['servers'] })
         router.replace('/(main)')
       } else {
-        showToast(err?.message || t('common.error'), 'error')
+        showToast(error?.message || t('common.error'), 'error')
         router.replace('/(main)')
       }
     },

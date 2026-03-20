@@ -98,7 +98,7 @@ export default function ServerSettingsScreen() {
         uri: asset.uri,
         name: asset.fileName || 'image.jpg',
         type: asset.mimeType || 'image/jpeg',
-      } as any)
+      } as unknown as Blob)
       const data = await fetchApi<{ url: string }>('/api/media/upload', {
         method: 'POST',
         body: formData,

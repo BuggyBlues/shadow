@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'expo-router'
 import { Compass, Plus } from 'lucide-react-native'
-import { useTranslation } from 'react-i18next'
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
 import { fetchApi } from '../../lib/api'
 import { useAuthStore } from '../../stores/auth.store'
@@ -17,7 +16,6 @@ interface Server {
 }
 
 export function ServerSidebar() {
-  const { t } = useTranslation()
   const colors = useColors()
   const router = useRouter()
   const user = useAuthStore((s) => s.user)

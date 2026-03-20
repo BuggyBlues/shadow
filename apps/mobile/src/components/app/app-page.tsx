@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Image } from 'expo-image'
 import { LayoutGrid } from 'lucide-react-native'
-import { useTranslation } from 'react-i18next'
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
 import { fetchApi, getImageUrl } from '../../lib/api'
 import { useAppStore } from '../../stores/app.store'
@@ -22,7 +21,6 @@ interface AppItem {
 }
 
 export function AppPage({ serverId }: { serverId: string }) {
-  const { t } = useTranslation()
   const colors = useColors()
   const activeAppId = useAppStore((s) => s.activeAppId)
   const setActiveAppId = useAppStore((s) => s.setActiveAppId)

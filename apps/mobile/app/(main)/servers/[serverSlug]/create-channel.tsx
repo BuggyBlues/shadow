@@ -1,12 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
 import {
+  Bot,
   Check,
   ChevronLeft,
-  ChevronRight,
+  CircleAlert,
   Hash,
+  Layers3,
   Megaphone,
   Search,
+  Sparkles,
+  Users,
   Volume2,
   X,
 } from 'lucide-react-native'
@@ -15,7 +19,6 @@ import { useTranslation } from 'react-i18next'
 import {
   Alert,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -29,8 +32,7 @@ import { Avatar } from '../../../../src/components/common/avatar'
 import { LoadingScreen } from '../../../../src/components/common/loading-screen'
 import { fetchApi } from '../../../../src/lib/api'
 import { showToast } from '../../../../src/lib/toast'
-import { useAuthStore } from '../../../../src/stores/auth.store'
-import { fontSize, spacing, useColors } from '../../../../src/theme'
+import { radius, spacing, useColors } from '../../../../src/theme'
 
 interface Category {
   id: string
@@ -69,6 +71,9 @@ interface BuddyAgent {
   } | null
 }
 
+type ChannelType = 'text' | 'voice' | 'announcement'
+type ActiveTab = 'bots' | 'members' | 'myAgents'
+
 export default function CreateChannelScreen() {
   const { serverSlug } = useLocalSearchParams<{ serverSlug: string }>()
   const { t } = useTranslation()
@@ -76,7 +81,6 @@ export default function CreateChannelScreen() {
   const router = useRouter()
   const navigation = useNavigation()
   const queryClient = useQueryClient()
-  const _currentUser = useAuthStore((s) => s.user)
   const insets = useSafeAreaInsets()
 
   useEffect(() => {
@@ -84,13 +88,12 @@ export default function CreateChannelScreen() {
   }, [navigation])
 
   const [channelName, setChannelName] = useState('')
-  const [channelType, setChannelType] = useState<'text' | 'voice' | 'announcement'>('text')
+  const [channelType, setChannelType] = useState<ChannelType>('text')
   const [categoryId, setCategoryId] = useState<string | null>(null)
   const [memberSearch, setMemberSearch] = useState('')
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set())
   const [selectedAgents, setSelectedAgents] = useState<Set<string>>(new Set())
-  const [activeTab, setActiveTab] = useState<'bots' | 'members' | 'myAgents'>('bots')
-  const [showTypeSelector, setShowTypeSelector] = useState(false)
+  const [activeTab, setActiveTab] = useState<ActiveTab>('bots')
 
   const { data: server, isLoading: isServerLoading } = useQuery({
     queryKey: ['server', serverSlug],
@@ -121,8 +124,8 @@ export default function CreateChannelScreen() {
       .filter((m) => !m.user.isBot)
       .filter((m) => {
         if (!q) return true
-        const name = (m.user.displayName || m.user.username).toLowerCase()
-        return name.includes(q) || m.user.username.toLowerCase().includes(q)
+        const displayName = (m.user.displayName || m.user.username).toLowerCase()
+        return displayName.includes(q) || m.user.username.toLowerCase().includes(q)
       })
   }, [members, memberSearch])
 
@@ -132,8 +135,8 @@ export default function CreateChannelScreen() {
       .filter((m) => m.user.isBot)
       .filter((m) => {
         if (!q) return true
-        const name = (m.user.displayName || m.user.username).toLowerCase()
-        return name.includes(q)
+        const displayName = (m.user.displayName || m.user.username).toLowerCase()
+        return displayName.includes(q) || m.user.username.toLowerCase().includes(q)
       })
   }, [members, memberSearch])
 
@@ -145,13 +148,110 @@ export default function CreateChannelScreen() {
   const selectableMyAgents = useMemo(() => {
     const q = memberSearch.toLowerCase()
     return myAgents
-      .filter((a) => a.botUser && !serverBotUserIds.has(a.botUser.id))
-      .filter((a) => {
+      .filter((agent) => agent.botUser && !serverBotUserIds.has(agent.botUser.id))
+      .filter((agent) => {
         if (!q) return true
-        const name = (a.botUser?.displayName || a.botUser?.username || '').toLowerCase()
-        return name.includes(q)
+        const displayName = (
+          agent.botUser?.displayName ||
+          agent.botUser?.username ||
+          ''
+        ).toLowerCase()
+        return displayName.includes(q)
       })
-  }, [myAgents, serverBotUserIds, memberSearch])
+  }, [memberSearch, myAgents, serverBotUserIds])
+
+  const selectionCount = selectedMembers.size + selectedAgents.size
+
+  const channelTypeLabel = (type: ChannelType) => {
+    switch (type) {
+      case 'voice':
+        return t('channel.typeVoice')
+      case 'announcement':
+        return t('channel.typeAnnouncement')
+      default:
+        return t('channel.typeText')
+    }
+  }
+
+  const channelIcon = (type: ChannelType, color: string, size = 18) => {
+    switch (type) {
+      case 'voice':
+        return <Volume2 size={size} color={color} strokeWidth={2.5} />
+      case 'announcement':
+        return <Megaphone size={size} color={color} strokeWidth={2.5} />
+      default:
+        return <Hash size={size} color={color} strokeWidth={2.5} />
+    }
+  }
+
+  const generateChannelName = () => {
+    const names: string[] = []
+
+    selectedMembers.forEach((userId) => {
+      const member = members.find((item) => item.user.id === userId)
+      if (member) names.push(member.user.displayName || member.user.username)
+    })
+
+    selectedAgents.forEach((agentId) => {
+      const agent = myAgents.find((item) => item.id === agentId)
+      if (agent?.botUser) {
+        names.push(agent.botUser.displayName || agent.botUser.username || 'Buddy')
+      }
+    })
+
+    if (names.length === 0) return t('server.newChannel', '新频道')
+    if (names.length === 1) return names[0]
+    if (names.length === 2) return `${names[0]}、${names[1]}`
+    return `${names[0]}、${names[1]}等`
+  }
+
+  const tabConfig = {
+    bots: {
+      label: t('members.serverBuddies', '服务器 Buddy'),
+      icon: Bot,
+      count: selectableBots.length,
+    },
+    members: {
+      label: t('members.serverMembers', '服务器成员'),
+      icon: Users,
+      count: selectableMembers.length,
+    },
+    myAgents: {
+      label: t('members.myBuddies', '我的 Buddy'),
+      icon: Sparkles,
+      count: selectableMyAgents.length,
+    },
+  } as const
+
+  const selectedPreview = useMemo(() => {
+    const items: { id: string; name: string; avatarUrl: string | null; userId?: string }[] = []
+
+    selectedMembers.forEach((userId) => {
+      const member = members.find((item) => item.user.id === userId)
+      if (member) {
+        items.push({
+          id: member.user.id,
+          name: member.user.displayName || member.user.username,
+          avatarUrl: member.user.avatarUrl,
+          userId: member.user.id,
+        })
+      }
+    })
+
+    selectedAgents.forEach((agentId) => {
+      const agent = myAgents.find((item) => item.id === agentId)
+      if (agent?.botUser) {
+        items.push({
+          id: agent.id,
+          name: agent.botUser.displayName || agent.botUser.username || 'Buddy',
+          avatarUrl: agent.botUser.avatarUrl ?? null,
+          userId: agent.botUser.id,
+        })
+      }
+    })
+
+    return items.slice(0, 6)
+  }, [members, myAgents, selectedAgents, selectedMembers])
 
   const toggleMemberSelection = (userId: string) => {
     setSelectedMembers((prev) => {
@@ -171,49 +271,43 @@ export default function CreateChannelScreen() {
     })
   }
 
-  const channelTypeLabel = (type: 'text' | 'voice' | 'announcement') => {
-    switch (type) {
-      case 'voice':
-        return t('channel.typeVoice')
-      case 'announcement':
-        return t('channel.typeAnnouncement')
-      default:
-        return t('channel.typeText')
+  const removeSelection = (id: string) => {
+    if (selectedMembers.has(id)) {
+      toggleMemberSelection(id)
+      return
     }
-  }
 
-  const channelIcon = (type: string, color: string, size = 18) => {
-    switch (type) {
-      case 'voice':
-        return <Volume2 size={size} color={color} strokeWidth={2.5} />
-      case 'announcement':
-        return <Megaphone size={size} color={color} strokeWidth={2.5} />
-      default:
-        return <Hash size={size} color={color} strokeWidth={2.5} />
+    if (selectedAgents.has(id)) {
+      toggleAgentSelection(id)
     }
   }
 
   const createChannelMutation = useMutation({
     mutationFn: async () => {
       if (!server?.id) throw new Error('Server not found')
+
       const finalName = channelName.trim() || generateChannelName()
       const channel = await fetchApi<{ id: string }>(`/api/servers/${server.id}/channels`, {
         method: 'POST',
         body: JSON.stringify({ name: finalName, type: channelType, categoryId }),
       })
+
       const memberPromises = Array.from(selectedMembers).map((userId) =>
         fetchApi(`/api/channels/${channel.id}/members`, {
           method: 'POST',
           body: JSON.stringify({ userId }),
         }),
       )
+
       const agentPromises = Array.from(selectedAgents).map(async (agentId) => {
-        const agent = myAgents.find((a) => a.id === agentId)
+        const agent = myAgents.find((item) => item.id === agentId)
         if (!agent) return
+
         await fetchApi(`/api/servers/${server.id}/agents`, {
           method: 'POST',
           body: JSON.stringify({ agentIds: [agent.id] }),
         })
+
         if (agent.botUser?.id) {
           await fetchApi(`/api/channels/${channel.id}/members`, {
             method: 'POST',
@@ -221,6 +315,7 @@ export default function CreateChannelScreen() {
           })
         }
       })
+
       await Promise.all([...memberPromises, ...agentPromises])
       return channel
     },
@@ -228,28 +323,17 @@ export default function CreateChannelScreen() {
       queryClient.invalidateQueries({ queryKey: ['channels', server?.id] })
       router.replace(`/(main)/servers/${serverSlug}/channels/${data.id}` as never)
     },
-    onError: (err: Error) => showToast(err?.message || t('common.error'), 'error'),
+    onError: (err: Error) => showToast(err.message || t('common.error'), 'error'),
   })
 
-  const generateChannelName = () => {
-    const names: string[] = []
-    selectedMembers.forEach((userId) => {
-      const member = members.find((m) => m.user.id === userId)
-      if (member) names.push(member.user.displayName || member.user.username)
-    })
-    selectedAgents.forEach((agentId) => {
-      const agent = myAgents.find((a) => a.id === agentId)
-      if (agent?.botUser) names.push(agent.botUser.displayName || agent.botUser.username || 'Buddy')
-    })
-    if (names.length === 0) return t('server.newChannel', '新频道')
-    if (names.length === 1) return names[0]
-    if (names.length === 2) return `${names[0]}、${names[1]}`
-    return `${names[0]}、${names[1]}等`
-  }
+  const createButtonLabel = createChannelMutation.isPending
+    ? t('common.creating', '创建中...')
+    : selectionCount > 0
+      ? `${t('common.create', '创建')} (${selectionCount})`
+      : t('common.create', '创建')
 
   const handleCreate = () => {
-    const finalName = channelName.trim() || generateChannelName()
-    setChannelName(finalName || '')
+    setChannelName(channelName.trim() || generateChannelName())
     createChannelMutation.mutate()
   }
 
@@ -263,9 +347,10 @@ export default function CreateChannelScreen() {
           { text: t('common.discard', '放弃'), style: 'destructive', onPress: () => router.back() },
         ],
       )
-    } else {
-      router.back()
+      return
     }
+
+    router.back()
   }
 
   if (isServerLoading || !server) return <LoadingScreen />
@@ -284,32 +369,30 @@ export default function CreateChannelScreen() {
         <Pressable onPress={handleBack} hitSlop={8} style={styles.headerBtn}>
           <ChevronLeft size={26} color={colors.text} />
         </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>
-          {t('server.createChannel')}
-        </Text>
+        <View
+          style={{
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingLeft: spacing['4xl'],
+          }}
+        >
+          <Text style={[styles.headerTitle, { color: colors.text }]}>
+            {t('server.createChannel')}
+          </Text>
+        </View>
         <Pressable
           onPress={handleCreate}
           disabled={createChannelMutation.isPending}
           style={[
-            styles.createBtn,
+            styles.headerCreateBtn,
             {
-              opacity: createChannelMutation.isPending ? 0.5 : 1,
               backgroundColor: colors.primary,
-              borderRadius: 8,
-              paddingHorizontal: spacing.md,
-              paddingVertical: spacing.sm,
+              opacity: createChannelMutation.isPending ? 0.5 : 1,
             },
           ]}
         >
-          <Text style={[styles.createBtnText, { color: '#fff' }]}>
-            {createChannelMutation.isPending
-              ? t('common.creating', '创建中...')
-              : selectedMembers.size > 0 || selectedAgents.size > 0
-                ? t('common.createWithCount', '创建({{count}})', {
-                    count: selectedMembers.size + selectedAgents.size,
-                  })
-                : t('common.create')}
-          </Text>
+          <Text style={styles.headerCreateBtnText}>{createButtonLabel}</Text>
         </Pressable>
       </View>
 
@@ -317,36 +400,65 @@ export default function CreateChannelScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: spacing.xl + insets.bottom }}
       >
-        {/* Channel Name & Type in one row - no labels */}
+        <TextInput
+          style={[
+            styles.input,
+            {
+              backgroundColor: colors.inputBackground,
+              color: colors.text,
+              borderColor: colors.border,
+              marginHorizontal: spacing.md,
+              marginTop: spacing.md,
+            },
+          ]}
+          value={channelName}
+          onChangeText={setChannelName}
+          placeholder={t('server.channelNamePlaceholder')}
+          placeholderTextColor={colors.textMuted}
+          autoFocus
+        />
         <View style={styles.section}>
-          <View style={styles.nameTypeRow}>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.inputBackground,
-                  color: colors.text,
-                  borderColor: colors.border,
-                  flex: 1,
-                },
-              ]}
-              value={channelName}
-              onChangeText={setChannelName}
-              placeholder={t('server.channelNamePlaceholder')}
-              placeholderTextColor={colors.textMuted}
-              autoFocus
-            />
-            <Pressable style={styles.typeSelector} onPress={() => setShowTypeSelector(true)}>
-              <View style={[styles.typeIconContainer, { backgroundColor: colors.inputBackground }]}>
-                {channelIcon(channelType, colors.primary, 24)}
-              </View>
-              <ChevronRight
-                size={16}
-                color={colors.textMuted}
-                style={{ transform: [{ rotate: '90deg' }] }}
-              />
-            </Pressable>
-          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.typeChipsRow}
+          >
+            {(['text', 'voice', 'announcement'] as ChannelType[]).map((item) => {
+              const selected = channelType === item
+              return (
+                <Pressable
+                  key={item}
+                  style={[
+                    styles.typeChip,
+                    {
+                      backgroundColor: selected ? `${colors.primary}12` : colors.surface,
+                      borderColor: selected ? colors.primary : colors.border,
+                    },
+                  ]}
+                  onPress={() => setChannelType(item)}
+                >
+                  <View
+                    style={[
+                      styles.typeChipIconWrap,
+                      {
+                        backgroundColor: colors.inputBackground,
+                      },
+                    ]}
+                  >
+                    {channelIcon(item, selected ? colors.primary : colors.textSecondary, 16)}
+                  </View>
+                  <Text
+                    style={[
+                      styles.typeChipText,
+                      { color: selected ? colors.primary : colors.text },
+                    ]}
+                  >
+                    {channelTypeLabel(item)}
+                  </Text>
+                </Pressable>
+              )
+            })}
+          </ScrollView>
         </View>
 
         {categories.length > 0 && (
@@ -354,270 +466,280 @@ export default function CreateChannelScreen() {
             <Text style={[styles.label, { color: colors.text }]}>
               {t('server.channelCategory')}
             </Text>
-            <View style={styles.categoryRow}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoryRow}
+            >
               <Pressable
                 style={[
                   styles.categoryChip,
                   {
-                    backgroundColor: !categoryId ? '#ff7da520' : colors.inputBackground,
-                    borderColor: !categoryId ? '#ff7da5' : colors.border,
+                    backgroundColor: !categoryId ? `${colors.primary}14` : colors.surface,
+                    borderColor: !categoryId ? colors.primary : colors.border,
                   },
                 ]}
                 onPress={() => setCategoryId(null)}
               >
-                <Text style={{ color: !categoryId ? '#e85b85' : colors.text }}>
+                <Layers3 size={14} color={!categoryId ? colors.primary : colors.textMuted} />
+                <Text style={{ color: !categoryId ? colors.primary : colors.text }}>
                   {t('server.noCategory')}
                 </Text>
               </Pressable>
+
               {categories.map((cat) => (
                 <Pressable
                   key={cat.id}
                   style={[
                     styles.categoryChip,
                     {
-                      backgroundColor: categoryId === cat.id ? '#f8e71c20' : colors.inputBackground,
-                      borderColor: categoryId === cat.id ? '#f8e71c' : colors.border,
+                      backgroundColor:
+                        categoryId === cat.id ? `${colors.primary}14` : colors.surface,
+                      borderColor: categoryId === cat.id ? colors.primary : colors.border,
                     },
                   ]}
                   onPress={() => setCategoryId(cat.id)}
                 >
-                  <Text style={{ color: categoryId === cat.id ? '#b3a100' : colors.text }}>
+                  <Text style={{ color: categoryId === cat.id ? colors.primary : colors.text }}>
                     {cat.name}
                   </Text>
                 </Pressable>
               ))}
-            </View>
+            </ScrollView>
           </View>
         )}
 
         <View style={styles.section}>
-          <View style={[styles.searchRow, { backgroundColor: colors.inputBackground }]}>
-            <Search size={16} color={colors.textMuted} />
-            <TextInput
-              style={[styles.searchInput, { color: colors.text }]}
-              value={memberSearch}
-              onChangeText={setMemberSearch}
-              placeholder={t('members.searchMembers', '搜索成员')}
-              placeholderTextColor={colors.textMuted}
-            />
-            {memberSearch.length > 0 && (
-              <Pressable onPress={() => setMemberSearch('')} hitSlop={8}>
-                <X size={14} color={colors.textMuted} />
-              </Pressable>
-            )}
-          </View>
-
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.tabRow}
-            contentContainerStyle={{ flexGrow: 1 }}
-          >
-            <Pressable
-              style={[
-                styles.tab,
-                activeTab === 'bots' && { borderBottomColor: colors.primary, borderBottomWidth: 2 },
-              ]}
-              onPress={() => setActiveTab('bots')}
-            >
-              <Text style={{ color: activeTab === 'bots' ? colors.primary : colors.textMuted }}>
-                {t('members.serverBuddies', '服务器 Buddy')}
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.tab,
-                activeTab === 'members' && {
-                  borderBottomColor: colors.primary,
-                  borderBottomWidth: 2,
-                },
-              ]}
-              onPress={() => setActiveTab('members')}
-            >
-              <Text style={{ color: activeTab === 'members' ? colors.primary : colors.textMuted }}>
-                {t('members.serverMembers', '服务器成员')}
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.tab,
-                activeTab === 'myAgents' && {
-                  borderBottomColor: colors.primary,
-                  borderBottomWidth: 2,
-                },
-              ]}
-              onPress={() => setActiveTab('myAgents')}
-            >
-              <Text style={{ color: activeTab === 'myAgents' ? colors.primary : colors.textMuted }}>
-                {t('members.myBuddies', '我的 Buddy')}
-              </Text>
-            </Pressable>
-          </ScrollView>
-
-          {activeTab === 'bots' &&
-            selectableBots.length > 0 &&
-            selectableBots.map((m) => (
-              <Pressable
-                key={m.user.id}
-                style={styles.memberRow}
-                onPress={() => toggleMemberSelection(m.user.id)}
+          {selectionCount > 0 && (
+            <View style={styles.selectedSection}>
+              <Text style={[styles.selectedLabel, { color: colors.textSecondary }]}>已选择</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.selectedRow}
               >
-                <Avatar
-                  uri={m.user.avatarUrl}
-                  name={m.user.displayName || m.user.username}
-                  size={40}
-                  userId={m.user.id}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.memberName, { color: colors.primary }]} numberOfLines={1}>
-                    {m.user.displayName || m.user.username}
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    styles.checkbox,
-                    {
-                      backgroundColor: selectedMembers.has(m.user.id)
-                        ? colors.primary
-                        : 'transparent',
-                      borderColor: selectedMembers.has(m.user.id) ? colors.primary : colors.border,
-                    },
-                  ]}
-                >
-                  {selectedMembers.has(m.user.id) && <Check size={14} color="#fff" />}
-                </View>
-              </Pressable>
-            ))}
-          {activeTab === 'bots' && selectableBots.length === 0 && (
-            <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-              {t('members.noServerBuddies', '暂无服务器 Buddy')}
-            </Text>
-          )}
-
-          {activeTab === 'members' &&
-            selectableMembers.length > 0 &&
-            selectableMembers.map((m) => (
-              <Pressable
-                key={m.user.id}
-                style={styles.memberRow}
-                onPress={() => toggleMemberSelection(m.user.id)}
-              >
-                <Avatar
-                  uri={m.user.avatarUrl}
-                  name={m.user.displayName || m.user.username}
-                  size={40}
-                  userId={m.user.id}
-                />
-                <Text style={[styles.memberName, { color: colors.text }]} numberOfLines={1}>
-                  {m.user.displayName || m.user.username}
-                </Text>
-                <View
-                  style={[
-                    styles.checkbox,
-                    {
-                      backgroundColor: selectedMembers.has(m.user.id)
-                        ? colors.primary
-                        : 'transparent',
-                      borderColor: selectedMembers.has(m.user.id) ? colors.primary : colors.border,
-                    },
-                  ]}
-                >
-                  {selectedMembers.has(m.user.id) && <Check size={14} color="#fff" />}
-                </View>
-              </Pressable>
-            ))}
-          {activeTab === 'members' && selectableMembers.length === 0 && (
-            <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-              {t('members.noServerMembers', '暂无服务器成员')}
-            </Text>
-          )}
-
-          {activeTab === 'myAgents' &&
-            selectableMyAgents.length > 0 &&
-            selectableMyAgents.map((a) => (
-              <Pressable
-                key={a.id}
-                style={styles.memberRow}
-                onPress={() => toggleAgentSelection(a.id)}
-              >
-                <Avatar
-                  uri={a.botUser?.avatarUrl ?? null}
-                  name={a.botUser?.displayName || a.botUser?.username || '?'}
-                  size={40}
-                  userId={a.botUser?.id}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.memberName, { color: colors.primary }]} numberOfLines={1}>
-                    {a.botUser?.displayName || a.botUser?.username || '?'}
-                  </Text>
-                  <Text style={{ color: colors.textMuted, fontSize: fontSize.xs }}>
-                    {t('members.notOnServer', '未加入服务器')}
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    styles.checkbox,
-                    {
-                      backgroundColor: selectedAgents.has(a.id) ? colors.primary : 'transparent',
-                      borderColor: selectedAgents.has(a.id) ? colors.primary : colors.border,
-                    },
-                  ]}
-                >
-                  {selectedAgents.has(a.id) && <Check size={14} color="#fff" />}
-                </View>
-              </Pressable>
-            ))}
-          {activeTab === 'myAgents' && selectableMyAgents.length === 0 && (
-            <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-              {t('members.noMyBuddies', '暂无我的 Buddy')}
-            </Text>
-          )}
-        </View>
-      </ScrollView>
-
-      {/* Type Selector Modal */}
-      <Modal
-        visible={showTypeSelector}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowTypeSelector(false)}
-      >
-        <Pressable style={styles.typeModalOverlay} onPress={() => setShowTypeSelector(false)}>
-          <View style={[styles.typeModalContent, { backgroundColor: colors.surface }]}>
-            {(['text', 'voice', 'announcement'] as const).map((type, index) => (
-              <Pressable
-                key={type}
-                style={[
-                  styles.typeModalItem,
-                  index < 2 && { borderBottomWidth: 1, borderBottomColor: colors.border },
-                ]}
-                onPress={() => {
-                  setChannelType(type)
-                  setShowTypeSelector(false)
-                }}
-              >
-                <View style={styles.typeModalItemContent}>
-                  {channelIcon(type, channelType === type ? colors.primary : colors.text, 24)}
-                  <Text
+                {selectedPreview.map((item) => (
+                  <Pressable
+                    key={item.id}
+                    onPress={() => removeSelection(item.id)}
                     style={[
-                      styles.typeModalItemText,
-                      { color: channelType === type ? colors.primary : colors.text },
+                      styles.selectedChip,
+                      {
+                        backgroundColor: colors.inputBackground,
+                        borderColor: colors.border,
+                      },
                     ]}
                   >
-                    {channelTypeLabel(type)}
-                  </Text>
-                  {channelType === type && (
-                    <View style={styles.checkmark}>
-                      <Check size={20} color={colors.primary} />
+                    <Avatar uri={item.avatarUrl} name={item.name} size={24} userId={item.userId} />
+                    <Text
+                      style={[styles.selectedChipText, { color: colors.text }]}
+                      numberOfLines={1}
+                    >
+                      {item.name}
+                    </Text>
+                    <X size={12} color={colors.textMuted} />
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+          <View
+            style={[
+              styles.selectionSection,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            <View style={[styles.searchRow, { backgroundColor: colors.inputBackground }]}>
+              <Search size={16} color={colors.textMuted} />
+              <TextInput
+                style={[styles.searchInput, { color: colors.text }]}
+                value={memberSearch}
+                onChangeText={setMemberSearch}
+                placeholder={t('members.searchMembers', '搜索成员')}
+                placeholderTextColor={colors.textMuted}
+              />
+              {memberSearch.length > 0 && (
+                <Pressable onPress={() => setMemberSearch('')} hitSlop={8}>
+                  <X size={14} color={colors.textMuted} />
+                </Pressable>
+              )}
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.tabRow}
+            >
+              {(Object.keys(tabConfig) as ActiveTab[]).map((key) => {
+                const tab = tabConfig[key]
+                const Icon = tab.icon
+                const selected = activeTab === key
+
+                return (
+                  <Pressable
+                    key={key}
+                    style={[
+                      styles.tab,
+                      {
+                        backgroundColor: selected ? `${colors.primary}12` : colors.inputBackground,
+                        borderColor: selected ? colors.primary : 'transparent',
+                      },
+                    ]}
+                    onPress={() => setActiveTab(key)}
+                  >
+                    <Icon size={14} color={selected ? colors.primary : colors.textMuted} />
+                    <Text
+                      style={{ color: selected ? colors.primary : colors.text, fontWeight: '600' }}
+                    >
+                      {tab.label}
+                    </Text>
+                    <View
+                      style={[
+                        styles.tabCount,
+                        { backgroundColor: selected ? colors.primary : `${colors.textMuted}22` },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.tabCountText,
+                          { color: selected ? '#fff' : colors.textMuted },
+                        ]}
+                      >
+                        {tab.count}
+                      </Text>
                     </View>
-                  )}
+                  </Pressable>
+                )
+              })}
+            </ScrollView>
+
+            <View style={styles.listSection}>
+              {activeTab === 'bots' &&
+                selectableBots.map((member) => {
+                  const selected = selectedMembers.has(member.user.id)
+                  return (
+                    <SelectableRow
+                      key={member.user.id}
+                      colors={colors}
+                      selected={selected}
+                      name={member.user.displayName || member.user.username}
+                      meta="Server Buddy"
+                      avatarUrl={member.user.avatarUrl}
+                      userId={member.user.id}
+                      onPress={() => toggleMemberSelection(member.user.id)}
+                    />
+                  )
+                })}
+
+              {activeTab === 'members' &&
+                selectableMembers.map((member) => {
+                  const selected = selectedMembers.has(member.user.id)
+                  return (
+                    <SelectableRow
+                      key={member.user.id}
+                      colors={colors}
+                      selected={selected}
+                      name={member.user.displayName || member.user.username}
+                      meta={`@${member.user.username}`}
+                      avatarUrl={member.user.avatarUrl}
+                      userId={member.user.id}
+                      onPress={() => toggleMemberSelection(member.user.id)}
+                    />
+                  )
+                })}
+
+              {activeTab === 'myAgents' &&
+                selectableMyAgents.map((agent) => {
+                  const selected = selectedAgents.has(agent.id)
+                  return (
+                    <SelectableRow
+                      key={agent.id}
+                      colors={colors}
+                      selected={selected}
+                      name={agent.botUser?.displayName || agent.botUser?.username || '?'}
+                      meta={t('members.notOnServer', '未加入服务器')}
+                      avatarUrl={agent.botUser?.avatarUrl ?? null}
+                      userId={agent.botUser?.id}
+                      highlight
+                      onPress={() => toggleAgentSelection(agent.id)}
+                    />
+                  )
+                })}
+
+              {((activeTab === 'bots' && selectableBots.length === 0) ||
+                (activeTab === 'members' && selectableMembers.length === 0) ||
+                (activeTab === 'myAgents' && selectableMyAgents.length === 0)) && (
+                <View style={styles.emptyStateWrap}>
+                  <CircleAlert size={18} color={colors.textMuted} />
+                  <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+                    {activeTab === 'bots'
+                      ? t('members.noServerBuddies', '暂无服务器 Buddy')
+                      : activeTab === 'members'
+                        ? t('members.noServerMembers', '暂无服务器成员')
+                        : t('members.noMyBuddies', '暂无我的 Buddy')}
+                  </Text>
                 </View>
-              </Pressable>
-            ))}
+              )}
+            </View>
           </View>
-        </Pressable>
-      </Modal>
+        </View>
+      </ScrollView>
     </KeyboardAvoidingView>
+  )
+}
+
+function SelectableRow({
+  colors,
+  selected,
+  name,
+  meta,
+  avatarUrl,
+  userId,
+  highlight = false,
+  onPress,
+}: {
+  colors: ReturnType<typeof useColors>
+  selected: boolean
+  name: string
+  meta: string
+  avatarUrl: string | null
+  userId?: string
+  highlight?: boolean
+  onPress: () => void
+}) {
+  return (
+    <Pressable
+      style={[
+        styles.memberRow,
+        {
+          backgroundColor: selected ? `${colors.primary}0D` : colors.background,
+          borderColor: selected ? `${colors.primary}55` : colors.border,
+        },
+      ]}
+      onPress={onPress}
+    >
+      <Avatar uri={avatarUrl} name={name} size={44} userId={userId} />
+      <View style={styles.memberInfo}>
+        <Text
+          style={[styles.memberName, { color: highlight ? colors.primary : colors.text }]}
+          numberOfLines={1}
+        >
+          {name}
+        </Text>
+        <Text style={[styles.memberMeta, { color: colors.textMuted }]}>{meta}</Text>
+      </View>
+      <View
+        style={[
+          styles.checkbox,
+          {
+            backgroundColor: selected ? colors.primary : 'transparent',
+            borderColor: selected ? colors.primary : colors.border,
+          },
+        ]}
+      >
+        {selected && <Check size={14} color="#fff" />}
+      </View>
+    </Pressable>
   )
 }
 
@@ -632,11 +754,65 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.05)',
   },
-  headerBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 17, fontWeight: '700' },
-  createBtn: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-  createBtnText: { fontSize: 16, fontWeight: '600' },
-  section: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
+  headerBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.sm,
+  },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  headerCreateBtn: {
+    minWidth: 84,
+    height: 38,
+    paddingHorizontal: spacing.md,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerCreateBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  compactTopSection: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+  },
+  compactCard: {
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    padding: spacing.md,
+  },
+  input: {
+    height: 52,
+    borderRadius: 18,
+    paddingHorizontal: spacing.lg,
+    fontSize: 16,
+    fontWeight: '600',
+    borderWidth: 1,
+  },
+  compactMetaRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  section: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+  },
   label: {
     fontSize: 14,
     fontWeight: '800',
@@ -644,125 +820,174 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     letterSpacing: 0.5,
   },
-  input: {
-    height: 52,
-    borderRadius: 26,
-    paddingHorizontal: spacing.lg,
-    fontSize: 16,
-    fontWeight: '500',
-    borderWidth: 0,
+  typeChipsRow: {
+    gap: spacing.sm,
+    paddingRight: spacing.lg,
   },
-  nameTypeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  nameContainer: { flex: 1 },
-  typeSelector: {
+  typeChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 999,
+    borderWidth: 1,
   },
-  typeIconContainer: {
-    width: 28,
-    height: 28,
+  typeChipIconWrap: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  typeLabel: { fontSize: 12, fontWeight: '600', marginTop: 4 },
-  typeRow: { flexDirection: 'row', gap: spacing.sm },
-  typeBtn: {
+  typeChipText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingRight: spacing.lg,
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  selectionSection: {
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    padding: spacing.md,
+  },
+  selectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+    marginBottom: spacing.md,
+  },
+  selectionHeaderText: {
     flex: 1,
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    borderRadius: 20,
-    borderWidth: 2,
-    gap: 8,
   },
-  typeBtnText: { fontSize: 14, fontWeight: '800' },
-  categoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  categoryChip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderWidth: 2 },
+  selectionSubtext: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     height: 48,
-    borderRadius: 24,
+    borderRadius: 16,
     gap: spacing.sm,
     marginBottom: spacing.md,
-    backgroundColor: 'rgba(0,0,0,0.05)',
   },
-  searchInput: { flex: 1, fontSize: fontSize.md, height: 48 },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    height: 48,
+  },
   tabRow: {
     flexDirection: 'row',
-    borderBottomWidth: 0,
+    gap: spacing.sm,
+    paddingRight: spacing.lg,
     marginBottom: spacing.md,
   },
-  tab: { flex: 1, paddingVertical: spacing.md, alignItems: 'center' },
-  emptyText: { fontSize: fontSize.sm, textAlign: 'center', paddingVertical: spacing.lg },
+  tab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  tabCount: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  tabCountText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  selectedSection: {
+    marginBottom: spacing.md,
+    marginHorizontal: -spacing.md,
+  },
+  selectedLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: spacing.xs,
+    paddingHorizontal: spacing.md,
+  },
+  selectedRow: {
+    gap: spacing.sm,
+    paddingRight: spacing.lg,
+    paddingHorizontal: spacing.md,
+  },
+  selectedChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingLeft: 4,
+    paddingRight: 10,
+    paddingVertical: 4,
+    maxWidth: 160,
+  },
+  selectedChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    flexShrink: 1,
+  },
+  listSection: {
+    gap: spacing.sm,
+  },
+  emptyStateWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: spacing.xl,
+  },
+  emptyText: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
   memberRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderRadius: 16,
-    marginBottom: spacing.xs,
+    borderRadius: 18,
+    borderWidth: 1,
   },
-  memberName: { flex: 1, fontSize: fontSize.md, fontWeight: '500' },
+  memberInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  memberName: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  memberMeta: {
+    fontSize: 12,
+    marginTop: 2,
+  },
   checkbox: {
     width: 22,
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  floatingBadge: {
-    position: 'absolute',
-    bottom: 100,
-    right: spacing.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  floatingBadgeText: { color: '#fff', fontSize: fontSize.sm, fontWeight: '700' },
-  typeModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: spacing.xl,
-  },
-  typeModalContent: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    width: '80%',
-    maxWidth: 300,
-  },
-  typeModalItem: {
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xl,
-  },
-  typeModalItemContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  typeModalItemText: {
-    fontSize: 16,
-    fontWeight: '600',
-    flex: 1,
-  },
-  checkmark: {
-    width: 24,
-    height: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },

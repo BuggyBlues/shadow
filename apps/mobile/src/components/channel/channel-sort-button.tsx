@@ -2,11 +2,11 @@ import type { ChannelSortBy } from '@shadow/shared'
 import {
   ArrowDown,
   ArrowUp,
+  ArrowUpDown,
   Calendar,
   Check,
   Clock,
   MessageSquare,
-  MoreHorizontal,
 } from 'lucide-react-native'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -20,24 +20,22 @@ interface SortOption {
   icon: typeof Calendar
 }
 
-export function ChannelSortButton() {
+interface ChannelSortButtonProps {
+  serverId: string
+}
+
+export function ChannelSortButton({ serverId }: ChannelSortButtonProps) {
   const { t } = useTranslation()
   const colors = useColors()
   const [modalVisible, setModalVisible] = useState(false)
-  const { sortBy, sortDirection, setSortBy, toggleSortDirection } = useChannelSort()
+  const { sortBy, sortDirection, setSortBy, toggleSortDirection } = useChannelSort(serverId)
 
   const sortOptions: SortOption[] = [
     {
       value: 'position',
       label: t('sort.byPosition', { defaultValue: '默认顺序' }),
-      icon: MoreHorizontal,
+      icon: ArrowUpDown,
     },
-    {
-      value: 'createdAt',
-      label: t('sort.byCreatedAt', { defaultValue: '创建时间' }),
-      icon: Calendar,
-    },
-    { value: 'updatedAt', label: t('sort.byUpdatedAt', { defaultValue: '更新时间' }), icon: Clock },
     {
       value: 'lastMessageAt',
       label: t('sort.byLastMessage', { defaultValue: '最新消息' }),
@@ -48,6 +46,12 @@ export function ChannelSortButton() {
       label: t('sort.byLastAccessed', { defaultValue: '访问时间' }),
       icon: Clock,
     },
+    {
+      value: 'createdAt',
+      label: t('sort.byCreatedAt', { defaultValue: '创建时间' }),
+      icon: Calendar,
+    },
+    { value: 'updatedAt', label: t('sort.byUpdatedAt', { defaultValue: '更新时间' }), icon: Clock },
   ]
 
   const currentOption = sortOptions.find((opt) => opt.value === sortBy) || sortOptions[0]!

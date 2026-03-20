@@ -62,7 +62,7 @@ export function setupNotificationResponseListener(): () => void {
       serverSlug?: string
     }
     if (data.serverSlug && data.channelId) {
-      router.push(`/(main)/servers/${data.serverSlug}/channels/${data.channelId}` as any)
+      router.push(`/(main)/servers/${data.serverSlug}/channels/${data.channelId}` as never)
     }
   })
   return () => subscription.remove()
