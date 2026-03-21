@@ -14,16 +14,56 @@ permissions:
   contents: write
 
 jobs:
+  update-release-notes:
+    name: Update release notes from changelog
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'release' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Read changelog and update release body
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          CHANGELOG="apps/desktop/changelogs/v${{ steps.version.outputs.version }}.md"
+          if [ -f "$CHANGELOG" ]; then
+            echo "Found changelog: $CHANGELOG"
+            # Append changelog to existing release body
+            gh release view "${{ steps.version.outputs.tag }}" --json body -q .body > /tmp/current_body.txt || true
+            {
+              cat /tmp/current_body.txt
+              echo ""
+              echo "---"
+              echo ""
+              cat "$CHANGELOG"
+            } > /tmp/new_body.txt
+            gh release edit "${{ steps.version.outputs.tag }}" --notes-file /tmp/new_body.txt
+            echo "Release notes updated from changelog"
+          else
+            echo "No changelog found at $CHANGELOG — skipping"
+          fi
+
   build-macos-notarized:
     name: macOS ${{ matrix.arch }} notarized
-    runs-on: macos-latest
+    runs-on: ${{ matrix.runner }}
     environment: ShadowOB Mac
     strategy:
       fail-fast: false
       matrix:
         include:
           - arch: x64
+            runner: macos-13
           - arch: arm64
+            runner: macos-latest
     env:
       APPLE_CODESIGN_IDENTITY: ${{ secrets.APPLE_CODESIGN_IDENTITY }}
       APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
@@ -81,6 +121,10 @@ jobs:
       - name: Build notarized DMG/ZIP
         run: pnpm --dir ./apps/desktop release:mac:${{ matrix.arch }}
 
+      - name: List make output for debugging
+        if: always()
+        run: find apps/desktop/out/make -type f 2>/dev/null || echo "No make output found"
+
       - name: Upload release assets
         if: ${{ github.event_name == 'release' || github.event.inputs.tag != '' }}
         uses: softprops/action-gh-release@v2
@@ -88,7 +132,8 @@ jobs:
           tag_name: ${{ github.event.release.tag_name || github.event.inputs.tag }}
           files: |
             apps/desktop/out/make/**/*.dmg
-          fail_on_unmatched_files: false
+            apps/desktop/out/make/**/*.zip
+          fail_on_unmatched_files: true
 
   build-cross-platform:
     name: ${{ matrix.platform }} build
@@ -100,7 +145,7 @@ jobs:
           - platform: windows
             runner: windows-latest
             make_script: release:win
-            files: apps/desktop/out/make/**/*.exe
+            files: apps/desktop/out/make/squirrel.windows/**/*.exe
           - platform: linux
             runner: ubuntu-latest
             make_script: release:linux
@@ -125,10 +170,15 @@ jobs:
       - name: Build release artifacts
         run: pnpm --dir ./apps/desktop ${{ matrix.make_script }}
 
+      - name: List make output for debugging
+        if: always()
+        shell: bash
+        run: find apps/desktop/out/make -type f 2>/dev/null || echo "No make output found"
+
       - name: Upload release assets
         if: ${{ github.event_name == 'release' || github.event.inputs.tag != '' }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.release.tag_name || github.event.inputs.tag }}
           files: ${{ matrix.files }}
-          fail_on_unmatched_files: false
+          fail_on_unmatched_files: true
