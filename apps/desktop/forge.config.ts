@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { MakerDMG } from '@electron-forge/maker-dmg'
 import { MakerSquirrel } from '@electron-forge/maker-squirrel'
 import { MakerZIP } from '@electron-forge/maker-zip'
@@ -6,9 +7,13 @@ import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-nati
 import type { ForgeConfig } from '@electron-forge/shared-types'
 
 const isMac = process.platform === 'darwin'
+const isLinux = process.platform === 'linux'
 const hasNotaryApiKey =
   !!process.env.APPLE_API_KEY && !!process.env.APPLE_API_KEY_ID && !!process.env.APPLE_API_ISSUER
 const shouldSignAndNotarize = isMac && hasNotaryApiKey
+
+// Resolve icon path absolutely so it works regardless of cwd
+const iconPath = resolve(__dirname, 'assets', 'icon')
 
 // Collect extraResource entries for OpenClaw bundles (created by scripts/bundle-openclaw.mjs)
 const extraResource: string[] = []
@@ -16,16 +21,28 @@ if (existsSync('./build/openclaw')) extraResource.push('./build/openclaw')
 if (existsSync('./build/shadowob')) extraResource.push('./build/shadowob')
 if (existsSync('./build/openclaw-config')) extraResource.push('./build/openclaw-config')
 
+// macOS localization: lproj directories for display name per locale
+if (isMac) {
+  extraResource.push(
+    resolve(__dirname, 'assets', 'en.lproj'),
+    resolve(__dirname, 'assets', 'zh-Hans.lproj'),
+  )
+}
+
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
     name: 'Shadow',
-    executableName: process.platform === 'linux' ? 'shadow' : 'Shadow',
-    icon: './assets/icon',
+    executableName: isLinux ? 'shadow' : 'Shadow',
+    icon: iconPath,
     appBundleId: 'com.shadowob.app',
     appCopyright: `Copyright © ${new Date().getFullYear()} ShadowOB Team`,
     appCategoryType: 'public.app-category.social-networking',
     darwinDarkModeSupport: true,
+    // Ensure icon is referenced in Info.plist
+    extendInfo: {
+      CFBundleIconFile: 'icon.icns',
+    },
     ...(shouldSignAndNotarize
       ? {
           osxSign: {
@@ -62,10 +79,14 @@ const config: ForgeConfig = {
   makers: [
     new MakerSquirrel({
       name: 'Shadow',
+      setupIcon: resolve(__dirname, 'assets', 'icon.ico'),
+      iconUrl:
+        'https://raw.githubusercontent.com/buggyblues/shadow/main/apps/desktop/assets/icon.ico',
     }),
     new MakerDMG(
       {
         format: 'ULFO',
+        icon: resolve(__dirname, 'assets', 'icon.icns'),
       },
       ['darwin'],
     ),

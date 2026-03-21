@@ -157,6 +157,59 @@ test.describe('Gateway Start / Stop / Restart', () => {
     }
   })
 
+  test('startGateway transitions to starting/bootstrapping/running state', async () => {
+    // Capture status transitions during gateway startup to verify
+    // that the binary resolution works and process actually launches.
+    const result = await page.evaluate(async () => {
+      const oc = (window as any).desktopAPI.openClaw
+      const states: string[] = []
+
+      // Ensure stopped first
+      try {
+        await oc.stopGateway()
+      } catch {}
+
+      const unsub = oc.onGatewayStatusChanged((status: { state: string }) => {
+        states.push(status.state)
+      })
+
+      try {
+        await Promise.race([
+          oc.startGateway(),
+          new Promise((resolve) => setTimeout(() => resolve({ timeout: true }), 30000)),
+        ])
+      } catch (err: any) {
+        states.push(`error:${err.message}`)
+      }
+
+      unsub()
+
+      const finalStatus = await oc.getGatewayStatus()
+
+      return {
+        transitionStates: states,
+        finalState: finalStatus.state,
+        pid: finalStatus.pid,
+      }
+    })
+
+    // The gateway should have attempted to start — verify we see progression
+    // beyond just 'offline'. If OpenClaw isn't installed, we expect 'installing'
+    // or 'starting'. If it IS installed, we expect 'starting' → 'bootstrapping'
+    // or 'running'.
+    const progressStates = ['installing', 'starting', 'bootstrapping', 'running']
+    const madeProgress = result.transitionStates.some((s: string) => progressStates.includes(s))
+    const isRunning = result.finalState === 'running'
+
+    // At minimum, the gateway should have attempted to start (not stuck at offline)
+    expect(madeProgress || isRunning).toBe(true)
+
+    // If it reached running, verify it has a PID
+    if (isRunning) {
+      expect(result.pid).toBeGreaterThan(0)
+    }
+  })
+
   test('gateway status reflects stopped state after stopGateway', async () => {
     // Stop gateway first, then check status
     await page.evaluate(async () => {

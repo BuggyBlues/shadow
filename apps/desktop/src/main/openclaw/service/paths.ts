@@ -9,7 +9,7 @@
  * This is the ONLY source of truth for path resolution.
  */
 
-import { chmodSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { app } from 'electron'
@@ -23,20 +23,31 @@ export function resolveElectronNodeBinary(): string {
   if (process.platform !== 'darwin') return process.execPath
 
   const contentsDir = dirname(dirname(app.getPath('exe')))
-  const candidates = [
-    join(
-      contentsDir,
-      'Frameworks',
-      `${app.getName()} Helper.app`,
-      'Contents',
-      'MacOS',
-      `${app.getName()} Helper`,
-    ),
-    join(contentsDir, 'Frameworks', 'Electron Helper.app', 'Contents', 'MacOS', 'Electron Helper'),
-  ]
-  for (const helper of candidates) {
+  const frameworksDir = join(contentsDir, 'Frameworks')
+
+  // First try known names based on app.getName() and the Electron default
+  const knownNames = [`${app.getName()} Helper`, 'Shadow Helper', 'Electron Helper']
+  for (const name of knownNames) {
+    const helper = join(frameworksDir, `${name}.app`, 'Contents', 'MacOS', name)
     if (existsSync(helper)) return helper
   }
+
+  // Scan the Frameworks directory for any Helper binary as a last resort
+  if (existsSync(frameworksDir)) {
+    try {
+      const entry = readdirSync(frameworksDir).find(
+        (e) => e.endsWith(' Helper.app') && !e.includes('('),
+      )
+      if (entry) {
+        const name = entry.replace('.app', '')
+        const helper = join(frameworksDir, entry, 'Contents', 'MacOS', name)
+        if (existsSync(helper)) return helper
+      }
+    } catch {
+      // Best effort — fall through to process.execPath
+    }
+  }
+
   return process.execPath
 }
 

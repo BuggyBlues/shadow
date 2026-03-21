@@ -405,7 +405,7 @@ export class GatewayService {
       return {
         command: resolvedElectronBinary,
         args: [entryPoint, 'gateway', '--port', String(port), '--token', token],
-        env: { ...baseEnv, ELECTRON_RUN_AS_NODE: '1' },
+        env: { ...baseEnv, ELECTRON_RUN_AS_NODE: '1', ELECTRON_NO_ATTACH_CONSOLE: '1' },
         mode: 'electron-run-as-node',
         nodeVersion: electronNodeVersion,
       }
@@ -435,7 +435,7 @@ export class GatewayService {
     return {
       command: resolvedElectronBinary,
       args: [entryPoint, 'gateway', '--port', String(port), '--token', token],
-      env: { ...baseEnv, ELECTRON_RUN_AS_NODE: '1' },
+      env: { ...baseEnv, ELECTRON_RUN_AS_NODE: '1', ELECTRON_NO_ATTACH_CONSOLE: '1' },
       mode: 'electron-run-as-node',
       nodeVersion: electronNodeVersion,
     }
