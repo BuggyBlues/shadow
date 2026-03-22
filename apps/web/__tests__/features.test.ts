@@ -170,13 +170,14 @@ describe('Feature: Chat store', () => {
     expect(typeof state.setActiveThread).toBe('function')
   })
 
-  it('should reset channel when server changes', async () => {
+  it('should keep channel when server changes (route components sync channel)', async () => {
     const { useChatStore } = await import('../src/stores/chat.store')
     useChatStore.getState().setActiveChannel('ch1')
     expect(useChatStore.getState().activeChannelId).toBe('ch1')
 
     useChatStore.getState().setActiveServer('srv2')
     expect(useChatStore.getState().activeServerId).toBe('srv2')
-    expect(useChatStore.getState().activeChannelId).toBeNull()
+    // activeChannelId is intentionally NOT cleared here — route components handle channel sync
+    expect(useChatStore.getState().activeChannelId).toBe('ch1')
   })
 })
