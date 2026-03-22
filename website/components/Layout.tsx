@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 /* ─── Base URL helper (prepends DOCS_BASE in Docker builds) ─── */
 function getBase(): string {
@@ -124,7 +124,7 @@ function SearchButton({ lang }: { lang: 'zh' | 'en' }) {
         !document.querySelector('[class*="rspress-search"]') &&
         !document.querySelector('[class*="SearchPanel"]')
       ) {
-        window.location.href = `${base}${prefix}/api/introduction`
+        window.location.href = `${base}${prefix}/api-doc/introduction`
       }
     }, 150)
   }
@@ -234,7 +234,6 @@ export function PublicNav({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
   const t =
     lang === 'zh'
       ? {
-          features: '特色功能',
           buddies: 'Buddy 集市',
           pricing: '定价',
           product: '文档',
@@ -243,7 +242,6 @@ export function PublicNav({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
           launch: '启动！',
         }
       : {
-          features: 'Features',
           buddies: 'Buddy Market',
           pricing: 'Pricing',
           product: 'Docs',
@@ -271,13 +269,6 @@ export function PublicNav({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
       </a>
       <div className="hidden md:flex gap-8 text-base font-bold">
         <a
-          href={`${base}${prefix}/features`}
-          className="hover:text-cyan-600 transition border-b-2 border-transparent hover:border-cyan-500 py-1"
-          style={{ textDecoration: 'none', color: 'var(--shadow-text-muted)' }}
-        >
-          {t.features}
-        </a>
-        <a
           href={`${base}${prefix}/buddies`}
           className="hover:text-cyan-600 transition border-b-2 border-transparent hover:border-cyan-500 py-1"
           style={{ textDecoration: 'none', color: 'var(--shadow-text-muted)' }}
@@ -299,7 +290,7 @@ export function PublicNav({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
           {t.product}
         </a>
         <a
-          href={`${base}${prefix}/api/introduction`}
+          href={`${base}${prefix}/api-doc/introduction`}
           className="hover:text-cyan-600 transition border-b-2 border-transparent hover:border-cyan-500 py-1"
           style={{ textDecoration: 'none', color: 'var(--shadow-text-muted)' }}
         >
@@ -324,7 +315,7 @@ export function PublicNav({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
 }
 
 /* ─── Shared footer component ─── */
-export function PublicFooter({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
+export function PublicFooter() {
   const base = getBase()
   const brandLegal = '虾豆 ShadowOwnBuddy © 2026'
   const poweredBy = 'Powered by Hono & React & Shadow'
