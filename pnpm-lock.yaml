@@ -393,8 +393,8 @@ importers:
         specifier: ^7.0.1
         version: 7.0.1
       awilix:
-        specifier: ^12.0.6
-        version: 12.1.1
+        specifier: ^13.0.3
+        version: 13.0.3
       bcryptjs:
         specifier: ^3.0.2
         version: 3.0.3
@@ -5539,9 +5539,9 @@ packages:
     resolution: {integrity: sha512-wvUjBtSGN7+7SjNpq/9M2Tg350UZD3q62IFZLbRAR1bSMlCo1ZaeW+BJ+D090e4hIIZLBcTDWe4Mh4jvUDajzQ==}
     engines: {node: '>= 0.4'}
 
-  awilix@12.1.1:
-    resolution: {integrity: sha512-A93ak7Ypot8YlkfulCBL4GCkZozuwdfwOJs+4l8+svJYCfXKuokLxWe/usTiatN1dlPOdT5HO0MBpNNTzZSWug==}
-    engines: {node: '>=16.3.0'}
+  awilix@13.0.3:
+    resolution: {integrity: sha512-WpgYKwf8XEPAxabPxBYGvxz1QZhyxoopQLLqpwwVqSQAvTO46yhld3M9nfMuV8t2FjsTO7DQblALD9w+C8iVKQ==}
+    engines: {node: '>=20.0.0'}
 
   axios@1.13.6:
     resolution: {integrity: sha512-ChTCHMouEe2kn713WHbQGcuYrr6fXTBiu460OTwWrWob16g1bXn4vtz07Ope7ewMozJAnEquLk5lWQWtBig9DQ==}
@@ -17864,7 +17864,7 @@ snapshots:
     dependencies:
       possible-typed-array-names: 1.1.0
 
-  awilix@12.1.1:
+  awilix@13.0.3:
     dependencies:
       fast-glob: 3.3.3
 
