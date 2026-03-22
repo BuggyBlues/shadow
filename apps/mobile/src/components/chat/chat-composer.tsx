@@ -489,7 +489,7 @@ export const ChatComposer = memo(function ChatComposer({
                   <Image
                     source={{ uri: file.uri }}
                     style={styles.pendingImageThumb}
-                    contentFit="cover"
+                    contentFit="contain"
                   />
                   <Pressable
                     onPress={() => onRemovePendingFile(idx)}
