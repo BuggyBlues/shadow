@@ -52,6 +52,12 @@ function formatDuration(seconds: number): string {
   return `${Math.floor(seconds / 86400)}d ${Math.floor((seconds % 86400) / 3600)}h`
 }
 
+function withRandomSuffix(username: string) {
+  const base = username.replace(/[^a-zA-Z0-9_-]/g, '').trim()
+  const suffix = Math.random().toString(36).slice(2, 6)
+  return `${base.slice(0, 27)}_${suffix}`
+}
+
 export default function BuddyManagementScreen() {
   const { t } = useTranslation()
   const colors = useColors()
@@ -86,7 +92,8 @@ export default function BuddyManagementScreen() {
         method: 'POST',
         body: JSON.stringify({
           name: data.name.trim(),
-          username: data.username.trim(),
+          // Proactively add a short random suffix to reduce username collisions.
+          username: withRandomSuffix(data.username),
           kernelType: 'openclaw',
           config: {},
         }),
@@ -107,7 +114,16 @@ export default function BuddyManagementScreen() {
         queryClient.invalidateQueries({ queryKey: ['agents'] })
       } catch {}
     },
-    onError: (err: Error) => showToast(err.message),
+    onError: (err: Error) => {
+      if (err.message?.toLowerCase().includes('username already taken')) {
+        setCreateUsername((prev) => withRandomSuffix(prev))
+        showToast(
+          t('buddyMgmt.usernameTaken', 'Username already taken, a new one has been suggested'),
+        )
+      } else {
+        showToast(err.message)
+      }
+    },
   })
 
   const deleteMutation = useMutation({

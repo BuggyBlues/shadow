@@ -23,8 +23,8 @@ export class NotificationDao {
       .orderBy(desc(notifications.createdAt))
       .limit(limit)
       .offset(offset)
-    
-    return result.map(r => ({
+
+    return result.map((r) => ({
       ...r.notification,
       senderAvatarUrl: r.senderAvatarUrl,
     }))
@@ -40,8 +40,8 @@ export class NotificationDao {
       .leftJoin(users, eq(notifications.senderId, users.id))
       .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)))
       .orderBy(desc(notifications.createdAt))
-    
-    return result.map(r => ({
+
+    return result.map((r) => ({
       ...r.notification,
       senderAvatarUrl: r.senderAvatarUrl,
     }))
@@ -104,31 +104,25 @@ export class NotificationDao {
     mutedServerIds: string[]
     mutedChannelIds: string[]
   }) {
-    const existing = await this.getPreference(data.userId)
-    if (!existing) {
-      const inserted = await this.db
-        .insert(notificationPreferences)
-        .values({
-          userId: data.userId,
-          strategy: data.strategy,
-          mutedServerIds: data.mutedServerIds,
-          mutedChannelIds: data.mutedChannelIds,
-        })
-        .returning()
-      return inserted[0]!
-    }
-
-    const updated = await this.db
-      .update(notificationPreferences)
-      .set({
+    const result = await this.db
+      .insert(notificationPreferences)
+      .values({
+        userId: data.userId,
         strategy: data.strategy,
         mutedServerIds: data.mutedServerIds,
         mutedChannelIds: data.mutedChannelIds,
-        updatedAt: new Date(),
       })
-      .where(eq(notificationPreferences.userId, data.userId))
+      .onConflictDoUpdate({
+        target: notificationPreferences.userId,
+        set: {
+          strategy: data.strategy,
+          mutedServerIds: data.mutedServerIds,
+          mutedChannelIds: data.mutedChannelIds,
+          updatedAt: new Date(),
+        },
+      })
       .returning()
-    return updated[0]!
+    return result[0]!
   }
 
   async findMessageScopesByMessageIds(messageIds: string[]) {

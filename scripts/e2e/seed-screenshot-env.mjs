@@ -330,7 +330,10 @@ async function ensureAgentShowcase(token, serverId) {
 
   const ensuredAgents = []
   for (const agent of showcase.agents) {
-    let existing = agents.find((item) => item.botUser?.username === agent.username || item.botUser?.displayName === agent.name)
+    let existing = agents.find(
+      (item) =>
+        item.botUser?.username === agent.username || item.botUser?.displayName === agent.name,
+    )
     if (!existing) {
       existing = await requestJson('/api/agents', {
         method: 'POST',
@@ -364,7 +367,10 @@ async function main() {
   const { server, channels } = await ensureServer(ownerSession.accessToken)
   const shop = await ensureShopShowcase(ownerSession.accessToken, server.slug ?? server.id)
   const apps = await ensureAppShowcase(ownerSession.accessToken, server.slug ?? server.id)
-  const agentsShowcase = await ensureAgentShowcase(ownerSession.accessToken, server.slug ?? server.id)
+  const agentsShowcase = await ensureAgentShowcase(
+    ownerSession.accessToken,
+    server.slug ?? server.id,
+  )
 
   const session = {
     generatedAt: new Date().toISOString(),

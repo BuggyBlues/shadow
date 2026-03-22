@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+import { extname } from 'node:path'
 import type { Logger } from 'pino'
 
 /** MinIO / S3 compatible storage service */
@@ -55,7 +57,8 @@ export class MediaService {
     }
 
     const bucketName = process.env.MINIO_BUCKET ?? 'shadow'
-    const key = `uploads/${Date.now()}-${filename}`
+    const ext = extname(filename) || ''
+    const key = `uploads/${randomUUID()}${ext}`
 
     await this.minioClient.putObject(bucketName, key, file, file.length, {
       'Content-Type': contentType,

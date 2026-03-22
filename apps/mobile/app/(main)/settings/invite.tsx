@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import * as Clipboard from 'expo-clipboard'
-import { Check, Copy, Link2, Plus, Trash2, X } from 'lucide-react-native'
+import { Check, Copy, Link2, Plus, Trash2, UserPlus, X } from 'lucide-react-native'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Avatar } from '../../../src/components/common/avatar'
 import { LoadingScreen } from '../../../src/components/common/loading-screen'
 import { PriceCompact } from '../../../src/components/common/price-display'
 import { SettingsHeader } from '../../../src/components/common/settings-header'
@@ -20,6 +21,7 @@ export default function InviteSettingsScreen() {
   const [note, setNote] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [friendSent, setFriendSent] = useState<Set<string>>(new Set())
 
   const { data: referralSummary } = useQuery({
     queryKey: ['task-referral-summary'],
@@ -70,6 +72,16 @@ export default function InviteSettingsScreen() {
   const handleDelete = async (id: string) => {
     await fetchApi(`/api/invite-codes/${id}`, { method: 'DELETE' }).catch(() => {})
     await fetchCodes()
+  }
+
+  const handleAddFriend = async (username: string, userId: string) => {
+    try {
+      await fetchApi('/api/friends/request', {
+        method: 'POST',
+        body: JSON.stringify({ username }),
+      })
+      setFriendSent((prev) => new Set(prev).add(userId))
+    } catch {}
   }
 
   return (
@@ -183,15 +195,38 @@ export default function InviteSettingsScreen() {
                       </Text>
                     )}
                     {isUsed && code.usedByUser && (
-                      <Text
-                        style={{ color: colors.textMuted, fontSize: fontSize.xs, marginTop: 1 }}
+                      <View
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}
                       >
-                        {t('settings.inviteUsedBy')}:{' '}
-                        {code.usedByUser.displayName || code.usedByUser.username}
-                      </Text>
+                        <Avatar
+                          uri={code.usedByUser.avatarUrl}
+                          name={code.usedByUser.displayName || code.usedByUser.username}
+                          userId={code.usedByUser.id}
+                          size={20}
+                        />
+                        <Text style={{ color: colors.textMuted, fontSize: fontSize.xs, flex: 1 }}>
+                          {t('settings.inviteUsedBy')}:{' '}
+                          {code.usedByUser.displayName || code.usedByUser.username}
+                        </Text>
+                      </View>
                     )}
                   </View>
                   <View style={{ flexDirection: 'row', gap: 4 }}>
+                    {isUsed && code.usedByUser && !friendSent.has(code.usedByUser.id) && (
+                      <Pressable
+                        onPress={() =>
+                          handleAddFriend(code.usedByUser.username, code.usedByUser.id)
+                        }
+                        style={styles.iconBtn}
+                      >
+                        <UserPlus size={14} color={colors.primary} />
+                      </Pressable>
+                    )}
+                    {isUsed && code.usedByUser && friendSent.has(code.usedByUser.id) && (
+                      <View style={styles.iconBtn}>
+                        <Check size={14} color="#23a559" />
+                      </View>
+                    )}
                     {isActive && (
                       <Pressable
                         onPress={() => handleCopy(code.code, code.id)}

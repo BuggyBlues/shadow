@@ -75,19 +75,24 @@ export function createAgentHandler(container: AppContainer) {
 
   // POST /api/agents — create a new agent
   agentHandler.post('/', zValidator('json', createAgentSchema), async (c) => {
-    const agentService = container.resolve('agentService')
-    const user = c.get('user')
-    const input = c.req.valid('json')
-    const agent = await agentService.create({
-      name: input.name,
-      username: input.username,
-      description: input.description,
-      avatarUrl: input.avatarUrl,
-      kernelType: input.kernelType,
-      config: input.config,
-      ownerId: user.userId,
-    })
-    return c.json(agent, 201)
+    try {
+      const agentService = container.resolve('agentService')
+      const user = c.get('user')
+      const input = c.req.valid('json')
+      const agent = await agentService.create({
+        name: input.name,
+        username: input.username,
+        description: input.description,
+        avatarUrl: input.avatarUrl,
+        kernelType: input.kernelType,
+        config: input.config,
+        ownerId: user.userId,
+      })
+      return c.json(agent, 201)
+    } catch (err) {
+      const status = (err as { status?: number }).status ?? 500
+      return c.json({ error: (err as Error).message || 'Internal Server Error' }, status as 409)
+    }
   })
 
   // GET /api/agents/:id — get agent details

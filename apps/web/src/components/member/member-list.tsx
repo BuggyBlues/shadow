@@ -480,11 +480,11 @@ export function MemberList() {
             </label>
             <div className="flex items-center gap-2">
               <code className="flex-1 bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 font-mono text-xs truncate">
-                {`${window.location.origin}/invite/${server.inviteCode}`}
+                {`${window.location.origin}/app/invite/${server.inviteCode}`}
               </code>
               <button
                 onClick={() => {
-                  const inviteLink = `${window.location.origin}/invite/${server.inviteCode}`
+                  const inviteLink = `${window.location.origin}/app/invite/${server.inviteCode}`
                   navigator.clipboard.writeText(inviteLink)
                   setInviteCopied(true)
                   setTimeout(() => setInviteCopied(false), 2000)
@@ -534,7 +534,7 @@ export function MemberList() {
       )}
 
       {/* Profile panel modal */}
-      {profileMember && profileMember.user && (
+      {profileMember?.user && (
         <div
           className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
           onClick={() => setProfileMember(null)}
@@ -585,8 +585,7 @@ export function MemberList() {
       )}
 
       {/* Hover profile card (portal to avoid clipping in scroll containers) */}
-      {hoveredCard &&
-        hoveredCard.member.user &&
+      {hoveredCard?.member.user &&
         createPortal(
           <div
             className="fixed z-[80]"
@@ -1074,7 +1073,6 @@ function BotContextMenu({
                           onChange={(e) => setUserPickerSearch(e.target.value)}
                           placeholder={t('member.policySearchUsers')}
                           className="w-full bg-bg-primary border border-border-dim rounded px-2 py-1 text-xs text-text-primary placeholder:text-text-muted focus:outline-none"
-                          autoFocus
                         />
                       </div>
                       {members
@@ -1343,61 +1341,59 @@ function MemberAddAgentDialog({
 
         <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-1.5">
           {/* Section: Server bots not in channel (when channel is active) */}
-          {channelId && serverOnlyBotMembers.length > 0 && (
-            <>
-              {serverOnlyBotMembers.map((member) => {
-                const user = member.user
-                if (!user) return null
-                const name = user.displayName || user.username
-                const agent = agents.find((a) => a.botUser?.id === user.id)
-                const description = agent?.config?.description
-                const isAdding = addingId === user.id
+          {channelId &&
+            serverOnlyBotMembers.length > 0 &&
+            serverOnlyBotMembers.map((member) => {
+              const user = member.user
+              if (!user) return null
+              const name = user.displayName || user.username
+              const agent = agents.find((a) => a.botUser?.id === user.id)
+              const description = agent?.config?.description
+              const isAdding = addingId === user.id
 
-                return (
-                  <div
-                    key={member.id}
-                    className="flex items-start gap-3 px-3 py-3 rounded-lg border transition border-border-subtle bg-bg-tertiary/50 hover:bg-bg-tertiary hover:border-border-dim"
-                  >
-                    <div className="shrink-0 mt-0.5">
-                      <UserAvatar
-                        userId={user.id}
-                        avatarUrl={user.avatarUrl}
-                        displayName={name}
-                        size="md"
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-semibold text-text-primary truncate">
-                          {name}
-                        </span>
-                        <span className="text-[10px] bg-[#5865F2] text-white px-1.5 py-0.5 rounded-[3px] font-semibold flex items-center gap-0.5 shrink-0">
-                          <Check size={8} className="text-white" />
-                          Buddy
-                        </span>
-                      </div>
-                      {typeof description === 'string' && (
-                        <p className="text-xs text-text-muted mt-0.5 line-clamp-2">{description}</p>
-                      )}
-                      <p className="text-[11px] text-text-muted/70 mt-0.5">
-                        {t('member.notInChannel')}
-                      </p>
-                    </div>
-                    <div className="shrink-0 mt-0.5">
-                      <button
-                        type="button"
-                        onClick={() => handleAddToChannel(user.id)}
-                        disabled={isAdding}
-                        className="text-xs font-semibold px-3 py-1.5 rounded-md bg-primary hover:bg-primary-hover text-white transition disabled:opacity-50"
-                      >
-                        {isAdding ? t('common.loading') : t('member.addToChannel')}
-                      </button>
-                    </div>
+              return (
+                <div
+                  key={member.id}
+                  className="flex items-start gap-3 px-3 py-3 rounded-lg border transition border-border-subtle bg-bg-tertiary/50 hover:bg-bg-tertiary hover:border-border-dim"
+                >
+                  <div className="shrink-0 mt-0.5">
+                    <UserAvatar
+                      userId={user.id}
+                      avatarUrl={user.avatarUrl}
+                      displayName={name}
+                      size="md"
+                    />
                   </div>
-                )
-              })}
-            </>
-          )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-semibold text-text-primary truncate">
+                        {name}
+                      </span>
+                      <span className="text-[10px] bg-[#5865F2] text-white px-1.5 py-0.5 rounded-[3px] font-semibold flex items-center gap-0.5 shrink-0">
+                        <Check size={8} className="text-white" />
+                        Buddy
+                      </span>
+                    </div>
+                    {typeof description === 'string' && (
+                      <p className="text-xs text-text-muted mt-0.5 line-clamp-2">{description}</p>
+                    )}
+                    <p className="text-[11px] text-text-muted/70 mt-0.5">
+                      {t('member.notInChannel')}
+                    </p>
+                  </div>
+                  <div className="shrink-0 mt-0.5">
+                    <button
+                      type="button"
+                      onClick={() => handleAddToChannel(user.id)}
+                      disabled={isAdding}
+                      className="text-xs font-semibold px-3 py-1.5 rounded-md bg-primary hover:bg-primary-hover text-white transition disabled:opacity-50"
+                    >
+                      {isAdding ? t('common.loading') : t('member.addToChannel')}
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
 
           {/* Section: Agents not on server */}
           {agentsNotOnServer.length > 0 &&

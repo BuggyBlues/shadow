@@ -428,7 +428,7 @@ export function BuddyManagementPage() {
             setSelectedAgent(agent)
             showMessage(t('agentMgmt.createSuccess'), true)
           }}
-          onError={() => showMessage(t('agentMgmt.createFailed'), false)}
+          onError={(msg) => showMessage(msg || t('agentMgmt.createFailed'), false)}
           t={t}
         />
       )}
@@ -1184,7 +1184,7 @@ function CreateAgentDialog({
 }: {
   onClose: () => void
   onSuccess: (agent: Agent) => void
-  onError: () => void
+  onError: (message?: string) => void
   t: (key: string) => string
 }) {
   const [name, setName] = useState('')
@@ -1211,7 +1211,15 @@ function CreateAgentDialog({
         }),
       }),
     onSuccess: (agent) => onSuccess(agent),
-    onError: () => onError(),
+    onError: (err: Error) => {
+      if (err.message?.toLowerCase().includes('username already taken')) {
+        const suffix = Math.random().toString(36).slice(2, 6)
+        setUsername((prev) => `${prev.slice(0, 27)}_${suffix}`)
+        onError(t('agentMgmt.usernameTaken'))
+      } else {
+        onError(err.message || t('agentMgmt.createFailed'))
+      }
+    },
   })
 
   return (

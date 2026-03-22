@@ -42,13 +42,13 @@ const raw = readFileSync(unreleasedPath, 'utf-8')
 // Strip the header and HTML comments, keep only the section content
 const contentLines = raw
   .split('\n')
-  .filter((line) => !line.startsWith('# Unreleased') && !line.includes('<!--') && !line.includes('-->'))
+  .filter(
+    (line) => !line.startsWith('# Unreleased') && !line.includes('<!--') && !line.includes('-->'),
+  )
 const content = contentLines.join('\n').trim()
 
 // Check if there's actual content (not just empty section headers)
-const hasEntries = contentLines.some(
-  (line) => line.trim() !== '' && !line.startsWith('## '),
-)
+const hasEntries = contentLines.some((line) => line.trim() !== '' && !line.startsWith('## '))
 
 if (!hasEntries) {
   console.log('No unreleased entries found. Nothing to archive.')

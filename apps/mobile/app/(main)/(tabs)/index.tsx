@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
-import { ChevronRight, Hash, HelpCircle, Plus, Search, Users, X } from 'lucide-react-native'
+import { ChevronRight, Hash, HelpCircle, Lock, Plus, Search, Users, X } from 'lucide-react-native'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Animated,
@@ -68,6 +68,7 @@ interface ServerEntry {
     slug: string | null
     iconUrl: string | null
     description?: string | null
+    isPublic?: boolean
     memberCount?: number
     channelCount?: number
   }
@@ -438,6 +439,10 @@ export default function ServersScreen() {
                   <View style={styles.serverInfo}>
                     <View style={styles.serverTopRow}>
                       <Text style={[styles.serverName, { color: colors.text }]} numberOfLines={1}>
+                        {item.server.isPublic === false && (
+                          <Lock size={12} color={colors.textMuted} />
+                        )}
+                        {item.server.isPublic === false ? ' ' : ''}
                         {item.server.name}
                       </Text>
                       {!isPublicResult && (

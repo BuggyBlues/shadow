@@ -22,6 +22,7 @@ import {
   Target,
   Trash2,
   User,
+  UserPlus,
   Users,
   X,
 } from 'lucide-react'
@@ -918,6 +919,7 @@ function InviteManagement() {
   const [note, setNote] = useState('')
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [friendRequestSent, setFriendRequestSent] = useState<Set<string>>(new Set())
 
   const fetchCodes = async () => {
     try {
@@ -971,10 +973,22 @@ function InviteManagement() {
   }
 
   const copyCode = (code: string, id: string) => {
-    const registerUrl = `${window.location.origin}/register?code=${code}`
+    const registerUrl = `${window.location.origin}/app/register?code=${code}`
     navigator.clipboard.writeText(registerUrl)
     setCopiedId(id)
     setTimeout(() => setCopiedId(null), 2000)
+  }
+
+  const handleAddFriend = async (username: string, userId: string) => {
+    try {
+      await fetchApi('/api/friends/request', {
+        method: 'POST',
+        body: JSON.stringify({ username }),
+      })
+      setFriendRequestSent((prev) => new Set(prev).add(userId))
+    } catch {
+      // ignore
+    }
   }
 
   return (
@@ -1018,7 +1032,6 @@ function InviteManagement() {
               }}
               placeholder={t('settings.inviteNotePlaceholder')}
               className="flex-1 bg-bg-tertiary text-text-primary rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary transition text-sm"
-              autoFocus
             />
             <button
               onClick={handleCreate}
@@ -1075,15 +1088,22 @@ function InviteManagement() {
                     </div>
                     {code.note && <p className="text-xs text-text-muted truncate">{code.note}</p>}
                     {isUsed && code.usedByUser && (
-                      <p className="text-xs text-text-muted mt-1">
-                        {t('settings.inviteUsedBy')}:{' '}
-                        {code.usedByUser.displayName || code.usedByUser.username}
-                        {code.usedAt && (
-                          <span className="ml-2 text-text-muted/60">
-                            {new Date(code.usedAt).toLocaleDateString()}
-                          </span>
-                        )}
-                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <UserAvatar
+                          userId={code.usedByUser.id}
+                          avatarUrl={code.usedByUser.avatarUrl}
+                          size="xs"
+                        />
+                        <p className="text-xs text-text-muted">
+                          {t('settings.inviteUsedBy')}:{' '}
+                          {code.usedByUser.displayName || code.usedByUser.username}
+                          {code.usedAt && (
+                            <span className="ml-2 text-text-muted/60">
+                              {new Date(code.usedAt).toLocaleDateString()}
+                            </span>
+                          )}
+                        </p>
+                      </div>
                     )}
                     <p className="text-[11px] text-text-muted/50 mt-0.5">
                       {new Date(code.createdAt).toLocaleDateString()}
@@ -1091,6 +1111,22 @@ function InviteManagement() {
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
+                    {isUsed && code.usedByUser && !friendRequestSent.has(code.usedByUser.id) && (
+                      <button
+                        onClick={() =>
+                          handleAddFriend(code.usedByUser!.username, code.usedByUser!.id)
+                        }
+                        className="p-2 text-text-muted hover:text-primary hover:bg-primary/10 rounded-lg transition"
+                        title={t('friends.addFriend', '添加好友')}
+                      >
+                        <UserPlus size={15} />
+                      </button>
+                    )}
+                    {isUsed && code.usedByUser && friendRequestSent.has(code.usedByUser.id) && (
+                      <span className="p-2 text-green-400">
+                        <Check size={15} />
+                      </span>
+                    )}
                     {isActive && (
                       <button
                         onClick={() => copyCode(code.code, code.id)}

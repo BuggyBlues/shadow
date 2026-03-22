@@ -1,12 +1,27 @@
+import * as Clipboard from 'expo-clipboard'
+import * as FileSystem from 'expo-file-system/legacy'
 import { Image } from 'expo-image'
+import * as MediaLibrary from 'expo-media-library'
 import { useLocalSearchParams, useNavigation } from 'expo-router'
 import * as Sharing from 'expo-sharing'
-import { Code, Eye, FileText, Share2 } from 'lucide-react-native'
+import JSZip from 'jszip'
+import {
+  Code,
+  Copy,
+  Download,
+  Eye,
+  FileText,
+  Folder,
+  MoreVertical,
+  Save,
+  Share2,
+} from 'lucide-react-native'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ActivityIndicator,
   Dimensions,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,6 +31,8 @@ import {
 import WebView from 'react-native-webview'
 import { HeaderButton, HeaderButtonGroup } from '../../src/components/common/header-button'
 import { getImageUrl } from '../../src/lib/api'
+import { showToast } from '../../src/lib/toast'
+import { useAuthStore } from '../../src/stores/auth.store'
 import { fontSize, radius, spacing, useColors } from '../../src/theme'
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window')
@@ -77,13 +94,24 @@ function getFileExtension(name: string): string {
   return parts.length > 1 ? parts[parts.length - 1]! : ''
 }
 
-type PreviewMode = 'image' | 'pdf' | 'code' | 'markdown' | 'html' | 'csv' | 'text' | 'unknown'
+type PreviewMode =
+  | 'image'
+  | 'pdf'
+  | 'code'
+  | 'markdown'
+  | 'html'
+  | 'csv'
+  | 'text'
+  | 'zip'
+  | 'unknown'
 
 function detectPreviewMode(ct: string, fname: string): PreviewMode {
   if (ct.startsWith('image/')) return 'image'
   if (ct === 'application/pdf') return 'pdf'
 
   const ext = getFileExtension(fname)
+  if (ext === 'zip' || ct === 'application/zip' || ct === 'application/x-zip-compressed')
+    return 'zip'
   if (ext === 'md' || ext === 'markdown') return 'markdown'
   if (ext === 'html' || ext === 'htm') return 'html'
   if (ext === 'csv' || ct === 'text/csv') return 'csv'
@@ -112,23 +140,138 @@ export default function MediaPreviewScreen() {
   const colors = useColors()
   const navigation = useNavigation()
   const [loading, setLoading] = useState(true)
+  const [imageError, setImageError] = useState(false)
   const [textContent, setTextContent] = useState<string | null>(null)
   const [showSource, setShowSource] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
+  const [localPreviewUri, setLocalPreviewUri] = useState<string | null>(null)
+  const [zipEntries, setZipEntries] = useState<
+    { name: string; size: number; isDir: boolean; date: Date | null }[] | null
+  >(null)
 
   const resolvedUrl = getImageUrl(url ?? '') ?? url ?? ''
-  const fname = filename ?? 'file'
+  const fname = (filename ?? 'file').replace(/[/\\?#%:*"<>|\s]/g, '_')
   const ct = contentType ?? 'application/octet-stream'
   const mode = useMemo(() => detectPreviewMode(ct, fname), [ct, fname])
 
+  const getAuthHeaders = useCallback((): Record<string, string> => {
+    const token = useAuthStore.getState().accessToken
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  }, [])
+
+  const mediaSource = useMemo(
+    () => ({
+      uri: localPreviewUri ?? resolvedUrl,
+      headers: localPreviewUri ? undefined : getAuthHeaders(),
+    }),
+    [localPreviewUri, resolvedUrl, getAuthHeaders],
+  )
+
+  const buildLocalFileUri = useCallback((name: string) => {
+    const extMatch = name.match(/\.[A-Za-z0-9]+$/)
+    const ext = extMatch?.[0] ?? ''
+    const safeBase = name.replace(/\.[A-Za-z0-9]+$/, '').replace(/[/\\?#%:*"<>|\s]/g, '_')
+    const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    return `${FileSystem.cacheDirectory}${safeBase || 'file'}-${unique}${ext}`
+  }, [])
+
+  const downloadWithAuth = useCallback(
+    async (targetUrl: string, localPath: string) => {
+      return FileSystem.downloadAsync(targetUrl, localPath, {
+        headers: getAuthHeaders(),
+      })
+    },
+    [getAuthHeaders],
+  )
+
   const handleShare = useCallback(async () => {
     try {
+      const localUri = buildLocalFileUri(fname)
+      const { uri } = await downloadWithAuth(resolvedUrl, localUri)
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(resolvedUrl)
+        await Sharing.shareAsync(uri)
+      } else {
+        showToast(t('chat.shareUnavailable', 'Sharing is not available on this device'), 'error')
       }
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('Share failed:', err)
+      showToast(t('chat.shareFailed', 'Failed to share file'), 'error')
     }
-  }, [resolvedUrl])
+  }, [resolvedUrl, fname, downloadWithAuth, t, buildLocalFileUri])
+
+  const handleSaveImage = useCallback(async () => {
+    try {
+      const { status } = await MediaLibrary.requestPermissionsAsync()
+      if (status !== 'granted') {
+        showToast(t('chat.permissionDenied', 'Permission denied'), 'error')
+        return
+      }
+      const localUri = buildLocalFileUri(fname)
+      const { uri } = await downloadWithAuth(resolvedUrl, localUri)
+      await MediaLibrary.saveToLibraryAsync(uri)
+      showToast(t('chat.imageSaved', 'Image saved to library'), 'success')
+    } catch (err) {
+      console.error('Save failed:', err)
+      showToast(t('chat.saveFailed', 'Failed to save file'), 'error')
+    }
+  }, [resolvedUrl, fname, t, downloadWithAuth, buildLocalFileUri])
+
+  const handleCopyLink = useCallback(async () => {
+    await Clipboard.setStringAsync(resolvedUrl)
+    showToast(t('chat.linkCopied', 'Link copied'), 'success')
+  }, [resolvedUrl, t])
+
+  const handleDownload = useCallback(async () => {
+    setShowMenu(false)
+    try {
+      if (mode === 'image') {
+        await handleSaveImage()
+      } else {
+        const localUri = buildLocalFileUri(fname)
+        await downloadWithAuth(resolvedUrl, localUri)
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(localUri, {
+            UTI: 'public.item',
+            mimeType: 'application/octet-stream',
+          })
+        }
+      }
+    } catch (err) {
+      console.error('Download failed:', err)
+      showToast(t('chat.saveFailed', 'Failed to save file'), 'error')
+    }
+  }, [mode, fname, resolvedUrl, downloadWithAuth, handleSaveImage, t, buildLocalFileUri])
+
+  useEffect(() => {
+    let cancelled = false
+    if (mode !== 'image' && mode !== 'pdf') {
+      setLocalPreviewUri(null)
+      return
+    }
+    setLoading(true)
+    const localUri = buildLocalFileUri(fname)
+    downloadWithAuth(resolvedUrl, localUri)
+      .then(({ uri }) => {
+        if (!cancelled) {
+          setLocalPreviewUri(uri)
+        }
+      })
+      .catch((err) => {
+        console.error('Preview preload failed:', err)
+        if (!cancelled) {
+          setLocalPreviewUri(null)
+          setImageError(true)
+          setLoading(false)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [mode, fname, resolvedUrl, buildLocalFileUri, downloadWithAuth])
+
+  const handleMoreMenu = useCallback(() => {
+    setShowMenu(true)
+  }, [])
 
   // Fetch text content for text-based files
   useEffect(() => {
@@ -140,7 +283,7 @@ export default function MediaPreviewScreen() {
       mode === 'csv'
     ) {
       setLoading(true)
-      fetch(resolvedUrl)
+      fetch(resolvedUrl, { headers: getAuthHeaders() })
         .then((res) => res.text())
         .then((text) => {
           setTextContent(text)
@@ -151,7 +294,38 @@ export default function MediaPreviewScreen() {
           setLoading(false)
         })
     }
-  }, [resolvedUrl, mode])
+  }, [resolvedUrl, mode, getAuthHeaders])
+
+  // Fetch and parse zip file contents
+  useEffect(() => {
+    if (mode !== 'zip') return
+    setLoading(true)
+    fetch(resolvedUrl, { headers: getAuthHeaders() })
+      .then((res) => res.arrayBuffer())
+      .then((buf) => JSZip.loadAsync(buf))
+      .then((zip) => {
+        const entries: { name: string; size: number; isDir: boolean; date: Date | null }[] = []
+        zip.forEach((path, file) => {
+          const zipFileData = file as unknown as { _data?: { uncompressedSize?: number } }
+          entries.push({
+            name: path,
+            size: zipFileData._data?.uncompressedSize ?? 0,
+            isDir: file.dir,
+            date: file.date ?? null,
+          })
+        })
+        entries.sort((a, b) => {
+          if (a.isDir !== b.isDir) return a.isDir ? -1 : 1
+          return a.name.localeCompare(b.name)
+        })
+        setZipEntries(entries)
+        setLoading(false)
+      })
+      .catch(() => {
+        setZipEntries(null)
+        setLoading(false)
+      })
+  }, [resolvedUrl, mode, getAuthHeaders])
 
   useEffect(() => {
     navigation.setOptions({
@@ -165,80 +339,95 @@ export default function MediaPreviewScreen() {
               color={showSource ? colors.primary : undefined}
             />
           )}
-          <HeaderButton icon={Share2} onPress={handleShare} />
+          <HeaderButton icon={MoreVertical} onPress={handleMoreMenu} />
         </HeaderButtonGroup>
       ),
     })
-  }, [navigation, fname, colors, t, handleShare, mode, showSource])
+  }, [navigation, fname, colors, t, handleMoreMenu, mode, showSource])
 
-  if (mode === 'image') {
-    return (
-      <View style={[styles.container, { backgroundColor: '#000' }]}>
-        <ScrollView
-          style={styles.scrollContainer}
-          contentContainerStyle={styles.scrollContent}
-          maximumZoomScale={5}
-          minimumZoomScale={1}
-          showsHorizontalScrollIndicator={false}
-          showsVerticalScrollIndicator={false}
-          bouncesZoom
-        >
-          <Image
-            source={{ uri: resolvedUrl }}
-            style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT * 0.8 }}
-            contentFit="contain"
-            transition={200}
-            onLoad={() => setLoading(false)}
-          />
-        </ScrollView>
-        {loading && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#fff" />
-          </View>
-        )}
-      </View>
-    )
-  }
-
-  if (mode === 'pdf') {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <WebView
-          source={{ uri: resolvedUrl }}
-          style={styles.webview}
-          onLoadStart={() => setLoading(true)}
-          onLoadEnd={() => setLoading(false)}
-          startInLoadingState
-          renderLoading={() => (
+  const renderContent = () => {
+    if (mode === 'image') {
+      return (
+        <View style={[styles.container, { backgroundColor: '#000' }]}>
+          <Pressable onLongPress={handleSaveImage} delayLongPress={500}>
+            <ScrollView
+              style={styles.scrollContainer}
+              contentContainerStyle={styles.scrollContent}
+              maximumZoomScale={5}
+              minimumZoomScale={1}
+              showsHorizontalScrollIndicator={false}
+              showsVerticalScrollIndicator={false}
+              bouncesZoom
+            >
+              <Image
+                source={mediaSource}
+                style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT * 0.8 }}
+                contentFit="contain"
+                transition={200}
+                onLoad={() => setLoading(false)}
+                onError={() => {
+                  setLoading(false)
+                  setImageError(true)
+                }}
+              />
+            </ScrollView>
+          </Pressable>
+          {loading && (
             <View style={styles.loadingOverlay}>
-              <ActivityIndicator size="large" color={colors.primary} />
+              <ActivityIndicator size="large" color="#fff" />
             </View>
           )}
-        />
-      </View>
-    )
-  }
-
-  // Loading state for text content
-  if (loading && textContent === null && mode !== 'unknown') {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          {imageError && (
+            <View style={styles.loadingOverlay}>
+              <FileText size={48} color="#999" />
+              <Text style={{ color: '#999', marginTop: spacing.sm }}>
+                {t('chat.imageLoadFailed', 'Failed to load image')}
+              </Text>
+            </View>
+          )}
         </View>
-      </View>
-    )
-  }
+      )
+    }
 
-  // Code preview with syntax highlighting
-  if (mode === 'code' && textContent !== null) {
-    const ext = getFileExtension(fname)
-    const lang = EXT_LANG_MAP[ext] ?? 'plaintext'
-    const isDark =
-      colors.background === '#000' ||
-      colors.background.startsWith('#1') ||
-      colors.background.startsWith('#0')
-    const htmlContent = `<!DOCTYPE html><html><head>
+    if (mode === 'pdf') {
+      return (
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+          <WebView
+            source={mediaSource}
+            style={styles.webview}
+            onLoadStart={() => setLoading(true)}
+            onLoadEnd={() => setLoading(false)}
+            startInLoadingState
+            renderLoading={() => (
+              <View style={styles.loadingOverlay}>
+                <ActivityIndicator size="large" color={colors.primary} />
+              </View>
+            )}
+          />
+        </View>
+      )
+    }
+
+    // Loading state for text content
+    if (loading && textContent === null && mode !== 'unknown') {
+      return (
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        </View>
+      )
+    }
+
+    // Code preview with syntax highlighting
+    if (mode === 'code' && textContent !== null) {
+      const ext = getFileExtension(fname)
+      const lang = EXT_LANG_MAP[ext] ?? 'plaintext'
+      const isDark =
+        colors.background === '#000' ||
+        colors.background.startsWith('#1') ||
+        colors.background.startsWith('#0')
+      const htmlContent = `<!DOCTYPE html><html><head>
       <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=3">
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/${isDark ? 'github-dark' : 'github'}.min.css">
       <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
@@ -246,34 +435,34 @@ export default function MediaPreviewScreen() {
       pre{margin:0;font-size:13px;line-height:1.5}code{font-family:'SF Mono',Menlo,monospace}</style>
       </head><body><pre><code class="language-${lang}">${escapeHtml(textContent)}</code></pre>
       <script>hljs.highlightAll()</script></body></html>`
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <WebView
-          source={{ html: htmlContent }}
-          style={styles.webview}
-          originWhitelist={['*']}
-          scrollEnabled
-        />
-      </View>
-    )
-  }
-
-  // Markdown preview / source toggle
-  if (mode === 'markdown' && textContent !== null) {
-    if (showSource) {
       return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
-          <ScrollView style={styles.textScroll} contentContainerStyle={styles.textContent}>
-            <Text style={[styles.monoText, { color: colors.text }]}>{textContent}</Text>
-          </ScrollView>
+          <WebView
+            source={{ html: htmlContent }}
+            style={styles.webview}
+            originWhitelist={['*']}
+            scrollEnabled
+          />
         </View>
       )
     }
-    const isDark =
-      colors.background === '#000' ||
-      colors.background.startsWith('#1') ||
-      colors.background.startsWith('#0')
-    const htmlContent = `<!DOCTYPE html><html><head>
+
+    // Markdown preview / source toggle
+    if (mode === 'markdown' && textContent !== null) {
+      if (showSource) {
+        return (
+          <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <ScrollView style={styles.textScroll} contentContainerStyle={styles.textContent}>
+              <Text style={[styles.monoText, { color: colors.text }]}>{textContent}</Text>
+            </ScrollView>
+          </View>
+        )
+      }
+      const isDark =
+        colors.background === '#000' ||
+        colors.background.startsWith('#1') ||
+        colors.background.startsWith('#0')
+      const htmlContent = `<!DOCTYPE html><html><head>
       <meta name="viewport" content="width=device-width,initial-scale=1">
       <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/${isDark ? 'github-dark' : 'github'}.min.css">
@@ -290,53 +479,53 @@ export default function MediaPreviewScreen() {
         marked.setOptions({highlight:(code,lang)=>{try{return hljs.highlight(code,{language:lang||'plaintext'}).value}catch{return code}}});
         document.getElementById('c').innerHTML=marked.parse(${JSON.stringify(textContent)});
       </script></body></html>`
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <WebView source={{ html: htmlContent }} style={styles.webview} originWhitelist={['*']} />
-      </View>
-    )
-  }
-
-  // HTML preview / source toggle
-  if (mode === 'html' && textContent !== null) {
-    if (showSource) {
       return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
-          <ScrollView style={styles.textScroll} contentContainerStyle={styles.textContent}>
-            <Text style={[styles.monoText, { color: colors.text }]}>{textContent}</Text>
-          </ScrollView>
+          <WebView source={{ html: htmlContent }} style={styles.webview} originWhitelist={['*']} />
         </View>
       )
     }
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <WebView source={{ html: textContent }} style={styles.webview} originWhitelist={['*']} />
-      </View>
-    )
-  }
 
-  // CSV preview as table
-  if (mode === 'csv' && textContent !== null) {
-    const lines = textContent.split('\n').filter((l) => l.trim())
-    const rows = lines.map((line) => {
-      const cells: string[] = []
-      let current = ''
-      let inQuote = false
-      for (const ch of line) {
-        if (ch === '"') {
-          inQuote = !inQuote
-        } else if (ch === ',' && !inQuote) {
-          cells.push(current.trim())
-          current = ''
-        } else {
-          current += ch
-        }
+    // HTML preview / source toggle
+    if (mode === 'html' && textContent !== null) {
+      if (showSource) {
+        return (
+          <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <ScrollView style={styles.textScroll} contentContainerStyle={styles.textContent}>
+              <Text style={[styles.monoText, { color: colors.text }]}>{textContent}</Text>
+            </ScrollView>
+          </View>
+        )
       }
-      cells.push(current.trim())
-      return cells
-    })
-    const isDark = colors.background.startsWith('#0') || colors.background.startsWith('#1')
-    const tableHtml = `<!DOCTYPE html><html><head>
+      return (
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+          <WebView source={{ html: textContent }} style={styles.webview} originWhitelist={['*']} />
+        </View>
+      )
+    }
+
+    // CSV preview as table
+    if (mode === 'csv' && textContent !== null) {
+      const lines = textContent.split('\n').filter((l) => l.trim())
+      const rows = lines.map((line) => {
+        const cells: string[] = []
+        let current = ''
+        let inQuote = false
+        for (const ch of line) {
+          if (ch === '"') {
+            inQuote = !inQuote
+          } else if (ch === ',' && !inQuote) {
+            cells.push(current.trim())
+            current = ''
+          } else {
+            current += ch
+          }
+        }
+        cells.push(current.trim())
+        return cells
+      })
+      const isDark = colors.background.startsWith('#0') || colors.background.startsWith('#1')
+      const tableHtml = `<!DOCTYPE html><html><head>
       <meta name="viewport" content="width=device-width,initial-scale=1">
       <style>body{margin:0;padding:8px;background:${colors.background};overflow-x:auto}
       table{border-collapse:collapse;width:max-content;min-width:100%;font-family:-apple-system,system-ui,sans-serif;font-size:13px}
@@ -350,40 +539,194 @@ export default function MediaPreviewScreen() {
             `<tr>${row.map((cell) => (i === 0 ? `<th>${escapeHtml(cell)}</th>` : `<td>${escapeHtml(cell)}</td>`)).join('')}</tr>`,
         )
         .join('')}</table></body></html>`
+      return (
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+          <WebView source={{ html: tableHtml }} style={styles.webview} originWhitelist={['*']} />
+        </View>
+      )
+    }
+
+    // Zip file contents listing
+    if (mode === 'zip') {
+      if (loading) {
+        return (
+          <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+          </View>
+        )
+      }
+      if (!zipEntries) {
+        return (
+          <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <View style={styles.filePreview}>
+              <FileText size={48} color={colors.textMuted} />
+              <Text style={[styles.fileTitle, { color: colors.text }]}>{fname}</Text>
+              <Text style={[styles.fileType, { color: colors.textMuted }]}>
+                {t('chat.zipParseFailed', 'Cannot read zip contents')}
+              </Text>
+              <Pressable
+                style={[styles.downloadBtn, { backgroundColor: colors.primary }]}
+                onPress={handleShare}
+              >
+                <Share2 size={18} color="#fff" />
+                <Text style={styles.downloadBtnText}>{t('chat.downloadFile')}</Text>
+              </Pressable>
+            </View>
+          </View>
+        )
+      }
+      const formatSize = (bytes: number) => {
+        if (bytes === 0) return '-'
+        if (bytes < 1024) return `${bytes} B`
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+      }
+      return (
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+          <View style={[styles.zipHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.zipHeaderText, { color: colors.textSecondary }]}>
+              {zipEntries.length} {t('chat.zipItems', 'items')}
+            </Text>
+          </View>
+          <ScrollView style={styles.textScroll}>
+            {zipEntries.map((entry) => (
+              <View key={entry.name} style={[styles.zipRow, { borderBottomColor: colors.border }]}>
+                {entry.isDir ? (
+                  <Folder size={16} color={colors.primary} />
+                ) : (
+                  <FileText size={16} color={colors.textMuted} />
+                )}
+                <Text
+                  style={[styles.zipName, { color: colors.text }]}
+                  numberOfLines={1}
+                  ellipsizeMode="middle"
+                >
+                  {entry.name}
+                </Text>
+                {!entry.isDir && (
+                  <Text style={[styles.zipSize, { color: colors.textSecondary }]}>
+                    {formatSize(entry.size)}
+                  </Text>
+                )}
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      )
+    }
+
+    // Plain text preview
+    if (mode === 'text' && textContent !== null) {
+      return (
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+          <ScrollView style={styles.textScroll} contentContainerStyle={styles.textContent}>
+            <Text style={[styles.monoText, { color: colors.text }]}>{textContent}</Text>
+          </ScrollView>
+        </View>
+      )
+    }
+
+    // Unknown file type - show info and share button
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <WebView source={{ html: tableHtml }} style={styles.webview} originWhitelist={['*']} />
+        <View style={styles.filePreview}>
+          <FileText size={48} color={colors.textMuted} />
+          <Text style={[styles.fileTitle, { color: colors.text }]}>{fname}</Text>
+          <Text style={[styles.fileType, { color: colors.textMuted }]}>{ct}</Text>
+          <Pressable
+            style={[styles.downloadBtn, { backgroundColor: colors.primary }]}
+            onPress={handleShare}
+          >
+            <Share2 size={18} color="#fff" />
+            <Text style={styles.downloadBtnText}>{t('chat.downloadFile')}</Text>
+          </Pressable>
+        </View>
       </View>
     )
   }
 
-  // Plain text preview
-  if (mode === 'text' && textContent !== null) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <ScrollView style={styles.textScroll} contentContainerStyle={styles.textContent}>
-          <Text style={[styles.monoText, { color: colors.text }]}>{textContent}</Text>
-        </ScrollView>
-      </View>
-    )
-  }
-
-  // Unknown file type - show info and share button
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.filePreview}>
-        <FileText size={48} color={colors.textMuted} />
-        <Text style={[styles.fileTitle, { color: colors.text }]}>{fname}</Text>
-        <Text style={[styles.fileType, { color: colors.textMuted }]}>{ct}</Text>
-        <Pressable
-          style={[styles.downloadBtn, { backgroundColor: colors.primary }]}
-          onPress={handleShare}
-        >
-          <Share2 size={18} color="#fff" />
-          <Text style={styles.downloadBtnText}>{t('chat.downloadFile')}</Text>
+    <>
+      {renderContent()}
+      {/* Dropdown menu modal */}
+      <Modal
+        visible={showMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowMenu(false)}
+      >
+        <Pressable style={styles.menuOverlay} onPress={() => setShowMenu(false)}>
+          <View style={[styles.menuSheet, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.menuTitle, { color: colors.text }]} numberOfLines={1}>
+              {fname}
+            </Text>
+            {mode === 'image' && (
+              <Pressable
+                style={({ pressed }) => [styles.menuItem, { opacity: pressed ? 0.7 : 1 }]}
+                onPress={() => {
+                  setShowMenu(false)
+                  handleSaveImage()
+                }}
+              >
+                <Save size={18} color={colors.text} />
+                <Text style={[styles.menuItemLabel, { color: colors.text }]}>
+                  {t('chat.saveToLibrary', 'Save to Library')}
+                </Text>
+              </Pressable>
+            )}
+            <Pressable
+              style={({ pressed }) => [styles.menuItem, { opacity: pressed ? 0.7 : 1 }]}
+              onPress={() => {
+                setShowMenu(false)
+                handleDownload()
+              }}
+            >
+              <Download size={18} color={colors.text} />
+              <Text style={[styles.menuItemLabel, { color: colors.text }]}>
+                {t('chat.download', 'Download')}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.menuItem, { opacity: pressed ? 0.7 : 1 }]}
+              onPress={() => {
+                setShowMenu(false)
+                handleShare()
+              }}
+            >
+              <Share2 size={18} color={colors.text} />
+              <Text style={[styles.menuItemLabel, { color: colors.text }]}>
+                {t('common.share', 'Share')}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.menuItem, { opacity: pressed ? 0.7 : 1 }]}
+              onPress={() => {
+                setShowMenu(false)
+                handleCopyLink()
+              }}
+            >
+              <Copy size={18} color={colors.text} />
+              <Text style={[styles.menuItemLabel, { color: colors.text }]}>
+                {t('chat.copyLink', 'Copy Link')}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.menuCancel,
+                { backgroundColor: colors.background, opacity: pressed ? 0.7 : 1 },
+              ]}
+              onPress={() => setShowMenu(false)}
+            >
+              <Text style={[styles.menuItemLabel, { color: colors.textMuted }]}>
+                {t('common.cancel', 'Cancel')}
+              </Text>
+            </Pressable>
+          </View>
         </Pressable>
-      </View>
-    </View>
+      </Modal>
+    </>
   )
 }
 
@@ -436,5 +779,67 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: fontSize.md,
     fontWeight: '600',
+  },
+  zipHeader: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  zipHeaderText: {
+    fontSize: fontSize.sm,
+  },
+  zipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  zipName: {
+    flex: 1,
+    fontSize: fontSize.sm,
+  },
+  zipSize: {
+    fontSize: fontSize.xs,
+    minWidth: 50,
+    textAlign: 'right',
+  },
+  // Menu modal styles
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  menuSheet: {
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    padding: spacing.md,
+    paddingBottom: 34,
+    gap: 4,
+  },
+  menuTitle: {
+    fontSize: fontSize.sm,
+    fontWeight: '600',
+    textAlign: 'center',
+    paddingVertical: spacing.sm,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+  },
+  menuItemLabel: {
+    fontSize: fontSize.md,
+    fontWeight: '500',
+  },
+  menuCancel: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderRadius: radius.md,
+    marginTop: spacing.sm,
   },
 })

@@ -362,7 +362,7 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
 
   const copyInviteCode = async () => {
     if (server?.inviteCode) {
-      const inviteLink = `${window.location.origin}/invite/${server.inviteCode}`
+      const inviteLink = `${window.location.origin}/app/invite/${server.inviteCode}`
       await navigator.clipboard.writeText(inviteLink)
       setCopiedInvite(true)
       setTimeout(() => setCopiedInvite(false), 2000)
@@ -421,10 +421,10 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
   const textChannels = channels.filter((c) => c.type === 'text')
   const voiceChannels = channels.filter((c) => c.type === 'voice')
   const announcementChannels = channels.filter((c) => c.type === 'announcement')
-  const isInShop = /\/app\/servers\/[^/]+\/shop(?:\/|$)/.test(location.pathname)
-  const isInWorkspace = /\/app\/servers\/[^/]+\/workspace(?:\/|$)/.test(location.pathname)
-  const isInApps = /\/app\/servers\/[^/]+\/apps(?:\/|$)/.test(location.pathname)
-  const isInChannel = /\/app\/servers\/[^/]+\/channels\//.test(location.pathname)
+  const isInShop = /\/servers\/[^/]+\/shop(?:\/|$)/.test(location.pathname)
+  const isInWorkspace = /\/servers\/[^/]+\/workspace(?:\/|$)/.test(location.pathname)
+  const isInApps = /\/servers\/[^/]+\/apps(?:\/|$)/.test(location.pathname)
+  const isInChannel = /\/servers\/[^/]+\/channels\//.test(location.pathname)
   const isHomeActive = !isInChannel && !isInShop && !isInWorkspace && !isInApps
 
   const renderChannelGroup = (label: string, items: Channel[]) => {
@@ -949,7 +949,7 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
                 </label>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 font-mono text-xs truncate">
-                    {`${window.location.origin}/invite/${server.inviteCode}`}
+                    {`${window.location.origin}/app/invite/${server.inviteCode}`}
                   </code>
                   <button
                     onClick={copyInviteCode}
@@ -1323,7 +1323,7 @@ function InvitePanel({
         </label>
         <div className="flex items-center gap-2 mb-4">
           <code className="flex-1 bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 font-mono text-xs truncate">
-            {`${window.location.origin}/invite/${serverInviteCode}`}
+            {`${window.location.origin}/app/invite/${serverInviteCode}`}
           </code>
           <button
             onClick={onCopyInvite}

@@ -17,7 +17,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setActiveServer: (serverId) => {
     const current = get()
     if (current.activeServerId === serverId) return
-    set({ activeServerId: serverId, activeChannelId: null, activeThreadId: null })
+    // Only reset activeChannelId / activeThreadId when explicitly told to (e.g. ServerHomeView).
+    // Channel-level route components sync the channel themselves, and clearing it here
+    // would race with layout effects that already set the correct channelId from the URL.
+    set({ activeServerId: serverId })
   },
 
   setActiveChannel: (channelId) => set({ activeChannelId: channelId, activeThreadId: null }),

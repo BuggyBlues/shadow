@@ -207,6 +207,67 @@ describe('AgentService', () => {
       })
       expect(result.botUser.avatarUrl).toBe('https://shadowob.com/avatar.png')
     })
+
+    it('should throw 409 when username is already taken', async () => {
+      const dbError = Object.assign(
+        new Error('duplicate key value violates unique constraint "users_username_unique"'),
+        { code: '23505' },
+      )
+      const agentDao = createMockAgentDao({
+        createBotUser: vi.fn().mockRejectedValue(dbError),
+      })
+      const userDao = createMockUserDao()
+      const logger = createMockLogger()
+
+      const service = new AgentService({
+        agentDao: agentDao as any,
+        userDao: userDao as any,
+        logger: logger as any,
+      })
+
+      await expect(
+        service.create({
+          name: 'Duplicate Bot',
+          username: 'existing-user',
+          kernelType: 'openclaw',
+          config: {},
+          ownerId: 'owner-1',
+        }),
+      ).rejects.toMatchObject({
+        message: 'Username already taken',
+        status: 409,
+      })
+    })
+
+    it('should throw 409 when username conflict detected via error message', async () => {
+      const dbError = new Error(
+        'duplicate key value violates unique constraint "users_username_unique"',
+      )
+      const agentDao = createMockAgentDao({
+        createBotUser: vi.fn().mockRejectedValue(dbError),
+      })
+      const userDao = createMockUserDao()
+      const logger = createMockLogger()
+
+      const service = new AgentService({
+        agentDao: agentDao as any,
+        userDao: userDao as any,
+        logger: logger as any,
+      })
+
+      await expect(
+        service.create({
+          name: 'Duplicate Bot',
+          username: 'existing-user',
+          kernelType: 'openclaw',
+          config: {},
+          ownerId: 'owner-1',
+        }),
+      ).rejects.toMatchObject({
+        message: 'Username already taken',
+        status: 409,
+      })
+    })
   })
 
   describe('getById', () => {
@@ -479,5 +540,61 @@ describe('Agent Handler (HTTP)', () => {
     const data = await res.json()
     expect(data.id).toBe('bot-123')
     expect(data.username).toBe('agent-test')
+  })
+
+  it('should return 409 when creating agent with duplicate username', async () => {
+    const { Hono } = await import('hono')
+    const { createAgentHandler } = await import('../src/handlers/agent.handler')
+
+    const app = new Hono()
+
+    const container = {
+      resolve: (name: string) => {
+        if (name === 'agentService') {
+          return {
+            create: vi
+              .fn()
+              .mockRejectedValue(
+                Object.assign(new Error('Username already taken'), { status: 409 }),
+              ),
+          }
+        }
+        if (name === 'clawListingDao') return { findByAgentIds: vi.fn().mockResolvedValue([]) }
+        if (name === 'rentalContractDao')
+          return { findActiveByListingId: vi.fn().mockResolvedValue(null) }
+        if (name === 'agentPolicyService') {
+          return {
+            getRemoteConfig: vi.fn(),
+            getPolicies: vi.fn(),
+            upsertPolicies: vi.fn(),
+            deletePolicy: vi.fn(),
+          }
+        }
+        throw new Error(`Unknown dependency: ${name}`)
+      },
+    }
+
+    app.route('/api/agents', createAgentHandler(container as never))
+
+    const token = signAccessToken({
+      userId: 'owner-1',
+      email: 'owner@example.com',
+      username: 'owner',
+    })
+
+    const res = await app.request('/api/agents', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        name: 'Dup Buddy',
+        username: 'dup-buddy',
+        kernelType: 'openclaw',
+        config: {},
+      }),
+    })
+
+    expect(res.status).toBe(409)
+    const body = await res.json()
+    expect(body.error).toBe('Username already taken')
   })
 })

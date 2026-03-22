@@ -65,10 +65,17 @@ export default function MainLayout() {
       id: string
       channelId: string
       content: string
-      author?: { displayName?: string; username?: string } | null
+      authorId?: string
+      author?: { id?: string; displayName?: string; username?: string } | null
       channel?: { name?: string; server?: { slug?: string } } | null
     }) => {
-      const activeChannelId = useChatStore.getState().activeChannelId
+      const { activeChannelId } = useChatStore.getState()
+      const currentUserId = useAuthStore.getState().user?.id
+
+      // Never notify for own messages
+      const senderId = msg.authorId ?? msg.author?.id
+      if (senderId && currentUserId && senderId === currentUserId) return
+
       // Only show notification if user is not viewing the channel, or app is in background
       if (msg.channelId === activeChannelId && AppState.currentState === 'active') return
 

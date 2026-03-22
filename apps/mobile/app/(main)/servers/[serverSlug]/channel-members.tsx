@@ -16,6 +16,7 @@ import {
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
+  ActivityIndicator,
   FlatList,
   Modal,
   Pressable,
@@ -86,6 +87,7 @@ export default function ChannelMembersScreen() {
   const [policySheet, setPolicySheet] = useState<ChannelMember | null>(null)
   const [showInviteSheet, setShowInviteSheet] = useState(autoInvite === '1')
   const [inviteSearch, setInviteSearch] = useState('')
+  const [addedUserIds, setAddedUserIds] = useState<Set<string>>(new Set())
 
   // Channel info
   const { data: channel } = useQuery({
@@ -177,7 +179,8 @@ export default function ChannelMembersScreen() {
         method: 'POST',
         body: JSON.stringify({ userId }),
       }),
-    onSuccess: () => {
+    onSuccess: (_data, userId) => {
+      setAddedUserIds((prev) => new Set(prev).add(userId))
       queryClient.invalidateQueries({ queryKey: ['channel-members', channelId] })
     },
   })
@@ -196,7 +199,10 @@ export default function ChannelMembersScreen() {
         })
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, agent) => {
+      if (agent.botUser?.id) {
+        setAddedUserIds((prev) => new Set(prev).add(agent.botUser!.id))
+      }
       queryClient.invalidateQueries({ queryKey: ['channel-members', channelId] })
       queryClient.invalidateQueries({ queryKey: ['server-members-for-invite'] })
     },
@@ -431,32 +437,55 @@ export default function ChannelMembersScreen() {
                     <Text style={[styles.inviteSectionTitle, { color: colors.textMuted }]}>
                       {t('members.serverMembers', '服务器成员')}
                     </Text>
-                    {invitableServerMembers.map((m) => (
-                      <View
-                        key={m.user.id}
-                        style={[styles.inviteMemberRow, { borderBottomColor: colors.border }]}
-                      >
-                        <Avatar
-                          uri={m.user.avatarUrl}
-                          name={m.user.displayName || m.user.username}
-                          size={36}
-                          userId={m.user.id}
-                        />
-                        <Text
-                          style={[styles.inviteMemberName, { color: colors.text }]}
-                          numberOfLines={1}
+                    {invitableServerMembers.map((m) => {
+                      const isPending =
+                        inviteMember.isPending && inviteMember.variables === m.user.id
+                      const isAdded = addedUserIds.has(m.user.id)
+                      return (
+                        <View
+                          key={m.user.id}
+                          style={[styles.inviteMemberRow, { borderBottomColor: colors.border }]}
                         >
-                          {m.user.displayName || m.user.username}
-                        </Text>
-                        <Pressable
-                          style={[styles.inviteBtn, { backgroundColor: colors.primary }]}
-                          onPress={() => inviteMember.mutate(m.user.id)}
-                        >
-                          <Plus size={14} color="#fff" />
-                          <Text style={styles.inviteBtnText}>{t('common.invite', '邀请')}</Text>
-                        </Pressable>
-                      </View>
-                    ))}
+                          <Avatar
+                            uri={m.user.avatarUrl}
+                            name={m.user.displayName || m.user.username}
+                            size={36}
+                            userId={m.user.id}
+                          />
+                          <Text
+                            style={[styles.inviteMemberName, { color: colors.text }]}
+                            numberOfLines={1}
+                          >
+                            {m.user.displayName || m.user.username}
+                          </Text>
+                          {isAdded ? (
+                            <View style={[styles.inviteBtn, { backgroundColor: '#23a55920' }]}>
+                              <Check size={14} color="#23a559" />
+                            </View>
+                          ) : (
+                            <Pressable
+                              style={[
+                                styles.inviteBtn,
+                                { backgroundColor: colors.primary, opacity: isPending ? 0.6 : 1 },
+                              ]}
+                              onPress={() => inviteMember.mutate(m.user.id)}
+                              disabled={isPending}
+                            >
+                              {isPending ? (
+                                <ActivityIndicator size="small" color="#fff" />
+                              ) : (
+                                <>
+                                  <Plus size={14} color="#fff" />
+                                  <Text style={styles.inviteBtnText}>
+                                    {t('common.invite', '邀请')}
+                                  </Text>
+                                </>
+                              )}
+                            </Pressable>
+                          )}
+                        </View>
+                      )
+                    })}
                   </>
                 )}
 
@@ -466,34 +495,57 @@ export default function ChannelMembersScreen() {
                     <Text style={[styles.inviteSectionTitle, { color: colors.textMuted }]}>
                       {t('members.serverBuddies', '服务器 Buddy')}
                     </Text>
-                    {serverBotsNotInChannel.map((m) => (
-                      <View
-                        key={m.user.id}
-                        style={[styles.inviteMemberRow, { borderBottomColor: colors.border }]}
-                      >
-                        <Avatar
-                          uri={m.user.avatarUrl}
-                          name={m.user.displayName || m.user.username}
-                          size={36}
-                          userId={m.user.id}
-                        />
-                        <View style={{ flex: 1 }}>
-                          <Text
-                            style={[styles.inviteMemberName, { color: colors.primary }]}
-                            numberOfLines={1}
-                          >
-                            {m.user.displayName || m.user.username}
-                          </Text>
-                        </View>
-                        <Pressable
-                          style={[styles.inviteBtn, { backgroundColor: colors.primary }]}
-                          onPress={() => inviteMember.mutate(m.user.id)}
+                    {serverBotsNotInChannel.map((m) => {
+                      const isPending =
+                        inviteMember.isPending && inviteMember.variables === m.user.id
+                      const isAdded = addedUserIds.has(m.user.id)
+                      return (
+                        <View
+                          key={m.user.id}
+                          style={[styles.inviteMemberRow, { borderBottomColor: colors.border }]}
                         >
-                          <Plus size={14} color="#fff" />
-                          <Text style={styles.inviteBtnText}>{t('common.add', '添加')}</Text>
-                        </Pressable>
-                      </View>
-                    ))}
+                          <Avatar
+                            uri={m.user.avatarUrl}
+                            name={m.user.displayName || m.user.username}
+                            size={36}
+                            userId={m.user.id}
+                          />
+                          <View style={{ flex: 1 }}>
+                            <Text
+                              style={[styles.inviteMemberName, { color: colors.primary }]}
+                              numberOfLines={1}
+                            >
+                              {m.user.displayName || m.user.username}
+                            </Text>
+                          </View>
+                          {isAdded ? (
+                            <View style={[styles.inviteBtn, { backgroundColor: '#23a55920' }]}>
+                              <Check size={14} color="#23a559" />
+                            </View>
+                          ) : (
+                            <Pressable
+                              style={[
+                                styles.inviteBtn,
+                                { backgroundColor: colors.primary, opacity: isPending ? 0.6 : 1 },
+                              ]}
+                              onPress={() => inviteMember.mutate(m.user.id)}
+                              disabled={isPending}
+                            >
+                              {isPending ? (
+                                <ActivityIndicator size="small" color="#fff" />
+                              ) : (
+                                <>
+                                  <Plus size={14} color="#fff" />
+                                  <Text style={styles.inviteBtnText}>
+                                    {t('common.add', '添加')}
+                                  </Text>
+                                </>
+                              )}
+                            </Pressable>
+                          )}
+                        </View>
+                      )
+                    })}
                   </>
                 )}
 
@@ -503,37 +555,60 @@ export default function ChannelMembersScreen() {
                     <Text style={[styles.inviteSectionTitle, { color: colors.textMuted }]}>
                       {t('members.myBuddies', '我的 Buddy')}
                     </Text>
-                    {myAgentsNotOnServer.map((a) => (
-                      <View
-                        key={a.id}
-                        style={[styles.inviteMemberRow, { borderBottomColor: colors.border }]}
-                      >
-                        <Avatar
-                          uri={a.botUser?.avatarUrl ?? null}
-                          name={a.botUser?.displayName || a.botUser?.username || '?'}
-                          size={36}
-                          userId={a.botUser?.id}
-                        />
-                        <View style={{ flex: 1 }}>
-                          <Text
-                            style={[styles.inviteMemberName, { color: colors.primary }]}
-                            numberOfLines={1}
-                          >
-                            {a.botUser?.displayName || a.botUser?.username || '?'}
-                          </Text>
-                          <Text style={{ color: colors.textMuted, fontSize: fontSize.xs }}>
-                            {t('members.notOnServer', '未加入服务器')}
-                          </Text>
-                        </View>
-                        <Pressable
-                          style={[styles.inviteBtn, { backgroundColor: colors.primary }]}
-                          onPress={() => addAgentToServer.mutate(a)}
+                    {myAgentsNotOnServer.map((a) => {
+                      const isPending =
+                        addAgentToServer.isPending && addAgentToServer.variables?.id === a.id
+                      const isAdded = a.botUser?.id ? addedUserIds.has(a.botUser.id) : false
+                      return (
+                        <View
+                          key={a.id}
+                          style={[styles.inviteMemberRow, { borderBottomColor: colors.border }]}
                         >
-                          <Plus size={14} color="#fff" />
-                          <Text style={styles.inviteBtnText}>{t('common.add', '添加')}</Text>
-                        </Pressable>
-                      </View>
-                    ))}
+                          <Avatar
+                            uri={a.botUser?.avatarUrl ?? null}
+                            name={a.botUser?.displayName || a.botUser?.username || '?'}
+                            size={36}
+                            userId={a.botUser?.id}
+                          />
+                          <View style={{ flex: 1 }}>
+                            <Text
+                              style={[styles.inviteMemberName, { color: colors.primary }]}
+                              numberOfLines={1}
+                            >
+                              {a.botUser?.displayName || a.botUser?.username || '?'}
+                            </Text>
+                            <Text style={{ color: colors.textMuted, fontSize: fontSize.xs }}>
+                              {t('members.notOnServer', '未加入服务器')}
+                            </Text>
+                          </View>
+                          {isAdded ? (
+                            <View style={[styles.inviteBtn, { backgroundColor: '#23a55920' }]}>
+                              <Check size={14} color="#23a559" />
+                            </View>
+                          ) : (
+                            <Pressable
+                              style={[
+                                styles.inviteBtn,
+                                { backgroundColor: colors.primary, opacity: isPending ? 0.6 : 1 },
+                              ]}
+                              onPress={() => addAgentToServer.mutate(a)}
+                              disabled={isPending}
+                            >
+                              {isPending ? (
+                                <ActivityIndicator size="small" color="#fff" />
+                              ) : (
+                                <>
+                                  <Plus size={14} color="#fff" />
+                                  <Text style={styles.inviteBtnText}>
+                                    {t('common.add', '添加')}
+                                  </Text>
+                                </>
+                              )}
+                            </Pressable>
+                          )}
+                        </View>
+                      )
+                    })}
                   </>
                 )}
 

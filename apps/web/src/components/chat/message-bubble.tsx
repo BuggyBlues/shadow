@@ -4,12 +4,14 @@ import { enUS, ja, ko, zhCN, zhTW } from 'date-fns/locale'
 import {
   AlertCircle,
   Check,
+  CheckSquare,
   Copy,
   ExternalLink,
   MoreHorizontal,
   Pencil,
   Reply,
   Smile,
+  Square,
   Trash2,
   X,
 } from 'lucide-react'
@@ -93,6 +95,11 @@ export interface MessageBubbleProps {
   deleteApi?: (messageId: string) => Promise<void>
   highlight?: boolean
   replyToMessage?: Message | null
+  /** Multi-select mode */
+  selectionMode?: boolean
+  isSelected?: boolean
+  onToggleSelect?: (messageId: string) => void
+  onEnterSelectionMode?: (messageId: string) => void
 }
 
 const quickEmojis = ['👍', '❤️', '😂', '🎉', '🤔', '👀']
@@ -131,7 +138,7 @@ function CodeBlockWithCopy({ children }: { children: React.ReactNode }) {
 
   const handleCopyCode = () => {
     // Extract text content from the code element inside pre
-    const codeEl = document.createElement('div')
+    const _codeEl = document.createElement('div')
     // Use a temporary container approach to get inner text
     let text = ''
     const extractText = (node: React.ReactNode): string => {
@@ -139,8 +146,14 @@ function CodeBlockWithCopy({ children }: { children: React.ReactNode }) {
       if (typeof node === 'number') return String(node)
       if (!node) return ''
       if (Array.isArray(node)) return node.map(extractText).join('')
-      if (typeof node === 'object' && node !== null && 'props' in (node as unknown as Record<string, unknown>)) {
-        return extractText((node as React.ReactElement<{ children?: React.ReactNode }>).props.children)
+      if (
+        typeof node === 'object' &&
+        node !== null &&
+        'props' in (node as unknown as Record<string, unknown>)
+      ) {
+        return extractText(
+          (node as React.ReactElement<{ children?: React.ReactNode }>).props.children,
+        )
       }
       return ''
     }
@@ -179,6 +192,10 @@ export function MessageBubble({
   deleteApi,
   highlight,
   replyToMessage,
+  selectionMode,
+  isSelected,
+  onToggleSelect,
+  onEnterSelectionMode,
 }: MessageBubbleProps) {
   const { t, i18n } = useTranslation()
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
@@ -426,9 +443,10 @@ export function MessageBubble({
     <div
       ref={messageRef}
       id={`msg-${message.id}`}
-      className={`group relative flex gap-4 px-4 py-1.5 message-row ${isDmOwn ? 'flex-row-reverse' : ''} ${highlight ? 'bg-primary/10 animate-pulse' : 'mt-[2px]'}`}
+      className={`group relative flex gap-4 px-4 py-1.5 message-row ${isDmOwn ? 'flex-row-reverse' : ''} ${highlight ? 'bg-primary/10 animate-pulse' : 'mt-[2px]'} ${isSelected ? 'bg-primary/10' : ''} ${selectionMode ? 'cursor-pointer' : ''}`}
       onMouseEnter={activateHover}
       onMouseLeave={deactivateHover}
+      onClick={selectionMode ? () => onToggleSelect?.(message.id) : undefined}
       onTouchStart={() => {
         longPressTimerRef.current = setTimeout(() => {
           setGlobalActiveMessage(message.id)
@@ -447,6 +465,16 @@ export function MessageBubble({
         }
       }}
     >
+      {/* Selection checkbox */}
+      {selectionMode && (
+        <div className="flex-shrink-0 flex items-center mr-[-8px]">
+          {isSelected ? (
+            <CheckSquare size={18} className="text-primary" />
+          ) : (
+            <Square size={18} className="text-text-muted" />
+          )}
+        </div>
+      )}
       {/* Avatar container */}
       <div
         ref={avatarRef}
@@ -805,6 +833,19 @@ export function MessageBubble({
                         <ExternalLink size={14} />
                         {t('chat.shareLink')}
                       </button>
+                      {onEnterSelectionMode && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowMoreMenu(false)
+                            onEnterSelectionMode(message.id)
+                          }}
+                          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+                        >
+                          <CheckSquare size={14} />
+                          {t('chat.selectMessages', '多选消息')}
+                        </button>
+                      )}
                       {canDelete && (
                         <>
                           <div className="h-px bg-border-subtle my-1" />

@@ -6,7 +6,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { ArrowLeft, Hash, Loader2, LogIn, LogOut, Users } from 'lucide-react'
+import { ArrowLeft, ClipboardCopy, Hash, Loader2, LogIn, LogOut, Users, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSocketEvent } from '../../hooks/use-socket'
@@ -100,6 +100,8 @@ export function ChatArea() {
   const [lastReadCount, setLastReadCount] = useState(0)
   const [highlightMsgId, setHighlightMsgId] = useState<string | null>(null)
   const [systemEvents, setSystemEvents] = useState<SystemEvent[]>([])
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set())
   const [activityUsers, setActivityUsers] = useState<
     { userId: string; username: string; activity: string }[]
   >([])
@@ -546,6 +548,42 @@ export function ChatArea() {
     [addReaction],
   )
 
+  const handleToggleSelect = useCallback((messageId: string) => {
+    setSelectedMessageIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(messageId)) next.delete(messageId)
+      else next.add(messageId)
+      return next
+    })
+  }, [])
+
+  const handleEnterSelectionMode = useCallback((messageId: string) => {
+    setSelectionMode(true)
+    setSelectedMessageIds(new Set([messageId]))
+  }, [])
+
+  const handleExitSelectionMode = useCallback(() => {
+    setSelectionMode(false)
+    setSelectedMessageIds(new Set())
+  }, [])
+
+  const handleCopySelectedAsMarkdown = useCallback(() => {
+    const selectedMsgs = messages
+      .filter((m) => selectedMessageIds.has(m.id))
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    const md = selectedMsgs
+      .map((m) => {
+        const author = m.author?.displayName || m.author?.username || 'Unknown'
+        const time = new Date(m.createdAt).toLocaleString()
+        const attachmentLines = (m.attachments ?? []).map((a) => `  📎 [${a.filename}](${a.url})`)
+        return [`**${author}** (${time})`, m.content, ...attachmentLines].filter(Boolean).join('\n')
+      })
+      .join('\n\n---\n\n')
+    navigator.clipboard.writeText(md)
+    showToast(t('chat.copiedAsMarkdown', '已复制为 Markdown'), 'success')
+    handleExitSelectionMode()
+  }, [messages, selectedMessageIds, t, handleExitSelectionMode])
+
   const handleMessageUpdate = useCallback(
     (msg: Message) => {
       queryClient.setQueryData<InfiniteData<MessagesPage>>(['messages', activeChannelId], (old) => {
@@ -787,6 +825,10 @@ export function ChatArea() {
                             ? (messages.find((m) => m.id === item.data.replyToId) ?? null)
                             : null
                         }
+                        selectionMode={selectionMode}
+                        isSelected={selectedMessageIds.has(item.data.id)}
+                        onToggleSelect={handleToggleSelect}
+                        onEnterSelectionMode={handleEnterSelectionMode}
                       />
                     )}
                   </div>
@@ -842,15 +884,44 @@ export function ChatArea() {
           </div>
         )}
 
-        {/* Message input */}
-        <MessageInput
-          channelId={activeChannelId}
-          channelName={channel?.name}
-          replyToId={replyToId}
-          onClearReply={() => setReplyToId(null)}
-          externalFiles={droppedFiles}
-          onExternalFilesConsumed={() => setDroppedFiles([])}
-        />
+        {/* Message input or selection toolbar */}
+        {selectionMode ? (
+          <div className="px-4 py-3 bg-bg-secondary border-t border-border-subtle flex items-center gap-3">
+            <span className="text-sm text-text-secondary font-medium">
+              {t('chat.selectedCount', {
+                count: selectedMessageIds.size,
+                defaultValue: `已选择 ${selectedMessageIds.size} 条消息`,
+              })}
+            </span>
+            <div className="flex-1" />
+            <button
+              type="button"
+              onClick={handleCopySelectedAsMarkdown}
+              disabled={selectedMessageIds.size === 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-medium transition disabled:opacity-50"
+            >
+              <ClipboardCopy size={14} />
+              {t('chat.copyAsMarkdown', '复制为 Markdown')}
+            </button>
+            <button
+              type="button"
+              onClick={handleExitSelectionMode}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-tertiary hover:bg-bg-modifier-active text-text-secondary rounded-lg text-sm font-medium transition"
+            >
+              <X size={14} />
+              {t('common.cancel')}
+            </button>
+          </div>
+        ) : (
+          <MessageInput
+            channelId={activeChannelId}
+            channelName={channel?.name}
+            replyToId={replyToId}
+            onClearReply={() => setReplyToId(null)}
+            externalFiles={droppedFiles}
+            onExternalFilesConsumed={() => setDroppedFiles([])}
+          />
+        )}
       </div>
 
       {/* File preview panel */}

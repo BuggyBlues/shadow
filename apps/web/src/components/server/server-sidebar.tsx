@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Check, Compass, Copy, Info, LogOut, Plus, UserPlus } from 'lucide-react'
+import { Check, Compass, Copy, Info, Lock, LogOut, Plus, UserPlus } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSocketEvent } from '../../hooks/use-socket'
@@ -13,7 +13,14 @@ import { useUIStore } from '../../stores/ui.store'
 import { useConfirmStore } from '../common/confirm-dialog'
 
 interface ServerEntry {
-  server: { id: string; name: string; slug: string | null; iconUrl: string | null; ownerId: string }
+  server: {
+    id: string
+    name: string
+    slug: string | null
+    iconUrl: string | null
+    ownerId: string
+    isPublic?: boolean
+  }
   member: { role: string }
 }
 
@@ -231,6 +238,11 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
                 <img src={getCatAvatar(i)} alt={s.server.name} className="w-10 h-10" />
               )}
             </button>
+            {s.server.isPublic === false && (
+              <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-bg-secondary flex items-center justify-center shadow-sm">
+                <Lock size={10} className="text-text-muted" />
+              </span>
+            )}
             {(scopedUnread?.serverUnread?.[s.server.id] ?? 0) > 0 &&
               !notificationPreference?.mutedServerIds?.includes(s.server.id) && (
                 <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-danger border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.35)]" />
@@ -387,7 +399,6 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
               }}
               placeholder={t('server.serverName')}
               className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary mb-4"
-              autoFocus
             />
             <div className="flex justify-end gap-3">
               <button
@@ -439,7 +450,6 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
               placeholder={t('server.inviteCodePlaceholder')}
               maxLength={8}
               className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary mb-4 font-mono text-center text-lg tracking-widest"
-              autoFocus
             />
             <div className="flex justify-end gap-3">
               <button
