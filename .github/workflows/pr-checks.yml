@@ -14,9 +14,57 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changed-files:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      server: ${{ steps.filter.outputs.server }}
+      web: ${{ steps.filter.outputs.web }}
+      admin: ${{ steps.filter.outputs.admin }}
+      desktop: ${{ steps.filter.outputs.desktop }}
+      mobile: ${{ steps.filter.outputs.mobile }}
+      packages: ${{ steps.filter.outputs.packages }}
+      ci: ${{ steps.filter.outputs.ci }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Path filter
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            server:
+              - 'apps/server/**'
+              - 'packages/shared/**'
+            web:
+              - 'apps/web/**'
+              - 'packages/shared/**'
+              - 'packages/ui/**'
+            admin:
+              - 'apps/admin/**'
+              - 'packages/shared/**'
+              - 'packages/ui/**'
+            desktop:
+              - 'apps/desktop/**'
+              - 'packages/shared/**'
+              - 'packages/openclaw/**'
+            mobile:
+              - 'apps/mobile/**'
+              - 'packages/shared/**'
+              - 'packages/ui/**'
+            packages:
+              - 'packages/**'
+            ci:
+              - '.github/**'
+              - 'docker-compose*.yml'
+              - 'Dockerfile*'
+              - 'scripts/**'
+
   tests:
     name: Unit/Integration tests
     runs-on: ubuntu-latest
+    needs: changed-files
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -72,7 +120,7 @@ jobs:
 
   report:
     name: PR report comment
-    needs: [tests, e2e]
+    needs: [changed-files, tests, e2e]
     if: always() && github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
@@ -91,8 +139,22 @@ jobs:
           {
             echo "## CI 检查结果"
             echo ""
-            echo "- Tests: **${{ needs.tests.result }}**"
-            echo "- E2E: **${{ needs.e2e.result }}**"
+            echo "| Check | Status |"
+            echo "|-------|--------|"
+            echo "| Tests | **${{ needs.tests.result }}** |"
+            echo "| E2E | **${{ needs.e2e.result }}** |"
+            echo ""
+            echo "### 变更范围"
+            echo ""
+            CHANGES=""
+            [[ "${{ needs.changed-files.outputs.server }}" == "true" ]] && CHANGES="${CHANGES} \`server\`"
+            [[ "${{ needs.changed-files.outputs.web }}" == "true" ]] && CHANGES="${CHANGES} \`web\`"
+            [[ "${{ needs.changed-files.outputs.admin }}" == "true" ]] && CHANGES="${CHANGES} \`admin\`"
+            [[ "${{ needs.changed-files.outputs.desktop }}" == "true" ]] && CHANGES="${CHANGES} \`desktop\`"
+            [[ "${{ needs.changed-files.outputs.mobile }}" == "true" ]] && CHANGES="${CHANGES} \`mobile\`"
+            [[ "${{ needs.changed-files.outputs.packages }}" == "true" ]] && CHANGES="${CHANGES} \`packages\`"
+            [[ "${{ needs.changed-files.outputs.ci }}" == "true" ]] && CHANGES="${CHANGES} \`ci\`"
+            echo "Affected: ${CHANGES:-none}"
             echo ""
             echo "🔎 详情与产物："
             echo "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"

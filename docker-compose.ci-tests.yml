@@ -51,10 +51,26 @@ services:
     command: >-
       bash -lc '
         set -euo pipefail
+
+        echo "=== Lint ==="
         pnpm exec biome lint . --diagnostic-level=error
+
+        echo "=== Version consistency ==="
         pnpm check:sdk-versions
+
+        echo "=== Workspace dependency check ==="
+        node scripts/check-workspace-deps.mjs
+
+        echo "=== Pre-push checks ==="
+        node scripts/pre-push-checks.mjs
+
+        echo "=== Database migration ==="
         pnpm --filter @shadowob/server db:migrate
+
+        echo "=== Package tests ==="
         pnpm -r --filter "@shadowob/*" exec vitest run --passWithNoTests
+
+        echo "=== Root tests ==="
         pnpm exec vitest run --passWithNoTests
       '
 
