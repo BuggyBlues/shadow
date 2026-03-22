@@ -21,7 +21,7 @@
     "@shadowob/shared": "workspace:*",
     "@types/archiver": "^7.0.0",
     "archiver": "^7.0.1",
-    "awilix": "^12.0.6",
+    "awilix": "^13.0.3",
     "bcryptjs": "^3.0.2",
     "dotenv": "^17.3.1",
     "drizzle-orm": "^0.44.2",
