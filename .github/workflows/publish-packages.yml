@@ -68,8 +68,11 @@ jobs:
           git config --global url."https://github.com/".insteadOf git@github.com:
           git config --global url."https://github.com/".insteadOf ssh://git@github.com/
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Install SDK workspace dependencies
+        run: |
+          pnpm install --frozen-lockfile \
+            --filter @shadowob/sdk... \
+            --filter @shadowob/shared...
 
       - name: Verify SDK versions before bump
         run: pnpm check:sdk-versions
