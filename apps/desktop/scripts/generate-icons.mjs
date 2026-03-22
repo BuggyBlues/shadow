@@ -77,9 +77,7 @@ async function generateAppIcons() {
 
   // Windows .ico — full-bleed (no padding)
   const icoSizes = [16, 32, 48, 256]
-  const pngBuffers = await Promise.all(
-    icoSizes.map((s) => renderFullBleedIcon(s).toBuffer()),
-  )
+  const pngBuffers = await Promise.all(icoSizes.map((s) => renderFullBleedIcon(s).toBuffer()))
   writeFileSync(join(assetsDir, 'icon.ico'), buildIco(pngBuffers, icoSizes))
   console.log('✓ icon.ico (Windows)')
 }

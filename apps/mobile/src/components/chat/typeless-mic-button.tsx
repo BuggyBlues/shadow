@@ -1,7 +1,8 @@
 import { Mic } from 'lucide-react-native'
-import { memo } from 'react'
+import { memo, useEffect } from 'react'
 import { Pressable, StyleSheet, View } from 'react-native'
 import Animated, {
+  cancelAnimation,
   Easing,
   useAnimatedStyle,
   useSharedValue,
@@ -34,30 +35,35 @@ export const TypelessMicButton = memo(function TypelessMicButton({
   const pulseScale = useSharedValue(1)
   const pulseOpacity = useSharedValue(0)
 
-  // Update animations based on recording state
-  if (isHolding) {
-    scale.value = withSpring(1.15, { damping: 10, stiffness: 200 })
-    pulseScale.value = withRepeat(
-      withSequence(
-        withTiming(1.5, { duration: 600, easing: Easing.out(Easing.ease) }),
-        withTiming(1.5, { duration: 200 }),
-      ),
-      -1,
-      false,
-    )
-    pulseOpacity.value = withRepeat(
-      withSequence(
-        withTiming(0.6, { duration: 600, easing: Easing.out(Easing.ease) }),
-        withTiming(0, { duration: 200 }),
-      ),
-      -1,
-      false,
-    )
-  } else {
+  // Update animations based on recording state (must not write shared values in render)
+  useEffect(() => {
+    if (isHolding) {
+      scale.value = withSpring(1.15, { damping: 10, stiffness: 200 })
+      pulseScale.value = withRepeat(
+        withSequence(
+          withTiming(1.5, { duration: 600, easing: Easing.out(Easing.ease) }),
+          withTiming(1.5, { duration: 200 }),
+        ),
+        -1,
+        false,
+      )
+      pulseOpacity.value = withRepeat(
+        withSequence(
+          withTiming(0.6, { duration: 600, easing: Easing.out(Easing.ease) }),
+          withTiming(0, { duration: 200 }),
+        ),
+        -1,
+        false,
+      )
+      return
+    }
+
+    cancelAnimation(pulseScale)
+    cancelAnimation(pulseOpacity)
     scale.value = withSpring(1, { damping: 15, stiffness: 300 })
-    pulseScale.value = 1
-    pulseOpacity.value = 0
-  }
+    pulseScale.value = withTiming(1, { duration: 120 })
+    pulseOpacity.value = withTiming(0, { duration: 120 })
+  }, [isHolding, pulseOpacity, pulseScale, scale])
 
   const buttonAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],

@@ -83,18 +83,35 @@ export class AgentDao {
     await this.db.delete(agents).where(eq(agents.id, id))
   }
 
-  /** 创建 Agent 关联的 bot user */
+  /** 创建 Agent 关联的 bot user，username冲突时自动加随机短缀 */
   async createBotUser(data: { username: string; displayName: string }) {
-    const result = await this.db
-      .insert(users)
-      .values({
-        email: `${data.username}@shadowob.bot`,
-        username: data.username,
-        displayName: data.displayName,
-        passwordHash: 'bot-no-password',
-        isBot: true,
-      })
-      .returning()
-    return result[0]
+    const maxRetries = 5
+    let username = data.username
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const result = await this.db
+          .insert(users)
+          .values({
+            email: `${username}@shadowob.bot`,
+            username,
+            displayName: data.displayName,
+            passwordHash: 'bot-no-password',
+            isBot: true,
+          })
+          .returning()
+        return result[0]
+      } catch (err: unknown) {
+        // Drizzle may wrap the pg error; check code on the error itself or via cause
+        const pgCode =
+          (err as { code?: string })?.code ?? (err as { cause?: { code?: string } })?.cause?.code
+        const isUniqueViolation =
+          pgCode === '23505' ||
+          (err instanceof Error && /unique.*constraint|duplicate key/i.test(err.message))
+        if (!isUniqueViolation || attempt === maxRetries - 1) throw err
+        // Append random 4-char suffix, keeping within 32-char limit
+        const suffix = Math.random().toString(36).slice(2, 6)
+        username = `${data.username.slice(0, 27)}_${suffix}`
+      }
+    }
   }
 }

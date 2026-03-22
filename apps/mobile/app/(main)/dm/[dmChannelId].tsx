@@ -1,8 +1,9 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
+import * as Clipboard from 'expo-clipboard'
 import * as DocumentPicker from 'expo-document-picker'
 import * as ImagePicker from 'expo-image-picker'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { ChevronDown, ChevronLeft } from 'lucide-react-native'
+import { ChevronDown, ChevronLeft, Copy } from 'lucide-react-native'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -28,7 +29,7 @@ import { fetchApi } from '../../../src/lib/api'
 import { getSocket, joinDm, leaveDm, sendDmMessage, sendDmTyping } from '../../../src/lib/socket'
 import { playReceiveSound, playSendSound } from '../../../src/lib/sounds'
 import { useAuthStore } from '../../../src/stores/auth.store'
-import { fontSize, spacing, useColors } from '../../../src/theme'
+import { fontSize, radius, spacing, useColors } from '../../../src/theme'
 import type { Message, MessagesPage } from '../../../src/types/message'
 import { normalizeMessage } from '../../../src/types/message'
 
@@ -73,6 +74,8 @@ export default function DmChatScreen() {
   const [showInputEmojiPicker, setShowInputEmojiPicker] = useState(false)
   const [showPlusMenu, setShowPlusMenu] = useState(false)
   const [keyboardVisible, setKeyboardVisible] = useState(false)
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set())
 
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const typingUsersTimeout = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
@@ -622,6 +625,7 @@ export default function DmChatScreen() {
         data={messages}
         keyExtractor={(item) => item.id}
         inverted
+        extraData={selectionMode ? selectedMessageIds : null}
         renderItem={({ item, index }) => {
           const prevMsg = messages[index + 1]
           const isGrouped =
@@ -638,6 +642,20 @@ export default function DmChatScreen() {
               isGrouped={isGrouped}
               variant="dm"
               dmChannelId={dmChannelId}
+              selectionMode={selectionMode}
+              isSelected={selectedMessageIds.has(item.id)}
+              onToggleSelect={(id) => {
+                setSelectedMessageIds((prev) => {
+                  const next = new Set(prev)
+                  if (next.has(id)) next.delete(id)
+                  else next.add(id)
+                  return next
+                })
+              }}
+              onEnterSelectionMode={(id) => {
+                setSelectionMode(true)
+                setSelectedMessageIds(new Set([id]))
+              }}
             />
           )
         }}
@@ -653,6 +671,9 @@ export default function DmChatScreen() {
         contentContainerStyle={styles.listContent}
         onScroll={(e) => setShowScrollBottom(e.nativeEvent.contentOffset.y > 300)}
         scrollEventThrottle={32}
+        onScrollBeginDrag={() => Keyboard.dismiss()}
+        keyboardDismissMode="interactive"
+        keyboardShouldPersistTaps="handled"
       />
 
       {showScrollBottom && (
@@ -667,30 +688,101 @@ export default function DmChatScreen() {
         </Pressable>
       )}
 
-      <ChatComposer
-        inputText={inputText}
-        onInputChange={handleInputChange}
-        onSend={handleSend}
-        inputRef={inputRef}
-        pendingFiles={pendingFiles}
-        onRemovePendingFile={removePendingFile}
-        replyTo={replyTo}
-        onClearReply={() => setReplyTo(null)}
-        typingUsers={typingUsers}
-        isRecording={isRecording}
-        voiceTranscript={voiceTranscript}
-        keyboardVisible={keyboardVisible}
-        insetsBottom={insets.bottom}
-        onToggleVoice={toggleVoiceInput}
-        showAtButton={false}
-        showEmojiPicker={showInputEmojiPicker}
-        setShowEmojiPicker={setShowInputEmojiPicker}
-        showPlusMenu={showPlusMenu}
-        setShowPlusMenu={setShowPlusMenu}
-        onPickImage={handlePickImage}
-        onPickFile={handlePickFile}
-        onTakePhoto={handleTakePhoto}
-      />
+      {selectionMode ? (
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: spacing.md,
+            paddingVertical: spacing.sm,
+            paddingBottom: insets.bottom + spacing.sm,
+            backgroundColor: colors.surface,
+            borderTopWidth: StyleSheet.hairlineWidth,
+            borderTopColor: colors.border,
+            gap: spacing.sm,
+          }}
+        >
+          <Text style={{ color: colors.textSecondary, fontSize: fontSize.sm, flex: 1 }}>
+            {t('chat.selectedCount', {
+              count: selectedMessageIds.size,
+              defaultValue: `已选 ${selectedMessageIds.size} 条`,
+            })}
+          </Text>
+          <Pressable
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 4,
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.sm,
+              backgroundColor: colors.primary,
+              borderRadius: radius.md,
+              opacity: selectedMessageIds.size === 0 ? 0.5 : 1,
+            }}
+            onPress={async () => {
+              const sorted = messages
+                .filter((m) => selectedMessageIds.has(m.id))
+                .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+              const md = sorted
+                .map((m) => {
+                  const author = m.author?.displayName || m.author?.username || 'Unknown'
+                  return `**${author}**\n${m.content}`
+                })
+                .join('\n\n---\n\n')
+              await Clipboard.setStringAsync(md)
+              setSelectionMode(false)
+              setSelectedMessageIds(new Set())
+            }}
+            disabled={selectedMessageIds.size === 0}
+          >
+            <Copy size={14} color="#fff" />
+            <Text style={{ color: '#fff', fontWeight: '600', fontSize: fontSize.sm }}>
+              Markdown
+            </Text>
+          </Pressable>
+          <Pressable
+            style={{
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.sm,
+              backgroundColor: colors.inputBackground,
+              borderRadius: radius.md,
+            }}
+            onPress={() => {
+              setSelectionMode(false)
+              setSelectedMessageIds(new Set())
+            }}
+          >
+            <Text style={{ color: colors.textSecondary, fontSize: fontSize.sm }}>
+              {t('common.cancel', '取消')}
+            </Text>
+          </Pressable>
+        </View>
+      ) : (
+        <ChatComposer
+          inputText={inputText}
+          onInputChange={handleInputChange}
+          onSend={handleSend}
+          inputRef={inputRef}
+          pendingFiles={pendingFiles}
+          onRemovePendingFile={removePendingFile}
+          replyTo={replyTo}
+          onClearReply={() => setReplyTo(null)}
+          typingUsers={typingUsers}
+          isRecording={isRecording}
+          voiceTranscript={voiceTranscript}
+          keyboardVisible={keyboardVisible}
+          insetsBottom={insets.bottom}
+          onToggleVoice={toggleVoiceInput}
+          showAtButton={false}
+          showEmojiPicker={showInputEmojiPicker}
+          setShowEmojiPicker={setShowInputEmojiPicker}
+          showPlusMenu={showPlusMenu}
+          setShowPlusMenu={setShowPlusMenu}
+          onPickImage={handlePickImage}
+          onPickFile={handlePickFile}
+          onTakePhoto={handleTakePhoto}
+        />
+      )}
     </KeyboardAvoidingView>
   )
 }

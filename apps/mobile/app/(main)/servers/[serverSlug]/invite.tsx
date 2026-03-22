@@ -1,10 +1,11 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as Clipboard from 'expo-clipboard'
 import { useLocalSearchParams } from 'expo-router'
-import { Check, Copy, Link2, Plus, Share2, Trash2, X } from 'lucide-react-native'
+import { Check, Copy, Link2, Plus, Send, Share2, Trash2, UserPlus, X } from 'lucide-react-native'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
+  ActivityIndicator,
   Alert,
   Platform,
   Pressable,
@@ -15,14 +16,31 @@ import {
   TextInput,
   View,
 } from 'react-native'
+import { Avatar } from '../../../../src/components/common/avatar'
 import { LoadingScreen } from '../../../../src/components/common/loading-screen'
-import { fetchApi } from '../../../../src/lib/api'
+import { fetchApi, getImageUrl } from '../../../../src/lib/api'
 import { fontSize, radius, spacing, useColors } from '../../../../src/theme'
+
+interface FriendUser {
+  id: string
+  username: string
+  displayName: string | null
+  avatarUrl: string | null
+  status: string | null
+}
+
+interface FriendEntry {
+  friendshipId: string
+  source: 'friend' | 'owned_claw' | 'rented_claw'
+  user: FriendUser
+  createdAt: string
+}
 
 export default function ServerInviteScreen() {
   const { serverSlug } = useLocalSearchParams<{ serverSlug: string }>()
   const { t } = useTranslation()
   const colors = useColors()
+  const _queryClient = useQueryClient()
   // biome-ignore lint/suspicious/noExplicitAny: invite code shape varies
   const [codes, setCodes] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -30,11 +48,41 @@ export default function ServerInviteScreen() {
   const [note, setNote] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set())
 
   const { data: server } = useQuery({
     queryKey: ['server', serverSlug],
-    queryFn: () => fetchApi<{ id: string; name: string }>(`/api/servers/${serverSlug}`),
+    queryFn: () =>
+      fetchApi<{ id: string; name: string; inviteCode: string }>(`/api/servers/${serverSlug}`),
     enabled: !!serverSlug,
+  })
+
+  const { data: friends = [] } = useQuery({
+    queryKey: ['friends'],
+    queryFn: () => fetchApi<FriendEntry[]>('/api/friends'),
+  })
+
+  const { data: members = [] } = useQuery({
+    queryKey: ['server-members', serverSlug],
+    queryFn: () => fetchApi<{ userId: string }[]>(`/api/servers/${serverSlug}/members`),
+    enabled: !!serverSlug,
+  })
+
+  const memberIds = new Set(members.map((m) => m.userId))
+  const invitableFriends = friends.filter((f) => !memberIds.has(f.user.id))
+
+  const inviteMutation = useMutation({
+    mutationFn: (userId: string) =>
+      fetchApi(`/api/servers/${serverSlug}/invite-member`, {
+        method: 'POST',
+        body: JSON.stringify({ userId }),
+      }),
+    onSuccess: (_data, userId) => {
+      setInvitedIds((prev) => new Set(prev).add(userId))
+    },
+    onError: (err: Error) => {
+      Alert.alert(t('common.error', 'Error'), err.message)
+    },
   })
 
   const fetchCodes = useCallback(async () => {
@@ -110,6 +158,141 @@ export default function ServerInviteScreen() {
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.content}
     >
+      {/* Server invite link section */}
+      {server && (
+        <View
+          style={[
+            styles.serverInviteCard,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
+          <Text style={[styles.serverInviteTitle, { color: colors.text }]}>
+            {t('members.serverInviteLink', '服务器邀请链接')}
+          </Text>
+          <View style={styles.serverInviteLinkRow}>
+            <Text
+              style={[styles.serverInviteLink, { color: colors.primary }]}
+              numberOfLines={1}
+              selectable
+            >
+              https://shadowob.com/app/invite/{server.inviteCode ?? ''}
+            </Text>
+          </View>
+          <View style={styles.serverInviteActions}>
+            <Pressable
+              style={[styles.serverInviteBtn, { backgroundColor: colors.primary }]}
+              onPress={async () => {
+                await Clipboard.setStringAsync(
+                  `https://shadowob.com/app/invite/${server.inviteCode ?? ''}`,
+                )
+                setCopiedId('server-link')
+                setTimeout(() => setCopiedId(null), 2000)
+              }}
+            >
+              {copiedId === 'server-link' ? (
+                <Check size={14} color="#fff" />
+              ) : (
+                <Copy size={14} color="#fff" />
+              )}
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: fontSize.sm }}>
+                {copiedId === 'server-link'
+                  ? t('common.copied', '已复制')
+                  : t('common.copy', '复制')}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.serverInviteBtn,
+                { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+              ]}
+              onPress={async () => {
+                const inviteLink = `https://shadowob.com/app/invite/${server.inviteCode ?? ''}`
+                await Share.share(
+                  Platform.OS === 'ios'
+                    ? {
+                        message: `${t('members.joinServer', { serverName: server.name, defaultValue: `Join "${server.name}" on Shadow!` })} ${inviteLink}`,
+                      }
+                    : { message: inviteLink, title: server.name },
+                )
+              }}
+            >
+              <Share2 size={14} color={colors.text} />
+              <Text style={{ color: colors.text, fontWeight: '700', fontSize: fontSize.sm }}>
+                {t('common.share', '分享')}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+
+      {/* Invite friends / Buddy section */}
+      {invitableFriends.length > 0 && (
+        <View style={{ marginBottom: spacing.md }}>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+            <UserPlus size={14} color={colors.textSecondary} />{' '}
+            {t('members.inviteFriendsAndBuddies', '邀请好友 / Buddy')}
+          </Text>
+          <View
+            style={[
+              styles.serverInviteCard,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            {invitableFriends.map((f) => {
+              const invited = invitedIds.has(f.user.id)
+              const isPending = inviteMutation.isPending && inviteMutation.variables === f.user.id
+              return (
+                <View key={f.user.id} style={styles.friendRow}>
+                  <Avatar
+                    uri={f.user.avatarUrl ? getImageUrl(f.user.avatarUrl) : undefined}
+                    name={f.user.displayName || f.user.username}
+                    size={36}
+                  />
+                  <Text style={[styles.friendName, { color: colors.text }]} numberOfLines={1}>
+                    {f.user.displayName || f.user.username}
+                  </Text>
+                  <Pressable
+                    style={[
+                      styles.inviteBtn,
+                      {
+                        backgroundColor: invited ? colors.surface : colors.primary,
+                        borderWidth: invited ? 1 : 0,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    disabled={invited || isPending}
+                    onPress={() => inviteMutation.mutate(f.user.id)}
+                  >
+                    {isPending ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : invited ? (
+                      <Check size={14} color={colors.textSecondary} />
+                    ) : (
+                      <Send size={14} color="#fff" />
+                    )}
+                    <Text
+                      style={{
+                        color: invited ? colors.textSecondary : '#fff',
+                        fontWeight: '600',
+                        fontSize: fontSize.sm,
+                        marginLeft: 4,
+                      }}
+                    >
+                      {invited ? t('members.invited', '已邀请') : t('members.invite', '邀请')}
+                    </Text>
+                  </Pressable>
+                </View>
+              )
+            })}
+          </View>
+        </View>
+      )}
+
+      {/* Personal invite codes section */}
+      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+        {t('settings.personalInviteCodes', '个人邀请码')}
+      </Text>
+
       {/* Create invite code */}
       <Pressable
         style={[styles.createBtn, { backgroundColor: colors.primary }]}
@@ -288,5 +471,64 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  serverInviteCard: {
+    padding: spacing.lg,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    marginBottom: spacing.lg,
+    gap: spacing.md,
+  },
+  serverInviteTitle: {
+    fontSize: fontSize.md,
+    fontWeight: '700',
+  },
+  serverInviteLinkRow: {
+    padding: spacing.md,
+    borderRadius: radius.md,
+  },
+  serverInviteLink: {
+    fontSize: fontSize.sm,
+    fontFamily: 'monospace',
+  },
+  serverInviteActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  serverInviteBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+  },
+  sectionTitle: {
+    fontSize: fontSize.xs,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: spacing.sm,
+  },
+  friendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+  },
+  friendName: {
+    flex: 1,
+    fontSize: fontSize.md,
+    fontWeight: '500',
+  },
+  inviteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.md,
+    gap: 4,
   },
 })

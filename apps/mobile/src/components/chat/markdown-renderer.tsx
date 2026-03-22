@@ -1,222 +1,345 @@
 import * as Clipboard from 'expo-clipboard'
-import { Image } from 'expo-image'
 import { useRouter } from 'expo-router'
 import { Check, Copy } from 'lucide-react-native'
-import { useMemo, useState } from 'react'
-import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
-import Markdown, { type RenderRules } from 'react-native-markdown-display'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { EnrichedMarkdownText, type MarkdownStyle } from 'react-native-enriched-markdown'
+import { showToast } from '../../lib/toast'
+import type { ColorTokens } from '../../theme'
 import { useColors } from '../../theme'
 
-interface MarkdownRendererProps {
+// ----- Code block parsing -----
+
+interface TextSegment {
+  type: 'text'
   content: string
-  /** Map of username → userId for @mention navigation */
-  mentionMap?: Map<string, string>
+}
+interface CodeSegment {
+  type: 'code'
+  content: string
+  language?: string
+}
+type Segment = TextSegment | CodeSegment
+
+const CODE_FENCE_RE = /^```(\w*)\n([\s\S]*?)\n```$/gm
+
+function parseSegments(markdown: string): Segment[] {
+  const segments: Segment[] = []
+  let lastIndex = 0
+  for (const match of markdown.matchAll(CODE_FENCE_RE)) {
+    const idx = match.index!
+    if (idx > lastIndex) {
+      const text = markdown.slice(lastIndex, idx)
+      if (text.trim()) segments.push({ type: 'text', content: text })
+    }
+    segments.push({ type: 'code', content: match[2]!, language: match[1] || undefined })
+    lastIndex = idx + match[0].length
+  }
+  if (lastIndex < markdown.length) {
+    const text = markdown.slice(lastIndex)
+    if (text.trim()) segments.push({ type: 'text', content: text })
+  }
+  return segments
 }
 
-function CodeBlockWithCopy({
+// ----- Code block with copy button -----
+
+function CodeBlock({
   code,
-  style,
+  language,
   colors,
 }: {
   code: string
-  style: Record<string, unknown>
-  colors: { textMuted: string; inputBackground: string }
+  language?: string
+  colors: ColorTokens
 }) {
   const [copied, setCopied] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout>>()
 
-  const handleCopy = async () => {
+  const handleCopy = useCallback(async () => {
     await Clipboard.setStringAsync(code)
     setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
+    showToast('已复制', 'success')
+    timerRef.current = setTimeout(() => setCopied(false), 2000)
+  }, [code])
+
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    },
+    [],
+  )
 
   return (
-    <View style={codeBlockStyles.wrapper}>
-      <Text style={style} selectable>
-        {code}
-      </Text>
-      <Pressable
-        style={[codeBlockStyles.copyBtn, { backgroundColor: colors.inputBackground }]}
-        onPress={handleCopy}
-        hitSlop={8}
-      >
-        {copied ? (
-          <Check size={14} color={colors.textMuted} />
-        ) : (
-          <Copy size={14} color={colors.textMuted} />
-        )}
-      </Pressable>
+    <View
+      style={[
+        codeStyles.container,
+        { backgroundColor: colors.surface, borderColor: colors.border },
+      ]}
+    >
+      <View style={[codeStyles.header, { borderBottomColor: colors.border }]}>
+        <Text style={[codeStyles.language, { color: colors.textMuted }]}>{language || 'code'}</Text>
+        <Pressable onPress={handleCopy} hitSlop={8} style={codeStyles.copyBtn}>
+          {copied ? (
+            <Check size={14} color={colors.success} />
+          ) : (
+            <Copy size={14} color={colors.textMuted} />
+          )}
+        </Pressable>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={codeStyles.scrollView}>
+        <Text style={[codeStyles.code, { color: colors.text }]} selectable>
+          {code}
+        </Text>
+      </ScrollView>
     </View>
   )
 }
 
-const codeBlockStyles = StyleSheet.create({
-  wrapper: {
-    position: 'relative',
+const codeStyles = StyleSheet.create({
+  container: {
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginVertical: 4,
+    overflow: 'hidden',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  language: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   copyBtn: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
     padding: 4,
-    borderRadius: 4,
+  },
+  scrollView: {
+    padding: 12,
+  },
+  code: {
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontSize: 13,
+    lineHeight: 18,
   },
 })
 
-export function MarkdownRenderer({ content, mentionMap }: MarkdownRendererProps) {
+// ----- Main renderer -----
+
+interface MarkdownRendererProps {
+  content: string
+  mentionMap?: Map<string, string>
+  selectable?: boolean
+}
+
+export function MarkdownRenderer({
+  content,
+  mentionMap,
+  selectable = true,
+}: MarkdownRendererProps) {
   const colors = useColors()
   const router = useRouter()
 
-  // Pre-process @mentions into markdown links for the renderer
+  // Pre-process @mentions into markdown links
   const processedContent = useMemo(() => {
     if (!content || content === '\u200B') return ''
     return content.replace(/@(\w+)/g, (_match, username) => {
       const userId = mentionMap?.get(username)
-      if (userId) {
-        return `[@${username}](mention://${userId})`
-      }
+      if (userId) return `[@${username}](mention://${userId})`
       return `**@${username}**`
     })
   }, [content, mentionMap])
 
-  const markdownStyles = useMemo(
-    () =>
-      StyleSheet.create({
-        body: {
-          color: colors.text,
-          fontSize: 15,
-          lineHeight: 22,
-        },
-        heading1: { color: colors.text, fontSize: 22, fontWeight: '700', marginVertical: 6 },
-        heading2: { color: colors.text, fontSize: 20, fontWeight: '700', marginVertical: 5 },
-        heading3: { color: colors.text, fontSize: 18, fontWeight: '700', marginVertical: 4 },
-        heading4: { color: colors.text, fontSize: 16, fontWeight: '700', marginVertical: 3 },
-        heading5: { color: colors.text, fontSize: 15, fontWeight: '700', marginVertical: 2 },
-        heading6: { color: colors.text, fontSize: 14, fontWeight: '700', marginVertical: 2 },
-        strong: { fontWeight: '700' },
-        em: { fontStyle: 'italic' },
-        s: { textDecorationLine: 'line-through', color: colors.textMuted },
-        link: { color: colors.primary, textDecorationLine: 'underline' },
-        blockquote: {
-          backgroundColor: `${colors.primary}08`,
-          borderLeftWidth: 3,
-          borderLeftColor: colors.primary,
-          paddingLeft: 10,
-          paddingVertical: 4,
-          marginVertical: 4,
-        },
-        code_inline: {
-          fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-          fontSize: 13,
-          backgroundColor: colors.inputBackground,
-          color: colors.text,
-          paddingHorizontal: 5,
-          paddingVertical: 2,
-          borderRadius: 4,
-        },
-        code_block: {
-          fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-          fontSize: 13,
-          backgroundColor: colors.inputBackground,
-          color: colors.text,
-          padding: 10,
-          borderRadius: 8,
-          marginVertical: 4,
-          lineHeight: 18,
-        },
-        fence: {
-          fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-          fontSize: 13,
-          backgroundColor: colors.inputBackground,
-          color: colors.text,
-          padding: 10,
-          borderRadius: 8,
-          marginVertical: 4,
-          lineHeight: 18,
-        },
-        table: {
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: 6,
-          marginVertical: 4,
-        },
-        thead: { backgroundColor: colors.inputBackground },
-        th: {
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border,
-          padding: 6,
-          fontWeight: '700',
-          color: colors.text,
-          fontSize: 13,
-        },
-        td: {
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border,
-          padding: 6,
-          color: colors.text,
-          fontSize: 13,
-        },
-        tr: { borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-        bullet_list: { marginVertical: 2 },
-        ordered_list: { marginVertical: 2 },
-        list_item: { marginVertical: 1 },
-        bullet_list_icon: { color: colors.textMuted, fontSize: 14, marginRight: 6 },
-        ordered_list_icon: { color: colors.textMuted, fontSize: 13, marginRight: 6 },
-        hr: {
-          backgroundColor: colors.border,
-          height: 1,
-          marginVertical: 8,
-        },
-        paragraph: {
-          marginTop: 0,
-          marginBottom: 2,
-        },
-        image: {
-          borderRadius: 8,
-        },
-      }),
-    [colors],
-  )
+  // Parse into segments
+  const segments = useMemo(() => parseSegments(processedContent), [processedContent])
+  const hasCodeBlocks = segments.some((s) => s.type === 'code')
 
-  const rules: RenderRules = useMemo(
+  const markdownStyle = useMemo<MarkdownStyle>(
     () => ({
-      image: (node) => {
-        const src = node.attributes?.src
-        if (!src) return null
-        return (
-          <Image
-            key={node.key}
-            source={{ uri: src }}
-            style={{ width: '100%', maxWidth: 320, height: 200, borderRadius: 8 }}
-            contentFit="cover"
-          />
-        )
+      paragraph: {
+        color: colors.text,
+        fontSize: 15,
+        lineHeight: 22,
+        marginTop: 0,
+        marginBottom: 2,
       },
-      fence: (node, _children, _parent, styles) => {
-        const code = node.content || ''
-        return <CodeBlockWithCopy key={node.key} code={code} style={styles.fence} colors={colors} />
+      h1: {
+        color: colors.text,
+        fontSize: 22,
+        fontWeight: '700',
+        marginTop: 8,
+        marginBottom: 4,
+      },
+      h2: {
+        color: colors.text,
+        fontSize: 20,
+        fontWeight: '700',
+        marginTop: 6,
+        marginBottom: 4,
+      },
+      h3: {
+        color: colors.text,
+        fontSize: 18,
+        fontWeight: '600',
+        marginTop: 5,
+        marginBottom: 3,
+      },
+      h4: {
+        color: colors.text,
+        fontSize: 16,
+        fontWeight: '600',
+        marginTop: 4,
+        marginBottom: 2,
+      },
+      h5: {
+        color: colors.text,
+        fontSize: 15,
+        fontWeight: '600',
+        marginTop: 3,
+        marginBottom: 2,
+      },
+      h6: {
+        color: colors.text,
+        fontSize: 14,
+        fontWeight: '600',
+        marginTop: 2,
+        marginBottom: 2,
+      },
+      strong: { fontWeight: 'bold' },
+      em: { fontStyle: 'italic' },
+      strikethrough: { color: colors.textMuted },
+      link: { color: colors.primary, underline: true },
+      blockquote: {
+        color: colors.text,
+        borderColor: colors.primary,
+        borderWidth: 3,
+        gapWidth: 10,
+        backgroundColor: `${colors.primary}08`,
+        marginTop: 4,
+        marginBottom: 4,
+      },
+      code: {
+        fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+        fontSize: 13,
+        backgroundColor: colors.surface,
+        color: colors.primary,
+        borderColor: colors.border,
+      },
+      codeBlock: {
+        fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+        fontSize: 13,
+        backgroundColor: colors.surface,
+        color: colors.text,
+        padding: 12,
+        borderRadius: 8,
+        borderColor: colors.border,
+        borderWidth: StyleSheet.hairlineWidth,
+        marginTop: 4,
+        marginBottom: 4,
+        lineHeight: 18,
+      },
+      list: {
+        color: colors.text,
+        fontSize: 15,
+        lineHeight: 22,
+        marginTop: 2,
+        marginBottom: 2,
+        bulletColor: colors.textMuted,
+        markerColor: colors.textMuted,
+      },
+      taskList: {
+        checkedColor: colors.primary,
+        borderColor: colors.textMuted,
+        checkmarkColor: '#FFFFFF',
+        checkedStrikethrough: true,
+        checkedTextColor: colors.textMuted,
+      },
+      table: {
+        fontSize: 13,
+        color: colors.text,
+        borderColor: colors.border,
+        borderRadius: 6,
+        headerBackgroundColor: colors.surface,
+        headerTextColor: colors.text,
+        headerFontFamily: Platform.OS === 'ios' ? 'System-Bold' : 'sans-serif-medium',
+        rowEvenBackgroundColor: 'transparent',
+        rowOddBackgroundColor: `${colors.surface}80`,
+        cellPaddingHorizontal: 8,
+        cellPaddingVertical: 6,
+        marginTop: 4,
+        marginBottom: 4,
+      },
+      thematicBreak: {
+        color: colors.border,
+        height: 1,
+        marginTop: 8,
+        marginBottom: 8,
+      },
+      image: {
+        borderRadius: 8,
+        marginTop: 4,
+        marginBottom: 4,
       },
     }),
     [colors],
   )
 
+  const handleLinkPress = useCallback(
+    ({ url }: { url: string }) => {
+      if (url.startsWith('mention://')) {
+        const userId = url.replace('mention://', '')
+        router.push(`/(main)/profile/${userId}` as never)
+        return
+      }
+      Linking.openURL(url)
+    },
+    [router],
+  )
+
   if (!processedContent) return null
 
+  // No code blocks — render directly (more efficient, single native view)
+  if (!hasCodeBlocks) {
+    return (
+      <EnrichedMarkdownText
+        markdown={processedContent}
+        markdownStyle={markdownStyle}
+        selectable={selectable}
+        flavor="github"
+        onLinkPress={handleLinkPress}
+      />
+    )
+  }
+
+  // Hybrid rendering: code blocks get custom copy-button component
   return (
-    <Markdown
-      style={markdownStyles}
-      rules={rules}
-      onLinkPress={(url: string) => {
-        if (url.startsWith('mention://')) {
-          const userId = url.replace('mention://', '')
-          router.push(`/(main)/profile/${userId}` as never)
-          return false
+    <View>
+      {segments.map((segment, i) => {
+        if (segment.type === 'code') {
+          return (
+            <CodeBlock
+              key={`code-${i}`}
+              code={segment.content}
+              language={segment.language}
+              colors={colors}
+            />
+          )
         }
-        Linking.openURL(url)
-        return false
-      }}
-    >
-      {processedContent}
-    </Markdown>
+        return (
+          <EnrichedMarkdownText
+            key={`text-${i}`}
+            markdown={segment.content}
+            markdownStyle={markdownStyle}
+            selectable={selectable}
+            flavor="github"
+            onLinkPress={handleLinkPress}
+          />
+        )
+      })}
+    </View>
   )
 }

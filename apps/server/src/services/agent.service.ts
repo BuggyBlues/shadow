@@ -16,10 +16,23 @@ export class AgentService {
     ownerId: string
   }) {
     // Create a bot user for the agent with the provided username.
-    const botUser = await this.deps.agentDao.createBotUser({
-      username: data.username,
-      displayName: data.name,
-    })
+    let botUser: Awaited<ReturnType<typeof this.deps.agentDao.createBotUser>>
+    try {
+      botUser = await this.deps.agentDao.createBotUser({
+        username: data.username,
+        displayName: data.name,
+      })
+    } catch (err) {
+      const pgCode =
+        (err as { code?: string })?.code ?? (err as { cause?: { code?: string } })?.cause?.code
+      if (
+        pgCode === '23505' ||
+        (err instanceof Error && /unique.*constraint|duplicate key/i.test(err.message))
+      ) {
+        throw Object.assign(new Error('Username already taken'), { status: 409 })
+      }
+      throw err
+    }
 
     if (!botUser) {
       throw Object.assign(new Error('Username already taken'), { status: 409 })

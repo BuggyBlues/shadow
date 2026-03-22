@@ -1,10 +1,12 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import * as Clipboard from 'expo-clipboard'
 import * as DocumentPicker from 'expo-document-picker'
 import * as ImagePicker from 'expo-image-picker'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import {
   ChevronDown,
   ChevronLeft,
+  Copy,
   File,
   Hash,
   MessageSquare,
@@ -96,6 +98,8 @@ export default function ChannelViewScreen() {
   const [searchHasAttachment, setSearchHasAttachment] = useState(false)
   const [searchTab, setSearchTab] = useState<'messages' | 'members'>('messages')
   const [highlightMessageId, setHighlightMessageId] = useState<string | null>(null)
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set())
   const searchInputRef = useRef<TextInput>(null)
   const inputRef = useRef<TextInput>(null)
   const hasRestoredDraft = useRef(false)
@@ -1143,6 +1147,43 @@ export default function ChannelViewScreen() {
     setReplyTo(msg)
   }, [])
 
+  const handleToggleSelect = useCallback((messageId: string) => {
+    setSelectedMessageIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(messageId)) next.delete(messageId)
+      else next.add(messageId)
+      return next
+    })
+  }, [])
+
+  const handleEnterSelectionMode = useCallback((messageId: string) => {
+    setSelectionMode(true)
+    setSelectedMessageIds(new Set([messageId]))
+  }, [])
+
+  const handleExitSelectionMode = useCallback(() => {
+    setSelectionMode(false)
+    setSelectedMessageIds(new Set())
+  }, [])
+
+  const handleCopySelectedAsMarkdown = useCallback(async () => {
+    const selectedMsgs = messages
+      .filter((m) => selectedMessageIds.has(m.id))
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    const md = selectedMsgs
+      .map((m) => {
+        const author = m.author?.displayName || m.author?.username || 'Unknown'
+        const time = new Date(m.createdAt).toLocaleString()
+        const attachmentLines = (m.attachments ?? []).map(
+          (a: { filename: string; url: string }) => `  📎 [${a.filename}](${a.url})`,
+        )
+        return [`**${author}** (${time})`, m.content, ...attachmentLines].filter(Boolean).join('\n')
+      })
+      .join('\n\n---\n\n')
+    await Clipboard.setStringAsync(md)
+    handleExitSelectionMode()
+  }, [messages, selectedMessageIds, handleExitSelectionMode])
+
   const handleLoadMore = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) fetchNextPage()
   }, [hasNextPage, isFetchingNextPage, fetchNextPage])
@@ -1207,11 +1248,28 @@ export default function ChannelViewScreen() {
             channelId={channelId!}
             allMessages={messages}
             isGrouped={isGrouped}
+            selectionMode={selectionMode}
+            isSelected={selectedMessageIds.has(item.data.id)}
+            onToggleSelect={handleToggleSelect}
+            onEnterSelectionMode={handleEnterSelectionMode}
           />
         </View>
       )
     },
-    [colors, t, channelId, handleReply, handleRetry, messages, timeline, highlightMessageId],
+    [
+      colors,
+      t,
+      channelId,
+      handleReply,
+      handleRetry,
+      messages,
+      timeline,
+      highlightMessageId,
+      selectionMode,
+      selectedMessageIds,
+      handleToggleSelect,
+      handleEnterSelectionMode,
+    ],
   )
 
   const getItemKey = useCallback((item: TimelineItem) => {
@@ -1291,6 +1349,7 @@ export default function ChannelViewScreen() {
           data={timeline}
           keyExtractor={getItemKey}
           renderItem={renderTimelineItem}
+          extraData={selectionMode ? selectedMessageIds : null}
           contentContainerStyle={styles.messageList}
           inverted
           onEndReached={handleLoadMore}
@@ -1313,6 +1372,7 @@ export default function ChannelViewScreen() {
             if (channelId) scrollOffsetRef.current[channelId] = contentOffset.y
           }}
           scrollEventThrottle={100}
+          onScrollBeginDrag={() => Keyboard.dismiss()}
           keyboardDismissMode="interactive"
           keyboardShouldPersistTaps="handled"
         />
@@ -1386,38 +1446,93 @@ export default function ChannelViewScreen() {
         </View>
       )}
 
-      <ChatComposer
-        inputText={inputText}
-        onInputChange={handleTextChange}
-        onSend={handleSend}
-        inputRef={inputRef}
-        pendingFiles={pendingFiles}
-        onRemovePendingFile={removePendingFile}
-        replyTo={replyTo}
-        onClearReply={() => setReplyTo(null)}
-        typingUsers={typingUsers}
-        isRecording={isRecording}
-        isHolding={isHolding}
-        keyboardVisible={keyboardVisible}
-        insetsBottom={insets.bottom}
-        canUseVoice={speechSupported}
-        onVoicePressIn={onVoicePressIn}
-        onVoicePressOut={onVoicePressOut}
-        showAtButton
-        onPressAt={() => {
-          setInputText((prev) => `${prev}@`)
-          setMentionQuery('')
-          inputRef.current?.focus()
-        }}
-        showEmojiPicker={showInputEmojiPicker}
-        setShowEmojiPicker={setShowInputEmojiPicker}
-        showPlusMenu={showPlusMenu}
-        setShowPlusMenu={setShowPlusMenu}
-        panelHeight={keyboardHeight}
-        onPickImage={handlePickImage}
-        onPickFile={handlePickFile}
-        onTakePhoto={handleTakePhoto}
-      />
+      {selectionMode ? (
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: spacing.md,
+            paddingVertical: spacing.sm,
+            paddingBottom: insets.bottom + spacing.sm,
+            backgroundColor: colors.surface,
+            borderTopWidth: StyleSheet.hairlineWidth,
+            borderTopColor: colors.border,
+            gap: spacing.sm,
+          }}
+        >
+          <Text style={{ color: colors.textSecondary, fontSize: fontSize.sm, flex: 1 }}>
+            {t('chat.selectedCount', {
+              count: selectedMessageIds.size,
+              defaultValue: `已选 ${selectedMessageIds.size} 条`,
+            })}
+          </Text>
+          <Pressable
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 4,
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.sm,
+              backgroundColor: colors.primary,
+              borderRadius: radius.md,
+              opacity: selectedMessageIds.size === 0 ? 0.5 : 1,
+            }}
+            onPress={handleCopySelectedAsMarkdown}
+            disabled={selectedMessageIds.size === 0}
+          >
+            <Copy size={14} color="#fff" />
+            <Text style={{ color: '#fff', fontWeight: '600', fontSize: fontSize.sm }}>
+              Markdown
+            </Text>
+          </Pressable>
+          <Pressable
+            style={{
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.sm,
+              backgroundColor: colors.inputBackground,
+              borderRadius: radius.md,
+            }}
+            onPress={handleExitSelectionMode}
+          >
+            <Text style={{ color: colors.textSecondary, fontSize: fontSize.sm }}>
+              {t('common.cancel')}
+            </Text>
+          </Pressable>
+        </View>
+      ) : (
+        <ChatComposer
+          inputText={inputText}
+          onInputChange={handleTextChange}
+          onSend={handleSend}
+          inputRef={inputRef}
+          pendingFiles={pendingFiles}
+          onRemovePendingFile={removePendingFile}
+          replyTo={replyTo}
+          onClearReply={() => setReplyTo(null)}
+          typingUsers={typingUsers}
+          isRecording={isRecording}
+          isHolding={isHolding}
+          keyboardVisible={keyboardVisible}
+          insetsBottom={insets.bottom}
+          canUseVoice={speechSupported}
+          onVoicePressIn={onVoicePressIn}
+          onVoicePressOut={onVoicePressOut}
+          showAtButton
+          onPressAt={() => {
+            setInputText((prev) => `${prev}@`)
+            setMentionQuery('')
+            inputRef.current?.focus()
+          }}
+          showEmojiPicker={showInputEmojiPicker}
+          setShowEmojiPicker={setShowInputEmojiPicker}
+          showPlusMenu={showPlusMenu}
+          setShowPlusMenu={setShowPlusMenu}
+          panelHeight={keyboardHeight}
+          onPickImage={handlePickImage}
+          onPickFile={handlePickFile}
+          onTakePhoto={handleTakePhoto}
+        />
+      )}
 
       {/* Member list modal */}
       <Modal
@@ -1439,7 +1554,9 @@ export default function ChannelViewScreen() {
                   onPress={() => {
                     Keyboard.dismiss()
                     setShowMemberList(false)
-                    setTimeout(() => setShowInvitePanel(true), 350)
+                    router.push(
+                      `/(main)/servers/${serverSlug}/channel-members?channelId=${channelId}&autoInvite=1` as never,
+                    )
                   }}
                   hitSlop={8}
                   style={[styles.sheetActionBtn, { backgroundColor: `${colors.primary}12` }]}

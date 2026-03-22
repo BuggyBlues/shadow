@@ -3,14 +3,15 @@ import * as Clipboard from 'expo-clipboard'
 import { Image } from 'expo-image'
 import * as ImagePicker from 'expo-image-picker'
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
-import { Camera, ChevronLeft, Copy, LogOut, Save, Trash2 } from 'lucide-react-native'
-import React, { useEffect, useState } from 'react'
+import { Camera, ChevronLeft, Copy, LogOut, Save, Share2, Trash2 } from 'lucide-react-native'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Switch,
   Text,
@@ -77,6 +78,17 @@ export default function ServerSettingsScreen() {
   }, [server])
 
   const isOwner = server?.ownerId === user?.id
+
+  const handleShareInvite = useCallback(async () => {
+    if (!server) return
+    const inviteLink = `https://shadowob.com/app/invite/${server.inviteCode}`
+    await Share.share({
+      message: t('settings.inviteMessage', {
+        serverName: server.name,
+        defaultValue: `Join "{{serverName}}" on Shadow! ${inviteLink}`,
+      }),
+    })
+  }, [server, t])
 
   const pickAndUploadImage = async (
     aspect: [number, number],
@@ -379,6 +391,15 @@ export default function ServerSettingsScreen() {
               <Text style={[styles.codeText, { color: colors.primary }]}>{server.inviteCode}</Text>
               <Copy size={14} color={colors.textMuted} />
             </View>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.infoRow, pressed && { opacity: 0.6 }]}
+            onPress={handleShareInvite}
+          >
+            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
+              {t('settings.shareInvite', '分享邀请链接')}
+            </Text>
+            <Share2 size={16} color={colors.primary} />
           </Pressable>
         </Reanimated.View>
 

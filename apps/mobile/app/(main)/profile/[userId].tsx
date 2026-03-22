@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { Clock, User } from 'lucide-react-native'
+import { Clock, QrCode, User, X } from 'lucide-react-native'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import QRCode from 'react-native-qrcode-svg'
 import { Avatar } from '../../../src/components/common/avatar'
 import { LoadingScreen } from '../../../src/components/common/loading-screen'
 import { StatusBadge } from '../../../src/components/common/status-badge'
@@ -90,6 +92,8 @@ export default function UserProfileScreen() {
     },
   })
 
+  const [showQrCard, setShowQrCard] = useState(false)
+
   if (isLoading || !profile) return <LoadingScreen />
 
   const isSelf = Boolean(currentUser?.id && profile.id === currentUser.id)
@@ -105,217 +109,281 @@ export default function UserProfileScreen() {
   }
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}
-    >
-      {/* Header area */}
-      <View style={[styles.header, { backgroundColor: `${colors.primary}15` }]}>
-        <View style={styles.avatarWrap}>
-          <Avatar
-            uri={profile.avatarUrl}
-            name={profile.displayName || profile.username}
-            size={80}
-            userId={profile.id}
-          />
-          <View style={{ position: 'absolute', bottom: 0, right: 0 }}>
-            <StatusBadge status={profile.status ?? 'offline'} size={16} />
-          </View>
-        </View>
-      </View>
-
-      {/* Info */}
-      <View style={[styles.infoCard, { backgroundColor: colors.surface }]}>
-        <View style={styles.nameRow}>
-          <Text style={[styles.displayName, { color: colors.text }]}>
-            {profile.displayName || profile.username}
-          </Text>
-          {profile.isBot && (
-            <View style={[styles.botBadge, { backgroundColor: `${colors.primary}20` }]}>
-              <Text style={[styles.botBadgeText, { color: colors.primary }]}>Buddy</Text>
-            </View>
-          )}
-        </View>
-        <Text style={[styles.username, { color: colors.textMuted }]}>@{profile.username}</Text>
-
-        {!isSelf && !profile.isBot && (
-          <Pressable
-            style={({ pressed }) => [
-              styles.addFriendBtn,
-              {
-                backgroundColor:
-                  isFriend || isRequestSent
-                    ? colors.inputBackground
-                    : pressed
-                      ? `${colors.primary}DD`
-                      : colors.primary,
-              },
-              (isFriend || isRequestSent) && { borderWidth: 1, borderColor: colors.border },
-            ]}
-            disabled={addFriendDisabled}
-            onPress={() => sendFriendRequest.mutate()}
-          >
-            <Text
-              style={[
-                styles.addFriendText,
-                (isFriend || isRequestSent) && { color: colors.textSecondary },
-              ]}
-            >
-              {sendFriendRequest.isPending
-                ? t('common.saving', '处理中...')
-                : isFriend
-                  ? t('friends.alreadyFriend', '已是好友')
-                  : isRequestSent
-                    ? t('friends.requestPending', '等待对方接受')
-                    : t('friends.addFriend', '添加好友')}
-            </Text>
-          </Pressable>
-        )}
-
-        {/* Status */}
-        <View style={styles.statusRow}>
-          <View
-            style={[
-              styles.statusDot,
-              { backgroundColor: statusColors[profile.status ?? 'offline'] },
-            ]}
-          />
-          <Text style={[styles.statusText, { color: colors.textSecondary }]}>
-            {t(`member.${profile.status ?? 'offline'}`, profile.status ?? 'offline')}
-          </Text>
-        </View>
-
-        {profile.bio && (
-          <Text style={[styles.bio, { color: colors.textSecondary }]}>{profile.bio}</Text>
-        )}
-
-        {/* Bot-specific: online duration */}
-        {profile.isBot && profile.agent && profile.agent.totalOnlineSeconds > 0 && (
-          <View style={[styles.sectionDivider, { borderTopColor: `${colors.border}60` }]}>
-            <View style={styles.infoRow}>
-              <Clock size={14} color={colors.textMuted} />
-              <Text style={[styles.infoLabel, { color: colors.textMuted }]}>
-                {t('profile.totalOnline', '累计在线')}{' '}
-                {formatDuration(profile.agent.totalOnlineSeconds)}
-              </Text>
+    <>
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        contentContainerStyle={styles.content}
+      >
+        {/* Header area */}
+        <View style={[styles.header, { backgroundColor: `${colors.primary}15` }]}>
+          <View style={styles.avatarWrap}>
+            <Avatar
+              uri={profile.avatarUrl}
+              name={profile.displayName || profile.username}
+              size={80}
+              userId={profile.id}
+            />
+            <View style={{ position: 'absolute', bottom: 0, right: 0 }}>
+              <StatusBadge status={profile.status ?? 'offline'} size={16} />
             </View>
           </View>
-        )}
+        </View>
 
-        {/* Bot-specific: description */}
-        {profile.isBot && profile.agent?.config?.description && (
-          <View style={[styles.sectionDivider, { borderTopColor: `${colors.border}60` }]}>
-            <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
-              {t('profile.description', '描述')}
+        {/* Info */}
+        <View style={[styles.infoCard, { backgroundColor: colors.surface }]}>
+          <View style={styles.nameRow}>
+            <Text style={[styles.displayName, { color: colors.text }]}>
+              {profile.displayName || profile.username}
             </Text>
-            <Text style={[styles.descriptionText, { color: colors.textSecondary }]}>
-              {profile.agent.config.description}
-            </Text>
+            {profile.isBot && (
+              <View style={[styles.botBadge, { backgroundColor: `${colors.primary}20` }]}>
+                <Text style={[styles.botBadgeText, { color: colors.primary }]}>Buddy</Text>
+              </View>
+            )}
           </View>
-        )}
+          <Text style={[styles.username, { color: colors.textMuted }]}>@{profile.username}</Text>
 
-        {/* Bot-specific: owner link */}
-        {profile.isBot && profile.agent && (
-          <View style={[styles.sectionDivider, { borderTopColor: `${colors.border}60` }]}>
-            <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
-              {t('profile.owner', '主人')}
-            </Text>
+          {!isSelf && !profile.isBot && (
             <Pressable
               style={({ pressed }) => [
-                styles.ownerCard,
-                { backgroundColor: pressed ? colors.surfaceHover : colors.inputBackground },
+                styles.addFriendBtn,
+                {
+                  backgroundColor:
+                    isFriend || isRequestSent
+                      ? colors.inputBackground
+                      : pressed
+                        ? `${colors.primary}DD`
+                        : colors.primary,
+                },
+                (isFriend || isRequestSent) && { borderWidth: 1, borderColor: colors.border },
               ]}
-              onPress={() => router.push(`/(main)/profile/${profile.agent!.ownerId}`)}
+              disabled={addFriendDisabled}
+              onPress={() => sendFriendRequest.mutate()}
             >
-              <Avatar
-                uri={profile.ownerProfile?.avatarUrl ?? null}
-                name={profile.ownerProfile?.displayName ?? 'Owner'}
-                size={36}
-                userId={profile.agent.ownerId}
-              />
-              <View style={styles.ownerInfo}>
-                <Text style={[styles.ownerName, { color: colors.primary }]}>
-                  {profile.ownerProfile?.displayName ??
-                    t('member.viewOwnerProfile', '查看主人主页')}
-                </Text>
-                {profile.ownerProfile?.username && (
-                  <Text style={[styles.ownerUsername, { color: colors.textMuted }]}>
-                    @{profile.ownerProfile.username}
-                  </Text>
-                )}
+              <Text
+                style={[
+                  styles.addFriendText,
+                  (isFriend || isRequestSent) && { color: colors.textSecondary },
+                ]}
+              >
+                {sendFriendRequest.isPending
+                  ? t('common.saving', '处理中...')
+                  : isFriend
+                    ? t('friends.alreadyFriend', '已是好友')
+                    : isRequestSent
+                      ? t('friends.requestPending', '等待对方接受')
+                      : t('friends.addFriend', '添加好友')}
+              </Text>
+            </Pressable>
+          )}
+
+          {isSelf && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.addFriendBtn,
+                {
+                  backgroundColor: pressed ? `${colors.primary}DD` : colors.primary,
+                },
+              ]}
+              onPress={() => setShowQrCard(true)}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <QrCode size={16} color="#fff" />
+                <Text style={styles.addFriendText}>{t('profile.myQrCard', '我的名片')}</Text>
               </View>
             </Pressable>
-          </View>
-        )}
+          )}
 
-        {/* Regular user: owned agents */}
-        {!profile.isBot && profile.ownedAgents?.length > 0 && (
-          <View style={[styles.sectionDivider, { borderTopColor: `${colors.border}60` }]}>
-            <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
-              {t('profile.ownedBuddies', '拥有的 Buddy')} ({profile.ownedAgents.length})
+          {/* Status */}
+          <View style={styles.statusRow}>
+            <View
+              style={[
+                styles.statusDot,
+                { backgroundColor: statusColors[profile.status ?? 'offline'] },
+              ]}
+            />
+            <Text style={[styles.statusText, { color: colors.textSecondary }]}>
+              {t(`member.${profile.status ?? 'offline'}`, profile.status ?? 'offline')}
             </Text>
-            {profile.ownedAgents.map((agent) => (
+          </View>
+
+          {profile.bio && (
+            <Text style={[styles.bio, { color: colors.textSecondary }]}>{profile.bio}</Text>
+          )}
+
+          {/* Bot-specific: online duration */}
+          {profile.isBot && profile.agent && profile.agent.totalOnlineSeconds > 0 && (
+            <View style={[styles.sectionDivider, { borderTopColor: `${colors.border}60` }]}>
+              <View style={styles.infoRow}>
+                <Clock size={14} color={colors.textMuted} />
+                <Text style={[styles.infoLabel, { color: colors.textMuted }]}>
+                  {t('profile.totalOnline', '累计在线')}{' '}
+                  {formatDuration(profile.agent.totalOnlineSeconds)}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Bot-specific: description */}
+          {profile.isBot && profile.agent?.config?.description && (
+            <View style={[styles.sectionDivider, { borderTopColor: `${colors.border}60` }]}>
+              <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
+                {t('profile.description', '描述')}
+              </Text>
+              <Text style={[styles.descriptionText, { color: colors.textSecondary }]}>
+                {profile.agent.config.description}
+              </Text>
+            </View>
+          )}
+
+          {/* Bot-specific: owner link */}
+          {profile.isBot && profile.agent && (
+            <View style={[styles.sectionDivider, { borderTopColor: `${colors.border}60` }]}>
+              <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
+                {t('profile.owner', '主人')}
+              </Text>
               <Pressable
-                key={agent.id}
                 style={({ pressed }) => [
-                  styles.agentCard,
+                  styles.ownerCard,
                   { backgroundColor: pressed ? colors.surfaceHover : colors.inputBackground },
                 ]}
-                onPress={() => router.push(`/(main)/profile/${agent.userId}`)}
+                onPress={() => router.push(`/(main)/profile/${profile.agent!.ownerId}`)}
               >
-                <View style={styles.agentAvatarWrap}>
-                  <Avatar
-                    uri={agent.botUser?.avatarUrl ?? null}
-                    name={agent.botUser?.displayName ?? 'Buddy'}
-                    size={36}
-                    userId={agent.userId}
-                  />
-                  <View
-                    style={[
-                      styles.agentStatusDot,
-                      {
-                        backgroundColor: agent.status === 'running' ? '#22c55e' : '#6b7280',
-                        borderColor: colors.inputBackground,
-                      },
-                    ]}
-                  />
-                </View>
-                <View style={styles.agentInfo}>
-                  <View style={styles.agentNameRow}>
-                    <Text style={[styles.agentName, { color: colors.text }]} numberOfLines={1}>
-                      {agent.botUser?.displayName ?? agent.botUser?.username ?? 'Buddy'}
-                    </Text>
-                    <View
-                      style={[styles.botBadgeSmall, { backgroundColor: `${colors.primary}20` }]}
-                    >
-                      <Text style={[styles.botBadgeSmallText, { color: colors.primary }]}>
-                        Buddy
-                      </Text>
-                    </View>
-                  </View>
-                  {agent.totalOnlineSeconds > 0 && (
-                    <Text style={[styles.agentOnline, { color: colors.textMuted }]}>
-                      {t('profile.online', '在线')} {formatDuration(agent.totalOnlineSeconds)}
+                <Avatar
+                  uri={profile.ownerProfile?.avatarUrl ?? null}
+                  name={profile.ownerProfile?.displayName ?? 'Owner'}
+                  size={36}
+                  userId={profile.agent.ownerId}
+                />
+                <View style={styles.ownerInfo}>
+                  <Text style={[styles.ownerName, { color: colors.primary }]}>
+                    {profile.ownerProfile?.displayName ??
+                      t('member.viewOwnerProfile', '查看主人主页')}
+                  </Text>
+                  {profile.ownerProfile?.username && (
+                    <Text style={[styles.ownerUsername, { color: colors.textMuted }]}>
+                      @{profile.ownerProfile.username}
                     </Text>
                   )}
                 </View>
               </Pressable>
-            ))}
-          </View>
-        )}
-
-        {profile.createdAt && (
-          <View style={[styles.sectionDivider, { borderTopColor: `${colors.border}60` }]}>
-            <View style={styles.infoRow}>
-              <User size={14} color={colors.textMuted} />
-              <Text style={{ color: colors.textMuted, fontSize: fontSize.xs }}>
-                {t('profile.memberSince')}: {new Date(profile.createdAt).toLocaleDateString()}
-              </Text>
             </View>
-          </View>
-        )}
-      </View>
-    </ScrollView>
+          )}
+
+          {/* Regular user: owned agents */}
+          {!profile.isBot && profile.ownedAgents?.length > 0 && (
+            <View style={[styles.sectionDivider, { borderTopColor: `${colors.border}60` }]}>
+              <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
+                {t('profile.ownedBuddies', '拥有的 Buddy')} ({profile.ownedAgents.length})
+              </Text>
+              {profile.ownedAgents.map((agent) => (
+                <Pressable
+                  key={agent.id}
+                  style={({ pressed }) => [
+                    styles.agentCard,
+                    { backgroundColor: pressed ? colors.surfaceHover : colors.inputBackground },
+                  ]}
+                  onPress={() => router.push(`/(main)/profile/${agent.userId}`)}
+                >
+                  <View style={styles.agentAvatarWrap}>
+                    <Avatar
+                      uri={agent.botUser?.avatarUrl ?? null}
+                      name={agent.botUser?.displayName ?? 'Buddy'}
+                      size={36}
+                      userId={agent.userId}
+                    />
+                    <View
+                      style={[
+                        styles.agentStatusDot,
+                        {
+                          backgroundColor: agent.status === 'running' ? '#22c55e' : '#6b7280',
+                          borderColor: colors.inputBackground,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <View style={styles.agentInfo}>
+                    <View style={styles.agentNameRow}>
+                      <Text style={[styles.agentName, { color: colors.text }]} numberOfLines={1}>
+                        {agent.botUser?.displayName ?? agent.botUser?.username ?? 'Buddy'}
+                      </Text>
+                      <View
+                        style={[styles.botBadgeSmall, { backgroundColor: `${colors.primary}20` }]}
+                      >
+                        <Text style={[styles.botBadgeSmallText, { color: colors.primary }]}>
+                          Buddy
+                        </Text>
+                      </View>
+                    </View>
+                    {agent.totalOnlineSeconds > 0 && (
+                      <Text style={[styles.agentOnline, { color: colors.textMuted }]}>
+                        {t('profile.online', '在线')} {formatDuration(agent.totalOnlineSeconds)}
+                      </Text>
+                    )}
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          )}
+
+          {profile.createdAt && (
+            <View style={[styles.sectionDivider, { borderTopColor: `${colors.border}60` }]}>
+              <View style={styles.infoRow}>
+                <User size={14} color={colors.textMuted} />
+                <Text style={{ color: colors.textMuted, fontSize: fontSize.xs }}>
+                  {t('profile.memberSince')}: {new Date(profile.createdAt).toLocaleDateString()}
+                </Text>
+              </View>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* QR Code Business Card Modal */}
+      <Modal
+        visible={showQrCard}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowQrCard(false)}
+      >
+        <Pressable style={styles.qrOverlay} onPress={() => setShowQrCard(false)}>
+          <Pressable
+            style={[styles.qrCard, { backgroundColor: colors.surface }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Pressable style={styles.qrClose} onPress={() => setShowQrCard(false)}>
+              <X size={20} color={colors.textMuted} />
+            </Pressable>
+
+            <Avatar
+              uri={profile.avatarUrl}
+              name={profile.displayName || profile.username}
+              size={64}
+              userId={profile.id}
+            />
+            <Text style={[styles.qrName, { color: colors.text }]}>
+              {profile.displayName || profile.username}
+            </Text>
+            <Text style={[styles.qrUsername, { color: colors.textMuted }]}>
+              @{profile.username}
+            </Text>
+
+            <View style={[styles.qrCodeWrap, { backgroundColor: '#fff' }]}>
+              <QRCode
+                value={`shadow://user/${profile.username}`}
+                size={180}
+                backgroundColor="#fff"
+                color="#000"
+              />
+            </View>
+
+            <Text style={[styles.qrHint, { color: colors.textMuted }]}>
+              {t('profile.scanToAdd', '扫一扫，加好友')}
+            </Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
   )
 }
 
@@ -480,5 +548,41 @@ const styles = StyleSheet.create({
   agentOnline: {
     fontSize: 11,
     marginTop: 2,
+  },
+  qrOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  qrCard: {
+    width: 300,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
+    alignItems: 'center',
+  },
+  qrClose: {
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.md,
+    padding: spacing.xs,
+  },
+  qrName: {
+    fontSize: fontSize.lg,
+    fontWeight: '800',
+    marginTop: spacing.md,
+  },
+  qrUsername: {
+    fontSize: fontSize.sm,
+    marginTop: 2,
+  },
+  qrCodeWrap: {
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    marginTop: spacing.lg,
+  },
+  qrHint: {
+    fontSize: fontSize.xs,
+    marginTop: spacing.md,
   },
 })

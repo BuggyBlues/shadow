@@ -1,41 +1,56 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
 import * as Clipboard from 'expo-clipboard'
+import * as FileSystem from 'expo-file-system/legacy'
+import * as Haptics from 'expo-haptics'
 import { Image } from 'expo-image'
+import * as MediaLibrary from 'expo-media-library'
 import { useRouter } from 'expo-router'
 import * as Sharing from 'expo-sharing'
 import {
   AlertCircle,
   Check,
-  Copy,
-  Download,
+  CheckSquare,
   ExternalLink,
   FileArchive,
   FileCode,
   FileText,
   Film,
   Music,
-  Pencil,
   RefreshCw,
-  Reply,
   Save,
   Share2,
-  Trash2,
+  Square as SquareIcon,
   X,
 } from 'lucide-react-native'
-import { memo, useCallback, useMemo, useState } from 'react'
+import { memo, useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import {
+  Alert,
+  Dimensions,
+  type GestureResponderEvent,
+  Keyboard,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native'
+import Animated, { ZoomIn } from 'react-native-reanimated'
 import type { EmojiType } from 'rn-emoji-keyboard'
 import RNEmojiPicker from 'rn-emoji-keyboard'
 import { fetchApi, getImageUrl } from '../../lib/api'
+import { showToast } from '../../lib/toast'
 import { useAuthStore } from '../../stores/auth.store'
 import { fontSize, radius, spacing, useColors } from '../../theme'
 import type { Attachment, Message } from '../../types/message'
 import { Avatar } from '../common/avatar'
 import { MarkdownRenderer } from './markdown-renderer'
+import type { PopupAction } from './selection-popup'
+import { SelectionPopup } from './selection-popup'
 
-const QUICK_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔', '👀']
+const REACTION_ENTERING = ZoomIn.duration(120)
 
 interface MessageBubbleProps {
   message: Message
@@ -46,6 +61,10 @@ interface MessageBubbleProps {
   isGrouped?: boolean
   variant?: 'channel' | 'dm'
   dmChannelId?: string
+  selectionMode?: boolean
+  isSelected?: boolean
+  onToggleSelect?: (messageId: string) => void
+  onEnterSelectionMode?: (messageId: string) => void
 }
 
 function MessageBubbleInner({
@@ -57,55 +76,102 @@ function MessageBubbleInner({
   isGrouped = false,
   variant = 'channel',
   dmChannelId,
+  selectionMode,
+  isSelected,
+  onToggleSelect,
+  onEnterSelectionMode,
 }: MessageBubbleProps) {
   const { t } = useTranslation()
   const colors = useColors()
   const router = useRouter()
   const currentUser = useAuthStore((s) => s.user)
-  const _queryClient = useQueryClient()
-  const [showActions, setShowActions] = useState(false)
+  const bubbleRef = useRef<View>(null)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editText, setEditText] = useState(message.content)
+  const [showPopup, setShowPopup] = useState(false)
+  const [popupPosition, setPopupPosition] = useState<{
+    touchX: number
+    touchY: number
+  } | null>(null)
   const [attachmentAction, setAttachmentAction] = useState<{
     url: string
     filename: string
   } | null>(null)
-  const isOwn = currentUser?.id === message.authorId
+  const buildLocalFileUri = useCallback((filename: string) => {
+    const extMatch = filename.match(/\.[A-Za-z0-9]+$/)
+    const ext = extMatch?.[0] ?? ''
+    const safeBase = filename.replace(/\.[A-Za-z0-9]+$/, '').replace(/[/\\?#%:*"<>|\s]/g, '_')
+    const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    return `${FileSystem.cacheDirectory}${safeBase || 'file'}-${unique}${ext}`
+  }, [])
+
+  // Download remote file to local cache for sharing
+  const downloadToLocal = useCallback(
+    async (url: string, filename: string): Promise<string> => {
+      const localUri = buildLocalFileUri(filename)
+      const token = useAuthStore.getState().accessToken
+      const { uri } = await FileSystem.downloadAsync(url, localUri, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      return uri
+    },
+    [buildLocalFileUri],
+  )
 
   // Attachment long-press actions
   const handleAttachmentSave = useCallback(async () => {
     if (!attachmentAction) return
     const resolved = getImageUrl(attachmentAction.url) ?? attachmentAction.url
+    const lower = attachmentAction.filename.toLowerCase()
+    const isMedia =
+      /\.(png|jpe?g|gif|webp|heic|heif|bmp|mp4|mov|m4v|avi|mkv|mp3|wav|m4a|aac|ogg)$/i.test(lower)
     try {
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(resolved)
+      const localUri = await downloadToLocal(resolved, attachmentAction.filename)
+      if (isMedia) {
+        const { status } = await MediaLibrary.requestPermissionsAsync()
+        if (status !== 'granted') {
+          showToast(t('chat.permissionDenied', 'Permission denied'), 'error')
+          return
+        }
+        await MediaLibrary.saveToLibraryAsync(localUri)
+        showToast(t('chat.imageSaved', 'File saved to library'), 'success')
+      } else if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(localUri)
+      } else {
+        showToast(t('chat.shareUnavailable', 'Sharing is not available on this device'), 'error')
       }
-    } catch {
-      Alert.alert(t('common.error', 'Error'), t('chat.saveFailed', 'Failed to save file'))
+    } catch (err) {
+      console.error('Save failed:', err)
+      showToast(t('chat.saveFailed', 'Failed to save file'), 'error')
     }
     setAttachmentAction(null)
-  }, [attachmentAction, t])
+  }, [attachmentAction, t, downloadToLocal])
 
   const handleAttachmentShare = useCallback(async () => {
     if (!attachmentAction) return
     const resolved = getImageUrl(attachmentAction.url) ?? attachmentAction.url
     try {
+      const localUri = await downloadToLocal(resolved, attachmentAction.filename)
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(resolved)
+        await Sharing.shareAsync(localUri)
+      } else {
+        showToast(t('chat.shareUnavailable', 'Sharing is not available on this device'), 'error')
       }
-    } catch {
-      Alert.alert(t('common.error', 'Error'), t('chat.shareFailed', 'Failed to share file'))
+    } catch (err) {
+      console.error('Share failed:', err)
+      showToast(t('chat.shareFailed', 'Failed to share file'), 'error')
     }
     setAttachmentAction(null)
-  }, [attachmentAction, t])
+  }, [attachmentAction, t, downloadToLocal])
 
   const handleAttachmentCopyUrl = useCallback(async () => {
     if (!attachmentAction) return
     const resolved = getImageUrl(attachmentAction.url) ?? attachmentAction.url
     await Clipboard.setStringAsync(resolved)
+    showToast(t('common.copied', '已复制'), 'success')
     setAttachmentAction(null)
-  }, [attachmentAction])
+  }, [attachmentAction, t])
 
   // Resolve reply reference
   const replyTarget = useMemo(() => {
@@ -147,27 +213,6 @@ function MessageBubbleInner({
           }),
   })
 
-  const handleLongPress = () => setShowActions(true)
-
-  const handleCopy = async () => {
-    await Clipboard.setStringAsync(message.content)
-    setShowActions(false)
-  }
-
-  const handleDelete = () => {
-    Alert.alert(t('chat.deleteMessage'), t('chat.deleteConfirm'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('common.delete'), style: 'destructive', onPress: () => deleteMutation.mutate() },
-    ])
-    setShowActions(false)
-  }
-
-  const handleEdit = () => {
-    setEditText(message.content)
-    setIsEditing(true)
-    setShowActions(false)
-  }
-
   const handleSaveEdit = () => {
     const trimmed = editText.trim()
     if (trimmed && trimmed !== message.content) {
@@ -177,10 +222,102 @@ function MessageBubbleInner({
     }
   }
 
-  const handleReaction = (emoji: string) => {
-    reactionMutation.mutate(emoji)
-    setShowActions(false)
-  }
+  // --- Long-press popup (WeChat-style) ---
+
+  const handleLongPress = useCallback(
+    (event: GestureResponderEvent) => {
+      if (selectionMode) return
+      Haptics.selectionAsync()
+      const { pageX, pageY } = event.nativeEvent
+      setPopupPosition({ touchX: pageX, touchY: pageY })
+      setShowPopup(true)
+    },
+    [selectionMode],
+  )
+
+  const dismissPopup = useCallback(() => {
+    setShowPopup(false)
+    setPopupPosition(null)
+  }, [])
+
+  const handleCopyMessage = useCallback(async () => {
+    await Clipboard.setStringAsync(message.content)
+    dismissPopup()
+  }, [message.content, dismissPopup])
+
+  const handleReplyAction = useCallback(() => {
+    dismissPopup()
+    onReply()
+  }, [dismissPopup, onReply])
+
+  const handleReaction = useCallback(
+    (emoji: string) => {
+      reactionMutation.mutate(emoji)
+    },
+    [reactionMutation],
+  )
+
+  const handleQuickReaction = useCallback(
+    (emoji: string) => {
+      dismissPopup()
+      reactionMutation.mutate(emoji)
+    },
+    [dismissPopup, reactionMutation],
+  )
+
+  const handleEnterMultiSelect = useCallback(() => {
+    dismissPopup()
+    onEnterSelectionMode?.(message.id)
+  }, [dismissPopup, onEnterSelectionMode, message.id])
+
+  const handleDeleteMessage = useCallback(() => {
+    dismissPopup()
+    Alert.alert(
+      t('chat.deleteMessage', '删除消息'),
+      t('chat.deleteMessageConfirm', '确定要删除这条消息吗？'),
+      [
+        { text: t('common.cancel', '取消'), style: 'cancel' },
+        {
+          text: t('common.delete', '删除'),
+          style: 'destructive',
+          onPress: () => deleteMutation.mutate(),
+        },
+      ],
+    )
+  }, [dismissPopup, t, deleteMutation])
+
+  const POPUP_HEIGHT_EST = 90
+  const screenHeight = Dimensions.get('window').height
+  const popupAbove = (popupPosition?.touchY ?? 100) > POPUP_HEIGHT_EST + 40
+  const isOwnMessage = currentUser ? message.authorId === currentUser.id : false
+
+  const popupActions = useMemo<PopupAction[]>(() => {
+    const actions: PopupAction[] = [
+      { label: t('chat.copy', '复制'), onPress: handleCopyMessage },
+      { label: t('chat.reply', '回复'), onPress: handleReplyAction },
+    ]
+    if (onEnterSelectionMode) {
+      actions.push({
+        label: t('chat.multiSelect', '多选'),
+        onPress: handleEnterMultiSelect,
+      })
+    }
+    if (isOwnMessage) {
+      actions.push({
+        label: t('common.delete', '删除'),
+        onPress: handleDeleteMessage,
+      })
+    }
+    return actions
+  }, [
+    t,
+    handleCopyMessage,
+    handleReplyAction,
+    handleEnterMultiSelect,
+    handleDeleteMessage,
+    onEnterSelectionMode,
+    isOwnMessage,
+  ])
 
   const displayName = message.author?.displayName || message.author?.username || '?'
   const timeAgo = formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })
@@ -279,14 +416,21 @@ function MessageBubbleInner({
       style={[
         styles.container,
         isGrouped && styles.containerGrouped,
-        showActions && { backgroundColor: colors.messageHover },
+        isSelected && { backgroundColor: `${colors.primary}18` },
       ]}
-      onLongPress={handleLongPress}
-      onPress={() => showActions && setShowActions(false)}
+      onPress={selectionMode ? () => onToggleSelect?.(message.id) : () => Keyboard.dismiss()}
+      onLongPress={selectionMode ? undefined : handleLongPress}
+      delayLongPress={300}
     >
       {/* Reply reference */}
       {replyTarget && (
-        <View style={[styles.replyRef, { borderLeftColor: colors.primary }]}>
+        <View
+          style={[
+            styles.replyRef,
+            { borderLeftColor: colors.primary },
+            selectionMode && { marginLeft: 0 },
+          ]}
+        >
           <Text style={[styles.replyRefAuthor, { color: colors.primary }]}>
             {replyTarget.author?.displayName || replyTarget.author?.username}
           </Text>
@@ -297,10 +441,22 @@ function MessageBubbleInner({
       )}
 
       <View style={styles.row}>
+        {selectionMode && (
+          <View style={{ paddingTop: 8, paddingRight: 8, paddingLeft: 4 }}>
+            {isSelected ? (
+              <CheckSquare size={20} color={colors.primary} />
+            ) : (
+              <SquareIcon size={20} color={colors.textMuted} />
+            )}
+          </View>
+        )}
         {isGrouped ? (
           <View style={styles.groupedGutter} />
         ) : (
-          <Pressable onPress={() => router.push(`/(main)/profile/${message.authorId}` as never)}>
+          <Pressable
+            disabled={selectionMode}
+            onPress={() => router.push(`/(main)/profile/${message.authorId}` as never)}
+          >
             <Avatar
               uri={message.author?.avatarUrl}
               name={displayName}
@@ -313,6 +469,7 @@ function MessageBubbleInner({
           {!isGrouped && (
             <View style={styles.header}>
               <Pressable
+                disabled={selectionMode}
                 onPress={() => router.push(`/(main)/profile/${message.authorId}` as never)}
               >
                 <Text style={[styles.username, { color: colors.text }]}>{displayName}</Text>
@@ -358,7 +515,13 @@ function MessageBubbleInner({
               </View>
             </View>
           ) : (
-            <MarkdownRenderer content={message.content} mentionMap={mentionMap} />
+            <View ref={bubbleRef} pointerEvents={selectionMode ? 'none' : 'box-none'}>
+              <MarkdownRenderer
+                content={message.content}
+                mentionMap={mentionMap}
+                selectable={!selectionMode}
+              />
+            </View>
           )}
 
           {/* Attachments */}
@@ -369,6 +532,7 @@ function MessageBubbleInner({
                 <Pressable
                   key={att.id}
                   style={styles.imageAttachment}
+                  disabled={selectionMode}
                   onPress={() => {
                     router.push({
                       pathname: '/(main)/media-preview',
@@ -383,7 +547,18 @@ function MessageBubbleInner({
                 >
                   <Image
                     source={{ uri: getImageUrl(att.url) ?? att.url }}
-                    style={styles.attachmentImage}
+                    style={[
+                      styles.attachmentImage,
+                      att.width && att.height && att.width > 0 && att.height > 0
+                        ? {
+                            width: Math.min(260, att.width),
+                            height: Math.min(
+                              320,
+                              Math.min(260, att.width) / (att.width / att.height),
+                            ),
+                          }
+                        : null,
+                    ]}
                     contentFit="cover"
                     transition={200}
                   />
@@ -400,6 +575,7 @@ function MessageBubbleInner({
                   styles.fileCard,
                   { backgroundColor: colors.surface, borderColor: colors.border },
                 ]}
+                disabled={selectionMode}
                 onPress={() => {
                   router.push({
                     pathname: '/(main)/media-preview',
@@ -428,7 +604,6 @@ function MessageBubbleInner({
                     </Text>
                   </View>
                 </View>
-                <Download size={16} color={colors.textMuted} />
               </Pressable>
             )
           })}
@@ -439,40 +614,50 @@ function MessageBubbleInner({
               {message.reactions.map((r) => {
                 const isReacted = currentUser ? r.userIds.includes(currentUser.id) : false
                 return (
-                  <Pressable
-                    key={r.emoji}
-                    style={[
-                      styles.reaction,
-                      {
-                        backgroundColor: isReacted ? `${colors.primary}20` : colors.surface,
-                        borderColor: isReacted ? colors.primary : colors.border,
-                      },
-                    ]}
-                    onPress={() => handleReaction(r.emoji)}
-                  >
-                    <Text style={styles.reactionEmoji}>{r.emoji}</Text>
-                    <Text
+                  <Animated.View key={r.emoji} entering={REACTION_ENTERING}>
+                    <Pressable
+                      disabled={selectionMode}
                       style={[
-                        styles.reactionCount,
-                        { color: isReacted ? colors.primary : colors.textSecondary },
+                        styles.reaction,
+                        {
+                          backgroundColor: isReacted ? `${colors.primary}20` : colors.surface,
+                          borderColor: isReacted ? colors.primary : colors.border,
+                        },
                       ]}
+                      onPress={() => {
+                        Haptics.selectionAsync()
+                        handleReaction(r.emoji)
+                      }}
                     >
-                      {r.count}
-                    </Text>
-                  </Pressable>
+                      <Text style={styles.reactionEmoji}>{r.emoji}</Text>
+                      <Text
+                        style={[
+                          styles.reactionCount,
+                          { color: isReacted ? colors.primary : colors.textSecondary },
+                        ]}
+                      >
+                        {r.count}
+                      </Text>
+                    </Pressable>
+                  </Animated.View>
                 )
               })}
               <Pressable
+                disabled={selectionMode}
                 style={[
                   styles.reactionAdd,
                   { backgroundColor: colors.surface, borderColor: colors.border },
                 ]}
-                onPress={() => setShowActions(true)}
+                onPress={() => {
+                  Haptics.selectionAsync()
+                  setShowEmojiPicker(true)
+                }}
               >
                 <Text style={[styles.reactionAddText, { color: colors.textMuted }]}>+</Text>
               </Pressable>
             </View>
           )}
+
           {/* Send status indicator — only show on failure */}
           {message.sendStatus === 'failed' && (
             <View style={styles.sendStatus}>
@@ -495,77 +680,30 @@ function MessageBubbleInner({
         </View>
       </View>
 
-      {/* Action bar */}
-      {showActions && (
-        <View
-          style={[
-            styles.actionsOverlay,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          {/* Quick emoji row */}
-          <View style={styles.quickEmojiRow}>
-            {QUICK_EMOJIS.map((emoji) => (
-              <Pressable
-                key={emoji}
-                style={styles.quickEmojiBtn}
-                onPress={() => handleReaction(emoji)}
-              >
-                <Text style={styles.quickEmoji}>{emoji}</Text>
-              </Pressable>
-            ))}
-            <Pressable
-              style={[styles.quickEmojiBtn, { backgroundColor: colors.inputBackground }]}
-              onPress={() => {
-                setShowActions(false)
-                setShowEmojiPicker(true)
-              }}
+      {/* Long-press popup (WeChat-style) */}
+      <Modal visible={showPopup} transparent animationType="fade" onRequestClose={dismissPopup}>
+        <Pressable style={styles.popupOverlay} onPress={dismissPopup}>
+          {popupPosition && (
+            <View
+              style={[
+                styles.popupPositioner,
+                popupAbove
+                  ? { bottom: screenHeight - popupPosition.touchY + 12 }
+                  : { top: popupPosition.touchY + 12 },
+                { left: 0, right: 0 },
+              ]}
             >
-              <Text style={styles.quickEmoji}>+</Text>
-            </Pressable>
-          </View>
-          <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
-          {/* Action buttons */}
-          <View style={styles.actionRow}>
-            <Pressable
-              style={styles.actionBtn}
-              onPress={() => {
-                onReply()
-                setShowActions(false)
-              }}
-            >
-              <Reply size={18} color={colors.textSecondary} />
-              <Text style={[styles.actionLabel, { color: colors.textSecondary }]}>
-                {t('chat.reply')}
-              </Text>
-            </Pressable>
-            <Pressable style={styles.actionBtn} onPress={handleCopy}>
-              <Copy size={18} color={colors.textSecondary} />
-              <Text style={[styles.actionLabel, { color: colors.textSecondary }]}>
-                {t('chat.copy')}
-              </Text>
-            </Pressable>
-            {isOwn && (
-              <Pressable style={styles.actionBtn} onPress={handleEdit}>
-                <Pencil size={18} color={colors.textSecondary} />
-                <Text style={[styles.actionLabel, { color: colors.textSecondary }]}>
-                  {t('chat.edit')}
-                </Text>
-              </Pressable>
-            )}
-            {isOwn && (
-              <Pressable style={styles.actionBtn} onPress={handleDelete}>
-                <Trash2 size={18} color={colors.error} />
-                <Text style={[styles.actionLabel, { color: colors.error }]}>
-                  {t('common.delete')}
-                </Text>
-              </Pressable>
-            )}
-          </View>
-        </View>
-      )}
+              <SelectionPopup
+                actions={popupActions}
+                arrowDirection={popupAbove ? 'down' : 'up'}
+                onQuickReaction={handleQuickReaction}
+              />
+            </View>
+          )}
+        </Pressable>
+      </Modal>
 
-      {/* Full emoji picker (rn-emoji-keyboard) */}
+      {/* Emoji picker */}
       <RNEmojiPicker
         open={showEmojiPicker}
         onClose={() => setShowEmojiPicker(false)}
@@ -638,7 +776,11 @@ export const MessageBubble = memo(MessageBubbleInner, (prev, next) => {
     prev.channelId === next.channelId &&
     prev.isGrouped === next.isGrouped &&
     prev.allMessages === next.allMessages &&
-    prev.onRetry === next.onRetry
+    prev.onRetry === next.onRetry &&
+    prev.selectionMode === next.selectionMode &&
+    prev.isSelected === next.isSelected &&
+    prev.onToggleSelect === next.onToggleSelect &&
+    prev.onEnterSelectionMode === next.onEnterSelectionMode
   )
 })
 
@@ -712,6 +854,14 @@ const styles = StyleSheet.create({
   content: {
     fontSize: fontSize.md,
     lineHeight: 22,
+  },
+  // Long-press popup overlay
+  popupOverlay: {
+    flex: 1,
+  },
+  popupPositioner: {
+    position: 'absolute',
+    alignItems: 'center',
   },
   // Editing
   editContainer: {
@@ -816,51 +966,7 @@ const styles = StyleSheet.create({
   reactionAddText: {
     fontSize: 14,
   },
-  // Actions overlay
-  actionsOverlay: {
-    position: 'absolute',
-    top: 0,
-    right: spacing.sm,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    overflow: 'hidden',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    zIndex: 10,
-  },
-  quickEmojiRow: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    gap: spacing.xs,
-  },
-  quickEmojiBtn: {
-    padding: 4,
-  },
-  quickEmoji: {
-    fontSize: 20,
-  },
-  actionDivider: {
-    height: 1,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.xs,
-    paddingVertical: spacing.xs,
-  },
-  actionBtn: {
-    alignItems: 'center',
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    gap: 2,
-  },
-  actionLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
+  // Attachment action sheet
   actionSheetOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',

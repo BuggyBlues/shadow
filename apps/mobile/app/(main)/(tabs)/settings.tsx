@@ -5,10 +5,10 @@ import {
   Bot,
   ChevronRight,
   Compass,
-  Heart,
   Link2,
   LogOut,
   Paintbrush,
+  QrCode,
   Shield,
   Target,
   User,
@@ -276,12 +276,14 @@ export default function SettingsScreen() {
                 { backgroundColor: colors.surface, transform: [{ scale: pressed ? 0.98 : 1 }] },
               ]}
               // biome-ignore lint/suspicious/noExplicitAny: Expo Router route typing
-              onPress={() => router.push('/(main)/settings/invite' as any)}
+              onPress={() => router.push(`/(main)/profile/${user.id}` as any)}
             >
               <View style={[styles.quickIconCircle, { backgroundColor: '#23a55920' }]}>
-                <Heart size={18} color="#23a559" />
+                <QrCode size={18} color="#23a559" />
               </View>
-              <Text style={[styles.quickLabel, { color: colors.textSecondary }]}>邀请</Text>
+              <Text style={[styles.quickLabel, { color: colors.textSecondary }]}>
+                {t('settings.qrCard', '名片')}
+              </Text>
             </Pressable>
           </View>
 

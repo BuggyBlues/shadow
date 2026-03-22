@@ -106,7 +106,7 @@ export function createServerHandler(container: AppContainer) {
     try {
       const server = await serverService.join(inviteCode, user.userId)
 
-      // Emit member:joined to all channel rooms in the server
+      // Emit member:joined only to the first channel to avoid duplicate system messages
       try {
         const io = container.resolve('io')
         const channelDao = container.resolve('channelDao')
@@ -121,8 +121,12 @@ export function createServerHandler(container: AppContainer) {
           avatarUrl: fullUser?.avatarUrl ?? null,
           isBot: fullUser?.isBot ?? false,
         }
-        for (const ch of channels) {
-          io.to(`channel:${ch.id}`).emit('member:joined', payload)
+        if (channels.length > 0) {
+          const firstChannel = channels[0]
+          io.to(`channel:${firstChannel.id}`).emit('member:joined', {
+            ...payload,
+            channelId: firstChannel.id,
+          })
         }
 
         // Send notification to server owner about the new member
@@ -285,6 +289,59 @@ export function createServerHandler(container: AppContainer) {
     const user = c.get('user')
     const server = await serverService.regenerateInvite(id, user.userId)
     return c.json({ inviteCode: server.inviteCode })
+  })
+
+  // POST /api/servers/:id/invite-member — invite a user (friend/buddy) to join the server
+  serverHandler.post('/:id/invite-member', async (c) => {
+    const serverService = container.resolve('serverService')
+    const id = c.req.param('id')
+    const user = c.get('user')
+    const body = await c.req.json<{ userId: string }>()
+    const targetUserId = body.userId
+    if (!targetUserId) {
+      return c.json({ error: 'userId is required' }, 400)
+    }
+
+    const serverId = await resolveServerId(id)
+
+    // Check if inviter is a member
+    const members = await serverService.getMembers(serverId)
+    const isMember = members.some((m: { userId: string }) => m.userId === user.userId)
+    if (!isMember) {
+      return c.json({ error: 'You are not a member of this server' }, 403)
+    }
+
+    // Check if target is already a member
+    const alreadyMember = members.some((m: { userId: string }) => m.userId === targetUserId)
+    if (alreadyMember) {
+      return c.json({ error: 'User is already a member' }, 409)
+    }
+
+    // Get server info for notification
+    const server = await serverService.getById(serverId)
+
+    // Send notification to the target user
+    try {
+      const notificationService = container.resolve('notificationService')
+      const userDao = container.resolve('userDao')
+      const inviter = await userDao.findById(user.userId)
+      const inviterName = inviter?.displayName ?? inviter?.username ?? 'Someone'
+      const notification = await notificationService.create({
+        userId: targetUserId,
+        type: 'system',
+        title: `${inviterName} invited you to join "${server.name}"`,
+        body: JSON.stringify({ serverId, inviteCode: server.inviteCode }),
+        referenceId: serverId,
+        referenceType: 'server_invite',
+        senderId: user.userId,
+      })
+      const io = container.resolve('io')
+      io.to(`user:${targetUserId}`).emit('notification:new', notification)
+    } catch {
+      return c.json({ error: 'Failed to send invitation' }, 500)
+    }
+
+    return c.json({ success: true })
   })
 
   // POST /api/servers/:id/agents — add agent(s) to server as members

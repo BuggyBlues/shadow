@@ -34,7 +34,7 @@ export function ChannelView() {
 
   return (
     <>
-      <ChatArea />
+      <ChatArea key={channelId} />
       <MemberList />
     </>
   )

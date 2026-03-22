@@ -18,9 +18,19 @@
  *   SKIP_OPENCLAW_BUNDLE=1  — skip bundling entirely (for CI)
  */
 
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { basename, dirname, join, resolve } from 'node:path'
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { createRequire } from 'node:module'
+import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -112,7 +122,7 @@ function collectDependencies(packageLink) {
 
     for (const { name, fullPath } of packages) {
       if (name === skipPkg) continue
-      if (SKIP_PACKAGES.has(name) || SKIP_SCOPES.some(s => name.startsWith(s))) {
+      if (SKIP_PACKAGES.has(name) || SKIP_SCOPES.some((s) => name.startsWith(s))) {
         skipped++
         continue
       }
@@ -186,7 +196,9 @@ function getDirSize(dir) {
       if (entry.isDirectory()) total += getDirSize(p)
       else if (entry.isFile()) total += statSync(p).size
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return total
 }
 
@@ -206,17 +218,35 @@ function cleanupBundle(outputDir) {
   if (!existsSync(nm)) return removed
 
   const REMOVE_DIRS = new Set([
-    'test', 'tests', '__tests__', '.github', 'docs', 'examples', 'example',
+    'test',
+    'tests',
+    '__tests__',
+    '.github',
+    'docs',
+    'examples',
+    'example',
   ])
   const REMOVE_FILE_EXTS = ['.d.ts', '.d.ts.map', '.js.map', '.mjs.map', '.ts.map', '.markdown']
   const REMOVE_FILE_NAMES = new Set([
-    '.DS_Store', 'README.md', 'CHANGELOG.md', 'LICENSE.md', 'CONTRIBUTING.md',
-    'tsconfig.json', '.npmignore', '.eslintrc', '.prettierrc', '.editorconfig',
+    '.DS_Store',
+    'README.md',
+    'CHANGELOG.md',
+    'LICENSE.md',
+    'CONTRIBUTING.md',
+    'tsconfig.json',
+    '.npmignore',
+    '.eslintrc',
+    '.prettierrc',
+    '.editorconfig',
   ])
 
   function walk(dir) {
     let entries
-    try { entries = readdirSync(dir, { withFileTypes: true }) } catch { return }
+    try {
+      entries = readdirSync(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
     for (const entry of entries) {
       const full = join(dir, entry.name)
       if (entry.isDirectory()) {
@@ -226,7 +256,10 @@ function cleanupBundle(outputDir) {
           walk(full)
         }
       } else if (entry.isFile()) {
-        if (REMOVE_FILE_NAMES.has(entry.name) || REMOVE_FILE_EXTS.some(e => entry.name.endsWith(e))) {
+        if (
+          REMOVE_FILE_NAMES.has(entry.name) ||
+          REMOVE_FILE_EXTS.some((e) => entry.name.endsWith(e))
+        ) {
           if (rmSafe(full)) removed++
         }
       }
@@ -264,17 +297,21 @@ function patchBrokenModules(nodeModulesDir) {
   // node-domexception: sets module.exports = undefined
   const domExPath = join(nodeModulesDir, 'node-domexception', 'index.js')
   if (existsSync(domExPath)) {
-    writeFileSync(domExPath, [
-      "'use strict';",
-      '// Patched: original transpiled file sets module.exports = undefined',
-      'const dom = globalThis.DOMException ||',
-      "  class DOMException extends Error {",
-      "    constructor(msg, name) { super(msg); this.name = name || 'Error'; }",
-      '  };',
-      'module.exports = dom;',
-      'module.exports.DOMException = dom;',
-      'module.exports.default = dom;',
-    ].join('\n') + '\n', 'utf-8')
+    writeFileSync(
+      domExPath,
+      `${[
+        "'use strict';",
+        '// Patched: original transpiled file sets module.exports = undefined',
+        'const dom = globalThis.DOMException ||',
+        '  class DOMException extends Error {',
+        "    constructor(msg, name) { super(msg); this.name = name || 'Error'; }",
+        '  };',
+        'module.exports = dom;',
+        'module.exports.DOMException = dom;',
+        'module.exports.default = dom;',
+      ].join('\n')}\n`,
+      'utf-8',
+    )
     count++
   }
 
@@ -305,10 +342,12 @@ function patchBrokenModules(nodeModulesDir) {
         if (pkg.exports.import && !pkg.exports.require && !pkg.exports.default) {
           const importEntry = pkg.exports.import
           pkg.exports = { '.': { import: importEntry, default: importEntry } }
-          writeFileSync(pkgJsonPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8')
+          writeFileSync(pkgJsonPath, `${JSON.stringify(pkg, null, 2)}\n`, 'utf-8')
           count++
         }
-      } catch { /* skip unparseable */ }
+      } catch {
+        /* skip unparseable */
+      }
     }
   }
 
@@ -346,7 +385,9 @@ console.log('\n🧹 Cleaning bundle...')
 const cleaned = cleanupBundle(openclawOutput)
 patchBrokenModules(join(openclawOutput, 'node_modules'))
 const sizeAfter = getDirSize(openclawOutput)
-console.log(`  Removed ${cleaned} files, ${formatSize(sizeBefore)} → ${formatSize(sizeAfter)} (saved ${formatSize(sizeBefore - sizeAfter)})`)
+console.log(
+  `  Removed ${cleaned} files, ${formatSize(sizeBefore)} → ${formatSize(sizeAfter)} (saved ${formatSize(sizeBefore - sizeAfter)})`,
+)
 
 // ─── Bundle @shadowob/openclaw Channel Plugin ───────────────────────────────
 //
@@ -378,12 +419,14 @@ try {
     const { readdirSync: readDir } = await import('node:fs')
     const pnpmDir = join(ROOT, '..', '..', 'node_modules', '.pnpm')
     const candidates = readDir(pnpmDir)
-      .filter(d => d.startsWith('esbuild@') && !d.includes('register'))
+      .filter((d) => d.startsWith('esbuild@') && !d.includes('register'))
       .sort()
       .reverse()
     if (candidates.length > 0) {
       const esbuildPath = join(pnpmDir, candidates[0], 'node_modules', 'esbuild')
-      esbuild = (await import(`file://${join(esbuildPath, 'lib', 'main.js')}`)).default ?? await import(`file://${join(esbuildPath, 'lib', 'main.js')}`)
+      esbuild =
+        (await import(`file://${join(esbuildPath, 'lib', 'main.js')}`)).default ??
+        (await import(`file://${join(esbuildPath, 'lib', 'main.js')}`))
     } else {
       throw new Error('esbuild not found in pnpm store')
     }
@@ -400,9 +443,36 @@ try {
     alias: {
       '@shadowob/sdk': resolve(ROOT, '..', '..', 'packages', 'sdk', 'src', 'index.ts'),
       '@shadowob/shared': resolve(ROOT, '..', '..', 'packages', 'shared', 'src', 'index.ts'),
-      '@shadowob/shared/types': resolve(ROOT, '..', '..', 'packages', 'shared', 'src', 'types', 'index.ts'),
-      '@shadowob/shared/constants': resolve(ROOT, '..', '..', 'packages', 'shared', 'src', 'constants', 'index.ts'),
-      '@shadowob/shared/utils': resolve(ROOT, '..', '..', 'packages', 'shared', 'src', 'utils', 'index.ts'),
+      '@shadowob/shared/types': resolve(
+        ROOT,
+        '..',
+        '..',
+        'packages',
+        'shared',
+        'src',
+        'types',
+        'index.ts',
+      ),
+      '@shadowob/shared/constants': resolve(
+        ROOT,
+        '..',
+        '..',
+        'packages',
+        'shared',
+        'src',
+        'constants',
+        'index.ts',
+      ),
+      '@shadowob/shared/utils': resolve(
+        ROOT,
+        '..',
+        '..',
+        'packages',
+        'shared',
+        'src',
+        'utils',
+        'index.ts',
+      ),
     },
     // Inline the JSON manifest as a module
     loader: { '.json': 'json' },
@@ -417,10 +487,7 @@ try {
 }
 
 // Copy the plugin manifest
-cpSync(
-  join(PLUGIN_SRC, 'openclaw.plugin.json'),
-  join(PLUGIN_OUTPUT, 'openclaw.plugin.json'),
-)
+cpSync(join(PLUGIN_SRC, 'openclaw.plugin.json'), join(PLUGIN_OUTPUT, 'openclaw.plugin.json'))
 
 // Copy skills directory if present
 const skillsSrc = join(PLUGIN_SRC, 'skills')
@@ -434,7 +501,7 @@ const srcPkg = JSON.parse(readFileSync(join(PLUGIN_SRC, 'package.json'), 'utf-8'
 // Write a standalone package.json — no workspace:* references
 writeFileSync(
   join(PLUGIN_OUTPUT, 'package.json'),
-  JSON.stringify(
+  `${JSON.stringify(
     {
       name: '@shadowob/openclaw',
       version: srcPkg.version,
@@ -450,7 +517,7 @@ writeFileSync(
     },
     null,
     2,
-  ) + '\n',
+  )}\n`,
   'utf-8',
 )
 
