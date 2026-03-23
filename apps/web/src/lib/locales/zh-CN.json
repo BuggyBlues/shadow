@@ -719,7 +719,8 @@
     "listingDraft": "草稿",
     "listingPaused": "已暂停",
     "listingExpired": "已过期",
-    "listingClosed": "已关闭"
+    "listingClosed": "已关闭",
+    "totalOnlineTime": "累计在线时长"
   },
   "serverHome": {
     "welcome": "欢迎来到",
@@ -866,6 +867,15 @@
     "tokenPassthrough": "Token 费用由使用方承担",
     "pricingNote": "定价说明：",
     "pricingExplain": "最终费用 = 基础租金 + 电费 (2🦐/h) + Token消耗 (如开启代付) + 5% 平台手续费。日租/月租为优惠价，系统会自动选择最优方案。",
+    "pricingExplainNew": "总费用 = 基础每日费用 + 消息次数费 + Token消耗(如开启代付) + 5% 平台手续费。基础费用每日自动收取，消息费按使用次数定期结算。",
+    "baseDailyRate": "基础每日费用",
+    "baseDailyRateHint": "不管是否使用，每天自动收取",
+    "messageFee": "每条消息费用",
+    "messageFeeHint": "用户每发送一条消息收取的费用",
+    "messageCount": "消息次数",
+    "dailyBaseCost": "基础日费",
+    "estimatedMessageCost": "预估消息费",
+    "pricingDetail": "费率详情",
     "availability": "可用时间",
     "availableFrom": "开始时间",
     "availableUntil": "结束时间",
@@ -902,7 +912,15 @@
     "delistSuccess": "Claw 已下架",
     "delistHint": "下架后此 Claw 将不再展示在集市中",
     "confirmDelist": "确定要下架此 Claw 吗？",
-    "official": "官方"
+    "official": "官方",
+    "online": "在线",
+    "offline": "离线",
+    "totalOnline": "累计",
+    "expired": "已到期",
+    "listingRented": "出租中",
+    "listingUnlisted": "已下架",
+    "relistClaw": "重新上架",
+    "relistSuccess": "Claw 已重新上架"
   },
   "friends": {
     "title": "好友",
@@ -945,7 +963,11 @@
     "welcomeMessage": "这是你们的聊天记录的开始。",
     "noMessages": "还没有消息，发送第一条消息开始聊天吧！",
     "inputPlaceholder": "发送消息",
-    "inputPlaceholderDefault": "发送消息"
+    "inputPlaceholderDefault": "发送消息",
+    "chatDisabledRentedOut": "该 Buddy 已出租给其他用户，暂时无法聊天",
+    "chatDisabledListed": "该 Buddy 已在集市挂单中，暂时无法聊天",
+    "rentalCostTip": "🦐 今日费用提醒：基础日费 {{baseDailyRate}}🦐 + 消息费 {{messageFee}}🦐/条，累计花费 {{totalCost}}🦐，已发送 {{messageCount}} 条消息",
+    "chatDisabledExpired": "使用权已到期，请续租后再使用"
   },
   "openclaw": {
     "nav": {
@@ -1201,5 +1223,15 @@
       "archAgent": "智能体",
       "archDesc": "用户在 Shadow 频道发送消息 → 通过 Buddy 连接转发 → 龙虾服务处理 → 智能体生成回复 → 返回频道"
     }
+  },
+  "time": {
+    "seconds": "秒",
+    "minutes": "分钟",
+    "hours": "小时",
+    "days": "天",
+    "dayShort": "天",
+    "hourShort": "时",
+    "minShort": "分",
+    "secShort": "秒"
   }
 }
