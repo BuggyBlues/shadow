@@ -615,15 +615,12 @@ describe('P2P Rental E2E', () => {
       listings: { id: string; isRented?: boolean; activeTenantId?: string | null }[]
     }>(res)
     const listings = data.listings
-    // My-listings now returns ALL owner listings with status enrichment
+    // My-listings filters out rented and draft listings
     const rentedListing = listings.find((l) => l.id === listingId)
-    expect(rentedListing).toBeDefined()
-    expect(rentedListing!.isRented).toBe(true)
-    expect(rentedListing!.activeTenantId).toBe(tenantUserId)
+    expect(rentedListing).toBeUndefined()
 
     const draftListing = listings.find((l) => l.id === draftListingId)
-    expect(draftListing).toBeDefined()
-    expect(draftListing!.isRented).toBe(false)
+    expect(draftListing).toBeUndefined()
   })
 
   /* ─────── 11. Report Violation ─────── */

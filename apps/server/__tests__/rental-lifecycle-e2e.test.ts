@@ -250,16 +250,17 @@ describe('Rental Lifecycle E2E', () => {
     expect(data.reason).toBe('listed')
   })
 
-  /* ─────── 3. agent-chat-status: owner can always chat ─────── */
+  /* ─────── 3. agent-chat-status: owner also blocked when listed ─────── */
 
-  it('should allow owner to chat with their own agent', async () => {
+  it('should block owner chat when their agent is listed', async () => {
     const res = await req('GET', `/api/marketplace/agent-chat-status/${agentBotUserId}`, {
       token: ownerToken,
     })
 
     expect(res.status).toBe(200)
-    const data = await json<{ chatDisabled: boolean }>(res)
-    expect(data.chatDisabled).toBe(false)
+    const data = await json<{ chatDisabled: boolean; reason?: string }>(res)
+    expect(data.chatDisabled).toBe(true)
+    expect(data.reason).toBe('listed')
   })
 
   /* ─────── 4. Sign contract ─────── */
@@ -305,9 +306,9 @@ describe('Rental Lifecycle E2E', () => {
     expect(data.reason).toBe('rented_out')
   })
 
-  /* ─────── 7. my-listings: shows rented listing with enrichment ─────── */
+  /* ─────── 7. my-listings: excludes rented listing ─────── */
 
-  it('should return rented listing with isRented=true in my-listings', async () => {
+  it('should exclude rented listing from my-listings', async () => {
     const res = await req('GET', '/api/marketplace/my-listings', {
       token: ownerToken,
     })
@@ -317,9 +318,7 @@ describe('Rental Lifecycle E2E', () => {
       listings: { id: string; isRented: boolean; activeTenantId: string | null }[]
     }>(res)
     const listing = data.listings.find((l) => l.id === listingId)
-    expect(listing).toBeDefined()
-    expect(listing!.isRented).toBe(true)
-    expect(listing!.activeTenantId).toBe(tenantUserId)
+    expect(listing).toBeUndefined()
   })
 
   /* ─────── 8. Terminate contract → listing auto-delisted ─────── */
@@ -369,9 +368,9 @@ describe('Rental Lifecycle E2E', () => {
     expect(data.reason).toBe('expired')
   })
 
-  /* ─────── 11. agent-chat-status: owner still chats after contract ends ─────── */
+  /* ─────── 11. agent-chat-status: owner can chat after contract ends and delisted ─────── */
 
-  it('should still allow owner to chat after contract ends', async () => {
+  it('should allow owner to chat after contract ends and delisted', async () => {
     const res = await req('GET', `/api/marketplace/agent-chat-status/${agentBotUserId}`, {
       token: ownerToken,
     })
@@ -381,9 +380,9 @@ describe('Rental Lifecycle E2E', () => {
     expect(data.chatDisabled).toBe(false)
   })
 
-  /* ─────── 12. my-listings: shows delisted listing with isRented=false ─────── */
+  /* ─────── 12. my-listings: excludes delisted listing ─────── */
 
-  it('should show delisted listing with isRented=false after contract ends', async () => {
+  it('should exclude delisted listing from my-listings', async () => {
     const res = await req('GET', '/api/marketplace/my-listings', {
       token: ownerToken,
     })
@@ -398,10 +397,7 @@ describe('Rental Lifecycle E2E', () => {
       }[]
     }>(res)
     const listing = data.listings.find((l) => l.id === listingId)
-    expect(listing).toBeDefined()
-    expect(listing!.isRented).toBe(false)
-    expect(listing!.isListed).toBe(false)
-    expect(listing!.activeTenantId).toBeNull()
+    expect(listing).toBeUndefined()
   })
 
   /* ─────── 13. Owner relists after contract ends ─────── */
@@ -491,7 +487,7 @@ describe('Rental Lifecycle E2E', () => {
     const contractData = await json<{ id: string; status: string }>(contractRes)
     expect(contractData.status).toBe('completed')
 
-    // 2. Listing shows as delisted in my-listings
+    // 2. Listing excluded from my-listings (delisted)
     const myListingsRes = await req('GET', '/api/marketplace/my-listings', {
       token: ownerToken,
     })
@@ -500,9 +496,7 @@ describe('Rental Lifecycle E2E', () => {
       listings: { id: string; isRented: boolean; isListed: boolean }[]
     }>(myListingsRes)
     const listing = myListingsData.listings.find((l) => l.id === listingId)
-    expect(listing).toBeDefined()
-    expect(listing!.isRented).toBe(false)
-    expect(listing!.isListed).toBe(false)
+    expect(listing).toBeUndefined()
 
     // 3. Listing does NOT appear in marketplace browse
     const browseRes = await req('GET', '/api/marketplace/listings', {
