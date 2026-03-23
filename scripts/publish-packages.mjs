@@ -237,7 +237,9 @@ async function main() {
 
   log(`Bumping versions (${bumpType}) with unified target ${targetVersion}…`)
   const selectedFilters = buildWorkspaceFilters(selected)
-  runInherit(`pnpm -r ${selectedFilters} version ${targetVersion} --no-git-tag-version`, { cwd: ROOT })
+  runInherit(`pnpm -r ${selectedFilters} exec pnpm version ${targetVersion} --no-git-tag-version`, {
+    cwd: ROOT,
+  })
 
   for (const pkg of selected) {
     const updated = JSON.parse(fs.readFileSync(pkg.pkgJsonPath, 'utf8'))

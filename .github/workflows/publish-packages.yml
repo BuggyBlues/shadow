@@ -168,7 +168,7 @@ jobs:
       - name: Bump all public npm package versions
         shell: bash
         run: |
-          pnpm -r ${NPM_FILTERS} version "${RELEASE_VERSION}" --no-git-tag-version
+          pnpm -r ${NPM_FILTERS} exec pnpm version "${RELEASE_VERSION}" --no-git-tag-version
 
       - name: Sync sdk-python version with npm SDK
         shell: bash
