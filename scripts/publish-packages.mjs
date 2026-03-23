@@ -28,6 +28,10 @@ function run(cmd, opts = {}) {
   return typeof out === 'string' ? out.trim() : ''
 }
 
+function runInherit(cmd, opts = {}) {
+  execSync(cmd, { cwd: ROOT, stdio: 'inherit', ...opts })
+}
+
 function log(msg) {
   console.log(`\n\x1b[36m▸ ${msg}\x1b[0m`)
 }
@@ -38,6 +42,37 @@ function success(msg) {
 
 function fail(msg) {
   console.error(`\x1b[31m✖ ${msg}\x1b[0m`)
+}
+
+function buildWorkspaceFilters(selected) {
+  return selected.map((pkg) => `--filter=./packages/${pkg.dir}`).join(' ')
+}
+
+function parseSemver(version) {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version)
+  if (!match) {
+    throw new Error(`Unsupported version format: ${version}`)
+  }
+  return {
+    major: Number.parseInt(match[1], 10),
+    minor: Number.parseInt(match[2], 10),
+    patch: Number.parseInt(match[3], 10),
+  }
+}
+
+function compareSemver(a, b) {
+  const va = parseSemver(a)
+  const vb = parseSemver(b)
+  if (va.major !== vb.major) return va.major - vb.major
+  if (va.minor !== vb.minor) return va.minor - vb.minor
+  return va.patch - vb.patch
+}
+
+function bumpSemver(version, bumpType) {
+  const v = parseSemver(version)
+  if (bumpType === 'major') return `${v.major + 1}.0.0`
+  if (bumpType === 'minor') return `${v.major}.${v.minor + 1}.0`
+  return `${v.major}.${v.minor}.${v.patch + 1}`
 }
 
 // ─── Package Discovery ────────────────────────────────────────────
@@ -195,9 +230,16 @@ async function main() {
   }
 
   // 6. Bump versions
-  log(`Bumping versions (${bumpType})…`)
+  const baselineVersion = selected.map((pkg) => pkg.version).sort(compareSemver).at(-1)
+  const targetVersion = bumpSemver(baselineVersion, bumpType)
+
+  log(`Bumping versions (${bumpType}) with unified target ${targetVersion}…`)
+  const selectedFilters = buildWorkspaceFilters(selected)
+  runInherit(`pnpm -r ${selectedFilters} exec pnpm version ${targetVersion} --no-git-tag-version`, {
+    cwd: ROOT,
+  })
+
   for (const pkg of selected) {
-    run(`pnpm version ${bumpType} --no-git-tag-version`, { cwd: pkg.pkgDir })
     const updated = JSON.parse(fs.readFileSync(pkg.pkgJsonPath, 'utf8'))
     pkg.newVersion = updated.version
     success(`${pkg.name}: ${pkg.version} → ${pkg.newVersion}`)
@@ -262,13 +304,8 @@ async function main() {
   }
 
   // 9. Build packages if build script exists
-  for (const pkg of selected) {
-    const pkgJson = JSON.parse(fs.readFileSync(pkg.pkgJsonPath, 'utf8'))
-    if (pkgJson.scripts?.build) {
-      log(`Building ${pkg.name}…`)
-      run('pnpm run build', { cwd: pkg.pkgDir, stdio: 'inherit' })
-    }
-  }
+  log('Building selected packages (if build script exists)…')
+  runInherit(`pnpm -r ${selectedFilters} run build --if-present`, { cwd: ROOT })
 
   // 10. Confirm
   console.log('\nAbout to publish:')
@@ -286,12 +323,8 @@ async function main() {
 
   // 11. Publish
   log('Publishing…')
+  runInherit(`pnpm -r ${selectedFilters} publish --no-git-checks --access public`, { cwd: ROOT })
   for (const pkg of selected) {
-    console.log(`  Publishing ${pkg.name}@${pkg.newVersion}…`)
-    run('pnpm publish --no-git-checks --access public', {
-      cwd: pkg.pkgDir,
-      stdio: 'inherit',
-    })
     success(`${pkg.name}@${pkg.newVersion} published`)
   }
 

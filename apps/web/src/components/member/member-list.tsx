@@ -457,46 +457,12 @@ export function MemberList() {
       )}
 
       {/* Invite Panel */}
-      {showInvitePanel && server?.inviteCode && (
-        <div
-          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
-          onClick={() => setShowInvitePanel(false)}
-        >
-          <div
-            className="bg-bg-secondary rounded-xl p-6 w-96 border border-border-subtle"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-text-primary">{t('channel.inviteMember')}</h2>
-              <button
-                onClick={() => setShowInvitePanel(false)}
-                className="text-text-muted hover:text-text-primary transition"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
-              {t('channel.inviteLink')}
-            </label>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 font-mono text-xs truncate">
-                {`${window.location.origin}/app/invite/${server.inviteCode}`}
-              </code>
-              <button
-                onClick={() => {
-                  const inviteLink = `${window.location.origin}/app/invite/${server.inviteCode}`
-                  navigator.clipboard.writeText(inviteLink)
-                  setInviteCopied(true)
-                  setTimeout(() => setInviteCopied(false), 2000)
-                }}
-                className="px-3 py-3 bg-bg-tertiary rounded-lg text-text-muted hover:text-text-primary transition"
-                title={t('common.copy')}
-              >
-                {inviteCopied ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
-              </button>
-            </div>
-          </div>
-        </div>
+      {showInvitePanel && activeServerId && (
+        <InvitePanel
+          serverId={activeServerId}
+          channelId={activeChannelId}
+          onClose={() => setShowInvitePanel(false)}
+        />
       )}
 
       {/* Add Agent dialog */}
@@ -1465,6 +1431,271 @@ function MemberAddAgentDialog({
             <div className="px-5 py-8 text-center text-text-muted text-sm">
               {agents.length === 0 ? t('channel.noAgentsAvailable') : t('channel.noSearchResults')}
             </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Invite Panel Component - shared with channel-sidebar
+interface BuddyAgent {
+  id: string
+  ownerId: string
+  status: string
+  botUser?: {
+    id: string
+    username: string
+    displayName: string | null
+    avatarUrl: string | null
+  } | null
+}
+
+interface ServerMember {
+  userId: string
+  role: string
+  user?: {
+    id: string
+    username: string
+    displayName: string | null
+    avatarUrl: string | null
+    isBot: boolean
+  } | null
+}
+
+function InvitePanel({
+  serverId,
+  channelId,
+  onClose,
+}: {
+  serverId: string
+  channelId: string | null
+  onClose: () => void
+}) {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const [activeTab, setActiveTab] = useState<'members' | 'buddies'>('members')
+  const [copiedInvite, setCopiedInvite] = useState(false)
+
+  const { data: server } = useQuery({
+    queryKey: ['server', serverId],
+    queryFn: () =>
+      fetchApi<{ id: string; inviteCode: string; slug: string }>(`/api/servers/${serverId}`),
+    enabled: !!serverId,
+  })
+
+  const { data: serverMembers = [] } = useQuery({
+    queryKey: ['server-members', serverId],
+    queryFn: () => fetchApi<ServerMember[]>(`/api/servers/${serverId}/members`),
+    enabled: !!serverId,
+  })
+
+  const { data: myBuddies = [] } = useQuery({
+    queryKey: ['my-buddies-for-invite'],
+    queryFn: () => fetchApi<BuddyAgent[]>('/api/agents'),
+  })
+
+  const { data: channelMembers = [] } = useQuery({
+    queryKey: ['channel-members', channelId],
+    queryFn: () =>
+      fetchApi<
+        Array<{
+          user: { id: string }
+        }>
+      >(`/api/channels/${channelId}/members`),
+    enabled: !!channelId,
+  })
+
+  const inviteToChannel = useMutation({
+    mutationFn: (userId: string) =>
+      fetchApi(`/api/channels/${channelId}/members`, {
+        method: 'POST',
+        body: JSON.stringify({ userId }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['channel-members', channelId] })
+      queryClient.invalidateQueries({ queryKey: ['members'] })
+    },
+  })
+
+  const addBuddyToServer = useMutation({
+    mutationFn: (agentId: string) =>
+      fetchApi(`/api/servers/${serverId}/agents`, {
+        method: 'POST',
+        body: JSON.stringify({ agentIds: [agentId] }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['server-members', serverId] })
+      queryClient.invalidateQueries({ queryKey: ['members'] })
+    },
+  })
+
+  const copyInviteCode = async () => {
+    if (server?.inviteCode) {
+      const inviteLink = `${window.location.origin}/app/invite/${server.inviteCode}`
+      await navigator.clipboard.writeText(inviteLink)
+      setCopiedInvite(true)
+      setTimeout(() => setCopiedInvite(false), 2000)
+    }
+  }
+
+  const joinedUserIds = new Set(channelMembers.map((m) => m.user.id))
+  const serverMemberUserIds = new Set(serverMembers.map((m) => m.userId))
+  const candidates = serverMembers.filter((m) => !!m.user && !m.user.isBot)
+  const availableBuddies = myBuddies.filter(
+    (b) => b.botUser && !serverMemberUserIds.has(b.botUser.id),
+  )
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div className="bg-bg-secondary rounded-xl p-6 w-[520px] border border-border-subtle max-h-[80vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-text-primary">{t('channel.inviteMember')}</h2>
+          <button onClick={onClose} className="text-text-muted hover:text-text-primary transition">
+            <X size={18} />
+          </button>
+        </div>
+
+        <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
+          {t('channel.inviteLink')}
+        </label>
+        <div className="flex items-center gap-2 mb-4">
+          <code className="flex-1 bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 font-mono text-xs truncate">
+            {server?.inviteCode
+              ? `${window.location.origin}/app/invite/${server.inviteCode}`
+              : '...'}
+          </code>
+          <button
+            onClick={copyInviteCode}
+            disabled={!server?.inviteCode}
+            className="px-3 py-3 bg-bg-tertiary rounded-lg text-text-muted hover:text-text-primary transition disabled:opacity-50"
+            title={t('common.copy')}
+          >
+            {copiedInvite ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
+          </button>
+        </div>
+
+        {/* Tab switcher */}
+        <div className="flex items-center gap-1 mb-3 bg-bg-tertiary rounded-lg p-1">
+          <button
+            type="button"
+            onClick={() => setActiveTab('members')}
+            className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition ${
+              activeTab === 'members'
+                ? 'bg-bg-secondary text-text-primary'
+                : 'text-text-muted hover:text-text-secondary'
+            }`}
+          >
+            {t('member.groupOnline')} / {t('member.groupOffline')} ({candidates.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('buddies')}
+            className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition ${
+              activeTab === 'buddies'
+                ? 'bg-bg-secondary text-text-primary'
+                : 'text-text-muted hover:text-text-secondary'
+            }`}
+          >
+            My Buddy ({availableBuddies.length})
+          </button>
+        </div>
+
+        <div className="text-xs text-text-muted mb-2">
+          {activeTab === 'members'
+            ? channelId
+              ? `邀请同服务器成员加入当前频道（对方会在通知中心收到）`
+              : `选择频道后，可一键邀请同服务器成员加入该频道。`
+            : '添加 Buddy 到服务器，添加后会自动加入当前频道。'}
+        </div>
+
+        <div className="flex-1 overflow-y-auto space-y-1 pr-1">
+          {activeTab === 'members' ? (
+            candidates.length === 0 ? (
+              <div className="text-center py-8 text-text-muted text-sm">
+                暂无其他服务器成员可邀请
+              </div>
+            ) : (
+              candidates.map((m) => {
+                const u = m.user!
+                const inChannel = channelId ? joinedUserIds.has(u.id) : false
+                return (
+                  <div
+                    key={u.id}
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg bg-bg-tertiary/40 border border-border-subtle"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-bg-tertiary overflow-hidden flex items-center justify-center text-xs text-text-primary font-bold">
+                      {u.avatarUrl ? (
+                        <img src={u.avatarUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        (u.displayName || u.username).charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-text-primary truncate">
+                        {u.displayName || u.username}
+                      </p>
+                      <p className="text-xs text-text-muted truncate">@{u.username}</p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={!channelId || inChannel || inviteToChannel.isPending}
+                      onClick={() => inviteToChannel.mutate(u.id)}
+                      className="px-3 py-1.5 text-xs rounded-md bg-primary hover:bg-primary-hover text-white font-bold disabled:opacity-40"
+                    >
+                      {inChannel ? '已在频道中' : '邀请'}
+                    </button>
+                  </div>
+                )
+              })
+            )
+          ) : availableBuddies.length === 0 ? (
+            <div className="text-center py-8 text-text-muted text-sm">
+              暂无可用 Buddy，
+              <a href="/app/buddy" className="text-primary hover:underline">
+                去创建
+              </a>
+            </div>
+          ) : (
+            availableBuddies.map((buddy) => {
+              const u = buddy.botUser!
+              return (
+                <div
+                  key={buddy.id}
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg bg-bg-tertiary/40 border border-border-subtle"
+                >
+                  <div className="w-8 h-8 rounded-full bg-bg-tertiary overflow-hidden flex items-center justify-center text-xs text-text-primary font-bold">
+                    {u.avatarUrl ? (
+                      <img src={u.avatarUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      (u.displayName || u.username).charAt(0).toUpperCase()
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm text-text-primary truncate">
+                        {u.displayName || u.username}
+                      </p>
+                      <img src="/Logo.svg" alt="Buddy" className="w-3.5 h-3.5 opacity-60" />
+                    </div>
+                    <p className="text-xs text-text-muted truncate">@{u.username}</p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={addBuddyToServer.isPending}
+                    onClick={() => addBuddyToServer.mutate(buddy.id)}
+                    className="px-3 py-1.5 text-xs rounded-md bg-primary hover:bg-primary-hover text-white font-bold disabled:opacity-40"
+                  >
+                    {addBuddyToServer.isPending ? '添加中...' : '添加到服务器'}
+                  </button>
+                </div>
+              )
+            })
           )}
         </div>
       </div>

@@ -803,6 +803,8 @@ function DashboardContent() {
                           className="border-b border-zinc-800/50 hover:bg-zinc-800/30 cursor-pointer"
                           onClick={() => {
                             setSelectedServer(s)
+                            setSelectedChannel(null)
+                            setChannelMessages([])
                             loadServerChannels(s.id)
                           }}
                         >

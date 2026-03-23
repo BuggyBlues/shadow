@@ -10,6 +10,7 @@ import {
   FolderClosed,
   Hash,
   Home,
+  ImageIcon,
   Lock,
   Megaphone,
   Menu,
@@ -97,7 +98,6 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
   const [newName, setNewName] = useState('')
   const [newType, setNewType] = useState<'text' | 'voice' | 'announcement'>('text')
   const [newIsPrivate, setNewIsPrivate] = useState(false)
-  const [editName, setEditName] = useState('')
 
   // Listen for 'create-channel' pending action from task center
   const pendingAction = useUIStore((s) => s.pendingAction)
@@ -108,12 +108,30 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
       setPendingAction(null)
     }
   }, [pendingAction, setPendingAction])
-  const [editDescription, setEditDescription] = useState('')
-  const [editSlug, setEditSlug] = useState('')
-  const [editIsPublic, setEditIsPublic] = useState(false)
-  const [editHomepageHtml, setEditHomepageHtml] = useState('')
+
+  // Server settings dialog state
   const [bannerUploading, setBannerUploading] = useState(false)
   const [iconUploading, setIconUploading] = useState(false)
+  const [serverEditTab, setServerEditTab] = useState<'basic' | 'advanced'>('basic')
+
+  // Server edit form state - centralized draft state
+  const [serverFormDraft, setServerFormDraft] = useState<{
+    name: string
+    description: string
+    slug: string
+    isPublic: boolean
+    homepageHtml: string
+    iconUrl: string | null
+    bannerUrl: string | null
+  }>({
+    name: '',
+    description: '',
+    slug: '',
+    isPublic: false,
+    homepageHtml: '',
+    iconUrl: null,
+    bannerUrl: null,
+  })
   const [copiedInvite, setCopiedInvite] = useState(false)
   const [contextMenu, setContextMenu] = useState<{
     x: number
@@ -219,9 +237,10 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
 
   const updateServer = useMutation({
     mutationFn: (data: {
-      name: string
+      name?: string
       description?: string | null
       slug?: string
+      iconUrl?: string | null
       bannerUrl?: string | null
       homepageHtml?: string | null
       isPublic?: boolean
@@ -231,10 +250,13 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
         body: JSON.stringify(data),
       }),
     onSuccess: (updatedServer) => {
+      // Invalidate queries with both old and new slug to ensure consistency
       queryClient.invalidateQueries({ queryKey: ['server', serverSlug] })
+      if (updatedServer.slug !== serverSlug) {
+        queryClient.invalidateQueries({ queryKey: ['server', updatedServer.slug] })
+      }
       queryClient.invalidateQueries({ queryKey: ['servers'] })
       queryClient.invalidateQueries({ queryKey: ['discover-servers'] })
-      setShowServerEdit(false)
       // Redirect to slug-based URL if slug changed
       if (updatedServer.slug !== serverSlug) {
         navigate({ to: '/servers/$serverSlug', params: { serverSlug: updatedServer.slug } })
@@ -251,12 +273,40 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
   })
 
   const openServerEdit = () => {
-    setEditName(server?.name ?? '')
-    setEditDescription(server?.description ?? '')
-    setEditSlug(server?.slug ?? '')
-    setEditIsPublic(server?.isPublic ?? false)
-    setEditHomepageHtml(server?.homepageHtml ?? '')
+    // Initialize draft state from current server data
+    setServerFormDraft({
+      name: server?.name ?? '',
+      description: server?.description ?? '',
+      slug: server?.slug ?? '',
+      isPublic: server?.isPublic ?? false,
+      homepageHtml: server?.homepageHtml ?? '',
+      iconUrl: server?.iconUrl ?? null,
+      bannerUrl: server?.bannerUrl ?? null,
+    })
+    setServerEditTab('basic')
     setShowServerEdit(true)
+  }
+
+  // Update draft field helper
+  const updateDraftField = <K extends keyof typeof serverFormDraft>(
+    field: K,
+    value: (typeof serverFormDraft)[K],
+  ) => {
+    setServerFormDraft((prev) => ({ ...prev, [field]: value }))
+  }
+
+  // Check if draft has changes compared to server data
+  const hasDraftChanges = () => {
+    if (!server) return false
+    return (
+      serverFormDraft.name !== server.name ||
+      serverFormDraft.description !== (server.description ?? '') ||
+      serverFormDraft.slug !== (server.slug ?? '') ||
+      serverFormDraft.isPublic !== server.isPublic ||
+      serverFormDraft.homepageHtml !== (server.homepageHtml ?? '') ||
+      serverFormDraft.iconUrl !== server.iconUrl ||
+      serverFormDraft.bannerUrl !== server.bannerUrl
+    )
   }
 
   const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -270,13 +320,8 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
         method: 'POST',
         body: formData,
       })
-      // Update server banner immediately
-      await fetchApi(`/api/servers/${serverSlug}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ bannerUrl: result.url }),
-      })
-      queryClient.invalidateQueries({ queryKey: ['server', serverSlug] })
-      queryClient.invalidateQueries({ queryKey: ['discover-servers'] })
+      // Update draft state only - don't save to server yet
+      updateDraftField('bannerUrl', result.url)
     } catch {
       /* upload failed */
     } finally {
@@ -295,18 +340,40 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
         method: 'POST',
         body: formData,
       })
-      await fetchApi(`/api/servers/${serverSlug}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ iconUrl: result.url }),
-      })
-      queryClient.invalidateQueries({ queryKey: ['server', serverSlug] })
-      queryClient.invalidateQueries({ queryKey: ['servers'] })
-      queryClient.invalidateQueries({ queryKey: ['discover-servers'] })
+      // Update draft state only - don't save to server yet
+      updateDraftField('iconUrl', result.url)
     } catch {
       /* upload failed */
     } finally {
       setIconUploading(false)
     }
+  }
+
+  // Save all draft changes to server
+  const saveServerChanges = () => {
+    if (!serverFormDraft.name.trim()) return
+
+    updateServer.mutate(
+      {
+        name: serverFormDraft.name.trim(),
+        description: serverFormDraft.description.trim() || null,
+        slug: serverFormDraft.slug.trim() || undefined,
+        isPublic: serverFormDraft.isPublic,
+        homepageHtml: serverFormDraft.homepageHtml.trim() || null,
+        iconUrl: serverFormDraft.iconUrl,
+        bannerUrl: serverFormDraft.bannerUrl,
+      },
+      {
+        onSuccess: () => {
+          setShowServerEdit(false)
+        },
+      },
+    )
+  }
+
+  // Discard draft and close dialog
+  const discardChanges = () => {
+    setShowServerEdit(false)
   }
 
   const deleteChannel = useMutation({
@@ -796,177 +863,236 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
             if (e.target === e.currentTarget) setShowServerEdit(false)
           }}
         >
-          <div className="bg-bg-secondary rounded-xl p-6 w-[460px] max-h-[85vh] overflow-y-auto border border-border-subtle">
+          <div className="bg-bg-secondary rounded-xl p-6 w-[520px] max-h-[90vh] overflow-y-auto border border-border-subtle">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-xl font-bold text-text-primary">{t('channel.serverSettings')}</h2>
               <button
-                onClick={() => setShowServerEdit(false)}
-                className="text-text-muted hover:text-text-primary transition"
+                onClick={discardChanges}
+                disabled={updateServer.isPending}
+                className="text-text-muted hover:text-text-primary transition disabled:opacity-50"
               >
                 <X size={18} />
               </button>
             </div>
 
-            {/* Server icon upload */}
-            <div className="mb-4">
-              <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
-                {t('channel.serverIcon')}
-              </label>
-              <div className="flex items-center gap-4">
-                <div className="relative w-16 h-16 rounded-2xl overflow-hidden bg-bg-tertiary group/icon flex-shrink-0">
-                  {server?.iconUrl ? (
-                    <img src={server.iconUrl} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-text-muted">
-                      {server?.name?.[0]?.toUpperCase() ?? '?'}
-                    </div>
-                  )}
-                  <label className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/icon:opacity-100 transition cursor-pointer">
-                    <span className="text-white text-xs font-medium">
-                      {iconUploading ? '...' : t('channel.uploadIcon')}
-                    </span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleIconUpload}
-                      className="hidden"
-                      disabled={iconUploading}
-                    />
-                  </label>
-                </div>
-                <p className="text-xs text-text-muted">{t('channel.iconDesc')}</p>
-              </div>
+            {/* Tab Navigation */}
+            <div className="flex gap-1 mb-6 bg-bg-tertiary rounded-lg p-1">
+              <button
+                onClick={() => setServerEditTab('basic')}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition ${
+                  serverEditTab === 'basic'
+                    ? 'bg-bg-secondary text-text-primary shadow-sm'
+                    : 'text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                <ImageIcon size={16} />
+                基础设置
+              </button>
+              <button
+                onClick={() => setServerEditTab('advanced')}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition ${
+                  serverEditTab === 'advanced'
+                    ? 'bg-bg-secondary text-text-primary shadow-sm'
+                    : 'text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                <Settings size={16} />
+                进阶设置
+              </button>
             </div>
 
-            {/* Banner upload */}
-            <div className="mb-4">
-              <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
-                {t('channel.serverBanner')}
-              </label>
-              <div className="relative h-28 bg-gradient-to-br from-primary/30 to-primary/5 rounded-lg overflow-hidden group/banner">
-                {server?.bannerUrl && (
-                  <img
-                    src={server.bannerUrl}
-                    alt=""
-                    className="w-full h-full object-cover absolute inset-0"
-                  />
-                )}
-                <label className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/banner:opacity-100 transition cursor-pointer">
-                  <span className="text-white text-sm font-medium">
-                    {bannerUploading ? t('common.loading') : t('channel.uploadBanner')}
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleBannerUpload}
-                    className="hidden"
-                    disabled={bannerUploading}
-                  />
-                </label>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
-                {t('channel.editServerName')}
-              </label>
-              <input
-                type="text"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
-                {t('channel.serverSlug')}
-              </label>
-              <input
-                type="text"
-                value={editSlug}
-                onChange={(e) => setEditSlug(e.target.value)}
-                placeholder={t('channel.slugPlaceholder')}
-                className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary font-mono text-sm"
-              />
-              <p className="text-xs text-text-muted mt-1">{t('channel.slugDesc')}</p>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
-                {t('channel.editServerDescription')}
-              </label>
-              <textarea
-                value={editDescription}
-                onChange={(e) => setEditDescription(e.target.value)}
-                rows={3}
-                placeholder={t('channel.descriptionPlaceholder')}
-                className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary resize-none"
-              />
-            </div>
-
-            <div className="mb-4">
-              <label className="flex items-center justify-between cursor-pointer">
-                <span className="text-xs font-bold uppercase text-text-secondary">
-                  {t('channel.publicServer')}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setEditIsPublic(!editIsPublic)}
-                  className={`relative w-11 h-6 rounded-full transition-colors ${
-                    editIsPublic ? 'bg-primary' : 'bg-bg-tertiary'
-                  }`}
-                >
-                  <span
-                    className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
-                      editIsPublic ? 'translate-x-5' : ''
-                    }`}
-                  />
-                </button>
-              </label>
-              <p className="text-xs text-text-muted mt-1">{t('channel.publicServerDesc')}</p>
-            </div>
-
-            {/* Homepage HTML */}
-            <div className="mb-4">
-              <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
-                {t('channel.homepageHtml')}
-              </label>
-              <textarea
-                value={editHomepageHtml}
-                onChange={(e) => setEditHomepageHtml(e.target.value)}
-                rows={6}
-                placeholder={t('channel.homepageHtmlPlaceholder')}
-                className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary resize-y font-mono text-xs"
-              />
-              <p className="text-xs text-text-muted mt-1">{t('channel.homepageHtmlDesc')}</p>
-            </div>
-
-            {server?.inviteCode && (
-              <div className="mb-5">
-                <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
-                  {t('channel.inviteLink')}
-                </label>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 font-mono text-xs truncate">
-                    {`${window.location.origin}/app/invite/${server.inviteCode}`}
-                  </code>
-                  <button
-                    onClick={copyInviteCode}
-                    className="px-3 py-3 bg-bg-tertiary rounded-lg text-text-muted hover:text-text-primary transition"
-                    title={t('channel.copyInviteCode')}
-                  >
-                    {copiedInvite ? (
-                      <Check size={16} className="text-green-400" />
-                    ) : (
-                      <Copy size={16} />
+            {/* Basic Settings Tab */}
+            {serverEditTab === 'basic' && (
+              <div className="space-y-5">
+                {/* Hero Section - Banner + Icon */}
+                <div className="relative">
+                  {/* Banner upload - show draft state */}
+                  <div className="relative h-32 bg-gradient-to-br from-primary/30 to-primary/5 rounded-xl overflow-hidden group/banner">
+                    {serverFormDraft.bannerUrl && (
+                      <img
+                        src={serverFormDraft.bannerUrl}
+                        alt=""
+                        className="w-full h-full object-cover absolute inset-0"
+                      />
                     )}
-                  </button>
+                    <label className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/banner:opacity-100 transition cursor-pointer">
+                      <span className="text-white text-sm font-medium flex items-center gap-2">
+                        {bannerUploading ? (
+                          <span className="animate-pulse">{t('common.loading')}</span>
+                        ) : (
+                          <>
+                            <ImageIcon size={16} />
+                            {serverFormDraft.bannerUrl ? '更换横幅' : '添加横幅'}
+                          </>
+                        )}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleBannerUpload}
+                        className="hidden"
+                        disabled={bannerUploading}
+                      />
+                    </label>
+                  </div>
+
+                  {/* Server icon upload - positioned to overlap with banner - show draft state */}
+                  <div className="absolute -bottom-6 left-6">
+                    <div className="relative w-20 h-20 rounded-2xl overflow-hidden bg-bg-tertiary border-4 border-bg-secondary shadow-lg group/icon">
+                      {serverFormDraft.iconUrl ? (
+                        <img
+                          src={serverFormDraft.iconUrl}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-text-muted">
+                          {serverFormDraft.name?.[0]?.toUpperCase() ?? '?'}
+                        </div>
+                      )}
+                      <label className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover/icon:opacity-100 transition cursor-pointer">
+                        <span className="text-white text-xs font-medium">
+                          {iconUploading ? '...' : <ImageIcon size={14} />}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleIconUpload}
+                          className="hidden"
+                          disabled={iconUploading}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Server name - with extra top margin for icon overlap */}
+                <div className="mt-8">
+                  <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
+                    {t('channel.editServerName')}
+                  </label>
+                  <input
+                    type="text"
+                    value={serverFormDraft.name}
+                    onChange={(e) => updateDraftField('name', e.target.value)}
+                    placeholder="输入服务器名称"
+                    className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                {/* Server description */}
+                <div>
+                  <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
+                    {t('channel.editServerDescription')}
+                  </label>
+                  <textarea
+                    value={serverFormDraft.description}
+                    onChange={(e) => updateDraftField('description', e.target.value)}
+                    rows={3}
+                    placeholder={t('channel.descriptionPlaceholder')}
+                    className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary resize-none"
+                  />
+                </div>
+
+                {/* Public toggle */}
+                <div className="bg-bg-tertiary rounded-lg p-4">
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <div>
+                      <span className="text-sm font-semibold text-text-primary">
+                        {t('channel.publicServer')}
+                      </span>
+                      <p className="text-xs text-text-muted mt-0.5">
+                        {t('channel.publicServerDesc')}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => updateDraftField('isPublic', !serverFormDraft.isPublic)}
+                      className={`relative w-11 h-6 rounded-full transition-colors ${
+                        serverFormDraft.isPublic ? 'bg-primary' : 'bg-bg-primary'
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+                          serverFormDraft.isPublic ? 'translate-x-5' : ''
+                        }`}
+                      />
+                    </button>
+                  </label>
                 </div>
               </div>
             )}
 
-            <div className="flex justify-between gap-3">
+            {/* Advanced Settings Tab */}
+            {serverEditTab === 'advanced' && (
+              <div className="space-y-5">
+                {/* Server slug */}
+                <div>
+                  <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
+                    {t('channel.serverSlug')}
+                  </label>
+                  <input
+                    type="text"
+                    value={serverFormDraft.slug}
+                    onChange={(e) => updateDraftField('slug', e.target.value)}
+                    placeholder={t('channel.slugPlaceholder')}
+                    className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary font-mono text-sm"
+                  />
+                  <p className="text-xs text-text-muted mt-1">{t('channel.slugDesc')}</p>
+                </div>
+
+                {/* Homepage HTML */}
+                <div>
+                  <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
+                    {t('channel.homepageHtml')}
+                  </label>
+                  <textarea
+                    value={serverFormDraft.homepageHtml}
+                    onChange={(e) => updateDraftField('homepageHtml', e.target.value)}
+                    rows={8}
+                    placeholder={t('channel.homepageHtmlPlaceholder')}
+                    className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary resize-y font-mono text-xs"
+                  />
+                  <p className="text-xs text-text-muted mt-1">{t('channel.homepageHtmlDesc')}</p>
+                </div>
+
+                {/* Invite Link */}
+                {server?.inviteCode && (
+                  <div className="bg-bg-tertiary rounded-lg p-4">
+                    <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
+                      {t('channel.inviteLink')}
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 bg-bg-primary text-text-primary rounded-lg px-4 py-3 font-mono text-xs truncate">
+                        {`${window.location.origin}/app/invite/${server.inviteCode}`}
+                      </code>
+                      <button
+                        onClick={copyInviteCode}
+                        className="px-3 py-3 bg-bg-primary rounded-lg text-text-muted hover:text-text-primary transition"
+                        title={t('channel.copyInviteCode')}
+                      >
+                        {copiedInvite ? (
+                          <Check size={16} className="text-green-400" />
+                        ) : (
+                          <Copy size={16} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Server ID */}
+                <div className="bg-bg-tertiary rounded-lg p-4">
+                  <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
+                    服务器 ID
+                  </label>
+                  <code className="text-text-muted text-xs font-mono">{server?.id}</code>
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex justify-between gap-3 mt-6 pt-4 border-t border-border-subtle">
               <div>
                 {_currentUser?.id === server?.ownerId && (
                   <button
@@ -988,29 +1114,30 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
                   </button>
                 )}
               </div>
-              <div className="flex gap-3">
+              <div className="flex items-center gap-3">
+                {/* Unsaved changes indicator */}
+                {hasDraftChanges() && !updateServer.isPending && (
+                  <span className="text-xs text-amber-400">有未保存的更改</span>
+                )}
+                {updateServer.isPending && (
+                  <span className="text-xs text-text-muted animate-pulse">保存中...</span>
+                )}
                 <button
-                  onClick={() => setShowServerEdit(false)}
-                  className="px-4 py-2 text-text-secondary hover:text-text-primary transition rounded-lg"
+                  onClick={discardChanges}
+                  disabled={updateServer.isPending}
+                  className="px-4 py-2 text-text-secondary hover:text-text-primary transition rounded-lg disabled:opacity-50"
                 >
                   {t('common.cancel')}
                 </button>
                 <button
-                  onClick={() =>
-                    editName.trim() &&
-                    updateServer.mutate({
-                      name: editName.trim(),
-                      description: editDescription.trim() || null,
-                      slug: editSlug.trim() || undefined,
-                      isPublic: editIsPublic,
-                      homepageHtml: editHomepageHtml.trim() || null,
-                    })
+                  onClick={saveServerChanges}
+                  disabled={
+                    !serverFormDraft.name.trim() || updateServer.isPending || !hasDraftChanges()
                   }
-                  disabled={!editName.trim() || updateServer.isPending}
                   className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition disabled:opacity-50 font-bold"
                 >
                   <Save size={14} />
-                  {t('common.save')}
+                  {updateServer.isPending ? t('common.saving') : t('common.save')}
                 </button>
               </div>
             </div>
@@ -1254,6 +1381,18 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
   )
 }
 
+interface BuddyAgent {
+  id: string
+  ownerId: string
+  status: string
+  botUser?: {
+    id: string
+    username: string
+    displayName: string | null
+    avatarUrl: string | null
+  } | null
+}
+
 function InvitePanel({
   serverId,
   serverInviteCode,
@@ -1270,11 +1409,17 @@ function InvitePanel({
   onClose: () => void
 }) {
   const queryClient = useQueryClient()
+  const [activeTab, setActiveTab] = useState<'members' | 'buddies'>('members')
 
   const { data: serverMembers = [] } = useQuery({
     queryKey: ['server-members', serverId],
     queryFn: () => fetchApi<ServerMember[]>(`/api/servers/${serverId}/members`),
     enabled: !!serverId,
+  })
+
+  const { data: myBuddies = [] } = useQuery({
+    queryKey: ['my-buddies-for-invite'],
+    queryFn: () => fetchApi<BuddyAgent[]>('/api/agents'),
   })
 
   const { data: channelMembers = [] } = useQuery({
@@ -1300,8 +1445,27 @@ function InvitePanel({
     },
   })
 
+  // Add buddy to server mutation
+  const addBuddyToServer = useMutation({
+    mutationFn: (agentId: string) =>
+      fetchApi(`/api/servers/${serverId}/agents`, {
+        method: 'POST',
+        body: JSON.stringify({ agentIds: [agentId] }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['server-members', serverId] })
+      queryClient.invalidateQueries({ queryKey: ['members'] })
+    },
+  })
+
   const joinedUserIds = new Set(channelMembers.map((m) => m.user.id))
+  const serverMemberUserIds = new Set(serverMembers.map((m) => m.userId))
   const candidates = serverMembers.filter((m) => !!m.user && !m.user.isBot)
+
+  // Filter buddies: not already in server and have botUser
+  const availableBuddies = myBuddies.filter(
+    (b) => b.botUser && !serverMemberUserIds.has(b.botUser.id),
+  )
 
   return (
     <div
@@ -1334,45 +1498,123 @@ function InvitePanel({
           </button>
         </div>
 
+        {/* Tab switcher */}
+        <div className="flex items-center gap-1 mb-3 bg-bg-tertiary rounded-lg p-1">
+          <button
+            type="button"
+            onClick={() => setActiveTab('members')}
+            className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition ${
+              activeTab === 'members'
+                ? 'bg-bg-secondary text-text-primary'
+                : 'text-text-muted hover:text-text-secondary'
+            }`}
+          >
+            服务器成员 ({candidates.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('buddies')}
+            className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition ${
+              activeTab === 'buddies'
+                ? 'bg-bg-secondary text-text-primary'
+                : 'text-text-muted hover:text-text-secondary'
+            }`}
+          >
+            我的 Buddy ({availableBuddies.length})
+          </button>
+        </div>
+
         <div className="text-xs text-text-muted mb-2">
-          {inviteTargetChannel
-            ? `邀请同服务器成员加入频道 #${inviteTargetChannel.name}（对方会在通知中心收到）`
-            : '可先在某个频道右键打开本面板，然后一键邀请同服务器成员加入该频道。'}
+          {activeTab === 'members'
+            ? inviteTargetChannel
+              ? `邀请同服务器成员加入频道 #${inviteTargetChannel.name}（对方会在通知中心收到）`
+              : '选择左侧频道后，可一键邀请同服务器成员加入该频道。'
+            : '添加 Buddy 到服务器，添加后会自动加入当前频道。'}
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-1 pr-1">
-          {candidates.map((m) => {
-            const u = m.user!
-            const inChannel = inviteTargetChannel ? joinedUserIds.has(u.id) : false
-            return (
-              <div
-                key={u.id}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg bg-bg-tertiary/40 border border-border-subtle"
-              >
-                <div className="w-8 h-8 rounded-full bg-bg-tertiary overflow-hidden flex items-center justify-center text-xs text-text-primary font-bold">
-                  {u.avatarUrl ? (
-                    <img src={u.avatarUrl} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    (u.displayName || u.username).charAt(0).toUpperCase()
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-text-primary truncate">
-                    {u.displayName || u.username}
-                  </p>
-                  <p className="text-xs text-text-muted truncate">@{u.username}</p>
-                </div>
-                <button
-                  type="button"
-                  disabled={!inviteTargetChannel || inChannel || inviteToChannel.isPending}
-                  onClick={() => inviteToChannel.mutate(u.id)}
-                  className="px-3 py-1.5 text-xs rounded-md bg-primary hover:bg-primary-hover text-white font-bold disabled:opacity-40"
-                >
-                  {inChannel ? '已在频道中' : '邀请'}
-                </button>
+          {activeTab === 'members' ? (
+            candidates.length === 0 ? (
+              <div className="text-center py-8 text-text-muted text-sm">
+                暂无其他服务器成员可邀请
               </div>
+            ) : (
+              candidates.map((m) => {
+                const u = m.user!
+                const inChannel = inviteTargetChannel ? joinedUserIds.has(u.id) : false
+                return (
+                  <div
+                    key={u.id}
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg bg-bg-tertiary/40 border border-border-subtle"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-bg-tertiary overflow-hidden flex items-center justify-center text-xs text-text-primary font-bold">
+                      {u.avatarUrl ? (
+                        <img src={u.avatarUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        (u.displayName || u.username).charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-text-primary truncate">
+                        {u.displayName || u.username}
+                      </p>
+                      <p className="text-xs text-text-muted truncate">@{u.username}</p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={!inviteTargetChannel || inChannel || inviteToChannel.isPending}
+                      onClick={() => inviteToChannel.mutate(u.id)}
+                      className="px-3 py-1.5 text-xs rounded-md bg-primary hover:bg-primary-hover text-white font-bold disabled:opacity-40"
+                    >
+                      {inChannel ? '已在频道中' : '邀请'}
+                    </button>
+                  </div>
+                )
+              })
             )
-          })}
+          ) : availableBuddies.length === 0 ? (
+            <div className="text-center py-8 text-text-muted text-sm">
+              暂无可用 Buddy，
+              <a href="/app/buddy" className="text-primary hover:underline">
+                去创建
+              </a>
+            </div>
+          ) : (
+            availableBuddies.map((buddy) => {
+              const u = buddy.botUser!
+              return (
+                <div
+                  key={buddy.id}
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg bg-bg-tertiary/40 border border-border-subtle"
+                >
+                  <div className="w-8 h-8 rounded-full bg-bg-tertiary overflow-hidden flex items-center justify-center text-xs text-text-primary font-bold">
+                    {u.avatarUrl ? (
+                      <img src={u.avatarUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      (u.displayName || u.username).charAt(0).toUpperCase()
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm text-text-primary truncate">
+                        {u.displayName || u.username}
+                      </p>
+                      <img src="/Logo.svg" alt="Buddy" className="w-3.5 h-3.5 opacity-60" />
+                    </div>
+                    <p className="text-xs text-text-muted truncate">@{u.username}</p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={addBuddyToServer.isPending}
+                    onClick={() => addBuddyToServer.mutate(buddy.id)}
+                    className="px-3 py-1.5 text-xs rounded-md bg-primary hover:bg-primary-hover text-white font-bold disabled:opacity-40"
+                  >
+                    {addBuddyToServer.isPending ? '添加中...' : '添加到服务器'}
+                  </button>
+                </div>
+              )
+            })
+          )}
         </div>
       </div>
     </div>
