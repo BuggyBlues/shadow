@@ -73,11 +73,11 @@ jobs:
           pnpm install --frozen-lockfile \
             --filter ./packages/*...
 
-      - name: Compute publishable npm workspace filters
+      - name: Compute publish targets and unified release version
         id: publish_targets
         shell: bash
         run: |
-          FILTERS=$(node <<'NODE'
+          TARGETS=$(node <<'NODE'
           const fs = require('node:fs')
           const path = require('node:path')
 
@@ -87,18 +87,65 @@ jobs:
             return fs.statSync(full).isDirectory()
           })
 
+          function parseSemver(version) {
+            const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version)
+            if (!match) throw new Error(`Unsupported version format: ${version}`)
+            return {
+              major: Number.parseInt(match[1], 10),
+              minor: Number.parseInt(match[2], 10),
+              patch: Number.parseInt(match[3], 10),
+            }
+          }
+
+          function compareSemver(a, b) {
+            const va = parseSemver(a)
+            const vb = parseSemver(b)
+            if (va.major !== vb.major) return va.major - vb.major
+            if (va.minor !== vb.minor) return va.minor - vb.minor
+            return va.patch - vb.patch
+          }
+
+          function bumpSemver(version, bumpType) {
+            const v = parseSemver(version)
+            if (bumpType === 'major') return `${v.major + 1}.0.0`
+            if (bumpType === 'minor') return `${v.major}.${v.minor + 1}.0`
+            return `${v.major}.${v.minor}.${v.patch + 1}`
+          }
+
           const filters = []
+          const versions = []
           for (const dir of dirs) {
             const pkgJsonPath = path.join(packagesDir, dir, 'package.json')
             if (!fs.existsSync(pkgJsonPath)) continue
             const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'))
             if (pkg.private) continue
             filters.push(`--filter ${JSON.stringify(`./packages/${dir}`)}`)
+            versions.push(pkg.version)
           }
 
-          process.stdout.write(filters.join(' '))
+          const pyproject = fs.readFileSync(path.join(packagesDir, 'sdk-python', 'pyproject.toml'), 'utf8')
+          const pyMatch = pyproject.match(/^version\s*=\s*"([^"]+)"/m)
+          if (pyMatch) versions.push(pyMatch[1])
+
+          if (versions.length === 0) {
+            throw new Error('No versions found to compute release version')
+          }
+
+          const baseline = versions.sort(compareSemver).at(-1)
+          const bumpType = process.env.BUMP_TYPE || 'patch'
+          const releaseVersion = bumpSemver(baseline, bumpType)
+
+          process.stdout.write(JSON.stringify({
+            filters: filters.join(' '),
+            baseline,
+            releaseVersion,
+          }))
           NODE
           )
+
+          FILTERS=$(node -e "const d=JSON.parse(process.argv[1]); process.stdout.write(d.filters)" "$TARGETS")
+          BASELINE=$(node -e "const d=JSON.parse(process.argv[1]); process.stdout.write(d.baseline)" "$TARGETS")
+          RELEASE_VERSION=$(node -e "const d=JSON.parse(process.argv[1]); process.stdout.write(d.releaseVersion)" "$TARGETS")
 
           if [ -z "$FILTERS" ]; then
             echo "No publishable npm packages found under packages/."
@@ -106,30 +153,27 @@ jobs:
           fi
 
           echo "npm_filters=$FILTERS" >> "$GITHUB_OUTPUT"
+          echo "release_version=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
           echo "NPM_FILTERS=$FILTERS" >> "$GITHUB_ENV"
+          echo "RELEASE_VERSION=$RELEASE_VERSION" >> "$GITHUB_ENV"
           echo "Publish filters: $FILTERS"
+          echo "Version baseline: $BASELINE"
+          echo "Release version: $RELEASE_VERSION"
+        env:
+          BUMP_TYPE: ${{ inputs.bump }}
 
       - name: Verify workspace dependencies before bump
         run: pnpm check:workspace-deps
 
-      - name: Compute current SDK version
-        id: version_before
-        shell: bash
-        run: |
-          CURRENT=$(node -p "require('./packages/sdk/package.json').version")
-          echo "version=$CURRENT" >> "$GITHUB_OUTPUT"
-          echo "SDK_VERSION_BEFORE=$CURRENT" >> "$GITHUB_ENV"
-          echo "Current SDK version: $CURRENT"
-
       - name: Bump all public npm package versions
         shell: bash
         run: |
-          pnpm -r ${NPM_FILTERS} version "${{ inputs.bump }}" --no-git-tag-version
+          pnpm -r ${NPM_FILTERS} version "${RELEASE_VERSION}" --no-git-tag-version
 
       - name: Sync sdk-python version with npm SDK
         shell: bash
         run: |
-          SDK_VERSION=$(node -p "require('./packages/sdk/package.json').version")
+          SDK_VERSION="${RELEASE_VERSION}"
           echo "SDK_VERSION=$SDK_VERSION" >> "$GITHUB_ENV"
           sed -i "s/^version = \".*\"/version = \"${SDK_VERSION}\"/" packages/sdk-python/pyproject.toml
           pnpm check:sdk-versions

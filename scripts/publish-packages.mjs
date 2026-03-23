@@ -50,6 +50,33 @@ function buildWorkspaceFilters(selected) {
     .join(' ')
 }
 
+function parseSemver(version) {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version)
+  if (!match) {
+    throw new Error(`Unsupported version format: ${version}`)
+  }
+  return {
+    major: Number.parseInt(match[1], 10),
+    minor: Number.parseInt(match[2], 10),
+    patch: Number.parseInt(match[3], 10),
+  }
+}
+
+function compareSemver(a, b) {
+  const va = parseSemver(a)
+  const vb = parseSemver(b)
+  if (va.major !== vb.major) return va.major - vb.major
+  if (va.minor !== vb.minor) return va.minor - vb.minor
+  return va.patch - vb.patch
+}
+
+function bumpSemver(version, bumpType) {
+  const v = parseSemver(version)
+  if (bumpType === 'major') return `${v.major + 1}.0.0`
+  if (bumpType === 'minor') return `${v.major}.${v.minor + 1}.0`
+  return `${v.major}.${v.minor}.${v.patch + 1}`
+}
+
 // ─── Package Discovery ────────────────────────────────────────────
 
 function getPublishablePackages() {
@@ -205,9 +232,12 @@ async function main() {
   }
 
   // 6. Bump versions
-  log(`Bumping versions (${bumpType})…`)
+  const baselineVersion = selected.map((pkg) => pkg.version).sort(compareSemver).at(-1)
+  const targetVersion = bumpSemver(baselineVersion, bumpType)
+
+  log(`Bumping versions (${bumpType}) with unified target ${targetVersion}…`)
   const selectedFilters = buildWorkspaceFilters(selected)
-  runInherit(`pnpm -r ${selectedFilters} version ${bumpType} --no-git-tag-version`, { cwd: ROOT })
+  runInherit(`pnpm -r ${selectedFilters} version ${targetVersion} --no-git-tag-version`, { cwd: ROOT })
 
   for (const pkg of selected) {
     const updated = JSON.parse(fs.readFileSync(pkg.pkgJsonPath, 'utf8'))
