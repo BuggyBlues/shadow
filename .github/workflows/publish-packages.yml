@@ -119,7 +119,7 @@ jobs:
             if (!fs.existsSync(pkgJsonPath)) continue
             const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'))
             if (pkg.private) continue
-            filters.push(`--filter ${JSON.stringify(`./packages/${dir}`)}`)
+            filters.push(`--filter=./packages/${dir}`)
             versions.push(pkg.version)
           }
 

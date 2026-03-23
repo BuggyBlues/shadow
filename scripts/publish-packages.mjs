@@ -45,9 +45,7 @@ function fail(msg) {
 }
 
 function buildWorkspaceFilters(selected) {
-  return selected
-    .map((pkg) => `--filter ${JSON.stringify(`./packages/${pkg.dir}`)}`)
-    .join(' ')
+  return selected.map((pkg) => `--filter=./packages/${pkg.dir}`).join(' ')
 }
 
 function parseSemver(version) {
