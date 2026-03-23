@@ -7,6 +7,7 @@ import {
   CircleAlert,
   Hash,
   Layers3,
+  Lock,
   Megaphone,
   Search,
   Sparkles,
@@ -89,6 +90,7 @@ export default function CreateChannelScreen() {
 
   const [channelName, setChannelName] = useState('')
   const [channelType, setChannelType] = useState<ChannelType>('text')
+  const [isPrivate, setIsPrivate] = useState(false)
   const [categoryId, setCategoryId] = useState<string | null>(null)
   const [memberSearch, setMemberSearch] = useState('')
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set())
@@ -289,7 +291,7 @@ export default function CreateChannelScreen() {
       const finalName = channelName.trim() || generateChannelName()
       const channel = await fetchApi<{ id: string }>(`/api/servers/${server.id}/channels`, {
         method: 'POST',
-        body: JSON.stringify({ name: finalName, type: channelType, categoryId }),
+        body: JSON.stringify({ name: finalName, type: channelType, categoryId, isPrivate }),
       })
 
       const memberPromises = Array.from(selectedMembers).map((userId) =>
@@ -459,6 +461,51 @@ export default function CreateChannelScreen() {
               )
             })}
           </ScrollView>
+        </View>
+
+        <View style={styles.section}>
+          <Pressable
+            style={[
+              styles.privateToggle,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+              },
+            ]}
+            onPress={() => setIsPrivate(!isPrivate)}
+          >
+            <View style={styles.privateToggleLeft}>
+              <View style={[styles.privateIconWrap, { backgroundColor: colors.inputBackground }]}>
+                <Lock size={16} color={isPrivate ? colors.primary : colors.textSecondary} />
+              </View>
+              <View style={styles.privateTextWrap}>
+                <Text style={[styles.privateLabel, { color: colors.text }]}>
+                  {t('channel.privateChannel', '私有频道')}
+                </Text>
+                <Text style={[styles.privateDesc, { color: colors.textMuted }]}>
+                  {t('channel.privateChannelDesc', '仅受邀成员可加入')}
+                </Text>
+              </View>
+            </View>
+            <View
+              style={[
+                styles.toggleSwitch,
+                {
+                  backgroundColor: isPrivate ? colors.primary : colors.border,
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.toggleThumb,
+                  {
+                    backgroundColor: '#fff',
+                    transform: [{ translateX: isPrivate ? 20 : 0 }],
+                  },
+                ]}
+              />
+            </View>
+          </Pressable>
         </View>
 
         {categories.length > 0 && (
@@ -857,6 +904,49 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 999,
     borderWidth: 1,
+  },
+  privateToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.md,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+  },
+  privateToggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    flex: 1,
+  },
+  privateIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  privateTextWrap: {
+    flex: 1,
+  },
+  privateLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  privateDesc: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  toggleSwitch: {
+    width: 48,
+    height: 28,
+    borderRadius: 14,
+    padding: 4,
+  },
+  toggleThumb: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
   },
   selectionSection: {
     borderRadius: radius.xl,
