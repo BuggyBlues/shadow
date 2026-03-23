@@ -293,7 +293,9 @@
     "noSearchResults": "未找到符合的 Buddy",
     "homepageHtml": "主頁 HTML",
     "homepageHtmlPlaceholder": "<h1>歡迎！</h1>\n<p>這是伺服器主頁。</p>",
-    "homepageHtmlDesc": "伺服器主頁的自訂 HTML。留空使用預設主頁。"
+    "homepageHtmlDesc": "伺服器主頁的自訂 HTML。留空使用預設主頁。",
+    "privateChannel": "私有頻道",
+    "privateChannelDesc": "僅受邀成員可加入"
   },
   "chat": {
     "selectChannel": "選擇一個頻道開始聊天",

@@ -293,7 +293,9 @@
     "noSearchResults": "일치하는 Buddy를 찾을 수 없습니다",
     "homepageHtml": "홈페이지 HTML",
     "homepageHtmlPlaceholder": "<h1>환영합니다!</h1>\n<p>이것은 서버 홈페이지입니다.</p>",
-    "homepageHtmlDesc": "서버 홈페이지의 사용자 정의 HTML. 비워두면 기본값이 사용됩니다."
+    "homepageHtmlDesc": "서버 홈페이지의 사용자 정의 HTML. 비워두면 기본값이 사용됩니다.",
+    "privateChannel": "비공개 채널",
+    "privateChannelDesc": "초대된 멤버만 참여 가능"
   },
   "chat": {
     "selectChannel": "채널을 선택하여 채팅을 시작하세요",
