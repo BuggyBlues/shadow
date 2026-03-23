@@ -327,7 +327,17 @@ export function SettingsPage() {
             {t('settings.tabInvite')}
           </button>
         </nav>
-        <div className="mt-auto p-4 border-t-2 border-bg-tertiary">
+        <div className="mt-auto p-4 border-t-2 border-bg-tertiary space-y-2">
+          {/* Help Center Link */}
+          <a
+            href="https://docs.shadowob.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 w-full px-3 py-2 rounded-md text-[15px] font-medium text-text-secondary hover:text-primary hover:bg-bg-modifier-hover transition"
+          >
+            <BookOpen size={16} />
+            {t('help.title', '帮助中心')}
+          </a>
           <button
             onClick={() => setShowLogoutConfirm(true)}
             className="flex items-center gap-3 w-full px-3 py-2 rounded-md text-[15px] font-medium text-danger hover:bg-danger/10 transition"

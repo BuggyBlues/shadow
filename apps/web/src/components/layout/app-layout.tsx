@@ -1,13 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
 import { Outlet, useNavigate } from '@tanstack/react-router'
 import { Menu } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../../lib/api'
 import { connectSocket, disconnectSocket } from '../../lib/socket'
 import { useAuthStore } from '../../stores/auth.store'
 import { useUIStore } from '../../stores/ui.store'
 import { ConfirmDialog } from '../common/confirm-dialog'
+import { OnboardingModal } from '../onboarding/onboarding-modal'
 import { ServerSidebar } from '../server/server-sidebar'
 
 export function AppLayout() {
@@ -16,6 +17,7 @@ export function AppLayout() {
   const { setUser, logout } = useAuthStore()
   const { mobileServerSidebarOpen, closeMobileServerSidebar, openMobileServerSidebar } =
     useUIStore()
+  const [showOnboarding, setShowOnboarding] = useState(false)
 
   // Fetch current user on mount
   const {
@@ -39,6 +41,25 @@ export function AppLayout() {
   useEffect(() => {
     if (me) setUser(me)
   }, [me, setUser])
+
+  // Show onboarding for new users
+  useEffect(() => {
+    if (me && !localStorage.getItem('shadow_onboarding_completed')) {
+      // Check if user has any servers
+      fetchApi<Array<{ id: string }>>('/api/servers')
+        .then((servers) => {
+          if (servers.length === 0) {
+            setShowOnboarding(true)
+          } else {
+            localStorage.setItem('shadow_onboarding_completed', 'true')
+          }
+        })
+        .catch(() => {
+          // On error, still show onboarding
+          setShowOnboarding(true)
+        })
+    }
+  }, [me])
 
   // Redirect to login on auth failure
   useEffect(() => {
@@ -95,6 +116,9 @@ export function AppLayout() {
       )}
 
       <ConfirmDialog />
+
+      {/* Onboarding for new users */}
+      <OnboardingModal open={showOnboarding} onClose={() => setShowOnboarding(false)} />
     </div>
   )
 }

@@ -1201,5 +1201,44 @@
       "archAgent": "Agent",
       "archDesc": "User sends message in Shadow channel → Forwarded via Buddy → Claw service processes → Agent generates reply → Returned to channel"
     }
+  },
+  "onboarding": {
+    "welcome": "Welcome to Shadow!",
+    "welcomeDesc": "Let's get you started with your community",
+    "getStarted": "Get Started",
+    "featureChat": "Real-time Chat",
+    "featureChatDesc": "Chat with your community members in channels",
+    "featureAI": "AI Assistants",
+    "featureAIDesc": "Agents join channels as your AI teammates",
+    "featureCommunity": "Community Spaces",
+    "featureCommunityDesc": "Create your own community and invite friends",
+    "featureChannels": "Channel System",
+    "featureChannelsDesc": "Text, voice, and announcement channels for different needs",
+    "createServer": "Create Your Server",
+    "createServerDesc": "Give your community a name",
+    "serverName": "Server Name",
+    "serverNamePlaceholder": "My Community",
+    "joinInstead": "Join Existing Server",
+    "create": "Create Server",
+    "createError": "Failed to create, please try again",
+    "joinServer": "Join a Server",
+    "joinServerDesc": "Enter an invite code or select a public server",
+    "inviteCode": "Invite Code",
+    "orJoinPublic": "Or select a public server",
+    "noPublicServers": "No public servers available",
+    "skipForNow": "Skip for now",
+    "allSet": "You're All Set!",
+    "allSetDesc": "You're ready to start using Shadow",
+    "goToServer": "Go to Server"
+  },
+  "help": {
+    "title": "Help Center",
+    "gettingStarted": "Getting Started",
+    "gettingStartedDesc": "Learn the basics of Shadow",
+    "channels": "Using Channels",
+    "channelsDesc": "How to create and manage channels",
+    "aiAgents": "AI Assistants",
+    "aiAgentsDesc": "How to configure and use AI agents",
+    "viewDocs": "View Full Documentation"
   }
 }

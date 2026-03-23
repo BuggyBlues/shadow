@@ -1201,5 +1201,44 @@
       "archAgent": "智能体",
       "archDesc": "用户在 Shadow 频道发送消息 → 通过 Buddy 连接转发 → 龙虾服务处理 → 智能体生成回复 → 返回频道"
     }
+  },
+  "onboarding": {
+    "welcome": "欢迎来到 Shadow！",
+    "welcomeDesc": "让我们帮你开始构建你的社区",
+    "getStarted": "开始使用",
+    "featureChat": "实时聊天",
+    "featureChatDesc": "在频道中与社区成员实时交流",
+    "featureAI": "AI 助手",
+    "featureAIDesc": "智能体加入频道，成为你的 AI 队友",
+    "featureCommunity": "社区空间",
+    "featureCommunityDesc": "创建你自己的社区，邀请志同道合的朋友",
+    "featureChannels": "频道系统",
+    "featureChannelsDesc": "文本、语音、公告频道满足不同场景",
+    "createServer": "创建你的服务器",
+    "createServerDesc": "给你的社区起个名字",
+    "serverName": "服务器名称",
+    "serverNamePlaceholder": "我的社区",
+    "joinInstead": "加入现有服务器",
+    "create": "创建服务器",
+    "createError": "创建失败，请重试",
+    "joinServer": "加入服务器",
+    "joinServerDesc": "输入邀请码或选择公开服务器",
+    "inviteCode": "邀请码",
+    "orJoinPublic": "或选择公开服务器",
+    "noPublicServers": "暂无公开服务器",
+    "skipForNow": "暂时跳过",
+    "allSet": "一切就绪！",
+    "allSetDesc": "你已准备好开始使用 Shadow",
+    "goToServer": "进入服务器"
+  },
+  "help": {
+    "title": "帮助中心",
+    "gettingStarted": "快速入门",
+    "gettingStartedDesc": "了解 Shadow 的基础功能",
+    "channels": "频道使用",
+    "channelsDesc": "如何创建和管理频道",
+    "aiAgents": "AI 助手",
+    "aiAgentsDesc": "如何配置和使用 AI 助手",
+    "viewDocs": "查看完整文档"
   }
 }
