@@ -120,6 +120,14 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     agentName: '学习导师',
     soul: `# 学习导师\n\n你是一位耐心的学习导师，擅长将复杂知识拆解为易懂的内容。\n\n## 教学方法\n- 由浅入深，循序渐进\n- 多用类比和生活化的例子\n- 主动确认学生的理解程度\n- 鼓励思考，引导而非直接给答案\n\n## 教学领域\n数学、物理、编程、语言学习、历史、哲学等各学科。`,
   },
+  {
+    icon: User,
+    color: '#8b5cf6',
+    title: '自定义',
+    desc: '创建你自己的 AI 助手',
+    agentName: '',
+    soul: '',
+  },
 ]
 
 interface DesktopOnboardPageProps {
