@@ -4,81 +4,163 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Shadow Design System</title>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/lucide@latest"></script>
   <style>
     :root {
-      /* === HETEROC HROMIA (异色瞳) === */
-      --eye-left: #F8E71C;
-      --eye-right: #00F3FF;
-      --mystery: #FF6B9D;
+      /* === LIGHT MODE === */
+      --bg: #FEFEFE;
+      --bg-soft: #F7F8FA;
+      --surface: #FFFFFF;
+      --surface-soft: #F2F4F8;
+      --border: rgba(0, 0, 0, 0.08);
+      --border-strong: rgba(0, 0, 0, 0.12);
       
-      /* Glow Effects */
-      --glow-yellow: 0 0 40px rgba(248, 231, 28, 0.6), 0 0 80px rgba(248, 231, 28, 0.4), 0 0 120px rgba(248, 231, 28, 0.2);
-      --glow-cyan: 0 0 40px rgba(0, 243, 255, 0.6), 0 0 80px rgba(0, 243, 255, 0.4), 0 0 120px rgba(0, 243, 255, 0.2);
-      --glow-pink: 0 0 40px rgba(255, 107, 157, 0.6), 0 0 80px rgba(255, 107, 157, 0.4);
-      --glow-inner: inset 0 1px 0 rgba(255,255,255,0.1);
+      --text: #1A1D24;
+      --text-secondary: #4A5568;
+      --text-muted: #718096;
       
-      /* Gradients */
-      --gradient-eyes: linear-gradient(135deg, var(--eye-right) 0%, var(--eye-left) 100%);
-      --gradient-mystery: linear-gradient(135deg, var(--eye-right) 0%, var(--mystery) 50%, var(--eye-left) 100%);
+      --accent: #00C8D6;
+      --accent-strong: #00E5F5;
+      --accent-soft: rgba(0, 200, 214, 0.1);
       
-      /* Neutrals */
-      --void: #030305;
-      --shadow: #080810;
-      --surface: #0E0E18;
-      --elevated: #161624;
-      --border: #1E1E30;
-      --border-bright: #2A2A45;
+      --warm: #F8E71C;
+      --warm-strong: #FFB300;
+      --warm-soft: rgba(248, 231, 28, 0.1);
       
-      /* Text */
-      --text: #F0F0F5;
-      --text-dim: #8888A0;
-      --text-muted: #55556A;
+      --pink: #FF6B9D;
+      --pink-soft: rgba(255, 107, 157, 0.1);
       
-      /* Radius */
-      --radius-sm: 6px;
-      --radius-md: 10px;
-      --radius-lg: 16px;
-      --radius-xl: 24px;
+      --success: #22C55E;
+      --error: #EF4444;
       
-      /* Animation */
-      --ease: cubic-bezier(0.16, 1, 0.3, 1);
+      --glow-cyan: 0 0 40px rgba(0, 200, 214, 0.4);
+      --glow-yellow: 0 0 40px rgba(248, 231, 28, 0.5);
+      --glow-pink: 0 0 40px rgba(255, 107, 157, 0.4);
+    }
+    
+    html.dark {
+      --bg: #0C0D10;
+      --bg-soft: #12141A;
+      --surface: #181A22;
+      --surface-soft: #1E2028;
+      --border: rgba(255, 255, 255, 0.06);
+      --border-strong: rgba(255, 255, 255, 0.1);
+      
+      --text: #F1F5F9;
+      --text-secondary: #94A3B8;
+      --text-muted: #64748B;
+      
+      --accent: #00F3FF;
+      --accent-strong: #4DFAFF;
+      --accent-soft: rgba(0, 243, 255, 0.1);
+      
+      --warm: #F8E71C;
+      --warm-strong: #FFE44D;
+      --warm-soft: rgba(248, 231, 28, 0.1);
+      
+      --pink: #FF6B9D;
+      --pink-soft: rgba(255, 107, 157, 0.1);
+      
+      --glow-cyan: 0 0 60px rgba(0, 243, 255, 0.5), 0 0 100px rgba(0, 243, 255, 0.2);
+      --glow-yellow: 0 0 60px rgba(248, 231, 28, 0.5), 0 0 100px rgba(248, 231, 28, 0.2);
+      --glow-pink: 0 0 60px rgba(255, 107, 157, 0.4);
     }
     
     * { margin: 0; padding: 0; box-sizing: border-box; }
     
+    html { transition: background 0.3s ease, color 0.3s ease; }
+    
     body {
-      font-family: 'Space Grotesk', -apple-system, sans-serif;
-      background: var(--void);
+      font-family: 'Nunito', -apple-system, sans-serif;
+      background: var(--bg);
       color: var(--text);
       line-height: 1.6;
-      overflow-x: hidden;
+      min-height: 100vh;
     }
     
-    /* === GRID BACKGROUND === */
-    .grid-bg {
+    .font-display {
+      font-family: 'ZCOOL KuaiLe', cursive, sans-serif;
+    }
+    
+    /* === DOT PATTERN === */
+    .dot-pattern {
       position: fixed;
       inset: 0;
-      background-image: 
-        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-      background-size: 60px 60px;
+      background-image: radial-gradient(var(--text-muted) 1.5px, transparent 1.5px);
+      background-size: 32px 32px;
+      opacity: 0.15;
       pointer-events: none;
       z-index: 0;
     }
     
-    .grid-glow {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 800px;
-      height: 800px;
-      background: radial-gradient(circle, rgba(0, 243, 255, 0.08) 0%, transparent 50%);
-      pointer-events: none;
-      z-index: 0;
+    html.dark .dot-pattern {
+      opacity: 0.08;
     }
+    
+    /* === NAV === */
+    .nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      padding: 16px 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: color-mix(in srgb, var(--surface) 85%, transparent);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 900;
+      font-size: 22px;
+    }
+    
+    .nav-logo-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--warm) 100%);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      box-shadow: var(--glow-cyan);
+    }
+    
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .theme-toggle {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+    
+    .theme-toggle:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    
+    .theme-toggle svg { width: 20px; height: 20px; }
     
     /* === HERO === */
     .hero {
@@ -87,94 +169,96 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 64px 24px;
+      padding: 120px 24px 80px;
       position: relative;
-    }
-    
-    /* Aurora Background */
-    .aurora {
-      position: absolute;
-      inset: 0;
       overflow: hidden;
     }
     
-    .aurora::before {
-      content: '';
+    .hero-blob {
       position: absolute;
-      top: -50%;
-      left: -50%;
-      width: 200%;
-      height: 200%;
-      background: 
-        radial-gradient(ellipse 600px 400px at 30% 30%, rgba(0, 243, 255, 0.15) 0%, transparent 50%),
-        radial-gradient(ellipse 500px 350px at 70% 40%, rgba(255, 107, 157, 0.12) 0%, transparent 50%),
-        radial-gradient(ellipse 400px 300px at 50% 70%, rgba(248, 231, 28, 0.1) 0%, transparent 50%);
-      animation: aurora-move 20s ease-in-out infinite;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.4;
+      animation: float 8s ease-in-out infinite;
     }
     
-    @keyframes aurora-move {
-      0%, 100% { transform: translate(0, 0) rotate(0deg); }
-      33% { transform: translate(2%, 1%) rotate(1deg); }
-      66% { transform: translate(-1%, 2%) rotate(-1deg); }
+    html.dark .hero-blob {
+      opacity: 0.2;
     }
     
-    /* Cat Eyes */
+    .blob-1 {
+      width: 500px;
+      height: 500px;
+      top: -100px;
+      left: -100px;
+      background: var(--accent);
+      animation-delay: 0s;
+    }
+    
+    .blob-2 {
+      width: 400px;
+      height: 400px;
+      bottom: -50px;
+      right: -50px;
+      background: var(--warm);
+      animation-delay: 2s;
+    }
+    
+    .blob-3 {
+      width: 300px;
+      height: 300px;
+      top: 40%;
+      right: 20%;
+      background: var(--pink);
+      animation-delay: 4s;
+    }
+    
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33% { transform: translate(20px, -30px) scale(1.05); }
+      66% { transform: translate(-20px, 20px) scale(0.95); }
+    }
+    
     .hero-eyes {
       position: relative;
-      width: 220px;
-      height: 90px;
-      margin-bottom: 48px;
+      width: 200px;
+      height: 80px;
+      margin-bottom: 40px;
       z-index: 1;
     }
     
     .eye {
       position: absolute;
-      width: 72px;
-      height: 72px;
+      width: 64px;
+      height: 64px;
       border-radius: 50% 50% 50% 50% / 55% 55% 45% 45%;
       animation: blink 5s infinite;
-      transition: transform 300ms var(--ease);
-    }
-    
-    .eye:hover {
-      transform: scale(1.1);
     }
     
     .eye-left {
-      left: 20px;
-      background: 
-        radial-gradient(ellipse at 35% 35%, #FFFFDD 0%, var(--eye-left) 40%, #C6B800 80%),
-        linear-gradient(180deg, rgba(255,255,255,0.3) 0%, transparent 50%);
-      box-shadow: 
-        var(--glow-yellow),
-        inset 0 -8px 20px rgba(0,0,0,0.3),
-        inset 0 4px 10px rgba(255,255,255,0.4);
-      border: 2px solid rgba(255,255,255,0.2);
+      left: 16px;
+      background: radial-gradient(ellipse at 35% 35%, #FFFFDD, var(--warm), #B3A100);
+      box-shadow: var(--glow-yellow);
+      animation: eyeGlowYellow 3s ease-in-out infinite;
     }
     
     .eye-right {
-      right: 20px;
-      background: 
-        radial-gradient(ellipse at 35% 35%, #DDFFFF 0%, var(--eye-right) 40%, #00A3B0 80%),
-        linear-gradient(180deg, rgba(255,255,255,0.3) 0%, transparent 50%);
-      box-shadow: 
-        var(--glow-cyan),
-        inset 0 -8px 20px rgba(0,0,0,0.3),
-        inset 0 4px 10px rgba(255,255,255,0.4);
-      border: 2px solid rgba(255,255,255,0.2);
+      right: 16px;
+      background: radial-gradient(ellipse at 35% 35%, #DDFFFF, var(--accent), #0099AA);
+      box-shadow: var(--glow-cyan);
+      animation: eyeGlowCyan 3s ease-in-out infinite 0.5s;
     }
     
     .eye::before {
       content: '';
       position: absolute;
-      width: 28px;
-      height: 28px;
-      background: radial-gradient(circle at 30% 30%, #333, #000);
+      width: 26px;
+      height: 26px;
+      background: radial-gradient(circle at 30% 30%, #444, #000);
       border-radius: 50%;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      box-shadow: inset 0 2px 4px rgba(255,255,255,0.1);
     }
     
     .eye::after {
@@ -184,9 +268,8 @@
       height: 10px;
       background: white;
       border-radius: 50%;
-      top: 30%;
-      left: 35%;
-      opacity: 0.9;
+      top: 28%;
+      left: 32%;
     }
     
     @keyframes blink {
@@ -194,10 +277,20 @@
       50% { transform: scaleY(0.05); }
     }
     
+    @keyframes eyeGlowYellow {
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.2) drop-shadow(0 0 20px var(--warm)); }
+    }
+    
+    @keyframes eyeGlowCyan {
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.2) drop-shadow(0 0 20px var(--accent)); }
+    }
+    
     .hero-title {
-      font-size: clamp(56px, 12vw, 96px);
-      font-weight: 700;
-      letter-spacing: -0.04em;
+      font-size: clamp(52px, 10vw, 80px);
+      font-weight: 900;
+      letter-spacing: -0.03em;
       text-align: center;
       margin-bottom: 16px;
       position: relative;
@@ -205,26 +298,24 @@
     }
     
     .hero-title span {
-      background: var(--gradient-eyes);
+      background: linear-gradient(135deg, var(--accent) 0%, var(--warm) 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      text-shadow: 0 0 60px rgba(0, 243, 255, 0.3);
-      position: relative;
     }
     
-    .hero-subtitle {
-      font-size: 22px;
-      color: var(--text-dim);
+    .hero-desc {
+      font-size: 20px;
+      color: var(--text-secondary);
       text-align: center;
-      max-width: 500px;
+      max-width: 480px;
+      margin-bottom: 32px;
       position: relative;
       z-index: 1;
     }
     
     .hero-tags {
-      margin-top: 40px;
       display: flex;
-      gap: 16px;
+      gap: 12px;
       flex-wrap: wrap;
       justify-content: center;
       position: relative;
@@ -234,32 +325,33 @@
     .tag {
       padding: 10px 20px;
       font-size: 13px;
-      font-weight: 600;
-      border-radius: 100px;
-      backdrop-filter: blur(10px);
-      border: 1px solid;
-      background: rgba(255,255,255,0.03);
+      font-weight: 700;
+      border-radius: 9999px;
+      border: 2px solid;
+      transition: all 0.2s ease;
     }
     
-    .tag-cyan { 
-      border-color: rgba(0, 243, 255, 0.4); 
-      color: var(--eye-right);
-      box-shadow: 0 0 20px rgba(0, 243, 255, 0.15), inset 0 1px 0 rgba(0, 243, 255, 0.2);
+    .tag-cyan {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-soft);
     }
-    .tag-yellow { 
-      border-color: rgba(248, 231, 28, 0.4); 
-      color: var(--eye-left);
-      box-shadow: 0 0 20px rgba(248, 231, 28, 0.15), inset 0 1px 0 rgba(248, 231, 28, 0.2);
+    
+    .tag-yellow {
+      border-color: var(--warm);
+      color: var(--warm);
+      background: var(--warm-soft);
     }
-    .tag-pink { 
-      border-color: rgba(255, 107, 157, 0.4); 
-      color: var(--mystery);
-      box-shadow: 0 0 20px rgba(255, 107, 157, 0.15), inset 0 1px 0 rgba(255, 107, 157, 0.2);
+    
+    .tag-pink {
+      border-color: var(--pink);
+      color: var(--pink);
+      background: var(--pink-soft);
     }
     
     /* === SECTIONS === */
     .section {
-      padding: 120px 48px;
+      padding: 100px 48px;
       max-width: 1400px;
       margin: 0 auto;
       position: relative;
@@ -267,107 +359,97 @@
     }
     
     .section-header {
+      text-align: center;
       margin-bottom: 56px;
     }
     
     .section-label {
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 700;
       letter-spacing: 0.2em;
       text-transform: uppercase;
-      color: var(--eye-right);
+      color: var(--accent);
       margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    
-    .section-label::before {
-      content: '';
-      width: 8px;
-      height: 8px;
-      background: var(--eye-right);
-      border-radius: 50%;
-      box-shadow: 0 0 10px var(--eye-right);
     }
     
     .section-title {
-      font-size: 48px;
-      font-weight: 700;
-      letter-spacing: -0.03em;
+      font-size: 40px;
+      font-weight: 900;
+      letter-spacing: -0.02em;
     }
     
-    /* === COLOR SYSTEM === */
-    .color-palette {
+    .section-desc {
+      font-size: 18px;
+      color: var(--text-secondary);
+      margin-top: 12px;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    
+    /* === COLORS === */
+    .color-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 24px;
     }
     
     .color-card {
-      background: linear-gradient(145deg, var(--surface), var(--elevated));
-      border: 1px solid var(--border);
-      border-radius: var(--radius-xl);
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: 24px;
       overflow: hidden;
-      transition: all 400ms var(--ease);
-      position: relative;
-    }
-    
-    .color-card::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, transparent 50%);
-      pointer-events: none;
+      transition: all 0.3s ease;
     }
     
     .color-card:hover {
       transform: translateY(-8px);
-      border-color: var(--border-bright);
-      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+      border-color: var(--border-strong);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.1);
     }
     
-    .color-display {
-      height: 160px;
-      position: relative;
+    html.dark .color-card:hover {
+      box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+    }
+    
+    .color-swatch {
+      height: 140px;
       display: flex;
       align-items: center;
       justify-content: center;
+      position: relative;
       overflow: hidden;
     }
     
-    .color-display::after {
+    .color-swatch::after {
       content: '';
       position: absolute;
       inset: -50%;
       background: inherit;
-      filter: blur(60px);
+      filter: blur(40px);
       opacity: 0.6;
     }
     
     .color-icon {
-      font-size: 56px;
+      font-size: 48px;
       position: relative;
       z-index: 1;
-      filter: drop-shadow(0 4px 20px rgba(0,0,0,0.3));
     }
     
     .color-info {
-      padding: 28px;
-      position: relative;
-      background: linear-gradient(180deg, transparent, rgba(0,0,0,0.2));
+      padding: 24px;
     }
     
     .color-name {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 700;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
     }
     
     .color-desc {
       font-size: 14px;
-      color: var(--text-dim);
-      margin-bottom: 20px;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
     }
     
     .color-values {
@@ -377,381 +459,407 @@
     }
     
     .color-chip {
-      padding: 8px 14px;
-      font-size: 12px;
+      padding: 6px 12px;
+      font-size: 11px;
       font-family: monospace;
-      background: var(--elevated);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      color: var(--text-dim);
+      background: var(--surface-soft);
+      border-radius: 6px;
+      color: var(--text-secondary);
     }
     
     /* === COMPONENTS === */
     .components-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 32px;
+      gap: 24px;
     }
     
     .component-block {
-      background: linear-gradient(145deg, var(--surface), var(--elevated));
-      border: 1px solid var(--border);
-      border-radius: var(--radius-xl);
-      padding: 36px;
-      position: relative;
-      overflow: hidden;
-    }
-    
-    .component-block::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: 24px;
+      padding: 32px;
     }
     
     .component-title {
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 700;
       letter-spacing: 0.15em;
       text-transform: uppercase;
       color: var(--text-muted);
-      margin-bottom: 28px;
+      margin-bottom: 24px;
     }
     
-    /* Buttons */
-    .btn-group {
+    /* === BUTTONS === */
+    .btn-row {
       display: flex;
-      gap: 14px;
+      gap: 12px;
       flex-wrap: wrap;
+      margin-bottom: 16px;
     }
     
     .btn {
       display: inline-flex;
       align-items: center;
-      gap: 10px;
-      height: 48px;
-      padding: 0 28px;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 28px;
       font-family: inherit;
       font-size: 14px;
-      font-weight: 600;
-      border: none;
-      border-radius: var(--radius-md);
+      font-weight: 700;
+      border: 3px solid;
+      border-radius: 9999px;
       cursor: pointer;
-      transition: all 250ms var(--ease);
-      position: relative;
-      overflow: hidden;
+      transition: all 0.2s ease;
+      text-decoration: none;
     }
     
-    .btn::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, transparent 50%);
-    }
-    
-    .btn svg { width: 18px; height: 18px; position: relative; }
+    .btn svg { width: 18px; height: 18px; }
     
     .btn-primary {
-      background: linear-gradient(145deg, #1AF7FF, var(--eye-right));
-      color: var(--void);
-      box-shadow: 0 4px 20px rgba(0, 243, 255, 0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+      background: linear-gradient(135deg, var(--accent-strong), var(--accent));
+      border-color: transparent;
+      color: #0A0A0F;
+      box-shadow: 0 8px 24px rgba(0, 200, 214, 0.3);
+    }
+    
+    html.dark .btn-primary {
+      box-shadow: var(--glow-cyan);
     }
     
     .btn-primary:hover {
-      box-shadow: var(--glow-cyan), inset 0 1px 0 rgba(255,255,255,0.3);
-      transform: translateY(-3px);
+      transform: translateY(-4px) scale(1.02);
+      box-shadow: 0 12px 32px rgba(0, 200, 214, 0.4);
     }
     
-    .btn-accent {
-      background: linear-gradient(145deg, #FFF066, var(--eye-left));
-      color: var(--void);
-      box-shadow: 0 4px 20px rgba(248, 231, 28, 0.3), inset 0 1px 0 rgba(255,255,255,0.3);
+    html.dark .btn-primary:hover {
+      box-shadow: 0 12px 40px rgba(0, 243, 255, 0.5);
     }
     
-    .btn-accent:hover {
-      box-shadow: var(--glow-yellow), inset 0 1px 0 rgba(255,255,255,0.4);
-      transform: translateY(-3px);
+    .btn-secondary {
+      background: linear-gradient(135deg, var(--warm-strong), var(--warm));
+      border-color: transparent;
+      color: #0A0A0F;
+      box-shadow: 0 8px 24px rgba(248, 231, 28, 0.25);
     }
     
-    .btn-mystery {
-      background: linear-gradient(145deg, #FF8CB8, var(--mystery));
-      color: white;
-      box-shadow: 0 4px 20px rgba(255, 107, 157, 0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+    html.dark .btn-secondary {
+      box-shadow: var(--glow-yellow);
     }
     
-    .btn-mystery:hover {
-      box-shadow: var(--glow-pink), inset 0 1px 0 rgba(255,255,255,0.3);
-      transform: translateY(-3px);
+    .btn-secondary:hover {
+      transform: translateY(-4px) scale(1.02);
+    }
+    
+    .btn-outline {
+      background: transparent;
+      border-color: var(--border-strong);
+      color: var(--text);
+    }
+    
+    .btn-outline:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-soft);
     }
     
     .btn-ghost {
       background: transparent;
-      color: var(--text);
-      border: 1px solid var(--border-bright);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+      border-color: transparent;
+      color: var(--text-secondary);
     }
     
     .btn-ghost:hover {
-      border-color: var(--eye-right);
-      color: var(--eye-right);
-      box-shadow: 0 0 20px rgba(0, 243, 255, 0.15), inset 0 1px 0 rgba(0, 243, 255, 0.1);
+      background: var(--surface-soft);
+      color: var(--text);
     }
     
-    /* Input */
-    .input-wrap { margin-bottom: 16px; }
+    /* === INPUT === */
+    .input-group {
+      margin-bottom: 16px;
+    }
     
     .input {
       width: 100%;
-      height: 52px;
-      padding: 0 20px;
+      padding: 14px 18px;
       font-family: inherit;
       font-size: 14px;
       color: var(--text);
-      background: var(--elevated);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
+      background: var(--surface-soft);
+      border: 2px solid var(--border);
+      border-radius: 14px;
       outline: none;
-      transition: all 250ms var(--ease);
-      box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+      transition: all 0.2s ease;
     }
     
     .input:focus {
-      border-color: var(--eye-right);
-      box-shadow: var(--glow-cyan), inset 0 2px 4px rgba(0,0,0,0.2);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-soft);
     }
     
     .input::placeholder { color: var(--text-muted); }
     
-    /* Avatar */
-    .avatar-group {
+    /* === AVATAR === */
+    .avatar-row {
       display: flex;
-      gap: 20px;
+      gap: 16px;
       align-items: flex-end;
     }
     
     .avatar {
       position: relative;
-      width: 64px;
-      height: 64px;
+      width: 56px;
+      height: 56px;
       border-radius: 50%;
-      background: var(--gradient-mystery);
+      background: linear-gradient(135deg, var(--accent) 0%, var(--pink) 50%, var(--warm) 100%);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 28px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.3), inset 0 -4px 12px rgba(0,0,0,0.3), inset 0 4px 12px rgba(255,255,255,0.1);
-      border: 2px solid rgba(255,255,255,0.1);
+      font-size: 24px;
+      font-weight: 700;
+      color: #0A0A0F;
     }
     
-    .avatar-sm { width: 44px; height: 44px; font-size: 20px; }
-    .avatar-lg { width: 80px; height: 80px; font-size: 36px; }
+    .avatar-sm { width: 40px; height: 40px; font-size: 18px; }
+    .avatar-lg { width: 72px; height: 72px; font-size: 32px; }
     
     .avatar-status {
       position: absolute;
-      bottom: 3px;
-      right: 3px;
-      width: 16px;
-      height: 16px;
+      bottom: 2px;
+      right: 2px;
+      width: 14px;
+      height: 14px;
       border-radius: 50%;
-      background: #22C55E;
+      background: var(--success);
       border: 3px solid var(--surface);
-      box-shadow: 0 0 12px #22C55E;
     }
     
-    /* Badges */
-    .badge-group {
+    /* === BADGE === */
+    .badge-row {
       display: flex;
-      gap: 12px;
+      gap: 10px;
       flex-wrap: wrap;
     }
     
     .badge {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      height: 32px;
-      padding: 0 16px;
+      gap: 6px;
+      padding: 8px 14px;
       font-size: 12px;
-      font-weight: 600;
-      border-radius: 100px;
-      backdrop-filter: blur(10px);
+      font-weight: 700;
+      border-radius: 9999px;
+      border: 2px solid;
     }
     
     .badge-cyan {
-      background: linear-gradient(145deg, rgba(0, 243, 255, 0.2), rgba(0, 243, 255, 0.1));
-      color: var(--eye-right);
-      border: 1px solid rgba(0, 243, 255, 0.3);
-      box-shadow: 0 0 20px rgba(0, 243, 255, 0.15), inset 0 1px 0 rgba(0, 243, 255, 0.2);
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-soft);
     }
     
     .badge-yellow {
-      background: linear-gradient(145deg, rgba(248, 231, 28, 0.2), rgba(248, 231, 28, 0.1));
-      color: var(--eye-left);
-      border: 1px solid rgba(248, 231, 28, 0.3);
-      box-shadow: 0 0 20px rgba(248, 231, 28, 0.15), inset 0 1px 0 rgba(248, 231, 28, 0.2);
+      border-color: var(--warm);
+      color: var(--warm);
+      background: var(--warm-soft);
     }
     
     .badge-pink {
-      background: linear-gradient(145deg, rgba(255, 107, 157, 0.2), rgba(255, 107, 157, 0.1));
-      color: var(--mystery);
-      border: 1px solid rgba(255, 107, 157, 0.3);
-      box-shadow: 0 0 20px rgba(255, 107, 157, 0.15), inset 0 1px 0 rgba(255, 107, 157, 0.2);
+      border-color: var(--pink);
+      color: var(--pink);
+      background: var(--pink-soft);
     }
     
-    /* Card */
-    .demo-card {
-      background: linear-gradient(145deg, var(--elevated), var(--surface));
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 28px;
-      transition: all 350ms var(--ease);
+    /* === GLASS CARD === */
+    .glass-card {
+      background: color-mix(in srgb, var(--surface) 80%, transparent);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 2px solid var(--border);
+      border-radius: 24px;
+      padding: 24px;
+      transition: all 0.3s ease;
+    }
+    
+    .glass-card:hover {
+      transform: translateY(-6px);
+      border-color: var(--accent);
+      box-shadow: 0 16px 40px rgba(0,0,0,0.1);
+    }
+    
+    html.dark .glass-card:hover {
+      box-shadow: 0 16px 40px rgba(0, 243, 255, 0.15);
+    }
+    
+    .glass-card-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    
+    .glass-card-name {
+      font-weight: 700;
+      font-size: 16px;
+    }
+    
+    .glass-card-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    
+    /* === TOGGLE === */
+    .toggle-row {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    
+    .toggle-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+    }
+    
+    .toggle-label {
+      font-weight: 600;
+    }
+    
+    .toggle {
+      width: 52px;
+      height: 28px;
+      background: var(--border-strong);
+      border-radius: 9999px;
       position: relative;
-      overflow: hidden;
+      cursor: pointer;
+      transition: background 0.2s ease;
     }
     
-    .demo-card::before {
+    .toggle::after {
       content: '';
       position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+      top: 3px;
+      left: 3px;
+      width: 22px;
+      height: 22px;
+      background: var(--text);
+      border-radius: 50%;
+      transition: all 0.2s ease;
     }
     
-    .demo-card:hover {
-      border-color: var(--eye-right);
-      box-shadow: 0 0 50px rgba(0, 243, 255, 0.15), inset 0 1px 0 rgba(0, 243, 255, 0.1);
-      transform: translateY(-6px);
+    .toggle.active {
+      background: var(--accent);
     }
     
-    .demo-card-header {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      margin-bottom: 20px;
+    .toggle.active::after {
+      left: 27px;
+      background: var(--bg);
     }
     
-    .demo-card-name { font-weight: 600; font-size: 16px; }
-    .demo-card-desc { font-size: 13px; color: var(--text-dim); }
-    
-    /* Icons */
-    .icons-grid {
-      display: grid;
-      grid-template-columns: repeat(6, 1fr);
-      gap: 12px;
-    }
-    
-    .icon-wrap {
-      width: 100%;
-      aspect-ratio: 1;
-      background: var(--elevated);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: all 250ms var(--ease);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
-    }
-    
-    .icon-wrap svg {
-      width: 24px;
-      height: 24px;
-      color: var(--text-dim);
-    }
-    
-    .icon-wrap:hover {
-      border-color: var(--eye-right);
-      background: rgba(0, 243, 255, 0.05);
-      box-shadow: 0 0 20px rgba(0, 243, 255, 0.15), inset 0 1px 0 rgba(0, 243, 255, 0.1);
-    }
-    
-    .icon-wrap:hover svg { color: var(--eye-right); }
-    
-    /* === GRADIENTS === */
-    .gradients-showcase {
+    /* === SCENES === */
+    .scenes-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 24px;
     }
     
-    .gradient-block {
-      height: 220px;
-      border-radius: var(--radius-xl);
+    .scene-card {
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: 24px;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+    
+    .scene-card:hover {
+      transform: translateY(-6px);
+      border-color: var(--border-strong);
+    }
+    
+    .scene-preview {
+      height: 200px;
+      background: var(--bg-soft);
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      font-size: 18px;
-      font-weight: 700;
+      font-size: 48px;
       position: relative;
       overflow: hidden;
-      border: 1px solid rgba(255,255,255,0.1);
     }
     
-    .gradient-block::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, transparent 30%);
+    .scene-info {
+      padding: 20px;
     }
     
-    .gradient-block::after {
-      content: '';
-      position: absolute;
-      inset: -100%;
-      background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.2) 0%, transparent 50%);
-      animation: shine 3s ease-in-out infinite;
+    .scene-name {
+      font-weight: 700;
+      font-size: 16px;
+      margin-bottom: 4px;
     }
     
-    @keyframes shine {
-      0%, 100% { transform: translate(-100%, -100%); }
-      50% { transform: translate(50%, 50%); }
+    .scene-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
     }
     
-    .gradient-eyes {
-      background: linear-gradient(135deg, var(--eye-right) 0%, var(--eye-left) 100%);
-      color: var(--void);
-      box-shadow: 0 10px 60px rgba(0, 243, 255, 0.3), 0 10px 60px rgba(248, 231, 28, 0.2);
+    /* === GUIDELINES === */
+    .guideline-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
     }
     
-    .gradient-mystery {
-      background: linear-gradient(135deg, var(--eye-right) 0%, var(--mystery) 50%, var(--eye-left) 100%);
-      color: var(--void);
-      box-shadow: 0 10px 60px rgba(0, 243, 255, 0.2), 0 10px 60px rgba(255, 107, 157, 0.2);
+    .guideline-card {
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: 24px;
+      padding: 28px;
     }
     
-    .gradient-aurora {
-      background: linear-gradient(180deg, 
-        rgba(0, 243, 255, 0.3) 0%, 
-        rgba(255, 107, 157, 0.2) 50%,
-        rgba(248, 231, 28, 0.3) 100%);
-      color: var(--text);
-      box-shadow: inset 0 0 100px rgba(0, 243, 255, 0.1);
+    .guideline-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin-bottom: 16px;
     }
     
-    .gradient-name {
+    .guideline-icon.cyan { background: var(--accent-soft); }
+    .guideline-icon.yellow { background: var(--warm-soft); }
+    .guideline-icon.pink { background: var(--pink-soft); }
+    
+    .guideline-title {
+      font-weight: 700;
+      font-size: 18px;
+      margin-bottom: 12px;
+    }
+    
+    .guideline-list {
+      list-style: none;
+    }
+    
+    .guideline-list li {
+      padding: 8px 0;
+      color: var(--text-secondary);
+      font-size: 14px;
       position: relative;
-      z-index: 1;
+      padding-left: 20px;
     }
     
-    .gradient-label {
-      font-size: 12px;
-      font-weight: 400;
-      opacity: 0.7;
-      margin-top: 8px;
-      position: relative;
-      z-index: 1;
+    .guideline-list li::before {
+      content: '→';
+      position: absolute;
+      left: 0;
+      color: var(--accent);
     }
     
     /* === FOOTER === */
     .footer {
-      padding: 80px 48px;
+      padding: 64px 48px;
       text-align: center;
       border-top: 1px solid var(--border);
       position: relative;
@@ -760,8 +868,11 @@
     
     .footer-logo {
       font-size: 28px;
-      font-weight: 700;
-      background: var(--gradient-eyes);
+      font-weight: 900;
+    }
+    
+    .footer-logo span {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--warm) 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
@@ -773,31 +884,49 @@
     }
     
     @media (max-width: 1024px) {
-      .color-palette { grid-template-columns: 1fr; }
+      .color-grid { grid-template-columns: 1fr; }
       .components-grid { grid-template-columns: 1fr; }
-      .gradients-showcase { grid-template-columns: 1fr; }
+      .scenes-grid { grid-template-columns: 1fr; }
+      .guideline-grid { grid-template-columns: 1fr; }
     }
     
     @media (max-width: 768px) {
-      .section { padding: 64px 24px; }
-      .section-title { font-size: 32px; }
-      .icons-grid { grid-template-columns: repeat(4, 1fr); }
+      .nav { padding: 12px 20px; }
+      .section { padding: 64px 20px; }
+      .section-title { font-size: 28px; }
     }
   </style>
 </head>
 <body>
-  <div class="grid-bg"></div>
-  <div class="grid-glow"></div>
+  <div class="dot-pattern"></div>
+  
+  <!-- Nav -->
+  <nav class="nav">
+    <div class="nav-logo">
+      <div class="nav-logo-icon">🐱</div>
+      <span class="font-display">Shadow</span>
+    </div>
+    <div class="nav-actions">
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+        <i data-lucide="sun" id="theme-icon"></i>
+      </button>
+    </div>
+  </nav>
   
   <!-- Hero -->
   <section class="hero">
-    <div class="aurora"></div>
+    <div class="hero-blob blob-1"></div>
+    <div class="hero-blob blob-2"></div>
+    <div class="hero-blob blob-3"></div>
+    
     <div class="hero-eyes">
       <div class="eye eye-left"></div>
       <div class="eye eye-right"></div>
     </div>
-    <h1 class="hero-title"><span>Shadow</span></h1>
-    <p class="hero-subtitle">The super community for super individuals</p>
+    
+    <h1 class="hero-title font-display"><span>Shadow</span></h1>
+    <p class="hero-desc">The super community for super individuals</p>
+    
     <div class="hero-tags">
       <span class="tag tag-cyan">AI Native</span>
       <span class="tag tag-yellow">Creator First</span>
@@ -809,26 +938,27 @@
   <section class="section">
     <div class="section-header">
       <div class="section-label">Color System</div>
-      <h2 class="section-title">Heterochromia (异色瞳)</h2>
+      <h2 class="section-title font-display">Heterochromia</h2>
+      <p class="section-desc">异色瞳配色，双重特质，独特个性</p>
     </div>
     
-    <div class="color-palette">
+    <div class="color-grid">
       <div class="color-card">
-        <div class="color-display" style="background: radial-gradient(circle, #CCFFFF, var(--eye-right));">
+        <div class="color-swatch" style="background: linear-gradient(135deg, var(--accent-strong), var(--accent));">
           <span class="color-icon">👁️</span>
         </div>
         <div class="color-info">
           <div class="color-name">Cyan Eye</div>
-          <div class="color-desc">科技、AI、未来</div>
+          <div class="color-desc">科技、AI、未来感</div>
           <div class="color-values">
-            <span class="color-chip">#00F3FF</span>
-            <span class="color-chip">#00C8D6</span>
+            <span class="color-chip">Light: #00C8D6</span>
+            <span class="color-chip">Dark: #00F3FF</span>
           </div>
         </div>
       </div>
       
       <div class="color-card">
-        <div class="color-display" style="background: radial-gradient(circle, #FFFFCC, var(--eye-left));">
+        <div class="color-swatch" style="background: linear-gradient(135deg, var(--warm-strong), var(--warm));">
           <span class="color-icon">👁️</span>
         </div>
         <div class="color-info">
@@ -836,13 +966,13 @@
           <div class="color-desc">创造、活力、能量</div>
           <div class="color-values">
             <span class="color-chip">#F8E71C</span>
-            <span class="color-chip">#FFE91A</span>
+            <span class="color-chip">#FFB300</span>
           </div>
         </div>
       </div>
       
       <div class="color-card">
-        <div class="color-display" style="background: radial-gradient(circle, #FFB3CF, var(--mystery));">
+        <div class="color-swatch" style="background: linear-gradient(135deg, #FF8CB8, var(--pink));">
           <span class="color-icon">✨</span>
         </div>
         <div class="color-info">
@@ -856,57 +986,34 @@
     </div>
   </section>
   
-  <!-- Gradients -->
-  <section class="section">
-    <div class="section-header">
-      <div class="section-label">Gradients</div>
-      <h2 class="section-title">Brand Gradients</h2>
-    </div>
-    
-    <div class="gradients-showcase">
-      <div class="gradient-block gradient-eyes">
-        <span class="gradient-name">Eye to Eye</span>
-        <span class="gradient-label">Cyan → Yellow</span>
-      </div>
-      <div class="gradient-block gradient-mystery">
-        <span class="gradient-name">Mystery Flow</span>
-        <span class="gradient-label">Cyan → Pink → Yellow</span>
-      </div>
-      <div class="gradient-block gradient-aurora">
-        <span class="gradient-name">Aurora</span>
-        <span class="gradient-label">Atmospheric Glow</span>
-      </div>
-    </div>
-  </section>
-  
   <!-- Components -->
   <section class="section">
     <div class="section-header">
       <div class="section-label">Components</div>
-      <h2 class="section-title">UI Elements</h2>
+      <h2 class="section-title font-display">UI Elements</h2>
     </div>
     
     <div class="components-grid">
       <!-- Buttons -->
       <div class="component-block">
         <div class="component-title">Buttons</div>
-        <div class="btn-group">
+        <div class="btn-row">
           <button class="btn btn-primary"><i data-lucide="sparkles"></i> Primary</button>
-          <button class="btn btn-accent">Accent</button>
-          <button class="btn btn-mystery">Mystery</button>
+          <button class="btn btn-secondary">Secondary</button>
         </div>
-        <div class="btn-group" style="margin-top: 20px;">
-          <button class="btn btn-ghost">Ghost Button</button>
+        <div class="btn-row">
+          <button class="btn btn-outline">Outline</button>
+          <button class="btn btn-ghost">Ghost</button>
         </div>
       </div>
       
       <!-- Inputs -->
       <div class="component-block">
         <div class="component-title">Inputs</div>
-        <div class="input-wrap">
+        <div class="input-group">
           <input class="input" placeholder="Search...">
         </div>
-        <div class="input-wrap">
+        <div class="input-group">
           <input class="input" placeholder="Email address">
         </div>
       </div>
@@ -914,7 +1021,7 @@
       <!-- Avatars -->
       <div class="component-block">
         <div class="component-title">Avatars</div>
-        <div class="avatar-group">
+        <div class="avatar-row">
           <div class="avatar-sm avatar">🐱</div>
           <div class="avatar">🐱</div>
           <div class="avatar-lg avatar">🐱</div>
@@ -925,55 +1032,186 @@
       <!-- Badges -->
       <div class="component-block">
         <div class="component-title">Badges</div>
-        <div class="badge-group">
+        <div class="badge-row">
           <span class="badge badge-cyan">🤖 AI Agent</span>
           <span class="badge badge-yellow">✨ Creator</span>
           <span class="badge badge-pink">💜 Verified</span>
         </div>
       </div>
       
-      <!-- Card -->
+      <!-- Glass Card -->
       <div class="component-block">
-        <div class="component-title">Cards</div>
-        <div class="demo-card">
-          <div class="demo-card-header">
+        <div class="component-title">Glass Card</div>
+        <div class="glass-card">
+          <div class="glass-card-header">
             <div class="avatar-sm avatar">🤖</div>
             <div>
-              <div class="demo-card-name">AI Assistant</div>
-              <div class="demo-card-desc">Your AI teammate</div>
+              <div class="glass-card-name">AI Assistant</div>
+              <div class="glass-card-desc">Your AI teammate</div>
             </div>
           </div>
           <button class="btn btn-primary" style="width: 100%;">Start Chat</button>
         </div>
       </div>
       
-      <!-- Icons -->
+      <!-- Toggle -->
       <div class="component-block">
-        <div class="component-title">Icons</div>
-        <div class="icons-grid">
-          <div class="icon-wrap"><i data-lucide="home"></i></div>
-          <div class="icon-wrap"><i data-lucide="message-square"></i></div>
-          <div class="icon-wrap"><i data-lucide="user"></i></div>
-          <div class="icon-wrap"><i data-lucide="settings"></i></div>
-          <div class="icon-wrap"><i data-lucide="search"></i></div>
-          <div class="icon-wrap"><i data-lucide="bell"></i></div>
-          <div class="icon-wrap"><i data-lucide="sparkles"></i></div>
-          <div class="icon-wrap"><i data-lucide="bot"></i></div>
-          <div class="icon-wrap"><i data-lucide="zap"></i></div>
-          <div class="icon-wrap"><i data-lucide="send"></i></div>
-          <div class="icon-wrap"><i data-lucide="hash"></i></div>
-          <div class="icon-wrap"><i data-lucide="at-sign"></i></div>
+        <div class="component-title">Toggle</div>
+        <div class="toggle-row">
+          <div class="toggle-item">
+            <span class="toggle-label">Show online status</span>
+            <div class="toggle active" onclick="this.classList.toggle('active')"></div>
+          </div>
+          <div class="toggle-item">
+            <span class="toggle-label">Enable notifications</span>
+            <div class="toggle" onclick="this.classList.toggle('active')"></div>
+          </div>
         </div>
+      </div>
+    </div>
+  </section>
+  
+  <!-- Scenes -->
+  <section class="section">
+    <div class="section-header">
+      <div class="section-label">Scenes</div>
+      <h2 class="section-title font-display">应用场景</h2>
+    </div>
+    
+    <div class="scenes-grid">
+      <div class="scene-card">
+        <div class="scene-preview">💬</div>
+        <div class="scene-info">
+          <div class="scene-name">消息列表</div>
+          <div class="scene-desc">实时聊天、反应、线程</div>
+        </div>
+      </div>
+      
+      <div class="scene-card">
+        <div class="scene-preview">👤</div>
+        <div class="scene-info">
+          <div class="scene-name">个人主页</div>
+          <div class="scene-desc">Profile、状态、AI 分身</div>
+        </div>
+      </div>
+      
+      <div class="scene-card">
+        <div class="scene-preview">⚙️</div>
+        <div class="scene-info">
+          <div class="scene-name">设置面板</div>
+          <div class="scene-desc">偏好设置、隐私、通知</div>
+        </div>
+      </div>
+      
+      <div class="scene-card">
+        <div class="scene-preview">🏠</div>
+        <div class="scene-info">
+          <div class="scene-name">导航布局</div>
+          <div class="scene-desc">服务器、频道、成员列表</div>
+        </div>
+      </div>
+      
+      <div class="scene-card">
+        <div class="scene-preview">🤖</div>
+        <div class="scene-info">
+          <div class="scene-name">AI 对话</div>
+          <div class="scene-desc">Agent 交互、技能调用</div>
+        </div>
+      </div>
+      
+      <div class="scene-card">
+        <div class="scene-preview">🛒</div>
+        <div class="scene-info">
+          <div class="scene-name">社区商城</div>
+          <div class="scene-desc">商品、订单、钱包</div>
+        </div>
+      </div>
+    </div>
+  </section>
+  
+  <!-- Guidelines -->
+  <section class="section">
+    <div class="section-header">
+      <div class="section-label">Guidelines</div>
+      <h2 class="section-title font-display">设计原则</h2>
+    </div>
+    
+    <div class="guideline-grid">
+      <div class="guideline-card">
+        <div class="guideline-icon cyan">🎨</div>
+        <div class="guideline-title">色彩使用</div>
+        <ul class="guideline-list">
+          <li>Cyan 用于主要操作和链接</li>
+          <li>Yellow 用于强调和次要 CTA</li>
+          <li>Pink 用于特殊状态和装饰</li>
+          <li>保持对比度，确保可读性</li>
+        </ul>
+      </div>
+      
+      <div class="guideline-card">
+        <div class="guideline-icon yellow">📐</div>
+        <div class="guideline-title">布局规范</div>
+        <ul class="guideline-list">
+          <li>使用 8px 网格系统</li>
+          <li>组件间距: 12px / 16px / 24px</li>
+          <li>卡片圆角: 24px</li>
+          <li>按钮圆角: 9999px (药丸形)</li>
+        </ul>
+      </div>
+      
+      <div class="guideline-card">
+        <div class="guideline-icon pink">✨</div>
+        <div class="guideline-title">动效原则</div>
+        <ul class="guideline-list">
+          <li>过渡时长: 200ms - 300ms</li>
+          <li>悬停上浮: translateY(-4px)</li>
+          <li>猫眼动画: 脉冲光晕</li>
+          <li>尊重 prefers-reduced-motion</li>
+        </ul>
+      </div>
+      
+      <div class="guideline-card">
+        <div class="guideline-icon cyan">🔤</div>
+        <div class="guideline-title">字体规范</div>
+        <ul class="guideline-list">
+          <li>标题: ZCOOL KuaiLe (中文)</li>
+          <li>正文: Nunito (英文)</li>
+          <li>代码: JetBrains Mono</li>
+          <li>行高: 1.5 - 1.6</li>
+        </ul>
       </div>
     </div>
   </section>
   
   <!-- Footer -->
   <footer class="footer">
-    <div class="footer-logo">Shadow Design System</div>
+    <div class="footer-logo font-display"><span>Shadow</span> Design System</div>
     <p class="footer-text">Heterochromia — 双重特质，独特个性</p>
   </footer>
   
-  <script>lucide.createIcons();</script>
+  <script>
+    lucide.createIcons();
+    
+    function toggleTheme() {
+      const html = document.documentElement;
+      const icon = document.getElementById('theme-icon');
+      
+      if (html.classList.contains('dark')) {
+        html.classList.remove('dark');
+        icon.setAttribute('data-lucide', 'sun');
+      } else {
+        html.classList.add('dark');
+        icon.setAttribute('data-lucide', 'moon');
+      }
+      lucide.createIcons();
+    }
+    
+    // Check system preference
+    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.documentElement.classList.add('dark');
+      document.getElementById('theme-icon').setAttribute('data-lucide', 'moon');
+      lucide.createIcons();
+    }
+  </script>
 </body>
 </html>

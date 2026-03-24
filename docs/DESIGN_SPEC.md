@@ -6,95 +6,137 @@
 
 ## 品牌核心
 
-**Shadow** 是一只异色瞳的猫。这不是一个随意的设计——它代表了品牌的本质：**双重特质、神秘魅力、独特个性**。
+**Shadow** 是一只异色瞳的猫。这代表双重特质、神秘魅力、独特个性。
 
-### 三色系统
-
-| 颜色 | 色值 | 含义 |
-|------|------|------|
-| **Cyan Eye** | `#00F3FF` | 科技、AI、未来 |
-| **Yellow Eye** | `#F8E71C` | 创造、活力、能量 |
-| **Mystery** | `#FF6B9D` | 神秘、个性、独特 |
-
-### 视觉表达
-
-- **Aurora 背景** - 三色渐变光晕
-- **Eye Animation** - 猫眼眨动效果
-- **Glow Effects** - 品牌色光晕
+**Slogan**: The super community for super individuals
 
 ---
 
-## 色彩 Token
+## 色彩系统
 
 ### 品牌色
 
-```css
---eye-left: #F8E71C;   /* Yellow */
---eye-right: #00F3FF;  /* Cyan */
---mystery: #FF6B9D;    /* Pink */
-```
+| 名称 | Light Mode | Dark Mode | 用途 |
+|------|-----------|-----------|------|
+| **Cyan** | `#00C8D6` | `#00F3FF` | 主色、AI、科技 |
+| **Yellow** | `#F8E71C` | `#F8E71C` | 强调、活力、创造 |
+| **Pink** | `#FF6B9D` | `#FF6B9D` | 神秘、个性、装饰 |
 
-### 渐变
+### 语义色
 
-```css
---gradient-eyes: linear-gradient(135deg, #00F3FF 0%, #F8E71C 100%);
---gradient-mystery: linear-gradient(135deg, #00F3FF 0%, #FF6B9D 50%, #F8E71C 100%);
---gradient-aurora: linear-gradient(180deg, 
-  rgba(0, 243, 255, 0.15) 0%, 
-  rgba(255, 107, 157, 0.1) 50%,
-  rgba(248, 231, 28, 0.15) 100%);
-```
-
-### 光晕效果
-
-```css
---glow-cyan: 0 0 30px rgba(0, 243, 255, 0.5), 0 0 60px rgba(0, 243, 255, 0.3);
---glow-yellow: 0 0 30px rgba(248, 231, 28, 0.5), 0 0 60px rgba(248, 231, 28, 0.3);
---glow-pink: 0 0 30px rgba(255, 107, 157, 0.5), 0 0 60px rgba(255, 107, 157, 0.3);
-```
+| 名称 | 用途 |
+|------|------|
+| `#22C55E` | 成功、在线 |
+| `#EF4444` | 错误、勿扰 |
+| `#F59E0B` | 警告、离开 |
 
 ### 中性色
 
-```css
---void: #050507;      /* 最深 */
---shadow: #0A0A0F;    /* 背景 */
---surface: #12121A;   /* 卡片 */
---elevated: #1A1A25;  /* 提升 */
---border: #252530;    /* 边框 */
-```
+**Light Mode:**
+| Token | 色值 | 用途 |
+|-------|------|------|
+| `--bg` | `#FEFEFE` | 页面背景 |
+| `--surface` | `#FFFFFF` | 卡片背景 |
+| `--border` | `rgba(0,0,0,0.08)` | 边框 |
+| `--text` | `#1A1D24` | 主文字 |
+| `--text-secondary` | `#4A5568` | 次文字 |
+
+**Dark Mode:**
+| Token | 色值 | 用途 |
+|-------|------|------|
+| `--bg` | `#0C0D10` | 页面背景 |
+| `--surface` | `#181A22` | 卡片背景 |
+| `--border` | `rgba(255,255,255,0.06)` | 边框 |
+| `--text` | `#F1F5F9` | 主文字 |
+| `--text-secondary` | `#94A3B8` | 次文字 |
 
 ---
 
 ## 字体
 
-**Space Grotesk** — 几何、现代、有性格
+| 用途 | 字体 |
+|------|------|
+| 标题 (中文) | **ZCOOL KuaiLe** |
+| 正文/标题 (英文) | **Nunito** |
+| 代码 | JetBrains Mono |
 
 ---
 
-## 圆角
+## 布局
 
-| Token | 值 |
-|-------|-----|
-| `radius-sm` | 6px |
-| `radius-md` | 10px |
-| `radius-lg` | 14px |
-| `radius-xl` | 20px |
+### 间距
+基于 **8px 网格**: `4, 8, 12, 16, 20, 24, 32, 40, 48`
+
+### 圆角
+| Token | 值 | 用途 |
+|-------|-----|------|
+| `--radius-sm` | 6px | 小元素 |
+| `--radius-md` | 14px | 输入框 |
+| `--radius-lg` | 24px | 卡片 |
+| `--radius-full` | 9999px | 按钮、徽章 |
 
 ---
 
-## 组件风格
+## 组件
 
-- **Button**: 品牌色填充 + hover 光晕
-- **Input**: Focus 时品牌色边框 + 光晕
-- **Card**: Hover 时品牌色边框 + 微浮
-- **Avatar**: 三色渐变背景
+### Button
+- 药丸形 (`border-radius: 9999px`)
+- 渐变背景 + 阴影
+- Hover: 上浮 + 放大
+
+### Card
+- 毛玻璃效果 (`backdrop-filter: blur`)
+- 圆角 24px
+- Hover: 上浮 + 边框变亮
+
+### Avatar
+- 三色渐变背景
+- 在线状态指示器
+
+### Badge
+- 药丸形
+- 半透明背景 + 边框
+
+---
+
+## 动效
+
+| 场景 | 时长 |
+|------|------|
+| Hover | 200ms |
+| 过渡 | 300ms |
+| 页面切换 | 400ms |
+
+**猫眼动画**: 脉冲光晕 (3s infinite)
+
+---
+
+## 日夜间模式
+
+```css
+:root { /* Light Mode */ }
+html.dark { /* Dark Mode */ }
+```
+
+使用 CSS 变量自动适配，通过 `html.dark` 类切换。
+
+---
+
+## 应用场景
+
+1. 消息列表
+2. 个人主页
+3. 设置面板
+4. 导航布局
+5. AI 对话
+6. 社区商城
 
 ---
 
 ## Demo
 
-`demos/showcase.html`
+`demos/showcase.html` — 完整设计系统展示
 
 ---
 
-*Shadow — The super community for super individuals*
+*Shadow Design System — Heterochromia*
