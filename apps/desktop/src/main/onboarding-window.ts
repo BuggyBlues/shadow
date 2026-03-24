@@ -44,12 +44,12 @@ export function createOnboardingWindow(): Promise<OnboardingResult> {
     }
 
     onboardingWindow = new BrowserWindow({
-      width: 480,
-      height: 680,
+      width: 520,
+      height: 800,
       minWidth: 480,
-      minHeight: 680,
-      maxWidth: 600,
-      maxHeight: 800,
+      minHeight: 720,
+      maxWidth: 640,
+      maxHeight: 900,
       resizable: true,
       frame: process.platform === 'darwin',
       titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',

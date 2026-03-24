@@ -487,11 +487,12 @@ function ModelStep({
   const [apiKey, setApiKey] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [showAll, setShowAll] = useState(false)
 
-  // Quick presets for onboarding
-  const quickPresets = PROVIDER_PRESETS.filter((p) =>
-    ['openai', 'anthropic', 'gemini', 'deepseek', 'moonshot'].includes(p.id),
-  )
+  // Quick presets for onboarding (common providers)
+  const quickPresetIds = ['openai', 'anthropic', 'gemini', 'deepseek', 'moonshot']
+  const quickPresets = PROVIDER_PRESETS.filter((p) => quickPresetIds.includes(p.id))
+  const otherPresets = PROVIDER_PRESETS.filter((p) => !quickPresetIds.includes(p.id))
 
   const handleSave = async () => {
     if (!selected || !apiKey.trim()) return
@@ -536,6 +537,7 @@ function ModelStep({
 
       {!selected ? (
         <div className="space-y-2">
+          {/* 常用模型 */}
           {quickPresets.map((preset) => (
             <button
               key={preset.id}
@@ -558,6 +560,49 @@ function ModelStep({
               <ChevronRight size={16} className="text-text-muted/50 shrink-0" />
             </button>
           ))}
+
+          {/* 展开更多 */}
+          {otherPresets.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowAll(!showAll)}
+              className="w-full flex items-center justify-center gap-2 p-3 text-sm text-text-muted hover:text-text-primary hover:bg-bg-tertiary rounded-xl transition"
+            >
+              <ChevronRight
+                size={16}
+                className={`transition-transform ${showAll ? 'rotate-90' : ''}`}
+              />
+              {showAll ? t('onboard.showLess', '收起') : t('onboard.showMore', '展开更多模型')}
+            </button>
+          )}
+
+          {/* 更多模型 */}
+          {showAll && (
+            <div className="space-y-2 pt-2 border-t border-bg-tertiary">
+              {otherPresets.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => setSelected(preset)}
+                  className="w-full flex items-center gap-3 p-3 bg-bg-tertiary hover:bg-bg-modifier-hover rounded-xl transition text-left group"
+                >
+                  <div
+                    className="w-10 h-10 rounded-lg flex items-center justify-center text-sm font-black shrink-0"
+                    style={{ backgroundColor: `${preset.brandColor}15`, color: preset.brandColor }}
+                  >
+                    {preset.name.charAt(0)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-text-primary group-hover:text-danger transition truncate">
+                      {preset.name}
+                    </div>
+                    <div className="text-xs text-text-muted truncate">{preset.description}</div>
+                  </div>
+                  <ChevronRight size={16} className="text-text-muted/50 shrink-0" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-4">
@@ -675,15 +720,26 @@ function AgentStep({
     setSaving(true)
     setError('')
     try {
-      const agentId = `agent-${Date.now()}`
+      // 1. 通过 REST API 创建远程智能体
+      const remoteAgent = await fetchApi<{ id: string; userId: string }>('/api/agents', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: agentName.trim(),
+          username: `agent_${Date.now().toString(36)}`,
+          kernelType: 'openclaw',
+        }),
+      })
+
+      // 2. 在本地创建智能体配置
       const agent: AgentConfig = {
-        id: agentId,
+        id: remoteAgent.id,
         name: agentName.trim(),
-        agentDir: agentId,
+        agentDir: remoteAgent.id,
         skills: [],
       }
       await openClawApi.createAgent(agent)
-      onSaved(agentId, agentName.trim())
+
+      onSaved(remoteAgent.id, agentName.trim())
       onNext()
     } catch (err) {
       setError(err instanceof Error ? err.message : '创建失败')
