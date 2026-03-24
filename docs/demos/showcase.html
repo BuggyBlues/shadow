@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shadow Design System</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    :root {
+      /* Brand Colors - 异色瞳 */
+      --cyan-50: #E6FFFF;
+      --cyan-100: #B3FEFF;
+      --cyan-200: #80FDFF;
+      --cyan-300: #4DFCFF;
+      --cyan-400: #1AFAFF;
+      --cyan-500: #00F3FF;
+      --cyan-600: #00C2CC;
+      --cyan-700: #009199;
+      
+      --yellow-50: #FFFDE6;
+      --yellow-100: #FFF8B3;
+      --yellow-200: #FFF380;
+      --yellow-300: #FFEE4D;
+      --yellow-400: #FFE91A;
+      --yellow-500: #F8E71C;
+      --yellow-600: #C6B800;
+      
+      /* Neutrals */
+      --gray-950: #0A0A0C;
+      --gray-900: #111114;
+      --gray-800: #1A1A1E;
+      --gray-700: #2A2A30;
+      --gray-600: #3D3D44;
+      --gray-500: #5A5A62;
+      --gray-400: #7A7A84;
+      --gray-300: #A0A0AA;
+      --gray-200: #C8C8D0;
+      --gray-100: #F2F2F5;
+      
+      /* Semantic */
+      --green-500: #22C55E;
+      --red-500: #EF4444;
+      --amber-500: #F59E0B;
+      
+      /* Effects */
+      --glow-cyan: 0 0 20px rgba(0, 243, 255, 0.4), 0 0 40px rgba(0, 243, 255, 0.2);
+      --glow-yellow: 0 0 20px rgba(248, 231, 28, 0.4), 0 0 40px rgba(248, 231, 28, 0.2);
+      --gradient-brand: linear-gradient(135deg, #00F3FF 0%, #F8E71C 100%);
+      
+      /* Design Tokens */
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --radius-xl: 16px;
+      --radius-full: 9999px;
+      --ease: cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--gray-950);
+      color: var(--gray-100);
+      line-height: 1.6;
+    }
+    
+    /* === LAYOUT === */
+    .page { min-height: 100vh; }
+    
+    .hero {
+      padding: 120px 48px;
+      text-align: center;
+      background: radial-gradient(ellipse at top, rgba(0,243,255,0.08) 0%, transparent 50%);
+    }
+    
+    .hero-logo {
+      width: 120px;
+      height: 120px;
+      margin: 0 auto 32px;
+      background: var(--gradient-brand);
+      border-radius: var(--radius-xl);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 56px;
+      box-shadow: var(--glow-cyan);
+      animation: float 3s ease-in-out infinite;
+    }
+    
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+    
+    .hero-title {
+      font-size: 56px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 16px;
+    }
+    
+    .hero-title span {
+      background: var(--gradient-brand);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    .hero-desc {
+      font-size: 20px;
+      color: var(--gray-400);
+      max-width: 500px;
+      margin: 0 auto;
+    }
+    
+    .hero-eyes {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-top: 40px;
+    }
+    
+    .eye {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    
+    .eye-cyan {
+      background: radial-gradient(circle at 35% 35%, #ccffff, var(--cyan-500), #0099aa);
+      color: var(--gray-950);
+      box-shadow: var(--glow-cyan);
+    }
+    
+    .eye-yellow {
+      background: radial-gradient(circle at 35% 35%, #ffffcc, var(--yellow-500), #b3a100);
+      color: var(--gray-950);
+      box-shadow: var(--glow-yellow);
+    }
+    
+    .section {
+      padding: 64px 48px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--gray-500);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--gray-700);
+    }
+    
+    /* === COLORS === */
+    .color-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 16px;
+    }
+    
+    .color-card {
+      background: var(--gray-900);
+      border: 1px solid var(--gray-800);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      transition: all 200ms var(--ease);
+    }
+    
+    .color-card:hover {
+      border-color: var(--gray-600);
+      transform: translateY(-2px);
+    }
+    
+    .color-swatch {
+      height: 80px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 12px;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      color: rgba(0,0,0,0.7);
+    }
+    
+    .color-info {
+      padding: 16px;
+    }
+    
+    .color-name {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+    
+    .color-hex {
+      font-size: 12px;
+      color: var(--gray-400);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    
+    /* === COMPONENTS === */
+    .component-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+    }
+    
+    .component-card {
+      background: var(--gray-900);
+      border: 1px solid var(--gray-800);
+      border-radius: var(--radius-xl);
+      padding: 32px;
+    }
+    
+    .component-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--gray-400);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 20px;
+    }
+    
+    /* Buttons */
+    .btn-group {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      height: 40px;
+      padding: 0 20px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      border: none;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all 150ms var(--ease);
+    }
+    
+    .btn svg { width: 18px; height: 18px; }
+    
+    .btn-primary {
+      background: var(--cyan-500);
+      color: var(--gray-950);
+    }
+    
+    .btn-primary:hover {
+      background: var(--cyan-400);
+      box-shadow: var(--glow-cyan);
+    }
+    
+    .btn-secondary {
+      background: transparent;
+      color: var(--cyan-500);
+      border: 1px solid var(--cyan-500);
+    }
+    
+    .btn-secondary:hover {
+      background: rgba(0, 243, 255, 0.1);
+    }
+    
+    .btn-accent {
+      background: var(--yellow-500);
+      color: var(--gray-950);
+    }
+    
+    .btn-accent:hover {
+      background: var(--yellow-400);
+      box-shadow: var(--glow-yellow);
+    }
+    
+    .btn-ghost {
+      background: transparent;
+      color: var(--gray-400);
+    }
+    
+    .btn-ghost:hover {
+      background: var(--gray-800);
+      color: var(--gray-100);
+    }
+    
+    /* Input */
+    .input-group {
+      margin-bottom: 16px;
+    }
+    
+    .input-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--gray-300);
+      margin-bottom: 8px;
+    }
+    
+    .input-wrapper {
+      position: relative;
+    }
+    
+    .input {
+      width: 100%;
+      height: 44px;
+      padding: 0 16px;
+      padding-left: 44px;
+      font-family: inherit;
+      font-size: 14px;
+      color: var(--gray-100);
+      background: var(--gray-800);
+      border: 1px solid var(--gray-700);
+      border-radius: var(--radius-md);
+      outline: none;
+      transition: all 150ms var(--ease);
+    }
+    
+    .input::placeholder { color: var(--gray-500); }
+    .input:hover { border-color: var(--gray-600); }
+    .input:focus {
+      border-color: var(--cyan-500);
+      box-shadow: var(--glow-cyan);
+    }
+    
+    .input-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 18px;
+      height: 18px;
+      color: var(--gray-500);
+    }
+    
+    /* Avatar */
+    .avatar-row {
+      display: flex;
+      gap: 16px;
+      align-items: flex-end;
+    }
+    
+    .avatar {
+      position: relative;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--gradient-brand);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      color: var(--gray-950);
+    }
+    
+    .avatar-sm { width: 32px; height: 32px; font-size: 12px; }
+    .avatar-lg { width: 64px; height: 64px; font-size: 24px; }
+    
+    .avatar-status {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 3px solid var(--gray-900);
+    }
+    
+    .status-online { background: var(--green-500); box-shadow: 0 0 8px var(--green-500); }
+    
+    /* Badge */
+    .badge-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 24px;
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 500;
+      border-radius: var(--radius-full);
+    }
+    
+    .badge-cyan {
+      background: rgba(0, 243, 255, 0.15);
+      color: var(--cyan-500);
+    }
+    
+    .badge-yellow {
+      background: rgba(248, 231, 28, 0.15);
+      color: var(--yellow-500);
+    }
+    
+    .badge-success {
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--green-500);
+    }
+    
+    /* Card */
+    .demo-card {
+      background: var(--gray-800);
+      border: 1px solid var(--gray-700);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      transition: all 200ms var(--ease);
+    }
+    
+    .demo-card:hover {
+      border-color: var(--cyan-600);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+    
+    .demo-card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    
+    .demo-card-title {
+      font-weight: 600;
+    }
+    
+    .demo-card-desc {
+      font-size: 13px;
+      color: var(--gray-400);
+    }
+    
+    /* Toggle */
+    .toggle-row {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    
+    .toggle-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    .toggle-label {
+      font-size: 14px;
+    }
+    
+    .toggle {
+      width: 44px;
+      height: 24px;
+      background: var(--gray-700);
+      border-radius: var(--radius-full);
+      position: relative;
+      cursor: pointer;
+      transition: background 200ms var(--ease);
+    }
+    
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 18px;
+      height: 18px;
+      background: var(--gray-300);
+      border-radius: 50%;
+      transition: all 200ms var(--ease);
+    }
+    
+    .toggle.active {
+      background: var(--cyan-500);
+    }
+    
+    .toggle.active::after {
+      left: 23px;
+      background: var(--gray-950);
+    }
+    
+    /* === ICONS === */
+    .icon-grid {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    
+    .icon-item {
+      width: 48px;
+      height: 48px;
+      background: var(--gray-800);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 150ms var(--ease);
+      cursor: pointer;
+    }
+    
+    .icon-item svg {
+      width: 24px;
+      height: 24px;
+      color: var(--gray-300);
+    }
+    
+    .icon-item:hover {
+      background: var(--gray-700);
+    }
+    
+    .icon-item:hover svg {
+      color: var(--cyan-500);
+    }
+    
+    /* === GRADIENT SHOWCASE === */
+    .gradient-showcase {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+    
+    .gradient-card {
+      height: 160px;
+      border-radius: var(--radius-xl);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 18px;
+    }
+    
+    .gradient-brand {
+      background: var(--gradient-brand);
+      color: var(--gray-950);
+    }
+    
+    .gradient-cyan {
+      background: linear-gradient(135deg, var(--cyan-600), var(--cyan-400));
+      color: var(--gray-950);
+    }
+    
+    .gradient-yellow {
+      background: linear-gradient(135deg, var(--yellow-600), var(--yellow-400));
+      color: var(--gray-950);
+    }
+    
+    @media (max-width: 768px) {
+      .hero { padding: 64px 24px; }
+      .hero-title { font-size: 36px; }
+      .section { padding: 48px 24px; }
+      .gradient-showcase { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <!-- Hero -->
+    <div class="hero">
+      <div class="hero-logo">🐱</div>
+      <h1 class="hero-title"><span>Shadow</span> Design System</h1>
+      <p class="hero-desc">异色瞳的设计哲学 — 双重特质，独特个性，充满活力</p>
+      <div class="hero-eyes">
+        <div class="eye eye-cyan">Cyan<br>#00F3FF</div>
+        <div class="eye eye-yellow">Yellow<br>#F8E71C</div>
+      </div>
+    </div>
+    
+    <!-- Colors -->
+    <div class="section">
+      <div class="section-title">Brand Colors</div>
+      <div class="color-grid">
+        <div class="color-card">
+          <div class="color-swatch" style="background: var(--cyan-500);">Primary</div>
+          <div class="color-info">
+            <div class="color-name">Cyan 500</div>
+            <div class="color-hex">#00F3FF</div>
+          </div>
+        </div>
+        <div class="color-card">
+          <div class="color-swatch" style="background: var(--cyan-400);">Hover</div>
+          <div class="color-info">
+            <div class="color-name">Cyan 400</div>
+            <div class="color-hex">#1AFAFF</div>
+          </div>
+        </div>
+        <div class="color-card">
+          <div class="color-swatch" style="background: var(--yellow-500);">Accent</div>
+          <div class="color-info">
+            <div class="color-name">Yellow 500</div>
+            <div class="color-hex">#F8E71C</div>
+          </div>
+        </div>
+        <div class="color-card">
+          <div class="color-swatch" style="background: var(--yellow-400);">Hover</div>
+          <div class="color-info">
+            <div class="color-name">Yellow 400</div>
+            <div class="color-hex">#FFE91A</div>
+          </div>
+        </div>
+        <div class="color-card">
+          <div class="color-swatch" style="background: var(--gray-950); color: var(--gray-400);">BG</div>
+          <div class="color-info">
+            <div class="color-name">Gray 950</div>
+            <div class="color-hex">#0A0A0C</div>
+          </div>
+        </div>
+        <div class="color-card">
+          <div class="color-swatch" style="background: var(--gray-800); color: var(--gray-400);">Card</div>
+          <div class="color-info">
+            <div class="color-name">Gray 800</div>
+            <div class="color-hex">#1A1A1E</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Gradients -->
+    <div class="section">
+      <div class="section-title">Gradients</div>
+      <div class="gradient-showcase">
+        <div class="gradient-card gradient-brand">Brand Gradient</div>
+        <div class="gradient-card gradient-cyan">Cyan Glow</div>
+        <div class="gradient-card gradient-yellow">Yellow Glow</div>
+      </div>
+    </div>
+    
+    <!-- Components -->
+    <div class="section">
+      <div class="section-title">Components</div>
+      <div class="component-grid">
+        <!-- Buttons -->
+        <div class="component-card">
+          <div class="component-label">Buttons</div>
+          <div class="btn-group">
+            <button class="btn btn-primary"><i data-lucide="plus"></i> Primary</button>
+            <button class="btn btn-secondary">Secondary</button>
+            <button class="btn btn-accent">Accent</button>
+          </div>
+          <div class="btn-group">
+            <button class="btn btn-ghost">Ghost</button>
+            <button class="btn btn-primary" style="height: 32px; padding: 0 14px; font-size: 13px;">Small</button>
+            <button class="btn btn-primary" style="height: 48px; padding: 0 28px; font-size: 15px;">Large</button>
+          </div>
+        </div>
+        
+        <!-- Inputs -->
+        <div class="component-card">
+          <div class="component-label">Inputs</div>
+          <div class="input-group">
+            <div class="input-wrapper">
+              <i data-lucide="search" class="input-icon"></i>
+              <input class="input" placeholder="Search...">
+            </div>
+          </div>
+          <div class="input-group">
+            <div class="input-wrapper">
+              <i data-lucide="mail" class="input-icon"></i>
+              <input class="input" placeholder="Email address">
+            </div>
+          </div>
+        </div>
+        
+        <!-- Avatars -->
+        <div class="component-card">
+          <div class="component-label">Avatars</div>
+          <div class="avatar-row">
+            <div class="avatar-sm avatar">A</div>
+            <div class="avatar">B</div>
+            <div class="avatar-lg avatar">C</div>
+            <div class="avatar"><span class="avatar-status status-online"></span>D</div>
+          </div>
+        </div>
+        
+        <!-- Badges -->
+        <div class="component-card">
+          <div class="component-label">Badges</div>
+          <div class="badge-row">
+            <span class="badge badge-cyan">🤖 AI Agent</span>
+            <span class="badge badge-yellow">✨ Pro</span>
+            <span class="badge badge-success">✓ Verified</span>
+          </div>
+        </div>
+        
+        <!-- Card -->
+        <div class="component-card">
+          <div class="component-label">Cards</div>
+          <div class="demo-card">
+            <div class="demo-card-header">
+              <div class="avatar-sm avatar">🤖</div>
+              <div>
+                <div class="demo-card-title">AI Assistant</div>
+                <div class="demo-card-desc">Your AI teammate</div>
+              </div>
+            </div>
+            <button class="btn btn-primary" style="width: 100%;">Start Chat</button>
+          </div>
+        </div>
+        
+        <!-- Toggle -->
+        <div class="component-card">
+          <div class="component-label">Toggle</div>
+          <div class="toggle-row">
+            <div class="toggle-item">
+              <span class="toggle-label">Show online status</span>
+              <div class="toggle active" onclick="this.classList.toggle('active')"></div>
+            </div>
+            <div class="toggle-item">
+              <span class="toggle-label">Allow notifications</span>
+              <div class="toggle" onclick="this.classList.toggle('active')"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Icons -->
+    <div class="section">
+      <div class="section-title">Icons (Lucide)</div>
+      <div class="icon-grid">
+        <div class="icon-item"><i data-lucide="home"></i></div>
+        <div class="icon-item"><i data-lucide="message-square"></i></div>
+        <div class="icon-item"><i data-lucide="user"></i></div>
+        <div class="icon-item"><i data-lucide="settings"></i></div>
+        <div class="icon-item"><i data-lucide="search"></i></div>
+        <div class="icon-item"><i data-lucide="plus"></i></div>
+        <div class="icon-item"><i data-lucide="bell"></i></div>
+        <div class="icon-item"><i data-lucide="hash"></i></div>
+        <div class="icon-item"><i data-lucide="at-sign"></i></div>
+        <div class="icon-item"><i data-lucide="send"></i></div>
+        <div class="icon-item"><i data-lucide="paperclip"></i></div>
+        <div class="icon-item"><i data-lucide="smile"></i></div>
+        <div class="icon-item"><i data-lucide="check"></i></div>
+        <div class="icon-item"><i data-lucide="x"></i></div>
+        <div class="icon-item"><i data-lucide="sparkles"></i></div>
+        <div class="icon-item"><i data-lucide="bot"></i></div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    lucide.createIcons();
+  </script>
+</body>
+</html>
