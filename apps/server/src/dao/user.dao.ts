@@ -66,6 +66,15 @@ export class UserDao {
     return result[0] ?? null
   }
 
+  async updateEmailVerified(email: string, verified: boolean) {
+    const result = await this.db
+      .update(users)
+      .set({ emailVerified: verified, updatedAt: new Date() })
+      .where(eq(users.email, email))
+      .returning()
+    return result[0] ?? null
+  }
+
   async findAll(limit = 50, offset = 0) {
     return this.db.select().from(users).limit(limit).offset(offset)
   }

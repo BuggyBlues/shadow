@@ -7,6 +7,7 @@ import { CartDao } from './dao/cart.dao'
 import { ChannelDao } from './dao/channel.dao'
 import { ChannelMemberDao } from './dao/channel-member.dao'
 import { ClawListingDao } from './dao/claw-listing.dao'
+import { EmailVerificationDao } from './dao/email-verification.dao'
 import { EntitlementDao } from './dao/entitlement.dao'
 import { FriendshipDao } from './dao/friendship.dao'
 import { InviteCodeDao } from './dao/invite-code.dao'
@@ -38,6 +39,7 @@ import { AuthService } from './services/auth.service'
 import { CartService } from './services/cart.service'
 import { ChannelService } from './services/channel.service'
 import { DmService } from './services/dm.service'
+import { EmailVerificationService } from './services/email-verification.service'
 import { EntitlementService } from './services/entitlement.service'
 import { ExternalOAuthService } from './services/external-oauth.service'
 import { FriendshipService } from './services/friendship.service'
@@ -78,6 +80,7 @@ export interface Cradle {
   oauthAppDao: OAuthAppDao
   oauthAccountDao: OAuthAccountDao
   taskCenterDao: TaskCenterDao
+  emailVerificationDao: EmailVerificationDao
 
   // App DAOs
   appDao: AppDao
@@ -106,6 +109,7 @@ export interface Cradle {
 
   // Services
   authService: AuthService
+  emailVerificationService: EmailVerificationService
   oauthService: OAuthService
   externalOAuthService: ExternalOAuthService
   serverService: ServerService
@@ -160,6 +164,7 @@ export function createAppContainer(db: Database): AppContainer {
     oauthAppDao: asClass(OAuthAppDao).singleton(),
     oauthAccountDao: asClass(OAuthAccountDao).singleton(),
     taskCenterDao: asClass(TaskCenterDao).singleton(),
+    emailVerificationDao: asClass(EmailVerificationDao).singleton(),
 
     // App DAOs
     appDao: asClass(AppDao).singleton(),
@@ -188,6 +193,7 @@ export function createAppContainer(db: Database): AppContainer {
 
     // Services
     authService: asClass(AuthService).singleton(),
+    emailVerificationService: asClass(EmailVerificationService).singleton(),
     oauthService: asClass(OAuthService).singleton(),
     externalOAuthService: asClass(ExternalOAuthService).singleton(),
     serverService: asClass(ServerService).singleton(),

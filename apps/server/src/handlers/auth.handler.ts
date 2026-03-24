@@ -6,6 +6,10 @@ import { verifyToken } from '../lib/jwt'
 import { logger } from '../lib/logger'
 import { authMiddleware } from '../middleware/auth.middleware'
 import { loginSchema, registerSchema } from '../validators/auth.schema'
+import {
+  sendVerificationCodeSchema,
+  verifyEmailSchema,
+} from '../validators/email-verification.schema'
 import { forceDisconnectUser } from '../ws/presence.gateway'
 
 export function createAuthHandler(container: AppContainer) {
@@ -279,6 +283,28 @@ export function createAuthHandler(container: AppContainer) {
     }
     await externalOAuthService.unlinkAccount(user.userId, accountId)
     return c.json({ ok: true })
+  })
+
+  // ─── Email Verification ──────────────
+
+  // POST /api/auth/verify-email/send-code — send verification code
+  authHandler.post(
+    '/verify-email/send-code',
+    zValidator('json', sendVerificationCodeSchema),
+    async (c) => {
+      const emailVerificationService = container.resolve('emailVerificationService')
+      const input = c.req.valid('json')
+      const result = await emailVerificationService.sendCode(input.email)
+      return c.json(result)
+    },
+  )
+
+  // POST /api/auth/verify-email/verify — verify email with code
+  authHandler.post('/verify-email/verify', zValidator('json', verifyEmailSchema), async (c) => {
+    const emailVerificationService = container.resolve('emailVerificationService')
+    const input = c.req.valid('json')
+    const result = await emailVerificationService.verifyCode(input.email, input.code)
+    return c.json(result)
   })
 
   return authHandler
