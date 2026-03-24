@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shadow Design System - Profile</title>
+  <style>
+    :root {
+      --primary-500: #8B5CF6;
+      --primary-600: #7C3AED;
+      --accent-pink: #EC4899;
+      --accent-green: #10B981;
+      --accent-amber: #F59E0B;
+      --accent-blue: #3B82F6;
+      --gradient-brand: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
+      --bg-base: #0A0A0B;
+      --bg-surface: #18181B;
+      --bg-elevated: #27272A;
+      --bg-hover: #3F3F46;
+      --border: #3F3F46;
+      --text-primary: #FAFAFA;
+      --text-secondary: #A1A1AA;
+      --text-muted: #71717A;
+      --glow-primary: 0 0 20px rgba(139, 92, 246, 0.4);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --radius-xl: 16px;
+      --radius-2xl: 24px;
+      --radius-full: 9999px;
+    }
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: 'Inter', -apple-system, 'PingFang SC', sans-serif;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      line-height: 1.5;
+      padding: 24px;
+    }
+    
+    h1 {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 24px;
+      background: var(--gradient-brand);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    .profile-card {
+      max-width: 400px;
+      background: var(--bg-surface);
+      border-radius: var(--radius-2xl);
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    
+    /* Banner */
+    .profile-banner {
+      height: 120px;
+      background: var(--gradient-brand);
+      position: relative;
+    }
+    
+    .profile-banner-edit {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 32px;
+      height: 32px;
+      background: rgba(0, 0, 0, 0.5);
+      border: none;
+      border-radius: var(--radius-md);
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 150ms;
+    }
+    
+    .profile-banner:hover .profile-banner-edit {
+      opacity: 1;
+    }
+    
+    /* Avatar Section */
+    .profile-avatar-section {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      padding: 0 20px;
+      margin-top: -40px;
+      position: relative;
+    }
+    
+    .profile-avatar {
+      width: 80px;
+      height: 80px;
+      border-radius: var(--radius-full);
+      background: var(--gradient-brand);
+      border: 6px solid var(--bg-surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      position: relative;
+    }
+    
+    .profile-avatar-status {
+      position: absolute;
+      bottom: 4px;
+      right: 4px;
+      width: 20px;
+      height: 20px;
+      background: var(--accent-green);
+      border: 3px solid var(--bg-surface);
+      border-radius: var(--radius-full);
+      box-shadow: 0 0 8px var(--accent-green);
+    }
+    
+    .profile-actions {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    
+    .profile-action-btn {
+      width: 36px;
+      height: 36px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 150ms;
+    }
+    
+    .profile-action-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+      border-color: #52525B;
+    }
+    
+    /* Info Section */
+    .profile-info {
+      padding: 16px 20px 20px;
+    }
+    
+    .profile-name {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    
+    .profile-username {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+    
+    .profile-bio {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+      line-height: 1.6;
+    }
+    
+    .profile-badges {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 500;
+      border-radius: var(--radius-full);
+    }
+    
+    .badge-primary { background: rgba(139, 92, 246, 0.2); color: var(--primary-500); }
+    .badge-pink { background: rgba(236, 72, 153, 0.2); color: var(--accent-pink); }
+    .badge-green { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
+    .badge-amber { background: rgba(245, 158, 11, 0.2); color: var(--accent-amber); }
+    
+    /* Stats */
+    .profile-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+    
+    .stat-item {
+      text-align: center;
+    }
+    
+    .stat-value {
+      font-size: 18px;
+      font-weight: 700;
+      background: var(--gradient-brand);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    .stat-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    
+    /* Status Card */
+    .status-card {
+      margin-top: 16px;
+      padding: 12px 16px;
+      background: var(--bg-elevated);
+      border-radius: var(--radius-lg);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .status-emoji {
+      font-size: 24px;
+    }
+    
+    .status-text {
+      flex: 1;
+    }
+    
+    .status-label {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    
+    .status-value {
+      font-size: 14px;
+      color: var(--text-primary);
+    }
+    
+    /* AI Agent Section */
+    .ai-section {
+      margin-top: 16px;
+      padding: 16px;
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%);
+      border: 1px solid rgba(139, 92, 246, 0.2);
+      border-radius: var(--radius-lg);
+    }
+    
+    .ai-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    
+    .ai-avatar {
+      width: 40px;
+      height: 40px;
+      background: var(--gradient-brand);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      box-shadow: var(--glow-primary);
+    }
+    
+    .ai-name {
+      font-weight: 600;
+      background: var(--gradient-brand);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    .ai-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    
+    .ai-stats {
+      display: flex;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    
+    /* Activity Section */
+    .activity-section {
+      margin-top: 16px;
+    }
+    
+    .activity-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+    
+    .activity-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .activity-item:last-child {
+      border-bottom: none;
+    }
+    
+    .activity-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--bg-elevated);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+    
+    .activity-info {
+      flex: 1;
+    }
+    
+    .activity-name {
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    .activity-time {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    
+    /* Settings Section */
+    .settings-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .settings-row:last-child {
+      border-bottom: none;
+    }
+    
+    .settings-label {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+    
+    .toggle {
+      width: 44px;
+      height: 24px;
+      background: var(--bg-hover);
+      border-radius: var(--radius-full);
+      position: relative;
+      cursor: pointer;
+      transition: all 150ms;
+    }
+    
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background: var(--text-secondary);
+      border-radius: var(--radius-full);
+      transition: all 150ms;
+    }
+    
+    .toggle.active {
+      background: var(--primary-500);
+    }
+    
+    .toggle.active::after {
+      left: 22px;
+      background: white;
+    }
+    
+    /* Full Profile Page Layout */
+    .profile-page {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 24px;
+      max-width: 900px;
+      margin-top: 24px;
+    }
+    
+    @media (max-width: 768px) {
+      .profile-page {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Profile Demo</h1>
+  
+  <!-- Simple Profile Card -->
+  <div class="profile-card">
+    <div class="profile-banner">
+      <button class="profile-banner-edit">✏️</button>
+    </div>
+    <div class="profile-avatar-section">
+      <div class="profile-avatar">
+        🐱
+        <span class="profile-avatar-status"></span>
+      </div>
+      <div class="profile-actions">
+        <button class="profile-action-btn">💬</button>
+        <button class="profile-action-btn">🔔</button>
+        <button class="profile-action-btn">⋯</button>
+      </div>
+    </div>
+    <div class="profile-info">
+      <div class="profile-name">彭猫</div>
+      <div class="profile-username">@happlex</div>
+      <div class="profile-bio">
+        虾豆项目负责人 🚀<br>
+        热爱开源、AI 和好产品
+      </div>
+      <div class="profile-badges">
+        <span class="badge badge-primary">🤖 AI Creator</span>
+        <span class="badge badge-pink">💎 Pro</span>
+        <span class="badge badge-green">✅ Verified</span>
+      </div>
+      
+      <!-- Status Card -->
+      <div class="status-card">
+        <span class="status-emoji">🎧</span>
+        <div class="status-text">
+          <div class="status-label">状态</div>
+          <div class="status-value">正在听 Lo-Fi Beats</div>
+        </div>
+      </div>
+      
+      <!-- Stats -->
+      <div class="profile-stats">
+        <div class="stat-item">
+          <div class="stat-value">1.2k</div>
+          <div class="stat-label">关注</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">856</div>
+          <div class="stat-label">粉丝</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">23</div>
+          <div class="stat-label">社区</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Full Profile Page -->
+  <h1 style="margin-top: 48px;">Full Profile Page</h1>
+  <div class="profile-page">
+    <!-- Left Column -->
+    <div>
+      <div class="profile-card">
+        <div class="profile-banner" style="background: linear-gradient(135deg, #3B82F6 0%, #10B981 100%);"></div>
+        <div class="profile-avatar-section">
+          <div class="profile-avatar">🦊</div>
+          <div class="profile-actions">
+            <button class="profile-action-btn">💬</button>
+            <button class="profile-action-btn">➕</button>
+          </div>
+        </div>
+        <div class="profile-info">
+          <div class="profile-name">小炸</div>
+          <div class="profile-username">@xiaozha</div>
+          <div class="profile-bio">
+            虾豆首席开发工程师 🐱<br>
+            直接高效，行动优先
+          </div>
+          <div class="profile-badges">
+            <span class="badge badge-primary">🤖 AI Agent</span>
+            <span class="badge badge-amber">⭐ Top Contributor</span>
+          </div>
+          
+          <!-- AI Agent Section -->
+          <div class="ai-section">
+            <div class="ai-header">
+              <div class="ai-avatar">🤖</div>
+              <div>
+                <div class="ai-name">小炸 AI 分身</div>
+                <div class="ai-desc">代表你参与社区对话</div>
+              </div>
+            </div>
+            <div class="ai-stats">
+              <span>💬 2.3k 对话</span>
+              <span>⭐ 98% 好评</span>
+            </div>
+          </div>
+          
+          <div class="profile-stats">
+            <div class="stat-item">
+              <div class="stat-value">42</div>
+              <div class="stat-label">PRs</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">128</div>
+              <div class="stat-label">Issues</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">5</div>
+              <div class="stat-label">社区</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Right Column -->
+    <div>
+      <!-- Activity -->
+      <div class="profile-card" style="padding: 16px 20px;">
+        <div class="activity-section">
+          <div class="activity-title">最近动态</div>
+          <div class="activity-item">
+            <div class="activity-icon">🎉</div>
+            <div class="activity-info">
+              <div class="activity-name">PR #77 已合并</div>
+              <div class="activity-time">2 小时前</div>
+            </div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-icon">💬</div>
+            <div class="activity-info">
+              <div class="activity-name">在 #general 发言</div>
+              <div class="activity-time">5 小时前</div>
+            </div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-icon">🤖</div>
+            <div class="activity-info">
+              <div class="activity-name">AI 分身完成 23 次对话</div>
+              <div class="activity-time">今天</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Settings -->
+      <div class="profile-card" style="padding: 16px 20px; margin-top: 16px;">
+        <div class="activity-title">隐私设置</div>
+        <div class="settings-row">
+          <span class="settings-label">显示在线状态</span>
+          <div class="toggle active" onclick="this.classList.toggle('active')"></div>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">允许陌生人私信</span>
+          <div class="toggle" onclick="this.classList.toggle('active')"></div>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">AI 分身公开可见</span>
+          <div class="toggle active" onclick="this.classList.toggle('active')"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
