@@ -3,11 +3,12 @@
  *
  * 完整的 Onboarding 流程：
  * 1. 欢迎
- * 2. 登录/注册
- * 3. 配置模型
- * 4. 创建龙虾
- * 5. 绑定 Buddy
- * 6. 完成
+ * 2. 配置模型
+ * 3. 创建智能体
+ * 4. 绑定 Buddy
+ * 5. 完成
+ *
+ * 参考原有的 onboard.tsx 实现
  */
 
 import { useMutation } from '@tanstack/react-query'
@@ -15,36 +16,111 @@ import { useAuthStore } from '@web/stores/auth.store'
 import {
   ArrowLeft,
   ArrowRight,
+  BookOpen,
   Bot,
   Check,
   CheckCircle2,
   ChevronRight,
-  Cloud,
+  Code2,
   Cpu,
   Eye,
   EyeOff,
   Globe,
+  GraduationCap,
+  Headphones,
+  Heart,
+  Languages,
+  LayoutDashboard,
   Link2,
   Loader2,
-  LogIn,
+  Megaphone,
+  MessageCircle,
+  PenTool,
+  Plane,
   Power,
+  Rocket,
+  Scale,
   Server,
   Sparkles,
+  Terminal,
   User,
   UserPlus,
   Users,
+  UtensilsCrossed,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../../lib/api'
-import type { AgentConfig, ModelProviderEntry } from '../../lib/openclaw-api'
+import type { AgentConfig, BuddyConnection, ModelProviderEntry } from '../../lib/openclaw-api'
 import { openClawApi } from '../../lib/openclaw-api'
-import { PROVIDER_PRESETS, type ProviderPreset } from './model-presets'
+import {
+  CATEGORY_LABELS,
+  getPresetsByCategory,
+  PROVIDER_PRESETS,
+  type ProviderCategory,
+  type ProviderPreset,
+} from './model-presets'
 import { GlowRing, OpenClawIcon, SparkleField } from './openclaw-brand'
 import type { OpenClawPage } from './openclaw-layout'
 import { OpenClawButton } from './openclaw-ui'
 
 type OnboardingStep = 'welcome' | 'auth' | 'model' | 'agent' | 'buddy' | 'done'
+
+// 时间线步骤
+const STEPS: OnboardingStep[] = ['welcome', 'auth', 'model', 'agent', 'buddy', 'done']
+
+// 智能体预设模板
+interface PersonaPreset {
+  icon: typeof Sparkles
+  color: string
+  title: string
+  desc: string
+  agentName: string
+  soul: string
+}
+
+const PERSONA_PRESETS: PersonaPreset[] = [
+  {
+    icon: Sparkles,
+    color: '#6366f1',
+    title: '通用助手',
+    desc: '万能 AI 助理，适合日常问答',
+    agentName: 'AI 助手',
+    soul: `# 通用 AI 助手\n\n你是一位全能的 AI 助理，擅长回答各类问题、完成多样化任务。\n\n## 核心原则\n- 回答准确、简洁、有条理\n- 遇到不确定的问题时坦诚告知\n- 根据用户的语言和风格自动适配\n- 优先提供可操作的建议和方案\n\n## 沟通风格\n友好而专业，善于用结构化方式组织信息，必要时使用示例帮助理解。`,
+  },
+  {
+    icon: Code2,
+    color: '#22c55e',
+    title: '编程伙伴',
+    desc: '全栈开发，代码审查与调试',
+    agentName: '编程伙伴',
+    soul: `# 编程伙伴\n\n你是一位经验丰富的全栈开发工程师，精通多种编程语言和主流框架。\n\n## 专长领域\n- 代码编写、审查与调试\n- 架构设计与技术选型\n- 性能优化与安全最佳实践\n\n## 工作方式\n- 代码优先：优先给出可运行的代码示例\n- 解释清晰：复杂逻辑附带注释和思路说明\n- 遵循最佳实践：关注代码可读性、可维护性和安全性`,
+  },
+  {
+    icon: Languages,
+    color: '#3b82f6',
+    title: '翻译专家',
+    desc: '多语种互译，保留语境与风格',
+    agentName: '翻译专家',
+    soul: `# 翻译专家\n\n你是一位专业的多语言翻译官，精通中、英、日、韩、法、德等主流语言。\n\n## 翻译原则\n- 信：准确传达原文含义，不遗漏关键信息\n- 达：译文通顺自然，符合目标语言表达习惯\n- 雅：在保证准确的前提下，追求优美的表达\n\n## 特殊能力\n- 自动识别源语言\n- 处理专业术语和行业用语\n- 提供多种翻译风格（正式/口语/文学）`,
+  },
+  {
+    icon: PenTool,
+    color: '#ec4899',
+    title: '写作助手',
+    desc: '文案创作、润色与改写',
+    agentName: '写作助手',
+    soul: `# 写作助手\n\n你是一位出色的写作顾问，擅长各类文体的创作、润色和改写。\n\n## 能力范围\n- 商业文案、营销文案\n- 技术文档、产品说明\n- 邮件、报告、演讲稿\n- 创意写作、故事构思\n\n## 写作理念\n- 以读者为中心，确保信息清晰传达\n- 注重逻辑结构和段落衔接\n- 根据场景调整语气和措辞\n- 精炼表达，避免冗余`,
+  },
+  {
+    icon: GraduationCap,
+    color: '#f59e0b',
+    title: '学习导师',
+    desc: '知识辅导，循序渐进讲解',
+    agentName: '学习导师',
+    soul: `# 学习导师\n\n你是一位耐心的学习导师，擅长将复杂知识拆解为易懂的内容。\n\n## 教学方法\n- 由浅入深，循序渐进\n- 多用类比和生活化的例子\n- 主动确认学生的理解程度\n- 鼓励思考，引导而非直接给答案\n\n## 教学领域\n数学、物理、编程、语言学习、历史、哲学等各学科。`,
+  },
+]
 
 interface DesktopOnboardPageProps {
   onNavigate?: (page: OpenClawPage) => void
@@ -65,25 +141,23 @@ export function DesktopOnboardPage({ onNavigate }: DesktopOnboardPageProps) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
 
   // Check if already authenticated
-  if (isAuthenticated && step === 'auth') {
-    setStep('model')
-  }
-
-  const goNext = () => {
-    const steps: OnboardingStep[] = ['welcome', 'auth', 'model', 'agent', 'buddy', 'done']
-    const idx = steps.indexOf(step)
-    if (idx < steps.length - 1) {
-      setStep(steps[idx + 1]!)
+  useEffect(() => {
+    if (isAuthenticated && step === 'auth') {
+      setStep('model')
     }
-  }
+  }, [isAuthenticated, step])
 
-  const goBack = () => {
-    const steps: OnboardingStep[] = ['welcome', 'auth', 'model', 'agent', 'buddy', 'done']
-    const idx = steps.indexOf(step)
-    if (idx > 0) {
-      setStep(steps[idx - 1]!)
-    }
-  }
+  const stepIndex = STEPS.indexOf(step)
+
+  const goNext = useCallback(() => {
+    const nextIdx = stepIndex + 1
+    if (nextIdx < STEPS.length) setStep(STEPS[nextIdx]!)
+  }, [stepIndex])
+
+  const goBack = useCallback(() => {
+    const prevIdx = stepIndex - 1
+    if (prevIdx >= 0) setStep(STEPS[prevIdx]!)
+  }, [stepIndex])
 
   const handleComplete = async () => {
     // Start gateway
@@ -117,19 +191,20 @@ export function DesktopOnboardPage({ onNavigate }: DesktopOnboardPageProps) {
     }
   }
 
-  const stepIndex = ['welcome', 'auth', 'model', 'agent', 'buddy', 'done'].indexOf(step)
-
   return (
     <div className="h-screen flex flex-col bg-bg-primary overflow-hidden">
+      {/* Top padding for window controls */}
+      <div className="h-12 shrink-0" />
+
       {/* Progress bar */}
       {step !== 'welcome' && step !== 'done' && (
-        <div className="px-6 pt-4">
+        <div className="px-6">
           <div className="flex items-center gap-2">
-            {['auth', 'model', 'agent', 'buddy'].map((s, i) => (
+            {['model', 'agent', 'buddy'].map((s, i) => (
               <div
                 key={s}
                 className={`h-1 flex-1 rounded-full transition-colors ${
-                  i <= stepIndex - 1 ? 'bg-danger' : 'bg-bg-tertiary'
+                  i <= stepIndex - 2 ? 'bg-danger' : 'bg-bg-tertiary'
                 }`}
               />
             ))}
@@ -142,13 +217,7 @@ export function DesktopOnboardPage({ onNavigate }: DesktopOnboardPageProps) {
         <div className="max-w-md mx-auto px-6 py-8">
           {step === 'welcome' && <WelcomeStep onNext={goNext} onSkip={handleSkip} />}
           {step === 'auth' && (
-            <AuthStep
-              onNext={goNext}
-              onBack={goBack}
-              onAuthenticated={(userId) => {
-                goNext()
-              }}
-            />
+            <AuthStep onNext={goNext} onBack={goBack} onAuthenticated={() => goNext()} />
           )}
           {step === 'model' && (
             <ModelStep onNext={goNext} onBack={goBack} onSaved={(id) => setSavedProviderId(id)} />
@@ -241,7 +310,7 @@ function AuthStep({
 }: {
   onNext: () => void
   onBack: () => void
-  onAuthenticated: (userId: string) => void
+  onAuthenticated: () => void
 }) {
   const { t } = useTranslation()
   const [mode, setMode] = useState<'login' | 'register'>('login')
@@ -276,7 +345,7 @@ function AuthStep({
       localStorage.setItem('accessToken', data.accessToken)
       localStorage.setItem('refreshToken', data.refreshToken)
       setUser(data.user)
-      onAuthenticated(data.user.id)
+      onAuthenticated()
     },
     onError: (err: Error) => {
       setError(err.message || '登录失败')
@@ -305,7 +374,7 @@ function AuthStep({
       localStorage.setItem('accessToken', data.accessToken)
       localStorage.setItem('refreshToken', data.refreshToken)
       setUser(data.user)
-      onAuthenticated(data.user.id)
+      onAuthenticated()
     },
     onError: (err: Error) => {
       setError(err.message || '注册失败')
@@ -349,7 +418,7 @@ function AuthStep({
               : 'text-text-muted hover:text-text-primary'
           }`}
         >
-          <LogIn size={14} className="inline mr-1.5" />
+          <UserPlus size={14} className="inline mr-1.5" />
           {t('onboard.loginTab', '登录')}
         </button>
         <button
@@ -361,7 +430,7 @@ function AuthStep({
               : 'text-text-muted hover:text-text-primary'
           }`}
         >
-          <UserPlus size={14} className="inline mr-1.5" />
+          <Users size={14} className="inline mr-1.5" />
           {t('onboard.registerTab', '注册')}
         </button>
       </div>
@@ -449,9 +518,9 @@ function AuthStep({
           {login.isPending || register.isPending ? (
             <Loader2 size={16} className="animate-spin" />
           ) : mode === 'login' ? (
-            <LogIn size={16} />
-          ) : (
             <UserPlus size={16} />
+          ) : (
+            <Users size={16} />
           )}
           {mode === 'login' ? t('onboard.loginBtn', '登录') : t('onboard.registerBtn', '注册')}
         </OpenClawButton>
@@ -485,14 +554,24 @@ function ModelStep({
   const { t } = useTranslation()
   const [selected, setSelected] = useState<ProviderPreset | null>(null)
   const [apiKey, setApiKey] = useState('')
+  const [baseUrl, setBaseUrl] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [showAll, setShowAll] = useState(false)
 
-  // Quick presets for onboarding (common providers)
+  // Group presets by category
+  const categories = useMemo(() => {
+    return getPresetsByCategory()
+  }, [])
+
+  // Quick presets for onboarding
   const quickPresetIds = ['openai', 'anthropic', 'gemini', 'deepseek', 'moonshot']
   const quickPresets = PROVIDER_PRESETS.filter((p) => quickPresetIds.includes(p.id))
-  const otherPresets = PROVIDER_PRESETS.filter((p) => !quickPresetIds.includes(p.id))
+
+  const handleSelect = (preset: ProviderPreset) => {
+    setSelected(preset)
+    setBaseUrl(preset.baseUrl)
+  }
 
   const handleSave = async () => {
     if (!selected || !apiKey.trim()) return
@@ -503,7 +582,7 @@ function ModelStep({
       const pickedModels = allModels.length > 0 ? allModels : selected.models.slice(0, 3)
 
       const entry: ModelProviderEntry = {
-        baseUrl: selected.baseUrl,
+        baseUrl: baseUrl.trim() || selected.baseUrl,
         apiKey: apiKey.trim(),
         api: selected.apiFormat,
         models: pickedModels.map((m) => ({ id: m.id, name: m.name })),
@@ -537,12 +616,12 @@ function ModelStep({
 
       {!selected ? (
         <div className="space-y-2">
-          {/* 常用模型 */}
+          {/* Quick presets */}
           {quickPresets.map((preset) => (
             <button
               key={preset.id}
               type="button"
-              onClick={() => setSelected(preset)}
+              onClick={() => handleSelect(preset)}
               className="w-full flex items-center gap-3 p-3 bg-bg-tertiary hover:bg-bg-modifier-hover rounded-xl transition text-left group"
             >
               <div
@@ -561,45 +640,57 @@ function ModelStep({
             </button>
           ))}
 
-          {/* 展开更多 */}
-          {otherPresets.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowAll(!showAll)}
-              className="w-full flex items-center justify-center gap-2 p-3 text-sm text-text-muted hover:text-text-primary hover:bg-bg-tertiary rounded-xl transition"
-            >
-              <ChevronRight
-                size={16}
-                className={`transition-transform ${showAll ? 'rotate-90' : ''}`}
-              />
-              {showAll ? t('onboard.showLess', '收起') : t('onboard.showMore', '展开更多模型')}
-            </button>
-          )}
+          {/* Show more toggle */}
+          <button
+            type="button"
+            onClick={() => setShowAll(!showAll)}
+            className="w-full flex items-center justify-center gap-2 p-3 text-sm text-text-muted hover:text-text-primary hover:bg-bg-tertiary rounded-xl transition"
+          >
+            <ChevronRight
+              size={16}
+              className={`transition-transform ${showAll ? 'rotate-90' : ''}`}
+            />
+            {showAll ? t('onboard.showLess', '收起') : t('onboard.showMore', '展开更多模型')}
+          </button>
 
-          {/* 更多模型 */}
+          {/* All presets by category */}
           {showAll && (
-            <div className="space-y-2 pt-2 border-t border-bg-tertiary">
-              {otherPresets.map((preset) => (
-                <button
-                  key={preset.id}
-                  type="button"
-                  onClick={() => setSelected(preset)}
-                  className="w-full flex items-center gap-3 p-3 bg-bg-tertiary hover:bg-bg-modifier-hover rounded-xl transition text-left group"
-                >
-                  <div
-                    className="w-10 h-10 rounded-lg flex items-center justify-center text-sm font-black shrink-0"
-                    style={{ backgroundColor: `${preset.brandColor}15`, color: preset.brandColor }}
-                  >
-                    {preset.name.charAt(0)}
+            <div className="space-y-4 pt-2 border-t border-bg-tertiary">
+              {(Object.keys(categories) as ProviderCategory[]).map((cat) => (
+                <div key={cat}>
+                  <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
+                    {CATEGORY_LABELS[cat]}
+                  </h3>
+                  <div className="space-y-2">
+                    {categories[cat]?.map((preset) => (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => handleSelect(preset)}
+                        className="w-full flex items-center gap-3 p-3 bg-bg-tertiary hover:bg-bg-modifier-hover rounded-xl transition text-left group"
+                      >
+                        <div
+                          className="w-10 h-10 rounded-lg flex items-center justify-center text-sm font-black shrink-0"
+                          style={{
+                            backgroundColor: `${preset.brandColor}15`,
+                            color: preset.brandColor,
+                          }}
+                        >
+                          {preset.name.charAt(0)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-text-primary group-hover:text-danger transition truncate">
+                            {preset.name}
+                          </div>
+                          <div className="text-xs text-text-muted truncate">
+                            {preset.description}
+                          </div>
+                        </div>
+                        <ChevronRight size={16} className="text-text-muted/50 shrink-0" />
+                      </button>
+                    ))}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-text-primary group-hover:text-danger transition truncate">
-                      {preset.name}
-                    </div>
-                    <div className="text-xs text-text-muted truncate">{preset.description}</div>
-                  </div>
-                  <ChevronRight size={16} className="text-text-muted/50 shrink-0" />
-                </button>
+                </div>
               ))}
             </div>
           )}
@@ -626,6 +717,22 @@ function ModelStep({
             </button>
           </div>
 
+          {/* Base URL */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-text-primary">API Base URL</label>
+            <input
+              type="url"
+              value={baseUrl}
+              onChange={(e) => setBaseUrl(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-lg bg-bg-tertiary border border-border-subtle text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-danger/40"
+              placeholder={selected.baseUrl}
+            />
+            <p className="text-xs text-text-muted">
+              {t('onboard.baseUrlHint', '可选，使用默认值即可')}
+            </p>
+          </div>
+
+          {/* API Key */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-text-primary">API Key</label>
             <input
@@ -696,13 +803,13 @@ function ModelStep({
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
- * Step 4: Create Agent
+ * Step 4: Create Agent (使用预设模板 + SOUL.md)
  * ═════════════════════════════════════════════════════════════════════════════ */
 
 function AgentStep({
   onNext,
   onBack,
-  savedProviderId,
+  savedProviderId: _savedProviderId,
   onSaved,
 }: {
   onNext: () => void
@@ -711,35 +818,35 @@ function AgentStep({
   onSaved: (id: string, name: string) => void
 }) {
   const { t } = useTranslation()
-  const [agentName, setAgentName] = useState('AI 助手')
+  const [selectedPresetIdx, setSelectedPresetIdx] = useState(0)
+  const [agentName, setAgentName] = useState(PERSONA_PRESETS[0]?.agentName || 'AI 助手')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
+  const currentPreset = PERSONA_PRESETS[selectedPresetIdx]
+
+  useEffect(() => {
+    if (currentPreset) {
+      setAgentName(currentPreset.agentName)
+    }
+  }, [currentPreset])
+
   const handleCreate = async () => {
-    if (!agentName.trim()) return
+    if (!agentName.trim() || !currentPreset) return
     setSaving(true)
     setError('')
     try {
-      // 1. 通过 REST API 创建远程智能体
-      const remoteAgent = await fetchApi<{ id: string; userId: string }>('/api/agents', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: agentName.trim(),
-          username: `agent_${Date.now().toString(36)}`,
-          kernelType: 'openclaw',
-        }),
-      })
-
-      // 2. 在本地创建智能体配置
+      const agentId = `agent-${Date.now()}`
+      const agentDir = agentId
       const agent: AgentConfig = {
-        id: remoteAgent.id,
+        id: agentId,
         name: agentName.trim(),
-        agentDir: remoteAgent.id,
+        agentDir,
         skills: [],
       }
       await openClawApi.createAgent(agent)
-
-      onSaved(remoteAgent.id, agentName.trim())
+      await openClawApi.writeBootstrapFile(agentDir, currentPreset.soul)
+      onSaved(agentId, agentName.trim())
       onNext()
     } catch (err) {
       setError(err instanceof Error ? err.message : '创建失败')
@@ -758,23 +865,64 @@ function AgentStep({
           {t('onboard.agentTitle', '创建你的 AI 助手')}
         </h2>
         <p className="text-sm text-text-muted">
-          {t('onboard.agentDesc', '给你的 AI 助手起个名字')}
+          {t('onboard.agentDesc', '选择一个预设，给你的 AI 助手起个名字')}
         </p>
       </div>
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-text-primary">
-          {t('onboard.agentName', '助手名称')}
-        </label>
-        <input
-          type="text"
-          value={agentName}
-          onChange={(e) => setAgentName(e.target.value)}
-          className="w-full px-3 py-2.5 rounded-lg bg-bg-tertiary border border-border-subtle text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-danger/40"
-          placeholder="AI 助手"
-          maxLength={50}
-        />
+      {/* Persona presets grid */}
+      <div className="grid grid-cols-2 gap-2">
+        {PERSONA_PRESETS.map((preset, idx) => {
+          const Icon = preset.icon
+          const isSelected = selectedPresetIdx === idx
+          return (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => setSelectedPresetIdx(idx)}
+              className={`flex flex-col items-center gap-1.5 p-3 rounded-xl transition text-left ${
+                isSelected
+                  ? 'bg-primary/10 border-2 border-primary'
+                  : 'bg-bg-tertiary border-2 border-transparent hover:bg-bg-modifier-hover'
+              }`}
+            >
+              <div
+                className="w-8 h-8 rounded-lg flex items-center justify-center"
+                style={{ backgroundColor: `${preset.color}20` }}
+              >
+                <Icon size={16} style={{ color: preset.color }} />
+              </div>
+              <span
+                className={`text-xs font-medium ${isSelected ? 'text-primary' : 'text-text-primary'}`}
+              >
+                {preset.title}
+              </span>
+            </button>
+          )
+        })}
       </div>
+
+      {/* Selected preset details */}
+      {currentPreset && (
+        <div className="space-y-4">
+          <div className="p-3 bg-bg-tertiary rounded-xl">
+            <p className="text-sm text-text-secondary">{currentPreset.desc}</p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-text-primary">
+              {t('onboard.agentName', '助手名称')}
+            </label>
+            <input
+              type="text"
+              value={agentName}
+              onChange={(e) => setAgentName(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-lg bg-bg-tertiary border border-border-subtle text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-danger/40"
+              placeholder={currentPreset.agentName}
+              maxLength={50}
+            />
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="text-sm text-red-400 bg-red-500/10 rounded-lg px-3 py-2">{error}</div>
@@ -803,37 +951,21 @@ function AgentStep({
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
- * Step 5: Bind Buddy (复用 buddy.tsx 的逻辑)
+ * Step 5: Bind Buddy (创建云端 Buddy + 关联本地智能体)
  * ═════════════════════════════════════════════════════════════════════════════ */
 
-/** Remote Buddy agent from the ShadowOwnBuddy server */
 interface RemoteBuddy {
   id: string
   userId: string
   status: 'running' | 'stopped' | 'error'
   lastHeartbeat: string | null
-  totalOnlineSeconds: number
   botUser?: {
     id: string
     username: string
     displayName: string | null
     avatarUrl: string | null
   } | null
-  owner?: {
-    id: string
-    username: string
-    displayName: string | null
-    avatarUrl: string | null
-  } | null
 }
-
-interface TokenResponse {
-  token: string
-  agent: { id: string; userId: string; status: string }
-  botUser: { id: string; username: string; displayName: string | null; avatarUrl: string | null }
-}
-
-type BuddyMode = 'create' | 'bind'
 
 function BuddyStep({
   onNext,
@@ -849,101 +981,56 @@ function BuddyStep({
   onSaved: (serverId: string) => void
 }) {
   const { t } = useTranslation()
-  const [mode, setMode] = useState<BuddyMode>('create')
-  const [remoteBuddies, setRemoteBuddies] = useState<RemoteBuddy[]>([])
-  const [loading, setLoading] = useState(false)
-  const [selectedBuddy, setSelectedBuddy] = useState<RemoteBuddy | null>(null)
-  const [agentId, setAgentId] = useState(savedAgentId)
-  const [autoConnect, setAutoConnect] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  // Fetch remote buddies when in "bind" mode
-  useEffect(() => {
-    if (mode !== 'bind') return
-    setLoading(true)
-    setError('')
-    fetchApi<RemoteBuddy[]>('/api/agents')
-      .then((buddies) => {
-        setRemoteBuddies(buddies)
-        setLoading(false)
-      })
-      .catch((err) => {
-        setError(err instanceof Error ? err.message : '获取 Buddy 列表失败')
-        setLoading(false)
-      })
-  }, [mode])
-
-  const handleSave = async () => {
+  const handleCreateAndBind = async () => {
+    if (!savedAgentId) return
     setSaving(true)
     setError('')
     try {
       const serverUrl = (import.meta.env.VITE_API_BASE as string) || 'https://shadowob.com'
-      let remoteAgentId: string
-      let buddyName: string
 
-      if (mode === 'create') {
-        // Create a new remote buddy
-        const username = `buddy-${Date.now()}`
-        const remoteBuddy = await fetchApi<{ id: string }>('/api/agents', {
-          method: 'POST',
-          body: JSON.stringify({
-            name: savedAgentName || 'OpenClaw Buddy',
-            username,
-            kernelType: 'openclaw',
-          }),
-        })
-        remoteAgentId = remoteBuddy.id
-        buddyName = savedAgentName || 'OpenClaw Buddy'
+      // 1. 创建云端 Buddy
+      const username = `buddy-${Date.now().toString(36)}`
+      const remoteBuddy = await fetchApi<{ id: string }>('/api/agents', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: savedAgentName || 'OpenClaw Buddy',
+          username,
+          kernelType: 'openclaw',
+        }),
+      })
 
-        const tokenResp = await fetchApi<TokenResponse>(`/api/agents/${remoteAgentId}/token`, {
-          method: 'POST',
-        })
+      // 2. 生成 Token
+      const tokenResp = await fetchApi<{ token: string; agent: { id: string } }>(
+        `/api/agents/${remoteBuddy.id}/token`,
+        { method: 'POST' },
+      )
 
-        await openClawApi.addBuddyConnection({
-          id: crypto.randomUUID(),
-          label: buddyName,
-          serverUrl,
-          apiToken: tokenResp.token,
-          remoteAgentId: tokenResp.agent.id,
-          agentId,
-          autoConnect,
-        })
-      } else {
-        // Bind to existing remote buddy
-        if (!selectedBuddy) return
-        const tokenResp = await fetchApi<TokenResponse>(`/api/agents/${selectedBuddy.id}/token`, {
-          method: 'POST',
-        })
-        buddyName = selectedBuddy.botUser?.displayName ?? selectedBuddy.botUser?.username ?? 'Buddy'
-
-        await openClawApi.addBuddyConnection({
-          id: crypto.randomUUID(),
-          label: buddyName,
-          serverUrl,
-          apiToken: tokenResp.token,
-          remoteAgentId: tokenResp.agent.id,
-          agentId,
-          autoConnect,
-        })
-        remoteAgentId = selectedBuddy.id
+      // 3. 添加 Buddy 连接
+      const connection: BuddyConnection = {
+        id: crypto.randomUUID(),
+        label: savedAgentName || 'Buddy',
+        serverUrl,
+        apiToken: tokenResp.token,
+        remoteAgentId: tokenResp.agent.id,
+        agentId: savedAgentId,
+        autoConnect: true,
       }
+      await openClawApi.addBuddyConnection(connection)
 
-      // Connect if auto-connect is enabled
-      if (autoConnect) {
-        await openClawApi.connectAllBuddies()
-      }
+      // 4. 连接 Buddy
+      await openClawApi.connectAllBuddies()
 
-      onSaved(remoteAgentId)
+      onSaved(remoteBuddy.id)
       onNext()
     } catch (err) {
-      setError(err instanceof Error ? err.message : '配置连接失败')
+      setError(err instanceof Error ? err.message : '绑定失败')
     } finally {
       setSaving(false)
     }
   }
-
-  const canSave = mode === 'create' ? !!agentId : !!selectedBuddy
 
   return (
     <div className="space-y-6 animate-fade-in-up">
@@ -959,177 +1046,36 @@ function BuddyStep({
         </p>
       </div>
 
-      {error && (
-        <div className="text-sm text-red-400 bg-red-500/10 rounded-lg px-3 py-2">{error}</div>
-      )}
-
-      {/* Mode Tabs */}
-      <div className="flex gap-2 p-1 rounded-lg bg-bg-tertiary/50">
-        <button
-          type="button"
-          onClick={() => {
-            setMode('create')
-            setSelectedBuddy(null)
-          }}
-          className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition cursor-pointer ${
-            mode === 'create'
-              ? 'bg-bg-secondary text-text-primary shadow-sm'
-              : 'text-text-muted hover:text-text-primary'
-          }`}
-        >
-          {t('onboard.buddyModeCreate', '创建新 Buddy')}
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode('bind')}
-          className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition cursor-pointer ${
-            mode === 'bind'
-              ? 'bg-bg-secondary text-text-primary shadow-sm'
-              : 'text-text-muted hover:text-text-primary'
-          }`}
-        >
-          {t('onboard.buddyModeBind', '关联已有 Buddy')}
-        </button>
-      </div>
-
-      {/* Bind mode: Select existing Buddy */}
-      {mode === 'bind' && (
-        <div className="bg-bg-secondary rounded-xl border border-bg-tertiary p-3">
-          {loading ? (
-            <div className="flex items-center justify-center py-6">
-              <Loader2 size={20} className="animate-spin text-text-muted" />
-              <span className="ml-2 text-sm text-text-muted">加载中...</span>
+      {/* Connection preview */}
+      <div className="p-4 bg-bg-tertiary rounded-xl">
+        <div className="flex items-center justify-center gap-3">
+          <div className="flex flex-col items-center gap-1">
+            <div className="w-10 h-10 rounded-lg bg-bg-secondary flex items-center justify-center">
+              <Server size={18} className="text-primary" />
             </div>
-          ) : remoteBuddies.length === 0 ? (
-            <div className="flex flex-col items-center py-6 text-center">
-              <Users size={28} className="text-text-muted mb-2" />
-              <p className="text-sm text-text-muted">
-                {t('onboard.buddyNoBuddies', '未找到 Buddy，请选择"创建新 Buddy"')}
-              </p>
+            <span className="text-[10px] text-text-muted">
+              {t('onboard.localAgent', '本地智能体')}
+            </span>
+          </div>
+          <ArrowRight size={14} className="text-primary" />
+          <div className="flex flex-col items-center gap-1">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Bot size={18} className="text-primary" />
             </div>
-          ) : (
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {remoteBuddies.map((buddy) => {
-                const isSelected = selectedBuddy?.id === buddy.id
-                const isOnline =
-                  buddy.lastHeartbeat &&
-                  Date.now() - new Date(buddy.lastHeartbeat).getTime() < 90000
-                const name = buddy.botUser?.displayName ?? buddy.botUser?.username ?? 'Buddy'
-
-                return (
-                  <button
-                    key={buddy.id}
-                    type="button"
-                    onClick={() => setSelectedBuddy(isSelected ? null : buddy)}
-                    className={`w-full flex items-center gap-3 p-2.5 rounded-lg transition text-left ${
-                      isSelected
-                        ? 'bg-primary/10 border-2 border-primary'
-                        : 'bg-bg-primary border-2 border-transparent hover:bg-bg-tertiary/50'
-                    }`}
-                  >
-                    <div className="w-9 h-9 rounded-lg bg-bg-tertiary flex items-center justify-center shrink-0">
-                      <Bot size={16} className="text-text-muted" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-text-primary truncate">{name}</p>
-                      <p className="text-[10px] text-text-muted">
-                        @{buddy.botUser?.username ?? 'unknown'}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span
-                        className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-[#80848e]'}`}
-                      />
-                      {isSelected && <Check size={14} className="text-primary" />}
-                    </div>
-                  </button>
-                )
-              })}
+            <span className="text-[10px] text-text-primary">{savedAgentName || 'Buddy'}</span>
+          </div>
+          <ArrowRight size={14} className="text-primary" />
+          <div className="flex flex-col items-center gap-1">
+            <div className="w-10 h-10 rounded-lg bg-bg-secondary flex items-center justify-center">
+              <Globe size={18} className="text-primary" />
             </div>
-          )}
-        </div>
-      )}
-
-      {/* Create mode hint */}
-      {mode === 'create' && (
-        <div className="bg-primary/5 border border-primary/20 rounded-xl p-3">
-          <p className="text-sm text-text-primary">
-            {t('onboard.buddyCreateHint', '将在云端创建一个名为「{name}」的 Buddy，并自动关联。', {
-              name: savedAgentName || 'OpenClaw Buddy',
-            })}
-          </p>
-        </div>
-      )}
-
-      {/* Agent selection */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-text-primary">
-          {t('onboard.buddyAgent', '关联本地智能体')}
-        </label>
-        <select
-          value={agentId}
-          onChange={(e) => setAgentId(e.target.value)}
-          className="w-full px-3 py-2.5 rounded-lg bg-bg-tertiary border border-border-subtle text-sm text-text-primary focus:outline-none focus:border-danger/40"
-        >
-          <option value="">{t('onboard.buddySelectAgent', '选择智能体...')}</option>
-          <option value={savedAgentId}>{savedAgentName || savedAgentId}</option>
-        </select>
-      </div>
-
-      {/* Auto connect toggle */}
-      <div className="flex items-center justify-between p-3 bg-bg-tertiary rounded-xl">
-        <div>
-          <p className="text-sm font-medium text-text-primary">
-            {t('onboard.buddyAutoConnect', '自动连接')}
-          </p>
-          <p className="text-xs text-text-muted">
-            {t('onboard.buddyAutoConnectDesc', '应用启动时自动连接')}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setAutoConnect(!autoConnect)}
-          className={`relative cursor-pointer transition-colors rounded-full ${
-            autoConnect ? 'bg-primary' : 'bg-bg-modifier-hover'
-          }`}
-          style={{ width: 40, height: 22 }}
-        >
-          <div
-            className={`absolute top-0.5 left-0.5 w-[18px] h-[18px] rounded-full bg-white shadow transition-transform ${
-              autoConnect ? 'translate-x-[18px]' : ''
-            }`}
-          />
-        </button>
-      </div>
-
-      {/* Connection diagram */}
-      {(mode === 'bind' ? selectedBuddy : agentId) && (
-        <div className="bg-bg-secondary rounded-xl border border-bg-tertiary p-4">
-          <div className="flex items-center justify-center gap-3">
-            <div className="flex flex-col items-center gap-1">
-              <div className="w-10 h-10 rounded-lg bg-bg-tertiary flex items-center justify-center">
-                <Server size={18} className="text-primary" />
-              </div>
-              <span className="text-[10px] text-text-muted">
-                {t('onboard.buddyLocalAgent', '本地智能体')}
-              </span>
-            </div>
-            <ArrowRight size={14} className="text-primary" />
-            <div className="flex flex-col items-center gap-1">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Bot size={18} className="text-primary" />
-              </div>
-              <span className="text-[10px] text-text-primary">{savedAgentName || 'Buddy'}</span>
-            </div>
-            <ArrowRight size={14} className="text-primary" />
-            <div className="flex flex-col items-center gap-1">
-              <div className="w-10 h-10 rounded-lg bg-bg-tertiary flex items-center justify-center">
-                <Globe size={18} className="text-primary" />
-              </div>
-              <span className="text-[10px] text-text-muted">{t('onboard.buddyUsers', '用户')}</span>
-            </div>
+            <span className="text-[10px] text-text-muted">{t('onboard.users', '用户')}</span>
           </div>
         </div>
+      </div>
+
+      {error && (
+        <div className="text-sm text-red-400 bg-red-500/10 rounded-lg px-3 py-2">{error}</div>
       )}
 
       <div className="flex gap-3">
@@ -1142,8 +1088,8 @@ function BuddyStep({
         </button>
         <OpenClawButton
           type="button"
-          onClick={handleSave}
-          disabled={!canSave || saving}
+          onClick={handleCreateAndBind}
+          disabled={saving}
           className="flex-1 gap-2"
         >
           {saving ? <Loader2 size={16} className="animate-spin" /> : <Link2 size={16} />}
