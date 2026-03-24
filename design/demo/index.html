@@ -100,12 +100,42 @@
     .hero::before {
       content: '';
       position: absolute; top: 0; left: 50%; transform: translateX(-50%);
-      width: 100%; height: 700px;
+      width: 100%; height: 900px;
       background: 
-        radial-gradient(ellipse 100% 60% at 50% 0%, var(--brand-subtle) 0%, transparent 55%),
-        radial-gradient(ellipse 60% 40% at 80% 10%, rgba(244, 114, 182, 0.1) 0%, transparent 50%),
-        radial-gradient(ellipse 40% 30% at 20% 20%, rgba(34, 211, 238, 0.08) 0%, transparent 50%);
+        /* Main brand glow */
+        radial-gradient(ellipse 80% 50% at 50% 0%, rgba(139, 92, 246, 0.25) 0%, transparent 60%),
+        /* Pink energy glow */
+        radial-gradient(ellipse 50% 30% at 70% 20%, rgba(244, 114, 182, 0.2) 0%, transparent 50%),
+        /* Cyan accent glow */
+        radial-gradient(ellipse 40% 25% at 30% 30%, rgba(34, 211, 238, 0.12) 0%, transparent 50%),
+        /* Subtle grid pattern */
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 
+        100% 100%,
+        100% 100%,
+        100% 100%,
+        60px 60px,
+        60px 60px;
       pointer-events: none;
+    }
+    
+    .hero::after {
+      content: '';
+      position: absolute;
+      top: 100px;
+      left: 10%;
+      width: 300px;
+      height: 300px;
+      background: radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, transparent 70%);
+      filter: blur(60px);
+      animation: float 8s ease-in-out infinite;
+      pointer-events: none;
+    }
+    
+    @keyframes float {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-30px) scale(1.1); }
     }
     
     .badge {
@@ -184,7 +214,21 @@
     .btn-solid:hover { background: var(--bg-elevated); border-color: var(--border-hover); }
     
     /* === SECTIONS === */
-    .section { padding: 100px 0; border-top: 1px solid var(--border); }
+    .section { 
+      padding: 100px 0; 
+      border-top: 1px solid var(--border);
+      position: relative;
+    }
+    
+    .section::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: 
+        radial-gradient(ellipse 60% 40% at 80% 20%, rgba(139, 92, 246, 0.05) 0%, transparent 50%),
+        radial-gradient(ellipse 40% 30% at 20% 80%, rgba(244, 114, 182, 0.03) 0%, transparent 50%);
+      pointer-events: none;
+    }
     .section-header { margin-bottom: 60px; }
     .section-label {
       font-size: 13px; font-weight: 600; color: var(--brand);
@@ -204,6 +248,26 @@
       background: var(--bg-secondary);
       border-radius: 20px; padding: 28px;
       border: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .color-group::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: 
+        linear-gradient(45deg, transparent 40%, rgba(139, 92, 246, 0.03) 50%, transparent 60%);
+      animation: shimmer 8s linear infinite;
+      pointer-events: none;
+    }
+    
+    @keyframes shimmer {
+      0% { transform: translateX(-100%) translateY(-100%); }
+      100% { transform: translateX(100%) translateY(100%); }
     }
     
     .color-group-title {
@@ -346,7 +410,34 @@
       background: var(--bg-secondary);
       border-radius: 24px; padding: 28px;
       border: 1px solid var(--border);
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+      box-shadow: 
+        0 20px 60px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(255, 255, 255, 0.02) inset,
+        0 0 100px rgba(139, 92, 246, 0.08) inset;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .chat-frame::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.5), rgba(244, 114, 182, 0.5), transparent);
+    }
+    
+    .chat-frame::after {
+      content: '';
+      position: absolute;
+      top: -100px;
+      right: -100px;
+      width: 300px;
+      height: 300px;
+      background: radial-gradient(circle, rgba(139, 92, 246, 0.1) 0%, transparent 70%);
+      filter: blur(40px);
+      pointer-events: none;
     }
     
     .chat-header {
@@ -416,6 +507,25 @@
       color: white;
       border-color: transparent;
       border-radius: 18px;
+      box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .server-pill.active::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      animation: shine 3s infinite;
+    }
+    
+    @keyframes shine {
+      0% { left: -100%; }
+      50%, 100% { left: 100%; }
     }
     
     .server-pill.add {
@@ -465,6 +575,20 @@
       background: var(--bg-tertiary);
       border-radius: 16px; padding: 14px 18px;
       display: inline-block; max-width: 480px;
+      position: relative;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+    
+    .message-bubble::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+      border-radius: 16px 16px 0 0;
     }
     
     .message-text { font-size: 15px; color: var(--text-secondary); line-height: 1.5; }
@@ -521,12 +645,31 @@
       display: flex; align-items: center; justify-content: center;
       color: white;
       cursor: pointer; transition: all 0.2s;
-      box-shadow: 0 4px 20px var(--brand-glow);
+      box-shadow: 
+        0 4px 20px var(--brand-glow),
+        0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .chat-send::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+      transition: left 0.5s;
     }
     
     .chat-send:hover {
       transform: scale(1.05);
-      box-shadow: 0 6px 28px var(--brand-glow);
+      box-shadow: 0 6px 28px var(--brand-glow), 0 0 0 1px rgba(255, 255, 255, 0.15) inset;
+    }
+    
+    .chat-send:hover::before {
+      left: 100%;
     }
   </style>
 </head>
