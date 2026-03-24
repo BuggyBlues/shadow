@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useChannelSort } from '../../hooks/use-channel-sort'
 import { useSocketEvent } from '../../hooks/use-socket'
 import { fetchApi } from '../../lib/api'
 import { joinChannel } from '../../lib/socket'
@@ -32,6 +33,7 @@ import { useAuthStore } from '../../stores/auth.store'
 import { useChatStore } from '../../stores/chat.store'
 import { useUIStore } from '../../stores/ui.store'
 import { useConfirmStore } from '../common/confirm-dialog'
+import { ChannelSortButton } from './channel-sort-button'
 
 interface Channel {
   id: string
@@ -41,6 +43,9 @@ interface Channel {
   position: number
   isPrivate: boolean
   isMember?: boolean
+  createdAt?: string
+  updatedAt?: string
+  lastMessageAt?: string | null
 }
 
 interface Server {
@@ -154,10 +159,14 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
     queryFn: () => fetchApi<Server>(`/api/servers/${serverSlug}`),
   })
 
-  const { data: channels = [] } = useQuery({
+  const { data: rawChannels = [] } = useQuery<Channel[]>({
     queryKey: ['channels', serverSlug],
     queryFn: () => fetchApi<Channel[]>(`/api/servers/${serverSlug}/channels`),
   })
+
+  // Channel sorting
+  const { sortChannels, updateLastAccessed } = useChannelSort(server?.id)
+  const channels = sortChannels(rawChannels)
 
   const { data: scopedUnread } = useQuery({
     queryKey: ['notification-scoped-unread'],
@@ -441,6 +450,7 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
   const handleSelectChannel = useCallback(
     (channelId: string) => {
       requestMarkScopeRead({ channelId })
+      updateLastAccessed(channelId)
       setMobileView('chat')
       // Navigate to channel URL using channel ID
       navigate({
@@ -448,7 +458,7 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
         params: { serverSlug: server?.slug ?? serverSlug, channelId },
       })
     },
-    [setMobileView, server?.slug, serverSlug, navigate, requestMarkScopeRead],
+    [setMobileView, server?.slug, serverSlug, navigate, requestMarkScopeRead, updateLastAccessed],
   )
 
   // Rejoin active channel room on socket reconnect
@@ -624,13 +634,16 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
             <span className="w-2 h-2 rounded-full bg-danger shrink-0" title="该服务器有未读通知" />
           )}
         </div>
-        <button
-          onClick={openServerEdit}
-          className="text-text-muted hover:text-text-primary transition"
-          title={t('channel.serverSettings')}
-        >
-          <Settings size={16} />
-        </button>
+        <div className="flex items-center gap-1">
+          {server?.id && <ChannelSortButton serverId={server.id} />}
+          <button
+            onClick={openServerEdit}
+            className="text-text-muted hover:text-text-primary transition"
+            title={t('channel.serverSettings')}
+          >
+            <Settings size={16} />
+          </button>
+        </div>
       </div>
 
       {/* Channel list */}
