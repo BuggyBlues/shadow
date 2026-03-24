@@ -510,7 +510,7 @@ document.addEventListener('click', function(e) {
             srcDoc={htmlContent}
             title={`${server.name} homepage`}
             className="w-full h-full border-0"
-            sandbox="allow-scripts allow-same-origin"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
           />
         )}
       </div>
