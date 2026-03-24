@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shadow Design System</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    :root {
+      /* === SHADOW DESIGN SYSTEM === */
+      /* Background - Warm, deep, alive */
+      --bg-primary: #09090B;
+      --bg-secondary: #121214;
+      --bg-tertiary: #1C1C1F;
+      --bg-elevated: #27272A;
+      
+      /* Text - Crisp hierarchy */
+      --text-primary: #FAFAFA;
+      --text-secondary: #A1A1AA;
+      --text-tertiary: #71717A;
+      
+      /* Brand - Electric Violet with Pink energy */
+      --brand: #8B5CF6;
+      --brand-light: #A78BFA;
+      --brand-bright: #C4B5FD;
+      --brand-glow: rgba(139, 92, 246, 0.4);
+      --brand-subtle: rgba(139, 92, 246, 0.15);
+      
+      /* Accents - For vitality */
+      --energy: #F472B6;
+      --energy-glow: rgba(244, 114, 182, 0.4);
+      --cyber: #22D3EE;
+      --cyber-glow: rgba(34, 211, 238, 0.3);
+      
+      --border: rgba(255, 255, 255, 0.08);
+      --border-hover: rgba(255, 255, 255, 0.15);
+    }
+    
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+    }
+    
+    .page { max-width: 1200px; margin: 0 auto; padding: 0 32px; }
+    
+    /* === NAV === */
+    .nav {
+      position: fixed; top: 0; left: 0; right: 0;
+      background: rgba(9, 9, 11, 0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      z-index: 100;
+    }
+    
+    .nav-inner {
+      max-width: 1200px; margin: 0 auto; padding: 16px 32px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    
+    .logo {
+      display: flex; align-items: center; gap: 12px;
+      font-weight: 800; font-size: 20px; letter-spacing: -0.02em;
+    }
+    
+    .logo-mark {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--brand) 0%, var(--energy) 100%);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 24px var(--brand-glow);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .logo-mark::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, transparent 0%, rgba(255,255,255,0.2) 100%);
+    }
+    
+    .nav-links { display: flex; gap: 32px; }
+    .nav-link {
+      font-size: 14px; font-weight: 500; color: var(--text-secondary);
+      text-decoration: none; transition: color 0.2s;
+    }
+    .nav-link:hover { color: var(--text-primary); }
+    
+    /* === HERO === */
+    .hero {
+      padding: 180px 0 120px;
+      text-align: center;
+      position: relative;
+    }
+    
+    .hero::before {
+      content: '';
+      position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+      width: 100%; height: 700px;
+      background: 
+        radial-gradient(ellipse 100% 60% at 50% 0%, var(--brand-subtle) 0%, transparent 55%),
+        radial-gradient(ellipse 60% 40% at 80% 10%, rgba(244, 114, 182, 0.1) 0%, transparent 50%),
+        radial-gradient(ellipse 40% 30% at 20% 20%, rgba(34, 211, 238, 0.08) 0%, transparent 50%);
+      pointer-events: none;
+    }
+    
+    .badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 16px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 13px; font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 40px;
+    }
+    
+    .badge-dot {
+      width: 8px; height: 8px;
+      background: linear-gradient(135deg, var(--brand), var(--energy));
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(0.9); }
+    }
+    
+    .hero-title {
+      font-size: clamp(56px, 9vw, 84px);
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      margin-bottom: 24px;
+    }
+    
+    .hero-title .gradient {
+      background: linear-gradient(135deg, var(--brand-bright) 0%, var(--energy) 50%, var(--cyber) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .hero-desc {
+      font-size: 19px;
+      color: var(--text-secondary);
+      max-width: 540px;
+      margin: 0 auto 48px;
+      line-height: 1.6;
+    }
+    
+    .hero-actions { display: flex; gap: 16px; justify-content: center; }
+    
+    /* === BUTTONS === */
+    .btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-family: inherit; font-size: 15px; font-weight: 600;
+      border: none; cursor: pointer; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      height: 48px; padding: 0 24px; border-radius: 12px;
+    }
+    
+    .btn-glow {
+      background: linear-gradient(135deg, var(--brand), var(--energy));
+      color: white;
+      box-shadow: 0 4px 24px var(--brand-glow), 0 0 0 1px rgba(255,255,255,0.1) inset;
+    }
+    
+    .btn-glow:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px var(--brand-glow), 0 0 0 1px rgba(255,255,255,0.15) inset;
+    }
+    
+    .btn-solid {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+    
+    .btn-solid:hover { background: var(--bg-elevated); border-color: var(--border-hover); }
+    
+    /* === SECTIONS === */
+    .section { padding: 100px 0; border-top: 1px solid var(--border); }
+    .section-header { margin-bottom: 60px; }
+    .section-label {
+      font-size: 13px; font-weight: 600; color: var(--brand);
+      text-transform: uppercase; letter-spacing: 0.05em;
+      margin-bottom: 12px;
+    }
+    .section-title {
+      font-size: 36px; font-weight: 800; letter-spacing: -0.02em;
+    }
+    
+    /* === COLORS === */
+    .color-showcase {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px;
+    }
+    
+    .color-group {
+      background: var(--bg-secondary);
+      border-radius: 20px; padding: 28px;
+      border: 1px solid var(--border);
+    }
+    
+    .color-group-title {
+      font-size: 12px; font-weight: 600; color: var(--text-tertiary);
+      text-transform: uppercase; letter-spacing: 0.5px;
+      margin-bottom: 24px;
+    }
+    
+    .color-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    
+    .color-cell {
+      aspect-ratio: 1; border-radius: 14px;
+      position: relative; overflow: hidden;
+    }
+    
+    .color-cell::after {
+      content: attr(data-hex);
+      position: absolute; bottom: 12px; left: 0; right: 0;
+      text-align: center; font-family: monospace; font-size: 11px;
+      font-weight: 600; opacity: 0.9;
+    }
+    
+    .color-label {
+      margin-top: 10px; font-size: 13px; font-weight: 500;
+      text-align: center;
+    }
+    
+    /* === TYPOGRAPHY === */
+    .type-showcase { display: flex; flex-direction: column; gap: 8px; }
+    
+    .type-item {
+      display: grid; grid-template-columns: 180px 1fr;
+      gap: 32px; padding: 28px 0;
+      border-bottom: 1px solid var(--border);
+      align-items: center;
+    }
+    
+    .type-item:last-child { border-bottom: none; }
+    
+    .type-meta { display: flex; flex-direction: column; gap: 6px; }
+    .type-name { font-size: 14px; font-weight: 600; }
+    .type-detail { font-family: monospace; font-size: 12px; color: var(--text-tertiary); }
+    
+    .t1 { font-size: 48px; font-weight: 800; letter-spacing: -0.04em; }
+    .t2 { font-size: 36px; font-weight: 700; letter-spacing: -0.03em; }
+    .t3 { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+    .t4 { font-size: 20px; font-weight: 600; }
+    .t5 { font-size: 16px; font-weight: 500; color: var(--text-secondary); }
+    .t6 { font-size: 14px; font-weight: 400; color: var(--text-tertiary); }
+    
+    /* === COMPONENTS === */
+    .comp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+    
+    .comp-card {
+      background: var(--bg-secondary);
+      border-radius: 20px; padding: 28px;
+      border: 1px solid var(--border);
+      transition: all 0.2s;
+    }
+    
+    .comp-card:hover {
+      border-color: var(--border-hover);
+      transform: translateY(-2px);
+    }
+    
+    .comp-title {
+      font-size: 13px; font-weight: 600; color: var(--text-tertiary);
+      text-transform: uppercase; letter-spacing: 0.5px;
+      margin-bottom: 24px;
+    }
+    
+    .comp-content { display: flex; flex-direction: column; gap: 16px; }
+    
+    /* Input */
+    .input {
+      width: 100%; height: 48px; padding: 0 18px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text-primary); font-size: 15px;
+      outline: none; transition: all 0.2s;
+    }
+    
+    .input:focus {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 4px var(--brand-subtle);
+    }
+    
+    .input::placeholder { color: var(--text-tertiary); }
+    
+    /* Card */
+    .card {
+      background: var(--bg-tertiary);
+      border-radius: 16px; padding: 24px;
+      border: 1px solid var(--border);
+    }
+    
+    .card-header {
+      display: flex; align-items: center; gap: 16px; margin-bottom: 16px;
+    }
+    
+    .card-icon {
+      width: 48px; height: 48px;
+      background: linear-gradient(135deg, var(--brand-subtle), rgba(244, 114, 182, 0.15));
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--brand-light);
+    }
+    
+    .card-icon i { width: 24px; height: 24px; }
+    
+    .card-title { font-size: 16px; font-weight: 600; }
+    .card-desc { font-size: 14px; color: var(--text-secondary); margin-top: 4px; }
+    
+    /* === ICONS === */
+    .icon-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 12px; }
+    
+    .icon-cell {
+      aspect-ratio: 1;
+      background: var(--bg-secondary);
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-secondary);
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+    
+    .icon-cell:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border-color: var(--border-hover);
+      transform: scale(1.05);
+    }
+    
+    .icon-cell i { width: 22px; height: 22px; }
+    
+    /* === CHAT DEMO === */
+    .chat-frame {
+      background: var(--bg-secondary);
+      border-radius: 24px; padding: 28px;
+      border: 1px solid var(--border);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    }
+    
+    .chat-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 24px; padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .chat-channel {
+      display: flex; align-items: center; gap: 12px;
+    }
+    
+    .chat-channel-icon {
+      width: 40px; height: 40px;
+      background: var(--bg-tertiary);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-secondary);
+    }
+    
+    .chat-channel-info { display: flex; flex-direction: column; }
+    .chat-channel-name { font-size: 15px; font-weight: 600; }
+    .chat-channel-status { font-size: 13px; color: var(--text-tertiary); }
+    
+    .chat-actions { display: flex; gap: 8px; }
+    
+    .chat-action {
+      width: 40px; height: 40px;
+      background: var(--bg-tertiary);
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-secondary);
+      cursor: pointer; transition: all 0.2s;
+    }
+    
+    .chat-action:hover {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+    }
+    
+    .chat-body { display: flex; gap: 20px; }
+    
+    .chat-sidebar {
+      width: 64px; display: flex; flex-direction: column; gap: 12px;
+    }
+    
+    .server-pill {
+      width: 56px; height: 56px;
+      background: var(--bg-tertiary);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700;
+      color: var(--text-secondary);
+      cursor: pointer; transition: all 0.2s;
+      position: relative;
+    }
+    
+    .server-pill:hover {
+      background: var(--bg-elevated);
+      border-radius: 18px;
+    }
+    
+    .server-pill.active {
+      background: linear-gradient(135deg, var(--brand), var(--energy));
+      color: white;
+      border-color: transparent;
+      border-radius: 18px;
+    }
+    
+    .server-pill.add {
+      background: transparent;
+      border-style: dashed;
+    }
+    
+    .server-pill.add:hover {
+      background: var(--bg-tertiary);
+      border-style: solid;
+    }
+    
+    .chat-main {
+      flex: 1; background: var(--bg-primary);
+      border-radius: 16px; padding: 24px;
+      min-height: 400px;
+    }
+    
+    .message {
+      display: flex; gap: 14px; margin-bottom: 20px;
+      animation: fadeIn 0.4s ease-out;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .message-avatar {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--brand), var(--energy));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700; color: white;
+      flex-shrink: 0;
+    }
+    
+    .message-content { flex: 1; }
+    
+    .message-header {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 6px;
+    }
+    
+    .message-author { font-size: 15px; font-weight: 600; }
+    .message-time { font-size: 12px; color: var(--text-tertiary); }
+    
+    .message-bubble {
+      background: var(--bg-tertiary);
+      border-radius: 16px; padding: 14px 18px;
+      display: inline-block; max-width: 480px;
+    }
+    
+    .message-text { font-size: 15px; color: var(--text-secondary); line-height: 1.5; }
+    
+    .message-reactions {
+      display: flex; gap: 8px; margin-top: 10px;
+    }
+    
+    .reaction {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 12px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 13px; color: var(--text-secondary);
+      cursor: pointer; transition: all 0.2s;
+    }
+    
+    .reaction:hover {
+      background: var(--bg-tertiary);
+      border-color: var(--border-hover);
+    }
+    
+    .reaction.active {
+      background: var(--brand-subtle);
+      border-color: var(--brand);
+      color: var(--brand-light);
+    }
+    
+    .chat-input-area {
+      display: flex; gap: 12px; margin-top: 24px;
+      padding-top: 20px; border-top: 1px solid var(--border);
+    }
+    
+    .chat-input {
+      flex: 1; height: 52px; padding: 0 20px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      color: var(--text-primary); font-size: 15px;
+      outline: none; transition: all 0.2s;
+    }
+    
+    .chat-input:focus {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 4px var(--brand-subtle);
+    }
+    
+    .chat-send {
+      width: 52px; height: 52px;
+      background: linear-gradient(135deg, var(--brand), var(--energy));
+      border-radius: 14px;
+      border: none;
+      display: flex; align-items: center; justify-content: center;
+      color: white;
+      cursor: pointer; transition: all 0.2s;
+      box-shadow: 0 4px 20px var(--brand-glow);
+    }
+    
+    .chat-send:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 28px var(--brand-glow);
+    }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="logo">
+      <div class="logo-mark">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+          <path d="M2 17l10 5 10-5"/>
+          <path d="M2 12l10 5 10-5"/>
+        </svg>
+      </div>
+      Shadow
+    </div>
+    <div class="nav-links">
+      <a href="#colors" class="nav-link">Colors</a>
+      <a href="#typography" class="nav-link">Typography</a>
+      <a href="#components" class="nav-link">Components</a>
+      <a href="#icons" class="nav-link">Icons</a>
+    </div>
+  </div>
+</nav>
+
+<div class="page">
+  
+  <!-- Hero -->
+  <section class="hero">
+    <div class="badge">
+      <div class="badge-dot"></div>
+      Design System v2.0
+    </div>
+    <h1 class="hero-title">
+      Design for the<br><span class="gradient">next generation</span>
+    </h1>
+    <p class="hero-desc">
+      A vibrant, modern design system crafted for AI-native social platforms. Bold, energetic, and unmistakably unique.
+    </p>
+    <div class="hero-actions">
+      <button class="btn btn-glow">
+        <i data-lucide="sparkles"></i>
+        Explore System
+      </button>
+      <button class="btn btn-solid">
+        <i data-lucide="github"></i>
+        View on GitHub
+      </button>
+    </div>
+  </section>
+
+  <!-- Colors -->
+  <section class="section" id="colors">
+    <div class="section-header">
+      <div class="section-label">Foundation</div>
+      <h2 class="section-title">Color System</h2>
+    </div>
+    <div class="color-showcase">
+      <div class="color-group">
+        <div class="color-group-title">Background Scale</div>
+        <div class="color-grid">
+          <div>
+            <div class="color-cell" style="background: #09090B;" data-hex="#09090B"></div>
+            <div class="color-label">Primary</div>
+          </div>
+          <div>
+            <div class="color-cell" style="background: #121214;" data-hex="#121214"></div>
+            <div class="color-label">Secondary</div>
+          </div>
+          <div>
+            <div class="color-cell" style="background: #1C1C1F;" data-hex="#1C1C1F"></div>
+            <div class="color-label">Tertiary</div>
+          </div>
+          <div>
+            <div class="color-cell" style="background: #27272A;" data-hex="#27272A"></div>
+            <div class="color-label">Elevated</div>
+          </div>
+        </div>
+      </div>
+      <div class="color-group">
+        <div class="color-group-title">Brand & Energy</div>
+        <div class="color-grid">
+          <div>
+            <div class="color-cell" style="background: #8B5CF6;" data-hex="#8B5CF6"></div>
+            <div class="color-label">Brand</div>
+          </div>
+          <div>
+            <div class="color-cell" style="background: #A78BFA;" data-hex="#A78BFA"></div>
+            <div class="color-label">Brand Light</div>
+          </div>
+          <div>
+            <div class="color-cell" style="background: #F472B6;" data-hex="#F472B6"></div>
+            <div class="color-label">Energy</div>
+          </div>
+          <div>
+            <div class="color-cell" style="background: linear-gradient(135deg, #8B5CF6, #F472B6);" data-hex="Gradient"></div>
+            <div class="color-label">Gradient</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Typography -->
+  <section class="section" id="typography">
+    <div class="section-header">
+      <div class="section-label">Foundation</div>
+      <h2 class="section-title">Typography</h2>
+    </div>
+    <div class="type-showcase">
+      <div class="type-item">
+        <div class="type-meta">
+          <div class="type-name">Display</div>
+          <div class="type-detail">48px / 800 / -0.04em</div>
+        </div>
+        <div class="t1">The quick brown fox jumps</div>
+      </div>
+      <div class="type-item">
+        <div class="type-meta">
+          <div class="type-name">Heading 1</div>
+          <div class="type-detail">36px / 700 / -0.03em</div>
+        </div>
+        <div class="t2">The quick brown fox jumps</div>
+      </div>
+      <div class="type-item">
+        <div class="type-meta">
+          <div class="type-name">Heading 2</div>
+          <div class="type-detail">28px / 700 / -0.02em</div>
+        </div>
+        <div class="t3">The quick brown fox jumps</div>
+      </div>
+      <div class="type-item">
+        <div class="type-meta">
+          <div class="type-name">Body</div>
+          <div class="type-detail">16px / 500</div>
+        </div>
+        <div class="t5">The quick brown fox jumps over the lazy dog. This is the standard body text used throughout the interface.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Components -->
+  <section class="section" id="components">
+    <div class="section-header">
+      <div class="section-label">Components</div>
+      <h2 class="section-title">UI Elements</h2>
+    </div>
+    <div class="comp-grid">
+      <div class="comp-card">
+        <div class="comp-title">Buttons</div>
+        <div class="comp-content">
+          <button class="btn btn-glow" style="width: 100%;">
+            <i data-lucide="zap"></i>
+            Primary Action
+          </button>
+          <button class="btn btn-solid" style="width: 100%;">
+            Secondary
+          </button>
+        </div>
+      </div>
+      <div class="comp-card">
+        <div class="comp-title">Input</div>
+        <div class="comp-content">
+          <input type="text" class="input" placeholder="Enter your message...">
+          <input type="text" class="input" value="Focused state" style="border-color: var(--brand); box-shadow: 0 0 0 4px var(--brand-subtle);">
+        </div>
+      </div>
+      <div class="comp-card">
+        <div class="comp-title">Card</div>
+        <div class="comp-content">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-icon">
+                <i data-lucide="layers"></i>
+              </div>
+              <div>
+                <div class="card-title">Card Title</div>
+                <div class="card-desc">Card description text</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Icons -->
+  <section class="section" id="icons">
+    <div class="section-header">
+      <div class="section-label">Assets</div>
+      <h2 class="section-title">Lucide Icons</h2>
+    </div>
+    <div class="icon-grid">
+      <div class="icon-cell"><i data-lucide="home"></i></div>
+      <div class="icon-cell"><i data-lucide="message-square"></i></div>
+      <div class="icon-cell"><i data-lucide="users"></i></div>
+      <div class="icon-cell"><i data-lucide="bell"></i></div>
+      <div class="icon-cell"><i data-lucide="search"></i></div>
+      <div class="icon-cell"><i data-lucide="settings"></i></div>
+      <div class="icon-cell"><i data-lucide="plus"></i></div>
+      <div class="icon-cell"><i data-lucide="more-horizontal"></i></div>
+      <div class="icon-cell"><i data-lucide="heart"></i></div>
+      <div class="icon-cell"><i data-lucide="share"></i></div>
+    </div>
+  </section>
+
+  <!-- Chat Demo -->
+  <section class="section">
+    <div class="section-header">
+      <div class="section-label">Preview</div>
+      <h2 class="section-title">Chat Interface</h2>
+    </div>
+    <div class="chat-frame">
+      <div class="chat-header">
+        <div class="chat-channel">
+          <div class="chat-channel-icon">
+            <i data-lucide="hash" style="width: 20px; height: 20px;"></i>
+          </div>
+          <div class="chat-channel-info">
+            <div class="chat-channel-name">general</div>
+            <div class="chat-channel-status">24 members online</div>
+          </div>
+        </div>
+        <div class="chat-actions">
+          <div class="chat-action"><i data-lucide="phone" style="width: 18px; height: 18px;"></i></div>
+          <div class="chat-action"><i data-lucide="video" style="width: 18px; height: 18px;"></i></div>
+          <div class="chat-action"><i data-lucide="search" style="width: 18px; height: 18px;"></i></div>
+        </div>
+      </div>
+      <div class="chat-body">
+        <div class="chat-sidebar">
+          <div class="server-pill active">S1</div>
+          <div class="server-pill">S2</div>
+          <div class="server-pill">S3</div>
+          <div class="server-pill add">
+            <i data-lucide="plus" style="width: 20px; height: 20px;"></i>
+          </div>
+        </div>
+        <div class="chat-main">
+          <div class="message">
+            <div class="message-avatar">A</div>
+            <div class="message-content">
+              <div class="message-header">
+                <span class="message-author" style="color: var(--brand-light);">Alex</span>
+                <span class="message-time">2:34 PM</span>
+              </div>
+              <div class="message-bubble">
+                <div class="message-text">Hey everyone! Check out the new design system 🔥</div>
+              </div>
+              <div class="message-reactions">
+                <span class="reaction active">🔥 5</span>
+                <span class="reaction">👍 3</span>
+                <span class="reaction">+</span>
+              </div>
+            </div>
+          </div>
+          <div class="message">
+            <div class="message-avatar" style="background: linear-gradient(135deg, #F472B6, #22D3EE);">S</div>
+            <div class="message-content">
+              <div class="message-header">
+                <span class="message-author" style="color: var(--energy);">Sam</span>
+                <span class="message-time">2:36 PM</span>
+              </div>
+              <div class="message-bubble">
+                <div class="message-text">This looks incredible! Love the vibrant colors ✨</div>
+              </div>
+            </div>
+          </div>
+          <div class="chat-input-area">
+            <input type="text" class="chat-input" placeholder="Type a message...">
+            <button class="chat-send">
+              <i data-lucide="send" style="width: 20px; height: 20px;"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>lucide.createIcons();</script>
+</body>
+</html>
