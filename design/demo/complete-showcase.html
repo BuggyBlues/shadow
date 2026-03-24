@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shadow Design System - Complete</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    :root {
+      /* Core Colors */
+      --bg-base: #070708;
+      --bg-elevated: #0F0F10;
+      --bg-surface: #151516;
+      --bg-overlay: #1C1C1D;
+      
+      --text-primary: #FAFAFA;
+      --text-secondary: #A1A1AA;
+      --text-tertiary: #71717A;
+      
+      --brand: #6366F1;
+      --brand-light: #818CF8;
+      --brand-subtle: rgba(99, 102, 241, 0.12);
+      
+      --border: rgba(255, 255, 255, 0.06);
+    }
+    
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+    }
+    
+    .page { max-width: 1100px; margin: 0 auto; padding: 0 40px; }
+    
+    /* Hero */
+    .hero { padding: 100px 0 80px; text-align: center; }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 14px; background: var(--bg-surface);
+      border: 1px solid var(--border); border-radius: 999px;
+      font-size: 13px; color: var(--text-secondary); margin-bottom: 32px;
+    }
+    .hero-badge i { color: var(--brand); width: 14px; height: 14px; }
+    .hero-title { font-size: 56px; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 16px; }
+    .hero-title span { color: var(--text-tertiary); }
+    .hero-subtitle { font-size: 18px; color: var(--text-secondary); margin-bottom: 32px; }
+    
+    /* Section */
+    .section { padding: 64px 0; border-top: 1px solid var(--border); }
+    .section-title { font-size: 24px; font-weight: 600; margin-bottom: 40px; }
+    
+    /* Colors */
+    .color-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    .color-item { text-align: center; }
+    .color-swatch { aspect-ratio: 1; border-radius: 12px; margin-bottom: 12px; }
+    .color-name { font-size: 13px; font-weight: 500; }
+    .color-hex { font-family: monospace; font-size: 11px; color: var(--text-tertiary); }
+    
+    /* Typography */
+    .type-row { display: grid; grid-template-columns: 140px 1fr; gap: 32px; padding: 20px 0; border-bottom: 1px solid var(--border); align-items: center; }
+    .type-row:last-child { border-bottom: none; }
+    .type-label { font-size: 13px; font-weight: 600; }
+    .type-spec { font-family: monospace; font-size: 12px; color: var(--text-tertiary); }
+    .type-h1 { font-size: 32px; font-weight: 600; letter-spacing: -0.02em; }
+    .type-h2 { font-size: 26px; font-weight: 600; letter-spacing: -0.015em; }
+    .type-h3 { font-size: 20px; font-weight: 600; }
+    .type-body { font-size: 16px; color: var(--text-secondary); }
+    .type-small { font-size: 14px; color: var(--text-tertiary); }
+    
+    /* Components */
+    .comp-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+    .comp-card { background: var(--bg-elevated); border-radius: 16px; padding: 24px; border: 1px solid var(--border); }
+    .comp-label { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 20px; }
+    .comp-label i { width: 14px; height: 14px; }
+    .comp-row { display: flex; gap: 12px; margin-bottom: 12px; }
+    
+    /* Buttons */
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 500; border: none; cursor: pointer; transition: all 0.15s; height: 40px; padding: 0 20px; border-radius: 10px; }
+    .btn i { width: 16px; height: 16px; }
+    .btn-primary { background: var(--brand); color: white; }
+    .btn-primary:hover { background: var(--brand-light); }
+    .btn-secondary { background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: var(--bg-overlay); }
+    .btn-ghost { background: transparent; color: var(--text-secondary); }
+    .btn-ghost:hover { color: var(--text-primary); background: var(--bg-surface); }
+    
+    /* Inputs */
+    .input { width: 100%; height: 44px; padding: 0 16px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 10px; color: var(--text-primary); font-size: 14px; outline: none; }
+    .input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-subtle); }
+    
+    /* Icons Grid */
+    .icon-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 12px; }
+    .icon-item { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px; background: var(--bg-elevated); border-radius: 12px; border: 1px solid var(--border); }
+    .icon-item i { width: 24px; height: 24px; color: var(--text-secondary); }
+    .icon-label { font-size: 11px; color: var(--text-tertiary); }
+    
+    /* UI Preview */
+    .ui-preview { background: var(--bg-elevated); border-radius: 20px; padding: 24px; border: 1px solid var(--border); }
+    .ui-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+    .ui-header i { width: 20px; height: 20px; color: var(--text-tertiary); cursor: pointer; }
+    .ui-title { font-size: 15px; font-weight: 600; }
+    .ui-content { display: flex; gap: 16px; }
+    .ui-sidebar { width: 56px; display: flex; flex-direction: column; gap: 8px; }
+    .ui-server { width: 44px; height: 44px; border-radius: 12px; background: var(--bg-surface); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--text-secondary); cursor: pointer; border: 1px solid var(--border); }
+    .ui-server.active { background: var(--brand); color: white; border-color: var(--brand); }
+    .ui-main { flex: 1; background: var(--bg-base); border-radius: 12px; padding: 20px; min-height: 280px; }
+    .ui-message { display: flex; gap: 12px; margin-bottom: 16px; }
+    .ui-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--brand), #8B5CF6); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: white; }
+    .ui-bubble { background: var(--bg-surface); padding: 10px 14px; border-radius: 12px; max-width: 320px; }
+    .ui-name { font-size: 13px; font-weight: 600; color: var(--brand); margin-bottom: 2px; }
+    .ui-text { font-size: 14px; color: var(--text-secondary); }
+    .ui-reactions { display: flex; gap: 6px; margin-top: 6px; }
+    .ui-reaction { display: flex; align-items: center; gap: 4px; padding: 2px 8px; background: var(--bg-overlay); border-radius: 999px; font-size: 12px; }
+    .ui-input-row { display: flex; gap: 12px; margin-top: 20px; }
+    .ui-input { flex: 1; }
+  </style>
+</head>
+<body>
+
+<div class="page">
+  
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-badge">
+      <i data-lucide="sparkles"></i>
+      <span>Design System v1.0</span>
+    </div>
+    <h1 class="hero-title">Shadow <span>Design</span></h1>
+    <p class="hero-subtitle">Modern, minimal, and cohesive design language for the next generation of AI-native social platforms.</p>
+    <div style="display: flex; gap: 12px; justify-content: center;">
+      <button class="btn btn-primary">
+        <i data-lucide="download"></i>
+        Get Started
+      </button>
+      <button class="btn btn-secondary">
+        <i data-lucide="book-open"></i>
+        Documentation
+      </button>
+    </div>
+  </div>
+
+  <!-- Colors -->
+  <div class="section">
+    <h2 class="section-title">Color Palette</h2>
+    <div class="color-grid">
+      <div class="color-item"><div class="color-swatch" style="background: #070708;"></div><div class="color-name">Base</div><div class="color-hex">#070708</div></div>
+      <div class="color-item"><div class="color-swatch" style="background: #0F0F10;"></div><div class="color-name">Elevated</div><div class="color-hex">#0F0F10</div></div>
+      <div class="color-item"><div class="color-swatch" style="background: #151516;"></div><div class="color-name">Surface</div><div class="color-hex">#151516</div></div>
+      <div class="color-item"><div class="color-swatch" style="background: #6366F1;"></div><div class="color-name">Brand</div><div class="color-hex">#6366F1</div></div>
+    </div>
+  </div>
+
+  <!-- Typography -->
+  <div class="section">
+    <h2 class="section-title">Typography</h2>
+    <div class="type-row"><div class="type-meta"><div class="type-label">Heading 1</div><div class="type-spec">32px / 600</div></div><div class="type-h1">The quick brown fox jumps over the lazy dog</div></div>
+    <div class="type-row"><div class="type-meta"><div class="type-label">Heading 2</div><div class="type-spec">26px / 600</div></div><div class="type-h2">The quick brown fox jumps over the lazy dog</div></div>
+    <div class="type-row"><div class="type-meta"><div class="type-label">Heading 3</div><div class="type-spec">20px / 600</div></div><div class="type-h3">The quick brown fox jumps over the lazy dog</div></div>
+    <div class="type-row"><div class="type-meta"><div class="type-label">Body</div><div class="type-spec">16px / 400</div></div><div class="type-body">The quick brown fox jumps over the lazy dog. This is the standard body text.</div></div>
+    <div class="type-row"><div class="type-meta"><div class="type-label">Small</div><div class="type-spec">14px / 400</div></div><div class="type-small">The quick brown fox jumps over the lazy dog. Used for secondary info.</div></div>
+  </div>
+
+  <!-- Components -->
+  <div class="section">
+    <h2 class="section-title">Components</h2>
+    <div class="comp-grid">
+      <div class="comp-card">
+        <div class="comp-label"><i data-lucide="mouse-pointer-click"></i>Buttons</div>
+        <div class="comp-row">
+          <button class="btn btn-primary"><i data-lucide="check"></i>Primary</button>
+          <button class="btn btn-secondary">Secondary</button>
+          <button class="btn btn-ghost">Ghost</button>
+        </div>
+      </div>
+      <div class="comp-card">
+        <div class="comp-label"><i data-lucide="form-input"></i>Inputs</div>
+        <input type="text" class="input" placeholder="Enter text...">
+      </div>
+    </div>
+  </div>
+
+  <!-- Icons -->
+  <div class="section">
+    <h2 class="section-title">Lucide Icons</h2>
+    <div class="icon-grid">
+      <div class="icon-item"><i data-lucide="home"></i><div class="icon-label">home</div></div>
+      <div class="icon-item"><i data-lucide="message-square"></i><div class="icon-label">message</div></div>
+      <div class="icon-item"><i data-lucide="users"></i><div class="icon-label">users</div></div>
+      <div class="icon-item"><i data-lucide="settings"></i><div class="icon-label">settings</div></div>
+      <div class="icon-item"><i data-lucide="search"></i><div class="icon-label">search</div></div>
+      <div class="icon-item"><i data-lucide="bell"></i><div class="icon-label">bell</div></div>
+      <div class="icon-item"><i data-lucide="plus"></i><div class="icon-label">plus</div></div>
+      <div class="icon-item"><i data-lucide="more-horizontal"></i><div class="icon-label">more</div></div>
+    </div>
+  </div>
+
+  <!-- UI Preview -->
+  <div class="section">
+    <h2 class="section-title">Chat Interface</h2>
+    <div class="ui-preview">
+      <div class="ui-header">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <i data-lucide="menu"></i>
+          <span class="ui-title"># general</span>
+        </div>
+        <div class="ui-actions">
+          <i data-lucide="phone"></i>
+          <i data-lucide="video"></i>
+          <i data-lucide="search"></i>
+        </div>
+      </div>
+      <div class="ui-content">
+        <div class="ui-sidebar">
+          <div class="ui-server active">S1</div>
+          <div class="ui-server">S2</div>
+          <div class="ui-server">S3</div>
+          <div class="ui-server" style="border-style: dashed; background: transparent;"><i data-lucide="plus" style="width: 16px; height: 16px;"></i></div>
+        </div>
+        <div class="ui-main">
+          <div class="ui-message">
+            <div class="ui-avatar">A</div>
+            <div>
+              <div class="ui-bubble">
+                <div class="ui-name">Alex</div>
+                <div class="ui-text">Hey everyone! How's it going?</div>
+              </div>
+              <div class="ui-reactions">
+                <span class="ui-reaction"><i data-lucide="thumbs-up" style="width: 12px; height: 12px;"></i> 3</span>
+                <span class="ui-reaction">+</span>
+              </div>
+            </div>
+          </div>
+          <div class="ui-message">
+            <div class="ui-avatar" style="background: linear-gradient(135deg, #8B5CF6, #EC4899);">S</div>
+            <div>
+              <div class="ui-bubble">
+                <div class="ui-name" style="color: #8B5CF6;">Sam</div>
+                <div class="ui-text">Working on the new design system!</div>
+              </div>
+            </div>
+          </div>
+          <div class="ui-input-row">
+            <input type="text" class="input ui-input" placeholder="Type a message...">
+            <button class="btn btn-primary"><i data-lucide="send" style="width: 16px; height: 16px;"></i></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>lucide.createIcons();</script>
+</body>
+</html>
