@@ -3,35 +3,34 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Shadow Design System - Message List</title>
+  <title>Shadow Design System - Messages</title>
   <style>
     :root {
-      --primary-500: #8B5CF6;
-      --primary-600: #7C3AED;
-      --accent-pink: #EC4899;
-      --accent-green: #10B981;
-      --gradient-brand: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
-      --bg-base: #0A0A0B;
-      --bg-surface: #18181B;
-      --bg-elevated: #27272A;
-      --bg-hover: #3F3F46;
-      --border: #3F3F46;
-      --text-primary: #FAFAFA;
+      --primary: #6366F1;
+      --primary-dark: #4F46E5;
+      --primary-light: #818CF8;
+      --bg: #0F0F10;
+      --surface: #18181B;
+      --elevated: #1F1F23;
+      --border: #27272A;
+      --border-light: #3F3F46;
+      --text: #FAFAFA;
       --text-secondary: #A1A1AA;
       --text-muted: #71717A;
-      --glow-primary: 0 0 20px rgba(139, 92, 246, 0.4);
-      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-      --radius-md: 8px;
+      --success: #22C55E;
+      --radius: 8px;
       --radius-lg: 12px;
       --radius-full: 9999px;
+      --glow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+      --shadow: 0 2px 8px rgba(0,0,0,0.3);
     }
     
     * { margin: 0; padding: 0; box-sizing: border-box; }
     
     body {
-      font-family: 'Inter', -apple-system, 'PingFang SC', sans-serif;
-      background: var(--bg-base);
-      color: var(--text-primary);
+      font-family: -apple-system, 'Inter', 'PingFang SC', sans-serif;
+      background: var(--bg);
+      color: var(--text);
       line-height: 1.5;
       padding: 24px;
     }
@@ -40,68 +39,50 @@
       font-size: 24px;
       font-weight: 600;
       margin-bottom: 24px;
-      background: var(--gradient-brand);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
     }
     
-    .chat-container {
-      max-width: 800px;
-      background: var(--bg-surface);
+    .chat {
+      max-width: 600px;
+      background: var(--surface);
       border-radius: var(--radius-lg);
       overflow: hidden;
     }
     
     .chat-header {
-      padding: 16px 20px;
+      padding: 16px;
       border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    
-    .chat-header-title {
       font-weight: 600;
       display: flex;
       align-items: center;
       gap: 8px;
     }
     
-    .chat-header-title::before {
+    .chat-header::before {
       content: '#';
       color: var(--text-muted);
     }
     
-    .chat-messages {
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      min-height: 400px;
+    .messages {
+      padding: 16px;
+      min-height: 320px;
     }
     
-    /* Message Group */
-    .message-group {
+    .msg {
       display: flex;
       gap: 12px;
-      padding: 4px 0;
-      border-radius: var(--radius-md);
-      transition: background 150ms;
+      padding: 8px 0;
+      border-radius: var(--radius);
     }
     
-    .message-group:hover {
-      background: rgba(255, 255, 255, 0.02);
+    .msg:hover {
+      background: rgba(255,255,255,0.02);
     }
     
-    .message-group:hover .message-actions {
-      opacity: 1;
-    }
-    
-    .message-avatar {
+    .msg-avatar {
       width: 40px;
       height: 40px;
       border-radius: var(--radius-full);
-      background: var(--gradient-brand);
+      background: var(--primary);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -111,96 +92,46 @@
       flex-shrink: 0;
     }
     
-    .message-content {
-      flex: 1;
-      min-width: 0;
-    }
+    .msg-content { flex: 1; min-width: 0; }
     
-    .message-header {
+    .msg-header {
       display: flex;
       align-items: baseline;
       gap: 8px;
       margin-bottom: 2px;
     }
     
-    .message-author {
+    .msg-author {
       font-weight: 600;
-      color: var(--text-primary);
+      font-size: 15px;
     }
     
-    .message-author.bot {
-      color: var(--primary-500);
+    .msg-author.ai {
+      color: var(--primary-light);
     }
     
-    .message-author.ai {
-      background: var(--gradient-brand);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-    
-    .message-timestamp {
+    .msg-time {
       font-size: 12px;
       color: var(--text-muted);
     }
     
-    .message-text {
+    .msg-text {
       color: var(--text-secondary);
-      line-height: 1.6;
+      font-size: 14px;
     }
     
-    .message-text code {
-      background: var(--bg-elevated);
+    .msg-text code {
+      background: var(--elevated);
       padding: 2px 6px;
       border-radius: 4px;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: monospace;
       font-size: 13px;
     }
     
-    /* Message Actions */
-    .message-actions {
-      position: absolute;
-      right: 8px;
-      top: -16px;
-      display: flex;
-      gap: 4px;
-      opacity: 0;
-      transition: opacity 150ms;
-      background: var(--bg-elevated);
-      border-radius: var(--radius-md);
-      padding: 4px;
-      box-shadow: var(--shadow-md);
-    }
-    
-    .message-wrapper {
-      position: relative;
-    }
-    
-    .action-btn {
-      width: 32px;
-      height: 32px;
-      border: none;
-      background: transparent;
-      color: var(--text-muted);
-      border-radius: 6px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      transition: all 150ms;
-    }
-    
-    .action-btn:hover {
-      background: var(--bg-hover);
-      color: var(--text-primary);
-    }
-    
-    /* Reactions */
-    .message-reactions {
+    .msg-reactions {
       display: flex;
       gap: 6px;
       margin-top: 8px;
-      flex-wrap: wrap;
     }
     
     .reaction {
@@ -208,7 +139,7 @@
       align-items: center;
       gap: 4px;
       padding: 4px 10px;
-      background: var(--bg-elevated);
+      background: var(--elevated);
       border: 1px solid var(--border);
       border-radius: var(--radius-full);
       font-size: 13px;
@@ -217,13 +148,12 @@
     }
     
     .reaction:hover {
-      border-color: var(--primary-500);
-      background: rgba(139, 92, 246, 0.1);
+      border-color: var(--primary);
     }
     
     .reaction.active {
-      border-color: var(--primary-500);
-      background: rgba(139, 92, 246, 0.2);
+      border-color: var(--primary);
+      background: rgba(99, 102, 241, 0.1);
     }
     
     .reaction-count {
@@ -231,148 +161,89 @@
       font-weight: 500;
     }
     
-    .reaction-add {
-      padding: 4px 8px;
-      color: var(--text-muted);
+    /* Merged messages */
+    .msg-merged {
+      padding-left: 52px;
     }
     
-    .reaction-add:hover {
-      color: var(--text-primary);
+    .msg-merged .msg-avatar {
+      display: none;
     }
     
-    /* Inline Reply */
-    .message-reply {
+    /* Unread divider */
+    .divider {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      background: var(--bg-elevated);
-      border-left: 2px solid var(--primary-500);
-      border-radius: 0 var(--radius-md) var(--radius-md) 0;
-      margin-bottom: 8px;
-      font-size: 13px;
+      gap: 16px;
+      margin: 16px 0;
     }
     
-    .reply-author {
-      color: var(--primary-500);
-      font-weight: 500;
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--primary);
     }
     
-    .reply-content {
-      color: var(--text-muted);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+    .divider-text {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
     
-    /* Input Area */
-    .chat-input-area {
-      padding: 16px 20px;
+    /* Input */
+    .chat-input {
+      padding: 12px 16px;
       border-top: 1px solid var(--border);
     }
     
-    .chat-input {
+    .input {
       width: 100%;
-      padding: 12px 16px;
+      padding: 12px 14px;
       font-size: 14px;
-      color: var(--text-primary);
-      background: var(--bg-elevated);
+      color: var(--text);
+      background: var(--elevated);
       border: 1px solid var(--border);
-      border-radius: var(--radius-md);
+      border-radius: var(--radius);
       outline: none;
-      transition: all 150ms;
     }
     
-    .chat-input:focus {
-      border-color: var(--primary-500);
-      box-shadow: var(--glow-primary);
+    .input:focus {
+      border-color: var(--primary);
+      box-shadow: var(--glow);
     }
     
-    .chat-input::placeholder {
+    .input::placeholder {
       color: var(--text-muted);
     }
     
-    .input-toolbar {
+    .input-tools {
       display: flex;
       gap: 8px;
       margin-top: 8px;
     }
     
-    .toolbar-btn {
+    .tool-btn {
       padding: 6px 12px;
       font-size: 13px;
       color: var(--text-muted);
-      background: transparent;
+      background: none;
       border: none;
       border-radius: 6px;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      transition: all 150ms;
     }
     
-    .toolbar-btn:hover {
-      background: var(--bg-hover);
-      color: var(--text-primary);
+    .tool-btn:hover {
+      background: var(--elevated);
+      color: var(--text);
     }
     
-    /* Slash Command */
-    .slash-menu {
-      position: absolute;
-      bottom: 100%;
-      left: 0;
-      margin-bottom: 8px;
-      background: var(--bg-elevated);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 8px;
-      min-width: 200px;
-      box-shadow: var(--shadow-md);
-    }
-    
-    .slash-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background 150ms;
-    }
-    
-    .slash-item:hover {
-      background: var(--bg-hover);
-    }
-    
-    .slash-icon {
-      width: 32px;
-      height: 32px;
-      border-radius: 6px;
-      background: var(--bg-hover);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-    }
-    
-    .slash-info {
-      flex: 1;
-    }
-    
-    .slash-name {
-      font-weight: 500;
-      font-size: 14px;
-    }
-    
-    .slash-desc {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-    
-    /* Typing Indicator */
-    .typing-indicator {
-      padding: 8px 20px;
+    /* Typing */
+    .typing {
+      padding: 8px 16px;
       font-size: 13px;
       color: var(--text-muted);
       display: flex;
@@ -386,199 +257,104 @@
     }
     
     .typing-dots span {
-      width: 6px;
-      height: 6px;
+      width: 5px;
+      height: 5px;
       background: var(--text-muted);
       border-radius: 50%;
-      animation: typing 1.4s infinite ease-in-out;
+      animation: bounce 1.2s infinite;
     }
     
     .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
     .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
     
-    @keyframes typing {
+    @keyframes bounce {
       0%, 60%, 100% { transform: translateY(0); }
       30% { transform: translateY(-4px); }
-    }
-    
-    /* Unread Divider */
-    .unread-divider {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      margin: 16px 0;
-    }
-    
-    .unread-divider::before,
-    .unread-divider::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: var(--primary-500);
-    }
-    
-    .unread-label {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--primary-500);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
     }
   </style>
 </head>
 <body>
-  <h1>Message List Demo</h1>
+  <h1>Messages</h1>
   
-  <div class="chat-container">
-    <div class="chat-header">
-      <span class="chat-header-title">general</span>
-      <span style="color: var(--text-muted); font-size: 13px;">128 members</span>
-    </div>
+  <div class="chat">
+    <div class="chat-header">general</div>
     
-    <div class="chat-messages">
-      <!-- Message with reply -->
-      <div class="message-group">
-        <div class="message-avatar">P</div>
-        <div class="message-content">
-          <div class="message-header">
-            <span class="message-author">彭猫</span>
-            <span class="message-timestamp">今天 14:23</span>
+    <div class="messages">
+      <div class="msg">
+        <div class="msg-avatar">P</div>
+        <div class="msg-content">
+          <div class="msg-header">
+            <span class="msg-author">彭猫</span>
+            <span class="msg-time">今天 14:23</span>
           </div>
-          <div class="message-reply">
-            <span class="reply-author">@小炸</span>
-            <span class="reply-content">好的，我更新一下 PR</span>
-          </div>
-          <div class="message-text">
-            已更新，请审核 ✅
-          </div>
-          <div class="message-reactions">
+          <div class="msg-text">设计文档已更新，请查看</div>
+          <div class="msg-reactions">
             <span class="reaction active">👍 <span class="reaction-count">3</span></span>
-            <span class="reaction">🎉 <span class="reaction-count">1</span></span>
-            <span class="reaction-add">+ 😊</span>
+            <span class="reaction">✅ <span class="reaction-count">1</span></span>
           </div>
         </div>
       </div>
       
-      <!-- AI Message -->
-      <div class="message-group">
-        <div class="message-avatar">🤖</div>
-        <div class="message-content">
-          <div class="message-header">
-            <span class="message-author ai">AI Assistant</span>
-            <span class="badge" style="background: rgba(139, 92, 246, 0.2); color: var(--primary-500); padding: 2px 8px; border-radius: 4px; font-size: 11px;">AI</span>
-            <span class="message-timestamp">今天 14:25</span>
+      <div class="msg">
+        <div class="msg-avatar">🤖</div>
+        <div class="msg-content">
+          <div class="msg-header">
+            <span class="msg-author ai">AI Assistant</span>
+            <span class="badge" style="background: rgba(99,102,241,0.15); color: var(--primary-light); padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 4px;">AI</span>
+            <span class="msg-time">今天 14:25</span>
           </div>
-          <div class="message-text">
-            我已收到您的请求，正在处理中...<br><br>
-            <code>/analyze --pr 77</code> 命令已执行，预计 2 分钟内完成分析。
-          </div>
+          <div class="msg-text">收到，正在分析文档...<br><br><code>/analyze</code> 命令已执行</div>
         </div>
       </div>
       
-      <!-- Unread Divider -->
-      <div class="unread-divider">
-        <span class="unread-label">新消息</span>
-      </div>
+      <div class="divider"><span class="divider-text">新消息</span></div>
       
-      <!-- Consecutive messages (merged) -->
-      <div class="message-group">
-        <div class="message-avatar" style="background: linear-gradient(135deg, #10B981 0%, #3B82F6 100%;">小</div>
-        <div class="message-wrapper">
-          <div class="message-content">
-            <div class="message-header">
-              <span class="message-author">小炸</span>
-              <span class="message-timestamp">今天 14:30</span>
-            </div>
-            <div class="message-text">设计文档已精简，移除了冗余内容。</div>
+      <div class="msg">
+        <div class="msg-avatar">小</div>
+        <div class="msg-content">
+          <div class="msg-header">
+            <span class="msg-author">小炸</span>
+            <span class="msg-time">今天 14:30</span>
           </div>
-          <div class="message-actions">
-            <button class="action-btn">😊</button>
-            <button class="action-btn">💬</button>
-            <button class="action-btn">📌</button>
-            <button class="action-btn">⋯</button>
-          </div>
+          <div class="msg-text">颜色方案已精简，统一使用 Indigo 主色</div>
         </div>
       </div>
       
-      <!-- Merged message (same user, no avatar) -->
-      <div class="message-group" style="padding-left: 52px;">
-        <div class="message-wrapper">
-          <div class="message-content">
-            <div class="message-header">
-              <span class="message-timestamp">今天 14:31</span>
-            </div>
-            <div class="message-text">新增了 HTML demo 文件，可以直接在浏览器查看效果。</div>
+      <div class="msg msg-merged">
+        <div class="msg-avatar"></div>
+        <div class="msg-content">
+          <div class="msg-header">
+            <span class="msg-time">今天 14:31</span>
           </div>
-          <div class="message-actions">
-            <button class="action-btn">😊</button>
-            <button class="action-btn">💬</button>
-            <button class="action-btn">⋯</button>
-          </div>
+          <div class="msg-text">移除了多余的强调色，整体更加简洁</div>
         </div>
       </div>
       
-      <div class="message-group" style="padding-left: 52px;">
-        <div class="message-wrapper">
-          <div class="message-content">
-            <div class="message-header">
-              <span class="message-timestamp">今天 14:32</span>
-            </div>
-            <div class="message-text">
-              Demo 包含：<br>
-              • <code>components.html</code> - 按钮、输入框、卡片<br>
-              • <code>message-list.html</code> - 消息样式<br>
-              • <code>profile.html</code> - 个人主页<br>
-              • <code>navigation.html</code> - 导航布局
-            </div>
+      <div class="msg msg-merged">
+        <div class="msg-avatar"></div>
+        <div class="msg-content">
+          <div class="msg-header">
+            <span class="msg-time">今天 14:32</span>
           </div>
-          <div class="message-actions">
-            <button class="action-btn">😊</button>
-            <button class="action-btn">💬</button>
-            <button class="action-btn">⋯</button>
+          <div class="msg-text">Demo 文件也同步更新了 ✨</div>
+          <div class="msg-reactions">
+            <span class="reaction">🎉 <span class="reaction-count">2</span></span>
           </div>
         </div>
       </div>
     </div>
     
-    <!-- Typing Indicator -->
-    <div class="typing-indicator">
+    <div class="typing">
       <div class="typing-dots"><span></span><span></span><span></span></div>
       <span>彭猫 正在输入...</span>
     </div>
     
-    <!-- Input Area with Slash Menu -->
-    <div class="chat-input-area" style="position: relative;">
-      <input type="text" class="chat-input" placeholder="发送消息到 #general" value="/">
-      
-      <div class="slash-menu">
-        <div class="slash-item">
-          <div class="slash-icon">🤖</div>
-          <div class="slash-info">
-            <div class="slash-name">/ai</div>
-            <div class="slash-desc">召唤 AI 助手</div>
-          </div>
-        </div>
-        <div class="slash-item">
-          <div class="slash-icon">📊</div>
-          <div class="slash-info">
-            <div class="slash-name">/poll</div>
-            <div class="slash-desc">创建投票</div>
-          </div>
-        </div>
-        <div class="slash-item">
-          <div class="slash-icon">📋</div>
-          <div class="slash-info">
-            <div class="slash-name">/code</div>
-            <div class="slash-desc">分享代码片段</div>
-          </div>
-        </div>
-      </div>
-      
-      <div class="input-toolbar">
-        <button class="toolbar-btn">😊 表情</button>
-        <button class="toolbar-btn">📎 文件</button>
-        <button class="toolbar-btn">@ 提及</button>
-        <button class="toolbar-btn">🤖 AI</button>
+    <div class="chat-input">
+      <input class="input" placeholder="发送消息到 #general">
+      <div class="input-tools">
+        <button class="tool-btn">😊</button>
+        <button class="tool-btn">📎</button>
+        <button class="tool-btn">@</button>
       </div>
     </div>
   </div>
