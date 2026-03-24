@@ -559,14 +559,10 @@ function ModelStep({
   const [error, setError] = useState('')
   const [showAll, setShowAll] = useState(false)
 
-  // Group presets by category
-  const categories = useMemo(() => {
-    return getPresetsByCategory()
-  }, [])
-
-  // Quick presets for onboarding
+  // Quick presets for onboarding (common providers)
   const quickPresetIds = ['openai', 'anthropic', 'gemini', 'deepseek', 'moonshot']
   const quickPresets = PROVIDER_PRESETS.filter((p) => quickPresetIds.includes(p.id))
+  const otherPresets = PROVIDER_PRESETS.filter((p) => !quickPresetIds.includes(p.id))
 
   const handleSelect = (preset: ProviderPreset) => {
     setSelected(preset)
