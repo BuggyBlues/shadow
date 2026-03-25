@@ -21,7 +21,7 @@ export const registerSchema = z.object({
 })
 
 export const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
+  email: z.string().min(1, 'Username or email is required').max(128, 'Input is too long'),
   password: z.string().min(1, 'Password is required'),
 })
 

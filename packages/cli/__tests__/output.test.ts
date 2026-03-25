@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { output, outputError, outputSuccess } from '../src/utils/output.js'
 
 describe('output utils', () => {
@@ -51,7 +51,9 @@ describe('output utils', () => {
   describe('outputError', () => {
     it('should output JSON error when json option is true', () => {
       outputError('something went wrong', { json: true })
-      expect(consoleLogSpy).toHaveBeenCalledWith(JSON.stringify({ error: 'something went wrong' }, null, 2))
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        JSON.stringify({ error: 'something went wrong' }, null, 2),
+      )
     })
 
     it('should output colored error to stderr when json is false', () => {
@@ -64,7 +66,7 @@ describe('output utils', () => {
     it('should output JSON success when json option is true', () => {
       outputSuccess('operation completed', { json: true })
       expect(consoleLogSpy).toHaveBeenCalledWith(
-        JSON.stringify({ success: true, message: 'operation completed' }, null, 2)
+        JSON.stringify({ success: true, message: 'operation completed' }, null, 2),
       )
     })
 

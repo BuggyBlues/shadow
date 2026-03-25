@@ -32,8 +32,8 @@ import { joinChannel } from '../../lib/socket'
 import { useAuthStore } from '../../stores/auth.store'
 import { useChatStore } from '../../stores/chat.store'
 import { useUIStore } from '../../stores/ui.store'
-import { ContextMenu } from '../common/context-menu'
 import { useConfirmStore } from '../common/confirm-dialog'
+import { ContextMenu } from '../common/context-menu'
 import { ChannelSortButton } from './channel-sort-button'
 
 interface Channel {
@@ -1185,7 +1185,9 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
               items: [
                 {
                   icon: Volume2,
-                  label: (notificationPreference?.mutedChannelIds ?? []).includes(contextMenu.channel.id)
+                  label: (notificationPreference?.mutedChannelIds ?? []).includes(
+                    contextMenu.channel.id,
+                  )
                     ? '取消静音频道'
                     : '静音频道通知',
                   onClick: () => {

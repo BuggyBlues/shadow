@@ -1,6 +1,6 @@
 import { Command } from 'commander'
 import { getClient } from '../utils/client.js'
-import { output, outputSuccess, outputError, type OutputOptions } from '../utils/output.js'
+import { type OutputOptions, output, outputError, outputSuccess } from '../utils/output.js'
 
 export function createAgentsCommand(): Command {
   const agents = new Command('agents').description('Agent management commands')
@@ -63,10 +63,12 @@ export function createAgentsCommand(): Command {
           })
           output(agent, { json: options.json })
         } catch (error) {
-          outputError(error instanceof Error ? error.message : String(error), { json: options.json })
+          outputError(error instanceof Error ? error.message : String(error), {
+            json: options.json,
+          })
           process.exit(1)
         }
-      }
+      },
     )
 
   agents
@@ -87,7 +89,7 @@ export function createAgentsCommand(): Command {
           avatarUrl?: string
           profile?: string
           json?: boolean
-        }
+        },
       ) => {
         try {
           const client = await getClient(options.profile)
@@ -98,10 +100,12 @@ export function createAgentsCommand(): Command {
           })
           output(agent, { json: options.json })
         } catch (error) {
-          outputError(error instanceof Error ? error.message : String(error), { json: options.json })
+          outputError(error instanceof Error ? error.message : String(error), {
+            json: options.json,
+          })
           process.exit(1)
         }
-      }
+      },
     )
 
   agents

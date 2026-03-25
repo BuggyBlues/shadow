@@ -1,5 +1,7 @@
 # ── Build stage ──────────────────────────────────────
 FROM node:22-alpine AS builder
+ARG VITE_API_BASE
+ENV VITE_API_BASE=$VITE_API_BASE
 RUN corepack enable && corepack prepare pnpm@10.19.0 --activate
 WORKDIR /app
 

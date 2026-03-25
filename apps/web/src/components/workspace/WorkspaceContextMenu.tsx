@@ -16,8 +16,8 @@ import {
 } from 'lucide-react'
 import { useRef } from 'react'
 import type { WorkspaceNode } from '../../stores/workspace.store'
-import type { ContextMenuState } from './workspace-types'
 import { useContextMenuPosition } from '../common/context-menu'
+import type { ContextMenuState } from './workspace-types'
 
 interface ContextMenuAction {
   icon: typeof Copy

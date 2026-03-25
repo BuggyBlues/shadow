@@ -52,7 +52,8 @@ export function useContextMenuPosition(
       let px = x
       let py = y
       if (px + estimatedWidth > window.innerWidth - 8) px = window.innerWidth - estimatedWidth - 8
-      if (py + estimatedHeight > window.innerHeight - 8) py = window.innerHeight - estimatedHeight - 8
+      if (py + estimatedHeight > window.innerHeight - 8)
+        py = window.innerHeight - estimatedHeight - 8
       if (px < 8) px = 8
       if (py < 8) py = 8
       setPosition({ x: px, y: py })

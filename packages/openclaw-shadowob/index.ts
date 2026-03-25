@@ -1,10 +1,10 @@
 import { defineChannelPluginEntry } from 'openclaw/plugin-sdk/core'
-import { setShadowRuntime } from './src/runtime.js'
 import { shadowPlugin } from './src/channel.js'
+import { setShadowRuntime } from './src/runtime.js'
 
 export { ShadowClient } from '@shadowob/sdk'
-export { monitorShadowProvider } from './src/monitor.js'
 export { shadowPlugin } from './src/channel.js'
+export { monitorShadowProvider } from './src/monitor.js'
 export { getShadowRuntime, tryGetShadowRuntime } from './src/runtime.js'
 
 export default defineChannelPluginEntry({

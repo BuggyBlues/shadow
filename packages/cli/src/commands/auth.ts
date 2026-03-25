@@ -1,7 +1,7 @@
+import { ShadowClient } from '@shadowob/sdk'
 import { Command } from 'commander'
 import { configManager } from '../config/manager.js'
-import { output, outputSuccess, outputError, type OutputOptions } from '../utils/output.js'
-import { ShadowClient } from '@shadowob/sdk'
+import { type OutputOptions, output, outputError, outputSuccess } from '../utils/output.js'
 
 export function createAuthCommand(): Command {
   const auth = new Command('auth').description('Authentication commands')
@@ -13,28 +13,32 @@ export function createAuthCommand(): Command {
     .requiredOption('--token <token>', 'JWT token')
     .option('--profile <name>', 'Profile name', 'default')
     .option('--json', 'Output as JSON')
-    .action(async (options: { serverUrl: string; token: string; profile: string; json?: boolean }) => {
-      try {
-        const client = new ShadowClient(options.serverUrl, options.token)
-        const user = await client.getMe()
+    .action(
+      async (options: { serverUrl: string; token: string; profile: string; json?: boolean }) => {
+        try {
+          const client = new ShadowClient(options.serverUrl, options.token)
+          const user = await client.getMe()
 
-        await configManager.setProfile(options.profile, {
-          serverUrl: options.serverUrl,
-          token: options.token,
-        })
-        await configManager.switchProfile(options.profile)
+          await configManager.setProfile(options.profile, {
+            serverUrl: options.serverUrl,
+            token: options.token,
+          })
+          await configManager.switchProfile(options.profile)
 
-        const outputOpts: OutputOptions = { json: options.json }
-        if (options.json) {
-          output({ success: true, profile: options.profile, user }, outputOpts)
-        } else {
-          outputSuccess(`Logged in as ${user.username} (${options.profile})`, outputOpts)
+          const outputOpts: OutputOptions = { json: options.json }
+          if (options.json) {
+            output({ success: true, profile: options.profile, user }, outputOpts)
+          } else {
+            outputSuccess(`Logged in as ${user.username} (${options.profile})`, outputOpts)
+          }
+        } catch (error) {
+          outputError(error instanceof Error ? error.message : String(error), {
+            json: options.json,
+          })
+          process.exit(1)
         }
-      } catch (error) {
-        outputError(error instanceof Error ? error.message : String(error), { json: options.json })
-        process.exit(1)
-      }
-    })
+      },
+    )
 
   auth
     .command('logout')
@@ -78,7 +82,7 @@ export function createAuthCommand(): Command {
             profileName
               ? `Profile "${profileName}" not found`
               : 'Not authenticated. Run: shadowob auth login',
-            { json: options.json }
+            { json: options.json },
           )
           process.exit(1)
         }

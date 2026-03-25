@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { ConfigManager } from '../src/config/manager.js'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { ConfigManager } from '../src/config/manager.js'
 
 describe('ConfigManager', () => {
   let tempDir: string
