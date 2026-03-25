@@ -64,15 +64,8 @@
   },
   "dependencies": {
     "@shadowob/sdk": "workspace:*",
-    "zod": "^3.25.67"
-  },
-  "peerDependencies": {
-    "openclaw": ">=2026.3.0"
-  },
-  "peerDependenciesMeta": {
-    "openclaw": {
-      "optional": true
-    }
+    "zod": "^3.25.67",
+    "openclaw": "^2026.3.23-2"
   },
   "devDependencies": {
     "@types/node": "^22.15.21",
