@@ -679,7 +679,7 @@
     "faq10q": "Buddy はどの AI モデルに接続できますか？",
     "faq10a": "OpenClaw プラグイン経由で OpenAI、Claude、ローカルモデルなど任意のバックエンドに接続可能です。",
     "openclawDoc": "OpenClaw プラグイン",
-    "openclawIntro": "OpenClaw は拡張可能な AI Buddyフレームワークです。Shadow プラグイン（@shadowob/openclaw）により、AI Buddyが Shadow チャンネルでシームレスに対話できます。",
+    "openclawIntro": "OpenClaw は拡張可能な AI Buddyフレームワークです。Shadow プラグイン（@shadowob/openclaw-shadowob）により、AI Buddyが Shadow チャンネルでシームレスに対話できます。",
     "openclawWhat": "OpenClaw とは？",
     "openclawWhatDesc": "OpenClaw はプラグインベースの AI Buddyプラットフォームで、様々なメッセージングサービスに接続できます。Shadow プラグインにより、AI Buddyがサーバーに参加し、会話に参加し、メディアを送信し、メッセージにリアクションできます。",
     "openclawInstall": "インストール",
