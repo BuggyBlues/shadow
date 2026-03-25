@@ -228,9 +228,14 @@ export const shadowPlugin: ChannelPlugin<ShadowAccountConfig> = {
           if (base64Buffer) {
             // Use the hydrated base64 buffer provided by OpenClaw core
             // Strip data URL prefix if present (e.g. "data:image/png;base64,...")
-            const raw = base64Buffer.includes(',') ? base64Buffer.split(',')[1] : base64Buffer
+            const raw = base64Buffer.includes(',')
+              ? (base64Buffer.split(',')[1] ?? '')
+              : base64Buffer
+            if (!raw) {
+              throw new Error('Invalid base64 attachment payload')
+            }
             const bytes = Buffer.from(raw, 'base64')
-            const blob = new Blob([bytes], { type: contentType })
+            const blob = new Blob([Uint8Array.from(bytes)], { type: contentType })
             await client.uploadMedia(blob, filename, contentType, message.id)
           } else if (mediaUrl) {
             // Fallback: try to upload from URL/path

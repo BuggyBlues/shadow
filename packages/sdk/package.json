@@ -4,11 +4,16 @@
   "description": "Shadow SDK — typed REST client and real-time Socket.IO event listener for Shadow servers",
   "type": "module",
   "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "require": "./dist/index.cjs",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
+      "development": "./src/index.ts",
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js"
     }
   },
   "files": [
@@ -17,6 +22,7 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
+    "prepack": "pnpm build",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -27,5 +33,8 @@
   "devDependencies": {
     "tsup": "^8.5.0",
     "typescript": "^5.9.3"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
