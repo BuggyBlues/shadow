@@ -318,6 +318,13 @@
     "policySelectUsers": "ユーザーを選択...",
     "policySearchUsers": "ユーザーを検索...",
     "policyMentionOnlyDesc": "ボットが直接@メンションされた場合のみ返信",
+    "policyBuddyInteraction": "Buddy 連携",
+    "policyReplyToBuddy": "他の Buddy のメッセージに返信",
+    "policyReplyToBuddyDesc": "この Buddy がチャンネル内の他の Buddy のメッセージに返信できるようにします",
+    "policyMaxBuddyChainDepth": "最大会話チェーン深度",
+    "policyMaxBuddyChainDepthDesc": "Buddy 同士の無限ループ会話を防ぎます（デフォルト: 3）",
+    "policySmartReply": "スマート返信",
+    "policySmartReplyDesc": "明らかに他者向けのメッセージをスキップします（例: 他人には @ しているが自分には @ していない）",
     "notInChannel": "未参加",
     "inChannel": "参加中"
   },

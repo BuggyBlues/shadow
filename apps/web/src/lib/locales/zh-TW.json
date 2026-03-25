@@ -318,6 +318,13 @@
     "policySelectUsers": "選擇用戶...",
     "policySearchUsers": "搜尋用戶...",
     "policyMentionOnlyDesc": "僅在被直接 @提及時才回覆",
+    "policyBuddyInteraction": "Buddy 互動",
+    "policyReplyToBuddy": "回覆其他 Buddy 的訊息",
+    "policyReplyToBuddyDesc": "允許此 Buddy 回覆頻道中其他 Buddy 發送的訊息",
+    "policyMaxBuddyChainDepth": "最大對話鏈深度",
+    "policyMaxBuddyChainDepthDesc": "防止 Buddy 之間無限循環對話（預設：3）",
+    "policySmartReply": "智慧回覆",
+    "policySmartReplyDesc": "跳過明顯針對其他人的訊息（如 @ 了別人但沒 @ 自己）",
     "notInChannel": "未加入頻道",
     "inChannel": "已加入頻道"
   },
