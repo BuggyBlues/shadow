@@ -1125,7 +1125,7 @@ function OpenClawSetupGuide({
       {/* Link to full docs */}
       <div className="mt-4 pt-3 border-t border-border-subtle">
         <a
-          href="/docs"
+          href="/product/index.html"
           target="_blank"
           rel="noopener noreferrer"
           className="text-xs text-primary hover:text-primary-hover font-bold flex items-center gap-1 transition"
