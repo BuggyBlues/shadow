@@ -5,9 +5,14 @@ import {
   BookOpen,
   Bot,
   Check,
+  ChevronRight,
   Compass,
   Copy,
+  ExternalLink,
   FileText,
+  Heart,
+  HelpCircle,
+  Home,
   Link2,
   LogOut,
   MessageCircle,
@@ -18,6 +23,7 @@ import {
   Rocket,
   Save,
   Shield,
+  Sparkles,
   Sun,
   Target,
   Trash2,
@@ -25,6 +31,7 @@ import {
   UserPlus,
   Users,
   X,
+  Zap,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -343,204 +350,7 @@ export function SettingsPage() {
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-2xl mx-auto p-4 md:p-8">
             {activeTab === 'quickstart' && (
-              <>
-                {/* Hero */}
-                <div className="text-center mb-10">
-                  <img src="/Logo.svg" alt="Shadow" className="w-16 h-16 mx-auto mb-4 opacity-80" />
-                  <h2 className="text-2xl font-bold text-text-primary mb-2">
-                    {t('common.welcomeTitle')}
-                  </h2>
-                  <p className="text-text-secondary text-[15px]">{t('common.welcomeDesc')}</p>
-                </div>
-
-                {/* Quick Actions */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
-                  <button
-                    type="button"
-                    onClick={() => navigate({ to: '/discover' })}
-                    className="bg-bg-secondary hover:bg-bg-tertiary border border-border-subtle rounded-xl p-5 text-left transition group"
-                  >
-                    <Compass
-                      size={24}
-                      className="text-[#23a559] mb-3 group-hover:scale-110 transition-transform"
-                    />
-                    <h3 className="font-bold text-text-primary text-[15px] mb-1">
-                      {t('guide.discoverTitle')}
-                    </h3>
-                    <p className="text-text-muted text-[13px]">{t('guide.discoverDesc')}</p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('profile')}
-                    className="bg-bg-secondary hover:bg-bg-tertiary border border-border-subtle rounded-xl p-5 text-left transition group"
-                  >
-                    <User
-                      size={24}
-                      className="text-text-muted mb-3 group-hover:scale-110 transition-transform"
-                    />
-                    <h3 className="font-bold text-text-primary text-[15px] mb-1">
-                      {t('guide.settingsTitle')}
-                    </h3>
-                    <p className="text-text-muted text-[13px]">{t('guide.settingsDesc')}</p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => navigate({ to: '/docs' })}
-                    className="bg-bg-secondary hover:bg-bg-tertiary border border-border-subtle rounded-xl p-5 text-left transition group"
-                  >
-                    <FileText
-                      size={24}
-                      className="text-[#5865F2] mb-3 group-hover:scale-110 transition-transform"
-                    />
-                    <h3 className="font-bold text-text-primary text-[15px] mb-1">
-                      {t('guide.docsTitle')}
-                    </h3>
-                    <p className="text-text-muted text-[13px]">{t('guide.docsDesc')}</p>
-                  </button>
-                  <a
-                    href="/?forceHome=true"
-                    className="bg-bg-secondary hover:bg-bg-tertiary border border-border-subtle rounded-xl p-5 text-left transition group block"
-                  >
-                    <Compass
-                      size={24}
-                      className="text-amber-500 mb-3 group-hover:scale-110 transition-transform"
-                    />
-                    <h3 className="font-bold text-text-primary text-[15px] mb-1">
-                      {t('settings.goHome', '返回官网')}
-                    </h3>
-                    <p className="text-text-muted text-[13px]">
-                      {t('settings.goHomeDesc', '访问 Shadow 官方首页')}
-                    </p>
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('buddy')}
-                    className="bg-bg-secondary hover:bg-bg-tertiary border border-border-subtle rounded-xl p-5 text-left transition group"
-                  >
-                    <Bot
-                      size={24}
-                      className="text-emerald-500 mb-3 group-hover:scale-110 transition-transform"
-                    />
-                    <h3 className="font-bold text-text-primary text-[15px] mb-1">Buddy 管理</h3>
-                    <p className="text-text-muted text-[13px]">创建、配置并管理你的 Buddy</p>
-                  </button>
-                  <a
-                    href="/buddies"
-                    className="bg-bg-secondary hover:bg-bg-tertiary border border-border-subtle rounded-xl p-5 text-left transition group"
-                  >
-                    <Bot
-                      size={24}
-                      className="text-cyan-500 mb-3 group-hover:scale-110 transition-transform"
-                    />
-                    <h3 className="font-bold text-text-primary text-[15px] mb-1">
-                      {t('settings.goBuddyMarket', 'Buddy 集市')}
-                    </h3>
-                    <p className="text-text-muted text-[13px]">
-                      {t('settings.goBuddyMarketDesc', '浏览和租赁 AI Buddy')}
-                    </p>
-                  </a>
-                </div>
-
-                {/* Getting Started Steps */}
-                <div className="bg-bg-secondary rounded-xl border border-border-subtle p-6 mb-8">
-                  <h3 className="font-bold text-text-primary text-lg mb-5 flex items-center gap-2">
-                    <BookOpen size={20} className="text-primary" />
-                    {t('guide.gettingStarted')}
-                  </h3>
-                  <div className="space-y-4">
-                    <div className="flex items-start gap-4">
-                      <div className="w-8 h-8 rounded-full bg-[#5865F2]/10 flex items-center justify-center shrink-0 text-primary font-bold text-sm">
-                        1
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-text-primary text-[14px] mb-0.5 flex items-center gap-2">
-                          <Plus size={14} className="text-[#23a559]" />
-                          {t('guide.step1Title')}
-                        </h4>
-                        <p className="text-text-muted text-[13px]">{t('guide.step1Desc')}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-4">
-                      <div className="w-8 h-8 rounded-full bg-[#5865F2]/10 flex items-center justify-center shrink-0 text-primary font-bold text-sm">
-                        2
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-text-primary text-[14px] mb-0.5 flex items-center gap-2">
-                          <Link2 size={14} className="text-[#5865F2]" />
-                          {t('guide.step2Title')}
-                        </h4>
-                        <p className="text-text-muted text-[13px]">{t('guide.step2Desc')}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-4">
-                      <div className="w-8 h-8 rounded-full bg-[#5865F2]/10 flex items-center justify-center shrink-0 text-primary font-bold text-sm">
-                        3
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-text-primary text-[14px] mb-0.5 flex items-center gap-2">
-                          <Compass size={14} className="text-[#23a559]" />
-                          {t('guide.step3Title')}
-                        </h4>
-                        <p className="text-text-muted text-[13px]">{t('guide.step3Desc')}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Buddy Guide */}
-                <div className="bg-bg-secondary rounded-xl border border-border-subtle p-6">
-                  <h3 className="font-bold text-text-primary text-lg mb-5 flex items-center gap-2">
-                    <Bot size={20} className="text-[#23a559]" />
-                    {t('guide.buddyGuideTitle')}
-                  </h3>
-                  <div className="space-y-4">
-                    <div className="flex items-start gap-4">
-                      <div className="w-8 h-8 rounded-full bg-[#23a559]/10 flex items-center justify-center shrink-0 text-[#23a559] font-bold text-sm">
-                        1
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-text-primary text-[14px] mb-0.5">
-                          {t('guide.buddyStep1Title')}
-                        </h4>
-                        <p className="text-text-muted text-[13px]">{t('guide.buddyStep1Desc')}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-4">
-                      <div className="w-8 h-8 rounded-full bg-[#23a559]/10 flex items-center justify-center shrink-0 text-[#23a559] font-bold text-sm">
-                        2
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-text-primary text-[14px] mb-0.5">
-                          {t('guide.buddyStep2Title')}
-                        </h4>
-                        <p className="text-text-muted text-[13px]">{t('guide.buddyStep2Desc')}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-4">
-                      <div className="w-8 h-8 rounded-full bg-[#23a559]/10 flex items-center justify-center shrink-0 text-[#23a559] font-bold text-sm">
-                        3
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-text-primary text-[14px] mb-0.5">
-                          {t('guide.buddyStep3Title')}
-                        </h4>
-                        <p className="text-text-muted text-[13px]">{t('guide.buddyStep3Desc')}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-4">
-                      <div className="w-8 h-8 rounded-full bg-[#23a559]/10 flex items-center justify-center shrink-0 text-[#23a559] font-bold text-sm">
-                        4
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-text-primary text-[14px] mb-0.5">
-                          {t('guide.buddyStep4Title')}
-                        </h4>
-                        <p className="text-text-muted text-[13px]">{t('guide.buddyStep4Desc')}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </>
+              <QuickstartPage navigate={navigate} setActiveTab={setActiveTab} />
             )}
 
             {activeTab === 'profile' && (
@@ -1569,6 +1379,289 @@ function DmChatEmptyState() {
       <p className="text-text-muted text-sm max-w-xs">
         {t('dm.selectConversationDesc', '从左侧列表选择一个好友开始聊天，或者去好友列表添加新好友')}
       </p>
+    </div>
+  )
+}
+
+/** Quickstart page with modern UI/UX and better guidance */
+function QuickstartPage({
+  navigate,
+  setActiveTab,
+}: {
+  navigate: (opts: { to: string }) => void
+  setActiveTab: (
+    tab:
+      | 'quickstart'
+      | 'profile'
+      | 'account'
+      | 'invite'
+      | 'tasks'
+      | 'buddy'
+      | 'appearance'
+      | 'notification',
+  ) => void
+}) {
+  const { t } = useTranslation()
+
+  const quickActions = [
+    {
+      icon: Compass,
+      title: t('guide.discoverTitle'),
+      desc: t('guide.discoverDesc'),
+      color: 'text-emerald-400',
+      bgColor: 'bg-emerald-500/10',
+      action: () => navigate({ to: '/discover' }),
+    },
+    {
+      icon: Bot,
+      title: 'Buddy 管理',
+      desc: '创建和配置你的 AI 助手',
+      color: 'text-cyan-400',
+      bgColor: 'bg-cyan-500/10',
+      action: () => setActiveTab('buddy'),
+    },
+    {
+      icon: Users,
+      title: t('friends.title', '好友'),
+      desc: '添加好友，开始聊天',
+      color: 'text-violet-400',
+      bgColor: 'bg-violet-500/10',
+      action: () => setActiveTab('friends'),
+    },
+  ]
+
+  const guideSteps = [
+    {
+      step: 1,
+      title: '创建或加入服务器',
+      desc: '服务器是你的社群空间。你可以创建自己的服务器，或通过邀请链接加入他人的服务器。',
+      icon: Plus,
+      action: () => navigate({ to: '/discover' }),
+      actionLabel: '发现服务器',
+    },
+    {
+      step: 2,
+      title: '设置个人资料',
+      desc: '上传头像、设置昵称，让其他人更容易认识你。',
+      icon: User,
+      action: () => setActiveTab('profile'),
+      actionLabel: '编辑资料',
+    },
+    {
+      step: 3,
+      title: '开始聊天',
+      desc: '在服务器的频道中发消息，或与好友进行私信交流。支持文字、图片、文件等多种格式。',
+      icon: MessageCircle,
+      action: () => setActiveTab('friends'),
+      actionLabel: '开始聊天',
+    },
+  ]
+
+  const buddySteps = [
+    {
+      step: 1,
+      title: '创建 Buddy',
+      desc: 'Buddy 是你的 AI 助手。在「Buddy 管理」中创建一个新 Buddy，设置名称和描述。',
+    },
+    {
+      step: 2,
+      title: '配置技能',
+      desc: '为 Buddy 安装技能，让它具备各种能力：搜索网页、控制设备、处理文件等。',
+    },
+    {
+      step: 3,
+      title: '连接 OpenClaw',
+      desc: '下载 OpenClaw 桌面端，用它可以连接你的 Buddy 并在本地运行。',
+    },
+    {
+      step: 4,
+      title: '上架集市（可选）',
+      desc: '将你的 Buddy 上架到集市，让其他人也可以租赁使用。',
+    },
+  ]
+
+  return (
+    <div className="space-y-8">
+      {/* Hero Section */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/20 via-cyan-500/10 to-violet-500/10 p-8 text-center">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white/5 to-transparent" />
+        <div className="relative">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-white/10 backdrop-blur-sm mb-4">
+            <img src="/Logo.svg" alt="Shadow" className="w-12 h-12 opacity-90" />
+          </div>
+          <h1 className="text-2xl font-extrabold text-text-primary mb-2">
+            {t('common.welcomeTitle')}
+          </h1>
+          <p className="text-text-secondary text-[15px] max-w-md mx-auto">
+            {t('common.welcomeDesc')}
+          </p>
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <section>
+        <h2 className="text-lg font-bold text-text-primary mb-4 flex items-center gap-2">
+          <Zap size={18} className="text-amber-400" />
+          快速开始
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {quickActions.map((item, idx) => (
+            <button
+              key={idx}
+              onClick={item.action}
+              className="group relative bg-bg-secondary hover:bg-bg-tertiary border border-border-subtle rounded-xl p-5 text-left transition-all hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5"
+            >
+              <div className={`inline-flex items-center justify-center w-10 h-10 rounded-lg ${item.bgColor} mb-3`}>
+                <item.icon size={20} className={item.color} />
+              </div>
+              <h3 className="font-bold text-text-primary text-[15px] mb-1 group-hover:text-primary transition-colors">
+                {item.title}
+              </h3>
+              <p className="text-text-muted text-[13px]">{item.desc}</p>
+              <ChevronRight size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* New User Guide */}
+      <section>
+        <h2 className="text-lg font-bold text-text-primary mb-4 flex items-center gap-2">
+          <Sparkles size={18} className="text-primary" />
+          新手指南
+        </h2>
+        <div className="bg-bg-secondary rounded-xl border border-border-subtle overflow-hidden">
+          {guideSteps.map((step, idx) => (
+            <div
+              key={step.step}
+              className={`flex items-start gap-4 p-5 ${
+                idx < guideSteps.length - 1 ? 'border-b border-border-subtle' : ''
+              }`}
+            >
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-sm shrink-0">
+                {step.step}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <h3 className="font-semibold text-text-primary text-[14px] mb-1">
+                      {step.title}
+                    </h3>
+                    <p className="text-text-muted text-[13px] leading-relaxed">{step.desc}</p>
+                  </div>
+                  <button
+                    onClick={step.action}
+                    className="shrink-0 px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold transition"
+                  >
+                    {step.actionLabel}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Buddy Guide */}
+      <section>
+        <h2 className="text-lg font-bold text-text-primary mb-4 flex items-center gap-2">
+          <Bot size={18} className="text-cyan-400" />
+          Buddy 入门
+        </h2>
+        <div className="bg-bg-secondary rounded-xl border border-border-subtle p-5">
+          <div className="flex items-start gap-4 mb-4">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-cyan-500/10 shrink-0">
+              <Bot size={20} className="text-cyan-400" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-text-primary mb-1">什么是 Buddy？</h3>
+              <p className="text-text-muted text-[13px] leading-relaxed">
+                Buddy 是你的个人 AI 助手。它可以帮你搜索信息、处理文档、控制设备，甚至可以作为智能客服为你服务。
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+            {buddySteps.map((step) => (
+              <div
+                key={step.step}
+                className="flex items-start gap-3 p-3 rounded-lg bg-bg-tertiary"
+              >
+                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-cyan-500/10 text-cyan-400 font-bold text-xs shrink-0">
+                  {step.step}
+                </div>
+                <div>
+                  <h4 className="font-medium text-text-primary text-[13px] mb-0.5">{step.title}</h4>
+                  <p className="text-text-muted text-[12px]">{step.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-3 mt-4 pt-4 border-t border-border-subtle">
+            <button
+              onClick={() => setActiveTab('buddy')}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary hover:bg-primary-hover text-white font-bold text-sm transition"
+            >
+              <Bot size={16} />
+              创建 Buddy
+            </button>
+            <a
+              href="/buddies"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-bg-tertiary hover:bg-bg-modifier-hover text-text-primary font-bold text-sm transition"
+            >
+              <ExternalLink size={16} />
+              浏览集市
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* Help Section */}
+      <section>
+        <h2 className="text-lg font-bold text-text-primary mb-4 flex items-center gap-2">
+          <HelpCircle size={18} className="text-violet-400" />
+          需要帮助？
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <a
+            href="/product/index.html"
+            className="flex items-center gap-4 p-4 bg-bg-secondary hover:bg-bg-tertiary border border-border-subtle rounded-xl transition group"
+          >
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-violet-500/10">
+              <BookOpen size={20} className="text-violet-400" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-text-primary text-[14px] group-hover:text-primary transition-colors">
+                文档中心
+              </h3>
+              <p className="text-text-muted text-[12px]">查看详细使用教程和 API 文档</p>
+            </div>
+            <ExternalLink size={16} className="text-text-muted group-hover:text-primary transition-colors" />
+          </a>
+          <a
+            href="/?forceHome=true"
+            className="flex items-center gap-4 p-4 bg-bg-secondary hover:bg-bg-tertiary border border-border-subtle rounded-xl transition group"
+          >
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-amber-500/10">
+              <Home size={20} className="text-amber-400" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-text-primary text-[14px] group-hover:text-primary transition-colors">
+                返回官网
+              </h3>
+              <p className="text-text-muted text-[12px]">访问 Shadow 官方首页</p>
+            </div>
+            <ExternalLink size={16} className="text-text-muted group-hover:text-primary transition-colors" />
+          </a>
+        </div>
+      </section>
+
+      {/* Footer Tips */}
+      <div className="flex items-center justify-center gap-2 py-4 text-text-muted text-xs">
+        <Heart size={12} className="text-pink-400" />
+        <span>遇到问题？在任意频道中 @管理员 获取帮助</span>
+      </div>
     </div>
   )
 }
