@@ -34,7 +34,7 @@ import { useChatStore } from '../../stores/chat.store'
 import { useUIStore } from '../../stores/ui.store'
 import { useConfirmStore } from '../common/confirm-dialog'
 import { ContextMenu } from '../common/context-menu'
-import { ChannelSortButton } from './channel-sort-button'
+import { ChannelSortFilterButton } from './channel-sort-button'
 
 interface Channel {
   id: string
@@ -164,9 +164,16 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
     queryFn: () => fetchApi<Channel[]>(`/api/servers/${serverSlug}/channels`),
   })
 
-  // Channel sorting
+  // Channel sorting and filter
+  const [filterKeyword, setFilterKeyword] = useState('')
+  const hasActiveFilter = filterKeyword.trim().length > 0
   const { sortChannels, updateLastAccessed } = useChannelSort(server?.id)
-  const channels = sortChannels(rawChannels)
+  const sortedChannels = sortChannels(rawChannels)
+  const channels = hasActiveFilter
+    ? sortedChannels.filter((ch) =>
+        ch.name.toLowerCase().includes(filterKeyword.toLowerCase().trim()),
+      )
+    : sortedChannels
 
   const { data: scopedUnread } = useQuery({
     queryKey: ['notification-scoped-unread'],
@@ -504,8 +511,8 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
   const isInChannel = /\/servers\/[^/]+\/channels\//.test(location.pathname)
   const isHomeActive = !isInChannel && !isInShop && !isInWorkspace && !isInApps
 
-  const renderChannelGroup = (label: string, items: Channel[]) => {
-    if (items.length === 0) return null
+  const renderChannelGroup = (label: string, items: Channel[], isFirstGroup: boolean) => {
+    if (items.length === 0 && !isFirstGroup) return null
     const isCollapsed = !!collapsedGroups[label]
     return (
       <div className="mb-4">
@@ -521,6 +528,15 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
             )}
             <span className="truncate">{label}</span>
           </button>
+          {/* Sort/Filter button - only show for first group */}
+          {isFirstGroup && server?.id && (
+            <ChannelSortFilterButton
+              serverId={server.id}
+              filterKeyword={filterKeyword}
+              onFilterChange={setFilterKeyword}
+              hasActiveFilter={hasActiveFilter}
+            />
+          )}
           <button
             type="button"
             onClick={() => setShowCreate(true)}
@@ -634,16 +650,13 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
             <span className="w-2 h-2 rounded-full bg-danger shrink-0" title="该服务器有未读通知" />
           )}
         </div>
-        <div className="flex items-center gap-1">
-          {server?.id && <ChannelSortButton serverId={server.id} />}
-          <button
-            onClick={openServerEdit}
-            className="text-text-muted hover:text-text-primary transition"
-            title={t('channel.serverSettings')}
-          >
-            <Settings size={16} />
-          </button>
-        </div>
+        <button
+          onClick={openServerEdit}
+          className="text-text-muted hover:text-text-primary transition"
+          title={t('channel.serverSettings')}
+        >
+          <Settings size={16} />
+        </button>
       </div>
 
       {/* Channel list */}
@@ -752,9 +765,9 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
           <span className="truncate">应用</span>
         </button>
         <div className="h-px bg-divider mx-4 mb-2" />
-        {renderChannelGroup(t('channel.announcement'), announcementChannels)}
-        {renderChannelGroup(t('channel.text'), textChannels)}
-        {renderChannelGroup(t('channel.voice'), voiceChannels)}
+        {renderChannelGroup(t('channel.announcement'), announcementChannels, true)}
+        {renderChannelGroup(t('channel.text'), textChannels, false)}
+        {renderChannelGroup(t('channel.voice'), voiceChannels, false)}
 
         {channels.length === 0 && (
           <p className="text-text-muted text-sm px-4 py-2">{t('channel.noChannels')}</p>
