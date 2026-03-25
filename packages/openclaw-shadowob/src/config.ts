@@ -1,10 +1,13 @@
 /**
- * Shadow config resolution — reads and writes account configs
- * from the OpenClaw configuration object.
+ * Shadow config resolution — reads account configs from the OpenClaw
+ * configuration object.
  *
- * Config shape (simplified — server/channel info is fetched remotely):
+ * Config shape:
  *   channels:
  *     shadowob:
+ *       token: "..."
+ *       serverUrl: "https://shadowob.com"
+ *       enabled: true
  *       accounts:
  *         <accountId>:
  *           token: "..."
@@ -12,13 +15,17 @@
  *           enabled: true
  */
 
-import type { OpenClawConfig, ShadowAccountConfig } from './types.js'
+import type { OpenClawConfig } from 'openclaw/plugin-sdk/core'
+import type { ShadowAccountConfig } from './types.js'
 
 export const DEFAULT_ACCOUNT_ID = 'default'
 
-/** Extract the raw shadowob config block from OpenClaw config. */
+/** Extract the raw shadow config block from OpenClaw config. */
 function getShadowBlock(cfg: OpenClawConfig): Record<string, unknown> | undefined {
-  return (cfg.channels?.shadowob ?? cfg.channels?.shadow) as Record<string, unknown> | undefined
+  const channels = (cfg as Record<string, unknown>).channels as Record<string, unknown> | undefined
+  return (channels?.shadowob ?? channels?.['openclaw-shadowob'] ?? channels?.shadow) as
+    | Record<string, unknown>
+    | undefined
 }
 
 /** Get a single account config by ID. */
@@ -64,24 +71,20 @@ export function getAccountConfig(
  * Resolve the local agent ID for a shadow account.
  * The desktop app stores the account→agent mapping in:
  *   channels.shadowob.accountAgentMap.<accountId>
- *
- * Falls back to plugins.entries.shadowob.config.accountAgentMap for compatibility.
- *
- * Returns null if no mapping exists (falls back to default agent routing).
  */
 export function resolveLocalAgentId(cfg: OpenClawConfig, accountId: string): string | null {
-  // Primary: read from channels.shadowob.accountAgentMap (always available in cfg)
   const shadow = getShadowBlock(cfg)
   if (shadow) {
     const agentMap = shadow.accountAgentMap as Record<string, string> | undefined
     if (agentMap?.[accountId]) return agentMap[accountId]
   }
 
-  // Fallback: read from plugins.entries.shadowob.config (may be stripped by gateway)
+  // Fallback: read from plugins.entries
   const entries = (cfg as Record<string, unknown>).plugins as
     | { entries?: Record<string, { config?: Record<string, unknown> }> }
     | undefined
-  const pluginConfig = entries?.entries?.shadowob?.config
+  const pluginConfig =
+    entries?.entries?.shadowob?.config ?? entries?.entries?.['openclaw-shadowob']?.config
   if (pluginConfig) {
     const accountAgentMap = pluginConfig.accountAgentMap as Record<string, string> | undefined
     if (accountAgentMap?.[accountId]) return accountAgentMap[accountId]

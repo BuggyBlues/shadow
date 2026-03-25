@@ -1,20 +1,18 @@
 /**
- * OpenClaw Shadow Plugin Tests
+ * OpenClaw Shadow Plugin Tests (openclaw-shadowob)
  *
- * Tests for the @shadowob/openclaw plugin:
+ * Tests for the @shadowob/openclaw-shadowob plugin:
  * 1. Plugin registration and metadata
- * 2. Config resolution (single + multi-account)
- * 3. Outbound adapter (sendText, sendMedia)
+ * 2. Config resolution (single + multi-account, with fallback keys)
+ * 3. Outbound adapter (attachedResults.sendText, base.sendMedia)
  * 4. Target normalization
- * 5. Shadow REST client
- * 6. Monitor/gateway inbound flow
+ * 5. Monitor/gateway inbound flow
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // ── Config resolution ──────────────────────────────────────────
 
 describe('Shadow Config', () => {
-  // Use dynamic import to test the config module
   let getAccountConfig: typeof import('../src/config.js').getAccountConfig
   let listAccountIds: typeof import('../src/config.js').listAccountIds
 
@@ -30,7 +28,7 @@ describe('Shadow Config', () => {
       expect(ids).toEqual([])
     })
 
-    it('should list accounts from multi-account config', () => {
+    it('should list accounts from multi-account config (shadowob key)', () => {
       const cfg = {
         channels: {
           shadowob: {
@@ -45,6 +43,20 @@ describe('Shadow Config', () => {
       expect(ids).toContain('prod')
       expect(ids).toContain('staging')
       expect(ids).toHaveLength(2)
+    })
+
+    it('should list accounts from legacy shadowob key', () => {
+      const cfg = {
+        channels: {
+          shadowob: {
+            accounts: {
+              prod: { token: 'tok1', serverUrl: 'http://x:3002' },
+            },
+          },
+        },
+      }
+      const ids = listAccountIds(cfg)
+      expect(ids).toContain('prod')
     })
 
     it('should add default account when base-level token is set', () => {
@@ -114,7 +126,7 @@ describe('Shadow Config', () => {
       expect(account).toBeNull()
     })
 
-    it('should default serverUrl to localhost:3000', () => {
+    it('should default serverUrl to shadowob.com', () => {
       const cfg = {
         channels: {
           shadowob: {
@@ -125,16 +137,30 @@ describe('Shadow Config', () => {
       const account = getAccountConfig(cfg, 'default')
       expect(account!.serverUrl).toBe('https://shadowob.com')
     })
+
+    it('should fall back to legacy shadowob config key', () => {
+      const cfg = {
+        channels: {
+          shadowob: {
+            token: 'legacy-token',
+            serverUrl: 'http://legacy:3000',
+          },
+        },
+      }
+      const account = getAccountConfig(cfg, 'default')
+      expect(account).not.toBeNull()
+      expect(account!.token).toBe('legacy-token')
+    })
   })
 })
 
 // ── Plugin metadata ────────────────────────────────────────────
 
 describe('Shadow Plugin', () => {
-  let shadowPlugin: typeof import('../src/plugin.js').shadowPlugin
+  let shadowPlugin: typeof import('../src/channel.js').shadowPlugin
 
   beforeEach(async () => {
-    const mod = await import('../src/plugin.js')
+    const mod = await import('../src/channel.js')
     shadowPlugin = mod.shadowPlugin
   })
 
@@ -158,33 +184,12 @@ describe('Shadow Plugin', () => {
     expect(shadowPlugin.capabilities.edit).toBe(true)
   })
 
-  it('should resolve empty config to defaults', () => {
-    const account = shadowPlugin.config.resolveAccount({}, null)
-    expect(account.token).toBe('')
-    expect(account.serverUrl).toBe('https://shadowob.com')
-    expect(account.enabled).toBe(false)
-  })
-
-  it('should check isConfigured', () => {
-    expect(shadowPlugin.config.isConfigured!({ token: '', serverUrl: '' } as any, {} as any)).toBe(
-      false,
-    )
-    expect(
-      shadowPlugin.config.isConfigured!({ token: 'tok', serverUrl: 'url' } as any, {} as any),
-    ).toBe(true)
-  })
-
-  it('should check isEnabled', () => {
-    expect(shadowPlugin.config.isEnabled!({ enabled: true } as any, {} as any)).toBe(true)
-    expect(shadowPlugin.config.isEnabled!({ enabled: false } as any, {} as any)).toBe(false)
-    expect(shadowPlugin.config.isEnabled!({} as any, {} as any)).toBe(true) // default
-  })
-
-  it('should have outbound adapter', () => {
+  it('should have outbound adapter with SDK pattern', () => {
     expect(shadowPlugin.outbound).toBeDefined()
-    expect(shadowPlugin.outbound!.deliveryMode).toBe('direct')
-    expect(typeof shadowPlugin.outbound!.sendText).toBe('function')
-    expect(typeof shadowPlugin.outbound!.sendMedia).toBe('function')
+    expect(shadowPlugin.outbound!.attachedResults).toBeDefined()
+    expect(typeof shadowPlugin.outbound!.attachedResults.sendText).toBe('function')
+    expect(shadowPlugin.outbound!.base).toBeDefined()
+    expect(typeof shadowPlugin.outbound!.base.sendMedia).toBe('function')
   })
 
   it('should have gateway adapter', () => {
@@ -199,29 +204,19 @@ describe('Shadow Plugin', () => {
     expect(patterns).toContain('@[\\w-]+')
   })
 
-  it('should have threading adapter', () => {
+  it('should have threading config', () => {
     expect(shadowPlugin.threading).toBeDefined()
-    // Default mode
-    const mode = shadowPlugin.threading!.resolveReplyToMode!({
-      cfg: {},
-      accountId: 'default',
-    })
-    expect(mode).toBe('first')
+    expect(shadowPlugin.threading!.topLevelReplyToMode).toBe('reply')
   })
 
   it('should have messaging adapter with target normalization', () => {
     expect(shadowPlugin.messaging).toBeDefined()
-    // UUID target
     const normalized = shadowPlugin.messaging!.normalizeTarget!(
       '550e8400-e29b-41d4-a716-446655440000',
     )
     expect(normalized).toBe('shadowob:channel:550e8400-e29b-41d4-a716-446655440000')
-
-    // Already prefixed
     const prefixed = shadowPlugin.messaging!.normalizeTarget!('shadowob:channel:abc')
     expect(prefixed).toBe('shadowob:channel:abc')
-
-    // Invalid
     const invalid = shadowPlugin.messaging!.normalizeTarget!('not-a-uuid')
     expect(invalid).toBeUndefined()
   })
@@ -232,17 +227,132 @@ describe('Shadow Plugin', () => {
     expect(shadowPlugin.status!.defaultRuntime!.running).toBe(false)
     expect(typeof shadowPlugin.status!.probeAccount).toBe('function')
   })
+
+  it('should have setup adapter (SDK pattern)', () => {
+    expect(shadowPlugin.setup).toBeDefined()
+    expect(typeof shadowPlugin.setup!.resolveAccount).toBe('function')
+    expect(typeof shadowPlugin.setup!.inspectAccount).toBe('function')
+  })
+
+  it('should resolve account via setup adapter', () => {
+    const cfg = {
+      channels: { shadowob: { token: 'my-token', serverUrl: 'http://localhost:3000' } },
+    }
+    const account = shadowPlugin.setup!.resolveAccount(cfg, null)
+    expect(account.token).toBe('my-token')
+    expect(account.serverUrl).toBe('http://localhost:3000')
+  })
+
+  it('should resolve account via setup adapter with legacy key', () => {
+    const cfg = {
+      channels: { shadowob: { token: 'legacy-token', serverUrl: 'http://localhost:3000' } },
+    }
+    const account = shadowPlugin.setup!.resolveAccount(cfg, null)
+    expect(account.token).toBe('legacy-token')
+  })
+
+  it('should return disabled account for empty config via setup adapter', () => {
+    const account = shadowPlugin.setup!.resolveAccount({}, null)
+    expect(account.token).toBe('')
+    expect(account.serverUrl).toBe('https://shadowob.com')
+    expect(account.enabled).toBe(false)
+  })
+
+  it('should inspect unconfigured account via setup adapter', () => {
+    const result = shadowPlugin.setup!.inspectAccount({}, null)
+    expect(result.configured).toBe(false)
+    expect(result.tokenStatus).toBe('missing')
+  })
+
+  it('should inspect configured account via setup adapter', () => {
+    const cfg = {
+      channels: { shadowob: { token: 'my-token', serverUrl: 'http://localhost:3000' } },
+    }
+    const result = shadowPlugin.setup!.inspectAccount(cfg, null)
+    expect(result.configured).toBe(true)
+    expect(result.tokenStatus).toBe('available')
+    expect(result.enabled).toBe(true)
+  })
+
+  it('should have security.dm configuration', () => {
+    expect(shadowPlugin.security).toBeDefined()
+    expect(shadowPlugin.security!.dm).toBeDefined()
+    expect(shadowPlugin.security!.dm.channelKey).toBe('shadowob')
+    expect(shadowPlugin.security!.dm.defaultPolicy).toBe('allowlist')
+  })
+
+  it('should have config adapter with listAccountIds', () => {
+    expect(shadowPlugin.config).toBeDefined()
+    expect(typeof shadowPlugin.config!.listAccountIds).toBe('function')
+    expect(typeof shadowPlugin.config!.resolveAccount).toBe('function')
+    expect(typeof shadowPlugin.config!.defaultAccountId).toBe('function')
+    expect(typeof shadowPlugin.config!.isConfigured).toBe('function')
+    expect(typeof shadowPlugin.config!.isEnabled).toBe('function')
+    expect(typeof shadowPlugin.config!.describeAccount).toBe('function')
+  })
+
+  it('should list account IDs via config adapter', () => {
+    const cfg = {
+      channels: {
+        shadowob: {
+          accounts: {
+            prod: { token: 't1', serverUrl: 'http://x:3002' },
+          },
+        },
+      },
+    }
+    const ids = shadowPlugin.config!.listAccountIds(cfg)
+    expect(ids).toContain('prod')
+  })
+
+  it('should have actions adapter with handleAction', () => {
+    expect(shadowPlugin.actions).toBeDefined()
+    expect(typeof shadowPlugin.actions!.listActions).toBe('function')
+    expect(typeof shadowPlugin.actions!.supportsAction).toBe('function')
+    expect(typeof shadowPlugin.actions!.handleAction).toBe('function')
+    const actions = shadowPlugin.actions!.listActions()
+    expect(actions).toContain('send')
+    expect(actions).toContain('sendAttachment')
+    expect(actions).toContain('react')
+    expect(actions).toContain('get-server')
+    expect(actions).toContain('get-connection-status')
+  })
+})
+
+// ── Setup entry point ──────────────────────────────────────────
+
+describe('Setup Entry Point', () => {
+  it('should export a lightweight setup entry', async () => {
+    const mod = await import('../setup-entry.js')
+    const entry = mod.default
+    expect(entry.plugin).toBeDefined()
+    expect(entry.plugin.id).toBe('shadowob')
+  })
 })
 
 // ── Plugin entry point ─────────────────────────────────────────
 
 describe('Plugin Entry Point', () => {
-  it('should export a valid OpenClawPluginDefinition', async () => {
+  it('should export a valid channel plugin entry via defineChannelPluginEntry', async () => {
     const mod = await import('../index.js')
     const plugin = mod.default
-    expect(plugin.id).toBe('shadowob')
+    expect(plugin.id).toBe('openclaw-shadowob')
     expect(plugin.name).toBe('ShadowOwnBuddy')
     expect(typeof plugin.register).toBe('function')
+  })
+
+  it('should register channel when register is called', async () => {
+    const mod = await import('../index.js')
+    const plugin = mod.default
+    const mockApi = {
+      runtime: { channel: {} },
+      registrationMode: 'full',
+      registerChannel: vi.fn(),
+    }
+    plugin.register(mockApi)
+    expect(mockApi.registerChannel).toHaveBeenCalledWith(
+      expect.objectContaining({ plugin: expect.objectContaining({ id: 'shadowob' }) }),
+    )
   })
 
   it('should export ShadowClient', async () => {
@@ -254,6 +364,12 @@ describe('Plugin Entry Point', () => {
     const mod = await import('../index.js')
     expect(mod.shadowPlugin).toBeDefined()
     expect(mod.shadowPlugin.id).toBe('shadowob')
+  })
+
+  it('should export runtime accessors', async () => {
+    const mod = await import('../index.js')
+    expect(typeof mod.getShadowRuntime).toBe('function')
+    expect(typeof mod.tryGetShadowRuntime).toBe('function')
   })
 })
 
@@ -276,8 +392,6 @@ describe('ShadowClient', () => {
     const client1 = new ShadowClient('http://localhost:3000/api', 'tok')
     const client2 = new ShadowClient('http://localhost:3000/api/', 'tok')
     const client3 = new ShadowClient('http://localhost:3000', 'tok')
-    // All three should have the same effective baseUrl (http://localhost:3000)
-    // We verify indirectly by checking the client is created without error
     expect(client1).toBeDefined()
     expect(client2).toBeDefined()
     expect(client3).toBeDefined()
@@ -302,36 +416,43 @@ describe('ShadowClient', () => {
 // ── Outbound adapter ──────────────────────────────────────────
 
 describe('Shadow Outbound', () => {
-  it('should return error when account not configured', async () => {
+  it('should throw when account not configured (sendText)', async () => {
     const { shadowOutbound } = await import('../src/outbound.js')
-
-    const result = await shadowOutbound.sendText!({
-      cfg: {},
-      to: 'shadowob:channel:ch-123',
-      text: 'Hello',
-    })
-
-    expect(result.ok).toBe(false)
-    expect(result.error).toContain('not configured')
+    await expect(
+      shadowOutbound.attachedResults.sendText({
+        cfg: {},
+        to: 'shadowob:channel:ch-123',
+        text: 'Hello',
+      }),
+    ).rejects.toThrow('not configured')
   })
 
-  it('should return error when no text provided', async () => {
+  it('should throw when account not configured (sendMedia)', async () => {
     const { shadowOutbound } = await import('../src/outbound.js')
+    await expect(
+      shadowOutbound.base.sendMedia({
+        cfg: {},
+        to: 'shadowob:channel:ch-123',
+        mediaUrl: 'http://example.com/img.png',
+      }),
+    ).rejects.toThrow('not configured')
+  })
 
-    const result = await shadowOutbound.sendText!({
-      cfg: {
-        channels: {
-          shadowob: {
-            token: 'tok',
-            serverUrl: 'http://localhost:3000',
-          },
-        },
-      },
-      to: 'shadowob:channel:ch-123',
-    })
+  it('should parse target with shadowob prefix', async () => {
+    const { parseTarget } = await import('../src/outbound.js')
+    expect(parseTarget('shadowob:channel:abc')).toEqual({ channelId: 'abc' })
+    expect(parseTarget('shadowob:thread:xyz')).toEqual({ threadId: 'xyz' })
+  })
 
-    expect(result.ok).toBe(false)
-    expect(result.error).toContain('No text')
+  it('should parse target with legacy shadowob prefix', async () => {
+    const { parseTarget } = await import('../src/outbound.js')
+    expect(parseTarget('shadowob:channel:abc')).toEqual({ channelId: 'abc' })
+    expect(parseTarget('shadow:channel:abc')).toEqual({ channelId: 'abc' })
+  })
+
+  it('should fallback to raw string as channel ID', async () => {
+    const { parseTarget } = await import('../src/outbound.js')
+    expect(parseTarget('some-uuid')).toEqual({ channelId: 'some-uuid' })
   })
 })
 
@@ -340,43 +461,30 @@ describe('Shadow Outbound', () => {
 describe('Shadow Config Schema', () => {
   it('should validate simplified config', async () => {
     const { ShadowConfigSchema } = await import('../src/config-schema.js')
-
     const result = ShadowConfigSchema.safeParse({
       token: 'test-token',
       serverUrl: 'http://localhost:3000',
     })
-
     expect(result.success).toBe(true)
   })
 
   it('should validate multi-account config', async () => {
     const { ShadowConfigSchema } = await import('../src/config-schema.js')
-
     const result = ShadowConfigSchema.safeParse({
       accounts: {
-        bot1: {
-          token: 'token-1',
-          serverUrl: 'http://localhost:3000',
-        },
-        bot2: {
-          token: 'token-2',
-          serverUrl: 'http://localhost:3000',
-          enabled: true,
-        },
+        bot1: { token: 'token-1', serverUrl: 'http://localhost:3000' },
+        bot2: { token: 'token-2', serverUrl: 'http://localhost:3000', enabled: true },
       },
     })
-
     expect(result.success).toBe(true)
   })
 
   it('should reject empty token', async () => {
     const { ShadowConfigSchema } = await import('../src/config-schema.js')
-
     const result = ShadowConfigSchema.safeParse({
       token: '',
       serverUrl: 'http://localhost:3000',
     })
-
     expect(result.success).toBe(false)
   })
 })
