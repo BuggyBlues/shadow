@@ -936,7 +936,7 @@ function OpenClawSetupGuide({
   const [activeTab, setActiveTab] = useState<'manual' | 'chat'>('chat')
 
   // Bash one-liner for manual setup
-  const bashCommand = `openclaw plugins install @shadowob/openclaw && openclaw config set channels.shadowob.token "${token || '<TOKEN>'}" && openclaw config set channels.shadowob.serverUrl "${serverUrl}" && openclaw gateway restart`
+  const bashCommand = `openclaw plugins install @shadowob/openclaw-shadowob && openclaw config set channels.shadowob.token "${token || '<TOKEN>'}" && openclaw config set channels.shadowob.serverUrl "${serverUrl}" && openclaw gateway restart`
 
   // AI prompt for chat-based setup
   const aiPrompt = `请帮我安装和配置 ShadowOwnBuddy 插件，连接到 Shadow 服务器。
@@ -1047,7 +1047,7 @@ function OpenClawSetupGuide({
               </span>
             </div>
             <div className="ml-7">
-              <CopyBlock content="openclaw plugins install @shadowob/openclaw" t={t} />
+              <CopyBlock content="openclaw plugins install @shadowob/openclaw-shadowob" t={t} />
             </div>
           </div>
 

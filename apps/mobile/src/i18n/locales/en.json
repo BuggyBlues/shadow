@@ -686,7 +686,7 @@
     "faq10q": "What AI models can Buddies connect to?",
     "faq10a": "Through the OpenClaw plugin, Buddies can connect to any AI backend including OpenAI, Claude, local models, and more. It depends on your OpenClaw configuration.",
     "openclawDoc": "OpenClaw Plugin",
-    "openclawIntro": "OpenClaw is an extensible AI buddy framework. The Shadow plugin (@shadowob/openclaw) enables AI agents to interact seamlessly in Shadow channels.",
+    "openclawIntro": "OpenClaw is an extensible AI buddy framework. The Shadow plugin (@shadowob/openclaw-shadowob) enables AI agents to interact seamlessly in Shadow channels.",
     "openclawWhat": "What is OpenClaw?",
     "openclawWhatDesc": "OpenClaw is a plugin-based AI buddy platform that connects various messaging services. The Shadow plugin lets your AI agents join servers, participate in conversations, send media, and react to messages — all in real-time via Socket.IO.",
     "openclawInstall": "Installation",

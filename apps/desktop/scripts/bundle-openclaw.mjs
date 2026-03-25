@@ -5,7 +5,7 @@
  * dependencies into a self-contained directory (build/openclaw/) for
  * Electron Forge to pick up via extraResource.
  *
- * Also bundles the @shadowob/openclaw channel plugin with its deps
+ * Also bundles the @shadowob/openclaw-shadowob channel plugin with its deps
  * into build/openclaw-plugins/shadowob/.
  *
  * Adapted from ClawX's bundle-openclaw.mjs — uses pnpm virtual store

@@ -78,9 +78,9 @@ function withRandomSuffix(username: string) {
 function generateConfigCommands(token: string, serverUrl: string) {
   return {
     // One-liner bash command
-    bash: `openclaw plugins install @shadowob/openclaw && openclaw config set channels.shadowob.token "${token}" && openclaw config set channels.shadowob.serverUrl "${serverUrl}" && openclaw gateway restart`,
+    bash: `openclaw plugins install @shadowob/openclaw-shadowob && openclaw config set channels.shadowob.token "${token}" && openclaw config set channels.shadowob.serverUrl "${serverUrl}" && openclaw gateway restart`,
     // Individual commands
-    install: 'openclaw plugins install @shadowob/openclaw',
+    install: 'openclaw plugins install @shadowob/openclaw-shadowob',
     setToken: `openclaw config set channels.shadowob.token "${token}"`,
     setServer: `openclaw config set channels.shadowob.serverUrl "${serverUrl}"`,
     restart: 'openclaw gateway restart',
