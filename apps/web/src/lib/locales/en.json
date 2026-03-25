@@ -1240,5 +1240,15 @@
     "hourShort": "h",
     "minShort": "m",
     "secShort": "s"
+  },
+  "sort": {
+    "title": "Sort & Filter",
+    "byPosition": "Default Order",
+    "byCreatedAt": "Created Time",
+    "byUpdatedAt": "Updated Time",
+    "byLastMessage": "Latest Message",
+    "byLastAccessed": "Last Accessed",
+    "filterPlaceholder": "Search channels...",
+    "clear": "Clear Filters"
   }
 }
