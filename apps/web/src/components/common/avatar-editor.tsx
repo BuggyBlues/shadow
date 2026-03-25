@@ -72,7 +72,7 @@ export function AvatarEditor({ value, onChange }: AvatarEditorProps) {
               }`}
             >
               <Dices size={16} />
-              {t('agentMgmt.presetAvatar')}
+              {t('buddyMgmt.presetAvatar')}
             </button>
             <button
               type="button"
@@ -84,10 +84,10 @@ export function AvatarEditor({ value, onChange }: AvatarEditorProps) {
               }`}
             >
               <Upload size={16} />
-              {t('agentMgmt.uploadAvatar')}
+              {t('buddyMgmt.uploadAvatar')}
             </button>
           </div>
-          <p className="text-[12px] text-text-muted">{t('agentMgmt.avatarDesc')}</p>
+          <p className="text-[12px] text-text-muted">{t('buddyMgmt.avatarDesc')}</p>
         </div>
       </div>
 
@@ -102,8 +102,8 @@ export function AvatarEditor({ value, onChange }: AvatarEditorProps) {
               />
             </div>
             <div>
-              <h4 className="text-[14px] font-bold text-[#f2f3f5]">{t('agentMgmt.diceCat')}</h4>
-              <p className="text-[12px] text-text-muted">{t('agentMgmt.diceCatDesc')}</p>
+              <h4 className="text-[14px] font-bold text-[#f2f3f5]">{t('buddyMgmt.diceCat')}</h4>
+              <p className="text-[12px] text-text-muted">{t('buddyMgmt.diceCatDesc')}</p>
             </div>
           </div>
           <button
@@ -111,7 +111,7 @@ export function AvatarEditor({ value, onChange }: AvatarEditorProps) {
             onClick={handleRollDice}
             className="flex items-center gap-2 px-4 py-1.5 bg-[#5865F2] hover:bg-[#4752C4] text-white text-[14px] font-bold rounded-[3px] transition"
           >
-            {t('agentMgmt.generateBtn')}
+            {t('buddyMgmt.generateBtn')}
           </button>
         </div>
       )}
@@ -122,9 +122,9 @@ export function AvatarEditor({ value, onChange }: AvatarEditorProps) {
             <Upload size={20} className="text-text-primary group-hover:text-white" />
           </div>
           <p className="text-[14px] text-text-primary font-bold mt-2">
-            {isUploading ? t('common.uploading') : t('agentMgmt.clickToUpload')}
+            {isUploading ? t('common.uploading') : t('buddyMgmt.clickToUpload')}
           </p>
-          <p className="text-[12px] text-text-muted">{t('agentMgmt.uploadTip')}</p>
+          <p className="text-[12px] text-text-muted">{t('buddyMgmt.uploadTip')}</p>
 
           <input
             ref={fileInputRef}

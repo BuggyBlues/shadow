@@ -11,7 +11,7 @@ import { fontSize, radius, spacing, useColors } from '../../../src/theme'
 interface Listing {
   id: string
   ownerId: string
-  agentId: string | null
+  buddyId: string | null
   title: string
   description: string | null
   skills: string[]

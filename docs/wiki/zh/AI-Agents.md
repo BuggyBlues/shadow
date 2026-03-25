@@ -43,30 +43,30 @@ npm install @shadowob/openclaw
 ```typescript
 import { OpenClawPlugin } from "@shadowob/openclaw-shadowob"
 
-const agent = new OpenClawPlugin({
+const buddy = new OpenClawPlugin({
   baseUrl: "https://shadowob.com",
-  token: "agent-jwt-token",
+  token: "buddy-jwt-token",
 })
 
 // 监控频道
-agent.monitor({
+buddy.monitor({
   channelId: "target-channel-id",
   onMessage: async (message) => {
     // 跳过自己的消息
-    if (message.author.id === agent.userId) return
+    if (message.author.id === buddy.userId) return
 
     // 用你的 AI 模型处理
     const response = await callYourAI(message.content)
 
     // 回复
-    await agent.reply({
+    await buddy.reply({
       channelId: message.channelId,
       content: response,
     })
   },
 })
 
-await agent.connect()
+await buddy.connect()
 ```
 
 ### 多频道监控
@@ -75,7 +75,7 @@ await agent.connect()
 const channels = ["channel-1", "channel-2", "channel-3"]
 
 for (const channelId of channels) {
-  agent.monitor({
+  buddy.monitor({
     channelId,
     onMessage: async (message) => {
       // 处理每个频道的消息
@@ -115,20 +115,20 @@ Shadow 的智能体系统遵循 **Model Context Protocol (MCP)** 标准，允许
 4. 部署为长期运行的进程
 
 ```typescript
-// agent/index.ts
+// buddy/index.ts
 import { OpenClawPlugin } from "@shadowob/openclaw-shadowob"
 import Anthropic from "@anthropic-ai/sdk"
 
 const anthropic = new Anthropic()
-const agent = new OpenClawPlugin({
+const buddy = new OpenClawPlugin({
   baseUrl: process.env.SHADOW_API_URL,
-  token: process.env.AGENT_TOKEN,
+  token: process.env.BUDDY_TOKEN,
 })
 
-agent.monitor({
+buddy.monitor({
   channelId: process.env.CHANNEL_ID,
   onMessage: async (message) => {
-    if (message.author.id === agent.userId) return
+    if (message.author.id === buddy.userId) return
 
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
@@ -136,13 +136,13 @@ agent.monitor({
       messages: [{ role: "user", content: message.content }],
     })
 
-    await agent.reply({
+    await buddy.reply({
       channelId: message.channelId,
       content: response.content[0].text,
     })
   },
 })
 
-await agent.connect()
+await buddy.connect()
 console.log("智能体已启动！")
 ```

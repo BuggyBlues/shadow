@@ -1,6 +1,6 @@
 import type { Socket, Server as SocketIOServer } from 'socket.io'
 import type { AppContainer } from '../container'
-import { relayDmToBot } from '../handlers/dm.handler'
+import { relayDmToBuddy } from '../handlers/dm.handler'
 import { logger } from '../lib/logger'
 
 export function setupChatGateway(io: SocketIOServer, container: AppContainer): void {
@@ -235,9 +235,9 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
             /* notification failed, non-critical */
           }
 
-          // Relay to bot using shared helper
+          // Relay to buddy using shared helper
           try {
-            await relayDmToBot(io, container, data.dmChannelId, userId, otherUserId, {
+            await relayDmToBuddy(io, container, data.dmChannelId, userId, otherUserId, {
               id: message.id,
               content: message.content ?? data.content,
               author: message.author,
@@ -246,7 +246,7 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
               attachments: message.attachments,
             })
           } catch (err) {
-            logger.error({ err, dmChannelId: data.dmChannelId }, 'Bot DM relay failed')
+            logger.error({ err, dmChannelId: data.dmChannelId }, 'Buddy DM relay failed')
           }
 
           // Record rental message for billing v2 (fire-and-forget)
@@ -373,7 +373,7 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
       logger.info({ socketId: socket.id, userId, reason }, 'Client disconnected')
     })
 
-    // Auto-join bot users to their DM channel rooms (after all handlers registered)
+    // Auto-join buddy users to their DM channel rooms (after all handlers registered)
     if (userId) {
       ;(async () => {
         try {
@@ -386,7 +386,7 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
               await socket.join(`dm:${ch.id}`)
               logger.info(
                 { userId, dmChannelId: ch.id, socketId: socket.id },
-                'Bot auto-joined DM room',
+                'Buddy auto-joined DM room',
               )
             }
             logger.info({ userId, count: dmChs.length }, 'Bot auto-joined all DM rooms')

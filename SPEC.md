@@ -19,7 +19,7 @@
 9. [WebSocket Protocol](#9-websocket-protocol)
 10. [Frontend Architecture](#10-frontend-architecture)
 11. [Backend Architecture](#11-backend-architecture)
-12. [AgentHub & MCP](#12-agenthub--mcp)
+12. [BuddyHub & MCP](#12-buddyhub--mcp)
 13. [i18n (Internationalization)](#13-i18n-internationalization)
 14. [Testing Strategy](#14-testing-strategy)
 15. [Deployment](#15-deployment)
@@ -29,13 +29,13 @@
 
 ## 1. Project Overview
 
-Shadow (虾豆) is a **Discord-like team collaboration platform** with built-in **multi-Agent (AI) support**. It provides real-time messaging, channels, servers, media sharing, and an Agent marketplace where AI agents can participate in conversations via the MCP (Model Context Protocol) standard.
+Shadow (虾豆) is a **Discord-like team collaboration platform** with built-in **multi-Buddy (AI) support**. It provides real-time messaging, channels, servers, media sharing, and a Buddy marketplace where AI buddies can participate in conversations via the MCP (Model Context Protocol) standard.
 
 ### Key Capabilities
 
 - **Servers & Channels**: Create workspaces (servers) with text/voice channels
 - **Real-time Chat**: Socket.IO-powered instant messaging with Markdown, reactions, threads
-- **Multi-Agent Collaboration**: AI agents join channels, respond to messages, execute tools
+- **Multi-Buddy Collaboration**: AI buddies join channels, respond to messages, execute tools
 - **Media Sharing**: File/image upload via S3-compatible storage (MinIO)
 - **Role-Based Access**: Owner/Admin/Member permission system
 - **i18n**: Full internationalization (zh-CN, zh-TW, en, ja, ko)
@@ -115,13 +115,13 @@ shadow/
 │   │       └── utils/       # Shared utility functions
 │   ├── ui/                  # @shadowob/ui — Shared UI components (Radix-based)
 │   │   └── src/components/  # Avatar, Button, Input (CVA + Radix)
-│   └── agenthub/            # @shadowob/agenthub — Agent runtime & adapters
+│   └── buddyhub/            # @shadowob/buddyhub — Buddy runtime & adapters
 │       └── src/
-│           ├── types.ts     # IAgentKernel, MCP types
-│           ├── registry.ts  # Agent registration & discovery
+│           ├── types.ts     # IBuddyKernel, MCP types
+│           ├── registry.ts  # Buddy registration & discovery
 │           ├── gateway.ts   # MCP protocol gateway
 │           ├── runtime.ts   # Docker sandbox management
-│           ├── client.ts    # Agent WebSocket client
+│           ├── client.ts    # Buddy WebSocket client
 │           └── adapters/    # base, claude, cursor, mcp, custom
 ├── docker-compose.yml       # PostgreSQL + Redis + MinIO
 ├── biome.json               # Linting & formatting
@@ -134,8 +134,8 @@ shadow/
 
 ```
 @shadowob/web ──→ @shadowob/shared, @shadowob/ui
-@shadowob/server ──→ @shadowob/shared, @shadowob/agenthub
-@shadowob/agenthub ──→ @shadowob/shared
+@shadowob/server ──→ @shadowob/shared, @shadowob/buddyhub
+@shadowob/buddyhub ──→ @shadowob/shared
 @shadowob/ui ──→ (no internal deps)
 @shadowob/shared ──→ (no internal deps)
 ```
@@ -302,7 +302,7 @@ servers ───┘                 │
                     └──< messages (thread replies)
 
 users ──< dm_channels >── users
-agents ──< (registered in channels)
+buddies ──< (registered in channels)
 notifications ──< (per user)
 ```
 
@@ -318,7 +318,7 @@ notifications ──< (per user)
 | `threads` | id, messageId, channelId, title | Threads attached to parent messages |
 | `attachments` | id, messageId, fileName, fileUrl, fileSize, mimeType | S3 storage references |
 | `reactions` | id, messageId, userId, emoji | Unique per user+message+emoji |
-| `agents` | id, name, description, avatarUrl, status, capabilities | AI agents metadata |
+| `buddies` | id, name, description, avatarUrl, status, capabilities | AI buddies metadata |
 | `dm_channels` | id, user1Id, user2Id | Direct message channels |
 | `notifications` | id, userId, type, title, body, read | In-app notifications |
 
@@ -469,7 +469,7 @@ const appRoute = createRoute({ ... })
 '/login' → LoginPage
 '/register' → RegisterPage
 '/features' → FeaturesPage
-'/agents' → AgentMarketPage
+'/buddies' → BuddyMarketPage
 '/pricing' → PricingPage
 '/docs' → DocsPage
 
@@ -626,30 +626,30 @@ export function createExampleHandlers(container: AwilixContainer) {
 
 ---
 
-## 12. AgentHub & MCP
+## 12. BuddyHub & MCP
 
 ### Overview
 
-AgentHub (`@shadowob/agenthub`) provides the runtime for AI agents to participate in Shadow conversations via the MCP (Model Context Protocol) standard.
+BuddyHub (`@shadowob/buddyhub`) provides the runtime for AI buddies to participate in Shadow conversations via the MCP (Model Context Protocol) standard.
 
 ### Architecture
 
 ```
 ┌──────────────────┐
-│  Agent Adapters  │  claude, cursor, mcp, custom
+│  Buddy Adapters  │  claude, cursor, mcp, custom
 │  (LLM Providers) │
 └────────┬─────────┘
          ▼
 ┌──────────────────┐
-│  Agent Registry  │  Registration, discovery, lifecycle
+│  Buddy Registry  │  Registration, discovery, lifecycle
 └────────┬─────────┘
          ▼
 ┌──────────────────┐
-│  Agent Gateway   │  MCP protocol handling, message routing
+│  Buddy Gateway   │  MCP protocol handling, message routing
 └────────┬─────────┘
          ▼
 ┌──────────────────┐
-│  Agent Runtime   │  Docker sandbox (isolation, resource limits)
+│  Buddy Runtime   │  Docker sandbox (isolation, resource limits)
 └────────┬─────────┘
          ▼
 ┌──────────────────┐
@@ -665,16 +665,16 @@ AgentHub (`@shadowob/agenthub`) provides the runtime for AI agents to participat
 | `ClaudeAdapter` | `claude.adapter.ts` | Anthropic Claude integration |
 | `CursorAdapter` | `cursor.adapter.ts` | Cursor AI integration |
 | `McpAdapter` | `mcp.adapter.ts` | Generic MCP-compatible server |
-| `CustomAdapter` | `custom.adapter.ts` | Custom agent implementation |
+| `CustomAdapter` | `custom.adapter.ts` | Custom buddy implementation |
 
-### Creating a New Agent Adapter
+### Creating a New Buddy Adapter
 
 ```typescript
-import { BaseAdapter } from '@shadowob/agenthub'
+import { BaseAdapter } from '@shadowob/buddyhub'
 
 export class MyAdapter extends BaseAdapter {
-  name = 'my-agent'
-  description = 'Description of what this agent does'
+  name = 'my-buddy'
+  description = 'Description of what this buddy does'
 
   async handleMessage(message: {
     content: string
@@ -722,7 +722,7 @@ export class MyAdapter extends BaseAdapter {
 | `chat` | Chat area, messages, input |
 | `member` | Member list |
 | `features` | Features page |
-| `agents` | Agent marketplace page |
+| `buddies` | Buddy marketplace page |
 | `pricing` | Pricing page |
 | `docs` | Documentation page |
 
@@ -773,7 +773,7 @@ function MyComponent() {
 |---------|------|-------|
 | `@shadowob/server` | `apps/server/__tests__/` | DI container, E2E, validators |
 | `@shadowob/shared` | `packages/shared/__tests__/` | Constants, utility functions |
-| `@shadowob/agenthub` | `packages/agenthub/__tests__/` | Agent registry |
+| `@shadowob/buddyhub` | `packages/buddyhub/__tests__/` | Buddy registry |
 
 ### Running Tests
 

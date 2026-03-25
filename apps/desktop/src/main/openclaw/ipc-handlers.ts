@@ -14,7 +14,7 @@ import { getMainWindow } from '../window'
 import { createOpenClawService, getOpenClawService } from './service'
 import type { BootstrapFileName } from './service/config'
 import { resolveElectronNodeBinary } from './service/paths'
-import type { AgentConfig, BuddyConnection, ModelProviderEntry } from './types'
+import type { BuddyConfig, BuddyConnection, ModelProviderEntry } from './types'
 
 export function setupOpenClawIPC(): void {
   const svc = getOpenClawService()
@@ -78,40 +78,40 @@ export function setupOpenClawIPC(): void {
     return { success: true }
   })
 
-  // ─── Agents ─────────────────────────────────────────────────────────
+  // ─── Buddies ─────────────────────────────────────────────────────────
 
-  ipcMain.handle('openclaw:agents:list', () => svc.config.getAgents())
-  ipcMain.handle('openclaw:agents:get', (_event, id: string) => svc.config.getAgent(id))
+  ipcMain.handle('openclaw:buddies:list', () => svc.config.getBuddys())
+  ipcMain.handle('openclaw:buddies:get', (_event, id: string) => svc.config.getBuddy(id))
 
-  ipcMain.handle('openclaw:agents:create', (_event, agent: AgentConfig) => {
-    svc.config.createAgent(agent)
+  ipcMain.handle('openclaw:buddies:create', (_event, buddy: BuddyConfig) => {
+    svc.config.createBuddy(buddy)
     return { success: true }
   })
 
-  ipcMain.handle('openclaw:agents:update', (_event, id: string, updates: Partial<AgentConfig>) => {
-    svc.config.updateAgent(id, updates)
+  ipcMain.handle('openclaw:buddies:update', (_event, id: string, updates: Partial<BuddyConfig>) => {
+    svc.config.updateBuddy(id, updates)
     return { success: true }
   })
 
-  ipcMain.handle('openclaw:agents:delete', (_event, id: string) => {
-    svc.config.deleteAgent(id)
+  ipcMain.handle('openclaw:buddies:delete', (_event, id: string) => {
+    svc.config.deleteBuddy(id)
     return { success: true }
   })
 
-  // ─── Agent Bootstrap Files ──────────────────────────────────────────
+  // ─── Buddy Bootstrap Files ──────────────────────────────────────────
 
-  ipcMain.handle('openclaw:agents:bootstrap:list', (_event, agentId: string) =>
-    svc.config.listBootstrapFiles(agentId),
+  ipcMain.handle('openclaw:buddies:bootstrap:list', (_event, buddyId: string) =>
+    svc.config.listBootstrapFiles(buddyId),
   )
 
-  ipcMain.handle('openclaw:agents:bootstrap:read', (_event, agentId: string, fileName: string) =>
-    svc.config.readBootstrapFile(agentId, fileName as BootstrapFileName),
+  ipcMain.handle('openclaw:buddies:bootstrap:read', (_event, buddyId: string, fileName: string) =>
+    svc.config.readBootstrapFile(buddyId, fileName as BootstrapFileName),
   )
 
   ipcMain.handle(
-    'openclaw:agents:bootstrap:write',
-    (_event, agentId: string, fileName: string, content: string) => {
-      svc.config.writeBootstrapFile(agentId, fileName as BootstrapFileName, content)
+    'openclaw:buddies:bootstrap:write',
+    (_event, buddyId: string, fileName: string, content: string) => {
+      svc.config.writeBootstrapFile(buddyId, fileName as BootstrapFileName, content)
       return { success: true }
     },
   )

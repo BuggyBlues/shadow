@@ -1,6 +1,6 @@
 import { Command } from 'commander'
 import { getClient } from '../utils/client.js'
-import { output, outputSuccess, outputError, type OutputOptions } from '../utils/output.js'
+import { type OutputOptions, output, outputError, outputSuccess } from '../utils/output.js'
 
 export function createServersCommand(): Command {
   const servers = new Command('servers').description('Server management commands')
@@ -66,10 +66,12 @@ export function createServersCommand(): Command {
           })
           output(server, { json: options.json })
         } catch (error) {
-          outputError(error instanceof Error ? error.message : String(error), { json: options.json })
+          outputError(error instanceof Error ? error.message : String(error), {
+            json: options.json,
+          })
           process.exit(1)
         }
-      }
+      },
     )
 
   servers
@@ -82,7 +84,7 @@ export function createServersCommand(): Command {
     .action(
       async (
         serverId: string,
-        options: { inviteCode?: string; profile?: string; json?: boolean }
+        options: { inviteCode?: string; profile?: string; json?: boolean },
       ) => {
         try {
           const client = await getClient(options.profile)
@@ -94,10 +96,12 @@ export function createServersCommand(): Command {
             outputSuccess('Joined server', outputOpts)
           }
         } catch (error) {
-          outputError(error instanceof Error ? error.message : String(error), { json: options.json })
+          outputError(error instanceof Error ? error.message : String(error), {
+            json: options.json,
+          })
           process.exit(1)
         }
-      }
+      },
     )
 
   servers
@@ -146,7 +150,7 @@ export function createServersCommand(): Command {
     .action(
       async (
         serverId: string,
-        options: { set?: string; clear?: boolean; profile?: string; json?: boolean }
+        options: { set?: string; clear?: boolean; profile?: string; json?: boolean },
       ) => {
         try {
           const client = await getClient(options.profile)
@@ -183,10 +187,12 @@ export function createServersCommand(): Command {
             console.log(server.homepageHtml ?? '(default homepage)')
           }
         } catch (error) {
-          outputError(error instanceof Error ? error.message : String(error), { json: options.json })
+          outputError(error instanceof Error ? error.message : String(error), {
+            json: options.json,
+          })
           process.exit(1)
         }
-      }
+      },
     )
 
   servers

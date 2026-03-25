@@ -119,12 +119,12 @@ export function MessageInput({
         const displayNameLc = displayName.toLocaleLowerCase()
         const isBot = m.user?.isBot ?? false
 
-        // Base bonus: buddies/bots get priority (+500)
-        const botBonus = isBot ? 500 : 0
+        // Base bonus: buddies get priority (+500)
+        const buddyBonus = isBot ? 500 : 0
 
         // Query empty => show all members, buddies first
         if (!q) {
-          return { member: m, score: 1000 + botBonus, usernameLc, displayNameLc }
+          return { member: m, score: 1000 + buddyBonus, usernameLc, displayNameLc }
         }
 
         let score = -1
@@ -141,7 +141,7 @@ export function MessageInput({
           else if (pinyinMatch === 'partial') score = Math.max(score, 140)
         }
 
-        if (score >= 0) score += botBonus
+        if (score >= 0) score += buddyBonus
 
         return { member: m, score, usernameLc, displayNameLc }
       })
@@ -592,7 +592,7 @@ export function MessageInput({
               <span className="text-text-muted text-xs">@{member.user?.username}</span>
               {member.user?.isBot && (
                 <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-medium ml-auto">
-                  {t('common.bot')}
+                  {t('common.buddy')}
                 </span>
               )}
             </button>

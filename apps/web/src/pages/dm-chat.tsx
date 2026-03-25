@@ -100,9 +100,9 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
   const dmChannel = dmChannels.find((c) => c.id === dmChannelId)
   const otherUser = dmChannel?.otherUser
 
-  // Check if chat is disabled for this bot agent (listed or rented out)
-  const { data: agentChatStatus } = useQuery({
-    queryKey: ['agent-chat-status', otherUser?.id],
+  // Check if chat is disabled for this buddy buddy (listed or rented out)
+  const { data: buddyChatStatus } = useQuery({
+    queryKey: ['buddy-chat-status', otherUser?.id],
     queryFn: () =>
       fetchApi<{
         chatDisabled: boolean
@@ -115,11 +115,11 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
           messageCount: number
           pricingVersion: number
         }
-      }>(`/api/marketplace/agent-chat-status/${otherUser!.id}`),
+      }>(`/api/marketplace/buddy-chat-status/${otherUser!.id}`),
     enabled: !!otherUser?.isBot && !!otherUser?.id,
   })
-  const chatDisabled = agentChatStatus?.chatDisabled === true
-  const rental = agentChatStatus?.rental
+  const chatDisabled = buddyChatStatus?.chatDisabled === true
+  const rental = buddyChatStatus?.rental
 
   // Fetch messages
   const {
@@ -485,7 +485,7 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
                 type="button"
                 onClick={() => {
                   localStorage.setItem(tipKey, '1')
-                  queryClient.invalidateQueries({ queryKey: ['agent-chat-status', otherUser?.id] })
+                  queryClient.invalidateQueries({ queryKey: ['buddy-chat-status', otherUser?.id] })
                 }}
                 className="shrink-0 text-amber-600 hover:text-amber-800 font-bold"
               >
@@ -500,9 +500,9 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
         {chatDisabled ? (
           <div className="flex items-center justify-center gap-2 px-4 py-3 bg-bg-secondary rounded-lg border border-border-subtle text-text-muted text-sm">
             <span>
-              {agentChatStatus?.reason === 'rented_out'
+              {buddyChatStatus?.reason === 'rented_out'
                 ? t('dm.chatDisabledRentedOut', '该 Buddy 已出租给其他用户，暂时无法聊天')
-                : agentChatStatus?.reason === 'expired'
+                : buddyChatStatus?.reason === 'expired'
                   ? t('dm.chatDisabledExpired', '使用权已到期，请续租后再使用')
                   : t('dm.chatDisabledListed', '该 Buddy 已在集市挂单中，暂时无法聊天')}
             </span>

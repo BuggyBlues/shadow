@@ -41,10 +41,10 @@ export function OpenClawDashboard({ onNavigate }: DashboardProps) {
   const [logs, setLogs] = useState<GatewayLogEntry[]>([])
   const [actionLoading, setActionLoading] = useState(false)
   const [skillCount, setSkillCount] = useState(0)
-  const [agentCount, setAgentCount] = useState(0)
+  const [buddyCount, setBuddyCount] = useState(0)
   const [channelCount, setChannelCount] = useState(0)
   const [modelCount, setModelCount] = useState(0)
-  const [buddyCount, setBuddyCount] = useState(0)
+  const [connectionCount, setConnectionCount] = useState(0)
   const [showLogs, setShowLogs] = useState(false)
   const [logsLoaded, setLogsLoaded] = useState(false)
   const [openConsoleLoading, setOpenConsoleLoading] = useState(false)
@@ -65,8 +65,8 @@ export function OpenClawDashboard({ onNavigate }: DashboardProps) {
       .then((s) => setSkillCount(s.length))
       .catch(() => {})
     openClawApi
-      .listAgents()
-      .then((a) => setAgentCount(a.length))
+      .listBuddies()
+      .then((a) => setBuddyCount(a.length))
       .catch(() => {})
     openClawApi
       .getChannelConfigs()
@@ -78,7 +78,7 @@ export function OpenClawDashboard({ onNavigate }: DashboardProps) {
       .catch(() => {})
     openClawApi
       .listBuddyConnections()
-      .then((b) => setBuddyCount(b.length))
+      .then((b) => setConnectionCount(b.length))
       .catch(() => {})
     openClawApi
       .getDesktopSettings()
@@ -224,9 +224,9 @@ export function OpenClawDashboard({ onNavigate }: DashboardProps) {
     },
     {
       icon: Bot,
-      label: t('openclaw.dashboard.agents', '智能体'),
-      count: agentCount,
-      page: 'agents' as const,
+      label: t('openclaw.dashboard.buddies', '智能体'),
+      count: buddyCount,
+      page: 'buddies' as const,
     },
     {
       icon: Globe,
@@ -243,7 +243,7 @@ export function OpenClawDashboard({ onNavigate }: DashboardProps) {
     {
       icon: Link2,
       label: t('openclaw.dashboard.buddies', '伙伴'),
-      count: buddyCount,
+      count: connectionCount,
       page: 'buddy' as const,
     },
   ]
@@ -438,7 +438,7 @@ export function OpenClawDashboard({ onNavigate }: DashboardProps) {
         </section>
 
         {/* ─── Onboarding Banner ─── */}
-        {modelCount === 0 && agentCount === 0 && (
+        {modelCount === 0 && buddyCount === 0 && (
           <button
             type="button"
             onClick={() => onNavigate('onboard')}

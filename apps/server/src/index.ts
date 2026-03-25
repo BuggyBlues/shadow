@@ -237,7 +237,7 @@ function startScheduledJobs(container: AppContainer) {
       logger.error({ err }, 'Rental expiration check failed')
     }
 
-    // Auto-bill active contracts based on agent online time
+    // Auto-bill active contracts based on buddy online time
     try {
       const billingResults = await rentalService.billActiveContracts()
       const billed = billingResults.filter((r) => r.success && r.billed > 0)

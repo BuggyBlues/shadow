@@ -717,7 +717,7 @@ describe('Bot DM Relay', () => {
   let wsBotClient: ShadowSocket
   let dmChannelId: string
 
-  it('setup: create bot user and connect', async () => {
+  it('setup: create buddy user and connect', async () => {
     const userDao = container.resolve('userDao')
     const ts = Date.now()
 
@@ -1016,9 +1016,9 @@ describe('Friends API with Claw Status', () => {
   })
 
   it('returns owned claws with clawStatus', async () => {
-    // Create a bot user + agent for user1
+    // Create a buddy user + buddy for user1
     const userDao = container.resolve('userDao')
-    const agentDao = container.resolve('agentDao')
+    const buddyDao = container.resolve('buddyDao')
     const ts = Date.now()
 
     const botUser = await userDao.create({
@@ -1029,7 +1029,7 @@ describe('Friends API with Claw Status', () => {
     // Mark as bot directly since userDao.create doesn't accept isBot
     await db.update(schema.users).set({ isBot: true }).where(eq(schema.users.id, botUser!.id))
 
-    await agentDao.create({
+    await buddyDao.create({
       userId: botUser!.id,
       ownerId: userId,
       kernelType: 'custom',

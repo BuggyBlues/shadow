@@ -138,7 +138,7 @@ export function HelpPage({ onNavigate }: HelpPageProps) {
             <ArrowRight size={16} className="text-text-muted shrink-0" />
             <ArchNode label={t('openclaw.help.archGateway', '龙虾服务')} icon={Zap} highlight />
             <ArrowRight size={16} className="text-text-muted shrink-0" />
-            <ArchNode label={t('openclaw.help.archAgent', '智能体')} icon={Bot} />
+            <ArchNode label={t('openclaw.help.archBuddy', '智能体')} icon={Bot} />
           </div>
           <p className="text-xs text-text-muted text-center">
             {t(

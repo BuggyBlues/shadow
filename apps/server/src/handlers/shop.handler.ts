@@ -440,7 +440,7 @@ export function createShopHandler(container: AppContainer) {
       const messageService = container.resolve('messageService')
       const channelMemberDao = container.resolve('channelMemberDao')
       const serverDao = container.resolve('serverDao')
-      const agentDao = container.resolve('agentDao')
+      const buddyDao = container.resolve('buddyDao')
 
       const existing = await channelService.getByServerId(serverId)
       const channelName = `shop-support-${user.userId.slice(0, 8)}`
@@ -530,9 +530,9 @@ export function createShopHandler(container: AppContainer) {
         attachments: attachments.length > 0 ? attachments : undefined,
       })
 
-      const buddyAgent = buddyId ? await agentDao.findByUserId(buddyId) : null
-      const buddyStatus = buddyAgent?.status ?? null
-      const buddyReady = !!buddyAgent && buddyAgent.status === 'running'
+      const buddyMember = buddyId ? await buddyDao.findByUserId(buddyId) : null
+      const buddyStatus = buddyMember?.status ?? null
+      const buddyReady = !!buddyMember && buddyMember.status === 'running'
 
       return c.json(
         {

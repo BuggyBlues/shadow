@@ -3,9 +3,9 @@ import { z } from 'zod'
 
 const idLikeSchema = z.string().min(1)
 
-/** Agent chain metadata for tracking Buddy-to-Buddy conversations */
-const agentChainSchema = z.object({
-  agentId: idLikeSchema,
+/** Buddy chain metadata for tracking Buddy-to-Buddy conversations */
+const buddyChainSchema = z.object({
+  buddyId: idLikeSchema,
   depth: z.number().int().min(0),
   participants: z.array(idLikeSchema),
   startedAt: z.number().optional(),
@@ -15,7 +15,7 @@ const agentChainSchema = z.object({
 /** Message metadata schema */
 const metadataSchema = z
   .object({
-    agentChain: agentChainSchema.optional(),
+    buddyChain: buddyChainSchema.optional(),
   })
   .passthrough() // Allow additional custom metadata
 

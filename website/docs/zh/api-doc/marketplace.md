@@ -101,7 +101,7 @@ POST /api/marketplace/listings
 |------|------|------|------|
 | `title` | string | 是 | 标题 |
 | `description` | string | 否 | 描述 |
-| `agentId` | string | 否 | 关联的代理 |
+| `buddyId` | string | 否 | 关联的代理 |
 | `hourlyRate` | number | 是 | 每小时价格 |
 | `dailyRate` | number | 否 | 每日价格 |
 | `monthlyRate` | number | 否 | 每月价格 |

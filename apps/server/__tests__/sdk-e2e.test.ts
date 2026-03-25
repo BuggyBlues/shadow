@@ -263,9 +263,9 @@ describe('ShadowClient REST API', () => {
     expect(result.messages.find((m: { id: string }) => m.id === tempMsg.id)).toBeUndefined()
   })
 
-  it('sendHeartbeat() succeeds for agent', async () => {
-    const agentService = container.resolve('agentService')
-    const agent = await agentService.create({
+  it('sendHeartbeat() succeeds for buddy', async () => {
+    const buddyService = container.resolve('buddyService')
+    const buddy = await buddyService.create({
       name: 'SDK Test Bot',
       username: `sdktestbot_${Date.now().toString(36)}`,
       kernelType: 'openclaw',
@@ -273,10 +273,10 @@ describe('ShadowClient REST API', () => {
       ownerId: userId,
     })
 
-    const tokenResult = await agentService.generateToken(agent.id, userId)
+    const tokenResult = await buddyService.generateToken(buddy.id, userId)
     const botClient = new ShadowClient(baseUrl, tokenResult.token)
 
-    const result = await botClient.sendHeartbeat(agent.id)
+    const result = await botClient.sendHeartbeat(buddy.id)
     expect(result.ok).toBe(true)
   })
 })

@@ -70,7 +70,7 @@ export function createAuthHandler(container: AppContainer) {
   // GET /api/auth/users/:id — public user profile (limited fields)
   authHandler.get('/users/:id', authMiddleware, async (c) => {
     const userDao = container.resolve('userDao')
-    const agentDao = container.resolve('agentDao')
+    const buddyDao = container.resolve('buddyDao')
     const id = c.req.param('id')
     if (!id) {
       return c.json({ error: 'Missing user id' }, 400)
@@ -78,8 +78,8 @@ export function createAuthHandler(container: AppContainer) {
     const user = await userDao.findById(id)
     if (!user) return c.json({ error: 'User not found' }, 404)
 
-    // If the user is a bot, also return agent info + owner profile
-    let agent = null
+    // If the user is a bot, also return buddy info + owner profile
+    let buddy = null
     let ownerProfile: {
       id: string
       username: string
@@ -87,9 +87,9 @@ export function createAuthHandler(container: AppContainer) {
       avatarUrl: string | null
     } | null = null
     if (user.isBot) {
-      agent = await agentDao.findByUserId(user.id)
-      if (agent?.ownerId) {
-        const owner = await userDao.findById(agent.ownerId)
+      buddy = await buddyDao.findByUserId(user.id)
+      if (buddy?.ownerId) {
+        const owner = await userDao.findById(buddy.ownerId)
         if (owner) {
           ownerProfile = {
             id: owner.id,
@@ -101,30 +101,30 @@ export function createAuthHandler(container: AppContainer) {
       }
     }
 
-    // If the user is a regular user, return their owned agents
-    let ownedAgents: Array<{
+    // If the user is a regular user, return their owned buddies
+    let ownedBuddies: Array<{
       id: string
       userId: string
       status: string
       totalOnlineSeconds: number
-      botUser?: { id: string; username: string; displayName: string; avatarUrl: string | null }
+      buddyUser?: { id: string; username: string; displayName: string; avatarUrl: string | null }
     }> = []
     if (!user.isBot) {
-      const agents = await agentDao.findByOwnerId(user.id)
-      ownedAgents = await Promise.all(
-        agents.map(async (a) => {
-          const botUser = await userDao.findById(a.userId)
+      const buddies = await buddyDao.findByOwnerId(user.id)
+      ownedBuddies = await Promise.all(
+        buddies.map(async (a) => {
+          const buddyUser = await userDao.findById(a.userId)
           return {
             id: a.id,
             userId: a.userId,
             status: a.status,
             totalOnlineSeconds: a.totalOnlineSeconds ?? 0,
-            botUser: botUser
+            buddyUser: buddyUser
               ? {
-                  id: botUser.id,
-                  username: botUser.username,
-                  displayName: botUser.displayName ?? botUser.username,
-                  avatarUrl: botUser.avatarUrl,
+                  id: buddyUser.id,
+                  username: buddyUser.username,
+                  displayName: buddyUser.displayName ?? buddyUser.username,
+                  avatarUrl: buddyUser.avatarUrl,
                 }
               : undefined,
           }
@@ -140,17 +140,17 @@ export function createAuthHandler(container: AppContainer) {
       isBot: user.isBot,
       status: user.status,
       createdAt: user.createdAt,
-      agent: agent
+      buddy: buddy
         ? {
-            id: agent.id,
-            ownerId: agent.ownerId,
-            status: agent.status,
-            totalOnlineSeconds: agent.totalOnlineSeconds ?? 0,
-            config: { description: (agent.config as Record<string, unknown>)?.description },
+            id: buddy.id,
+            ownerId: buddy.ownerId,
+            status: buddy.status,
+            totalOnlineSeconds: buddy.totalOnlineSeconds ?? 0,
+            config: { description: (buddy.config as Record<string, unknown>)?.description },
           }
         : undefined,
       ownerProfile,
-      ownedAgents,
+      ownedBuddies,
     })
   })
 
@@ -159,15 +159,15 @@ export function createAuthHandler(container: AppContainer) {
     const user = c.get('user') as { userId: string }
     const userId = user.userId
     const serverDao = container.resolve('serverDao')
-    const agentDao = container.resolve('agentDao')
+    const buddyDao = container.resolve('buddyDao')
     const walletService = container.resolve('walletService')
     const taskCenterService = container.resolve('taskCenterService')
     const userDao = container.resolve('userDao')
 
     // Parallel queries for performance
-    const [userServers, agents, wallet, taskCenter, referral, userInfo] = await Promise.all([
+    const [userServers, buddies, wallet, taskCenter, referral, userInfo] = await Promise.all([
       serverDao.findByUserId(userId),
-      agentDao.findByOwnerId(userId),
+      buddyDao.findByOwnerId(userId),
       walletService.getOrCreateWallet(userId).catch(() => ({ balance: 0 })),
       taskCenterService
         .getTaskCenter(userId)
@@ -184,12 +184,12 @@ export function createAuthHandler(container: AppContainer) {
     const serversJoined = userServers.length
 
     // Buddy total online time
-    const totalBuddyOnlineSeconds = agents.reduce((sum, a) => sum + (a.totalOnlineSeconds ?? 0), 0)
+    const totalBuddyOnlineSeconds = buddies.reduce((sum, a) => sum + (a.totalOnlineSeconds ?? 0), 0)
 
     return c.json({
       serversOwned,
       serversJoined,
-      buddyCount: agents.length,
+      buddyCount: buddies.length,
       buddyOnlineHours: Math.round(totalBuddyOnlineSeconds / 3600),
       walletBalance: wallet.balance ?? 0,
       tasksCompleted: taskCenter.summary?.completedTasks ?? 0,

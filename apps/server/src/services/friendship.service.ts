@@ -1,4 +1,4 @@
-import type { AgentDao } from '../dao/agent.dao'
+import type { BuddyDao } from '../dao/buddy.dao'
 import type { ClawListingDao } from '../dao/claw-listing.dao'
 import type { FriendshipDao } from '../dao/friendship.dao'
 import type { RentalContractDao } from '../dao/rental-contract.dao'
@@ -9,7 +9,7 @@ export class FriendshipService {
     private deps: {
       friendshipDao: FriendshipDao
       userDao: UserDao
-      agentDao: AgentDao
+      buddyDao: BuddyDao
       clawListingDao: ClawListingDao
       rentalContractDao: RentalContractDao
     },
@@ -100,7 +100,7 @@ export class FriendshipService {
       createdAt: Date
     }> = []
 
-    // Track bot user IDs already added to avoid duplicates
+    // Track buddy user IDs already added to avoid duplicates
     const addedUserIds = new Set<string>()
 
     // 1. Real friends from friendships table
@@ -125,17 +125,17 @@ export class FriendshipService {
       }
     }
 
-    // 2. Owned claws — agents where user is the owner
-    const ownedAgents = await this.deps.agentDao.findByOwnerId(userId)
-    for (const agent of ownedAgents) {
-      if (addedUserIds.has(agent.userId)) continue
-      const botUser = await this.deps.userDao.findById(agent.userId)
-      if (botUser) {
-        addedUserIds.add(botUser.id)
+    // 2. Owned claws — buddies where user is the owner
+    const ownedBuddies = await this.deps.buddyDao.findByOwnerId(userId)
+    for (const buddy of ownedBuddies) {
+      if (addedUserIds.has(buddy.userId)) continue
+      const buddyUser = await this.deps.userDao.findById(buddy.userId)
+      if (buddyUser) {
+        addedUserIds.add(buddyUser.id)
 
         // Determine claw marketplace status
         let clawStatus: 'available' | 'listed' | 'rented_out' = 'available'
-        const listings = await this.deps.clawListingDao.findByAgentIds([agent.id])
+        const listings = await this.deps.clawListingDao.findByBuddyIds([buddy.id])
         const activeListing = listings.find((l) => l.listingStatus === 'active' && l.isListed)
         if (activeListing) {
           const activeContract = await this.deps.rentalContractDao.findActiveByListingId(
@@ -145,18 +145,18 @@ export class FriendshipService {
         }
 
         results.push({
-          friendshipId: `claw:owned:${agent.id}`,
+          friendshipId: `claw:owned:${buddy.id}`,
           source: 'owned_claw',
           clawStatus,
           user: {
-            id: botUser.id,
-            username: botUser.username,
-            displayName: botUser.displayName,
-            avatarUrl: botUser.avatarUrl,
-            status: botUser.status,
-            isBot: botUser.isBot,
+            id: buddyUser.id,
+            username: buddyUser.username,
+            displayName: buddyUser.displayName,
+            avatarUrl: buddyUser.avatarUrl,
+            status: buddyUser.status,
+            isBot: buddyUser.isBot,
           },
-          createdAt: agent.createdAt,
+          createdAt: buddy.createdAt,
         })
       }
     }
@@ -173,25 +173,25 @@ export class FriendshipService {
       if (contract.terminatedAt) continue
 
       const listing = await this.deps.clawListingDao.findById(contract.listingId)
-      if (!listing?.agentId) continue
+      if (!listing?.buddyId) continue
 
-      const agent = await this.deps.agentDao.findById(listing.agentId)
-      if (!agent || addedUserIds.has(agent.userId)) continue
+      const buddy = await this.deps.buddyDao.findById(listing.buddyId)
+      if (!buddy || addedUserIds.has(buddy.userId)) continue
 
-      const botUser = await this.deps.userDao.findById(agent.userId)
-      if (botUser) {
-        addedUserIds.add(botUser.id)
+      const buddyUser = await this.deps.userDao.findById(buddy.userId)
+      if (buddyUser) {
+        addedUserIds.add(buddyUser.id)
         results.push({
           friendshipId: `claw:rented:${contract.id}`,
           source: 'rented_claw',
           rentalExpiresAt: contract.expiresAt,
           user: {
-            id: botUser.id,
-            username: botUser.username,
-            displayName: botUser.displayName,
-            avatarUrl: botUser.avatarUrl,
-            status: botUser.status,
-            isBot: botUser.isBot,
+            id: buddyUser.id,
+            username: buddyUser.username,
+            displayName: buddyUser.displayName,
+            avatarUrl: buddyUser.avatarUrl,
+            status: buddyUser.status,
+            isBot: buddyUser.isBot,
           },
           createdAt: contract.createdAt,
         })

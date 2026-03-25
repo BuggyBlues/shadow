@@ -304,24 +304,24 @@ result = client.regenerate_invite_code("server-id")
 
 ---
 
-## Add agents to server
+## Add buddies to server
 
 ```
-POST /api/servers/:id/agents
+POST /api/servers/:id/buddies
 ```
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `agentIds` | string[] | Array of agent IDs to add |
+| `buddyIds` | string[] | Array of buddy IDs to add |
 
 :::code-group
 
 ```ts [TypeScript]
-const { added } = await client.addAgentsToServer('server-id', ['agent-1', 'agent-2'])
+const { added } = await client.addBuddiesToServer('server-id', ['buddy-1', 'buddy-2'])
 ```
 
 ```python [Python]
-result = client.add_agents_to_server("server-id", ["agent-1", "agent-2"])
+result = client.add_buddies_to_server("server-id", ["buddy-1", "buddy-2"])
 ```
 
 :::

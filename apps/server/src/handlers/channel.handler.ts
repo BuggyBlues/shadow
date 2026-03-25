@@ -110,7 +110,7 @@ export function createChannelHandler(container: AppContainer) {
     },
   )
 
-  // POST /api/channels/:id/members — add a user (typically a bot) to a channel
+  // POST /api/channels/:id/members — add a user (typically a buddy) to a channel
   channelHandler.post('/channels/:id/members', async (c) => {
     const channelService = container.resolve('channelService')
     const serverDao = container.resolve('serverDao')
@@ -133,12 +133,12 @@ export function createChannelHandler(container: AppContainer) {
       return c.json({ error: 'Not a member of this server' }, 403)
     }
     if (!targetServerMember) {
-      // If target is a bot, auto-add to server as member
+      // If target is a buddy, auto-add to server as member
       const userDao = container.resolve('userDao')
       const targetUser = await userDao.findById(targetUserId)
       if (targetUser?.isBot) {
         const serverService = container.resolve('serverService')
-        await serverService.addBotMember(channel.serverId, targetUserId)
+        await serverService.addBuddyMember(channel.serverId, targetUserId)
       } else {
         return c.json({ error: 'Target user is not a server member' }, 400)
       }
@@ -242,33 +242,40 @@ export function createChannelHandler(container: AppContainer) {
     return c.json({ success: true })
   })
 
-  // PUT /api/channels/:channelId/agents/:agentId/policy — set buddy policy for a channel
-  channelHandler.put('/channels/:channelId/agents/:agentId/policy', async (c) => {
-    const agentPolicyService = container.resolve('agentPolicyService')
-    const agentService = container.resolve('agentService')
+  // PUT /api/channels/:channelId/buddies/:buddyId/policy — set buddy policy for a channel
+  channelHandler.put('/channels/:channelId/buddies/:buddyId/policy', async (c) => {
+    const buddyPolicyService = container.resolve('buddyPolicyService')
+    const buddyService = container.resolve('buddyService')
     const channelService = container.resolve('channelService')
     const user = c.get('user')
     const channelId = c.req.param('channelId')
-    const agentId = c.req.param('agentId')
+    const buddyId = c.req.param('buddyId')
     const body = await c.req.json<{
       mentionOnly?: boolean
       mode?: 'replyAll' | 'mentionOnly' | 'custom' | 'disabled'
-      config?: { replyToUsers?: string[]; keywords?: string[]; mentionOnly?: boolean }
+      config?: {
+        replyToUsers?: string[]
+        keywords?: string[]
+        mentionOnly?: boolean
+        replyToBuddy?: boolean
+        maxBuddyChainDepth?: number
+        smartReply?: boolean
+      }
     }>()
 
     // Verify channel exists
     const channel = await channelService.getById(channelId)
 
-    // Verify agent exists and user owns it OR user is server admin/owner
-    const agent = await agentService.getById(agentId)
-    if (!agent) {
-      return c.json({ error: 'Agent not found' }, 404)
+    // Verify buddy exists and user owns it OR user is server admin/owner
+    const buddy = await buddyService.getById(buddyId)
+    if (!buddy) {
+      return c.json({ error: 'Buddy not found' }, 404)
     }
     const serverService = container.resolve('serverService')
     const serverMembers = await serverService.getMembers(channel.serverId)
     const requester = serverMembers.find((m) => m.userId === user.userId)
     const isAdminOrOwner = requester?.role === 'owner' || requester?.role === 'admin'
-    if (agent.ownerId !== user.userId && !isAdminOrOwner) {
+    if (buddy.ownerId !== user.userId && !isAdminOrOwner) {
       return c.json({ error: 'Not authorized' }, 403)
     }
 
@@ -297,13 +304,22 @@ export function createChannelHandler(container: AppContainer) {
           if (body.config?.keywords?.length) {
             config.keywords = body.config.keywords
           }
+          if (body.config?.replyToBuddy != null) {
+            config.replyToBuddy = body.config.replyToBuddy
+          }
+          if (body.config?.maxBuddyChainDepth != null) {
+            config.maxBuddyChainDepth = body.config.maxBuddyChainDepth
+          }
+          if (body.config?.smartReply != null) {
+            config.smartReply = body.config.smartReply
+          }
           config.mentionOnly = mentionOnly
           break
       }
     }
 
     // Upsert channel-level policy
-    const policy = await agentPolicyService.upsertPolicies(agentId, [
+    const policy = await buddyPolicyService.upsertPolicies(buddyId, [
       {
         serverId: channel.serverId,
         channelId,
@@ -317,8 +333,8 @@ export function createChannelHandler(container: AppContainer) {
     // Broadcast policy change to the bot so openclaw can react
     try {
       const io = container.resolve('io')
-      io.to(`user:${agent.userId}`).emit('agent:policy-changed', {
-        agentId,
+      io.to(`user:${buddy.userId}`).emit('buddy:policy-changed', {
+        buddyId,
         serverId: channel.serverId,
         channelId,
         mentionOnly,
@@ -332,22 +348,22 @@ export function createChannelHandler(container: AppContainer) {
     return c.json(policy)
   })
 
-  // GET /api/channels/:channelId/agents/:agentId/policy — get buddy policy for a channel
-  channelHandler.get('/channels/:channelId/agents/:agentId/policy', async (c) => {
-    const agentPolicyDao = container.resolve('agentPolicyDao')
-    const agentService = container.resolve('agentService')
+  // GET /api/channels/:channelId/buddies/:buddyId/policy — get buddy policy for a channel
+  channelHandler.get('/channels/:channelId/buddies/:buddyId/policy', async (c) => {
+    const buddyPolicyDao = container.resolve('buddyPolicyDao')
+    const buddyService = container.resolve('buddyService')
     const channelService = container.resolve('channelService')
     const channelId = c.req.param('channelId')
-    const agentId = c.req.param('agentId')
+    const buddyId = c.req.param('buddyId')
 
     const channel = await channelService.getById(channelId)
-    const agent = await agentService.getById(agentId)
-    if (!agent) {
-      return c.json({ error: 'Agent not found' }, 404)
+    const buddy = await buddyService.getById(buddyId)
+    if (!buddy) {
+      return c.json({ error: 'Buddy not found' }, 404)
     }
 
     // Try channel-level policy first, fall back to server default
-    const channelPolicy = await agentPolicyDao.findByChannel(agentId, channel.serverId, channelId)
+    const channelPolicy = await buddyPolicyDao.findByChannel(buddyId, channel.serverId, channelId)
     if (channelPolicy) {
       return c.json({
         mentionOnly: channelPolicy.mentionOnly,
@@ -357,7 +373,7 @@ export function createChannelHandler(container: AppContainer) {
       })
     }
 
-    const serverDefault = await agentPolicyDao.findServerDefault(agentId, channel.serverId)
+    const serverDefault = await buddyPolicyDao.findServerDefault(buddyId, channel.serverId)
     return c.json({
       mentionOnly: serverDefault?.mentionOnly ?? false,
       listen: serverDefault?.listen ?? true,

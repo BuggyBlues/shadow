@@ -53,6 +53,14 @@ export function createChatChannelPlugin<T = any>(options: {
     threading: options.threading,
     outbound: options.outbound,
   }
+  // Promote config.resolveAccount/inspectAccount to setup (matches real SDK)
+  if (base.config) {
+    plugin.setup = {
+      ...plugin.setup,
+      ...(base.config.resolveAccount ? { resolveAccount: base.config.resolveAccount } : {}),
+      ...(base.config.inspectAccount ? { inspectAccount: base.config.inspectAccount } : {}),
+    }
+  }
   return plugin
 }
 

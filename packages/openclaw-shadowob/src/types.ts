@@ -28,10 +28,10 @@ export type ShadowPolicyConfig = {
   smartReply?: boolean
 }
 
-// ─── Agent Chain Metadata (anti-loop tracking) ──────────────────────────────
+// ─── Buddy Chain Metadata (anti-loop tracking) ──────────────────────────────
 
-export type AgentChainMetadata = {
-  agentId: string
+export type BuddyChainMetadata = {
+  buddyId: string
   depth: number
   participants: string[]
   startedAt?: number

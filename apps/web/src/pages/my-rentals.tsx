@@ -41,7 +41,7 @@ interface Contract {
   depositAmount: number
   totalCost: number
   listing?: { title: string; deviceTier: string; osType: string } | null
-  agentUserId?: string | null
+  buddyUserId?: string | null
   createdAt: string
 }
 
@@ -61,7 +61,7 @@ interface MyListing {
   createdAt: string
   isRented?: boolean
   activeTenantId?: string | null
-  agent?: {
+  buddy?: {
     status: string
     lastHeartbeat: string | null
     totalOnlineSeconds: number
@@ -91,11 +91,11 @@ const DEVICE_TIERS: Record<string, { icon: string; labelKey: string }> = {
   low_end: { icon: '💡', labelKey: 'marketplace.deviceLowEnd' },
 }
 
-function isAgentOnline(agent?: MyListing['agent']): boolean {
-  if (!agent) return false
-  if (agent.status !== 'running') return false
-  if (!agent.lastHeartbeat) return false
-  return Date.now() - new Date(agent.lastHeartbeat).getTime() < 90_000
+function isBuddyOnline(buddy?: MyListing['buddy']): boolean {
+  if (!buddy) return false
+  if (buddy.status !== 'running') return false
+  if (!buddy.lastHeartbeat) return false
+  return Date.now() - new Date(buddy.lastHeartbeat).getTime() < 90_000
 }
 
 function formatOnlineDuration(seconds: number, t: TranslateFn): string {
@@ -185,10 +185,10 @@ export function MyRentalsPage() {
 
   // Start chat with rented claw
   const startChatMutation = useMutation({
-    mutationFn: (agentUserId: string) =>
+    mutationFn: (buddyUserId: string) =>
       fetchApi<{ id: string }>('/api/dm/channels', {
         method: 'POST',
-        body: JSON.stringify({ userId: agentUserId }),
+        body: JSON.stringify({ userId: buddyUserId }),
       }),
     onSuccess: (data) => {
       navigate({ to: '/settings', search: { tab: 'chat', dm: data.id } })
@@ -359,12 +359,12 @@ export function MyRentalsPage() {
                             </span>
                           )}
                         </div>
-                        {isTenantView && c.agentUserId && (
+                        {isTenantView && c.buddyUserId && (
                           <button
                             type="button"
                             onClick={(e) => {
                               e.preventDefault()
-                              startChatMutation.mutate(c.agentUserId!)
+                              startChatMutation.mutate(c.buddyUserId!)
                             }}
                             disabled={startChatMutation.isPending}
                             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-400 to-cyan-500 text-white text-sm font-bold hover:from-cyan-500 hover:to-cyan-600 transition-all shadow-md hover:shadow-lg disabled:opacity-50"
@@ -444,8 +444,8 @@ function ListingsSection({
     )
   }
 
-  const onlineListings = myListings.listings.filter((l) => isAgentOnline(l.agent))
-  const offlineListings = myListings.listings.filter((l) => !isAgentOnline(l.agent))
+  const onlineListings = myListings.listings.filter((l) => isBuddyOnline(l.buddy))
+  const offlineListings = myListings.listings.filter((l) => !isBuddyOnline(l.buddy))
 
   return (
     <div className="space-y-4">
@@ -506,7 +506,7 @@ function ListingCard({
   relistMutation: { mutate: (id: string) => void }
   deleteMutation: { mutate: (id: string) => void }
 }) {
-  const online = isAgentOnline(l.agent)
+  const online = isBuddyOnline(l.buddy)
 
   // Determine effective display status considering isListed and isRented
   let statusBadge: { label: string; bg: string; text: string }
@@ -546,11 +546,11 @@ function ListingCard({
                 {online ? t('marketplace.online', '在线') : t('marketplace.offline', '离线')}
               </span>
             </span>
-            {l.agent?.totalOnlineSeconds ? (
+            {l.buddy?.totalOnlineSeconds ? (
               <span className="text-xs text-gray-400 flex items-center gap-1">
                 <Clock className="w-3 h-3" />
                 {t('marketplace.totalOnline', '累计')}{' '}
-                {formatOnlineDuration(l.agent.totalOnlineSeconds, t)}
+                {formatOnlineDuration(l.buddy.totalOnlineSeconds, t)}
               </span>
             ) : null}
             <span className="text-xs text-gray-400">

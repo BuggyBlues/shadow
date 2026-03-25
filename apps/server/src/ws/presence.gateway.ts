@@ -34,7 +34,7 @@ export function setupPresenceGateway(io: SocketIOServer, container: AppContainer
       },
     )
 
-    // presence:activity — agent/user activity status (thinking, working, etc.)
+    // presence:activity — buddy/user activity status (thinking, working, etc.)
     socket.on(
       'presence:activity',
       ({ channelId, activity }: { channelId: string; activity: string | null }) => {

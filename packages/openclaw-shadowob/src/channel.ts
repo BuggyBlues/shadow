@@ -48,7 +48,7 @@ export const shadowPlugin = createChatChannelPlugin<ShadowAccountConfig>({
       label: 'ShadowOwnBuddy',
       selectionLabel: 'ShadowOwnBuddy (Server)',
       docsPath: '/channels/shadowob',
-      blurb: 'Shadow server channel integration — chat with AI agents in Shadow channels',
+      blurb: 'Shadow server channel integration — chat with AI buddies in Shadow channels',
       aliases: ['shadow-server', 'openclaw-shadowob'],
     },
 
@@ -137,7 +137,7 @@ shadowPlugin.meta = {
   label: 'ShadowOwnBuddy',
   selectionLabel: 'ShadowOwnBuddy (Server)',
   docsPath: '/channels/shadowob',
-  blurb: 'Shadow server channel integration — chat with AI agents in Shadow channels',
+  blurb: 'Shadow server channel integration — chat with AI buddies in Shadow channels',
   aliases: ['shadow-server', 'openclaw-shadowob'],
 }
 
@@ -167,7 +167,7 @@ shadowPlugin.configSchema = {
   schema: {
     type: 'object',
     properties: {
-      token: { type: 'string', description: 'Agent JWT token' },
+      token: { type: 'string', description: 'Buddy JWT token' },
       serverUrl: { type: 'string', description: 'Shadow server URL' },
       enabled: { type: 'boolean' },
       accounts: {
@@ -186,9 +186,9 @@ shadowPlugin.configSchema = {
   },
   uiHints: {
     token: {
-      label: 'Agent Token',
+      label: 'Buddy Token',
       sensitive: true,
-      placeholder: 'Paste the JWT token generated in Shadow → Agents',
+      placeholder: 'Paste the JWT token generated in Shadow → Buddies',
     },
     serverUrl: {
       label: 'Server URL',
@@ -200,12 +200,14 @@ shadowPlugin.configSchema = {
   },
 }
 
-/** Agent prompt hints — injected into the AI's system prompt for the message tool */
+/** Buddy prompt hints — injected into the AI's system prompt for the message tool */
 shadowPlugin.agentPrompt = {
   messageToolHints: () => [
+    '- You are a Buddy (AI buddy) on the Shadow platform. Shadow is organized into Servers, each containing multiple Channels for group chat and Threads for nested discussions. Users can also Direct Message (DM) you privately.',
+    '- Your identity: BuddyDisplayName is your display name, BuddyUsername is your username, BuddyAtSlug (e.g. @buddy--6383) is your @mention slug. Use BuddyDisplayName when referring to yourself.',
+    '- Context: ServerSlug/ServerId identifies the current server, ChannelName identifies the current channel, ChatType indicates "channel", "thread", or "dm".',
     '- Shadow server management: use `action: "get-server"` with `serverId` (slug or UUID) to fetch server info including homepage HTML.',
     '- Shadow homepage decoration: use `action: "update-homepage"` with `serverId` (slug or UUID) and `html` (full HTML string) to update the server\'s homepage. Set `html` to null to reset to default.',
-    '- The server slug or ID is provided in the message context as ServerSlug/ServerId when the message originates from a Shadow channel.',
     '- When a user asks to customize/decorate the server homepage, first use `get-server` to see current state, then generate beautiful HTML and use `update-homepage` to apply it.',
     '- Connection diagnostics: use `action: "get-connection-status"` (no params) to probe all configured Shadow accounts and report connection health.',
   ],
@@ -381,6 +383,8 @@ const SHADOW_ACTIONS = [
 
 shadowPlugin.actions = {
   describeMessageTool: () => null,
+
+  listActions: (): string[] => [...SHADOW_ACTIONS],
 
   supportsAction: ({ action }: { action: string }): boolean =>
     (SHADOW_ACTIONS as readonly string[]).includes(action),

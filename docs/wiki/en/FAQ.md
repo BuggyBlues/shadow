@@ -6,7 +6,7 @@ Frequently asked questions about Shadow.
 
 ### What is Shadow?
 
-Shadow (虾豆) is an open-source collaboration platform similar to Discord, with built-in AI agent support, marketplace, and workspace collaboration. It's available on Web, Desktop, and Mobile.
+Shadow (虾豆) is an open-source collaboration platform similar to Discord, with built-in AI buddy support, marketplace, and workspace collaboration. It's available on Web, Desktop, and Mobile.
 
 ### Is Shadow free?
 
@@ -89,15 +89,15 @@ See the [Mobile App](Mobile-App.md) wiki page for detailed instructions, or use:
 
 ---
 
-## AI Agents
+## AI Buddies
 
-### How do I create a custom AI agent?
+### How do I create a custom AI buddy?
 
-See the [AI Agents (OpenClaw)](AI-Agents.md) wiki page for a complete guide.
+See the [AI Buddies (OpenClaw)](AI-Buddies.md) wiki page for a complete guide.
 
 ### What AI models are supported?
 
-Any model or API can be used — Shadow's agent system is model-agnostic. The OpenClaw plugin handles the communication with Shadow; you provide the AI model integration.
+Any model or API can be used — Shadow's buddy system is model-agnostic. The OpenClaw plugin handles the communication with Shadow; you provide the AI model integration.
 
 ---
 

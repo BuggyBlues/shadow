@@ -1,7 +1,7 @@
 /**
  * Buddy Connect Page
  *
- * Manage connections between local OpenClaw agents and remote ShadowOwnBuddy
+ * Manage connections between local OpenClaw buddies and remote ShadowOwnBuddy
  * instances. Users select from their existing Buddy list (fetched from the
  * ShadowOwnBuddy server) and connections are auto-configured — no manual token entry.
  */
@@ -28,20 +28,20 @@ import {
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../../lib/api'
-import type { AgentConfig, BuddyConnection } from '../../lib/openclaw-api'
+import type { BuddyConfig, BuddyConnection } from '../../lib/openclaw-api'
 import { openClawApi } from '../../lib/openclaw-api'
 import type { NavContext } from './index'
 import type { OpenClawPage } from './openclaw-layout'
 import { OpenClawButton, OpenClawSplitLayout } from './openclaw-ui'
 
-/** Remote Buddy agent from the ShadowOwnBuddy server */
+/** Remote Buddy buddy from the ShadowOwnBuddy server */
 interface RemoteBuddy {
   id: string
   userId: string
   status: 'running' | 'stopped' | 'error'
   lastHeartbeat: string | null
   totalOnlineSeconds: number
-  botUser?: {
+  buddyUser?: {
     id: string
     username: string
     displayName: string | null
@@ -57,8 +57,8 @@ interface RemoteBuddy {
 
 interface TokenResponse {
   token: string
-  agent: { id: string; userId: string; status: string }
-  botUser: { id: string; username: string; displayName: string | null; avatarUrl: string | null }
+  buddy: { id: string; userId: string; status: string }
+  buddyUser: { id: string; username: string; displayName: string | null; avatarUrl: string | null }
 }
 
 export function BuddyPage({
@@ -70,9 +70,9 @@ export function BuddyPage({
 }) {
   const { t } = useTranslation()
   const [connections, setConnections] = useState<BuddyConnection[]>([])
-  const [agents, setAgents] = useState<AgentConfig[]>([])
+  const [buddies, setBuddies] = useState<BuddyConfig[]>([])
   const [selectedConn, setSelectedConn] = useState<BuddyConnection | null>(null)
-  const [isAdding, setIsAdding] = useState(!!navContext?.initialAgentId)
+  const [isAdding, setIsAdding] = useState(!!navContext?.initialBuddyId)
   const [connecting, setConnecting] = useState<Set<string>>(new Set())
   const [disconnecting, setDisconnecting] = useState<Set<string>>(new Set())
   const [notice, setNotice] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
@@ -86,10 +86,10 @@ export function BuddyPage({
     try {
       const [conns, ag] = await Promise.all([
         openClawApi.listBuddyConnections(),
-        openClawApi.listAgents(),
+        openClawApi.listBuddies(),
       ])
       setConnections(conns)
-      setAgents(ag)
+      setBuddies(ag)
     } catch {
       // Ignore
     }
@@ -319,8 +319,8 @@ export function BuddyPage({
         <div className="h-full min-h-0 overflow-y-auto">
           {isAdding ? (
             <AddConnectionView
-              agents={agents}
-              initialAgentId={navContext?.initialAgentId}
+              buddies={buddies}
+              initialBuddyId={navContext?.initialBuddyId}
               onNavigateBack={
                 navContext?.returnTo ? () => onNavigate?.(navContext.returnTo!) : undefined
               }
@@ -343,7 +343,7 @@ export function BuddyPage({
             <ConnectionDetailView
               key={selectedConn.id}
               connection={selectedConn}
-              agents={agents}
+              buddies={buddies}
               onBack={() => setSelectedConn(null)}
               onConnect={() => handleConnect(selectedConn.id)}
               onDisconnect={() => handleDisconnect(selectedConn.id)}
@@ -379,14 +379,14 @@ export function BuddyPage({
 type AddMode = 'create' | 'bind'
 
 function AddConnectionView({
-  agents,
-  initialAgentId,
+  buddies,
+  initialBuddyId,
   onNavigateBack,
   onBack,
   onSave,
 }: {
-  agents: AgentConfig[]
-  initialAgentId?: string
+  buddies: BuddyConfig[]
+  initialBuddyId?: string
   onNavigateBack?: () => void
   onBack: () => void
   onSave: () => void
@@ -397,7 +397,7 @@ function AddConnectionView({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedBuddy, setSelectedBuddy] = useState<RemoteBuddy | null>(null)
-  const [agentId, setAgentId] = useState(initialAgentId ?? '')
+  const [buddyId, setBuddyId] = useState(initialBuddyId ?? '')
   const [autoConnect, setAutoConnect] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -406,7 +406,7 @@ function AddConnectionView({
     if (mode !== 'bind') return
     setLoading(true)
     setError(null)
-    fetchApi<RemoteBuddy[]>('/api/agents')
+    fetchApi<RemoteBuddy[]>('/api/buddies')
       .then((buddies) => {
         setRemoteBuddies(buddies)
         setLoading(false)
@@ -428,11 +428,11 @@ function AddConnectionView({
       const serverUrl = (import.meta.env.VITE_API_BASE as string) || window.location.origin
 
       if (mode === 'create') {
-        // Create a new remote buddy with the same name as the local agent
-        const agent = agents.find((a) => a.id === agentId)
-        const buddyName = agent?.name || 'OpenClaw Buddy'
+        // Create a new remote buddy with the same name as the local buddy
+        const buddy = buddies.find((a) => a.id === buddyId)
+        const buddyName = buddy?.name || 'OpenClaw Buddy'
         const username = `buddy-${Date.now()}`
-        const remoteBuddy = await fetchApi<{ id: string }>('/api/agents', {
+        const remoteBuddy = await fetchApi<{ id: string }>('/api/buddies', {
           method: 'POST',
           body: JSON.stringify({
             name: buddyName,
@@ -440,7 +440,7 @@ function AddConnectionView({
             kernelType: 'openclaw',
           }),
         })
-        const tokenResp = await fetchApi<TokenResponse>(`/api/agents/${remoteBuddy.id}/token`, {
+        const tokenResp = await fetchApi<TokenResponse>(`/api/buddies/${remoteBuddy.id}/token`, {
           method: 'POST',
         })
         await openClawApi.addBuddyConnection({
@@ -448,25 +448,25 @@ function AddConnectionView({
           label: buddyName,
           serverUrl,
           apiToken: tokenResp.token,
-          remoteAgentId: tokenResp.agent.id,
-          agentId,
+          remoteBuddyId: tokenResp.buddy.id,
+          buddyId,
           autoConnect,
         })
       } else {
         // Bind to existing remote buddy
         if (!selectedBuddy) return
-        const tokenResp = await fetchApi<TokenResponse>(`/api/agents/${selectedBuddy.id}/token`, {
+        const tokenResp = await fetchApi<TokenResponse>(`/api/buddies/${selectedBuddy.id}/token`, {
           method: 'POST',
         })
         const buddyName =
-          selectedBuddy.botUser?.displayName ?? selectedBuddy.botUser?.username ?? 'Buddy'
+          selectedBuddy.buddyUser?.displayName ?? selectedBuddy.buddyUser?.username ?? 'Buddy'
         await openClawApi.addBuddyConnection({
           id: crypto.randomUUID(),
           label: buddyName,
           serverUrl,
           apiToken: tokenResp.token,
-          remoteAgentId: tokenResp.agent.id,
-          agentId,
+          remoteBuddyId: tokenResp.buddy.id,
+          buddyId,
           autoConnect,
         })
       }
@@ -478,7 +478,7 @@ function AddConnectionView({
     }
   }
 
-  const canSave = mode === 'create' ? !!agentId : !!selectedBuddy
+  const canSave = mode === 'create' ? !!buddyId : !!selectedBuddy
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -492,7 +492,7 @@ function AddConnectionView({
                 className="flex items-center gap-1 text-xs text-text-muted hover:text-primary transition mb-2 cursor-pointer"
               >
                 <ArrowLeft size={12} />
-                {t('openclaw.buddy.backToAgent', '返回智能体编辑')}
+                {t('openclaw.buddy.backToBuddy', '返回智能体编辑')}
               </button>
             )}
             <h2 className="text-lg font-bold text-text-primary mb-1">
@@ -580,7 +580,8 @@ function AddConnectionView({
                       const isOnline =
                         buddy.lastHeartbeat &&
                         Date.now() - new Date(buddy.lastHeartbeat).getTime() < 90000
-                      const name = buddy.botUser?.displayName ?? buddy.botUser?.username ?? 'Buddy'
+                      const name =
+                        buddy.buddyUser?.displayName ?? buddy.buddyUser?.username ?? 'Buddy'
 
                       return (
                         <button
@@ -593,9 +594,9 @@ function AddConnectionView({
                               : 'bg-bg-primary border-2 border-transparent hover:bg-bg-tertiary/50'
                           }`}
                         >
-                          {buddy.botUser?.avatarUrl ? (
+                          {buddy.buddyUser?.avatarUrl ? (
                             <img
-                              src={buddy.botUser.avatarUrl}
+                              src={buddy.buddyUser.avatarUrl}
                               alt={name}
                               className="w-10 h-10 rounded-full object-cover"
                             />
@@ -607,7 +608,7 @@ function AddConnectionView({
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-text-primary truncate">{name}</p>
                             <p className="text-[10px] text-text-muted">
-                              @{buddy.botUser?.username ?? 'unknown'}
+                              @{buddy.buddyUser?.username ?? 'unknown'}
                             </p>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
@@ -639,30 +640,30 @@ function AddConnectionView({
             </section>
           )}
 
-          {/* ━━━ Agent Binding ━━━ */}
+          {/* ━━━ Buddy Binding ━━━ */}
           <section>
             <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
-              {t('openclaw.buddy.agentBinding', '本地智能体绑定')}
+              {t('openclaw.buddy.buddyBinding', '本地智能体绑定')}
             </h3>
             <div className="bg-bg-secondary rounded-xl border border-bg-tertiary p-4 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-text-primary mb-1.5">
-                  {t('openclaw.buddy.agent', '本地智能体')}
+                  {t('openclaw.buddy.buddy', '本地智能体')}
                 </label>
                 <select
-                  value={agentId}
-                  onChange={(e) => setAgentId(e.target.value)}
+                  value={buddyId}
+                  onChange={(e) => setBuddyId(e.target.value)}
                   className="w-full px-3 py-2.5 rounded-lg bg-bg-primary border border-bg-tertiary text-sm text-text-primary focus:outline-none focus:border-primary/50 transition"
                 >
-                  <option value="">{t('openclaw.buddy.selectAgent', '选择智能体...')}</option>
-                  {agents.map((a) => (
+                  <option value="">{t('openclaw.buddy.selectBuddy', '选择智能体...')}</option>
+                  {buddies.map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.identity?.emoji} {a.name || a.id}
                     </option>
                   ))}
                 </select>
                 <p className="text-[10px] text-text-muted mt-1">
-                  {t('openclaw.buddy.agentHint', '用于处理来自该 Buddy 消息的智能体')}
+                  {t('openclaw.buddy.buddyHint', '用于处理来自该 Buddy 消息的智能体')}
                 </p>
               </div>
 
@@ -702,7 +703,7 @@ function AddConnectionView({
           </section>
 
           {/* ━━━ Connection diagram ━━━ */}
-          {(mode === 'bind' ? selectedBuddy : agentId) && (
+          {(mode === 'bind' ? selectedBuddy : buddyId) && (
             <section>
               <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
                 {t('openclaw.buddy.diagram', '连接流程')}
@@ -714,7 +715,7 @@ function AddConnectionView({
                       <Server size={24} className="text-primary" />
                     </div>
                     <span className="text-[10px] text-text-muted font-medium">
-                      {t('openclaw.buddy.localAgent', '本地智能体')}
+                      {t('openclaw.buddy.localBuddy', '本地智能体')}
                     </span>
                   </div>
 
@@ -731,9 +732,9 @@ function AddConnectionView({
 
                   <div className="flex flex-col items-center gap-1.5">
                     <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center">
-                      {mode === 'bind' && selectedBuddy?.botUser?.avatarUrl ? (
+                      {mode === 'bind' && selectedBuddy?.buddyUser?.avatarUrl ? (
                         <img
-                          src={selectedBuddy.botUser.avatarUrl}
+                          src={selectedBuddy.buddyUser.avatarUrl}
                           alt=""
                           className="w-10 h-10 rounded-lg object-cover"
                         />
@@ -743,8 +744,8 @@ function AddConnectionView({
                     </div>
                     <span className="text-[10px] text-text-primary font-medium">
                       {mode === 'bind'
-                        ? (selectedBuddy?.botUser?.displayName ?? 'Buddy')
-                        : (agents.find((a) => a.id === agentId)?.name ?? 'Buddy')}
+                        ? (selectedBuddy?.buddyUser?.displayName ?? 'Buddy')
+                        : (buddies.find((a) => a.id === buddyId)?.name ?? 'Buddy')}
                     </span>
                   </div>
 
@@ -781,7 +782,7 @@ function AddConnectionView({
 
 function ConnectionDetailView({
   connection,
-  agents,
+  buddies,
   onBack,
   onConnect,
   onDisconnect,
@@ -791,7 +792,7 @@ function ConnectionDetailView({
   disconnecting,
 }: {
   connection: BuddyConnection
-  agents: AgentConfig[]
+  buddies: BuddyConfig[]
   onBack: () => void
   onConnect: () => void
   onDisconnect: () => void
@@ -801,28 +802,28 @@ function ConnectionDetailView({
   disconnecting: boolean
 }) {
   const { t } = useTranslation()
-  const agent = agents.find((a) => a.id === connection.agentId)
+  const buddy = buddies.find((a) => a.id === connection.buddyId)
   const isConnected = connection.status === 'connected'
   const isError = connection.status === 'error'
 
-  const [editingAgent, setEditingAgent] = useState(false)
-  const [newAgentId, setNewAgentId] = useState(connection.agentId)
-  const [savingAgent, setSavingAgent] = useState(false)
+  const [editingBuddy, setEditingBuddy] = useState(false)
+  const [newBuddyId, setNewBuddyId] = useState(connection.buddyId)
+  const [savingBuddy, setSavingBuddy] = useState(false)
 
-  const handleSaveAgent = async () => {
-    if (newAgentId === connection.agentId) {
-      setEditingAgent(false)
+  const handleSaveBuddy = async () => {
+    if (newBuddyId === connection.buddyId) {
+      setEditingBuddy(false)
       return
     }
-    setSavingAgent(true)
+    setSavingBuddy(true)
     try {
-      await openClawApi.updateBuddyConnection(connection.id, { agentId: newAgentId })
-      setEditingAgent(false)
+      await openClawApi.updateBuddyConnection(connection.id, { buddyId: newBuddyId })
+      setEditingBuddy(false)
       onRefresh()
     } catch {
       // ignore
     } finally {
-      setSavingAgent(false)
+      setSavingBuddy(false)
     }
   }
 
@@ -865,17 +866,17 @@ function ConnectionDetailView({
             </div>
             <div>
               <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
-                {t('openclaw.buddy.agentLabel', '智能体')}
+                {t('openclaw.buddy.buddyLabel', '智能体')}
               </p>
-              {editingAgent ? (
+              {editingBuddy ? (
                 <div className="flex items-center gap-2">
                   <select
-                    value={newAgentId}
-                    onChange={(e) => setNewAgentId(e.target.value)}
+                    value={newBuddyId}
+                    onChange={(e) => setNewBuddyId(e.target.value)}
                     className="flex-1 px-2 py-1 rounded-md bg-bg-primary border border-bg-tertiary text-sm text-text-primary focus:outline-none focus:border-primary/50 transition"
                   >
-                    <option value="">{t('openclaw.buddy.selectAgent', '选择智能体...')}</option>
-                    {agents.map((a) => (
+                    <option value="">{t('openclaw.buddy.selectBuddy', '选择智能体...')}</option>
+                    {buddies.map((a) => (
                       <option key={a.id} value={a.id}>
                         {a.identity?.emoji} {a.name || a.id}
                       </option>
@@ -883,11 +884,11 @@ function ConnectionDetailView({
                   </select>
                   <button
                     type="button"
-                    disabled={savingAgent}
-                    onClick={handleSaveAgent}
+                    disabled={savingBuddy}
+                    onClick={handleSaveBuddy}
                     className="text-xs text-primary hover:text-primary/80 font-medium cursor-pointer disabled:opacity-50"
                   >
-                    {savingAgent ? (
+                    {savingBuddy ? (
                       <Loader2 size={12} className="animate-spin" />
                     ) : (
                       t('common.save', '保存')
@@ -896,8 +897,8 @@ function ConnectionDetailView({
                   <button
                     type="button"
                     onClick={() => {
-                      setEditingAgent(false)
-                      setNewAgentId(connection.agentId)
+                      setEditingBuddy(false)
+                      setNewBuddyId(connection.buddyId)
                     }}
                     className="text-xs text-text-muted hover:text-text-primary cursor-pointer"
                   >
@@ -907,15 +908,15 @@ function ConnectionDetailView({
               ) : (
                 <div className="flex items-center gap-1.5">
                   <p className="text-sm text-text-primary">
-                    {agent
-                      ? `${agent.identity?.emoji ?? ''} ${agent.name || agent.id}`
+                    {buddy
+                      ? `${buddy.identity?.emoji ?? ''} ${buddy.name || buddy.id}`
                       : t('openclaw.buddy.unassigned', '未分配')}
                   </p>
                   <button
                     type="button"
-                    onClick={() => setEditingAgent(true)}
+                    onClick={() => setEditingBuddy(true)}
                     className="text-text-muted hover:text-primary transition cursor-pointer"
-                    title={t('openclaw.buddy.changeAgent', '更换智能体')}
+                    title={t('openclaw.buddy.changeBuddy', '更换智能体')}
                   >
                     <Edit3 size={12} />
                   </button>

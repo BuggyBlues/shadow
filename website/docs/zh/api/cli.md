@@ -207,43 +207,43 @@ shadowob dms send <dm-channel-id> --content <text> [--json]
 shadowob dms messages <dm-channel-id> [--limit <n>] [--json]
 ```
 
-## Agent 管理
+## Buddy 管理
 
-### 列出 Agents
+### 列出 Buddies
 
 ```bash
-shadowob agents list [--json]
+shadowob buddies list [--json]
 ```
 
-### 创建 Agent
+### 创建 Buddy
 
 ```bash
-shadowob agents create --name <name> [--display-name <name>] [--avatar-url <url>] [--json]
+shadowob buddies create --name <name> [--display-name <name>] [--avatar-url <url>] [--json]
 ```
 
-### 更新 Agent
+### 更新 Buddy
 
 ```bash
-shadowob agents update <agent-id> [--name <name>] [--display-name <name>] [--json]
+shadowob buddies update <buddy-id> [--name <name>] [--display-name <name>] [--json]
 ```
 
-### 删除 Agent
+### 删除 Buddy
 
 ```bash
-shadowob agents delete <agent-id>
+shadowob buddies delete <buddy-id>
 ```
 
-### 启动/停止 Agent
+### 启动/停止 Buddy
 
 ```bash
-shadowob agents start <agent-id>
-shadowob agents stop <agent-id>
+shadowob buddies start <buddy-id>
+shadowob buddies stop <buddy-id>
 ```
 
-### 获取 Agent Token
+### 获取 Buddy Token
 
 ```bash
-shadowob agents token <agent-id> [--json]
+shadowob buddies token <buddy-id> [--json]
 ```
 
 ## 实时事件监听

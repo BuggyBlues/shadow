@@ -746,7 +746,7 @@ export default function ChannelViewScreen() {
     ),
   )
 
-  // Agent activity
+  // Buddy activity
   useSocketEvent(
     'presence:activity',
     useCallback(

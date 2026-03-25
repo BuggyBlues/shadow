@@ -15,7 +15,7 @@ const SCREENSHOT_DIR = path.resolve(__dirname, '../../test-results/openclaw-scre
 
 // ─── Mock Data ──────────────────────────────────────────────────────────────
 
-const MOCK_AGENTS = [
+const MOCK_BUDDIES = [
   {
     id: 'shadow-assistant',
     name: 'Shadow Assistant',
@@ -96,17 +96,17 @@ const MOCK_CRON_TASKS = [
     name: 'Daily Standup Reminder',
     description: 'Send standup questions to team channel every weekday morning',
     enabled: true,
-    agentId: 'shadow-assistant',
+    buddyId: 'shadow-assistant',
     schedule: { kind: 'cron' as const, expr: '0 9 * * 1-5', tz: 'Asia/Shanghai' },
-    payload: { kind: 'agentTurn' as const, message: 'Good morning team! Time for standup.' },
+    payload: { kind: 'buddyTurn' as const, message: 'Good morning team! Time for standup.' },
   },
   {
     name: 'Weekly Code Review',
     description: 'Generate and post weekly code metrics report on Fridays',
     enabled: true,
-    agentId: 'code-reviewer',
+    buddyId: 'code-reviewer',
     schedule: { kind: 'cron' as const, expr: '0 17 * * 5' },
-    payload: { kind: 'agentTurn' as const, message: 'Generate weekly code review summary.' },
+    payload: { kind: 'buddyTurn' as const, message: 'Generate weekly code review summary.' },
   },
 ]
 
@@ -126,10 +126,10 @@ async function seedData(p: Page) {
       ).desktopAPI?.openClaw
       if (!api) return
 
-      // Agents
-      for (const agent of data.agents) {
+      // Buddies
+      for (const buddy of data.buddies) {
         try {
-          await api.createAgent(agent)
+          await api.createBuddy(buddy)
         } catch {
           /* may already exist */
         }
@@ -160,12 +160,12 @@ async function seedData(p: Page) {
           label: 'Team Shadow Server',
           serverUrl: 'https://shadow.example.com',
           apiToken: 'mock-token',
-          agentId: 'shadow-assistant',
+          buddyId: 'shadow-assistant',
           autoConnect: true,
         })
       } catch {}
     },
-    { agents: MOCK_AGENTS, models: MOCK_MODELS, cronTasks: MOCK_CRON_TASKS },
+    { buddies: MOCK_BUDDIES, models: MOCK_MODELS, cronTasks: MOCK_CRON_TASKS },
   )
 }
 
@@ -177,7 +177,7 @@ async function cleanupData(p: Page) {
     if (!api) return
     for (const id of ['shadow-assistant', 'code-reviewer', 'scheduler-bot']) {
       try {
-        await api.deleteAgent(id)
+        await api.deleteBuddy(id)
       } catch {}
     }
     for (const id of ['openai', 'anthropic', 'ollama']) {
@@ -306,15 +306,15 @@ test.describe
       await page.screenshot({ path: screenshotPath('oc-01-dashboard') })
     })
 
-    test('oc-02-agents', async () => {
+    test('oc-02-buddies', async () => {
       await clickNav(page, '我的龙虾')
-      // Click first agent in list to show the editor panel
-      const agentItem = page.locator('button:has-text("Shadow Assistant")').first()
-      if (await agentItem.isVisible().catch(() => false)) {
-        await agentItem.click()
+      // Click first buddy in list to show the editor panel
+      const buddyItem = page.locator('button:has-text("Shadow Assistant")').first()
+      if (await buddyItem.isVisible().catch(() => false)) {
+        await buddyItem.click()
         await page.waitForTimeout(800)
       }
-      await page.screenshot({ path: screenshotPath('oc-02-agents') })
+      await page.screenshot({ path: screenshotPath('oc-02-buddies') })
     })
 
     test('oc-03-skillhub', async () => {

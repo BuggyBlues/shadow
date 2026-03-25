@@ -135,70 +135,70 @@ export class ShadowClient {
     return this.request('/api/auth/disconnect', { method: 'POST' })
   }
 
-  // ── Agents ────────────────────────────────────────────────────────────
+  // ── Buddies ────────────────────────────────────────────────────────────
 
-  async listAgents(): Promise<{ id: string; name: string; status: string }[]> {
-    return this.request('/api/agents')
+  async listBuddies(): Promise<{ id: string; name: string; status: string }[]> {
+    return this.request('/api/buddies')
   }
 
-  async createAgent(data: {
+  async createBuddy(data: {
     name: string
     displayName?: string
     avatarUrl?: string | null
   }): Promise<{ id: string; token: string; userId: string }> {
-    return this.request('/api/agents', {
+    return this.request('/api/buddies', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   }
 
-  async getAgent(
-    agentId: string,
+  async getBuddy(
+    buddyId: string,
   ): Promise<{ id: string; name: string; status: string; userId: string }> {
-    return this.request(`/api/agents/${agentId}`)
+    return this.request(`/api/buddies/${buddyId}`)
   }
 
-  async updateAgent(
-    agentId: string,
+  async updateBuddy(
+    buddyId: string,
     data: { name?: string; displayName?: string; avatarUrl?: string | null },
   ): Promise<{ id: string; name: string }> {
-    return this.request(`/api/agents/${agentId}`, {
+    return this.request(`/api/buddies/${buddyId}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     })
   }
 
-  async deleteAgent(agentId: string): Promise<{ success: boolean }> {
-    return this.request(`/api/agents/${agentId}`, { method: 'DELETE' })
+  async deleteBuddy(buddyId: string): Promise<{ success: boolean }> {
+    return this.request(`/api/buddies/${buddyId}`, { method: 'DELETE' })
   }
 
-  async generateAgentToken(agentId: string): Promise<{ token: string }> {
-    return this.request(`/api/agents/${agentId}/token`, { method: 'POST' })
+  async generateBuddyToken(buddyId: string): Promise<{ token: string }> {
+    return this.request(`/api/buddies/${buddyId}/token`, { method: 'POST' })
   }
 
-  async startAgent(agentId: string): Promise<{ ok: boolean }> {
-    return this.request(`/api/agents/${agentId}/start`, { method: 'POST' })
+  async startBuddy(buddyId: string): Promise<{ ok: boolean }> {
+    return this.request(`/api/buddies/${buddyId}/start`, { method: 'POST' })
   }
 
-  async stopAgent(agentId: string): Promise<{ ok: boolean }> {
-    return this.request(`/api/agents/${agentId}/stop`, { method: 'POST' })
+  async stopBuddy(buddyId: string): Promise<{ ok: boolean }> {
+    return this.request(`/api/buddies/${buddyId}/stop`, { method: 'POST' })
   }
 
-  async sendHeartbeat(agentId: string): Promise<{ ok: boolean }> {
-    return this.request(`/api/agents/${agentId}/heartbeat`, {
+  async sendHeartbeat(buddyId: string): Promise<{ ok: boolean }> {
+    return this.request(`/api/buddies/${buddyId}/heartbeat`, {
       method: 'POST',
       body: JSON.stringify({}),
     })
   }
 
-  async getAgentConfig(agentId: string): Promise<ShadowRemoteConfig> {
-    return this.request<ShadowRemoteConfig>(`/api/agents/${agentId}/config`)
+  async getBuddyConfig(buddyId: string): Promise<ShadowRemoteConfig> {
+    return this.request<ShadowRemoteConfig>(`/api/buddies/${buddyId}/config`)
   }
 
-  // ── Agent Policies ────────────────────────────────────────────────────
+  // ── Buddy Policies ────────────────────────────────────────────────────
 
   async listPolicies(
-    agentId: string,
+    buddyId: string,
     serverId: string,
   ): Promise<
     {
@@ -208,11 +208,11 @@ export class ShadowClient {
       config: Record<string, unknown>
     }[]
   > {
-    return this.request(`/api/agents/${agentId}/servers/${serverId}/policies`)
+    return this.request(`/api/buddies/${buddyId}/servers/${serverId}/policies`)
   }
 
   async upsertPolicy(
-    agentId: string,
+    buddyId: string,
     serverId: string,
     data: {
       channelId?: string | null
@@ -221,18 +221,18 @@ export class ShadowClient {
       config?: Record<string, unknown>
     },
   ): Promise<{ channelId: string | null; mentionOnly: boolean; reply: boolean }> {
-    return this.request(`/api/agents/${agentId}/servers/${serverId}/policies`, {
+    return this.request(`/api/buddies/${buddyId}/servers/${serverId}/policies`, {
       method: 'PUT',
       body: JSON.stringify(data),
     })
   }
 
   async deletePolicy(
-    agentId: string,
+    buddyId: string,
     serverId: string,
     channelId: string,
   ): Promise<{ success: boolean }> {
-    return this.request(`/api/agents/${agentId}/servers/${serverId}/policies/${channelId}`, {
+    return this.request(`/api/buddies/${buddyId}/servers/${serverId}/policies/${channelId}`, {
       method: 'DELETE',
     })
   }
@@ -328,10 +328,10 @@ export class ShadowClient {
     return this.request(`/api/servers/${serverId}/invite`, { method: 'POST' })
   }
 
-  async addAgentsToServer(serverId: string, agentIds: string[]): Promise<{ added: string[] }> {
-    return this.request(`/api/servers/${serverId}/agents`, {
+  async addBuddiesToServer(serverId: string, buddyIds: string[]): Promise<{ added: string[] }> {
+    return this.request(`/api/servers/${serverId}/buddies`, {
       method: 'POST',
-      body: JSON.stringify({ agentIds }),
+      body: JSON.stringify({ buddyIds }),
     })
   }
 
@@ -694,7 +694,7 @@ export class ShadowClient {
     // @ts-expect-error node:os is available at runtime
     const { homedir } = await import('node:os')
 
-    // Strip MEDIA: prefix used by agent tools to tag media paths
+    // Strip MEDIA: prefix used by buddy tools to tag media paths
     let normalizedUrl = mediaUrl.replace(/^\s*MEDIA\s*:\s*/i, '')
 
     // Handle file:// URLs
@@ -1208,7 +1208,7 @@ export class ShadowClient {
   }
 
   async createListing(data: {
-    agentId: string
+    buddyId: string
     title: string
     description: string
     pricePerHour: number

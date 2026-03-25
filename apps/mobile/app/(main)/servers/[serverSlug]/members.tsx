@@ -35,10 +35,10 @@ interface Member {
   joinedAt: string
 }
 
-interface BuddyAgent {
+interface BuddyMember {
   id: string
   ownerId: string
-  botUser?: { id: string; username: string } | null
+  buddyUser?: { id: string; username: string } | null
 }
 
 type PolicyMode = 'replyAll' | 'mentionOnly' | 'custom' | 'disabled'
@@ -91,25 +91,25 @@ export default function MembersScreen() {
   const isLoading =
     (isServerLoading && !server) || (!!serverSlug && isMembersLoading && !membersError)
 
-  // Buddy agents for reply policy
-  const { data: buddyAgents = [] } = useQuery({
-    queryKey: ['members-buddy-agents'],
-    queryFn: () => fetchApi<BuddyAgent[]>('/api/agents'),
+  // Buddy buddies for reply policy
+  const { data: buddyMembers = [] } = useQuery({
+    queryKey: ['members-buddies'],
+    queryFn: () => fetchApi<BuddyMember[]>('/api/buddies'),
   })
 
-  // Find the agent for the selected buddy
-  const selectedAgent = policySheet?.user.isBot
-    ? buddyAgents.find((a) => a.botUser?.id === policySheet.user.id)
+  // Find the buddy for the selected buddy
+  const selectedBuddy = policySheet?.user.isBot
+    ? buddyMembers.find((a) => a.buddyUser?.id === policySheet.user.id)
     : null
 
   // Current policy query
   const { data: currentPolicy } = useQuery({
-    queryKey: ['agent-policy', channelId, selectedAgent?.id],
+    queryKey: ['buddy-policy', channelId, selectedBuddy?.id],
     queryFn: () =>
       fetchApi<{ mentionOnly: boolean; reply: boolean; config: PolicyConfig }>(
-        `/api/channels/${channelId}/agents/${selectedAgent!.id}/policy`,
+        `/api/channels/${channelId}/buddies/${selectedBuddy!.id}/policy`,
       ),
-    enabled: !!channelId && !!selectedAgent,
+    enabled: !!channelId && !!selectedBuddy,
   })
 
   const currentMode: PolicyMode = (() => {
@@ -131,13 +131,13 @@ export default function MembersScreen() {
   // Update policy mutation
   const updatePolicy = useMutation({
     mutationFn: ({ mode, config }: { mode: string; config?: PolicyConfig }) =>
-      fetchApi(`/api/channels/${channelId}/agents/${selectedAgent!.id}/policy`, {
+      fetchApi(`/api/channels/${channelId}/buddies/${selectedBuddy!.id}/policy`, {
         method: 'PUT',
         body: JSON.stringify({ mode, config }),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ['agent-policy', channelId, selectedAgent?.id],
+        queryKey: ['buddy-policy', channelId, selectedBuddy?.id],
       })
     },
   })
@@ -145,10 +145,10 @@ export default function MembersScreen() {
   // Can current user manage buddy policy?
   const canManagePolicy = (member: Member) => {
     if (!channelId || !member.user.isBot) return false
-    const agent = buddyAgents.find((a) => a.botUser?.id === member.user.id)
-    if (!agent) return false
+    const buddy = buddyMembers.find((a) => a.buddyUser?.id === member.user.id)
+    if (!buddy) return false
     // Owner of the buddy or server admin/owner
-    return agent.ownerId === currentUser?.id || server?.id != null
+    return buddy.ownerId === currentUser?.id || server?.id != null
   }
 
   // Open custom policy sheet with current values

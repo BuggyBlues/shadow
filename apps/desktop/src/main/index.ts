@@ -13,7 +13,7 @@ import { setupAutoUpdater } from './auto-updater'
 import { createAppMenu } from './menu'
 import { setupNotificationHandler } from './notifications'
 import { cleanupOpenClaw, initOpenClaw } from './openclaw'
-import { killAllAgents, setupProcessManager } from './process-manager'
+import { killAllBuddies, setupProcessManager } from './process-manager'
 import { registerGlobalShortcuts, unregisterAllShortcuts } from './shortcuts'
 import { createTray } from './tray'
 import { createWindow, getMainWindow } from './window'
@@ -92,6 +92,6 @@ app.on('activate', () => {
 
 app.on('will-quit', () => {
   unregisterAllShortcuts()
-  killAllAgents()
+  killAllBuddies()
   cleanupOpenClaw()
 })

@@ -139,6 +139,6 @@ export function generateTestChannelName(): string {
   return `test-channel-${Date.now()}`
 }
 
-export function generateTestAgentName(): string {
-  return `test-agent-${Date.now()}`
+export function generateTestBuddyName(): string {
+  return `test-buddy-${Date.now()}`
 }

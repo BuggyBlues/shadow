@@ -7,10 +7,10 @@ import { logger } from '../lib/logger'
 import { authMiddleware } from '../middleware/auth.middleware'
 
 /**
- * Relay a DM to a bot user for AI processing.
+ * Relay a DM to a buddy user for AI processing.
  * Shared by both REST and WebSocket send paths to avoid duplication.
  */
-export async function relayDmToBot(
+export async function relayDmToBuddy(
   io: SocketIOServer,
   container: AppContainer,
   dmChannelId: string,
@@ -29,15 +29,21 @@ export async function relayDmToBot(
   const otherUser = await userDao.findById(otherUserId)
   if (!otherUser?.isBot) return
 
-  // Ensure bot socket is in DM room
-  const botSockets = await io.in(`user:${otherUserId}`).fetchSockets()
-  for (const bs of botSockets) {
+  // Ensure buddy socket is in DM room
+  const buddySockets = await io.in(`user:${otherUserId}`).fetchSockets()
+  for (const bs of buddySockets) {
     bs.join(`dm:${dmChannelId}`)
   }
-  logger.info({ otherUserId, dmChannelId, botSocketCount: botSockets.length }, 'Relaying DM to bot')
+  logger.info(
+    { otherUserId, dmChannelId, buddySocketCount: buddySockets.length },
+    'Relaying DM to buddy',
+  )
 
-  if (botSockets.length === 0) {
-    logger.warn({ otherUserId, dmChannelId }, 'Bot has no active sockets — DM relay may be missed')
+  if (buddySockets.length === 0) {
+    logger.warn(
+      { otherUserId, dmChannelId },
+      'Buddy has no active sockets — DM relay may be missed',
+    )
   }
 
   const dmPayload = {
@@ -138,12 +144,12 @@ export function createDmHandler(container: AppContainer) {
       const io = container.resolve('io')
       io.to(`dm:${id}`).emit('dm:message', message)
 
-      // Relay to bot user if recipient is a bot (for AI processing)
+      // Relay to buddy user if recipient is a buddy (for AI processing)
       try {
         const channel = await dmService.getChannelById(id)
         if (channel) {
           const otherUserId = channel.userAId === user.userId ? channel.userBId : channel.userAId
-          await relayDmToBot(io, container, id, user.userId, otherUserId, {
+          await relayDmToBuddy(io, container, id, user.userId, otherUserId, {
             id: message.id,
             content: message.content ?? content,
             author: message.author,
@@ -161,7 +167,7 @@ export function createDmHandler(container: AppContainer) {
           }
         }
       } catch (err) {
-        logger.error({ err, dmChannelId: id }, 'REST: Bot DM relay failed')
+        logger.error({ err, dmChannelId: id }, 'REST: Buddy DM relay failed')
       }
 
       return c.json(message, 201)

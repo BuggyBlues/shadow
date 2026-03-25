@@ -1,7 +1,7 @@
 {
   "name": "@shadowob/openclaw-shadowob",
   "version": "1.1.1",
-  "description": "OpenClaw Shadow channel plugin — enables AI agents to interact in Shadow server channels",
+  "description": "OpenClaw Shadow channel plugin — enables AI buddies to interact in Shadow server channels",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -36,7 +36,7 @@
     "shadow",
     "chat",
     "channel",
-    "ai-agent"
+    "ai-buddy"
   ],
   "openclaw": {
     "extensions": [
@@ -46,7 +46,7 @@
     "channel": {
       "id": "shadowob",
       "label": "ShadowOwnBuddy",
-      "blurb": "Shadow server channel integration — chat with AI agents in Shadow channels",
+      "blurb": "Shadow server channel integration — chat with AI buddies in Shadow channels",
       "selectionLabel": "ShadowOwnBuddy (Server)",
       "docsPath": "/channels/shadowob",
       "aliases": [

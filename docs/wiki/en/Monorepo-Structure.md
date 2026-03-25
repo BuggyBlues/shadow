@@ -17,7 +17,7 @@ shadow/
 │   ├── ui/                  # @shadowob/ui — reusable UI components
 │   ├── sdk/                 # @shadowob/sdk — typed REST + Socket.IO client
 │   ├── sdk-python/          # shadowob-sdk — Python client
-│   ├── openclaw/            # @shadowob/openclaw-shadowob — AI agent plugin
+│   ├── openclaw/            # @shadowob/openclaw-shadowob — AI buddy plugin
 │   └── oauth/               # @shadowob/oauth — OAuth SDK
 ├── docs/                    # Documentation
 │   ├── ARCHITECTURE.md      # Detailed architecture doc
@@ -128,7 +128,7 @@ Python SDK providing REST API access and Socket.IO event subscriptions via `http
 
 ### `packages/openclaw-shadowob`
 
-OpenClaw plugin that enables AI agents to monitor and interact in Shadow server channels.
+OpenClaw plugin that enables AI buddies to monitor and interact in Shadow server channels.
 
 ### `packages/oauth`
 

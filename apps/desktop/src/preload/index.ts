@@ -21,17 +21,17 @@ const desktopAPI = {
   },
 
   // Process Management
-  startAgent: (config: { name: string; scriptPath: string; args?: string[] }) => {
-    return ipcRenderer.invoke('desktop:startAgent', config) as Promise<{ id: string; pid: number }>
+  startBuddy: (config: { name: string; scriptPath: string; args?: string[] }) => {
+    return ipcRenderer.invoke('desktop:startBuddy', config) as Promise<{ id: string; pid: number }>
   },
-  stopAgent: (processId: string) => {
-    return ipcRenderer.invoke('desktop:stopAgent', processId)
+  stopBuddy: (processId: string) => {
+    return ipcRenderer.invoke('desktop:stopBuddy', processId)
   },
-  getAgentStatus: (processId: string) => {
-    return ipcRenderer.invoke('desktop:getAgentStatus', processId)
+  getBuddyStatus: (processId: string) => {
+    return ipcRenderer.invoke('desktop:getBuddyStatus', processId)
   },
-  listAgents: () => {
-    return ipcRenderer.invoke('desktop:listAgents')
+  listBuddies: () => {
+    return ipcRenderer.invoke('desktop:listBuddies')
   },
 
   // Event listeners
@@ -78,20 +78,20 @@ const desktopAPI = {
     ipcRenderer.invoke('desktop:quitAndRestart')
   },
 
-  // Agent event listeners
-  onAgentMessage: (callback: (data: { id: string; message: unknown }) => void) => {
+  // Buddy event listeners
+  onBuddyMessage: (callback: (data: { id: string; message: unknown }) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, data: { id: string; message: unknown }) =>
       callback(data)
-    ipcRenderer.on('desktop:agentMessage', handler)
-    return () => ipcRenderer.removeListener('desktop:agentMessage', handler)
+    ipcRenderer.on('desktop:buddyMessage', handler)
+    return () => ipcRenderer.removeListener('desktop:buddyMessage', handler)
   },
-  onAgentExited: (callback: (data: { id: string; code: number | null }) => void) => {
+  onBuddyExited: (callback: (data: { id: string; code: number | null }) => void) => {
     const handler = (
       _event: Electron.IpcRendererEvent,
       data: { id: string; code: number | null },
     ) => callback(data)
-    ipcRenderer.on('desktop:agentExited', handler)
-    return () => ipcRenderer.removeListener('desktop:agentExited', handler)
+    ipcRenderer.on('desktop:buddyExited', handler)
+    return () => ipcRenderer.removeListener('desktop:buddyExited', handler)
   },
   onUpdateState: (
     callback: (data: {
@@ -159,21 +159,21 @@ const desktopAPI = {
     saveDesktopSettings: (settings: unknown) =>
       ipcRenderer.invoke('openclaw:desktop-settings:save', settings),
 
-    // Agents
-    listAgents: () => ipcRenderer.invoke('openclaw:agents:list'),
-    getAgent: (id: string) => ipcRenderer.invoke('openclaw:agents:get', id),
-    createAgent: (agent: unknown) => ipcRenderer.invoke('openclaw:agents:create', agent),
-    updateAgent: (id: string, updates: unknown) =>
-      ipcRenderer.invoke('openclaw:agents:update', id, updates),
-    deleteAgent: (id: string) => ipcRenderer.invoke('openclaw:agents:delete', id),
+    // Buddies
+    listBuddies: () => ipcRenderer.invoke('openclaw:buddies:list'),
+    getBuddy: (id: string) => ipcRenderer.invoke('openclaw:buddies:get', id),
+    createBuddy: (buddy: unknown) => ipcRenderer.invoke('openclaw:buddies:create', buddy),
+    updateBuddy: (id: string, updates: unknown) =>
+      ipcRenderer.invoke('openclaw:buddies:update', id, updates),
+    deleteBuddy: (id: string) => ipcRenderer.invoke('openclaw:buddies:delete', id),
 
-    // Agent Bootstrap Files
-    listBootstrapFiles: (agentId: string) =>
-      ipcRenderer.invoke('openclaw:agents:bootstrap:list', agentId),
-    readBootstrapFile: (agentId: string, fileName: string) =>
-      ipcRenderer.invoke('openclaw:agents:bootstrap:read', agentId, fileName),
-    writeBootstrapFile: (agentId: string, fileName: string, content: string) =>
-      ipcRenderer.invoke('openclaw:agents:bootstrap:write', agentId, fileName, content),
+    // Buddy Bootstrap Files
+    listBootstrapFiles: (buddyId: string) =>
+      ipcRenderer.invoke('openclaw:buddies:bootstrap:list', buddyId),
+    readBootstrapFile: (buddyId: string, fileName: string) =>
+      ipcRenderer.invoke('openclaw:buddies:bootstrap:read', buddyId, fileName),
+    writeBootstrapFile: (buddyId: string, fileName: string, content: string) =>
+      ipcRenderer.invoke('openclaw:buddies:bootstrap:write', buddyId, fileName, content),
 
     // Channels
     getChannelRegistry: () => ipcRenderer.invoke('openclaw:channels:registry'),

@@ -1,5 +1,5 @@
 import { compare, hash } from 'bcryptjs'
-import type { AgentDao } from '../dao/agent.dao'
+import type { BuddyDao } from '../dao/buddy.dao'
 import type { InviteCodeDao } from '../dao/invite-code.dao'
 import type { UserDao } from '../dao/user.dao'
 import { randomFixedDigits } from '../lib/id'
@@ -12,7 +12,7 @@ export class AuthService {
     private deps: {
       userDao: UserDao
       inviteCodeDao: InviteCodeDao
-      agentDao: AgentDao
+      buddyDao: BuddyDao
       taskCenterService: TaskCenterService
     },
   ) {}
@@ -156,19 +156,19 @@ export class AuthService {
   }
 
   async getMe(userId: string) {
-    const { userDao, agentDao } = this.deps
+    const { userDao, buddyDao } = this.deps
 
     const user = await userDao.findById(userId)
     if (!user) {
       throw Object.assign(new Error('User not found'), { status: 404 })
     }
 
-    // For bot users, look up and include the agentId
-    let agentId: string | undefined
+    // For buddy users, look up and include the buddyId
+    let buddyId: string | undefined
     if (user.isBot) {
-      const agent = await agentDao.findByUserId(userId)
-      if (agent) {
-        agentId = agent.id
+      const buddy = await buddyDao.findByUserId(userId)
+      if (buddy) {
+        buddyId = buddy.id
       }
     }
 
@@ -180,7 +180,7 @@ export class AuthService {
       avatarUrl: user.avatarUrl,
       status: user.status,
       isBot: user.isBot,
-      ...(agentId ? { agentId } : {}),
+      ...(buddyId ? { buddyId } : {}),
     }
   }
 

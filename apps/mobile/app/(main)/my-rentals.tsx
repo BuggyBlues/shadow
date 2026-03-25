@@ -43,7 +43,7 @@ interface MyListing {
   hourlyRate: number
   viewCount: number
   rentalCount: number
-  agent?: { status: string; lastHeartbeat: string | null; totalOnlineSeconds: number } | null
+  buddy?: { status: string; lastHeartbeat: string | null; totalOnlineSeconds: number } | null
 }
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
@@ -55,9 +55,9 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   disputed: { bg: '#ffedd5', text: '#c2410c' },
 }
 
-function isAgentOnline(agent?: MyListing['agent']): boolean {
-  if (!agent || agent.status !== 'running' || !agent.lastHeartbeat) return false
-  return Date.now() - new Date(agent.lastHeartbeat).getTime() < 90_000
+function isBuddyOnline(buddy?: MyListing['buddy']): boolean {
+  if (!buddy || buddy.status !== 'running' || !buddy.lastHeartbeat) return false
+  return Date.now() - new Date(buddy.lastHeartbeat).getTime() < 90_000
 }
 
 export default function MyRentalsScreen() {
@@ -158,11 +158,11 @@ export default function MyRentalsScreen() {
   }
 
   const listings = listingsData?.listings ?? []
-  const onlineListings = listings.filter((l) => isAgentOnline(l.agent))
-  const offlineListings = listings.filter((l) => !isAgentOnline(l.agent))
+  const onlineListings = listings.filter((l) => isBuddyOnline(l.buddy))
+  const offlineListings = listings.filter((l) => !isBuddyOnline(l.buddy))
 
   const renderListing = ({ item: l }: { item: MyListing }) => {
-    const online = isAgentOnline(l.agent)
+    const online = isBuddyOnline(l.buddy)
     return (
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.cardHeader}>

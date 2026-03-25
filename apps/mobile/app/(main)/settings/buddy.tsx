@@ -14,8 +14,8 @@ export default function BuddySettingsScreen() {
   const colors = useColors()
   const router = useRouter()
 
-  const { data: agents = [], isLoading } = useQuery({
-    queryKey: ['my-agents'],
+  const { data: buddies = [], isLoading } = useQuery({
+    queryKey: ['my-buddies'],
     queryFn: () =>
       fetchApi<
         Array<{
@@ -24,19 +24,19 @@ export default function BuddySettingsScreen() {
           status: string
           lastHeartbeat: string | null
           totalOnlineSeconds: number
-          botUser?: {
+          buddyUser?: {
             id: string
             username: string
             displayName: string | null
             avatarUrl: string | null
           } | null
         }>
-      >('/api/agents'),
+      >('/api/buddies'),
   })
 
-  const isAgentOnline = (agent: { status: string; lastHeartbeat: string | null }) => {
-    if (agent.status !== 'running' || !agent.lastHeartbeat) return false
-    return Date.now() - new Date(agent.lastHeartbeat).getTime() < 90_000
+  const isBuddyOnline = (buddy: { status: string; lastHeartbeat: string | null }) => {
+    if (buddy.status !== 'running' || !buddy.lastHeartbeat) return false
+    return Date.now() - new Date(buddy.lastHeartbeat).getTime() < 90_000
   }
 
   if (isLoading) return <LoadingScreen />
@@ -55,7 +55,7 @@ export default function BuddySettingsScreen() {
           <ChevronRight size={16} color="#fff" />
         </Pressable>
 
-        {agents.length === 0 ? (
+        {buddies.length === 0 ? (
           <View style={styles.emptyState}>
             <Bot size={40} color={colors.textMuted} />
             <Text style={{ color: colors.textMuted, fontSize: fontSize.sm, marginTop: spacing.sm }}>
@@ -64,26 +64,26 @@ export default function BuddySettingsScreen() {
           </View>
         ) : (
           <View style={[styles.card, { backgroundColor: colors.surface }]}>
-            {agents.map((agent, idx) => {
+            {buddies.map((buddy, idx) => {
               const name =
-                agent.botUser?.displayName ??
-                agent.botUser?.username ??
-                agent.name ??
-                agent.id.slice(0, 8)
-              const online = isAgentOnline(agent)
+                buddy.buddyUser?.displayName ??
+                buddy.buddyUser?.username ??
+                buddy.name ??
+                buddy.id.slice(0, 8)
+              const online = isBuddyOnline(buddy)
               return (
                 <Pressable
-                  key={agent.id}
+                  key={buddy.id}
                   style={[
                     styles.row,
                     { borderBottomColor: colors.border },
-                    idx === agents.length - 1 && { borderBottomWidth: 0 },
+                    idx === buddies.length - 1 && { borderBottomWidth: 0 },
                   ]}
                   onPress={() => router.push('/(main)/buddy-management')}
                 >
                   <Avatar
-                    uri={agent.botUser?.avatarUrl}
-                    userId={agent.botUser?.id}
+                    uri={buddy.buddyUser?.avatarUrl}
+                    userId={buddy.buddyUser?.id}
                     name={name}
                     size={40}
                   />
@@ -92,7 +92,7 @@ export default function BuddySettingsScreen() {
                       {name}
                     </Text>
                     <Text style={{ color: colors.textMuted, fontSize: fontSize.xs }}>
-                      @{agent.botUser?.username ?? 'buddy'}
+                      @{buddy.buddyUser?.username ?? 'buddy'}
                     </Text>
                   </View>
                   <View
@@ -108,7 +108,7 @@ export default function BuddySettingsScreen() {
                         fontWeight: '600',
                       }}
                     >
-                      {online ? 'online' : agent.status}
+                      {online ? 'online' : buddy.status}
                     </Text>
                   </View>
                 </Pressable>

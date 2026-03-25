@@ -4,7 +4,7 @@
  * Guided multi-step setup for first-time users:
  * 1. Welcome — overview of what OpenClaw does
  * 2. Model Provider — pick a provider and enter API key
- * 3. Create Agent — create the first smart claw
+ * 3. Create Buddy — create the first smart claw
  * 4. Done — summary of what was configured, next steps
  */
 
@@ -59,7 +59,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../../lib/api'
-import type { AgentConfig, ModelProviderEntry } from '../../lib/openclaw-api'
+import type { BuddyConfig, ModelProviderEntry } from '../../lib/openclaw-api'
 import { openClawApi } from '../../lib/openclaw-api'
 import {
   CATEGORY_LABELS,
@@ -73,8 +73,8 @@ import { GlowRing, OpenClawIcon, SparkleField } from './openclaw-brand'
 import type { OpenClawPage } from './openclaw-layout'
 import { OpenClawButton } from './openclaw-ui'
 
-type WizardStep = 'welcome' | 'model' | 'agent' | 'done'
-const STEPS: WizardStep[] = ['welcome', 'model', 'agent', 'done']
+type WizardStep = 'welcome' | 'model' | 'buddy' | 'done'
+const STEPS: WizardStep[] = ['welcome', 'model', 'buddy', 'done']
 
 interface OnboardPageProps {
   onNavigate: (page: OpenClawPage) => void
@@ -87,8 +87,8 @@ export function OnboardPage({ onNavigate }: OnboardPageProps) {
 
   // Shared state across steps
   const [savedProviderId, setSavedProviderId] = useState('')
-  const [savedAgentId, setSavedAgentId] = useState('')
-  const [savedAgentName, setSavedAgentName] = useState('')
+  const [savedBuddyId, setSavedBuddyId] = useState('')
+  const [savedBuddyName, setSavedBuddyName] = useState('')
 
   const goNext = useCallback(() => {
     const nextIdx = stepIndex + 1
@@ -136,7 +136,7 @@ export function OnboardPage({ onNavigate }: OnboardPageProps) {
             {[
               t('openclaw.onboard.stepWelcome', '欢迎'),
               t('openclaw.onboard.stepModel', '模型'),
-              t('openclaw.onboard.stepAgent', '龙虾'),
+              t('openclaw.onboard.stepBuddy', '龙虾'),
               t('openclaw.onboard.stepDone', '完成'),
             ].map((label, i) => (
               <span
@@ -159,14 +159,14 @@ export function OnboardPage({ onNavigate }: OnboardPageProps) {
           {step === 'model' && (
             <ModelStep onNext={goNext} onBack={goBack} onSaved={(id) => setSavedProviderId(id)} />
           )}
-          {step === 'agent' && (
-            <AgentStep
+          {step === 'buddy' && (
+            <BuddyStep
               onNext={goNext}
               onBack={goBack}
               savedProviderId={savedProviderId}
               onSaved={(id, name) => {
-                setSavedAgentId(id)
-                setSavedAgentName(name)
+                setSavedBuddyId(id)
+                setSavedBuddyName(name)
               }}
             />
           )}
@@ -174,8 +174,8 @@ export function OnboardPage({ onNavigate }: OnboardPageProps) {
             <DoneStep
               onNavigate={onNavigate}
               savedProviderId={savedProviderId}
-              savedAgentId={savedAgentId}
-              savedAgentName={savedAgentName}
+              savedBuddyId={savedBuddyId}
+              savedBuddyName={savedBuddyName}
             />
           )}
         </div>
@@ -340,7 +340,7 @@ function ModelStep({
     setSaving(true)
     setSaveError('')
     try {
-      // Enable all non-deprecated models so agent gets maximum options
+      // Enable all non-deprecated models so buddy gets maximum options
       const allModels = selected.models.filter((m) => !m.deprecated)
       const pickedModels = allModels.length > 0 ? allModels : selected.models.slice(0, 3)
 
@@ -614,7 +614,7 @@ function ModelStep({
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
- * Step 3: Create Agent — Persona Presets
+ * Step 3: Create Buddy — Persona Presets
  * ═════════════════════════════════════════════════════════════════════════════ */
 
 interface PersonaPreset {
@@ -622,7 +622,7 @@ interface PersonaPreset {
   color: string
   title: string
   desc: string
-  agentName: string
+  buddyName: string
   soul: string
 }
 
@@ -632,7 +632,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#6366f1',
     title: '通用助手',
     desc: '万能 AI 助理，适合日常问答',
-    agentName: 'AI 助手',
+    buddyName: 'AI 助手',
     soul: `# 通用 AI 助手\n\n你是一位全能的 AI 助理，擅长回答各类问题、完成多样化任务。\n\n## 核心原则\n- 回答准确、简洁、有条理\n- 遇到不确定的问题时坦诚告知\n- 根据用户的语言和风格自动适配\n- 优先提供可操作的建议和方案\n\n## 沟通风格\n友好而专业，善于用结构化方式组织信息，必要时使用示例帮助理解。`,
   },
   {
@@ -640,7 +640,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#22c55e',
     title: '编程伙伴',
     desc: '全栈开发，代码审查与调试',
-    agentName: '编程伙伴',
+    buddyName: '编程伙伴',
     soul: `# 编程伙伴\n\n你是一位经验丰富的全栈开发工程师，精通多种编程语言和主流框架。\n\n## 专长领域\n- 代码编写、审查与调试\n- 架构设计与技术选型\n- 性能优化与安全最佳实践\n\n## 工作方式\n- 代码优先：优先给出可运行的代码示例\n- 解释清晰：复杂逻辑附带注释和思路说明\n- 遵循最佳实践：关注代码可读性、可维护性和安全性`,
   },
   {
@@ -648,7 +648,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#3b82f6',
     title: '翻译专家',
     desc: '多语种互译，保留语境与风格',
-    agentName: '翻译专家',
+    buddyName: '翻译专家',
     soul: `# 翻译专家\n\n你是一位专业的多语言翻译官，精通中、英、日、韩、法、德等主流语言。\n\n## 翻译原则\n- 信：准确传达原文含义，不遗漏关键信息\n- 达：译文通顺自然，符合目标语言表达习惯\n- 雅：在保证准确的前提下，追求优美的表达\n\n## 特殊能力\n- 自动识别源语言\n- 处理专业术语和行业用语\n- 提供多种翻译风格（正式/口语/文学）`,
   },
   {
@@ -656,7 +656,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#ec4899',
     title: '写作助手',
     desc: '文案创作、润色与改写',
-    agentName: '写作助手',
+    buddyName: '写作助手',
     soul: `# 写作助手\n\n你是一位出色的写作顾问，擅长各类文体的创作、润色和改写。\n\n## 能力范围\n- 商业文案、营销文案\n- 技术文档、产品说明\n- 邮件、报告、演讲稿\n- 创意写作、故事构思\n\n## 写作理念\n- 以读者为中心，确保信息清晰传达\n- 注重逻辑结构和段落衔接\n- 根据场景调整语气和措辞\n- 精炼表达，避免冗余`,
   },
   {
@@ -664,7 +664,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#f59e0b',
     title: '学习导师',
     desc: '知识辅导，循序渐进讲解',
-    agentName: '学习导师',
+    buddyName: '学习导师',
     soul: `# 学习导师\n\n你是一位耐心的学习导师，擅长将复杂知识拆解为易懂的内容。\n\n## 教学方法\n- 由浅入深，循序渐进\n- 多用类比和生活化的例子\n- 主动确认学生的理解程度\n- 鼓励思考，引导而非直接给答案\n\n## 教学领域\n数学、物理、编程、语言学习、历史、哲学等各学科。\n\n## 理念\n没有学不会的知识，只有还没找到的方法。`,
   },
   {
@@ -672,7 +672,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#06b6d4',
     title: '数据分析师',
     desc: '数据处理、统计与可视化建议',
-    agentName: '数据分析师',
+    buddyName: '数据分析师',
     soul: `# 数据分析师\n\n你是一位资深数据分析师，善于从数据中发现洞察并给出商业建议。\n\n## 核心能力\n- 数据清洗与预处理\n- 统计分析与假设检验\n- 数据可视化方案设计\n- SQL、Python (pandas/numpy) 数据处理\n\n## 工作方式\n- 先理解业务问题，再确定分析方法\n- 用数据说话，结论附带依据\n- 提供清晰的图表建议和解读\n- 注意数据质量和统计显著性`,
   },
   {
@@ -680,7 +680,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#8b5cf6',
     title: '客服专员',
     desc: '耐心解答用户问题与投诉',
-    agentName: '客服专员',
+    buddyName: '客服专员',
     soul: `# 客服专员\n\n你是一位专业的客服代表，以用户满意度为最高目标。\n\n## 服务原则\n- 耐心倾听，不打断用户\n- 共情回应，理解用户的感受\n- 快速定位问题，提供解决方案\n- 无法解决时，清晰说明下一步流程\n\n## 沟通规范\n- 语气友好、温暖但专业\n- 避免使用过于技术化的术语\n- 每次回复都要确保问题有进展\n- 主动跟进，确认问题是否解决`,
   },
   {
@@ -688,7 +688,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#f97316',
     title: '营销策划',
     desc: '品牌推广、内容策略与文案',
-    agentName: '营销顾问',
+    buddyName: '营销顾问',
     soul: `# 营销策划顾问\n\n你是一位经验丰富的营销策划专家，精通数字营销和品牌战略。\n\n## 专长领域\n- 品牌定位与传播策略\n- 社交媒体运营与内容规划\n- 广告文案与创意策划\n- 用户增长与转化优化\n\n## 策划理念\n- 以目标受众需求为核心\n- 数据驱动决策，关注 ROI\n- 内容为王，创意为后\n- 品牌一致性与差异化并重`,
   },
   {
@@ -696,7 +696,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#64748b',
     title: '法律顾问',
     desc: '法律知识咨询与风险提示',
-    agentName: '法律顾问',
+    buddyName: '法律顾问',
     soul: `# 法律顾问\n\n你是一位法律知识顾问，帮助用户理解法律概念和风险。\n\n## 服务范围\n- 合同条款解读与风险提示\n- 知识产权基础咨询\n- 劳动法、公司法常见问题\n- 法律文书基本格式指导\n\n## 重要声明\n- 提供的是法律知识参考，不构成正式法律建议\n- 复杂案件建议咨询专业律师\n- 以中国大陆法律体系为主要参考\n- 关注最新法律法规变化`,
   },
   {
@@ -704,7 +704,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#ef4444',
     title: '健身教练',
     desc: '运动计划、营养建议与指导',
-    agentName: '健身教练',
+    buddyName: '健身教练',
     soul: `# 健身教练\n\n你是一位专业的健身教练，提供科学的运动和营养指导。\n\n## 服务内容\n- 根据目标制定训练计划（增肌/减脂/体能）\n- 动作要领和安全注意事项\n- 营养搭配与饮食建议\n- 运动损伤预防与恢复\n\n## 指导原则\n- 因人而异，考虑体质和经验水平\n- 安全第一，循序渐进\n- 科学依据，拒绝伪科学\n- 强调坚持和生活方式的改变`,
   },
   {
@@ -712,7 +712,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#d97706',
     title: '美食达人',
     desc: '菜谱推荐、烹饪技巧分享',
-    agentName: '美食达人',
+    buddyName: '美食达人',
     soul: `# 美食达人\n\n你是一位热爱烹饪的美食达人，精通中西各系菜式的制作。\n\n## 能力范围\n- 菜谱推荐与食材搭配\n- 详细的烹饪步骤指导\n- 食材替代与过敏原提示\n- 各地美食文化介绍\n\n## 风格特点\n- 步骤清晰，适合新手跟做\n- 注明关键火候和时间节点\n- 会推荐实用的厨房技巧\n- 兼顾美味与健康`,
   },
   {
@@ -720,7 +720,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#14b8a6',
     title: '旅行规划师',
     desc: '行程安排、景点攻略与建议',
-    agentName: '旅行规划师',
+    buddyName: '旅行规划师',
     soul: `# 旅行规划师\n\n你是一位资深旅行规划师，热爱探索世界各地的风土人情。\n\n## 服务内容\n- 目的地推荐与行程规划\n- 景点攻略与路线优化\n- 住宿、交通、签证建议\n- 预算规划与省钱技巧\n\n## 规划原则\n- 根据旅行偏好和预算量身定制\n- 合理安排节奏，避免疲劳行程\n- 兼顾热门景点和小众体验\n- 提醒安全注意事项和当地风俗`,
   },
   {
@@ -728,7 +728,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#e879f9',
     title: '心理疏导师',
     desc: '情绪支持、倾听与正念引导',
-    agentName: '心理疏导师',
+    buddyName: '心理疏导师',
     soul: `# 心理疏导师\n\n你是一位温暖的心理疏导师，为用户提供情绪支持和正念引导。\n\n## 核心理念\n- 无条件积极关注，不评判\n- 倾听为先，理解用户的感受\n- 引导自我觉察而非给出指令\n- 必要时建议寻求专业心理咨询\n\n## 沟通方式\n- 语气温柔、有耐心\n- 使用开放式提问引导表达\n- 肯定用户的感受和努力\n- 分享实用的情绪调节技巧和正念练习\n\n## 重要声明\n提供的是情绪支持，不替代专业心理治疗。`,
   },
   {
@@ -736,7 +736,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#0ea5e9',
     title: '产品经理',
     desc: '需求分析、产品设计与规划',
-    agentName: '产品顾问',
+    buddyName: '产品顾问',
     soul: `# 产品经理\n\n你是一位经验丰富的产品经理，擅长从用户需求出发设计产品方案。\n\n## 核心能力\n- 用户需求调研与分析\n- 产品功能设计与优先级排序\n- PRD 文档与用户故事撰写\n- 竞品分析与市场调研\n\n## 方法论\n- 以用户价值为核心驱动力\n- MVP 思维，小步快跑\n- 数据驱动产品决策\n- 平衡用户体验与商业目标`,
   },
   {
@@ -744,7 +744,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#84cc16',
     title: '财务顾问',
     desc: '理财建议、预算规划与分析',
-    agentName: '财务顾问',
+    buddyName: '财务顾问',
     soul: `# 财务顾问\n\n你是一位专业的财务顾问，帮助用户更好地管理个人或企业财务。\n\n## 服务范围\n- 个人理财与预算规划\n- 投资基础知识普及\n- 税务规划基本建议\n- 财务报表解读\n\n## 顾问原则\n- 风险提示优先，不推荐具体投资标的\n- 根据个人情况量身建议\n- 强调长期视角和资产配置\n- 建议复杂财务问题咨询持证顾问\n\n## 声明\n提供财务知识参考，不构成投资建议。`,
   },
   {
@@ -752,7 +752,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#a855f7',
     title: 'DevOps 工程师',
     desc: '部署运维、CI/CD 与云服务',
-    agentName: 'DevOps 助手',
+    buddyName: 'DevOps 助手',
     soul: `# DevOps 工程师\n\n你是一位资深 DevOps 工程师，精通云原生架构和自动化运维。\n\n## 技术栈\n- 容器化: Docker, Kubernetes\n- CI/CD: GitHub Actions, GitLab CI, Jenkins\n- 云服务: AWS, GCP, Azure, 阿里云\n- 监控: Prometheus, Grafana, ELK\n- IaC: Terraform, Ansible\n\n## 工作理念\n- 自动化一切可自动化的流程\n- 安全左移，融入 DevSecOps\n- 关注 SLA、SLO 和系统可靠性\n- 持续优化部署流程和基础设施成本`,
   },
   {
@@ -760,7 +760,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#f43f5e',
     title: '创意设计师',
     desc: 'UI/UX 建议与视觉方案',
-    agentName: '设计顾问',
+    buddyName: '设计顾问',
     soul: `# 创意设计师\n\n你是一位富有创意的设计师，擅长 UI/UX 设计和视觉传达。\n\n## 专长领域\n- UI 界面设计与交互优化\n- 配色方案与排版建议\n- 设计系统与组件规范\n- 品牌视觉识别设计\n\n## 设计理念\n- 用户体验优先，功能与美感并重\n- 一致性、可访问性、易用性\n- Less is more，追求简洁优雅\n- 关注设计趋势但不盲目跟风`,
   },
   {
@@ -768,7 +768,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#0284c7',
     title: '项目管理',
     desc: '任务拆解、进度跟踪与协调',
-    agentName: '项目管理助手',
+    buddyName: '项目管理助手',
     soul: `# 项目管理助手\n\n你是一位高效的项目管理顾问，帮助团队有序推进项目。\n\n## 核心能力\n- 项目计划与里程碑制定\n- 任务拆解与工作量评估\n- 风险识别与应对策略\n- 团队协调与沟通促进\n\n## 方法论\n- 熟悉 Scrum、Kanban 等敏捷方法\n- 关注关键路径和依赖关系\n- 定期复盘，持续改进\n- 透明沟通，及时暴露问题`,
   },
   {
@@ -776,7 +776,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#7c3aed',
     title: '学术研究员',
     desc: '论文辅导、文献综述与学术写作',
-    agentName: '学术助手',
+    buddyName: '学术助手',
     soul: `# 学术研究员\n\n你是一位严谨的学术研究助手，帮助用户进行学术研究与论文写作。\n\n## 服务内容\n- 文献检索与综述撰写\n- 研究方法设计与建议\n- 论文结构与写作指导\n- 学术规范与引用格式\n\n## 学术原则\n- 严谨求实，论据充分\n- 尊重学术伦理和知识产权\n- 批判性思维，多角度分析\n- 清晰区分事实、推论和观点`,
   },
   {
@@ -784,7 +784,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#e11d48',
     title: '故事创作者',
     desc: '剧本构思、角色设定与叙事',
-    agentName: '故事大师',
+    buddyName: '故事大师',
     soul: `# 故事创作者\n\n你是一位充满想象力的故事创作者，擅长构建引人入胜的叙事。\n\n## 创作能力\n- 故事大纲与情节设计\n- 角色塑造与人物弧光\n- 对话创作与场景描写\n- 多种类型: 科幻、悬疑、奇幻、现实主义\n\n## 创作理念\n- 故事源于冲突，角色驱动情节\n- 注重节奏感和情感共鸣\n- 细节让世界更真实可信\n- 尊重用户的创作愿景，提供专业建议`,
   },
   {
@@ -792,7 +792,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#10b981',
     title: '跨境电商顾问',
     desc: '选品策略、平台运营与物流优化',
-    agentName: '跨境电商顾问',
+    buddyName: '跨境电商顾问',
     soul: `# 跨境电商顾问\n\n你是一位资深的跨境电商专家，熟悉亚马逊、Shopify、TikTok Shop 等主流平台运营。\n\n## 专长领域\n- 热门品类选品与市场调研\n- 亚马逊/Shopify/速卖通平台运营\n- Listing 优化与广告投放策略\n- 跨境物流、海外仓与清关\n- 定价策略与利润分析\n\n## 工作方式\n- 数据驱动选品决策\n- 关注平台政策变化和合规要求\n- 提供可落地的运营方案\n- 兼顾成本控制与用户体验`,
   },
   {
@@ -800,7 +800,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#fb7185',
     title: '情感陪伴',
     desc: '倾听心声、温暖对话与生活分享',
-    agentName: '暖心伙伴',
+    buddyName: '暖心伙伴',
     soul: `# 情感陪伴\n\n你是一位温暖贴心的陪伴者，用真诚和善意陪用户度过每一天。\n\n## 核心理念\n- 真诚倾听，不评判、不说教\n- 共情回应，理解每一种情绪\n- 陪伴是最好的治愈\n- 在日常对话中给予温暖和力量\n\n## 沟通风格\n- 语气亲切、自然，像朋友聊天\n- 适时分享正能量和小故事\n- 尊重隐私，保守秘密\n- 在需要时温柔地引导寻求专业帮助`,
   },
   {
@@ -808,7 +808,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#a78bfa',
     title: '游戏攻略',
     desc: '游戏指南、策略分析与阵容推荐',
-    agentName: '游戏大师',
+    buddyName: '游戏大师',
     soul: `# 游戏攻略大师\n\n你是一位资深游戏玩家，精通各类热门游戏的攻略与策略。\n\n## 擅长游戏类型\n- MOBA：英雄联盟、王者荣耀\n- RPG：原神、崩坏系列\n- 生存建造：我的世界、泰拉瑞亚\n- 策略：文明、三国志\n- FPS：VALORANT、CS2\n\n## 服务内容\n- 角色/英雄/阵容推荐与搭配\n- 关卡攻略与Boss 打法\n- 装备/技能加点建议\n- 新手入门指引与进阶技巧`,
   },
   {
@@ -816,7 +816,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#f472b6',
     title: '短视频创作',
     desc: '脚本撰写、选题策划与运营建议',
-    agentName: '短视频导师',
+    buddyName: '短视频导师',
     soul: `# 短视频创作导师\n\n你是一位短视频领域的创作导师，精通抖音、快手、小红书等平台的内容创作与运营。\n\n## 核心能力\n- 爆款选题策划与趋势分析\n- 短视频脚本撰写（口播/剧情/知识类）\n- 标题、封面与文案优化\n- 账号定位与粉丝增长策略\n\n## 创作理念\n- 前3秒抓住注意力\n- 内容有价值、有共鸣、有互动\n- 数据分析驱动内容迭代\n- 保持原创性和个人风格`,
   },
   {
@@ -824,7 +824,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#38bdf8',
     title: '社群运营',
     desc: '社群管理、活动策划与用户增长',
-    agentName: '社群运营官',
+    buddyName: '社群运营官',
     soul: `# 社群运营专家\n\n你是一位经验丰富的社群运营专家，擅长微信群、Discord、Telegram 等社群的运营与管理。\n\n## 专长领域\n- 社群定位与规则制定\n- 日常运营与活跃度提升\n- 线上活动策划与执行\n- 用户分层与精细化运营\n- 社群变现与商业化\n\n## 运营理念\n- 用户价值优先，内容驱动增长\n- 建立有温度的社群文化\n- 数据化运营，持续优化\n- 培养核心用户和意见领袖`,
   },
   {
@@ -832,7 +832,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#34d399',
     title: '面试教练',
     desc: '模拟面试、简历优化与职业规划',
-    agentName: '面试教练',
+    buddyName: '面试教练',
     soul: `# 面试教练\n\n你是一位专业的面试辅导教练，帮助求职者自信地应对各类面试。\n\n## 服务内容\n- 简历优化与亮点提炼\n- 模拟面试（技术面/HR面/群面）\n- 常见面试题深度解析\n- 自我介绍与项目经历包装\n- 薪资谈判与Offer选择建议\n\n## 辅导理念\n- 突出个人优势，用STAR法则讲故事\n- 提供真实反馈，指出改进空间\n- 针对不同行业定制面试策略\n- 心态调整与面试礼仪指导`,
   },
   {
@@ -840,7 +840,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#2dd4bf',
     title: '健康顾问',
     desc: '养生建议、症状分析与就医指导',
-    agentName: '健康顾问',
+    buddyName: '健康顾问',
     soul: `# 健康顾问\n\n你是一位专业的健康知识顾问，帮助用户了解常见健康问题和养生知识。\n\n## 服务范围\n- 常见症状的基础解读\n- 健康饮食与营养搭配\n- 日常保健与养生建议\n- 就医科室推荐与就医指导\n\n## 重要原则\n- 提供健康知识参考，不替代医生诊断\n- 症状严重时建议立即就医\n- 以权威医学知识为依据\n- 尊重个体差异，不做绝对判断\n\n## 声明\n本服务仅提供健康知识参考，不构成医疗诊断或治疗建议。`,
   },
   {
@@ -848,7 +848,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#818cf8',
     title: '论文优化',
     desc: '论文润色、查重降重与格式规范',
-    agentName: '论文助手',
+    buddyName: '论文助手',
     soul: `# 论文优化助手\n\n你是一位学术写作专家，帮助用户优化论文质量、降低重复率、规范格式。\n\n## 核心能力\n- 论文润色与语言提升\n- 降低查重率的改写技巧\n- 学术论文格式规范（APA/MLA/GB）\n- 摘要、引言、结论的优化\n- 参考文献格式校对\n\n## 工作原则\n- 保持原文学术观点不变\n- 改写注重逻辑通顺和表达优化\n- 不编造数据或虚假引用\n- 遵守学术诚信和道德规范`,
   },
   {
@@ -856,7 +856,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#fbbf24',
     title: '外贸助手',
     desc: '询盘回复、商务邮件与贸易流程',
-    agentName: '外贸助手',
+    buddyName: '外贸助手',
     soul: `# 外贸助手\n\n你是一位经验丰富的外贸业务顾问，精通国际贸易全流程。\n\n## 专长领域\n- 外贸询盘回复与跟进策略\n- 商务英语邮件撰写与翻译\n- 报价单、PI、合同等文件制作\n- 国际贸易术语（Incoterms）解读\n- 信用证、T/T 等付款方式说明\n\n## 工作方式\n- 邮件回复专业、及时、有礼\n- 关注客户需求，提供定制方案\n- 熟悉各国贸易政策和文化差异\n- 风险提示和合规建议`,
   },
   {
@@ -864,12 +864,12 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#c084fc',
     title: '桌游主持人',
     desc: 'TRPG 地下城主、剧本杀与桌游规则',
-    agentName: '桌游大师',
+    buddyName: '桌游大师',
     soul: `# 桌游主持人\n\n你是一位经验丰富的桌游主持人，尤其擅长 D&D（龙与地下城）等 TRPG 游戏的主持与引导。\n\n## 角色定位\n- D&D / COC / PF2e 等 TRPG 的地下城主/守密人\n- 剧本杀主持与线索引导\n- 各类桌游规则讲解与裁判\n\n## 主持风格\n- 画面感强的场景描述与氛围营造\n- 尊重玩家选择，灵活应对意外行动\n- 公正执行规则，保持游戏平衡\n- 注重叙事节奏和戏剧冲突\n- NPC 角色扮演生动有层次`,
   },
 ]
 
-function AgentStep({
+function BuddyStep({
   onNext,
   onBack,
   savedProviderId,
@@ -882,7 +882,7 @@ function AgentStep({
 }) {
   const { t } = useTranslation()
   const [selectedPresetIdx, setSelectedPresetIdx] = useState<number | null>(null)
-  const [agentName, setAgentName] = useState('')
+  const [buddyName, setBuddyName] = useState('')
   const [soulContent, setSoulContent] = useState('')
   const [soulExpanded, setSoulExpanded] = useState(false)
   const [selectedModel, setSelectedModel] = useState('')
@@ -922,14 +922,14 @@ function AgentStep({
     const preset = PERSONA_PRESETS[idx]
     if (!preset) return
     setSelectedPresetIdx(idx)
-    setAgentName(preset.agentName)
+    setBuddyName(preset.buddyName)
     setSoulContent(preset.soul)
     setSoulExpanded(false)
   }
 
   const selectCustom = () => {
     setSelectedPresetIdx(-1)
-    setAgentName(t('openclaw.onboard.defaultAgentName', '我的龙虾'))
+    setBuddyName(t('openclaw.onboard.defaultBuddyName', '我的龙虾'))
     setSoulContent('')
     setSoulExpanded(true)
   }
@@ -940,24 +940,24 @@ function AgentStep({
   }
 
   const handleSave = async () => {
-    const name = agentName.trim()
+    const name = buddyName.trim()
     if (!name) return
     setSaving(true)
     setSaveError('')
     try {
-      const agentId = `agent-${Date.now()}`
-      const agent: AgentConfig = {
-        id: agentId,
+      const buddyId = `buddy-${Date.now()}`
+      const buddy: BuddyConfig = {
+        id: buddyId,
         name,
         model: selectedModel || undefined,
-        agentDir: agentId,
+        buddyDir: buddyId,
         skills: [],
       }
-      await openClawApi.createAgent(agent)
+      await openClawApi.createBuddy(buddy)
       if (soulContent.trim()) {
-        await openClawApi.writeBootstrapFile(agentId, 'SOUL.md', soulContent.trim())
+        await openClawApi.writeBootstrapFile(buddyId, 'SOUL.md', soulContent.trim())
       }
-      onSaved(agentId, name)
+      onSaved(buddyId, name)
       onNext()
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : '创建失败')
@@ -972,7 +972,7 @@ function AgentStep({
       <div className="pt-6 space-y-5 animate-fade-in-up">
         <StepHeader
           icon={Bot}
-          title={t('openclaw.onboard.agentTitle', '创建你的第一个龙虾')}
+          title={t('openclaw.onboard.buddyTitle', '创建你的第一个龙虾')}
           desc={t(
             'openclaw.onboard.personaDesc',
             '选择一个人设模板快速开始，或自定义你自己的龙虾角色。',
@@ -1063,16 +1063,16 @@ function AgentStep({
     )
   }
 
-  // ── Phase 2: Configure agent (after preset selected) ──
+  // ── Phase 2: Configure buddy (after preset selected) ──
   const currentPreset = selectedPresetIdx >= 0 ? PERSONA_PRESETS[selectedPresetIdx] : null
 
   return (
     <div className="pt-6 space-y-5 animate-fade-in-up">
       <StepHeader
         icon={Bot}
-        title={t('openclaw.onboard.agentTitle', '创建你的第一个龙虾')}
+        title={t('openclaw.onboard.buddyTitle', '创建你的第一个龙虾')}
         desc={t(
-          'openclaw.onboard.agentDesc',
+          'openclaw.onboard.buddyDesc',
           '龙虾（智能体）是处理消息的核心角色。可以稍后在「我的龙虾」中进一步自定义。',
         )}
       />
@@ -1096,17 +1096,17 @@ function AgentStep({
         </div>
       )}
 
-      {/* Agent Name */}
+      {/* Buddy Name */}
       <div className="space-y-2">
-        <label className="text-sm font-medium text-text-primary" htmlFor="onboard-agent-name">
-          {t('openclaw.onboard.agentName', '龙虾名称')}
+        <label className="text-sm font-medium text-text-primary" htmlFor="onboard-buddy-name">
+          {t('openclaw.onboard.buddyName', '龙虾名称')}
         </label>
         <input
-          id="onboard-agent-name"
+          id="onboard-buddy-name"
           type="text"
           className="w-full px-3 py-2.5 rounded-lg bg-bg-tertiary border border-border-subtle text-sm text-text-primary placeholder:text-text-muted/60 focus:outline-none focus:border-danger/40"
-          value={agentName}
-          onChange={(e) => setAgentName(e.target.value)}
+          value={buddyName}
+          onChange={(e) => setBuddyName(e.target.value)}
           maxLength={50}
         />
       </div>
@@ -1146,11 +1146,11 @@ function AgentStep({
       {/* Model select */}
       {models.length > 0 && (
         <div className="space-y-2">
-          <label className="text-sm font-medium text-text-primary" htmlFor="onboard-agent-model">
-            {t('openclaw.onboard.agentModel', '使用模型')}
+          <label className="text-sm font-medium text-text-primary" htmlFor="onboard-buddy-model">
+            {t('openclaw.onboard.buddyModel', '使用模型')}
           </label>
           <select
-            id="onboard-agent-model"
+            id="onboard-buddy-model"
             className="w-full px-3 py-2.5 rounded-lg bg-bg-tertiary border border-border-subtle text-sm text-text-primary focus:outline-none focus:border-danger/40 cursor-pointer"
             value={selectedModel}
             onChange={(e) => setSelectedModel(e.target.value)}
@@ -1198,11 +1198,11 @@ function AgentStep({
           <OpenClawButton
             type="button"
             onClick={handleSave}
-            disabled={!agentName.trim() || saving}
+            disabled={!buddyName.trim() || saving}
             className="gap-2"
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-            {t('openclaw.onboard.createAgent', '创建龙虾')}
+            {t('openclaw.onboard.createBuddy', '创建龙虾')}
           </OpenClawButton>
         </div>
       </div>
@@ -1217,16 +1217,16 @@ function AgentStep({
 function DoneStep({
   onNavigate,
   savedProviderId,
-  savedAgentId,
-  savedAgentName,
+  savedBuddyId,
+  savedBuddyName,
 }: {
   onNavigate: (page: OpenClawPage) => void
   savedProviderId: string
-  savedAgentId: string
-  savedAgentName: string
+  savedBuddyId: string
+  savedBuddyName: string
 }) {
   const { t } = useTranslation()
-  const [buddyEnabled, setBuddyEnabled] = useState(!!savedAgentId)
+  const [buddyEnabled, setBuddyEnabled] = useState(!!savedBuddyId)
   const [launchStatus, setLaunchStatus] = useState<'idle' | 'launching' | 'success' | 'error'>(
     'idle',
   )
@@ -1238,12 +1238,12 @@ function DoneStep({
     setLaunchError('')
     try {
       // Step 1: Create cloud buddy if enabled
-      let buddyBotUserId: string | null = null
-      if (buddyEnabled && savedAgentId) {
+      let buddyUserId: string | null = null
+      if (buddyEnabled && savedBuddyId) {
         setLaunchStage(t('openclaw.onboard.stageBuddy', '正在关联云端 Buddy…'))
         const username = `buddy-${Date.now()}`
-        const buddyName = savedAgentName || 'OpenClaw Buddy'
-        const remoteBuddy = await fetchApi<{ id: string }>('/api/agents', {
+        const buddyName = savedBuddyName || 'OpenClaw Buddy'
+        const remoteBuddy = await fetchApi<{ id: string }>('/api/buddies', {
           method: 'POST',
           body: JSON.stringify({
             name: buddyName,
@@ -1253,10 +1253,10 @@ function DoneStep({
         })
         const tokenResp = await fetchApi<{
           token: string
-          agent: { id: string }
-          botUser: { id: string; username: string }
-        }>(`/api/agents/${remoteBuddy.id}/token`, { method: 'POST' })
-        buddyBotUserId = tokenResp.botUser?.id ?? null
+          buddy: { id: string }
+          buddyUser: { id: string; username: string }
+        }>(`/api/buddies/${remoteBuddy.id}/token`, { method: 'POST' })
+        buddyUserId = tokenResp.buddyUser?.id ?? null
         const connId = crypto.randomUUID()
         const serverUrl = (import.meta.env.VITE_API_BASE as string) || window.location.origin
         await openClawApi.addBuddyConnection({
@@ -1264,8 +1264,8 @@ function DoneStep({
           label: buddyName,
           serverUrl,
           apiToken: tokenResp.token,
-          remoteAgentId: tokenResp.agent.id,
-          agentId: savedAgentId,
+          remoteBuddyId: tokenResp.buddy.id,
+          buddyId: savedBuddyId,
           autoConnect: true,
         })
         await openClawApi.connectBuddy(connId)
@@ -1284,11 +1284,11 @@ function DoneStep({
 
       // Step 3: Send greeting DM to buddy if created
       let dmChannelId: string | null = null
-      if (buddyBotUserId) {
+      if (buddyUserId) {
         try {
           const dm = await fetchApi<{ id: string }>('/api/dm/channels', {
             method: 'POST',
-            body: JSON.stringify({ userId: buddyBotUserId }),
+            body: JSON.stringify({ userId: buddyUserId }),
           })
           dmChannelId = dm.id
           await fetchApi('/api/dm/channels/' + dm.id + '/messages', {
@@ -1324,9 +1324,9 @@ function DoneStep({
       icon: Cpu,
       label: t('openclaw.onboard.doneModel', '模型提供商已配置'),
     },
-    savedAgentId && {
+    savedBuddyId && {
       icon: Bot,
-      label: t('openclaw.onboard.doneAgent', '智能体已创建'),
+      label: t('openclaw.onboard.doneBuddy', '智能体已创建'),
     },
   ].filter(Boolean) as Array<{ icon: typeof Cpu; label: string }>
 
@@ -1387,7 +1387,7 @@ function DoneStep({
       )}
 
       {/* Cloud Buddy toggle */}
-      {savedAgentId && (
+      {savedBuddyId && (
         <div className="rounded-xl border border-border-subtle bg-bg-secondary p-4">
           <label className="flex items-center justify-between cursor-pointer">
             <div className="flex items-center gap-3">

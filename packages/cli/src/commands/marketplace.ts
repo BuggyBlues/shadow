@@ -79,7 +79,7 @@ export function createMarketplaceCommand(): Command {
   listings
     .command('create')
     .description('Create a listing')
-    .requiredOption('--agent-id <id>', 'Agent ID')
+    .requiredOption('--buddy-id <id>', 'Buddy ID')
     .requiredOption('--title <title>', 'Listing title')
     .requiredOption('--price <n>', 'Price per hour')
     .option('--description <desc>', 'Listing description')
@@ -88,7 +88,7 @@ export function createMarketplaceCommand(): Command {
     .option('--json', 'Output as JSON')
     .action(
       async (options: {
-        agentId: string
+        buddyId: string
         title: string
         price: string
         description?: string
@@ -99,7 +99,7 @@ export function createMarketplaceCommand(): Command {
         try {
           const client = await getClient(options.profile)
           const listing = await client.createListing({
-            agentId: options.agentId,
+            buddyId: options.buddyId,
             title: options.title,
             pricePerHour: parseFloat(options.price),
             description: options.description ?? '',

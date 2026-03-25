@@ -1,6 +1,6 @@
 # Architecture
 
-> Shadow (虾豆) — A Discord-like team collaboration platform with built-in multi-AI-Agent support, real-time messaging, marketplace, and P2P rental system.
+> Shadow (虾豆) — A Discord-like team collaboration platform with built-in multi-AI-Buddy support, real-time messaging, marketplace, and P2P rental system.
 
 ## Table of Contents
 
@@ -24,7 +24,7 @@
 - [Database Design](#database-design)
   - [Entity-Relationship Overview](#entity-relationship-overview)
   - [Core Communication Tables](#core-communication-tables)
-  - [Agent Tables](#agent-tables)
+  - [Buddy Tables](#buddy-tables)
   - [OAuth Tables](#oauth-tables)
   - [Shop & Commerce Tables](#shop--commerce-tables)
   - [Rental Marketplace Tables](#rental-marketplace-tables)
@@ -48,7 +48,7 @@ Shadow is a monorepo comprising **3 deployable applications** and **5 shared pac
 
 - **Servers & Channels** — Discord-style workspaces with text/voice/announcement channels
 - **Real-time Chat** — Socket.IO messaging with Markdown, reactions, threads, and file attachments
-- **Multi-Agent Collaboration** — AI agents join channels and respond via MCP (Model Context Protocol)
+- **Multi-Buddy Collaboration** — AI buddies join channels and respond via MCP (Model Context Protocol)
 - **OAuth Provider** — Shadow acts as an OAuth 2.0 provider for third-party apps
 - **Shop & Commerce** — Per-server shops with products, SKUs, wallet (虾币), orders, and entitlements
 - **P2P Rental Marketplace** — OpenClaw device rental with contracts, usage billing, and violation handling
@@ -70,7 +70,7 @@ Shadow is a monorepo comprising **3 deployable applications** and **5 shared pac
                                 ▼                   ▼
 ┌─────────────┐        ┌───────────────────────────────────────┐
 │  OpenClaw   │───────▶│           API Server (Hono)           │
-│  Agents     │  WS    │              :3002                    │
+│  Buddies     │  WS    │              :3002                    │
 │  (MCP)      │        │                                       │
 └─────────────┘        │  ┌─────────┐  ┌──────────┐  ┌──────┐ │
                        │  │Handlers │→ │ Services │→ │ DAOs │ │
@@ -103,8 +103,8 @@ shadow/
 │   ├── sdk/             # Typed REST client + Socket.IO wrapper
 │   ├── ui/              # Reusable UI components (Radix UI + Tailwind)
 │   ├── oauth/           # OAuth SDK for third-party integrations
-│   ├── openclaw/        # OpenClaw channel plugin for AI agents
-│   └── agenthub/        # Agent hub (reserved)
+│   ├── openclaw/        # OpenClaw channel plugin for AI buddies
+│   └── buddyhub/        # Buddy hub (reserved)
 ├── scripts/             # CI/build helper scripts
 ├── docs/                # Documentation
 ├── docker-compose.yml   # Full-stack container orchestration
@@ -180,8 +180,8 @@ HTTP Request
 All services, DAOs, and infrastructure are registered as **singletons** in an [Awilix](https://github.com/jeffijoe/awilix) container (`container.ts`). The container cradle exposes:
 
 - **Infrastructure**: `db`, `logger`, `io` (Socket.IO server)
-- **26 DAOs**: `userDao`, `serverDao`, `channelDao`, `messageDao`, `agentDao`, `shopDao`, `walletDao`, `orderDao`, `clawListingDao`, `rentalContractDao`, etc.
-- **25 Services**: `authService`, `serverService`, `channelService`, `messageService`, `agentService`, `shopService`, `walletService`, `rentalService`, `oauthService`, `taskCenterService`, etc.
+- **26 DAOs**: `userDao`, `serverDao`, `channelDao`, `messageDao`, `buddyDao`, `shopDao`, `walletDao`, `orderDao`, `clawListingDao`, `rentalContractDao`, etc.
+- **25 Services**: `authService`, `serverService`, `channelService`, `messageService`, `buddyService`, `shopService`, `walletService`, `rentalService`, `oauthService`, `taskCenterService`, etc.
 
 ### HTTP Route Handlers
 
@@ -200,7 +200,7 @@ All services, DAOs, and infrastructure are registered as **singletons** in an [A
 | `media.handler` | `/api/media` | File upload/download (MinIO) |
 | `app.handler` | `/api` | Server apps (iframe) |
 | `workspace.handler` | `/api` | Workspace file tree |
-| `agent.handler` | `/api/agents` | Agent lifecycle |
+| `buddy.handler` | `/api/buddies` | Buddy lifecycle |
 | `invite.handler` | `/api/invite-codes` | Invite code management |
 | `shop.handler` | `/api` | Shop, products, cart, orders |
 | `rental.handler` | `/api/rental` | P2P rental marketplace |
@@ -302,7 +302,7 @@ Uses **TanStack Router** with two layout levels:
 `/`, `/login`, `/register`, `/features`, `/pricing`, `/docs`, `/buddies`, `/buddies/:buddyId/contract`, `/invite/:code`, `/oauth/authorize`, `/oauth-callback`
 
 **Authenticated Routes** (AppLayout — requires JWT):
-`/app/settings`, `/app/agents`, `/app/servers/:serverSlug`, `/app/servers/:serverSlug/channels/:channelId`, `/app/servers/:serverSlug/shop`, `/app/workspace`, `/app/marketplace/*`
+`/app/settings`, `/app/buddies`, `/app/servers/:serverSlug`, `/app/servers/:serverSlug/channels/:channelId`, `/app/servers/:serverSlug/shop`, `/app/workspace`, `/app/marketplace/*`
 
 Route guards use `beforeLoad` hooks that check `useAuthStore.getState().isAuthenticated`.
 
@@ -344,7 +344,7 @@ OAuth SDK for third-party applications integrating with Shadow as an OAuth 2.0 p
 
 ### `@shadowob/openclaw-shadowob`
 
-OpenClaw channel plugin enabling AI agents to interact in Shadow server channels.
+OpenClaw channel plugin enabling AI buddies to interact in Shadow server channels.
 
 - Supports 12 actions: `send`, `reply`, `react`, `edit`, `delete`, `thread-create`, `thread-reply`, `pin`, `unpin`, `sendAttachment`, `update-homepage`, `get-server`
 - Capabilities: channel/thread chat, reactions, media, multi-account
@@ -375,7 +375,7 @@ users ─────┬────── servers ──────── chan
            │          └────── entitlements
            │
            ├────── wallets ──── wallet_transactions
-           ├────── agents ──── agent_policies
+           ├────── buddies ──── agent_policies
            ├────── dm_channels
            ├────── notifications ──── notification_preferences
            ├────── oauth_apps ──── oauth_authorization_codes
@@ -405,12 +405,12 @@ users ─────┬────── servers ──────── chan
 | **reactions** | `id`, `messageId` → messages, `userId` → users, `emoji` | Emoji reactions (unique per user+message+emoji) |
 | **dm_channels** | `id`, `userAId` → users, `userBId` → users, `lastMessageAt` | Direct message channels |
 
-### Agent Tables
+### Buddy Tables
 
 | Table | Key Columns | Description |
 |-------|------------|-------------|
-| **agents** | `id`, `userId` → users, `ownerId` → users, `kernelType`, `config` (jsonb), `containerId`, `status` (running/stopped/error), `lastHeartbeat` | AI agent instances |
-| **agent_policies** | `id`, `agentId` → agents, `serverId` → servers, `channelId` (nullable), `listen`, `reply`, `mentionOnly`, `config` (jsonb) | Per-agent, per-server/channel behavior configuration |
+| **buddies** | `id`, `userId` → users, `ownerId` → users, `kernelType`, `config` (jsonb), `containerId`, `status` (running/stopped/error), `lastHeartbeat` | AI buddy instances |
+| **agent_policies** | `id`, `buddyId` → buddies, `serverId` → servers, `channelId` (nullable), `listen`, `reply`, `mentionOnly`, `config` (jsonb) | Per-buddy, per-server/channel behavior configuration |
 
 ### OAuth Tables
 
@@ -444,7 +444,7 @@ users ─────┬────── servers ──────── chan
 
 | Table | Key Columns | Description |
 |-------|------------|-------------|
-| **claw_listings** | `id`, `ownerId`, `agentId`, `title`, `description`, `skills` (jsonb), `deviceTier` (high_end/mid_range/low_end), `osType` (macos/windows/linux), `deviceInfo` (jsonb), `hourlyRate`, `dailyRate`, `monthlyRate`, `depositAmount`, `listingStatus` (draft/active/paused/expired/closed), `isListed`, `viewCount`, `rentalCount` | P2P rental listings for OpenClaw devices |
+| **claw_listings** | `id`, `ownerId`, `buddyId`, `title`, `description`, `skills` (jsonb), `deviceTier` (high_end/mid_range/low_end), `osType` (macos/windows/linux), `deviceInfo` (jsonb), `hourlyRate`, `dailyRate`, `monthlyRate`, `depositAmount`, `listingStatus` (draft/active/paused/expired/closed), `isListed`, `viewCount`, `rentalCount` | P2P rental listings for OpenClaw devices |
 | **rental_contracts** | `id`, `contractNo` (unique), `listingId`, `tenantId`, `ownerId`, `status` (pending/active/completed/cancelled/violated/disputed), `listingSnapshot` (jsonb), `hourlyRate`, `platformFeeRate`, `depositAmount`, `startsAt`, `expiresAt`, `terminatedAt`, `totalCost` | Signed rental agreements with frozen terms |
 | **rental_usage_records** | `id`, `contractId`, `startedAt`, `endedAt`, `durationMinutes`, `tokensConsumed`, `tokenCost`, `electricityCost`, `rentalCost`, `platformFee`, `totalCost` | Per-session usage billing |
 | **rental_violations** | `id`, `contractId`, `violatorId`, `violationType` (owner_self_use/tenant_abuse/terms_violation/other), `description`, `penaltyAmount`, `isPenaltyPaid`, `resolvedAt` | Contract violation reports |
@@ -623,7 +623,7 @@ Flow:
 ┌──────────────┐ ┌──────────┐ ┌──────────────┐
 │@shadowob/sdk │ │@shadowob/│ │@shadowob/    │
 │  (REST +     │ │  shared  │ │  openclaw    │
-│   Socket)    │ │ (types)  │ │ (agent       │
+│   Socket)    │ │ (types)  │ │ (buddy       │
 │              │ │          │ │  plugin)     │
 │ Depends on:  │ │          │ │              │
 │  shared      │ │          │ │ Depends on:  │

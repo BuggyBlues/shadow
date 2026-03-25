@@ -279,19 +279,19 @@ export class ServerService {
     return this.deps.serverDao.findPublic(limit, offset)
   }
 
-  /** Add a bot user as a member of a server (skip if already a member) */
-  async addBotMember(serverId: string, botUserId: string) {
+  /** Add a buddy user as a member of a server (skip if already a member) */
+  async addBuddyMember(serverId: string, buddyUserId: string) {
     const server = await this.deps.serverDao.findById(serverId)
     if (!server) {
       throw Object.assign(new Error('Server not found'), { status: 404 })
     }
-    const existing = await this.deps.serverDao.getMember(serverId, botUserId)
+    const existing = await this.deps.serverDao.getMember(serverId, buddyUserId)
     if (existing) {
       return existing // already a member
     }
-    const member = await this.deps.serverDao.addMember(serverId, botUserId, 'member')
+    const member = await this.deps.serverDao.addMember(serverId, buddyUserId, 'member')
 
-    // NOTE: Bots are NOT auto-added to all channels.
+    // NOTE: Buddies are NOT auto-added to all channels.
     // They must explicitly join channels via the channel join API or be added by the owner.
     // This enables per-channel Buddy isolation.
 

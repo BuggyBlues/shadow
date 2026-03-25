@@ -111,7 +111,7 @@ function StatCard({
 }
 
 /* ── Tabs ────────────────────────────────────────────── */
-type Tab = 'stats' | 'invites' | 'users' | 'servers' | 'agents'
+type Tab = 'stats' | 'invites' | 'users' | 'servers' | 'buddies'
 
 interface Stats {
   totalUsers: number
@@ -172,7 +172,7 @@ interface Message {
   author?: { username: string; displayName: string | null } | null
 }
 
-interface AdminAgent {
+interface AdminBuddy {
   id: string
   userId: string
   kernelType: string
@@ -181,7 +181,7 @@ interface AdminAgent {
   status: 'running' | 'stopped' | 'error'
   containerId: string | null
   updatedAt: string
-  botUser?: {
+  buddyUser?: {
     id: string
     username: string
     displayName: string | null
@@ -216,7 +216,7 @@ function DashboardContent() {
     description: string
     isPublic: boolean
   }>({ name: '', slug: '', description: '', isPublic: false })
-  const [adminAgents, setAdminAgents] = useState<AdminAgent[]>([])
+  const [adminBuddies, setAdminBuddies] = useState<AdminBuddy[]>([])
 
   const loadStats = async () => {
     try {
@@ -268,9 +268,9 @@ function DashboardContent() {
     }
   }
 
-  const loadAgents = async () => {
+  const loadBuddies = async () => {
     try {
-      setAdminAgents(await apiFetch<AdminAgent[]>('/agents'))
+      setAdminBuddies(await apiFetch<AdminBuddy[]>('/buddies'))
     } catch {
       /* */
     }
@@ -286,7 +286,7 @@ function DashboardContent() {
     if (tab === 'invites') loadInvites()
     if (tab === 'users') loadUsers()
     if (tab === 'servers') loadServers()
-    if (tab === 'agents') loadAgents()
+    if (tab === 'buddies') loadBuddies()
   }, [tab])
 
   const generateCodes = async () => {
@@ -350,10 +350,10 @@ function DashboardContent() {
     }
   }
 
-  const deleteAgent = async (id: string) => {
+  const deleteBuddy = async (id: string) => {
     if (!confirm('确定要删除该 Buddy 吗？')) return
-    await apiFetch(`/agents/${id}`, { method: 'DELETE' })
-    loadAgents()
+    await apiFetch(`/buddies/${id}`, { method: 'DELETE' })
+    loadBuddies()
   }
 
   const openEditServer = (s: Server) => {
@@ -390,7 +390,7 @@ function DashboardContent() {
     { key: 'invites', label: '🎟️ 邀请码' },
     { key: 'users', label: '👤 用户管理' },
     { key: 'servers', label: '🖥️ 服务器管理' },
-    { key: 'agents', label: '🐱 Buddy 管理' },
+    { key: 'buddies', label: '🐱 Buddy 管理' },
   ]
 
   return (
@@ -940,8 +940,8 @@ function DashboardContent() {
             </div>
           )}
 
-          {/* Agents Tab */}
-          {tab === 'agents' && (
+          {/* Buddies Tab */}
+          {tab === 'buddies' && (
             <div>
               <h2 className="text-lg font-bold mb-4">Buddy 管理</h2>
               <div className="bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden">
@@ -957,30 +957,32 @@ function DashboardContent() {
                     </tr>
                   </thead>
                   <tbody>
-                    {adminAgents.map((agent) => (
+                    {adminBuddies.map((buddy) => (
                       <tr
-                        key={agent.id}
+                        key={buddy.id}
                         className="border-b border-zinc-800/50 hover:bg-zinc-800/30"
                       >
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            {agent.botUser?.avatarUrl ? (
+                            {buddy.buddyUser?.avatarUrl ? (
                               <img
-                                src={agent.botUser.avatarUrl}
+                                src={buddy.buddyUser.avatarUrl}
                                 alt=""
                                 className="w-7 h-7 rounded-full"
                               />
                             ) : (
                               <div className="w-7 h-7 rounded-full bg-purple-600 flex items-center justify-center text-xs font-bold">
-                                {(agent.botUser?.displayName ?? 'A')[0]?.toUpperCase()}
+                                {(buddy.buddyUser?.displayName ?? 'A')[0]?.toUpperCase()}
                               </div>
                             )}
                             <div>
                               <p className="font-medium">
-                                {agent.botUser?.displayName ?? agent.botUser?.username ?? 'Buddy'}
+                                {buddy.buddyUser?.displayName ??
+                                  buddy.buddyUser?.username ??
+                                  'Buddy'}
                               </p>
                               <p className="text-xs text-zinc-500">
-                                @{agent.botUser?.username ?? '—'}
+                                @{buddy.buddyUser?.username ?? '—'}
                               </p>
                             </div>
                             <span className="text-[10px] bg-indigo-500/20 text-indigo-400 px-1.5 py-0.5 rounded-full font-bold">
@@ -989,38 +991,38 @@ function DashboardContent() {
                           </div>
                         </td>
                         <td className="px-4 py-3 text-zinc-400">
-                          {agent.owner ? (
-                            <span>@{agent.owner.username}</span>
+                          {buddy.owner ? (
+                            <span>@{buddy.owner.username}</span>
                           ) : (
                             <span className="text-zinc-600">—</span>
                           )}
                         </td>
                         <td className="px-4 py-3 text-zinc-400 font-mono text-xs">
-                          {agent.kernelType}
+                          {buddy.kernelType}
                         </td>
                         <td className="px-4 py-3">
                           <span
                             className={`text-xs px-2 py-0.5 rounded-full ${
-                              agent.status === 'running'
+                              buddy.status === 'running'
                                 ? 'bg-green-500/20 text-green-400'
-                                : agent.status === 'error'
+                                : buddy.status === 'error'
                                   ? 'bg-red-500/20 text-red-400'
                                   : 'bg-zinc-700 text-zinc-300'
                             }`}
                           >
-                            {agent.status === 'running'
+                            {buddy.status === 'running'
                               ? '在线'
-                              : agent.status === 'error'
+                              : buddy.status === 'error'
                                 ? '异常'
                                 : '离线'}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-zinc-500">
-                          {agent.updatedAt ? new Date(agent.updatedAt).toLocaleString() : '—'}
+                          {buddy.updatedAt ? new Date(buddy.updatedAt).toLocaleString() : '—'}
                         </td>
                         <td className="px-4 py-3">
                           <button
-                            onClick={() => deleteAgent(agent.id)}
+                            onClick={() => deleteBuddy(buddy.id)}
                             className="text-red-400 hover:text-red-300 text-xs transition"
                           >
                             删除
@@ -1028,10 +1030,10 @@ function DashboardContent() {
                         </td>
                       </tr>
                     ))}
-                    {adminAgents.length === 0 && (
+                    {adminBuddies.length === 0 && (
                       <tr>
                         <td colSpan={6} className="px-4 py-8 text-center text-zinc-500">
-                          暂无 Agent
+                          暂无 Buddy
                         </td>
                       </tr>
                     )}

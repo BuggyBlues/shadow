@@ -1,8 +1,8 @@
 import { eq, sql } from 'drizzle-orm'
 import type { Database } from '../db'
-import { agents, users } from '../db/schema'
+import { buddies, users } from '../db/schema'
 
-export class AgentDao {
+export class BuddyDao {
   constructor(private deps: { db: Database }) {}
 
   private get db() {
@@ -10,16 +10,16 @@ export class AgentDao {
   }
 
   async findById(id: string) {
-    const result = await this.db.select().from(agents).where(eq(agents.id, id)).limit(1)
+    const result = await this.db.select().from(buddies).where(eq(buddies.id, id)).limit(1)
     return result[0] ?? null
   }
 
   async findByOwnerId(ownerId: string) {
-    return this.db.select().from(agents).where(eq(agents.ownerId, ownerId))
+    return this.db.select().from(buddies).where(eq(buddies.ownerId, ownerId))
   }
 
   async findAll(limit = 50, offset = 0) {
-    return this.db.select().from(agents).limit(limit).offset(offset)
+    return this.db.select().from(buddies).limit(limit).offset(offset)
   }
 
   async create(data: {
@@ -28,19 +28,19 @@ export class AgentDao {
     config: Record<string, unknown>
     ownerId: string
   }) {
-    const result = await this.db.insert(agents).values(data).returning()
+    const result = await this.db.insert(buddies).values(data).returning()
     return result[0]
   }
 
   async updateStatus(id: string, status: 'running' | 'stopped' | 'error', containerId?: string) {
     const result = await this.db
-      .update(agents)
+      .update(buddies)
       .set({
         status,
         ...(containerId !== undefined ? { containerId } : {}),
         updatedAt: new Date(),
       })
-      .where(eq(agents.id, id))
+      .where(eq(buddies.id, id))
       .returning()
     return result[0] ?? null
   }
@@ -49,42 +49,42 @@ export class AgentDao {
     // Accumulate online seconds: if lastHeartbeat is recent (<= 120s), add the delta
     // Use NOW() to avoid JS Date serialization issues with PostgreSQL timestamptz casts
     const result = await this.db
-      .update(agents)
+      .update(buddies)
       .set({
         lastHeartbeat: sql`NOW()`,
         status: 'running',
         updatedAt: sql`NOW()`,
-        totalOnlineSeconds: sql`${agents.totalOnlineSeconds} + CASE
-          WHEN ${agents.lastHeartbeat} IS NOT NULL
-            AND EXTRACT(EPOCH FROM (NOW() - ${agents.lastHeartbeat})) <= 120
-          THEN FLOOR(EXTRACT(EPOCH FROM (NOW() - ${agents.lastHeartbeat})))::int
+        totalOnlineSeconds: sql`${buddies.totalOnlineSeconds} + CASE
+          WHEN ${buddies.lastHeartbeat} IS NOT NULL
+            AND EXTRACT(EPOCH FROM (NOW() - ${buddies.lastHeartbeat})) <= 120
+          THEN FLOOR(EXTRACT(EPOCH FROM (NOW() - ${buddies.lastHeartbeat})))::int
           ELSE 0 END`,
       })
-      .where(eq(agents.id, id))
+      .where(eq(buddies.id, id))
       .returning()
     return result[0] ?? null
   }
 
   async updateConfig(id: string, config: Record<string, unknown>) {
     const result = await this.db
-      .update(agents)
+      .update(buddies)
       .set({ config, updatedAt: new Date() })
-      .where(eq(agents.id, id))
+      .where(eq(buddies.id, id))
       .returning()
     return result[0] ?? null
   }
 
   async findByUserId(userId: string) {
-    const result = await this.db.select().from(agents).where(eq(agents.userId, userId)).limit(1)
+    const result = await this.db.select().from(buddies).where(eq(buddies.userId, userId)).limit(1)
     return result[0] ?? null
   }
 
   async delete(id: string) {
-    await this.db.delete(agents).where(eq(agents.id, id))
+    await this.db.delete(buddies).where(eq(buddies.id, id))
   }
 
-  /** 创建 Agent 关联的 bot user，username冲突时自动加随机短缀 */
-  async createBotUser(data: { username: string; displayName: string }) {
+  /** 创建 Buddy 关联的 buddy user，username冲突时自动加随机短缀 */
+  async createBuddyUser(data: { username: string; displayName: string }) {
     const maxRetries = 5
     let username = data.username
     for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -92,10 +92,10 @@ export class AgentDao {
         const result = await this.db
           .insert(users)
           .values({
-            email: `${username}@shadowob.bot`,
+            email: `${username}@shadowob.buddy`,
             username,
             displayName: data.displayName,
-            passwordHash: 'bot-no-password',
+            passwordHash: 'buddy-no-password',
             isBot: true,
           })
           .returning()

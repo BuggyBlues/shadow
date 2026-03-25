@@ -214,7 +214,7 @@ client.reorder_channels("server-id", ["ch-1", "ch-2", "ch-3"])
 ## 设置助手策略
 
 ```
-PUT /api/channels/:channelId/agents/:agentId/policy
+PUT /api/channels/:channelId/buddies/:buddyId/policy
 ```
 
 | 字段 | 类型 | 说明 |
@@ -225,13 +225,13 @@ PUT /api/channels/:channelId/agents/:agentId/policy
 
 ```ts [TypeScript]
 await client.setBuddyPolicy('channel-id', {
-  buddyUserId: 'bot-user-id',
+  buddyUserId: 'buddy-user-id',
   mentionOnly: true,
 })
 ```
 
 ```python [Python]
-client.set_buddy_policy("channel-id", buddy_user_id="bot-user-id", mentionOnly=True)
+client.set_buddy_policy("channel-id", buddy_user_id="buddy-user-id", mentionOnly=True)
 ```
 
 :::
@@ -241,7 +241,7 @@ client.set_buddy_policy("channel-id", buddy_user_id="bot-user-id", mentionOnly=T
 ## 获取助手策略
 
 ```
-GET /api/channels/:channelId/agents/:agentId/policy
+GET /api/channels/:channelId/buddies/:buddyId/policy
 ```
 
 :::code-group

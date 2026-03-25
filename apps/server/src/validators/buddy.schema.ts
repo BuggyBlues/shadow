@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const createAgentSchema = z.object({
+export const createBuddySchema = z.object({
   name: z.string().min(1).max(64),
   username: z
     .string()
@@ -16,4 +16,4 @@ export const createAgentSchema = z.object({
   config: z.record(z.unknown()).default({}),
 })
 
-export type CreateAgentInput = z.infer<typeof createAgentSchema>
+export type CreateBuddyInput = z.infer<typeof createBuddySchema>

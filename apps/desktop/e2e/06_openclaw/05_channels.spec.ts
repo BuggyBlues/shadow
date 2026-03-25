@@ -188,7 +188,7 @@ test.describe('Channel Config CRUD', () => {
         accounts: [
           {
             id: 'acct-1',
-            label: 'Updated Bot',
+            label: 'Updated Buddy',
             enabled: false,
             config: {
               bot_token: 'updated-token',
@@ -214,7 +214,7 @@ test.describe('Channel Config CRUD', () => {
     }, testChannelId)
 
     expect(result.accountCount).toBe(2)
-    expect(result.firstLabel).toBe('Updated Bot')
+    expect(result.firstLabel).toBe('Updated Buddy')
     expect(result.firstEnabled).toBe(false)
     expect(result.secondLabel).toBe('Second Bot')
   })

@@ -42,12 +42,12 @@ export interface OpenClawConfig {
     }
     [key: string]: unknown
   }
-  agents: {
-    list: AgentConfig[]
+  buddies: {
+    list: BuddyConfig[]
     defaults: Record<string, unknown>
   }
-  /** Deterministic routing: bindings map (channel, accountId, peer) → agentId */
-  bindings?: AgentBinding[]
+  /** Deterministic routing: bindings map (channel, accountId, peer) → buddyId */
+  bindings?: BuddyBinding[]
   channels: Record<string, unknown>
   plugins: {
     enabled?: boolean
@@ -90,9 +90,9 @@ export interface OpenClawConfig {
   [key: string]: unknown
 }
 
-/** OpenClaw binding — routes inbound messages to a specific agent */
-export interface AgentBinding {
-  agentId: string
+/** OpenClaw binding — routes inbound messages to a specific buddy */
+export interface BuddyBinding {
+  buddyId: string
   match: {
     channel: string
     accountId?: string
@@ -101,20 +101,20 @@ export interface AgentBinding {
   }
 }
 
-/** OpenClaw agent entry — valid fields per AgentEntrySchema.strict() */
-export interface AgentConfig {
+/** OpenClaw buddy entry — valid fields per BuddyEntrySchema.strict() */
+export interface BuddyConfig {
   id: string
   name?: string
   default?: boolean
   workspace?: string
-  agentDir?: string
+  buddyDir?: string
   model?:
     | string
     | { primary?: string; fallbacks?: string[]; thinking?: string | Record<string, unknown> }
   skills?: string[]
   identity?: { name?: string; theme?: string; emoji?: string; avatar?: string }
   groupChat?: Record<string, unknown>
-  subagents?: Record<string, unknown>
+  subbuddies?: Record<string, unknown>
   sandbox?: Record<string, unknown>
   params?: Record<string, unknown>
   tools?: Record<string, unknown>
@@ -247,7 +247,7 @@ export interface BuddyConnection {
   label: string
   serverUrl: string
   apiToken?: string
-  remoteAgentId?: string
+  remoteBuddyId?: string
   agentId: string
   autoConnect?: boolean
   status: 'connected' | 'disconnected' | 'connecting' | 'error'
@@ -274,7 +274,7 @@ export type CronSchedule =
 
 export type CronPayload =
   | { kind: 'systemEvent'; text: string }
-  | { kind: 'agentTurn'; message: string; model?: string }
+  | { kind: 'buddyTurn'; message: string; model?: string }
 
 export interface CronDelivery {
   mode: 'none' | 'announce' | 'webhook'
@@ -295,7 +295,7 @@ export interface CronTask {
   name: string
   description?: string
   enabled: boolean
-  agentId?: string
+  buddyId?: string
   schedule: CronSchedule
   payload: CronPayload
   delivery?: CronDelivery

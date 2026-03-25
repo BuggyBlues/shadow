@@ -1,37 +1,37 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import type { Database } from '../db'
-import { agentPolicies } from '../db/schema'
+import { buddyPolicies } from '../db/schema'
 
-export class AgentPolicyDao {
+export class BuddyPolicyDao {
   constructor(private deps: { db: Database }) {}
 
   private get db() {
     return this.deps.db
   }
 
-  /** Find all policies for a given agent */
-  async findByAgentId(agentId: string) {
-    return this.db.select().from(agentPolicies).where(eq(agentPolicies.agentId, agentId))
+  /** Find all policies for a given buddy */
+  async findByBuddyId(buddyId: string) {
+    return this.db.select().from(buddyPolicies).where(eq(buddyPolicies.buddyId, buddyId))
   }
 
-  /** Find all policies for a given agent in a specific server */
-  async findByAgentAndServer(agentId: string, serverId: string) {
+  /** Find all policies for a given buddy in a specific server */
+  async findByBuddyAndServer(buddyId: string, serverId: string) {
     return this.db
       .select()
-      .from(agentPolicies)
-      .where(and(eq(agentPolicies.agentId, agentId), eq(agentPolicies.serverId, serverId)))
+      .from(buddyPolicies)
+      .where(and(eq(buddyPolicies.buddyId, buddyId), eq(buddyPolicies.serverId, serverId)))
   }
 
   /** Find the server-wide default policy (channelId is null) */
-  async findServerDefault(agentId: string, serverId: string) {
+  async findServerDefault(buddyId: string, serverId: string) {
     const result = await this.db
       .select()
-      .from(agentPolicies)
+      .from(buddyPolicies)
       .where(
         and(
-          eq(agentPolicies.agentId, agentId),
-          eq(agentPolicies.serverId, serverId),
-          isNull(agentPolicies.channelId),
+          eq(buddyPolicies.buddyId, buddyId),
+          eq(buddyPolicies.serverId, serverId),
+          isNull(buddyPolicies.channelId),
         ),
       )
       .limit(1)
@@ -39,15 +39,15 @@ export class AgentPolicyDao {
   }
 
   /** Find a channel-specific policy */
-  async findByChannel(agentId: string, serverId: string, channelId: string) {
+  async findByChannel(buddyId: string, serverId: string, channelId: string) {
     const result = await this.db
       .select()
-      .from(agentPolicies)
+      .from(buddyPolicies)
       .where(
         and(
-          eq(agentPolicies.agentId, agentId),
-          eq(agentPolicies.serverId, serverId),
-          eq(agentPolicies.channelId, channelId),
+          eq(buddyPolicies.buddyId, buddyId),
+          eq(buddyPolicies.serverId, serverId),
+          eq(buddyPolicies.channelId, channelId),
         ),
       )
       .limit(1)
@@ -56,7 +56,7 @@ export class AgentPolicyDao {
 
   /** Upsert a policy (insert or update on conflict) */
   async upsert(data: {
-    agentId: string
+    buddyId: string
     serverId: string
     channelId?: string | null
     listen?: boolean
@@ -66,14 +66,14 @@ export class AgentPolicyDao {
   }) {
     // Try to find existing
     const existing = data.channelId
-      ? await this.findByChannel(data.agentId, data.serverId, data.channelId)
-      : await this.findServerDefault(data.agentId, data.serverId)
+      ? await this.findByChannel(data.buddyId, data.serverId, data.channelId)
+      : await this.findServerDefault(data.buddyId, data.serverId)
 
     const now = new Date()
 
     if (existing) {
       const result = await this.db
-        .update(agentPolicies)
+        .update(buddyPolicies)
         .set({
           listen: data.listen ?? existing.listen,
           reply: data.reply ?? existing.reply,
@@ -81,15 +81,15 @@ export class AgentPolicyDao {
           config: data.config ?? existing.config,
           updatedAt: now,
         })
-        .where(eq(agentPolicies.id, existing.id))
+        .where(eq(buddyPolicies.id, existing.id))
         .returning()
       return result[0]
     }
 
     const result = await this.db
-      .insert(agentPolicies)
+      .insert(buddyPolicies)
       .values({
-        agentId: data.agentId,
+        buddyId: data.buddyId,
         serverId: data.serverId,
         channelId: data.channelId ?? null,
         listen: data.listen ?? true,
@@ -104,7 +104,7 @@ export class AgentPolicyDao {
   /** Batch upsert policies */
   async batchUpsert(
     policies: Array<{
-      agentId: string
+      buddyId: string
       serverId: string
       channelId?: string | null
       listen?: boolean
@@ -123,13 +123,13 @@ export class AgentPolicyDao {
 
   /** Delete a specific policy */
   async delete(id: string) {
-    await this.db.delete(agentPolicies).where(eq(agentPolicies.id, id))
+    await this.db.delete(buddyPolicies).where(eq(buddyPolicies.id, id))
   }
 
-  /** Delete all policies for an agent in a server */
-  async deleteByAgentAndServer(agentId: string, serverId: string) {
+  /** Delete all policies for a buddy in a server */
+  async deleteByBuddyAndServer(buddyId: string, serverId: string) {
     await this.db
-      .delete(agentPolicies)
-      .where(and(eq(agentPolicies.agentId, agentId), eq(agentPolicies.serverId, serverId)))
+      .delete(buddyPolicies)
+      .where(and(eq(buddyPolicies.buddyId, buddyId), eq(buddyPolicies.serverId, serverId)))
   }
 }

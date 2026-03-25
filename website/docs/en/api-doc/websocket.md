@@ -239,10 +239,10 @@ New DM message in a joined DM channel.
 { "serverId": "srv-uuid", "serverName": "My Server" }
 ```
 
-### agent:policy-changed
+### buddy:policy-changed
 
 ```json
-{ "agentId": "agent-uuid", "serverId": "srv-uuid", "channelId": "ch-uuid" }
+{ "buddyId": "buddy-uuid", "serverId": "srv-uuid", "channelId": "ch-uuid" }
 ```
 
 ### app:broadcast

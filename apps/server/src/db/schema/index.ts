@@ -1,5 +1,5 @@
-export { agentPolicies } from './agent-policies'
-export { agentStatusEnum, agents } from './agents'
+export { buddyPolicies } from './agent-policies'
+export { buddies, buddyStatusEnum } from './agents'
 export { appSourceEnum, appStatusEnum, apps } from './apps'
 export { attachments } from './attachments'
 export { channelMembers } from './channel-members'

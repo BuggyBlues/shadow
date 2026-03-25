@@ -58,11 +58,11 @@ interface ServerMember {
   role: string
 }
 
-interface BuddyAgent {
+interface BuddyMember {
   id: string
   ownerId: string
   userId: string
-  botUser?: {
+  buddyUser?: {
     id: string
     username: string
     displayName?: string | null
@@ -111,10 +111,10 @@ export default function ChannelMembersScreen() {
     enabled: !!channel?.serverId && showInviteSheet,
   })
 
-  // User's buddy agents for invite
-  const { data: myAgents = [] } = useQuery({
-    queryKey: ['my-agents-for-invite'],
-    queryFn: () => fetchApi<BuddyAgent[]>('/api/agents'),
+  // User's buddy buddies for invite
+  const { data: myBuddies = [] } = useQuery({
+    queryKey: ['my-buddies-for-invite'],
+    queryFn: () => fetchApi<BuddyMember[]>('/api/buddies'),
     enabled: showInviteSheet,
   })
 
@@ -139,38 +139,38 @@ export default function ChannelMembersScreen() {
   }, [serverMembers, members, inviteSearch])
 
   // Invite: user's buddies not in channel (also check if on server)
-  const serverBotUserIds = useMemo(
+  const serverBuddyUserIds = useMemo(
     () => new Set(serverMembers.filter((m) => m.user.isBot).map((m) => m.user.id)),
     [serverMembers],
   )
-  const channelBotUserIds = useMemo(
+  const channelBuddyUserIds = useMemo(
     () => new Set(members.filter((m) => m.user.isBot).map((m) => m.userId)),
     [members],
   )
 
   // Server bots not in this channel
-  const serverBotsNotInChannel = useMemo(() => {
+  const serverBuddiesNotInChannel = useMemo(() => {
     const q = inviteSearch.toLowerCase()
     return serverMembers
-      .filter((m) => m.user.isBot && !channelBotUserIds.has(m.user.id))
+      .filter((m) => m.user.isBot && !channelBuddyUserIds.has(m.user.id))
       .filter((m) => {
         if (!q) return true
         const name = (m.user.displayName || m.user.username).toLowerCase()
         return name.includes(q)
       })
-  }, [serverMembers, channelBotUserIds, inviteSearch])
+  }, [serverMembers, channelBuddyUserIds, inviteSearch])
 
-  // User's agents not on this server
-  const myAgentsNotOnServer = useMemo(() => {
+  // User's buddies not on this server
+  const myBuddiesNotOnServer = useMemo(() => {
     const q = inviteSearch.toLowerCase()
-    return myAgents
-      .filter((a) => a.botUser && !serverBotUserIds.has(a.botUser.id))
+    return myBuddies
+      .filter((a) => a.buddyUser && !serverBuddyUserIds.has(a.buddyUser.id))
       .filter((a) => {
         if (!q) return true
-        const name = (a.botUser?.displayName || a.botUser?.username || '').toLowerCase()
+        const name = (a.buddyUser?.displayName || a.buddyUser?.username || '').toLowerCase()
         return name.includes(q)
       })
-  }, [myAgents, serverBotUserIds, inviteSearch])
+  }, [myBuddies, serverBuddyUserIds, inviteSearch])
 
   // Invite member to channel
   const inviteMember = useMutation({
@@ -185,23 +185,23 @@ export default function ChannelMembersScreen() {
     },
   })
 
-  // Add agent to server then to channel
-  const addAgentToServer = useMutation({
-    mutationFn: async (agent: BuddyAgent) => {
-      await fetchApi(`/api/servers/${channel!.serverId}/agents`, {
+  // Add buddy to server then to channel
+  const addBuddyToServer = useMutation({
+    mutationFn: async (buddy: BuddyMember) => {
+      await fetchApi(`/api/servers/${channel!.serverId}/buddies`, {
         method: 'POST',
-        body: JSON.stringify({ agentIds: [agent.id] }),
+        body: JSON.stringify({ buddyIds: [buddy.id] }),
       })
-      if (agent.botUser?.id) {
+      if (buddy.buddyUser?.id) {
         await fetchApi(`/api/channels/${channelId}/members`, {
           method: 'POST',
-          body: JSON.stringify({ userId: agent.botUser.id }),
+          body: JSON.stringify({ userId: buddy.buddyUser.id }),
         })
       }
     },
-    onSuccess: (_data, agent) => {
-      if (agent.botUser?.id) {
-        setAddedUserIds((prev) => new Set(prev).add(agent.botUser!.id))
+    onSuccess: (_data, buddy) => {
+      if (buddy.buddyUser?.id) {
+        setAddedUserIds((prev) => new Set(prev).add(buddy.buddyUser!.id))
       }
       queryClient.invalidateQueries({ queryKey: ['channel-members', channelId] })
       queryClient.invalidateQueries({ queryKey: ['server-members-for-invite'] })
@@ -218,22 +218,22 @@ export default function ChannelMembersScreen() {
   })
 
   // Buddy policy
-  const { data: buddyAgents = [] } = useQuery({
-    queryKey: ['channel-buddy-agents'],
-    queryFn: () => fetchApi<BuddyAgent[]>('/api/agents'),
+  const { data: buddyMembers = [] } = useQuery({
+    queryKey: ['channel-buddy-buddies'],
+    queryFn: () => fetchApi<BuddyMember[]>('/api/buddies'),
   })
 
-  const selectedAgent = policySheet?.user.isBot
-    ? buddyAgents.find((a) => a.botUser?.id === policySheet.user.id)
+  const selectedBuddy = policySheet?.user.isBot
+    ? buddyMembers.find((a) => a.buddyUser?.id === policySheet.user.id)
     : null
 
   const { data: currentPolicy } = useQuery({
-    queryKey: ['agent-policy', channelId, selectedAgent?.id],
+    queryKey: ['buddy-policy', channelId, selectedBuddy?.id],
     queryFn: () =>
       fetchApi<{ mentionOnly: boolean; reply: boolean; config: Record<string, unknown> }>(
-        `/api/channels/${channelId}/agents/${selectedAgent!.id}/policy`,
+        `/api/channels/${channelId}/buddies/${selectedBuddy!.id}/policy`,
       ),
-    enabled: !!channelId && !!selectedAgent,
+    enabled: !!channelId && !!selectedBuddy,
   })
 
   const currentMode: PolicyMode = (() => {
@@ -245,21 +245,21 @@ export default function ChannelMembersScreen() {
 
   const updatePolicy = useMutation({
     mutationFn: ({ mode }: { mode: string }) =>
-      fetchApi(`/api/channels/${channelId}/agents/${selectedAgent!.id}/policy`, {
+      fetchApi(`/api/channels/${channelId}/buddies/${selectedBuddy!.id}/policy`, {
         method: 'PUT',
         body: JSON.stringify({ mode }),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['agent-policy', channelId, selectedAgent?.id] })
+      queryClient.invalidateQueries({ queryKey: ['buddy-policy', channelId, selectedBuddy?.id] })
       setPolicySheet(null)
     },
   })
 
   const canManagePolicy = (member: ChannelMember) => {
     if (!member.user.isBot) return false
-    const agent = buddyAgents.find((a) => a.botUser?.id === member.user.id)
-    if (!agent) return false
-    return agent.ownerId === currentUser?.id || server?.id != null
+    const buddy = buddyMembers.find((a) => a.buddyUser?.id === member.user.id)
+    if (!buddy) return false
+    return buddy.ownerId === currentUser?.id || server?.id != null
   }
 
   if (isLoading) return <LoadingScreen />
@@ -490,12 +490,12 @@ export default function ChannelMembersScreen() {
                 )}
 
                 {/* Server bots not in channel */}
-                {serverBotsNotInChannel.length > 0 && (
+                {serverBuddiesNotInChannel.length > 0 && (
                   <>
                     <Text style={[styles.inviteSectionTitle, { color: colors.textMuted }]}>
                       {t('members.serverBuddies', '服务器 Buddy')}
                     </Text>
-                    {serverBotsNotInChannel.map((m) => {
+                    {serverBuddiesNotInChannel.map((m) => {
                       const isPending =
                         inviteMember.isPending && inviteMember.variables === m.user.id
                       const isAdded = addedUserIds.has(m.user.id)
@@ -549,33 +549,33 @@ export default function ChannelMembersScreen() {
                   </>
                 )}
 
-                {/* User's own agents not on server */}
-                {myAgentsNotOnServer.length > 0 && (
+                {/* User's own buddies not on server */}
+                {myBuddiesNotOnServer.length > 0 && (
                   <>
                     <Text style={[styles.inviteSectionTitle, { color: colors.textMuted }]}>
                       {t('members.myBuddies', '我的 Buddy')}
                     </Text>
-                    {myAgentsNotOnServer.map((a) => {
+                    {myBuddiesNotOnServer.map((a) => {
                       const isPending =
-                        addAgentToServer.isPending && addAgentToServer.variables?.id === a.id
-                      const isAdded = a.botUser?.id ? addedUserIds.has(a.botUser.id) : false
+                        addBuddyToServer.isPending && addBuddyToServer.variables?.id === a.id
+                      const isAdded = a.buddyUser?.id ? addedUserIds.has(a.buddyUser.id) : false
                       return (
                         <View
                           key={a.id}
                           style={[styles.inviteMemberRow, { borderBottomColor: colors.border }]}
                         >
                           <Avatar
-                            uri={a.botUser?.avatarUrl ?? null}
-                            name={a.botUser?.displayName || a.botUser?.username || '?'}
+                            uri={a.buddyUser?.avatarUrl ?? null}
+                            name={a.buddyUser?.displayName || a.buddyUser?.username || '?'}
                             size={36}
-                            userId={a.botUser?.id}
+                            userId={a.buddyUser?.id}
                           />
                           <View style={{ flex: 1 }}>
                             <Text
                               style={[styles.inviteMemberName, { color: colors.primary }]}
                               numberOfLines={1}
                             >
-                              {a.botUser?.displayName || a.botUser?.username || '?'}
+                              {a.buddyUser?.displayName || a.buddyUser?.username || '?'}
                             </Text>
                             <Text style={{ color: colors.textMuted, fontSize: fontSize.xs }}>
                               {t('members.notOnServer', '未加入服务器')}
@@ -591,7 +591,7 @@ export default function ChannelMembersScreen() {
                                 styles.inviteBtn,
                                 { backgroundColor: colors.primary, opacity: isPending ? 0.6 : 1 },
                               ]}
-                              onPress={() => addAgentToServer.mutate(a)}
+                              onPress={() => addBuddyToServer.mutate(a)}
                               disabled={isPending}
                             >
                               {isPending ? (
@@ -614,8 +614,8 @@ export default function ChannelMembersScreen() {
 
                 {/* Empty state */}
                 {invitableServerMembers.length === 0 &&
-                  serverBotsNotInChannel.length === 0 &&
-                  myAgentsNotOnServer.length === 0 && (
+                  serverBuddiesNotInChannel.length === 0 &&
+                  myBuddiesNotOnServer.length === 0 && (
                     <Text
                       style={{
                         color: colors.textMuted,

@@ -1,47 +1,47 @@
 import { Command } from 'commander'
 import { getClient } from '../utils/client.js'
-import { output, outputSuccess, outputError, type OutputOptions } from '../utils/output.js'
+import { type OutputOptions, output, outputError, outputSuccess } from '../utils/output.js'
 
-export function createAgentsCommand(): Command {
-  const agents = new Command('agents').description('Agent management commands')
+export function createBuddiesCommand(): Command {
+  const buddies = new Command('buddies').description('Buddy management commands')
 
-  agents
+  buddies
     .command('list')
-    .description('List your agents')
+    .description('List your buddies')
     .option('--profile <name>', 'Profile to use')
     .option('--json', 'Output as JSON')
     .action(async (options: { profile?: string; json?: boolean }) => {
       try {
         const client = await getClient(options.profile)
-        const agents = await client.listAgents()
-        output(agents, { json: options.json })
+        const buddies = await client.listBuddies()
+        output(buddies, { json: options.json })
       } catch (error) {
         outputError(error instanceof Error ? error.message : String(error), { json: options.json })
         process.exit(1)
       }
     })
 
-  agents
+  buddies
     .command('get')
-    .description('Get agent details')
-    .argument('<agent-id>', 'Agent ID')
+    .description('Get buddy details')
+    .argument('<buddy-id>', 'Buddy ID')
     .option('--profile <name>', 'Profile to use')
     .option('--json', 'Output as JSON')
-    .action(async (agentId: string, options: { profile?: string; json?: boolean }) => {
+    .action(async (buddyId: string, options: { profile?: string; json?: boolean }) => {
       try {
         const client = await getClient(options.profile)
-        const agent = await client.getAgent(agentId)
-        output(agent, { json: options.json })
+        const buddy = await client.getBuddy(buddyId)
+        output(buddy, { json: options.json })
       } catch (error) {
         outputError(error instanceof Error ? error.message : String(error), { json: options.json })
         process.exit(1)
       }
     })
 
-  agents
+  buddies
     .command('create')
-    .description('Create a new agent')
-    .requiredOption('--name <name>', 'Agent name')
+    .description('Create a new buddy')
+    .requiredOption('--name <name>', 'Buddy name')
     .option('--display-name <name>', 'Display name')
     .option('--avatar-url <url>', 'Avatar URL')
     .option('--profile <name>', 'Profile to use')
@@ -56,23 +56,25 @@ export function createAgentsCommand(): Command {
       }) => {
         try {
           const client = await getClient(options.profile)
-          const agent = await client.createAgent({
+          const buddy = await client.createBuddy({
             name: options.name,
             displayName: options.displayName,
             avatarUrl: options.avatarUrl,
           })
-          output(agent, { json: options.json })
+          output(buddy, { json: options.json })
         } catch (error) {
-          outputError(error instanceof Error ? error.message : String(error), { json: options.json })
+          outputError(error instanceof Error ? error.message : String(error), {
+            json: options.json,
+          })
           process.exit(1)
         }
-      }
+      },
     )
 
-  agents
+  buddies
     .command('update')
-    .description('Update an agent')
-    .argument('<agent-id>', 'Agent ID')
+    .description('Update a buddy')
+    .argument('<buddy-id>', 'Buddy ID')
     .option('--name <name>', 'New name')
     .option('--display-name <name>', 'New display name')
     .option('--avatar-url <url>', 'New avatar URL')
@@ -80,94 +82,96 @@ export function createAgentsCommand(): Command {
     .option('--json', 'Output as JSON')
     .action(
       async (
-        agentId: string,
+        buddyId: string,
         options: {
           name?: string
           displayName?: string
           avatarUrl?: string
           profile?: string
           json?: boolean
-        }
+        },
       ) => {
         try {
           const client = await getClient(options.profile)
-          const agent = await client.updateAgent(agentId, {
+          const buddy = await client.updateBuddy(buddyId, {
             name: options.name,
             displayName: options.displayName,
             avatarUrl: options.avatarUrl,
           })
-          output(agent, { json: options.json })
+          output(buddy, { json: options.json })
         } catch (error) {
-          outputError(error instanceof Error ? error.message : String(error), { json: options.json })
+          outputError(error instanceof Error ? error.message : String(error), {
+            json: options.json,
+          })
           process.exit(1)
         }
-      }
+      },
     )
 
-  agents
+  buddies
     .command('delete')
-    .description('Delete an agent')
-    .argument('<agent-id>', 'Agent ID')
+    .description('Delete a buddy')
+    .argument('<buddy-id>', 'Buddy ID')
     .option('--profile <name>', 'Profile to use')
     .option('--json', 'Output as JSON')
-    .action(async (agentId: string, options: { profile?: string; json?: boolean }) => {
+    .action(async (buddyId: string, options: { profile?: string; json?: boolean }) => {
       try {
         const client = await getClient(options.profile)
-        await client.deleteAgent(agentId)
+        await client.deleteBuddy(buddyId)
         const outputOpts: OutputOptions = { json: options.json }
-        outputSuccess('Agent deleted', outputOpts)
+        outputSuccess('Buddy deleted', outputOpts)
       } catch (error) {
         outputError(error instanceof Error ? error.message : String(error), { json: options.json })
         process.exit(1)
       }
     })
 
-  agents
+  buddies
     .command('start')
-    .description('Start an agent')
-    .argument('<agent-id>', 'Agent ID')
+    .description('Start a buddy')
+    .argument('<buddy-id>', 'Buddy ID')
     .option('--profile <name>', 'Profile to use')
     .option('--json', 'Output as JSON')
-    .action(async (agentId: string, options: { profile?: string; json?: boolean }) => {
+    .action(async (buddyId: string, options: { profile?: string; json?: boolean }) => {
       try {
         const client = await getClient(options.profile)
-        await client.startAgent(agentId)
+        await client.startBuddy(buddyId)
         const outputOpts: OutputOptions = { json: options.json }
-        outputSuccess('Agent started', outputOpts)
+        outputSuccess('Buddy started', outputOpts)
       } catch (error) {
         outputError(error instanceof Error ? error.message : String(error), { json: options.json })
         process.exit(1)
       }
     })
 
-  agents
+  buddies
     .command('stop')
-    .description('Stop an agent')
-    .argument('<agent-id>', 'Agent ID')
+    .description('Stop a buddy')
+    .argument('<buddy-id>', 'Buddy ID')
     .option('--profile <name>', 'Profile to use')
     .option('--json', 'Output as JSON')
-    .action(async (agentId: string, options: { profile?: string; json?: boolean }) => {
+    .action(async (buddyId: string, options: { profile?: string; json?: boolean }) => {
       try {
         const client = await getClient(options.profile)
-        await client.stopAgent(agentId)
+        await client.stopBuddy(buddyId)
         const outputOpts: OutputOptions = { json: options.json }
-        outputSuccess('Agent stopped', outputOpts)
+        outputSuccess('Buddy stopped', outputOpts)
       } catch (error) {
         outputError(error instanceof Error ? error.message : String(error), { json: options.json })
         process.exit(1)
       }
     })
 
-  agents
+  buddies
     .command('token')
-    .description('Generate a new token for an agent')
-    .argument('<agent-id>', 'Agent ID')
+    .description('Generate a new token for a buddy')
+    .argument('<buddy-id>', 'Buddy ID')
     .option('--profile <name>', 'Profile to use')
     .option('--json', 'Output as JSON')
-    .action(async (agentId: string, options: { profile?: string; json?: boolean }) => {
+    .action(async (buddyId: string, options: { profile?: string; json?: boolean }) => {
       try {
         const client = await getClient(options.profile)
-        const result = await client.generateAgentToken(agentId)
+        const result = await client.generateBuddyToken(buddyId)
         if (options.json) {
           output(result, { json: true })
         } else {
@@ -179,16 +183,16 @@ export function createAgentsCommand(): Command {
       }
     })
 
-  agents
+  buddies
     .command('config')
-    .description('Get agent remote config')
-    .argument('<agent-id>', 'Agent ID')
+    .description('Get buddy remote config')
+    .argument('<buddy-id>', 'Buddy ID')
     .option('--profile <name>', 'Profile to use')
     .option('--json', 'Output as JSON')
-    .action(async (agentId: string, options: { profile?: string; json?: boolean }) => {
+    .action(async (buddyId: string, options: { profile?: string; json?: boolean }) => {
       try {
         const client = await getClient(options.profile)
-        const config = await client.getAgentConfig(agentId)
+        const config = await client.getBuddyConfig(buddyId)
         output(config, { json: options.json })
       } catch (error) {
         outputError(error instanceof Error ? error.message : String(error), { json: options.json })
@@ -196,5 +200,5 @@ export function createAgentsCommand(): Command {
       }
     })
 
-  return agents
+  return buddies
 }

@@ -1,21 +1,21 @@
 /**
- * Agent API Tests
+ * Buddy API Tests
  *
- * Tests for agent CRUD and token generation:
- * 1. Create agent with name/description
- * 2. List user's agents
- * 3. Get agent details
- * 4. Generate agent token
- * 5. Delete agent
- * 6. Agent token works with standard auth
+ * Tests for buddy CRUD and token generation:
+ * 1. Create buddy with name/description
+ * 2. List user's buddies
+ * 3. Get buddy details
+ * 4. Generate buddy token
+ * 5. Delete buddy
+ * 6. Buddy token works with standard auth
  */
 import { describe, expect, it, vi } from 'vitest'
-import { signAccessToken, signAgentToken, verifyToken } from '../src/lib/jwt'
-import { AgentService } from '../src/services/agent.service'
+import { signAccessToken, signBuddyToken, verifyToken } from '../src/lib/jwt'
+import { BuddyService } from '../src/services/buddy.service'
 
 // ─── Mock factories ────────────────────────────────────────────
 
-function createMockAgentDao(overrides = {}) {
+function createMockBuddyDao(overrides = {}) {
   return {
     findById: vi.fn(),
     findByOwnerId: vi.fn(),
@@ -25,7 +25,7 @@ function createMockAgentDao(overrides = {}) {
     updateStatus: vi.fn(),
     updateConfig: vi.fn(),
     delete: vi.fn(),
-    createBotUser: vi.fn(),
+    createBuddyUser: vi.fn(),
     ...overrides,
   }
 }
@@ -58,117 +58,117 @@ function createMockLogger() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// 1. JWT AGENT TOKEN
+// 1. JWT BUDDY TOKEN
 // ═══════════════════════════════════════════════════════════════
 
-describe('Agent Token (JWT)', () => {
-  it('should sign and verify an agent token', () => {
+describe('Buddy Token (JWT)', () => {
+  it('should sign and verify a buddy token', () => {
     const payload = {
       userId: 'bot-user-123',
-      email: 'agent-testbot@shadowob.bot',
-      username: 'agent-testbot',
+      email: 'buddy-testbot@shadowob.buddy',
+      username: 'buddy-testbot',
     }
 
-    const token = signAgentToken(payload)
+    const token = signBuddyToken(payload)
     expect(typeof token).toBe('string')
     expect(token.split('.')).toHaveLength(3)
 
     const decoded = verifyToken(token)
     expect(decoded.userId).toBe('bot-user-123')
-    expect(decoded.email).toBe('agent-testbot@shadowob.bot')
-    expect(decoded.username).toBe('agent-testbot')
+    expect(decoded.email).toBe('buddy-testbot@shadowob.buddy')
+    expect(decoded.username).toBe('buddy-testbot')
   })
 
-  it('agent token should be verifiable by the same verifyToken', () => {
+  it('buddy token should be verifiable by the same verifyToken', () => {
     const payload = {
       userId: 'bot-456',
-      email: 'agent-helper@shadowob.bot',
-      username: 'agent-helper',
+      email: 'buddy-helper@shadowob.buddy',
+      username: 'buddy-helper',
     }
 
-    const agentToken = signAgentToken(payload)
+    const buddyToken = signBuddyToken(payload)
     const userToken = signAccessToken(payload)
 
     // Both should be verifiable
-    const decodedAgent = verifyToken(agentToken)
+    const decodedBuddy = verifyToken(buddyToken)
     const decodedUser = verifyToken(userToken)
 
-    expect(decodedAgent.userId).toBe(decodedUser.userId)
-    expect(decodedAgent.username).toBe(decodedUser.username)
+    expect(decodedBuddy.userId).toBe(decodedUser.userId)
+    expect(decodedBuddy.username).toBe(decodedUser.username)
   })
 })
 
 // ═══════════════════════════════════════════════════════════════
-// 2. AGENT SERVICE
+// 2. BUDDY SERVICE
 // ═══════════════════════════════════════════════════════════════
 
-describe('AgentService', () => {
+describe('BuddyService', () => {
   describe('create', () => {
-    it('should create an agent with bot user', async () => {
-      const botUser = {
+    it('should create a buddy with buddy user', async () => {
+      const buddyUser = {
         id: 'bot-user-1',
-        email: 'agent-my-bot@shadowob.bot',
-        username: 'agent-my-bot',
-        displayName: 'My Bot',
+        email: 'buddy-my-buddy@shadowob.buddy',
+        username: 'buddy-my-buddy',
+        displayName: 'My Buddy',
         avatarUrl: null,
         isBot: true,
       }
-      const agent = {
-        id: 'agent-1',
+      const buddy = {
+        id: 'buddy-1',
         userId: 'bot-user-1',
         kernelType: 'openclaw',
-        config: { description: 'A test bot' },
+        config: { description: 'A test buddy' },
         ownerId: 'owner-1',
         status: 'stopped',
       }
 
-      const agentDao = createMockAgentDao({
-        createBotUser: vi.fn().mockResolvedValue(botUser),
-        create: vi.fn().mockResolvedValue(agent),
+      const buddyDao = createMockBuddyDao({
+        createBuddyUser: vi.fn().mockResolvedValue(buddyUser),
+        create: vi.fn().mockResolvedValue(buddy),
       })
       const userDao = createMockUserDao()
       const logger = createMockLogger()
 
-      const service = new AgentService({
-        agentDao: agentDao as any,
+      const service = new BuddyService({
+        buddyDao: buddyDao as any,
         userDao: userDao as any,
         logger: logger as any,
       })
 
       const result = await service.create({
-        name: 'My Bot',
-        username: 'my-bot',
-        description: 'A test bot',
+        name: 'My Buddy',
+        username: 'my-buddy',
+        description: 'A test buddy',
         kernelType: 'openclaw',
         config: {},
         ownerId: 'owner-1',
       })
 
-      expect(result.id).toBe('agent-1')
-      expect(result.botUser.displayName).toBe('My Bot')
-      expect(agentDao.createBotUser).toHaveBeenCalledWith({
-        username: 'my-bot',
-        displayName: 'My Bot',
+      expect(result.id).toBe('buddy-1')
+      expect(result.buddyUser.displayName).toBe('My Buddy')
+      expect(buddyDao.createBuddyUser).toHaveBeenCalledWith({
+        username: 'my-buddy',
+        displayName: 'My Buddy',
       })
-      expect(agentDao.create).toHaveBeenCalledWith({
+      expect(buddyDao.create).toHaveBeenCalledWith({
         userId: 'bot-user-1',
         kernelType: 'openclaw',
-        config: { description: 'A test bot' },
+        config: { description: 'A test buddy' },
         ownerId: 'owner-1',
       })
     })
 
     it('should update avatar if provided', async () => {
-      const botUser = {
+      const buddyUser = {
         id: 'bot-user-2',
-        email: 'agent-avatar-bot@shadowob.bot',
-        username: 'agent-avatar-bot',
+        email: 'buddy-avatar-bot@shadowob.buddy',
+        username: 'buddy-avatar-bot',
         displayName: 'Avatar Bot',
         avatarUrl: null,
         isBot: true,
       }
-      const agent = {
-        id: 'agent-2',
+      const buddy = {
+        id: 'buddy-2',
         userId: 'bot-user-2',
         kernelType: 'openclaw',
         config: {},
@@ -176,19 +176,19 @@ describe('AgentService', () => {
         status: 'stopped',
       }
 
-      const agentDao = createMockAgentDao({
-        createBotUser: vi.fn().mockResolvedValue(botUser),
-        create: vi.fn().mockResolvedValue(agent),
+      const buddyDao = createMockBuddyDao({
+        createBuddyUser: vi.fn().mockResolvedValue(buddyUser),
+        create: vi.fn().mockResolvedValue(buddy),
       })
       const userDao = createMockUserDao({
         update: vi
           .fn()
-          .mockResolvedValue({ ...botUser, avatarUrl: 'https://shadowob.com/avatar.png' }),
+          .mockResolvedValue({ ...buddyUser, avatarUrl: 'https://shadowob.com/avatar.png' }),
       })
       const logger = createMockLogger()
 
-      const service = new AgentService({
-        agentDao: agentDao as any,
+      const service = new BuddyService({
+        buddyDao: buddyDao as any,
         userDao: userDao as any,
         logger: logger as any,
       })
@@ -205,7 +205,7 @@ describe('AgentService', () => {
       expect(userDao.update).toHaveBeenCalledWith('bot-user-2', {
         avatarUrl: 'https://shadowob.com/avatar.png',
       })
-      expect(result.botUser.avatarUrl).toBe('https://shadowob.com/avatar.png')
+      expect(result.buddyUser.avatarUrl).toBe('https://shadowob.com/avatar.png')
     })
 
     it('should throw 409 when username is already taken', async () => {
@@ -213,14 +213,14 @@ describe('AgentService', () => {
         new Error('duplicate key value violates unique constraint "users_username_unique"'),
         { code: '23505' },
       )
-      const agentDao = createMockAgentDao({
-        createBotUser: vi.fn().mockRejectedValue(dbError),
+      const buddyDao = createMockBuddyDao({
+        createBuddyUser: vi.fn().mockRejectedValue(dbError),
       })
       const userDao = createMockUserDao()
       const logger = createMockLogger()
 
-      const service = new AgentService({
-        agentDao: agentDao as any,
+      const service = new BuddyService({
+        buddyDao: buddyDao as any,
         userDao: userDao as any,
         logger: logger as any,
       })
@@ -243,14 +243,14 @@ describe('AgentService', () => {
       const dbError = new Error(
         'duplicate key value violates unique constraint "users_username_unique"',
       )
-      const agentDao = createMockAgentDao({
-        createBotUser: vi.fn().mockRejectedValue(dbError),
+      const buddyDao = createMockBuddyDao({
+        createBuddyUser: vi.fn().mockRejectedValue(dbError),
       })
       const userDao = createMockUserDao()
       const logger = createMockLogger()
 
-      const service = new AgentService({
-        agentDao: agentDao as any,
+      const service = new BuddyService({
+        buddyDao: buddyDao as any,
         userDao: userDao as any,
         logger: logger as any,
       })
@@ -271,49 +271,49 @@ describe('AgentService', () => {
   })
 
   describe('getById', () => {
-    it('should return agent with bot user', async () => {
-      const agent = {
-        id: 'agent-1',
+    it('should return buddy with buddy user', async () => {
+      const buddy = {
+        id: 'buddy-1',
         userId: 'bot-user-1',
         kernelType: 'openclaw',
         config: {},
         ownerId: 'owner-1',
         status: 'stopped',
       }
-      const botUser = {
+      const buddyUser = {
         id: 'bot-user-1',
-        username: 'agent-test',
-        displayName: 'Test Agent',
+        username: 'buddy-test',
+        displayName: 'Test Buddy',
       }
 
-      const agentDao = createMockAgentDao({
-        findById: vi.fn().mockResolvedValue(agent),
+      const buddyDao = createMockBuddyDao({
+        findById: vi.fn().mockResolvedValue(buddy),
       })
       const userDao = createMockUserDao({
-        findById: vi.fn().mockResolvedValue(botUser),
+        findById: vi.fn().mockResolvedValue(buddyUser),
       })
       const logger = createMockLogger()
 
-      const service = new AgentService({
-        agentDao: agentDao as any,
+      const service = new BuddyService({
+        buddyDao: buddyDao as any,
         userDao: userDao as any,
         logger: logger as any,
       })
 
-      const result = await service.getById('agent-1')
+      const result = await service.getById('buddy-1')
       expect(result).not.toBeNull()
-      expect(result!.botUser).toEqual(botUser)
+      expect(result!.buddyUser).toEqual(buddyUser)
     })
 
-    it('should return null for non-existent agent', async () => {
-      const agentDao = createMockAgentDao({
+    it('should return null for non-existent buddy', async () => {
+      const buddyDao = createMockBuddyDao({
         findById: vi.fn().mockResolvedValue(null),
       })
       const userDao = createMockUserDao()
       const logger = createMockLogger()
 
-      const service = new AgentService({
-        agentDao: agentDao as any,
+      const service = new BuddyService({
+        buddyDao: buddyDao as any,
         userDao: userDao as any,
         logger: logger as any,
       })
@@ -324,183 +324,183 @@ describe('AgentService', () => {
   })
 
   describe('generateToken', () => {
-    it('should generate a valid JWT for the bot user', async () => {
-      const agent = {
-        id: 'agent-1',
+    it('should generate a valid JWT for the buddy user', async () => {
+      const buddy = {
+        id: 'buddy-1',
         userId: 'bot-user-1',
         ownerId: 'owner-1',
         config: {},
       }
-      const botUser = {
+      const buddyUser = {
         id: 'bot-user-1',
-        email: 'agent-test@shadowob.bot',
-        username: 'agent-test',
-        displayName: 'Test Agent',
+        email: 'buddy-test@shadowob.buddy',
+        username: 'buddy-test',
+        displayName: 'Test Buddy',
         avatarUrl: null,
       }
 
-      const agentDao = createMockAgentDao({
-        findById: vi.fn().mockResolvedValue(agent),
+      const buddyDao = createMockBuddyDao({
+        findById: vi.fn().mockResolvedValue(buddy),
       })
       const userDao = createMockUserDao({
-        findById: vi.fn().mockResolvedValue(botUser),
+        findById: vi.fn().mockResolvedValue(buddyUser),
       })
       const logger = createMockLogger()
 
-      const service = new AgentService({
-        agentDao: agentDao as any,
+      const service = new BuddyService({
+        buddyDao: buddyDao as any,
         userDao: userDao as any,
         logger: logger as any,
       })
 
-      const result = await service.generateToken('agent-1', 'owner-1')
+      const result = await service.generateToken('buddy-1', 'owner-1')
       expect(result.token).toBeDefined()
       expect(typeof result.token).toBe('string')
-      expect(result.agent.id).toBe('agent-1')
-      expect(result.botUser.id).toBe('bot-user-1')
+      expect(result.buddy.id).toBe('buddy-1')
+      expect(result.buddyUser.id).toBe('bot-user-1')
 
       // Verify the token is valid
       const decoded = verifyToken(result.token)
       expect(decoded.userId).toBe('bot-user-1')
-      expect(decoded.username).toBe('agent-test')
+      expect(decoded.username).toBe('buddy-test')
     })
 
-    it('should throw 404 if agent not found', async () => {
-      const agentDao = createMockAgentDao({
+    it('should throw 404 if buddy not found', async () => {
+      const buddyDao = createMockBuddyDao({
         findById: vi.fn().mockResolvedValue(null),
       })
       const userDao = createMockUserDao()
       const logger = createMockLogger()
 
-      const service = new AgentService({
-        agentDao: agentDao as any,
+      const service = new BuddyService({
+        buddyDao: buddyDao as any,
         userDao: userDao as any,
         logger: logger as any,
       })
 
       await expect(service.generateToken('nonexistent', 'owner-1')).rejects.toThrow(
-        'Agent not found',
+        'Buddy not found',
       )
     })
 
     it('should throw 403 if not the owner', async () => {
-      const agent = {
-        id: 'agent-1',
+      const buddy = {
+        id: 'buddy-1',
         userId: 'bot-user-1',
         ownerId: 'owner-1',
       }
 
-      const agentDao = createMockAgentDao({
-        findById: vi.fn().mockResolvedValue(agent),
+      const buddyDao = createMockBuddyDao({
+        findById: vi.fn().mockResolvedValue(buddy),
       })
       const userDao = createMockUserDao()
       const logger = createMockLogger()
 
-      const service = new AgentService({
-        agentDao: agentDao as any,
+      const service = new BuddyService({
+        buddyDao: buddyDao as any,
         userDao: userDao as any,
         logger: logger as any,
       })
 
-      await expect(service.generateToken('agent-1', 'other-owner')).rejects.toThrow(
-        'Not the owner of this agent',
+      await expect(service.generateToken('buddy-1', 'other-owner')).rejects.toThrow(
+        'Not the owner of this buddy',
       )
     })
   })
 
   describe('lifecycle', () => {
-    it('should start an agent', async () => {
-      const agent = {
-        id: 'agent-1',
+    it('should start a buddy', async () => {
+      const buddy = {
+        id: 'buddy-1',
         userId: 'bot-user-1',
         status: 'stopped',
       }
 
-      const agentDao = createMockAgentDao({
-        findById: vi.fn().mockResolvedValue(agent),
-        updateStatus: vi.fn().mockResolvedValue({ ...agent, status: 'running' }),
+      const buddyDao = createMockBuddyDao({
+        findById: vi.fn().mockResolvedValue(buddy),
+        updateStatus: vi.fn().mockResolvedValue({ ...buddy, status: 'running' }),
       })
       const userDao = createMockUserDao()
       const logger = createMockLogger()
 
-      const service = new AgentService({
-        agentDao: agentDao as any,
+      const service = new BuddyService({
+        buddyDao: buddyDao as any,
         userDao: userDao as any,
         logger: logger as any,
       })
 
-      await service.start('agent-1')
-      expect(agentDao.updateStatus).toHaveBeenCalledWith('agent-1', 'running')
+      await service.start('buddy-1')
+      expect(buddyDao.updateStatus).toHaveBeenCalledWith('buddy-1', 'running')
     })
 
-    it('should stop an agent', async () => {
-      const agent = {
-        id: 'agent-1',
+    it('should stop a buddy', async () => {
+      const buddy = {
+        id: 'buddy-1',
         userId: 'bot-user-1',
         status: 'running',
       }
 
-      const agentDao = createMockAgentDao({
-        findById: vi.fn().mockResolvedValue(agent),
-        updateStatus: vi.fn().mockResolvedValue({ ...agent, status: 'stopped' }),
+      const buddyDao = createMockBuddyDao({
+        findById: vi.fn().mockResolvedValue(buddy),
+        updateStatus: vi.fn().mockResolvedValue({ ...buddy, status: 'stopped' }),
       })
       const userDao = createMockUserDao()
       const logger = createMockLogger()
 
-      const service = new AgentService({
-        agentDao: agentDao as any,
+      const service = new BuddyService({
+        buddyDao: buddyDao as any,
         userDao: userDao as any,
         logger: logger as any,
       })
 
-      await service.stop('agent-1')
-      expect(agentDao.updateStatus).toHaveBeenCalledWith('agent-1', 'stopped')
+      await service.stop('buddy-1')
+      expect(buddyDao.updateStatus).toHaveBeenCalledWith('buddy-1', 'stopped')
     })
 
-    it('should delete an agent (stop first if running)', async () => {
-      const agent = {
-        id: 'agent-1',
+    it('should delete a buddy (stop first if running)', async () => {
+      const buddy = {
+        id: 'buddy-1',
         userId: 'bot-user-1',
         status: 'running',
       }
 
-      const agentDao = createMockAgentDao({
-        findById: vi.fn().mockResolvedValue(agent),
-        updateStatus: vi.fn().mockResolvedValue({ ...agent, status: 'stopped' }),
+      const buddyDao = createMockBuddyDao({
+        findById: vi.fn().mockResolvedValue(buddy),
+        updateStatus: vi.fn().mockResolvedValue({ ...buddy, status: 'stopped' }),
         delete: vi.fn(),
       })
       const userDao = createMockUserDao()
       const logger = createMockLogger()
 
-      const service = new AgentService({
-        agentDao: agentDao as any,
+      const service = new BuddyService({
+        buddyDao: buddyDao as any,
         userDao: userDao as any,
         logger: logger as any,
       })
 
-      await service.delete('agent-1')
-      expect(agentDao.updateStatus).toHaveBeenCalledWith('agent-1', 'stopped')
-      expect(agentDao.delete).toHaveBeenCalledWith('agent-1')
+      await service.delete('buddy-1')
+      expect(buddyDao.updateStatus).toHaveBeenCalledWith('buddy-1', 'stopped')
+      expect(buddyDao.delete).toHaveBeenCalledWith('buddy-1')
     })
   })
 })
 
 // ═══════════════════════════════════════════════════════════════
-// 3. AGENT HANDLER (HTTP API surface)
+// 3. BUDDY HANDLER (HTTP API surface)
 // ═══════════════════════════════════════════════════════════════
 
-describe('Agent Handler (HTTP)', () => {
+describe('Buddy Handler (HTTP)', () => {
   // We test the handler through Hono mock requests
   // This pattern matches the existing e2e.test.ts approach
 
-  it('should expose agent API routes pattern', () => {
-    // Verify createAgentHandler assembles correct routes
+  it('should expose buddy API routes pattern', () => {
+    // Verify createBuddyHandler assembles correct routes
     // (Detailed integration tests would require a full DI container)
-    expect(typeof signAgentToken).toBe('function')
+    expect(typeof signBuddyToken).toBe('function')
     expect(typeof signAccessToken).toBe('function')
   })
 
-  it('agent token should be accepted by authMiddleware', async () => {
+  it('buddy token should be accepted by authMiddleware', async () => {
     const { Hono } = await import('hono')
     const app = new Hono()
 
@@ -525,32 +525,32 @@ describe('Agent Handler (HTTP)', () => {
       return c.json({ id: user.userId, username: user.username })
     })
 
-    // Generate an agent token
-    const agentToken = signAgentToken({
+    // Generate a buddy token
+    const buddyToken = signBuddyToken({
       userId: 'bot-123',
-      email: 'agent-test@shadowob.bot',
-      username: 'agent-test',
+      email: 'buddy-test@shadowob.buddy',
+      username: 'buddy-test',
     })
 
     const res = await app.request('/api/auth/me', {
-      headers: { Authorization: `Bearer ${agentToken}` },
+      headers: { Authorization: `Bearer ${buddyToken}` },
     })
 
     expect(res.status).toBe(200)
     const data = await res.json()
     expect(data.id).toBe('bot-123')
-    expect(data.username).toBe('agent-test')
+    expect(data.username).toBe('buddy-test')
   })
 
-  it('should return 409 when creating agent with duplicate username', async () => {
+  it('should return 409 when creating buddy with duplicate username', async () => {
     const { Hono } = await import('hono')
-    const { createAgentHandler } = await import('../src/handlers/agent.handler')
+    const { createBuddyHandler } = await import('../src/handlers/buddy.handler')
 
     const app = new Hono()
 
     const container = {
       resolve: (name: string) => {
-        if (name === 'agentService') {
+        if (name === 'buddyService') {
           return {
             create: vi
               .fn()
@@ -559,10 +559,10 @@ describe('Agent Handler (HTTP)', () => {
               ),
           }
         }
-        if (name === 'clawListingDao') return { findByAgentIds: vi.fn().mockResolvedValue([]) }
+        if (name === 'clawListingDao') return { findByBuddyIds: vi.fn().mockResolvedValue([]) }
         if (name === 'rentalContractDao')
           return { findActiveByListingId: vi.fn().mockResolvedValue(null) }
-        if (name === 'agentPolicyService') {
+        if (name === 'buddyPolicyService') {
           return {
             getRemoteConfig: vi.fn(),
             getPolicies: vi.fn(),
@@ -574,7 +574,7 @@ describe('Agent Handler (HTTP)', () => {
       },
     }
 
-    app.route('/api/agents', createAgentHandler(container as never))
+    app.route('/api/buddies', createBuddyHandler(container as never))
 
     const token = signAccessToken({
       userId: 'owner-1',
@@ -582,7 +582,7 @@ describe('Agent Handler (HTTP)', () => {
       username: 'owner',
     })
 
-    const res = await app.request('/api/agents', {
+    const res = await app.request('/api/buddies', {
       method: 'POST',
       headers: { 'content-type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({

@@ -33,20 +33,20 @@ export interface GatewayLogEntry {
   source: 'gateway' | 'openclaw' | 'system'
 }
 
-/** OpenClaw agent entry — matching the real AgentEntrySchema */
-export interface AgentConfig {
+/** OpenClaw buddy entry — matching the real BuddyEntrySchema */
+export interface BuddyConfig {
   id: string
   name?: string
   default?: boolean
   workspace?: string
-  agentDir?: string
+  buddyDir?: string
   model?:
     | string
     | { primary?: string; fallbacks?: string[]; thinking?: string | Record<string, unknown> }
   skills?: string[]
   identity?: { name?: string; theme?: string; emoji?: string; avatar?: string }
   groupChat?: Record<string, unknown>
-  subagents?: Record<string, unknown>
+  subbuddies?: Record<string, unknown>
   sandbox?: Record<string, unknown>
   params?: Record<string, unknown>
   tools?: Record<string, unknown>
@@ -157,7 +157,7 @@ export interface SkillHubRegistry {
 }
 
 export type BootstrapFileName =
-  | 'AGENTS.md'
+  | 'BUDDIES.md'
   | 'SOUL.md'
   | 'IDENTITY.md'
   | 'TOOLS.md'
@@ -175,7 +175,7 @@ export interface BuddyConnection {
   label: string
   serverUrl: string
   apiToken?: string
-  remoteAgentId?: string
+  remoteBuddyId?: string
   agentId: string
   autoConnect?: boolean
   status: 'connected' | 'disconnected' | 'connecting' | 'error'
@@ -203,10 +203,10 @@ export interface CronTask {
   name: string
   description?: string
   enabled: boolean
-  agentId?: string
+  buddyId?: string
   schedule: CronSchedule
   payload: {
-    kind: 'agentTurn' | 'systemEvent'
+    kind: 'buddyTurn' | 'systemEvent'
     message?: string
     text?: string
   }
@@ -243,8 +243,8 @@ export interface SkillsConfig {
 }
 
 export interface OpenClawConfig {
-  agents: {
-    list: AgentConfig[]
+  buddies: {
+    list: BuddyConfig[]
     defaults: Record<string, unknown>
   }
   channels: Record<string, unknown>
@@ -278,15 +278,15 @@ interface OpenClawBridge {
     autoStart?: boolean
     autoRestart?: boolean
   }) => Promise<{ success: boolean }>
-  listAgents: () => Promise<AgentConfig[]>
-  getAgent: (id: string) => Promise<AgentConfig | null>
-  createAgent: (agent: AgentConfig) => Promise<{ success: boolean }>
-  updateAgent: (id: string, updates: Partial<AgentConfig>) => Promise<{ success: boolean }>
-  deleteAgent: (id: string) => Promise<{ success: boolean }>
-  listBootstrapFiles: (agentId: string) => Promise<BootstrapFileInfo[]>
-  readBootstrapFile: (agentId: string, fileName: BootstrapFileName) => Promise<string | null>
+  listBuddies: () => Promise<BuddyConfig[]>
+  getBuddy: (id: string) => Promise<BuddyConfig | null>
+  createBuddy: (buddy: BuddyConfig) => Promise<{ success: boolean }>
+  updateBuddy: (id: string, updates: Partial<BuddyConfig>) => Promise<{ success: boolean }>
+  deleteBuddy: (id: string) => Promise<{ success: boolean }>
+  listBootstrapFiles: (buddyId: string) => Promise<BootstrapFileInfo[]>
+  readBootstrapFile: (buddyId: string, fileName: BootstrapFileName) => Promise<string | null>
   writeBootstrapFile: (
-    agentId: string,
+    buddyId: string,
     fileName: BootstrapFileName,
     content: string,
   ) => Promise<{ success: boolean }>
@@ -335,7 +335,7 @@ interface OpenClawBridge {
       id: string
       label: string
       status: BuddyConnection['status']
-      agentId: string
+      buddyId: string
       serverUrl: string
       error?: string | null
       connectedAt?: number | null
@@ -381,20 +381,20 @@ export const openClawApi = {
   saveDesktopSettings: (settings: { autoStart?: boolean; autoRestart?: boolean }) =>
     getOpenClawAPI()!.saveDesktopSettings(settings),
 
-  // Agents
-  listAgents: () => getOpenClawAPI()!.listAgents(),
-  getAgent: (id: string) => getOpenClawAPI()!.getAgent(id),
-  createAgent: (agent: AgentConfig) => getOpenClawAPI()!.createAgent(agent),
-  updateAgent: (id: string, updates: Partial<AgentConfig>) =>
-    getOpenClawAPI()!.updateAgent(id, updates),
-  deleteAgent: (id: string) => getOpenClawAPI()!.deleteAgent(id),
+  // Buddys
+  listBuddies: () => getOpenClawAPI()!.listBuddies(),
+  getBuddy: (id: string) => getOpenClawAPI()!.getBuddy(id),
+  createBuddy: (buddy: BuddyConfig) => getOpenClawAPI()!.createBuddy(buddy),
+  updateBuddy: (id: string, updates: Partial<BuddyConfig>) =>
+    getOpenClawAPI()!.updateBuddy(id, updates),
+  deleteBuddy: (id: string) => getOpenClawAPI()!.deleteBuddy(id),
 
-  // Agent Bootstrap Files
-  listBootstrapFiles: (agentId: string) => getOpenClawAPI()!.listBootstrapFiles(agentId),
-  readBootstrapFile: (agentId: string, fileName: BootstrapFileName) =>
-    getOpenClawAPI()!.readBootstrapFile(agentId, fileName),
-  writeBootstrapFile: (agentId: string, fileName: BootstrapFileName, content: string) =>
-    getOpenClawAPI()!.writeBootstrapFile(agentId, fileName, content),
+  // Buddy Bootstrap Files
+  listBootstrapFiles: (buddyId: string) => getOpenClawAPI()!.listBootstrapFiles(buddyId),
+  readBootstrapFile: (buddyId: string, fileName: BootstrapFileName) =>
+    getOpenClawAPI()!.readBootstrapFile(buddyId, fileName),
+  writeBootstrapFile: (buddyId: string, fileName: BootstrapFileName, content: string) =>
+    getOpenClawAPI()!.writeBootstrapFile(buddyId, fileName, content),
 
   // Channels
   getChannelRegistry: () => getOpenClawAPI()!.getChannelRegistry(),

@@ -42,7 +42,7 @@ export function CatSvgDefs() {
 }
 
 /* Agent Cat with headset */
-export function AgentCatSvg() {
+export function BuddyCatSvg() {
   return (
     <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-lg">
       <path

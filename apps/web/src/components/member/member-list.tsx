@@ -33,7 +33,7 @@ interface Member {
   user?: MemberUser
 }
 
-interface BuddyAgent {
+interface BuddyMember {
   id: string
   ownerId: string
   totalOnlineSeconds?: number
@@ -44,7 +44,7 @@ interface BuddyAgent {
     displayName: string | null
     avatarUrl: string | null
   } | null
-  botUser?: {
+  buddyUser?: {
     id: string
     username: string
     displayName: string | null
@@ -65,7 +65,7 @@ export function MemberList() {
   const currentUser = useAuthStore((s) => s.user)
   const queryClient = useQueryClient()
   const { mobileMemberListOpen, closeMobileMemberList, filePreviewOpen } = useUIStore()
-  const [showAddAgent, setShowAddAgent] = useState(false)
+  const [showAddBuddy, setShowAddBuddy] = useState(false)
   const [showInvitePanel, setShowInvitePanel] = useState(false)
   const [inviteCopied, setInviteCopied] = useState(false)
 
@@ -110,9 +110,9 @@ export function MemberList() {
     enabled: !!activeServerId,
   })
 
-  const { data: buddyAgents = [] } = useQuery({
-    queryKey: ['members-buddy-agents', activeServerId],
-    queryFn: () => fetchApi<BuddyAgent[]>('/api/agents'),
+  const { data: buddyMembers = [] } = useQuery({
+    queryKey: ['members-buddies', activeServerId],
+    queryFn: () => fetchApi<BuddyMember[]>('/api/buddies'),
     enabled: !!activeServerId,
   })
 
@@ -130,7 +130,7 @@ export function MemberList() {
     },
   )
 
-  // On socket reconnect, refetch members to sync bot/user statuses
+  // On socket reconnect, refetch members to sync buddy/user statuses
   useSocketEvent('connect', () => {
     queryClient.invalidateQueries({ queryKey: ['members', activeServerId, activeChannelId] })
   })
@@ -157,8 +157,8 @@ export function MemberList() {
     },
   })
 
-  // Remove bot from channel mutation
-  const removeBotFromChannel = useMutation({
+  // Remove buddy from channel mutation
+  const removeBuddyFromChannel = useMutation({
     mutationFn: ({ channelId, userId }: { channelId: string; userId: string }) =>
       fetchApi(`/api/channels/${channelId}/members/${userId}`, { method: 'DELETE' }),
     onSuccess: () => {
@@ -167,20 +167,20 @@ export function MemberList() {
     },
   })
 
-  // Update bot policy mutation
-  const updateBotPolicy = useMutation({
+  // Update buddy policy mutation
+  const updateBuddyPolicy = useMutation({
     mutationFn: ({
       channelId,
-      agentId,
+      buddyId,
       mode,
       config,
     }: {
       channelId: string
-      agentId: string
+      buddyId: string
       mode: string
       config?: { replyToUsers?: string[]; keywords?: string[]; mentionOnly?: boolean }
     }) =>
-      fetchApi(`/api/channels/${channelId}/agents/${agentId}/policy`, {
+      fetchApi(`/api/channels/${channelId}/buddies/${buddyId}/policy`, {
         method: 'PUT',
         body: JSON.stringify({ mode, config }),
       }),
@@ -255,7 +255,7 @@ export function MemberList() {
           {label} — {items.length}
         </h4>
         {(() => {
-          const botOwnerByUserId = new Map<string, string>()
+          const buddyOwnerByUserId = new Map<string, string>()
           const buddyMetaByUserId = new Map<
             string,
             {
@@ -266,14 +266,14 @@ export function MemberList() {
               totalOnlineSeconds?: number
             }
           >()
-          for (const a of buddyAgents) {
-            const botUserId = a.botUser?.id
-            if (botUserId) botOwnerByUserId.set(botUserId, a.ownerId)
-            if (botUserId) {
+          for (const a of buddyMembers) {
+            const buddyUserId = a.buddyUser?.id
+            if (buddyUserId) buddyOwnerByUserId.set(buddyUserId, a.ownerId)
+            if (buddyUserId) {
               const ownerName = a.owner?.displayName ?? a.owner?.username ?? undefined
               const description =
                 typeof a.config?.description === 'string' ? a.config.description : undefined
-              buddyMetaByUserId.set(botUserId, {
+              buddyMetaByUserId.set(buddyUserId, {
                 ownerName,
                 ownerId: a.ownerId,
                 ownerAvatarUrl: a.owner?.avatarUrl ?? null,
@@ -285,15 +285,15 @@ export function MemberList() {
 
           const membersByUserId = new Map(items.map((m) => [m.userId, m]))
           const ownerChildren = new Map<string, Member[]>()
-          const orphanBots: Member[] = []
+          const orphanBuddies: Member[] = []
 
           for (const m of items) {
             if (!m.user?.isBot) continue
-            const ownerId = botOwnerByUserId.get(m.userId)
+            const ownerId = buddyOwnerByUserId.get(m.userId)
             if (ownerId && membersByUserId.has(ownerId)) {
               ownerChildren.set(ownerId, [...(ownerChildren.get(ownerId) ?? []), m])
             } else {
-              orphanBots.push(m)
+              orphanBuddies.push(m)
             }
           }
 
@@ -390,7 +390,7 @@ export function MemberList() {
               {/* In flat mode, render all bots without tree structure */}
               {isFlat
                 ? items.filter((m) => m.user?.isBot).map((m) => renderMemberRow(m))
-                : orphanBots.map((member) => renderMemberRow(member, { child: true }))}
+                : orphanBuddies.map((member) => renderMemberRow(member, { child: true }))}
             </>
           )
         })()}
@@ -413,12 +413,12 @@ export function MemberList() {
         </button>
         <button
           type="button"
-          onClick={() => setShowAddAgent(true)}
+          onClick={() => setShowAddBuddy(true)}
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-text-muted hover:text-text-primary hover:bg-bg-primary/30 transition flex-1"
-          title={t('channel.addAgent')}
+          title={t('channel.addBuddy')}
         >
           <img src="/Logo.svg" alt="Buddy" className="w-[13px] h-[13px]" />
-          <span className="truncate">{t('channel.addAgent')}</span>
+          <span className="truncate">{t('channel.addBuddy')}</span>
         </button>
       </div>
       {renderMemberGroup(t('member.groupOnline'), onlineMembers)}
@@ -466,32 +466,32 @@ export function MemberList() {
         />
       )}
 
-      {/* Add Agent dialog */}
-      {showAddAgent && activeServerId && (
-        <AddAgentDialog
+      {/* Add Buddy dialog */}
+      {showAddBuddy && activeServerId && (
+        <MemberAddBuddyDialog
           serverId={activeServerId}
           channelId={activeChannelId ?? undefined}
-          onClose={() => setShowAddAgent(false)}
+          onClose={() => setShowAddBuddy(false)}
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ['members'] })
-            setShowAddAgent(false)
+            setShowAddBuddy(false)
           }}
         />
       )}
 
       {/* Context menu */}
       {contextMenu && (
-        <BotContextMenu
+        <BuddyContextMenu
           contextMenu={contextMenu}
           closeContextMenu={closeContextMenu}
           setProfileMember={setProfileMember}
           setContextMenu={setContextMenu}
           activeChannelId={activeChannelId}
           activeServerId={activeServerId}
-          buddyAgents={buddyAgents}
+          buddyMembers={buddyMembers}
           members={members}
-          updateBotPolicy={updateBotPolicy}
-          removeBotFromChannel={removeBotFromChannel}
+          updateBuddyPolicy={updateBuddyPolicy}
+          removeBuddyFromChannel={removeBuddyFromChannel}
           kickMember={kickMember}
           canKick={canKick}
           currentUser={currentUser}
@@ -511,29 +511,29 @@ export function MemberList() {
               role={profileMember.role}
               ownerName={
                 profileMember.user.isBot
-                  ? (buddyAgents.find((a) => a.botUser?.id === profileMember.user?.id)?.owner
+                  ? (buddyMembers.find((a) => a.buddyUser?.id === profileMember.user?.id)?.owner
                       ?.displayName ??
-                    buddyAgents.find((a) => a.botUser?.id === profileMember.user?.id)?.owner
+                    buddyMembers.find((a) => a.buddyUser?.id === profileMember.user?.id)?.owner
                       ?.username ??
                     undefined)
                   : undefined
               }
               ownerId={
                 profileMember.user.isBot
-                  ? buddyAgents.find((a) => a.botUser?.id === profileMember.user?.id)?.ownerId
+                  ? buddyMembers.find((a) => a.buddyUser?.id === profileMember.user?.id)?.ownerId
                   : undefined
               }
               ownerAvatarUrl={
                 profileMember.user.isBot
-                  ? (buddyAgents.find((a) => a.botUser?.id === profileMember.user?.id)?.owner
+                  ? (buddyMembers.find((a) => a.buddyUser?.id === profileMember.user?.id)?.owner
                       ?.avatarUrl ?? null)
                   : undefined
               }
               description={
                 profileMember.user.isBot
                   ? (() => {
-                      const cfg = buddyAgents.find(
-                        (a) => a.botUser?.id === profileMember.user?.id,
+                      const cfg = buddyMembers.find(
+                        (a) => a.buddyUser?.id === profileMember.user?.id,
                       )?.config
                       return typeof cfg?.description === 'string' ? cfg.description : undefined
                     })()
@@ -541,7 +541,7 @@ export function MemberList() {
               }
               totalOnlineSeconds={
                 profileMember.user.isBot
-                  ? buddyAgents.find((a) => a.botUser?.id === profileMember.user?.id)
+                  ? buddyMembers.find((a) => a.buddyUser?.id === profileMember.user?.id)
                       ?.totalOnlineSeconds
                   : undefined
               }
@@ -580,19 +580,19 @@ export function MemberList() {
   )
 }
 
-/* ── Bot Context Menu ──────────────────── */
+/* ── Buddy Context Menu ──────────────────── */
 
-function BotContextMenu({
+function BuddyContextMenu({
   contextMenu,
   closeContextMenu,
   setProfileMember,
   setContextMenu,
   activeChannelId,
   activeServerId,
-  buddyAgents,
+  buddyMembers,
   members,
-  updateBotPolicy,
-  removeBotFromChannel,
+  updateBuddyPolicy,
+  removeBuddyFromChannel,
   kickMember,
   canKick,
   currentUser,
@@ -604,15 +604,15 @@ function BotContextMenu({
   setContextMenu: (m: null) => void
   activeChannelId: string | null
   activeServerId: string | null
-  buddyAgents: BuddyAgent[]
+  buddyMembers: BuddyMember[]
   members: Member[]
-  updateBotPolicy: ReturnType<
+  updateBuddyPolicy: ReturnType<
     typeof useMutation<
       unknown,
       Error,
       {
         channelId: string
-        agentId: string
+        buddyId: string
         mode: string
         config?: {
           replyToUsers?: string[]
@@ -625,7 +625,7 @@ function BotContextMenu({
       }
     >
   >
-  removeBotFromChannel: ReturnType<
+  removeBuddyFromChannel: ReturnType<
     typeof useMutation<unknown, Error, { channelId: string; userId: string }>
   >
   kickMember: ReturnType<typeof useMutation<unknown, Error, { serverId: string; userId: string }>>
@@ -649,24 +649,24 @@ function BotContextMenu({
   const policyRowRef = useRef<HTMLDivElement>(null)
   const policyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isBot = contextMenu.member.user?.isBot
-  const agent = isBot
-    ? buddyAgents.find((a) => a.botUser?.id === contextMenu.member.user?.id)
+  const buddy = isBot
+    ? buddyMembers.find((a) => a.buddyUser?.id === contextMenu.member.user?.id)
     : null
 
   // Use the hook for accurate position calculation
   const position = useContextMenuPosition(contextMenu.x, contextMenu.y, menuRef, 180)
 
-  // Fetch current policy for the bot in this channel
+  // Fetch current policy for the buddy in this channel
   const { data: currentPolicy } = useQuery({
-    queryKey: ['agent-policy', activeChannelId, agent?.id],
+    queryKey: ['buddy-policy', activeChannelId, buddy?.id],
     queryFn: () =>
       fetchApi<{
         mentionOnly: boolean
         listen: boolean
         reply: boolean
         config: Record<string, unknown>
-      }>(`/api/channels/${activeChannelId}/agents/${agent!.id}/policy`),
-    enabled: !!isBot && !!activeChannelId && !!agent,
+      }>(`/api/channels/${activeChannelId}/buddies/${buddy!.id}/policy`),
+    enabled: !!isBot && !!activeChannelId && !!buddy,
   })
 
   // Derive the current mode from policy
@@ -674,8 +674,21 @@ function BotContextMenu({
     if (!currentPolicy) return 'replyAll'
     if (!currentPolicy.reply) return 'disabled'
     if (currentPolicy.mentionOnly) return 'mentionOnly'
-    const cfg = currentPolicy.config as { replyToUsers?: string[]; keywords?: string[] } | undefined
-    if (cfg?.replyToUsers?.length || cfg?.keywords?.length) return 'custom'
+    const cfg = currentPolicy.config as
+      | {
+          replyToUsers?: string[]
+          keywords?: string[]
+          replyToBuddy?: boolean
+          smartReply?: boolean
+        }
+      | undefined
+    if (
+      cfg?.replyToUsers?.length ||
+      cfg?.keywords?.length ||
+      cfg?.replyToBuddy ||
+      cfg?.smartReply === false
+    )
+      return 'custom'
     return 'replyAll'
   })()
 
@@ -712,9 +725,9 @@ function BotContextMenu({
   const isSelf = contextMenu.member.userId === currentUser?.id
   const isOwner = contextMenu.member.role === 'owner'
   // Check if current user is the Buddy's owner
-  const isBuddyOwner = isBot && agent && currentUser?.id === agent.ownerId
-  const showPolicySubmenu = isBot && activeChannelId && agent && (canKick || isBuddyOwner)
-  // Only Buddy owner, server owner, or admin can remove a bot from a channel
+  const isBuddyOwner = isBot && buddy && currentUser?.id === buddy.ownerId
+  const showPolicySubmenu = isBot && activeChannelId && buddy && (canKick || isBuddyOwner)
+  // Only Buddy owner, server owner, or admin can remove a buddy from a channel
   const showRemoveFromChannel =
     isBot && activeChannelId && !isSelf && !isOwner && (canKick || isBuddyOwner)
   const showKickFromServer =
@@ -778,12 +791,12 @@ function BotContextMenu({
                   <button
                     type="button"
                     onClick={() => {
-                      updateBotPolicy.mutate(
-                        { channelId: activeChannelId!, agentId: agent!.id, mode: 'replyAll' },
+                      updateBuddyPolicy.mutate(
+                        { channelId: activeChannelId!, buddyId: buddy!.id, mode: 'replyAll' },
                         {
                           onSuccess: () => {
                             queryClient.invalidateQueries({
-                              queryKey: ['agent-policy', activeChannelId, agent!.id],
+                              queryKey: ['buddy-policy', activeChannelId, buddy!.id],
                             })
                             setContextMenu(null)
                           },
@@ -803,12 +816,12 @@ function BotContextMenu({
                   <button
                     type="button"
                     onClick={() => {
-                      updateBotPolicy.mutate(
-                        { channelId: activeChannelId!, agentId: agent!.id, mode: 'mentionOnly' },
+                      updateBuddyPolicy.mutate(
+                        { channelId: activeChannelId!, buddyId: buddy!.id, mode: 'mentionOnly' },
                         {
                           onSuccess: () => {
                             queryClient.invalidateQueries({
-                              queryKey: ['agent-policy', activeChannelId, agent!.id],
+                              queryKey: ['buddy-policy', activeChannelId, buddy!.id],
                             })
                             setContextMenu(null)
                           },
@@ -862,12 +875,12 @@ function BotContextMenu({
                   <button
                     type="button"
                     onClick={() => {
-                      updateBotPolicy.mutate(
-                        { channelId: activeChannelId!, agentId: agent!.id, mode: 'disabled' },
+                      updateBuddyPolicy.mutate(
+                        { channelId: activeChannelId!, buddyId: buddy!.id, mode: 'disabled' },
                         {
                           onSuccess: () => {
                             queryClient.invalidateQueries({
-                              queryKey: ['agent-policy', activeChannelId, agent!.id],
+                              queryKey: ['buddy-policy', activeChannelId, buddy!.id],
                             })
                             setContextMenu(null)
                           },
@@ -907,7 +920,7 @@ function BotContextMenu({
                     message: t('member.removeFromChannelConfirm', { name }),
                   })
                   if (ok) {
-                    removeBotFromChannel.mutate({
+                    removeBuddyFromChannel.mutate({
                       channelId: activeChannelId!,
                       userId: contextMenu.member.userId,
                     })
@@ -928,9 +941,9 @@ function BotContextMenu({
                   const name =
                     contextMenu.member.user?.displayName ?? contextMenu.member.user?.username
                   const ok = await useConfirmStore.getState().confirm({
-                    title: isBot ? t('member.removeBot') : t('member.kickMember'),
+                    title: isBot ? t('member.removeBuddy') : t('member.kickMember'),
                     message: isBot
-                      ? t('member.removeBotConfirm', { name })
+                      ? t('member.removeBuddyConfirm', { name })
                       : t('member.kickConfirm', { name }),
                   })
                   if (ok) {
@@ -943,7 +956,7 @@ function BotContextMenu({
                 className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition"
               >
                 <LogOut size={14} />
-                {isBot ? t('member.removeBot') : t('member.kickMember')}
+                {isBot ? t('member.removeBuddy') : t('member.kickMember')}
               </button>
             )}
           </>
@@ -953,7 +966,7 @@ function BotContextMenu({
       {/* Custom policy modal */}
       {customPolicyOpen &&
         activeChannelId &&
-        agent &&
+        buddy &&
         createPortal(
           <div
             className="fixed inset-0 bg-black/60 flex items-center justify-center z-[90]"
@@ -1198,10 +1211,10 @@ function BotContextMenu({
                     .split('\n')
                     .map((s) => s.trim())
                     .filter(Boolean)
-                  updateBotPolicy.mutate(
+                  updateBuddyPolicy.mutate(
                     {
                       channelId: activeChannelId,
-                      agentId: agent.id,
+                      buddyId: buddy.id,
                       mode: 'custom',
                       config: {
                         ...(replyToUsers.length ? { replyToUsers } : {}),
@@ -1216,7 +1229,7 @@ function BotContextMenu({
                     {
                       onSuccess: () => {
                         queryClient.invalidateQueries({
-                          queryKey: ['agent-policy', activeChannelId, agent.id],
+                          queryKey: ['buddy-policy', activeChannelId, buddy.id],
                         })
                         setCustomPolicyOpen(false)
                         setContextMenu(null)
@@ -1224,7 +1237,7 @@ function BotContextMenu({
                     },
                   )
                 }}
-                disabled={updateBotPolicy.isPending}
+                disabled={updateBuddyPolicy.isPending}
                 className="w-full px-4 py-2.5 bg-primary hover:bg-primary/80 text-white rounded-lg transition font-semibold text-sm disabled:opacity-50"
               >
                 {t('member.policySave')}
@@ -1237,9 +1250,9 @@ function BotContextMenu({
   )
 }
 
-/* ── Add Agent Dialog (member list) ──────────────────── */
+/* ── Add Buddy Dialog (member list) ──────────────────── */
 
-interface AgentDialogOption {
+interface BuddyDialogOption {
   id: string
   userId: string
   status: string
@@ -1249,7 +1262,7 @@ interface AgentDialogOption {
     username: string
     displayName: string | null
   } | null
-  botUser?: {
+  buddyUser?: {
     id: string
     username: string
     displayName: string | null
@@ -1257,7 +1270,7 @@ interface AgentDialogOption {
   } | null
 }
 
-export function AddAgentDialog({
+export function MemberAddBuddyDialog({
   serverId,
   channelId,
   onClose,
@@ -1273,9 +1286,9 @@ export function AddAgentDialog({
   const [addingId, setAddingId] = useState<string | null>(null)
   const queryClient = useQueryClient()
 
-  const { data: agents = [] } = useQuery({
-    queryKey: ['agents'],
-    queryFn: () => fetchApi<AgentDialogOption[]>('/api/agents'),
+  const { data: buddies = [] } = useQuery({
+    queryKey: ['buddies'],
+    queryFn: () => fetchApi<BuddyDialogOption[]>('/api/buddies'),
   })
 
   // Server-level members (to find bots on the server)
@@ -1287,44 +1300,46 @@ export function AddAgentDialog({
 
   // Channel-level members (to find bots already in the channel)
   const channelMembers = queryClient.getQueryData<Member[]>(['members', serverId, channelId]) ?? []
-  const channelBotUserIds = new Set(
+  const channelBuddyUserIds = new Set(
     channelMembers.filter((m) => m.user?.isBot).map((m) => m.userId),
   )
 
-  // Server-level bot user IDs
-  const serverBotUserIds = new Set(serverMembers.filter((m) => m.user?.isBot).map((m) => m.userId))
+  // Server-level buddy user IDs
+  const serverBuddyUserIds = new Set(
+    serverMembers.filter((m) => m.user?.isBot).map((m) => m.userId),
+  )
 
   // When a channel is active, show server bots not in this channel
-  // When no channel, show user's agents not yet on the server
+  // When no channel, show user's buddies not yet on the server
   const serverOnlyBotMembers = channelId
-    ? serverMembers.filter((m) => m.user?.isBot && !channelBotUserIds.has(m.userId))
+    ? serverMembers.filter((m) => m.user?.isBot && !channelBuddyUserIds.has(m.userId))
     : []
 
-  const filtered = agents.filter((a) => {
+  const filtered = buddies.filter((a) => {
     if (!search.trim()) return true
-    const name = (a.botUser?.displayName ?? a.botUser?.username ?? '').toLowerCase()
+    const name = (a.buddyUser?.displayName ?? a.buddyUser?.username ?? '').toLowerCase()
     const desc = typeof a.config?.description === 'string' ? a.config.description.toLowerCase() : ''
     const q = search.trim().toLowerCase()
     return name.includes(q) || desc.includes(q)
   })
 
-  // Filter to only agents not yet on the server
-  const agentsNotOnServer = filtered.filter((a) => !serverBotUserIds.has(a.userId))
+  // Filter to only buddies not yet on the server
+  const buddiesNotOnServer = filtered.filter((a) => !serverBuddyUserIds.has(a.userId))
 
-  const handleAddToServer = async (agentId: string) => {
-    setAddingId(agentId)
+  const handleAddToServer = async (buddyId: string) => {
+    setAddingId(buddyId)
     try {
-      await fetchApi(`/api/servers/${serverId}/agents`, {
+      await fetchApi(`/api/servers/${serverId}/buddies`, {
         method: 'POST',
-        body: JSON.stringify({ agentIds: [agentId] }),
+        body: JSON.stringify({ buddyIds: [buddyId] }),
       })
-      // If we're viewing a specific channel, also add the bot to that channel
+      // If we're viewing a specific channel, also add the buddy to that channel
       if (channelId) {
-        const agent = agents.find((a) => a.id === agentId)
-        if (agent?.botUser?.id) {
+        const buddy = buddies.find((a) => a.id === buddyId)
+        if (buddy?.buddyUser?.id) {
           await fetchApi(`/api/channels/${channelId}/members`, {
             method: 'POST',
-            body: JSON.stringify({ userId: agent.botUser.id }),
+            body: JSON.stringify({ userId: buddy.buddyUser.id }),
           })
         }
       }
@@ -1337,13 +1352,13 @@ export function AddAgentDialog({
     }
   }
 
-  const handleAddToChannel = async (botUserId: string) => {
+  const handleAddToChannel = async (buddyUserId: string) => {
     if (!channelId) return
-    setAddingId(botUserId)
+    setAddingId(buddyUserId)
     try {
       await fetchApi(`/api/channels/${channelId}/members`, {
         method: 'POST',
-        body: JSON.stringify({ userId: botUserId }),
+        body: JSON.stringify({ userId: buddyUserId }),
       })
       queryClient.invalidateQueries({ queryKey: ['members', serverId, channelId] })
       onSuccess()
@@ -1354,7 +1369,7 @@ export function AddAgentDialog({
     }
   }
 
-  const dialogTitle = channelId ? t('member.addBuddyToChannel') : t('channel.addAgent')
+  const dialogTitle = channelId ? t('member.addBuddyToChannel') : t('channel.addBuddy')
 
   return (
     <div
@@ -1395,8 +1410,8 @@ export function AddAgentDialog({
               const user = member.user
               if (!user) return null
               const name = user.displayName || user.username
-              const agent = agents.find((a) => a.botUser?.id === user.id)
-              const description = agent?.config?.description
+              const buddy = buddies.find((a) => a.buddyUser?.id === user.id)
+              const description = buddy?.config?.description
               const isAdding = addingId === user.id
 
               return (
@@ -1443,24 +1458,24 @@ export function AddAgentDialog({
               )
             })}
 
-          {/* Section: Agents not on server */}
-          {agentsNotOnServer.length > 0 &&
-            agentsNotOnServer.map((agent) => {
-              const name = agent.botUser?.displayName ?? agent.botUser?.username ?? 'Buddy'
+          {/* Section: Buddies not on server */}
+          {buddiesNotOnServer.length > 0 &&
+            buddiesNotOnServer.map((buddy) => {
+              const name = buddy.buddyUser?.displayName ?? buddy.buddyUser?.username ?? 'Buddy'
               const description =
-                typeof agent.config?.description === 'string' ? agent.config.description : null
-              const ownerName = agent.owner?.displayName ?? agent.owner?.username ?? null
-              const isAdding = addingId === agent.id
+                typeof buddy.config?.description === 'string' ? buddy.config.description : null
+              const ownerName = buddy.owner?.displayName ?? buddy.owner?.username ?? null
+              const isAdding = addingId === buddy.id
 
               return (
                 <div
-                  key={agent.id}
+                  key={buddy.id}
                   className="flex items-start gap-3 px-3 py-3 rounded-lg border transition border-border-subtle bg-bg-tertiary/50 hover:bg-bg-tertiary hover:border-border-dim"
                 >
                   <div className="shrink-0 mt-0.5">
                     <UserAvatar
-                      userId={agent.botUser?.id}
-                      avatarUrl={agent.botUser?.avatarUrl}
+                      userId={buddy.buddyUser?.id}
+                      avatarUrl={buddy.buddyUser?.avatarUrl}
                       displayName={name}
                       size="md"
                     />
@@ -1476,13 +1491,13 @@ export function AddAgentDialog({
                       </span>
                       <span
                         className={`ml-1 w-2 h-2 rounded-full shrink-0 ${
-                          agent.status === 'running'
+                          buddy.status === 'running'
                             ? 'bg-green-400'
-                            : agent.status === 'error'
+                            : buddy.status === 'error'
                               ? 'bg-red-400'
                               : 'bg-zinc-500'
                         }`}
-                        title={agent.status}
+                        title={buddy.status}
                       />
                     </div>
                     {description && (
@@ -1497,11 +1512,11 @@ export function AddAgentDialog({
                   <div className="shrink-0 mt-0.5">
                     <button
                       type="button"
-                      onClick={() => handleAddToServer(agent.id)}
+                      onClick={() => handleAddToServer(buddy.id)}
                       disabled={isAdding}
                       className="text-xs font-semibold px-3 py-1.5 rounded-md bg-primary hover:bg-primary-hover text-white transition disabled:opacity-50"
                     >
-                      {isAdding ? t('common.loading') : t('channel.addAgentConfirm')}
+                      {isAdding ? t('common.loading') : t('channel.addBuddyConfirm')}
                     </button>
                   </div>
                 </div>
@@ -1509,9 +1524,11 @@ export function AddAgentDialog({
             })}
 
           {/* Empty state */}
-          {serverOnlyBotMembers.length === 0 && agentsNotOnServer.length === 0 && (
+          {serverOnlyBotMembers.length === 0 && buddiesNotOnServer.length === 0 && (
             <div className="px-5 py-8 text-center text-text-muted text-sm">
-              {agents.length === 0 ? t('channel.noAgentsAvailable') : t('channel.noSearchResults')}
+              {buddies.length === 0
+                ? t('channel.noBuddiesAvailable')
+                : t('channel.noSearchResults')}
             </div>
           )}
         </div>
@@ -1521,11 +1538,11 @@ export function AddAgentDialog({
 }
 
 // Invite Panel Component - shared with channel-sidebar
-interface BuddyAgent {
+interface BuddyMember {
   id: string
   ownerId: string
   status: string
-  botUser?: {
+  buddyUser?: {
     id: string
     username: string
     displayName: string | null
@@ -1576,7 +1593,7 @@ export function InvitePanel({
 
   const { data: myBuddies = [] } = useQuery({
     queryKey: ['my-buddies-for-invite'],
-    queryFn: () => fetchApi<BuddyAgent[]>('/api/agents'),
+    queryFn: () => fetchApi<BuddyMember[]>('/api/buddies'),
   })
 
   const { data: channelMembers = [] } = useQuery({
@@ -1603,10 +1620,10 @@ export function InvitePanel({
   })
 
   const addBuddyToServer = useMutation({
-    mutationFn: (agentId: string) =>
-      fetchApi(`/api/servers/${serverId}/agents`, {
+    mutationFn: (buddyId: string) =>
+      fetchApi(`/api/servers/${serverId}/buddies`, {
         method: 'POST',
-        body: JSON.stringify({ agentIds: [agentId] }),
+        body: JSON.stringify({ buddyIds: [buddyId] }),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['server-members', serverId] })
@@ -1627,7 +1644,7 @@ export function InvitePanel({
   const serverMemberUserIds = new Set(serverMembers.map((m) => m.userId))
   const candidates = serverMembers.filter((m) => !!m.user && !m.user.isBot)
   const availableBuddies = myBuddies.filter(
-    (b) => b.botUser && !serverMemberUserIds.has(b.botUser.id),
+    (b) => b.buddyUser && !serverMemberUserIds.has(b.buddyUser.id),
   )
 
   return (
@@ -1747,7 +1764,7 @@ export function InvitePanel({
             </div>
           ) : (
             availableBuddies.map((buddy) => {
-              const u = buddy.botUser!
+              const u = buddy.buddyUser!
               return (
                 <div
                   key={buddy.id}

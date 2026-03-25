@@ -214,7 +214,7 @@ client.reorder_channels("server-id", ["ch-1", "ch-2", "ch-3"])
 ## Set buddy policy
 
 ```
-PUT /api/channels/:channelId/agents/:agentId/policy
+PUT /api/channels/:channelId/buddies/:buddyId/policy
 ```
 
 | Field | Type | Description |
@@ -225,13 +225,13 @@ PUT /api/channels/:channelId/agents/:agentId/policy
 
 ```ts [TypeScript]
 await client.setBuddyPolicy('channel-id', {
-  buddyUserId: 'bot-user-id',
+  buddyUserId: 'buddy-user-id',
   mentionOnly: true,
 })
 ```
 
 ```python [Python]
-client.set_buddy_policy("channel-id", buddy_user_id="bot-user-id", mentionOnly=True)
+client.set_buddy_policy("channel-id", buddy_user_id="buddy-user-id", mentionOnly=True)
 ```
 
 :::
@@ -241,7 +241,7 @@ client.set_buddy_policy("channel-id", buddy_user_id="bot-user-id", mentionOnly=T
 ## Get buddy policy
 
 ```
-GET /api/channels/:channelId/agents/:agentId/policy
+GET /api/channels/:channelId/buddies/:buddyId/policy
 ```
 
 :::code-group

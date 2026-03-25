@@ -45,7 +45,7 @@ interface ContractDetail {
   platformTerms: string | null
   terminationReason?: string | null
   listing?: { title: string; deviceTier: string; osType: string } | null
-  agentUserId?: string | null
+  buddyUserId?: string | null
   createdAt: string
 }
 
@@ -126,10 +126,10 @@ export function ContractDetailPage() {
 
   // Start chat with rented claw
   const startChatMutation = useMutation({
-    mutationFn: (agentUserId: string) =>
+    mutationFn: (buddyUserId: string) =>
       fetchApi<{ id: string }>('/api/dm/channels', {
         method: 'POST',
-        body: JSON.stringify({ userId: agentUserId }),
+        body: JSON.stringify({ userId: buddyUserId }),
       }),
     onSuccess: (data) => {
       navigate({ to: '/settings', search: { tab: 'chat', dm: data.id } })
@@ -246,10 +246,10 @@ export function ContractDetailPage() {
                   </p>
                 )}
               </div>
-              {contract.agentUserId && (
+              {contract.buddyUserId && (
                 <button
                   type="button"
-                  onClick={() => startChatMutation.mutate(contract.agentUserId!)}
+                  onClick={() => startChatMutation.mutate(contract.buddyUserId!)}
                   disabled={startChatMutation.isPending}
                   className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-cyan-500 text-white font-bold hover:from-cyan-500 hover:to-cyan-600 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-50"
                   style={{ fontFamily: "'ZCOOL KuaiLe', cursive" }}

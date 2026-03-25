@@ -32,8 +32,8 @@ import { joinChannel } from '../../lib/socket'
 import { useAuthStore } from '../../stores/auth.store'
 import { useChatStore } from '../../stores/chat.store'
 import { useUIStore } from '../../stores/ui.store'
-import { ContextMenu } from '../common/context-menu'
 import { useConfirmStore } from '../common/confirm-dialog'
+import { ContextMenu } from '../common/context-menu'
 import { ChannelSortButton } from './channel-sort-button'
 
 interface Channel {
@@ -144,7 +144,7 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
     y: number
     channel: Channel
   } | null>(null)
-  const [showAddAgent, setShowAddAgent] = useState(false)
+  const [showAddBuddy, setShowAddBuddy] = useState(false)
   const [showInvitePanel, setShowInvitePanel] = useState(false)
   const [inviteTargetChannel, setInviteTargetChannel] = useState<Channel | null>(null)
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null)
@@ -1176,8 +1176,8 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
                   },
                 },
                 {
-                  label: t('channel.addAgent'),
-                  onClick: () => setShowAddAgent(true),
+                  label: t('channel.addBuddy'),
+                  onClick: () => setShowAddBuddy(true),
                 },
               ],
             },
@@ -1185,7 +1185,9 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
               items: [
                 {
                   icon: Volume2,
-                  label: (notificationPreference?.mutedChannelIds ?? []).includes(contextMenu.channel.id)
+                  label: (notificationPreference?.mutedChannelIds ?? []).includes(
+                    contextMenu.channel.id,
+                  )
                     ? '取消静音频道'
                     : '静音频道通知',
                   onClick: () => {
@@ -1276,8 +1278,8 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
                   },
                 },
                 {
-                  label: t('channel.addAgent'),
-                  onClick: () => setShowAddAgent(true),
+                  label: t('channel.addBuddy'),
+                  onClick: () => setShowAddBuddy(true),
                 },
               ],
             },
@@ -1324,14 +1326,14 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
         />
       )}
 
-      {/* Add Agent dialog */}
-      {showAddAgent && (
-        <AddAgentDialog
+      {/* Add Buddy dialog */}
+      {showAddBuddy && (
+        <AddBuddyDialog
           serverId={serverSlug}
-          onClose={() => setShowAddAgent(false)}
+          onClose={() => setShowAddBuddy(false)}
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ['members'] })
-            setShowAddAgent(false)
+            setShowAddBuddy(false)
           }}
           t={t}
         />
@@ -1340,11 +1342,11 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
   )
 }
 
-interface BuddyAgent {
+interface BuddyMember {
   id: string
   ownerId: string
   status: string
-  botUser?: {
+  buddyUser?: {
     id: string
     username: string
     displayName: string | null
@@ -1378,7 +1380,7 @@ function InvitePanel({
 
   const { data: myBuddies = [] } = useQuery({
     queryKey: ['my-buddies-for-invite'],
-    queryFn: () => fetchApi<BuddyAgent[]>('/api/agents'),
+    queryFn: () => fetchApi<BuddyMember[]>('/api/buddies'),
   })
 
   const { data: channelMembers = [] } = useQuery({
@@ -1406,10 +1408,10 @@ function InvitePanel({
 
   // Add buddy to server mutation
   const addBuddyToServer = useMutation({
-    mutationFn: (agentId: string) =>
-      fetchApi(`/api/servers/${serverId}/agents`, {
+    mutationFn: (buddyId: string) =>
+      fetchApi(`/api/servers/${serverId}/buddies`, {
         method: 'POST',
-        body: JSON.stringify({ agentIds: [agentId] }),
+        body: JSON.stringify({ buddyIds: [buddyId] }),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['server-members', serverId] })
@@ -1421,9 +1423,9 @@ function InvitePanel({
   const serverMemberUserIds = new Set(serverMembers.map((m) => m.userId))
   const candidates = serverMembers.filter((m) => !!m.user && !m.user.isBot)
 
-  // Filter buddies: not already in server and have botUser
+  // Filter buddies: not already in server and have buddyUser
   const availableBuddies = myBuddies.filter(
-    (b) => b.botUser && !serverMemberUserIds.has(b.botUser.id),
+    (b) => b.buddyUser && !serverMemberUserIds.has(b.buddyUser.id),
   )
 
   return (
@@ -1540,7 +1542,7 @@ function InvitePanel({
             </div>
           ) : (
             availableBuddies.map((buddy) => {
-              const u = buddy.botUser!
+              const u = buddy.buddyUser!
               return (
                 <div
                   key={buddy.id}
@@ -1580,13 +1582,13 @@ function InvitePanel({
   )
 }
 
-/* ── Add Agent Dialog ──────────────────────────────────── */
+/* ── Add Buddy Dialog ──────────────────────────────────── */
 
-interface AgentOption {
+interface BuddyOption {
   id: string
   userId: string
   status: string
-  botUser?: {
+  buddyUser?: {
     id: string
     username: string
     displayName: string | null
@@ -1594,7 +1596,7 @@ interface AgentOption {
   } | null
 }
 
-function AddAgentDialog({
+function AddBuddyDialog({
   serverId,
   onClose,
   onSuccess,
@@ -1608,12 +1610,12 @@ function AddAgentDialog({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [adding, setAdding] = useState(false)
 
-  const { data: agents = [] } = useQuery({
-    queryKey: ['agents'],
-    queryFn: () => fetchApi<AgentOption[]>('/api/agents'),
+  const { data: buddies = [] } = useQuery({
+    queryKey: ['buddies'],
+    queryFn: () => fetchApi<BuddyOption[]>('/api/buddies'),
   })
 
-  const toggleAgent = (id: string) => {
+  const toggleBuddy = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
@@ -1626,9 +1628,9 @@ function AddAgentDialog({
     if (selectedIds.size === 0) return
     setAdding(true)
     try {
-      await fetchApi(`/api/servers/${serverId}/agents`, {
+      await fetchApi(`/api/servers/${serverId}/buddies`, {
         method: 'POST',
-        body: JSON.stringify({ agentIds: Array.from(selectedIds) }),
+        body: JSON.stringify({ buddyIds: Array.from(selectedIds) }),
       })
       onSuccess()
     } catch {
@@ -1646,20 +1648,20 @@ function AddAgentDialog({
       }}
     >
       <div className="bg-bg-secondary rounded-xl p-6 w-96 max-h-[60vh] flex flex-col border border-border-subtle">
-        <h2 className="text-lg font-bold text-text-primary mb-4">{t('channel.addAgent')}</h2>
+        <h2 className="text-lg font-bold text-text-primary mb-4">{t('channel.addBuddy')}</h2>
 
-        {agents.length === 0 ? (
-          <p className="text-text-muted text-sm py-4">{t('channel.noAgentsAvailable')}</p>
+        {buddies.length === 0 ? (
+          <p className="text-text-muted text-sm py-4">{t('channel.noBuddiesAvailable')}</p>
         ) : (
           <div className="flex-1 overflow-y-auto space-y-1 mb-4">
-            {agents.map((agent) => {
-              const name = agent.botUser?.displayName ?? agent.botUser?.username ?? 'Buddy'
-              const isSelected = selectedIds.has(agent.id)
+            {buddies.map((buddy) => {
+              const name = buddy.buddyUser?.displayName ?? buddy.buddyUser?.username ?? 'Buddy'
+              const isSelected = selectedIds.has(buddy.id)
               return (
                 <button
-                  key={agent.id}
+                  key={buddy.id}
                   type="button"
-                  onClick={() => toggleAgent(agent.id)}
+                  onClick={() => toggleBuddy(buddy.id)}
                   className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm transition ${
                     isSelected
                       ? 'bg-primary/20 text-text-primary'
@@ -1676,9 +1678,9 @@ function AddAgentDialog({
                   <span className="truncate">{name}</span>
                   <span
                     className={`ml-auto w-2 h-2 rounded-full ${
-                      agent.status === 'running'
+                      buddy.status === 'running'
                         ? 'bg-green-400'
-                        : agent.status === 'error'
+                        : buddy.status === 'error'
                           ? 'bg-red-400'
                           : 'bg-zinc-500'
                     }`}
@@ -1702,7 +1704,7 @@ function AddAgentDialog({
             className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg font-bold transition disabled:opacity-50"
           >
             <img src="/Logo.svg" alt="Buddy" className="w-4 h-4" />
-            {adding ? t('common.loading') : t('channel.addAgentConfirm')}
+            {adding ? t('common.loading') : t('channel.addBuddyConfirm')}
           </button>
         </div>
       </div>

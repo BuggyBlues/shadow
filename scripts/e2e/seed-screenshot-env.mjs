@@ -70,7 +70,7 @@ const showcase = {
       skus: [{ specValues: ['Pro'], price: 29900, stock: 16, skuCode: 'BOP-PRO' }],
     },
   ],
-  agents: [
+  buddies: [
     {
       name: 'CodingCat',
       username: 'coding-cat',
@@ -326,38 +326,38 @@ async function ensureAppShowcase(token, serverId) {
 }
 
 async function ensureAgentShowcase(token, serverId) {
-  const agents = await requestJson('/api/agents', { token })
+  const buddies = await requestJson('/api/buddies', { token })
 
   const ensuredAgents = []
-  for (const agent of showcase.agents) {
-    let existing = agents.find(
+  for (const buddy of showcase.buddies) {
+    let existing = buddies.find(
       (item) =>
-        item.botUser?.username === agent.username || item.botUser?.displayName === agent.name,
+        item.botUser?.username === buddy.username || item.botUser?.displayName === buddy.name,
     )
     if (!existing) {
-      existing = await requestJson('/api/agents', {
+      existing = await requestJson('/api/buddies', {
         method: 'POST',
         token,
-        body: agent,
+        body: buddy,
       })
     }
     ensuredAgents.push(existing)
   }
 
-  // Add agents to server as members
-  for (const agent of ensuredAgents) {
+  // Add buddies to server as members
+  for (const buddy of ensuredAgents) {
     try {
-      await requestJson(`/api/servers/${serverId}/agents`, {
+      await requestJson(`/api/servers/${serverId}/buddies`, {
         method: 'POST',
         token,
-        body: { agentIds: [agent.id] },
+        body: { buddyIds: [buddy.id] },
       })
     } catch {
-      // Agent may already be a member
+      // Buddy may already be a member
     }
   }
 
-  return { agents: ensuredAgents }
+  return { buddies: ensuredAgents }
 }
 
 async function main() {
@@ -405,9 +405,9 @@ async function main() {
     apps: {
       names: apps.apps.map((item) => item.name),
     },
-    agents: {
-      names: agentsShowcase.agents.map((item) => item.botUser?.displayName ?? item.name),
-      ids: agentsShowcase.agents.map((item) => item.id),
+    buddies: {
+      names: agentsShowcase.buddies.map((item) => item.botUser?.displayName ?? item.name),
+      ids: agentsShowcase.buddies.map((item) => item.id),
     },
   }
 

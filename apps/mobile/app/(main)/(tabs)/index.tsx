@@ -26,7 +26,7 @@ import Reanimated, { FadeIn, FadeInDown, FadeInRight } from 'react-native-reanim
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Avatar } from '../../../src/components/common/avatar'
 import {
-  AgentCatSvg,
+  BuddyCatSvg,
   ChannelCatSvg,
   HelpBuddySvg,
   HelpProductSvg,
@@ -233,7 +233,7 @@ export default function ServersScreen() {
       key: 'buddy',
       title: '什么是 Buddy？',
       desc: 'Buddy 是黑猫打工仔：能写代码、审方案、查资料，24 小时在线协作。',
-      tags: ['多 Agent', '自动协作', '持续产出'],
+      tags: ['多 Buddy', '自动协作', '持续产出'],
       renderIcon: () => <HelpBuddySvg size={88} color="#f59e0b" />,
     },
     {
@@ -361,7 +361,7 @@ export default function ServersScreen() {
                 onPress={() => router.push('/(main)/friends' as never)}
               >
                 <LinearGradient colors={['#EF4444', '#F87171']} style={styles.actionBubbleGlow}>
-                  <AgentCatSvg width={36} height={36} />
+                  <BuddyCatSvg width={36} height={36} />
                 </LinearGradient>
                 <View style={styles.quickEntryInfo}>
                   <Text style={[styles.quickEntryTitle, { color: colors.text }]}>好友与私信</Text>

@@ -2915,7 +2915,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       pricingUrl: 'https://cohere.com/pricing',
       steps: [
         '登录 Cohere Dashboard → API Keys 创建密钥。',
-        '推荐 Command A 处理复杂 Agent 任务。',
+        '推荐 Command A 处理复杂 Buddy 任务。',
         '粘贴 API Key 并保存。',
       ],
       tips: [

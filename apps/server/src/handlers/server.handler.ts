@@ -344,71 +344,71 @@ export function createServerHandler(container: AppContainer) {
     return c.json({ success: true })
   })
 
-  // POST /api/servers/:id/agents — add agent(s) to server as members
-  serverHandler.post('/:id/agents', async (c) => {
+  // POST /api/servers/:id/buddies — add buddy(s) to server as members
+  serverHandler.post('/:id/buddies', async (c) => {
     const serverService = container.resolve('serverService')
-    const agentService = container.resolve('agentService')
-    const agentPolicyService = container.resolve('agentPolicyService')
+    const buddyService = container.resolve('buddyService')
+    const buddyPolicyService = container.resolve('buddyPolicyService')
     const id = c.req.param('id')
     const user = c.get('user')
-    const body = await c.req.json<{ agentIds: string[] }>()
+    const body = await c.req.json<{ buddyIds: string[] }>()
 
-    if (!Array.isArray(body.agentIds) || body.agentIds.length === 0) {
-      return c.json({ error: 'agentIds is required' }, 400)
+    if (!Array.isArray(body.buddyIds) || body.buddyIds.length === 0) {
+      return c.json({ error: 'buddyIds is required' }, 400)
     }
 
-    const results: Array<{ agentId: string; success: boolean; error?: string }> = []
-    for (const agentId of body.agentIds) {
+    const results: Array<{ buddyId: string; success: boolean; error?: string }> = []
+    for (const buddyId of body.buddyIds) {
       try {
-        const agent = await agentService.getById(agentId)
-        if (!agent) {
-          results.push({ agentId, success: false, error: 'Agent not found' })
+        const buddy = await buddyService.getById(buddyId)
+        if (!buddy) {
+          results.push({ buddyId, success: false, error: 'Buddy not found' })
           continue
         }
-        // Verify the user owns the agent
-        if (agent.ownerId !== user.userId) {
-          results.push({ agentId, success: false, error: 'Not the owner' })
+        // Verify the user owns the buddy
+        if (buddy.ownerId !== user.userId) {
+          results.push({ buddyId, success: false, error: 'Not the owner' })
           continue
         }
-        // Add bot user as server member
-        await serverService.addBotMember(id, agent.userId)
+        // Add buddy user as server member
+        await serverService.addBuddyMember(id, buddy.userId)
         // Auto-create default server-wide policy
-        await agentPolicyService.ensureServerDefault(agentId, id)
-        results.push({ agentId, success: true })
+        await buddyPolicyService.ensureServerDefault(buddyId, id)
+        results.push({ buddyId, success: true })
 
         // Emit member:joined to the server's channels so existing members see the bot
-        // The bot is not yet in any channel, but server members should know it's available
+        // The buddy is not yet in any channel, but server members should know it's available
         try {
           const io = container.resolve('io')
           const userDao = container.resolve('userDao')
           const serverDao = container.resolve('serverDao')
-          const botUser = await userDao.findById(agent.userId)
+          const buddyUser = await userDao.findById(buddy.userId)
           const serverMembers = await serverDao.getMembers(id)
           const payload = {
             serverId: id,
-            userId: agent.userId,
-            username: botUser?.username ?? 'unknown',
-            displayName: botUser?.displayName ?? botUser?.username ?? 'unknown',
-            avatarUrl: botUser?.avatarUrl ?? null,
+            userId: buddy.userId,
+            username: buddyUser?.username ?? 'unknown',
+            displayName: buddyUser?.displayName ?? buddyUser?.username ?? 'unknown',
+            avatarUrl: buddyUser?.avatarUrl ?? null,
             isBot: true,
           }
-          // Notify all non-bot server members about the new bot
+          // Notify all non-buddy server members about the new buddy
           for (const m of serverMembers) {
             if (!m.user?.isBot) {
               io.to(`user:${m.userId}`).emit('member:joined', payload)
             }
           }
           // Notify the bot directly so its monitor can connect
-          io.to(`user:${agent.userId}`).emit('server:joined', {
+          io.to(`user:${buddy.userId}`).emit('server:joined', {
             serverId: id,
-            agentId,
+            buddyId,
           })
         } catch {
           /* non-critical */
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Unknown error'
-        results.push({ agentId, success: false, error: msg })
+        results.push({ buddyId, success: false, error: msg })
       }
     }
 

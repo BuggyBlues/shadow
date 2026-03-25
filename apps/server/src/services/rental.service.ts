@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid'
-import type { AgentDao } from '../dao/agent.dao'
+import type { BuddyDao } from '../dao/buddy.dao'
 import type { ClawListingDao } from '../dao/claw-listing.dao'
 import type {
   RentalContractDao,
@@ -55,7 +55,7 @@ export class RentalService {
       rentalUsageDao: RentalUsageDao
       rentalViolationDao: RentalViolationDao
       walletService: WalletService
-      agentDao: AgentDao
+      buddyDao: BuddyDao
       userDao: UserDao
     },
   ) {}
@@ -65,7 +65,7 @@ export class RentalService {
   async createListing(
     ownerId: string,
     data: {
-      agentId?: string
+      buddyId?: string
       title: string
       description?: string
       skills?: string[]
@@ -148,11 +148,11 @@ export class RentalService {
     if (!listing) throw Object.assign(new Error('Listing not found'), { status: 404 })
     // Increment view count
     await this.deps.clawListingDao.incrementViewCount(id)
-    // Enrich with agent online time
+    // Enrich with buddy online time
     let totalOnlineSeconds = 0
-    if (listing.agentId) {
-      const agent = await this.deps.agentDao.findById(listing.agentId)
-      totalOnlineSeconds = agent?.totalOnlineSeconds ?? 0
+    if (listing.buddyId) {
+      const buddy = await this.deps.buddyDao.findById(listing.buddyId)
+      totalOnlineSeconds = buddy?.totalOnlineSeconds ?? 0
     }
     // Enrich with owner info
     const ownerUser = await this.deps.userDao.findById(listing.ownerId)
@@ -197,13 +197,13 @@ export class RentalService {
       this.deps.clawListingDao.browse(opts),
       this.deps.clawListingDao.countBrowse(opts),
     ])
-    // Enrich listings with agent totalOnlineSeconds and owner info
+    // Enrich listings with buddy totalOnlineSeconds and owner info
     const enriched = await Promise.all(
       listings.map(async (l) => {
         let totalOnlineSeconds = 0
-        if (l.agentId) {
-          const agent = await this.deps.agentDao.findById(l.agentId)
-          totalOnlineSeconds = agent?.totalOnlineSeconds ?? 0
+        if (l.buddyId) {
+          const buddy = await this.deps.buddyDao.findById(l.buddyId)
+          totalOnlineSeconds = buddy?.totalOnlineSeconds ?? 0
         }
         const owner = await this.deps.userDao.findById(l.ownerId)
         return {
@@ -373,11 +373,11 @@ export class RentalService {
       await this.deps.rentalContractDao.addCost(contract.id, firstDayTotal)
     }
 
-    // Initialize lastBilledOnlineSeconds with agent's current totalOnlineSeconds
+    // Initialize lastBilledOnlineSeconds with buddy's current totalOnlineSeconds
     let initialOnlineSeconds = 0
-    if (listing.agentId) {
-      const agent = await this.deps.agentDao.findById(listing.agentId)
-      if (agent) initialOnlineSeconds = agent.totalOnlineSeconds ?? 0
+    if (listing.buddyId) {
+      const buddy = await this.deps.buddyDao.findById(listing.buddyId)
+      if (buddy) initialOnlineSeconds = buddy.totalOnlineSeconds ?? 0
     }
 
     // Activate the contract
@@ -684,7 +684,7 @@ export class RentalService {
 
   /**
    * Auto-bill active contracts. Handles two pricing models:
-   * - V1 (legacy): hourly rate + electricity based on agent online time
+   * - V1 (legacy): hourly rate + electricity based on buddy online time
    * - V2 (new): daily base fee + per-message fee + platform fee
    */
   async billActiveContracts() {
@@ -730,12 +730,12 @@ export class RentalService {
     lastBilledOnlineSeconds: number
   }) {
     const listing = await this.deps.clawListingDao.findById(contract.listingId)
-    if (!listing?.agentId) return 0
+    if (!listing?.buddyId) return 0
 
-    const agent = await this.deps.agentDao.findById(listing.agentId)
-    if (!agent) return 0
+    const buddy = await this.deps.buddyDao.findById(listing.buddyId)
+    if (!buddy) return 0
 
-    const currentOnlineSeconds = agent.totalOnlineSeconds ?? 0
+    const currentOnlineSeconds = buddy.totalOnlineSeconds ?? 0
     const lastBilled = contract.lastBilledOnlineSeconds ?? 0
     const billableSeconds = currentOnlineSeconds - lastBilled
 
@@ -896,13 +896,13 @@ export class RentalService {
 
   /**
    * Records a rental message for billing purposes.
-   * Called when a tenant sends a DM to a rented BuddyClaw bot.
+   * Called when a tenant sends a DM to a rented BuddyClaw buddy.
    * Only increments the counter; actual billing happens in the scheduled job.
    */
-  async recordRentalMessage(senderId: string, botUserId: string) {
-    const contract = await this.deps.rentalContractDao.findActiveByTenantAndBotUserId(
+  async recordRentalMessage(senderId: string, buddyUserId: string) {
+    const contract = await this.deps.rentalContractDao.findActiveByTenantAndBuddyUserId(
       senderId,
-      botUserId,
+      buddyUserId,
     )
     if (!contract) return null
     if ((contract.pricingVersion ?? 1) < 2) return null

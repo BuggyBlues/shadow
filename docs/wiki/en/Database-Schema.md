@@ -86,15 +86,15 @@ users ─┬── server_members ──── servers ─┬── channels ─
 | user_id     | UUID (FK)   | User → users             |
 | created_at  | TIMESTAMP   | Join time                |
 
-## Agent Tables
+## Buddy Tables
 
-### `agents`
+### `buddies`
 
-Stores registered AI agent configurations.
+Stores registered AI buddy configurations.
 
 ### `agent_sessions`
 
-Tracks active agent sessions per channel/thread.
+Tracks active buddy sessions per channel/thread.
 
 ## OAuth Tables
 

@@ -1,14 +1,14 @@
 /**
  * Rental Lifecycle E2E Tests
  *
- * Tests the contract completion → listing delist flow and agent-chat-status
+ * Tests the contract completion → listing delist flow and buddy-chat-status
  * access control against a real PostgreSQL database.
  *
  * Covers:
  *   1. Contract termination auto-delists the listing
  *   2. Expired contract auto-termination delists the listing
- *   3. agent-chat-status blocks expired/terminated tenants
- *   4. agent-chat-status allows owners to chat freely
+ *   3. buddy-chat-status blocks expired/terminated tenants
+ *   4. buddy-chat-status allows owners to chat freely
  *   5. my-listings returns ALL owner listings with correct status enrichment
  *   6. Delisted listing does not appear in marketplace browse
  *   7. Owner can relist after contract ends
@@ -45,9 +45,9 @@ let ownerToken: string
 let tenantToken: string
 let thirdToken: string
 
-// Agent + listing IDs
-let agentBotUserId: string
-let agentId: string
+// Buddy + listing IDs
+let buddyBotUserId: string
+let buddyId: string
 let listingId: string
 
 // Contract IDs
@@ -98,7 +98,7 @@ beforeAll(async () => {
   app.route('/api', createRentalHandler(container))
 
   const userDao = container.resolve('userDao')
-  const agentDao = container.resolve('agentDao')
+  const buddyDao = container.resolve('buddyDao')
   const ts = Date.now()
 
   // Create owner user
@@ -145,20 +145,20 @@ beforeAll(async () => {
   const walletService = container.resolve('walletService')
   await walletService.topUp(tenantUserId, 50000, 'Lifecycle test balance')
 
-  // Create a bot user + agent (for agent-chat-status tests)
-  const botUser = await agentDao.createBotUser({
+  // Create a buddy user + buddy (for buddy-chat-status tests)
+  const botUser = await buddyDao.createBotUser({
     username: `lcbot${ts}`,
     displayName: 'Lifecycle Test Bot',
   })
-  agentBotUserId = botUser!.id
+  buddyBotUserId = botUser!.id
 
-  const agent = await agentDao.create({
-    userId: agentBotUserId,
+  const buddy = await buddyDao.create({
+    userId: buddyBotUserId,
     kernelType: 'docker',
     config: {},
     ownerId: ownerUserId,
   })
-  agentId = agent!.id
+  buddyId = buddy!.id
 }, 30_000)
 
 afterAll(async () => {
@@ -171,7 +171,7 @@ afterAll(async () => {
       rentalUsageRecords,
       rentalViolations,
       wallets,
-      agents: agentsTable,
+      buddies: buddiesTable,
     } = schema
 
     // Clean rental data
@@ -186,13 +186,13 @@ afterAll(async () => {
       await db.delete(clawListings).where(eq(clawListings.ownerId, ownerUserId))
     }
 
-    // Delete agent
-    if (agentId) {
-      await db.delete(agentsTable).where(eq(agentsTable.id, agentId))
+    // Delete buddy
+    if (buddyId) {
+      await db.delete(buddiesTable).where(eq(buddiesTable.id, buddyId))
     }
 
     // Delete wallets & users
-    const userIds = [ownerUserId, tenantUserId, thirdUserId, agentBotUserId].filter(Boolean)
+    const userIds = [ownerUserId, tenantUserId, thirdUserId, buddyBotUserId].filter(Boolean)
     for (const uid of userIds) {
       await db
         .delete(wallets)
@@ -213,9 +213,9 @@ afterAll(async () => {
    ══════════════════════════════════════════════════════════ */
 
 describe('Rental Lifecycle E2E', () => {
-  /* ─────── 1. Create listing with agent ─────── */
+  /* ─────── 1. Create listing with buddy ─────── */
 
-  it('should create an active listing linked to an agent', async () => {
+  it('should create an active listing linked to a buddy', async () => {
     const res = await req('POST', '/api/marketplace/listings', {
       token: ownerToken,
       body: {
@@ -226,7 +226,7 @@ describe('Rental Lifecycle E2E', () => {
         hourlyRate: 10,
         depositAmount: 100,
         listingStatus: 'active',
-        agentId,
+        buddyId,
       },
     })
 
@@ -237,10 +237,10 @@ describe('Rental Lifecycle E2E', () => {
     listingId = data.id
   })
 
-  /* ─────── 2. agent-chat-status: listed agent blocks non-owner ─────── */
+  /* ─────── 2. buddy-chat-status: listed buddy blocks non-owner ─────── */
 
-  it('should block non-owner chat when agent is listed (no contract)', async () => {
-    const res = await req('GET', `/api/marketplace/agent-chat-status/${agentBotUserId}`, {
+  it('should block non-owner chat when buddy is listed (no contract)', async () => {
+    const res = await req('GET', `/api/marketplace/buddy-chat-status/${buddyBotUserId}`, {
       token: tenantToken,
     })
 
@@ -250,10 +250,10 @@ describe('Rental Lifecycle E2E', () => {
     expect(data.reason).toBe('listed')
   })
 
-  /* ─────── 3. agent-chat-status: owner also blocked when listed ─────── */
+  /* ─────── 3. buddy-chat-status: owner also blocked when listed ─────── */
 
-  it('should block owner chat when their agent is listed', async () => {
-    const res = await req('GET', `/api/marketplace/agent-chat-status/${agentBotUserId}`, {
+  it('should block owner chat when their buddy is listed', async () => {
+    const res = await req('GET', `/api/marketplace/buddy-chat-status/${buddyBotUserId}`, {
       token: ownerToken,
     })
 
@@ -280,10 +280,10 @@ describe('Rental Lifecycle E2E', () => {
     contractId = data.id
   })
 
-  /* ─────── 5. agent-chat-status: active tenant can chat ─────── */
+  /* ─────── 5. buddy-chat-status: active tenant can chat ─────── */
 
-  it('should allow active tenant to chat with rented agent', async () => {
-    const res = await req('GET', `/api/marketplace/agent-chat-status/${agentBotUserId}`, {
+  it('should allow active tenant to chat with rented buddy', async () => {
+    const res = await req('GET', `/api/marketplace/buddy-chat-status/${buddyBotUserId}`, {
       token: tenantToken,
     })
 
@@ -293,10 +293,10 @@ describe('Rental Lifecycle E2E', () => {
     expect(data.rental?.contractId).toBe(contractId)
   })
 
-  /* ─────── 6. agent-chat-status: third user blocked (rented out) ─────── */
+  /* ─────── 6. buddy-chat-status: third user blocked (rented out) ─────── */
 
-  it('should block unrelated user when agent is rented out', async () => {
-    const res = await req('GET', `/api/marketplace/agent-chat-status/${agentBotUserId}`, {
+  it('should block unrelated user when buddy is rented out', async () => {
+    const res = await req('GET', `/api/marketplace/buddy-chat-status/${buddyBotUserId}`, {
       token: thirdToken,
     })
 
@@ -355,10 +355,10 @@ describe('Rental Lifecycle E2E', () => {
     expect(found).toBeUndefined()
   })
 
-  /* ─────── 10. agent-chat-status: expired for former tenant ─────── */
+  /* ─────── 10. buddy-chat-status: expired for former tenant ─────── */
 
   it('should return expired reason for former tenant after contract ends', async () => {
-    const res = await req('GET', `/api/marketplace/agent-chat-status/${agentBotUserId}`, {
+    const res = await req('GET', `/api/marketplace/buddy-chat-status/${buddyBotUserId}`, {
       token: tenantToken,
     })
 
@@ -368,10 +368,10 @@ describe('Rental Lifecycle E2E', () => {
     expect(data.reason).toBe('expired')
   })
 
-  /* ─────── 11. agent-chat-status: owner can chat after contract ends and delisted ─────── */
+  /* ─────── 11. buddy-chat-status: owner can chat after contract ends and delisted ─────── */
 
   it('should allow owner to chat after contract ends and delisted', async () => {
-    const res = await req('GET', `/api/marketplace/agent-chat-status/${agentBotUserId}`, {
+    const res = await req('GET', `/api/marketplace/buddy-chat-status/${buddyBotUserId}`, {
       token: ownerToken,
     })
 
@@ -466,8 +466,8 @@ describe('Rental Lifecycle E2E', () => {
     const listingData = await json<{ id: string; isListed: boolean }>(listingRes)
     expect(listingData.isListed).toBe(false)
 
-    // Verify agent-chat-status returns expired for former tenant
-    const chatRes = await req('GET', `/api/marketplace/agent-chat-status/${agentBotUserId}`, {
+    // Verify buddy-chat-status returns expired for former tenant
+    const chatRes = await req('GET', `/api/marketplace/buddy-chat-status/${buddyBotUserId}`, {
       token: tenantToken,
     })
     expect(chatRes.status).toBe(200)
@@ -508,7 +508,7 @@ describe('Rental Lifecycle E2E', () => {
     expect(found).toBeUndefined()
 
     // 4. Chat is blocked for former tenant
-    const chatRes = await req('GET', `/api/marketplace/agent-chat-status/${agentBotUserId}`, {
+    const chatRes = await req('GET', `/api/marketplace/buddy-chat-status/${buddyBotUserId}`, {
       token: tenantToken,
     })
     expect(chatRes.status).toBe(200)
@@ -516,7 +516,7 @@ describe('Rental Lifecycle E2E', () => {
     expect(chatData.chatDisabled).toBe(true)
 
     // 5. Owner can still chat
-    const ownerChatRes = await req('GET', `/api/marketplace/agent-chat-status/${agentBotUserId}`, {
+    const ownerChatRes = await req('GET', `/api/marketplace/buddy-chat-status/${buddyBotUserId}`, {
       token: ownerToken,
     })
     expect(ownerChatRes.status).toBe(200)

@@ -1,7 +1,7 @@
 /**
  * OpenClaw Buddy Service
  *
- * Manages connections between local OpenClaw agents and remote Buddy instances
+ * Manages connections between local OpenClaw buddies and remote Buddy instances
  * on Shadow servers. The actual Socket.IO connection and message processing is
  * handled by the gateway's shadow plugin — this service only manages the
  * configuration (channels.shadowob.accounts) and signals the gateway to reload.
@@ -51,7 +51,7 @@ export class BuddyService {
       id: string
       label: string
       status: BuddyConnection['status']
-      agentId: string
+      buddyId: string
       serverUrl: string
       error?: string | null
       connectedAt?: number | null
@@ -63,7 +63,7 @@ export class BuddyService {
           id: conn.id,
           label: conn.label,
           status: conn.status,
-          agentId: conn.agentId,
+          buddyId: conn.buddyId,
           serverUrl: conn.serverUrl,
           error: conn.error,
           connectedAt: conn.connectedAt,
@@ -97,7 +97,7 @@ export class BuddyService {
   remove(id: string): void {
     this.disconnect(id)
     this.config.removeShadowChannelAccount(id)
-    this.config.removeAgentBindings({ channel: 'shadowob', accountId: id })
+    this.config.removeBuddyBindings({ channel: 'shadowob', accountId: id })
     this.connections = this.connections.filter((c) => c.id !== id)
     this.saveConnections()
     this.emitStatus()
@@ -122,7 +122,7 @@ export class BuddyService {
       return false
     }
 
-    if (!conn.remoteAgentId) {
+    if (!conn.remoteBuddyId) {
       this.updateStatus(id, 'error', '缺少远端 Buddy 标识，请重新创建连接')
       return false
     }
@@ -146,8 +146,8 @@ export class BuddyService {
       enabled: true,
     })
 
-    // Step 3: Add binding so resolveAgentRoute() routes messages to the correct local agent.
-    this.config.addAgentBinding(conn.agentId, 'shadowob', id)
+    // Step 3: Add binding so resolveBuddyRoute() routes messages to the correct local buddy.
+    this.config.addBuddyBinding(conn.buddyId, 'shadowob', id)
 
     // Mark as connected (the gateway will start monitoring asynchronously)
     this.updateStatus(id, 'connected')

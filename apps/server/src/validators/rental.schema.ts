@@ -11,7 +11,7 @@ export const deviceInfoSchema = z.object({
 })
 
 export const createListingSchema = z.object({
-  agentId: z.string().uuid().optional(),
+  buddyId: z.string().uuid().optional(),
   title: z.string().min(1).max(200),
   description: z.string().max(5000).optional(),
   skills: z.array(z.string().max(50)).max(20).optional().default([]),

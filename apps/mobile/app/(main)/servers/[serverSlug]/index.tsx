@@ -44,7 +44,7 @@ import {
 import Reanimated, { FadeInDown } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
-  AgentCatSvg,
+  BuddyCatSvg,
   ChannelCatSvg,
   ShopCatSvg,
   WorkCatSvg,
@@ -428,7 +428,7 @@ export default function ServerHomeScreen() {
               onPress={() => router.push(`/(main)/servers/${serverSlug}/members` as never)}
             >
               <LinearGradient colors={['#EF4444', '#F87171']} style={styles.actionBubbleGlow}>
-                <AgentCatSvg width={40} height={40} />
+                <BuddyCatSvg width={40} height={40} />
               </LinearGradient>
               <Text style={[styles.actionLabel, { color: colors.textSecondary }]}>
                 {t('server.members')}

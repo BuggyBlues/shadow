@@ -71,7 +71,7 @@ export interface Message {
   sendStatus?: 'sending' | 'failed'
 }
 
-export type { Author, ReactionGroup, Attachment }
+export type { Attachment, Author, ReactionGroup }
 
 interface MessagesPage {
   messages: Message[]
@@ -375,19 +375,18 @@ export function MessageBubble({
       ? (queryClient.getQueryData<MemberEntry[]>(['members', activeServerId]) ?? [])
       : []
   const authorMember = membersList.find((m: MemberEntry) => m.userId === author?.id)
-  const buddyAgentsList =
+  const buddyMembersList =
     variant === 'channel'
-      ? (queryClient.getQueryData<BuddyAgentEntry[]>(['members-buddy-agents', activeServerId]) ??
-        [])
+      ? (queryClient.getQueryData<BuddyMemberEntry[]>(['members-buddies', activeServerId]) ?? [])
       : []
-  const buddyAgent = author?.isBot
-    ? buddyAgentsList.find((a: BuddyAgentEntry) => a.botUser?.id === author.id)
+  const buddyMember = author?.isBot
+    ? buddyMembersList.find((a: BuddyMemberEntry) => a.buddyUser?.id === author.id)
     : undefined
   const currentMember = membersList.find((m: MemberEntry) => m.userId === currentUser?.id)
   const canKick =
     variant === 'channel' && (currentMember?.role === 'owner' || currentMember?.role === 'admin')
-  // Allow deletion for own messages OR messages from a bot owned by the current user
-  const canDelete = isOwn || (author?.isBot && buddyAgent?.ownerId === currentUser?.id)
+  // Allow deletion for own messages OR messages from a buddy owned by the current user
+  const canDelete = isOwn || (author?.isBot && buddyMember?.ownerId === currentUser?.id)
 
   const dateFnsLocaleMap: Record<string, Locale> = {
     'zh-CN': zhCN,
@@ -524,7 +523,7 @@ export function MessageBubble({
           {author?.isBot && (
             <span className="text-[10px] bg-[#5865F2] text-white px-1.5 py-0.5 rounded-[3px] font-semibold flex items-center gap-1">
               <Check size={8} className="text-white" />
-              {t('common.bot')}
+              {t('common.buddy')}
             </span>
           )}
           <span className="text-xs text-text-muted ml-0.5">{time}</span>
@@ -989,10 +988,10 @@ export function MessageBubble({
             <UserProfileCard
               user={author}
               role={(authorMember?.role as 'owner' | 'admin' | 'member') ?? null}
-              ownerName={buddyAgent?.owner?.displayName ?? buddyAgent?.owner?.username}
+              ownerName={buddyMember?.owner?.displayName ?? buddyMember?.owner?.username}
               description={
-                typeof buddyAgent?.config?.description === 'string'
-                  ? buddyAgent.config.description
+                typeof buddyMember?.config?.description === 'string'
+                  ? buddyMember.config.description
                   : undefined
               }
             />
@@ -1013,10 +1012,10 @@ export function MessageBubble({
               <UserProfileCard
                 user={author}
                 role={(authorMember?.role as 'owner' | 'admin' | 'member') ?? null}
-                ownerName={buddyAgent?.owner?.displayName ?? buddyAgent?.owner?.username}
+                ownerName={buddyMember?.owner?.displayName ?? buddyMember?.owner?.username}
                 description={
-                  typeof buddyAgent?.config?.description === 'string'
-                    ? buddyAgent.config.description
+                  typeof buddyMember?.config?.description === 'string'
+                    ? buddyMember.config.description
                     : undefined
                 }
               />
@@ -1059,9 +1058,9 @@ export function MessageBubble({
                     onClick={async () => {
                       const name = author?.displayName ?? author?.username
                       const confirmKey = author?.isBot
-                        ? 'member.removeBotConfirm'
+                        ? 'member.removeBuddyConfirm'
                         : 'member.kickConfirm'
-                      const titleKey = author?.isBot ? 'member.removeBot' : 'member.kickMember'
+                      const titleKey = author?.isBot ? 'member.removeBuddy' : 'member.kickMember'
                       const ok = await useConfirmStore.getState().confirm({
                         title: t(titleKey),
                         message: t(confirmKey, { name }),
@@ -1079,7 +1078,7 @@ export function MessageBubble({
                     }}
                     className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition"
                   >
-                    {author?.isBot ? t('member.removeBot') : t('member.kickMember')}
+                    {author?.isBot ? t('member.removeBuddy') : t('member.kickMember')}
                   </button>
                 </>
               )}
@@ -1109,7 +1108,7 @@ interface MemberEntry {
   user?: MemberUser
 }
 
-interface BuddyAgentEntry {
+interface BuddyMemberEntry {
   id: string
   ownerId: string
   config?: Record<string, unknown>
@@ -1118,7 +1117,7 @@ interface BuddyAgentEntry {
     username: string
     displayName: string | null
   } | null
-  botUser?: {
+  buddyUser?: {
     id: string
     username: string
     displayName: string | null
@@ -1148,10 +1147,10 @@ function MentionSpan({ mention, label }: { mention: string; label?: string }) {
   const user = member?.user
 
   // Buddy metadata
-  const buddyAgentsList =
-    queryClient.getQueryData<BuddyAgentEntry[]>(['members-buddy-agents', activeServerId]) ?? []
-  const buddyAgent = user?.isBot
-    ? buddyAgentsList.find((a: BuddyAgentEntry) => a.botUser?.id === user.id)
+  const buddyMembersList =
+    queryClient.getQueryData<BuddyMemberEntry[]>(['members-buddies', activeServerId]) ?? []
+  const buddyMember = user?.isBot
+    ? buddyMembersList.find((a: BuddyMemberEntry) => a.buddyUser?.id === user.id)
     : undefined
 
   // Current user's role for kick/remove ability
@@ -1230,10 +1229,10 @@ function MentionSpan({ mention, label }: { mention: string; label?: string }) {
             <UserProfileCard
               user={user}
               role={(member?.role as 'owner' | 'admin' | 'member') ?? null}
-              ownerName={buddyAgent?.owner?.displayName ?? buddyAgent?.owner?.username}
+              ownerName={buddyMember?.owner?.displayName ?? buddyMember?.owner?.username}
               description={
-                typeof buddyAgent?.config?.description === 'string'
-                  ? buddyAgent.config.description
+                typeof buddyMember?.config?.description === 'string'
+                  ? buddyMember.config.description
                   : undefined
               }
             />
@@ -1254,10 +1253,10 @@ function MentionSpan({ mention, label }: { mention: string; label?: string }) {
               <UserProfileCard
                 user={user}
                 role={(member?.role as 'owner' | 'admin' | 'member') ?? null}
-                ownerName={buddyAgent?.owner?.displayName ?? buddyAgent?.owner?.username}
+                ownerName={buddyMember?.owner?.displayName ?? buddyMember?.owner?.username}
                 description={
-                  typeof buddyAgent?.config?.description === 'string'
-                    ? buddyAgent.config.description
+                  typeof buddyMember?.config?.description === 'string'
+                    ? buddyMember.config.description
                     : undefined
                 }
               />
@@ -1300,9 +1299,9 @@ function MentionSpan({ mention, label }: { mention: string; label?: string }) {
                     onClick={async () => {
                       const name = user?.displayName ?? user?.username
                       const confirmKey = user?.isBot
-                        ? 'member.removeBotConfirm'
+                        ? 'member.removeBuddyConfirm'
                         : 'member.kickConfirm'
-                      const titleKey = user?.isBot ? 'member.removeBot' : 'member.kickMember'
+                      const titleKey = user?.isBot ? 'member.removeBuddy' : 'member.kickMember'
                       const ok = await useConfirmStore.getState().confirm({
                         title: t(titleKey),
                         message: t(confirmKey, { name }),
@@ -1320,7 +1319,7 @@ function MentionSpan({ mention, label }: { mention: string; label?: string }) {
                     }}
                     className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition"
                   >
-                    {user?.isBot ? t('member.removeBot') : t('member.kickMember')}
+                    {user?.isBot ? t('member.removeBuddy') : t('member.kickMember')}
                   </button>
                 </>
               )}

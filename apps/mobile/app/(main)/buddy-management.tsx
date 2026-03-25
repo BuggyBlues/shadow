@@ -38,7 +38,7 @@ import { fetchApi } from '../../src/lib/api'
 import { showToast } from '../../src/lib/toast'
 import { fontSize, radius, spacing, useColors } from '../../src/theme'
 
-interface Agent {
+interface Buddy {
   id: string
   name: string | null
   token?: string
@@ -48,7 +48,7 @@ interface Agent {
   isListed?: boolean
   isRented?: boolean
   config?: { lastToken?: string; [key: string]: unknown }
-  botUser?: {
+  buddyUser?: {
     id: string
     username: string
     displayName: string | null
@@ -57,9 +57,9 @@ interface Agent {
   createdAt: string
 }
 
-function isOnline(agent: Agent): boolean {
-  if (agent.status !== 'running' || !agent.lastHeartbeat) return false
-  return Date.now() - new Date(agent.lastHeartbeat).getTime() < 90_000
+function isOnline(buddy: Buddy): boolean {
+  if (buddy.status !== 'running' || !buddy.lastHeartbeat) return false
+  return Date.now() - new Date(buddy.lastHeartbeat).getTime() < 90_000
 }
 
 function formatDuration(seconds: number): string {
@@ -124,13 +124,13 @@ export default function BuddyManagementScreen() {
   const [showCreate, setShowCreate] = useState(false)
   const [createName, setCreateName] = useState('')
   const [createUsername, setCreateUsername] = useState('')
-  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
+  const [selectedBuddy, setSelectedBuddy] = useState<Buddy | null>(null)
   const [generatedToken, setGeneratedToken] = useState<string | null>(null)
   const [configTab, setConfigTab] = useState<'manual' | 'chat'>('manual')
 
-  const { data: agents = [], isLoading } = useQuery({
-    queryKey: ['agents'],
-    queryFn: () => fetchApi<Agent[]>('/api/agents'),
+  const { data: buddies = [], isLoading } = useQuery({
+    queryKey: ['buddies'],
+    queryFn: () => fetchApi<Buddy[]>('/api/buddies'),
   })
 
   useEffect(() => {
@@ -146,7 +146,7 @@ export default function BuddyManagementScreen() {
 
   const createMutation = useMutation({
     mutationFn: (data: { name: string; username: string }) =>
-      fetchApi<Agent>('/api/agents', {
+      fetchApi<Buddy>('/api/buddies', {
         method: 'POST',
         body: JSON.stringify({
           name: data.name.trim(),
@@ -155,20 +155,20 @@ export default function BuddyManagementScreen() {
           config: {},
         }),
       }),
-    onSuccess: async (agent) => {
-      queryClient.invalidateQueries({ queryKey: ['agents'] })
+    onSuccess: async (buddy) => {
+      queryClient.invalidateQueries({ queryKey: ['buddies'] })
       setShowCreate(false)
       setCreateName('')
       setCreateUsername('')
       showToast(t('buddyMgmt.created', 'Buddy 已创建'))
-      setSelectedAgent(agent)
+      setSelectedBuddy(buddy)
       // Auto-generate token after creation
       try {
-        const tokenData = await fetchApi<{ token: string }>(`/api/agents/${agent.id}/token`, {
+        const tokenData = await fetchApi<{ token: string }>(`/api/buddies/${buddy.id}/token`, {
           method: 'POST',
         })
         setGeneratedToken(tokenData.token)
-        queryClient.invalidateQueries({ queryKey: ['agents'] })
+        queryClient.invalidateQueries({ queryKey: ['buddies'] })
       } catch {}
     },
     onError: (err: Error) => {
@@ -184,10 +184,10 @@ export default function BuddyManagementScreen() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => fetchApi(`/api/agents/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => fetchApi(`/api/buddies/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['agents'] })
-      setSelectedAgent(null)
+      queryClient.invalidateQueries({ queryKey: ['buddies'] })
+      setSelectedBuddy(null)
       setGeneratedToken(null)
       showToast(t('buddyMgmt.deleted', 'Buddy 已删除'))
     },
@@ -196,12 +196,12 @@ export default function BuddyManagementScreen() {
 
   const regenTokenMutation = useMutation({
     mutationFn: (id: string) =>
-      fetchApi<{ token: string }>(`/api/agents/${id}/token`, { method: 'POST' }),
+      fetchApi<{ token: string }>(`/api/buddies/${id}/token`, { method: 'POST' }),
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['agents'] })
+      queryClient.invalidateQueries({ queryKey: ['buddies'] })
       setGeneratedToken(data.token)
-      if (selectedAgent) {
-        setSelectedAgent({ ...selectedAgent, token: data.token })
+      if (selectedBuddy) {
+        setSelectedBuddy({ ...selectedBuddy, token: data.token })
       }
       showToast(t('buddyMgmt.tokenRegenerated', 'Token 已重新生成'))
     },
@@ -213,13 +213,13 @@ export default function BuddyManagementScreen() {
     showToast(message || t('common.copied', '已复制'))
   }
 
-  const renderAgent = ({ item: agent }: { item: Agent }) => {
-    const online = isOnline(agent)
-    const name = agent.botUser?.displayName ?? agent.name ?? agent.id.slice(0, 8)
+  const renderBuddy = ({ item: buddy }: { item: Buddy }) => {
+    const online = isOnline(buddy)
+    const name = buddy.buddyUser?.displayName ?? buddy.name ?? buddy.id.slice(0, 8)
     return (
       <Pressable
         style={({ pressed }) => [
-          styles.agentCard,
+          styles.buddyCard,
           {
             backgroundColor: colors.surface,
             borderColor: colors.border,
@@ -227,31 +227,31 @@ export default function BuddyManagementScreen() {
           },
         ]}
         onPress={() => {
-          setSelectedAgent(agent)
+          setSelectedBuddy(buddy)
           setGeneratedToken(null)
           setConfigTab('manual')
         }}
       >
-        <Avatar uri={agent.botUser?.avatarUrl} name={name} size={44} userId={agent.botUser?.id} />
+        <Avatar uri={buddy.buddyUser?.avatarUrl} name={name} size={44} userId={buddy.buddyUser?.id} />
         <View style={{ flex: 1, marginLeft: spacing.sm }}>
           <View style={styles.row}>
-            <Text style={[styles.agentName, { color: colors.text }]}>{name}</Text>
+            <Text style={[styles.buddyName, { color: colors.text }]}>{name}</Text>
             <View style={[styles.dot, { backgroundColor: online ? '#22c55e' : '#d1d5db' }]} />
           </View>
           <View style={styles.row}>
             <Text style={[styles.meta, { color: colors.textMuted }]}>
               {online ? '在线' : '离线'}
             </Text>
-            {agent.totalOnlineSeconds > 0 && (
+            {buddy.totalOnlineSeconds > 0 && (
               <Text style={[styles.meta, { color: colors.textMuted }]}>
-                · 累计 {formatDuration(agent.totalOnlineSeconds)}
+                · 累计 {formatDuration(buddy.totalOnlineSeconds)}
               </Text>
             )}
-            {agent.totalOnlineSeconds > 0 && <OnlineRank totalSeconds={agent.totalOnlineSeconds} />}
-            {agent.isListed && (
+            {buddy.totalOnlineSeconds > 0 && <OnlineRank totalSeconds={buddy.totalOnlineSeconds} />}
+            {buddy.isListed && (
               <Text style={[styles.listedBadge, { color: colors.primary }]}> · 已上架</Text>
             )}
-            {agent.isRented && <Text style={styles.rentedBadge}> · 租赁中</Text>}
+            {buddy.isRented && <Text style={styles.rentedBadge}> · 租赁中</Text>}
           </View>
         </View>
         <ChevronRight size={20} color={colors.textMuted} />
@@ -261,14 +261,14 @@ export default function BuddyManagementScreen() {
 
   // Get display token
   const getDisplayToken = useCallback(() => {
-    if (!selectedAgent) return null
+    if (!selectedBuddy) return null
     return (
       generatedToken ??
-      selectedAgent.token ??
-      (selectedAgent.config?.lastToken as string | undefined) ??
+      selectedBuddy.token ??
+      (selectedBuddy.config?.lastToken as string | undefined) ??
       null
     )
-  }, [generatedToken, selectedAgent])
+  }, [generatedToken, selectedBuddy])
 
   // Get server URL
   const serverUrl = 'https://shadowob.com'
@@ -277,7 +277,7 @@ export default function BuddyManagementScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {isLoading ? (
         <ActivityIndicator style={{ marginTop: 40 }} color={colors.primary} />
-      ) : agents.length === 0 ? (
+      ) : buddies.length === 0 ? (
         <View style={styles.empty}>
           <Bot size={48} color={colors.textMuted} />
           <Text style={[styles.emptyText, { color: colors.textMuted }]}>
@@ -289,9 +289,9 @@ export default function BuddyManagementScreen() {
         </View>
       ) : (
         <FlatList
-          data={agents}
+          data={buddies}
           keyExtractor={(a) => a.id}
-          renderItem={renderAgent}
+          renderItem={renderBuddy}
           contentContainerStyle={styles.list}
         />
       )}
@@ -430,8 +430,8 @@ export default function BuddyManagementScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Agent Detail Modal */}
-      <Modal visible={!!selectedAgent} transparent animationType="slide">
+      {/* Buddy Detail Modal */}
+      <Modal visible={!!selectedBuddy} transparent animationType="slide">
         <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
           <Reanimated.View
             entering={FadeIn.duration(300)}
@@ -440,37 +440,37 @@ export default function BuddyManagementScreen() {
               { backgroundColor: colors.surface, borderColor: colors.border },
             ]}
           >
-            {selectedAgent && (
+            {selectedBuddy && (
               <>
                 {/* Header */}
                 <View style={styles.detailHeader}>
                   <View style={styles.detailHeaderLeft}>
                     <Avatar
-                      uri={selectedAgent.botUser?.avatarUrl}
+                      uri={selectedBuddy.buddyUser?.avatarUrl}
                       name={
-                        selectedAgent.botUser?.displayName ??
-                        selectedAgent.name ??
-                        selectedAgent.id.slice(0, 8)
+                        selectedBuddy.buddyUser?.displayName ??
+                        selectedBuddy.name ??
+                        selectedBuddy.id.slice(0, 8)
                       }
                       size={48}
-                      userId={selectedAgent.botUser?.id}
+                      userId={selectedBuddy.buddyUser?.id}
                     />
                     <View style={{ marginLeft: spacing.md }}>
                       <Text style={[styles.detailName, { color: colors.text }]}>
-                        {selectedAgent.botUser?.displayName ??
-                          selectedAgent.name ??
-                          selectedAgent.id.slice(0, 8)}
+                        {selectedBuddy.buddyUser?.displayName ??
+                          selectedBuddy.name ??
+                          selectedBuddy.id.slice(0, 8)}
                       </Text>
-                      {selectedAgent.botUser?.username && (
+                      {selectedBuddy.buddyUser?.username && (
                         <Text style={[styles.detailUsername, { color: colors.textMuted }]}>
-                          @{selectedAgent.botUser.username}
+                          @{selectedBuddy.buddyUser.username}
                         </Text>
                       )}
                     </View>
                   </View>
                   <Pressable
                     onPress={() => {
-                      setSelectedAgent(null)
+                      setSelectedBuddy(null)
                       setGeneratedToken(null)
                     }}
                     style={styles.closeBtn}
@@ -541,7 +541,7 @@ export default function BuddyManagementScreen() {
                                   styles.tokenActionBtn,
                                   { borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
                                 ]}
-                                onPress={() => regenTokenMutation.mutate(selectedAgent.id)}
+                                onPress={() => regenTokenMutation.mutate(selectedBuddy.id)}
                                 disabled={regenTokenMutation.isPending}
                               >
                                 <RefreshCw
@@ -755,7 +755,7 @@ export default function BuddyManagementScreen() {
                             styles.generateBtn,
                             { backgroundColor: colors.primary, opacity: pressed ? 0.7 : 1 },
                           ]}
-                          onPress={() => regenTokenMutation.mutate(selectedAgent.id)}
+                          onPress={() => regenTokenMutation.mutate(selectedBuddy.id)}
                           disabled={regenTokenMutation.isPending}
                         >
                           <Key size={16} color="#fff" />
@@ -793,12 +793,12 @@ export default function BuddyManagementScreen() {
                             style={[
                               styles.statusDot,
                               {
-                                backgroundColor: isOnline(selectedAgent) ? '#22c55e' : '#d1d5db',
+                                backgroundColor: isOnline(selectedBuddy) ? '#22c55e' : '#d1d5db',
                               },
                             ]}
                           />
                           <Text style={[styles.infoValue, { color: colors.text }]}>
-                            {isOnline(selectedAgent) ? '在线' : '离线'}
+                            {isOnline(selectedBuddy) ? '在线' : '离线'}
                           </Text>
                         </View>
                       </View>
@@ -809,9 +809,9 @@ export default function BuddyManagementScreen() {
                         </Text>
                         <View style={styles.row}>
                           <Text style={[styles.infoValue, { color: colors.text }]}>
-                            {formatDuration(selectedAgent.totalOnlineSeconds)}
+                            {formatDuration(selectedBuddy.totalOnlineSeconds)}
                           </Text>
-                          <OnlineRank totalSeconds={selectedAgent.totalOnlineSeconds} />
+                          <OnlineRank totalSeconds={selectedBuddy.totalOnlineSeconds} />
                         </View>
                       </View>
 
@@ -820,7 +820,7 @@ export default function BuddyManagementScreen() {
                           {t('buddyMgmt.createdAt', '创建时间')}
                         </Text>
                         <Text style={[styles.infoValue, { color: colors.text }]}>
-                          {new Date(selectedAgent.createdAt).toLocaleDateString()}
+                          {new Date(selectedBuddy.createdAt).toLocaleDateString()}
                         </Text>
                       </View>
 
@@ -831,7 +831,7 @@ export default function BuddyManagementScreen() {
                           numberOfLines={1}
                           ellipsizeMode="middle"
                         >
-                          {selectedAgent.id}
+                          {selectedBuddy.id}
                         </Text>
                       </View>
                     </View>
@@ -849,7 +849,7 @@ export default function BuddyManagementScreen() {
                           {
                             text: t('common.delete', '删除'),
                             style: 'destructive',
-                            onPress: () => deleteMutation.mutate(selectedAgent.id),
+                            onPress: () => deleteMutation.mutate(selectedBuddy.id),
                           },
                         ],
                       )
@@ -876,14 +876,14 @@ export default function BuddyManagementScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   list: { padding: spacing.md, gap: spacing.sm, paddingBottom: spacing.xl * 2 },
-  agentCard: {
+  buddyCard: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: radius.xl,
     borderWidth: 1,
     padding: spacing.md,
   },
-  agentName: { fontSize: fontSize.md, fontWeight: '700' },
+  buddyName: { fontSize: fontSize.md, fontWeight: '700' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   meta: { fontSize: fontSize.xs },

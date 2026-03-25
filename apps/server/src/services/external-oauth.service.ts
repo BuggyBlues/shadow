@@ -163,7 +163,7 @@ export class ExternalOAuthService {
       headers: {
         Authorization: `Bearer ${accessToken}`,
         Accept: 'application/json',
-        'User-Agent': 'shadowob-server',
+        'User-Buddy': 'shadowob-server',
       },
     })
 
@@ -206,7 +206,7 @@ export class ExternalOAuthService {
       headers: {
         Authorization: `Bearer ${accessToken}`,
         Accept: 'application/json',
-        'User-Agent': 'shadowob-server',
+        'User-Buddy': 'shadowob-server',
       },
     })
     if (!res.ok) return null

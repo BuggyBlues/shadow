@@ -148,7 +148,7 @@ export function ChannelSidebar({ serverId, serverSlug }: { serverId: string; ser
         >
           <LayoutGrid size={18} color={colors.textSecondary} />
           <Text style={[styles.navLabel, { color: colors.textSecondary }]}>
-            {t('common.bot', { defaultValue: 'Apps' })}
+            {t('common.buddy', { defaultValue: 'Apps' })}
           </Text>
         </Pressable>
 

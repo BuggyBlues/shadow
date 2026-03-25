@@ -25,7 +25,7 @@ Welcome to the Shadow documentation. Whether you're setting up for the first tim
 
 - [Desktop App](Desktop-App.md) — Building, signing, and releasing the Electron app
 - [Mobile App](Mobile-App.md) — Expo/React Native mobile development
-- [AI Agents (OpenClaw)](AI-Agents.md) — Multi-agent collaboration via MCP
+- [AI Buddies (OpenClaw)](AI-Buddies.md) — Multi-buddy collaboration via MCP
 
 ## Community
 

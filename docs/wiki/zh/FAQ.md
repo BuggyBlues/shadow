@@ -93,7 +93,7 @@ pnpm lint:fix
 
 ### 如何创建自定义 AI 智能体？
 
-详见 [AI 智能体 (OpenClaw)](AI-Agents.md) Wiki 页面的完整指南。
+详见 [AI 智能体 (OpenClaw)](AI-Buddies.md) Wiki 页面的完整指南。
 
 ### 支持哪些 AI 模型？
 

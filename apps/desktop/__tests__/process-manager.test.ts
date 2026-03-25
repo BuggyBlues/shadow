@@ -52,10 +52,10 @@ describe('process-manager', () => {
     const { setupProcessManager } = await import('../src/main/process-manager')
     setupProcessManager()
 
-    expect(mockIpcHandlers.has('desktop:startAgent')).toBe(true)
-    expect(mockIpcHandlers.has('desktop:stopAgent')).toBe(true)
-    expect(mockIpcHandlers.has('desktop:getAgentStatus')).toBe(true)
-    expect(mockIpcHandlers.has('desktop:listAgents')).toBe(true)
+    expect(mockIpcHandlers.has('desktop:startBuddy')).toBe(true)
+    expect(mockIpcHandlers.has('desktop:stopBuddy')).toBe(true)
+    expect(mockIpcHandlers.has('desktop:getBuddyStatus')).toBe(true)
+    expect(mockIpcHandlers.has('desktop:listBuddies')).toBe(true)
   })
 
   it('should reject script paths outside app directory', async () => {
@@ -65,28 +65,28 @@ describe('process-manager', () => {
     const { setupProcessManager } = await import('../src/main/process-manager')
     setupProcessManager()
 
-    const handler = mockIpcHandlers.get('desktop:startAgent')!
+    const handler = mockIpcHandlers.get('desktop:startBuddy')!
     const mockEvent = { sender: { send: vi.fn() } }
 
     expect(() => handler(mockEvent, { name: 'test', scriptPath: '/malicious/script.js' })).toThrow(
-      'Agent script must be within the application directory',
+      'Buddy script must be within the application directory',
     )
   })
 
-  it('should return agent status for running process', async () => {
+  it('should return buddy status for running process', async () => {
     const { resolve } = await import('node:path')
-    ;(resolve as ReturnType<typeof vi.fn>).mockReturnValue('/app/agents/test.js')
+    ;(resolve as ReturnType<typeof vi.fn>).mockReturnValue('/app/buddies/test.js')
 
     const { setupProcessManager } = await import('../src/main/process-manager')
     setupProcessManager()
 
-    const startHandler = mockIpcHandlers.get('desktop:startAgent')!
-    const statusHandler = mockIpcHandlers.get('desktop:getAgentStatus')!
+    const startHandler = mockIpcHandlers.get('desktop:startBuddy')!
+    const statusHandler = mockIpcHandlers.get('desktop:getBuddyStatus')!
     const mockEvent = { sender: { send: vi.fn() } }
 
     const result = await startHandler(mockEvent, {
       name: 'test',
-      scriptPath: '/app/agents/test.js',
+      scriptPath: '/app/buddies/test.js',
     })
 
     const status = await statusHandler(mockEvent, result.id)
@@ -98,27 +98,27 @@ describe('process-manager', () => {
     const { setupProcessManager } = await import('../src/main/process-manager')
     setupProcessManager()
 
-    const handler = mockIpcHandlers.get('desktop:getAgentStatus')!
+    const handler = mockIpcHandlers.get('desktop:getBuddyStatus')!
     const result = await handler({}, 'unknown-id')
     expect(result).toEqual({ running: false })
   })
 
-  it('should list all running agents', async () => {
+  it('should list all running buddies', async () => {
     const { resolve } = await import('node:path')
-    ;(resolve as ReturnType<typeof vi.fn>).mockReturnValue('/app/agents/test.js')
+    ;(resolve as ReturnType<typeof vi.fn>).mockReturnValue('/app/buddies/test.js')
 
     const { setupProcessManager } = await import('../src/main/process-manager')
     setupProcessManager()
 
-    const startHandler = mockIpcHandlers.get('desktop:startAgent')!
-    const listHandler = mockIpcHandlers.get('desktop:listAgents')!
+    const startHandler = mockIpcHandlers.get('desktop:startBuddy')!
+    const listHandler = mockIpcHandlers.get('desktop:listBuddies')!
     const mockEvent = { sender: { send: vi.fn() } }
 
-    await startHandler(mockEvent, { name: 'agent1', scriptPath: '/app/agents/test.js' })
+    await startHandler(mockEvent, { name: 'buddy1', scriptPath: '/app/buddies/test.js' })
 
     const list = await listHandler({})
     expect(list.length).toBe(1)
-    expect(list[0].name).toBe('agent1')
+    expect(list[0].name).toBe('buddy1')
     expect(list[0].running).toBe(true)
   })
 })

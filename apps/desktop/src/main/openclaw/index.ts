@@ -9,7 +9,7 @@
 export { cleanupOpenClaw, initOpenClaw } from './ipc-handlers'
 export { createOpenClawService, getOpenClawService, OpenClawService } from './service'
 export type {
-  AgentConfig,
+  BuddyConfig,
   BuddyConnection,
   ChannelMeta,
   CronTask,

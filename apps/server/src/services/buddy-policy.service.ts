@@ -1,28 +1,28 @@
 import type { Logger } from 'pino'
-import type { AgentDao } from '../dao/agent.dao'
-import type { AgentPolicyDao } from '../dao/agent-policy.dao'
+import type { BuddyDao } from '../dao/buddy.dao'
+import type { BuddyPolicyDao } from '../dao/buddy-policy.dao'
 import type { ChannelDao } from '../dao/channel.dao'
 import type { ServerDao } from '../dao/server.dao'
 
-export class AgentPolicyService {
+export class BuddyPolicyService {
   constructor(
     private deps: {
-      agentPolicyDao: AgentPolicyDao
-      agentDao: AgentDao
+      buddyPolicyDao: BuddyPolicyDao
+      buddyDao: BuddyDao
       serverDao: ServerDao
       channelDao: ChannelDao
       logger: Logger
     },
   ) {}
 
-  /** Get all policies for an agent */
-  async getPolicies(agentId: string) {
-    return this.deps.agentPolicyDao.findByAgentId(agentId)
+  /** Get all policies for a buddy */
+  async getPolicies(buddyId: string) {
+    return this.deps.buddyPolicyDao.findByBuddyId(buddyId)
   }
 
   /** Upsert policies (batch) */
   async upsertPolicies(
-    agentId: string,
+    buddyId: string,
     policies: Array<{
       serverId: string
       channelId?: string | null
@@ -32,39 +32,39 @@ export class AgentPolicyService {
       config?: Record<string, unknown>
     }>,
   ) {
-    // Verify agent exists
-    const agent = await this.deps.agentDao.findById(agentId)
-    if (!agent) {
-      throw Object.assign(new Error('Agent not found'), { status: 404 })
+    // Verify buddy exists
+    const buddy = await this.deps.buddyDao.findById(buddyId)
+    if (!buddy) {
+      throw Object.assign(new Error('Buddy not found'), { status: 404 })
     }
 
-    return this.deps.agentPolicyDao.batchUpsert(policies.map((p) => ({ agentId, ...p })))
+    return this.deps.buddyPolicyDao.batchUpsert(policies.map((p) => ({ buddyId, ...p })))
   }
 
   /** Delete a specific policy */
   async deletePolicy(policyId: string) {
-    await this.deps.agentPolicyDao.delete(policyId)
+    await this.deps.buddyPolicyDao.delete(policyId)
   }
 
   /**
-   * Get the full remote config for an agent (what the plugin fetches on startup).
+   * Get the full remote config for a buddy (what the plugin fetches on startup).
    *
-   * Returns the list of servers the bot user has joined, with channels and
+   * Returns the list of servers the buddy user has joined, with channels and
    * per-channel policies. If no channel-specific policy exists, the server-wide
    * default is used. If no server-wide default exists, sensible defaults are
    * returned (listen: true, reply: true, mentionOnly: false).
    */
-  async getRemoteConfig(agentId: string) {
-    const agent = await this.deps.agentDao.findById(agentId)
-    if (!agent) {
-      throw Object.assign(new Error('Agent not found'), { status: 404 })
+  async getRemoteConfig(buddyId: string) {
+    const buddy = await this.deps.buddyDao.findById(buddyId)
+    if (!buddy) {
+      throw Object.assign(new Error('Buddy not found'), { status: 404 })
     }
 
-    // Find all servers the bot user has joined
-    const memberships = await this.deps.serverDao.findByUserId(agent.userId)
+    // Find all servers the buddy user has joined
+    const memberships = await this.deps.serverDao.findByUserId(buddy.userId)
 
-    // Get all policies for the agent
-    const allPolicies = await this.deps.agentPolicyDao.findByAgentId(agentId)
+    // Get all policies for the buddy
+    const allPolicies = await this.deps.buddyPolicyDao.findByBuddyId(buddyId)
 
     // Build the response
     const servers = await Promise.all(
@@ -108,20 +108,20 @@ export class AgentPolicyService {
     )
 
     return {
-      agentId,
-      botUserId: agent.userId,
+      buddyId,
+      buddyUserId: buddy.userId,
       servers,
     }
   }
 
   /**
-   * Auto-create default server-wide policy when a bot is added to a server.
+   * Auto-create default server-wide policy when a buddy is added to a server.
    */
-  async ensureServerDefault(agentId: string, serverId: string) {
-    const existing = await this.deps.agentPolicyDao.findServerDefault(agentId, serverId)
+  async ensureServerDefault(buddyId: string, serverId: string) {
+    const existing = await this.deps.buddyPolicyDao.findServerDefault(buddyId, serverId)
     if (existing) return existing
-    return this.deps.agentPolicyDao.upsert({
-      agentId,
+    return this.deps.buddyPolicyDao.upsert({
+      buddyId,
       serverId,
       channelId: null,
       listen: true,

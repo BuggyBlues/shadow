@@ -3,9 +3,9 @@ import { bodyLimit } from 'hono/body-limit'
 import { cors } from 'hono/cors'
 import type { AppContainer } from './container'
 import { createAdminHandler } from './handlers/admin.handler'
-import { createAgentHandler } from './handlers/agent.handler'
 import { createAppHandler } from './handlers/app.handler'
 import { createAuthHandler } from './handlers/auth.handler'
+import { createBuddyHandler } from './handlers/buddy.handler'
 import { createChannelHandler } from './handlers/channel.handler'
 import { createDmHandler } from './handlers/dm.handler'
 import { createFriendshipHandler } from './handlers/friendship.handler'
@@ -92,7 +92,7 @@ export function createApp(container: AppContainer) {
   app.route('/api/friends', createFriendshipHandler(container))
   app.route('/api/notifications', createNotificationHandler(container))
   app.route('/api/media', createMediaHandler(container))
-  app.route('/api/agents', createAgentHandler(container))
+  app.route('/api/buddies', createBuddyHandler(container))
   app.route('/api/invite-codes', createInviteHandler(container))
   app.route('/api/admin', createAdminHandler(container))
   app.route('/api', createTaskCenterHandler(container))

@@ -2,7 +2,7 @@
  * OpenClaw Configuration CRUD E2E Tests
  *
  * Tests the full lifecycle of configuration management:
- * agents, models, cron tasks — create, read, update, delete.
+ * buddies, models, cron tasks — create, read, update, delete.
  */
 
 import { type ElectronApplication, expect, type Page, test } from '@playwright/test'
@@ -39,7 +39,7 @@ test.describe('Global Config', () => {
 
     // Config should have these sections (may be empty arrays/objects initially)
     const keys = Object.keys(config)
-    expect(keys).toEqual(expect.arrayContaining(['agents']))
+    expect(keys).toEqual(expect.arrayContaining(['buddies']))
   })
 
   test('saveConfig accepts a config object and persists it', async () => {
@@ -57,29 +57,29 @@ test.describe('Global Config', () => {
   })
 })
 
-// ─── Agent CRUD ─────────────────────────────────────────────────────────────
+// ─── Buddy CRUD ─────────────────────────────────────────────────────────────
 
-test.describe('Agent CRUD', () => {
-  const testAgentId = `e2e-test-agent-${Date.now()}`
+test.describe('Buddy CRUD', () => {
+  const testBuddyId = `e2e-test-buddy-${Date.now()}`
 
-  test('listAgents returns an array', async () => {
-    const agents = await page.evaluate(async () => {
-      return await (window as any).desktopAPI.openClaw.listAgents()
+  test('listBuddies returns an array', async () => {
+    const buddies = await page.evaluate(async () => {
+      return await (window as any).desktopAPI.openClaw.listBuddies()
     })
 
-    expect(Array.isArray(agents)).toBe(true)
+    expect(Array.isArray(buddies)).toBe(true)
   })
 
-  test('createAgent adds a new agent', async () => {
-    const result = await page.evaluate(async (agentId: string) => {
+  test('createBuddy adds a new buddy', async () => {
+    const result = await page.evaluate(async (buddyId: string) => {
       const oc = (window as any).desktopAPI.openClaw
-      await oc.createAgent({
-        id: agentId,
-        name: 'E2E Test Agent',
+      await oc.createBuddy({
+        id: buddyId,
+        name: 'E2E Test Buddy',
         description: 'Created by E2E test',
         modelProvider: 'openai',
         modelName: 'gpt-4o-mini',
-        systemPrompt: 'You are a test agent.',
+        systemPrompt: 'You are a test buddy.',
         channels: [],
         skills: [],
         enabled: true,
@@ -87,36 +87,36 @@ test.describe('Agent CRUD', () => {
         temperature: 0.7,
         maxTokens: 2048,
       })
-      const agents = await oc.listAgents()
+      const buddies = await oc.listBuddies()
       return {
-        count: agents.length,
-        found: agents.some((a: any) => a.id === agentId),
+        count: buddies.length,
+        found: buddies.some((a: any) => a.id === buddyId),
       }
-    }, testAgentId)
+    }, testBuddyId)
 
     expect(result.found).toBe(true)
   })
 
-  test('getAgent retrieves a specific agent', async () => {
-    const agent = await page.evaluate(async (agentId: string) => {
-      return await (window as any).desktopAPI.openClaw.getAgent(agentId)
-    }, testAgentId)
+  test('getBuddy retrieves a specific buddy', async () => {
+    const buddy = await page.evaluate(async (buddyId: string) => {
+      return await (window as any).desktopAPI.openClaw.getBuddy(buddyId)
+    }, testBuddyId)
 
-    expect(agent).toBeDefined()
-    expect(agent.id).toBe(testAgentId)
-    expect(agent.name).toBe('E2E Test Agent')
-    expect(agent.modelProvider).toBe('openai')
+    expect(buddy).toBeDefined()
+    expect(buddy.id).toBe(testBuddyId)
+    expect(buddy.name).toBe('E2E Test Buddy')
+    expect(buddy.modelProvider).toBe('openai')
   })
 
-  test('updateAgent modifies an existing agent', async () => {
-    const updated = await page.evaluate(async (agentId: string) => {
+  test('updateBuddy modifies an existing buddy', async () => {
+    const updated = await page.evaluate(async (buddyId: string) => {
       const oc = (window as any).desktopAPI.openClaw
-      await oc.updateAgent(agentId, {
-        name: 'E2E Updated Agent',
+      await oc.updateBuddy(buddyId, {
+        name: 'E2E Updated Buddy',
         description: 'Updated by E2E test',
         modelProvider: 'anthropic',
         modelName: 'claude-sonnet-4-20250514',
-        systemPrompt: 'You are an updated test agent.',
+        systemPrompt: 'You are an updated test buddy.',
         channels: ['wechat'],
         skills: ['weather'],
         enabled: false,
@@ -124,34 +124,34 @@ test.describe('Agent CRUD', () => {
         temperature: 0.5,
         maxTokens: 4096,
       })
-      return await oc.getAgent(agentId)
-    }, testAgentId)
+      return await oc.getBuddy(buddyId)
+    }, testBuddyId)
 
-    expect(updated.name).toBe('E2E Updated Agent')
+    expect(updated.name).toBe('E2E Updated Buddy')
     expect(updated.modelProvider).toBe('anthropic')
     expect(updated.enabled).toBe(false)
     expect(updated.avatar).toBe('🧪')
   })
 
-  test('deleteAgent removes an agent', async () => {
-    const result = await page.evaluate(async (agentId: string) => {
+  test('deleteBuddy removes a buddy', async () => {
+    const result = await page.evaluate(async (buddyId: string) => {
       const oc = (window as any).desktopAPI.openClaw
-      await oc.deleteAgent(agentId)
-      const agents = await oc.listAgents()
+      await oc.deleteBuddy(buddyId)
+      const buddies = await oc.listBuddies()
       return {
-        found: agents.some((a: any) => a.id === agentId),
+        found: buddies.some((a: any) => a.id === buddyId),
       }
-    }, testAgentId)
+    }, testBuddyId)
 
     expect(result.found).toBe(false)
   })
 
-  test('getAgent returns null or undefined for non-existent agent', async () => {
-    const agent = await page.evaluate(async () => {
-      return await (window as any).desktopAPI.openClaw.getAgent('non-existent-id')
+  test('getBuddy returns null or undefined for non-existent buddy', async () => {
+    const buddy = await page.evaluate(async () => {
+      return await (window as any).desktopAPI.openClaw.getBuddy('non-existent-id')
     })
 
-    expect(agent === null || agent === undefined).toBe(true)
+    expect(buddy === null || buddy === undefined).toBe(true)
   })
 })
 
@@ -250,7 +250,7 @@ test.describe('Cron Task CRUD', () => {
         name: 'E2E Test Cron',
         description: 'Test scheduled task',
         cronExpression: '0 */6 * * *',
-        agentId: 'test-agent',
+        buddyId: 'test-buddy',
         action: 'send_message',
         actionPayload: { message: 'Hello from E2E cron' },
         enabled: true,
@@ -272,7 +272,7 @@ test.describe('Cron Task CRUD', () => {
         name: 'E2E Updated Cron',
         description: 'Updated scheduled task',
         cronExpression: '0 0 * * *',
-        agentId: 'test-agent-2',
+        buddyId: 'test-buddy-2',
         action: 'trigger_skill',
         actionPayload: { skill: 'weather-report' },
         enabled: false,
@@ -332,15 +332,15 @@ test.describe('Cron Task CRUD', () => {
 // ─── Cross-section Data Integrity ───────────────────────────────────────────
 
 test.describe('Data Integrity', () => {
-  test('creating agents and models maintains separate lists', async () => {
+  test('creating buddies and models maintains separate lists', async () => {
     const result = await page.evaluate(async () => {
       const oc = (window as any).desktopAPI.openClaw
-      const agentsBefore = await oc.listAgents()
+      const buddiesBefore = await oc.listBuddies()
       const modelsBefore = await oc.listModels()
 
-      await oc.createAgent({
-        id: 'integrity-test-agent',
-        name: 'Integrity Agent',
+      await oc.createBuddy({
+        id: 'integrity-test-buddy',
+        name: 'Integrity Buddy',
         description: '',
         modelProvider: 'openai',
         modelName: 'gpt-4o',
@@ -353,19 +353,19 @@ test.describe('Data Integrity', () => {
         maxTokens: 2048,
       })
 
-      const agentsAfter = await oc.listAgents()
+      const buddiesAfter = await oc.listBuddies()
       const modelsAfter = await oc.listModels()
 
       // Clean up
-      await oc.deleteAgent('integrity-test-agent')
+      await oc.deleteBuddy('integrity-test-buddy')
 
       return {
-        agentCountIncreased: agentsAfter.length === agentsBefore.length + 1,
+        buddyCountIncreased: buddiesAfter.length === buddiesBefore.length + 1,
         modelCountUnchanged: modelsAfter.length === modelsBefore.length,
       }
     })
 
-    expect(result.agentCountIncreased).toBe(true)
+    expect(result.buddyCountIncreased).toBe(true)
     expect(result.modelCountUnchanged).toBe(true)
   })
 
@@ -374,9 +374,9 @@ test.describe('Data Integrity', () => {
       const oc = (window as any).desktopAPI.openClaw
 
       // Create test data
-      await oc.createAgent({
-        id: 'roundtrip-agent',
-        name: 'Roundtrip Agent',
+      await oc.createBuddy({
+        id: 'roundtrip-buddy',
+        name: 'Roundtrip Buddy',
         description: 'Test round-trip',
         modelProvider: 'anthropic',
         modelName: 'claude-sonnet-4-20250514',
@@ -390,23 +390,23 @@ test.describe('Data Integrity', () => {
       })
 
       // Read back
-      const agent = await oc.getAgent('roundtrip-agent')
+      const buddy = await oc.getBuddy('roundtrip-buddy')
 
       // Clean up
-      await oc.deleteAgent('roundtrip-agent')
+      await oc.deleteBuddy('roundtrip-buddy')
 
       return {
-        nameMatch: agent.name === 'Roundtrip Agent',
-        descMatch: agent.description === 'Test round-trip',
-        providerMatch: agent.modelProvider === 'anthropic',
-        modelMatch: agent.modelName === 'claude-sonnet-4-20250514',
-        promptMatch: agent.systemPrompt === 'You are a roundtrip test.',
-        channelsMatch: JSON.stringify(agent.channels) === JSON.stringify(['telegram']),
-        skillsMatch: JSON.stringify(agent.skills) === JSON.stringify(['calculator']),
-        enabledMatch: agent.enabled === true,
-        avatarMatch: agent.avatar === '🧪',
-        tempMatch: agent.temperature === 0.3,
-        maxTokensMatch: agent.maxTokens === 1024,
+        nameMatch: buddy.name === 'Roundtrip Buddy',
+        descMatch: buddy.description === 'Test round-trip',
+        providerMatch: buddy.modelProvider === 'anthropic',
+        modelMatch: buddy.modelName === 'claude-sonnet-4-20250514',
+        promptMatch: buddy.systemPrompt === 'You are a roundtrip test.',
+        channelsMatch: JSON.stringify(buddy.channels) === JSON.stringify(['telegram']),
+        skillsMatch: JSON.stringify(buddy.skills) === JSON.stringify(['calculator']),
+        enabledMatch: buddy.enabled === true,
+        avatarMatch: buddy.avatar === '🧪',
+        tempMatch: buddy.temperature === 0.3,
+        maxTokensMatch: buddy.maxTokens === 1024,
       }
     })
 

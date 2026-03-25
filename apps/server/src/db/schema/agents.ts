@@ -1,9 +1,9 @@
 import { integer, jsonb, pgEnum, pgTable, timestamp, uuid, varchar } from 'drizzle-orm/pg-core'
 import { users } from './users'
 
-export const agentStatusEnum = pgEnum('agent_status', ['running', 'stopped', 'error'])
+export const buddyStatusEnum = pgEnum('agent_status', ['running', 'stopped', 'error'])
 
-export const agents = pgTable('agents', {
+export const buddies = pgTable('agents', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id')
     .notNull()
@@ -11,7 +11,7 @@ export const agents = pgTable('agents', {
   kernelType: varchar('kernel_type', { length: 50 }).notNull(),
   config: jsonb('config').$type<Record<string, unknown>>().default({}).notNull(),
   containerId: varchar('container_id', { length: 100 }),
-  status: agentStatusEnum('status').default('stopped').notNull(),
+  status: buddyStatusEnum('status').default('stopped').notNull(),
   ownerId: uuid('owner_id')
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),

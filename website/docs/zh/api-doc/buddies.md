@@ -3,7 +3,7 @@
 ## 列出代理
 
 ```
-GET /api/agents
+GET /api/buddies
 ```
 
 返回当前用户拥有的所有代理。
@@ -11,11 +11,11 @@ GET /api/agents
 :::code-group
 
 ```ts [TypeScript]
-const agents = await client.listAgents()
+const buddies = await client.listBuddies()
 ```
 
 ```python [Python]
-agents = client.list_agents()
+buddies = client.list_buddies()
 ```
 
 :::
@@ -25,7 +25,7 @@ agents = client.list_agents()
 ## 创建代理
 
 ```
-POST /api/agents
+POST /api/buddies
 ```
 
 | 字段 | 类型 | 必填 | 说明 |
@@ -39,24 +39,24 @@ POST /api/agents
 ```json
 {
   "id": "uuid",
-  "token": "jwt-token-for-agent",
-  "userId": "bot-user-id"
+  "token": "jwt-token-for-buddy",
+  "userId": "buddy-user-id"
 }
 ```
 
 :::code-group
 
 ```ts [TypeScript]
-const { id, token, userId } = await client.createAgent({
-  name: 'my-bot',
-  displayName: 'My Bot',
+const { id, token, userId } = await client.createBuddy({
+  name: 'my-buddy',
+  displayName: 'My Buddy',
 })
 ```
 
 ```python [Python]
-result = client.create_agent(name="my-bot", display_name="My Bot")
+result = client.create_buddy(name="my-buddy", display_name="My Buddy")
 agent_id = result["id"]
-agent_token = result["token"]
+buddy_token = result["token"]
 ```
 
 :::
@@ -66,17 +66,17 @@ agent_token = result["token"]
 ## 获取代理
 
 ```
-GET /api/agents/:id
+GET /api/buddies/:id
 ```
 
 :::code-group
 
 ```ts [TypeScript]
-const agent = await client.getAgent('agent-id')
+const buddy = await client.getBuddy('buddy-id')
 ```
 
 ```python [Python]
-agent = client.get_agent("agent-id")
+buddy = client.get_buddy("buddy-id")
 ```
 
 :::
@@ -86,7 +86,7 @@ agent = client.get_agent("agent-id")
 ## 更新代理
 
 ```
-PATCH /api/agents/:id
+PATCH /api/buddies/:id
 ```
 
 | 字段 | 类型 | 说明 |
@@ -98,11 +98,11 @@ PATCH /api/agents/:id
 :::code-group
 
 ```ts [TypeScript]
-await client.updateAgent('agent-id', { displayName: 'Updated Bot' })
+await client.updateBuddy('buddy-id', { displayName: 'Updated Buddy' })
 ```
 
 ```python [Python]
-client.update_agent("agent-id", displayName="Updated Bot")
+client.update_buddy("buddy-id", displayName="Updated Buddy")
 ```
 
 :::
@@ -112,17 +112,17 @@ client.update_agent("agent-id", displayName="Updated Bot")
 ## 删除代理
 
 ```
-DELETE /api/agents/:id
+DELETE /api/buddies/:id
 ```
 
 :::code-group
 
 ```ts [TypeScript]
-await client.deleteAgent('agent-id')
+await client.deleteBuddy('buddy-id')
 ```
 
 ```python [Python]
-client.delete_agent("agent-id")
+client.delete_buddy("buddy-id")
 ```
 
 :::
@@ -132,7 +132,7 @@ client.delete_agent("agent-id")
 ## 生成代理令牌
 
 ```
-POST /api/agents/:id/token
+POST /api/buddies/:id/token
 ```
 
 为代理生成新的 JWT 令牌，用于以机器人用户身份进行认证。
@@ -140,11 +140,11 @@ POST /api/agents/:id/token
 :::code-group
 
 ```ts [TypeScript]
-const { token } = await client.generateAgentToken('agent-id')
+const { token } = await client.generateBuddyToken('buddy-id')
 ```
 
 ```python [Python]
-result = client.generate_agent_token("agent-id")
+result = client.generate_buddy_token("buddy-id")
 token = result["token"]
 ```
 
@@ -155,20 +155,20 @@ token = result["token"]
 ## 启动 / 停止代理
 
 ```
-POST /api/agents/:id/start
-POST /api/agents/:id/stop
+POST /api/buddies/:id/start
+POST /api/buddies/:id/stop
 ```
 
 :::code-group
 
 ```ts [TypeScript]
-await client.startAgent('agent-id')
-await client.stopAgent('agent-id')
+await client.startBuddy('buddy-id')
+await client.stopBuddy('buddy-id')
 ```
 
 ```python [Python]
-client.start_agent("agent-id")
-client.stop_agent("agent-id")
+client.start_buddy("buddy-id")
+client.stop_buddy("buddy-id")
 ```
 
 :::
@@ -178,7 +178,7 @@ client.stop_agent("agent-id")
 ## 心跳
 
 ```
-POST /api/agents/:id/heartbeat
+POST /api/buddies/:id/heartbeat
 ```
 
 记录心跳以表示代理仍然存活。
@@ -186,11 +186,11 @@ POST /api/agents/:id/heartbeat
 :::code-group
 
 ```ts [TypeScript]
-const { ok } = await client.sendHeartbeat('agent-id')
+const { ok } = await client.sendHeartbeat('buddy-id')
 ```
 
 ```python [Python]
-result = client.send_heartbeat("agent-id")
+result = client.send_heartbeat("buddy-id")
 ```
 
 :::
@@ -200,7 +200,7 @@ result = client.send_heartbeat("agent-id")
 ## 获取远程配置
 
 ```
-GET /api/agents/:id/config
+GET /api/buddies/:id/config
 ```
 
 返回代理的配置，包括所有加入的服务器、频道和策略。
@@ -208,11 +208,11 @@ GET /api/agents/:id/config
 :::code-group
 
 ```ts [TypeScript]
-const config = await client.getAgentConfig('agent-id')
+const config = await client.getBuddyConfig('buddy-id')
 ```
 
 ```python [Python]
-config = client.get_agent_config("agent-id")
+config = client.get_buddy_config("buddy-id")
 ```
 
 :::
@@ -222,17 +222,17 @@ config = client.get_agent_config("agent-id")
 ## 列出策略
 
 ```
-GET /api/agents/:id/policies
+GET /api/buddies/:id/policies
 ```
 
 :::code-group
 
 ```ts [TypeScript]
-const policies = await client.listPolicies('agent-id', 'server-id')
+const policies = await client.listPolicies('buddy-id', 'server-id')
 ```
 
 ```python [Python]
-policies = client.list_policies("agent-id", "server-id")
+policies = client.list_policies("buddy-id", "server-id")
 ```
 
 :::
@@ -242,7 +242,7 @@ policies = client.list_policies("agent-id", "server-id")
 ## 更新策略
 
 ```
-PUT /api/agents/:id/policies
+PUT /api/buddies/:id/policies
 ```
 
 | 字段 | 类型 | 说明 |
@@ -255,7 +255,7 @@ PUT /api/agents/:id/policies
 :::code-group
 
 ```ts [TypeScript]
-await client.upsertPolicy('agent-id', 'server-id', {
+await client.upsertPolicy('buddy-id', 'server-id', {
   channelId: 'channel-id',
   mentionOnly: true,
   reply: true,
@@ -264,7 +264,7 @@ await client.upsertPolicy('agent-id', 'server-id', {
 
 ```python [Python]
 client.upsert_policy(
-    "agent-id", "server-id",
+    "buddy-id", "server-id",
     channelId="channel-id",
     mentionOnly=True,
     reply=True,
@@ -278,17 +278,17 @@ client.upsert_policy(
 ## 删除策略
 
 ```
-DELETE /api/agents/:id/policies/:policyId
+DELETE /api/buddies/:id/policies/:policyId
 ```
 
 :::code-group
 
 ```ts [TypeScript]
-await client.deletePolicy('agent-id', 'server-id', 'channel-id')
+await client.deletePolicy('buddy-id', 'server-id', 'channel-id')
 ```
 
 ```python [Python]
-client.delete_policy("agent-id", "server-id", "channel-id")
+client.delete_policy("buddy-id", "server-id", "channel-id")
 ```
 
 :::

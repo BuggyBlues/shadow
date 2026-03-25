@@ -551,29 +551,29 @@ describe('P2P Rental E2E', () => {
     await db.delete(users).where(eq(users.id, secondTenant!.id))
   })
 
-  /* ─────── 8d. Contract APIs include agentUserId ─────── */
+  /* ─────── 8d. Contract APIs include buddyUserId ─────── */
 
-  it('should include agentUserId in contract list response', async () => {
+  it('should include buddyUserId in contract list response', async () => {
     const res = await req('GET', '/api/marketplace/contracts', {
       token: tenantToken,
       query: { role: 'tenant' },
     })
     expect(res.status).toBe(200)
-    const data = await json<{ contracts: { id: string; agentUserId: string | null }[] }>(res)
+    const data = await json<{ contracts: { id: string; buddyUserId: string | null }[] }>(res)
     const contract = data.contracts.find((c) => c.id === contractId)
     expect(contract).toBeDefined()
-    // agentUserId may be null if listing has no agentId, but the field must be present
-    expect(contract).toHaveProperty('agentUserId')
+    // buddyUserId may be null if listing has no buddyId, but the field must be present
+    expect(contract).toHaveProperty('buddyUserId')
   })
 
-  it('should include agentUserId in contract detail response', async () => {
+  it('should include buddyUserId in contract detail response', async () => {
     const res = await req('GET', `/api/marketplace/contracts/${contractId}`, {
       token: tenantToken,
     })
     expect(res.status).toBe(200)
-    const data = await json<{ id: string; agentUserId: string | null }>(res)
+    const data = await json<{ id: string; buddyUserId: string | null }>(res)
     expect(data.id).toBe(contractId)
-    expect(data).toHaveProperty('agentUserId')
+    expect(data).toHaveProperty('buddyUserId')
   })
 
   /* ─────── 9. Record Usage ─────── */

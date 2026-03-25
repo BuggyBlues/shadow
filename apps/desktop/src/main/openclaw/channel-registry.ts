@@ -18,11 +18,11 @@ const CHANNEL_REGISTRY: ChannelMeta[] = [
     configFields: [
       {
         key: 'token',
-        label: 'Agent Token',
+        label: 'Buddy Token',
         type: 'password',
         placeholder: 'JWT token from Shadow server',
         required: true,
-        description: 'The authentication token for the AI agent bot account',
+        description: 'The authentication token for the AI buddy account',
       },
       {
         key: 'serverUrl',
@@ -173,8 +173,8 @@ const CHANNEL_REGISTRY: ChannelMeta[] = [
         required: true,
       },
       {
-        key: 'agentId',
-        label: 'Agent ID',
+        key: 'buddyId',
+        label: 'Buddy ID',
         type: 'text',
         placeholder: '1000001',
         required: true,
@@ -183,7 +183,7 @@ const CHANNEL_REGISTRY: ChannelMeta[] = [
         key: 'secret',
         label: 'Secret',
         type: 'password',
-        placeholder: 'Agent Secret',
+        placeholder: 'Buddy Secret',
         required: true,
       },
     ],

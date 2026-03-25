@@ -1,4 +1,4 @@
-export * from './agent.types'
+export * from './buddy.types'
 export * from './channel.types'
 export * from './friendship.types'
 export * from './message.types'

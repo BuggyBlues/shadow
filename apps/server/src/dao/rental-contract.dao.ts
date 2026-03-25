@@ -1,7 +1,7 @@
 import { and, desc, eq, isNotNull, lt, or, sql } from 'drizzle-orm'
 import type { Database } from '../db'
 import { clawListings, rentalContracts, rentalUsageRecords, rentalViolations } from '../db/schema'
-import { agents } from '../db/schema/agents'
+import { buddies } from '../db/schema/agents'
 
 /* ──────────────── Rental Contract DAO ──────────────── */
 
@@ -201,20 +201,20 @@ export class RentalContractDao {
   }
 
   /**
-   * Find active contract where the given user is a tenant chatting with a bot.
-   * Joins: contracts -> listings -> agents to resolve botUserId -> agentId -> listingId.
+   * Find active contract where the given user is a tenant chatting with a buddy.
+   * Joins: contracts -> listings -> buddies to resolve buddyUserId -> buddyId -> listingId.
    */
-  async findActiveByTenantAndBotUserId(tenantId: string, botUserId: string) {
+  async findActiveByTenantAndBuddyUserId(tenantId: string, buddyUserId: string) {
     const r = await this.db
       .select({ contract: rentalContracts })
       .from(rentalContracts)
       .innerJoin(clawListings, eq(rentalContracts.listingId, clawListings.id))
-      .innerJoin(agents, eq(clawListings.agentId, agents.id))
+      .innerJoin(buddies, eq(clawListings.buddyId, buddies.id))
       .where(
         and(
           eq(rentalContracts.tenantId, tenantId),
           eq(rentalContracts.status, 'active'),
-          eq(agents.userId, botUserId),
+          eq(buddies.userId, buddyUserId),
         ),
       )
       .limit(1)

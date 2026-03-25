@@ -3,7 +3,7 @@
  * processes incoming messages through the OpenClaw inbound pipeline.
  *
  * Server/channel configuration is fetched remotely from the Shadow API
- * via GET /api/agents/:id/config. Policies (listen, reply, mentionOnly)
+ * via GET /api/buddies/:id/config. Policies (listen, reply, mentionOnly)
  * are applied per-channel.
  *
  * Pipeline steps:
@@ -27,7 +27,7 @@ import type {
 } from 'openclaw/plugin-sdk/channel-reply-pipeline'
 import type { OpenClawConfig, PluginRuntime } from 'openclaw/plugin-sdk/core'
 import { getShadowRuntime } from './runtime.js'
-import type { AgentChainMetadata, ShadowAccountConfig, ShadowPolicyConfig } from './types.js'
+import type { BuddyChainMetadata, ShadowAccountConfig, ShadowPolicyConfig } from './types.js'
 
 /**
  * Resolve the OpenClaw data directory.
@@ -126,9 +126,10 @@ async function processShadowMessage(params: {
   config: unknown
   runtime: { log?: (msg: string) => void; error?: (msg: string) => void }
   core: PluginRuntime
-  botUserId: string
-  botUsername: string
-  agentId: string | null
+  buddyUserId: string
+  buddyUsername: string
+  buddyDisplayName: string
+  buddyId: string | null
   channelPolicies: Map<string, ShadowChannelPolicy>
   channelServerMap: Map<
     string,
@@ -143,9 +144,10 @@ async function processShadowMessage(params: {
     config,
     runtime,
     core,
-    botUserId,
-    botUsername,
-    agentId,
+    buddyUserId,
+    buddyUsername,
+    buddyDisplayName,
+    buddyId,
     channelPolicies,
     channelServerMap,
     socket,
@@ -154,12 +156,12 @@ async function processShadowMessage(params: {
 
   const senderLabel = message.author?.username ?? message.authorId
 
-  if (message.authorId === botUserId) {
+  if (message.authorId === buddyUserId) {
     runtime.log?.(`[msg] Skipping own message ${message.id}`)
     return
   }
 
-  // Bot message handling with replyToBuddy policy
+  // Buddy message handling with replyToBuddy policy
   let isProcessingBuddyMessage = false
   if (message.author?.isBot) {
     const policy = channelPolicies.get(message.channelId)
@@ -167,14 +169,14 @@ async function processShadowMessage(params: {
 
     if (!policyConfig?.replyToBuddy) {
       runtime.log?.(
-        `[msg] Skipping bot message from ${senderLabel} (replyToBuddy=false) (${message.id})`,
+        `[msg] Skipping buddy message from ${senderLabel} (replyToBuddy=false) (${message.id})`,
       )
       return
     }
 
     const maxDepth = policyConfig.maxBuddyChainDepth ?? 3
-    const chainMeta = (message as { metadata?: { agentChain?: AgentChainMetadata } }).metadata
-      ?.agentChain
+    const chainMeta = (message as { metadata?: { buddyChain?: BuddyChainMetadata } }).metadata
+      ?.buddyChain
     if (chainMeta) {
       if (chainMeta.depth >= maxDepth) {
         runtime.log?.(
@@ -183,28 +185,28 @@ async function processShadowMessage(params: {
         return
       }
 
-      if (chainMeta.participants?.includes(botUserId)) {
+      if (chainMeta.participants?.includes(buddyUserId)) {
         runtime.log?.(
           `[msg] Already in buddy chain [${chainMeta.participants.join(', ')}], skipping to prevent loop (${message.id})`,
         )
         return
       }
 
-      const senderAgentId = message.author?.id
-      if (senderAgentId && policyConfig.buddyBlacklist?.includes(senderAgentId)) {
+      const senderBuddyId = message.author?.id
+      if (senderBuddyId && policyConfig.buddyBlacklist?.includes(senderBuddyId)) {
         runtime.log?.(
-          `[msg] Sender agent ${senderAgentId} is in blacklist, skipping (${message.id})`,
+          `[msg] Sender buddy ${senderBuddyId} is in blacklist, skipping (${message.id})`,
         )
         return
       }
 
       if (
-        senderAgentId &&
+        senderBuddyId &&
         policyConfig.buddyWhitelist?.length &&
-        !policyConfig.buddyWhitelist.includes(senderAgentId)
+        !policyConfig.buddyWhitelist.includes(senderBuddyId)
       ) {
         runtime.log?.(
-          `[msg] Sender agent ${senderAgentId} not in whitelist, skipping (${message.id})`,
+          `[msg] Sender buddy ${senderBuddyId} not in whitelist, skipping (${message.id})`,
         )
         return
       }
@@ -212,7 +214,7 @@ async function processShadowMessage(params: {
 
     isProcessingBuddyMessage = true
     runtime.log?.(
-      `[msg] Processing bot message from ${senderLabel} (replyToBuddy=true) (${message.id})`,
+      `[msg] Processing buddy message from ${senderLabel} (replyToBuddy=true) (${message.id})`,
     )
   }
 
@@ -229,20 +231,20 @@ async function processShadowMessage(params: {
     return
   }
 
-  // If mentionOnly, check for @mention using bot username
+  // If mentionOnly, check for @mention using buddy username
   let wasMentionedExplicitly = false
   if (policy?.mentionOnly) {
-    const escapedUsername = botUsername.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const escapedUsername = buddyUsername.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     const mentionRegex = new RegExp(`@${escapedUsername}(?:\\s|$)`, 'i')
     wasMentionedExplicitly = mentionRegex.test(message.content)
     if (!wasMentionedExplicitly) {
       runtime.log?.(
-        `[msg] mentionOnly policy — no @${botUsername} mention found, skipping (${message.id})`,
+        `[msg] mentionOnly policy — no @${buddyUsername} mention found, skipping (${message.id})`,
       )
       return
     }
     runtime.log?.(
-      `[msg] mentionOnly policy — @${botUsername} mentioned, processing (${message.id})`,
+      `[msg] mentionOnly policy — @${buddyUsername} mentioned, processing (${message.id})`,
     )
   }
 
@@ -275,21 +277,21 @@ async function processShadowMessage(params: {
     const allMentions = message.content.match(mentionPattern) || []
     const mentionsWithoutSelf = allMentions.filter((m) => {
       const mentionedUser = m.slice(1).toLowerCase()
-      return mentionedUser !== botUsername.toLowerCase()
+      return mentionedUser !== buddyUsername.toLowerCase()
     })
 
     if (allMentions.length > 0 && mentionsWithoutSelf.length === allMentions.length) {
       runtime.log?.(
-        `[msg] Smart reply: message @mentions others (${allMentions.join(', ')}) but not @${botUsername}, skipping (${message.id})`,
+        `[msg] Smart reply: message @mentions others (${allMentions.join(', ')}) but not @${buddyUsername}, skipping (${message.id})`,
       )
       return
     }
 
     const replyToData = (message as { replyTo?: { authorId?: string } }).replyTo
-    if (replyToData?.authorId && replyToData.authorId !== botUserId) {
+    if (replyToData?.authorId && replyToData.authorId !== buddyUserId) {
       const selfMentioned = allMentions.some((m) => {
         const mentionedUser = m.slice(1).toLowerCase()
-        return mentionedUser === botUsername.toLowerCase()
+        return mentionedUser === buddyUsername.toLowerCase()
       })
       if (!selfMentioned) {
         runtime.log?.(
@@ -318,7 +320,7 @@ async function processShadowMessage(params: {
     peer: { kind: 'group', id: peerId },
   })
 
-  runtime.log?.(`[routing] Resolved agent: ${route.agentId} (account ${accountId})`)
+  runtime.log?.(`[routing] Resolved buddy: ${route.agentId} (account ${accountId})`)
 
   const body = core.channel.reply.formatAgentEnvelope({
     channel: 'Shadow',
@@ -419,16 +421,16 @@ async function processShadowMessage(params: {
   }
 
   const serverInfo = channelServerMap.get(channelId)
-  const escapedBotUsername = botUsername.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const mentionRegex = new RegExp(`@${escapedBotUsername}(?:\\s|$)`, 'i')
+  const escapedBuddyUsername = buddyUsername.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const mentionRegex = new RegExp(`@${escapedBuddyUsername}(?:\\s|$)`, 'i')
   const wasMentioned = mentionRegex.test(message.content)
 
-  const triggerChain = (message as { metadata?: { agentChain?: AgentChainMetadata } }).metadata
-    ?.agentChain
+  const triggerChain = (message as { metadata?: { buddyChain?: BuddyChainMetadata } }).metadata
+    ?.buddyChain
 
   const ctxPayload = core.channel.reply.finalizeInboundContext({
     Body: body,
-    BodyForAgent: cleanBody,
+    BodyForBuddy: cleanBody,
     RawBody: rawBody,
     CommandBody: cleanBody,
     From: `shadowob:user:${senderId}`,
@@ -454,8 +456,10 @@ async function processShadowMessage(params: {
           ChannelName: serverInfo.channelName,
         }
       : {}),
-    BotUserId: botUserId,
-    BotUsername: botUsername,
+    BuddyUserId: buddyUserId,
+    BuddyUsername: buddyUsername,
+    BuddyDisplayName: buddyDisplayName,
+    BuddyAtSlug: `@${buddyUsername}`,
     AgentId: route.agentId,
     ChannelId: channelId,
     ...(message.threadId ? { ThreadId: message.threadId } : {}),
@@ -509,9 +513,9 @@ async function processShadowMessage(params: {
               replyToId: message.id,
               client,
               runtime,
-              agentChain: triggerChain,
-              agentId,
-              botUserId,
+              buddyChain: triggerChain,
+              buddyId,
+              buddyUserId,
             })
           },
         })
@@ -529,9 +533,9 @@ async function processShadowMessage(params: {
               replyToId: message.id,
               client,
               runtime,
-              agentChain: triggerChain,
-              agentId,
-              botUserId,
+              buddyChain: triggerChain,
+              buddyId,
+              buddyUserId,
             })
           },
         },
@@ -555,9 +559,9 @@ async function processShadowMessage(params: {
               replyToId: message.id,
               client,
               runtime,
-              agentChain: triggerChain,
-              agentId,
-              botUserId,
+              buddyChain: triggerChain,
+              buddyId,
+              buddyUserId,
             })
           },
         },
@@ -586,9 +590,9 @@ async function deliverShadowReply(params: {
   replyToId?: string
   client: ShadowClient
   runtime: { log?: (msg: string) => void; error?: (msg: string) => void }
-  agentChain?: AgentChainMetadata
-  agentId: string | null
-  botUserId: string
+  buddyChain?: BuddyChainMetadata
+  buddyId: string | null
+  buddyUserId: string
 }): Promise<void> {
   const {
     payload,
@@ -597,9 +601,9 @@ async function deliverShadowReply(params: {
     replyToId,
     client,
     runtime,
-    agentChain,
-    agentId,
-    botUserId,
+    buddyChain,
+    buddyId,
+    buddyUserId,
   } = params
 
   try {
@@ -612,15 +616,15 @@ async function deliverShadowReply(params: {
     runtime.log?.(`[reply] Sending reply to channel ${channelId}: "${text.slice(0, 80)}"`)
 
     const mediaUrls = [payload.mediaUrl, ...(payload.mediaUrls ?? [])].filter(Boolean) as string[]
-    const newAgentChain: AgentChainMetadata | undefined = agentId
+    const newBuddyChain: BuddyChainMetadata | undefined = buddyId
       ? {
-          agentId,
-          depth: (agentChain?.depth ?? 0) + 1,
-          participants: [...(agentChain?.participants ?? []), botUserId].filter(
+          buddyId,
+          depth: (buddyChain?.depth ?? 0) + 1,
+          participants: [...(buddyChain?.participants ?? []), buddyUserId].filter(
             Boolean,
           ) as string[],
-          startedAt: agentChain?.startedAt ?? Date.now(),
-          rootMessageId: agentChain?.rootMessageId ?? replyToId,
+          startedAt: buddyChain?.startedAt ?? Date.now(),
+          rootMessageId: buddyChain?.rootMessageId ?? replyToId,
         }
       : undefined
 
@@ -632,11 +636,11 @@ async function deliverShadowReply(params: {
       } else {
         sentMessage = await client.sendMessage(channelId, contentToSend, {
           replyToId,
-          metadata: newAgentChain ? { agentChain: newAgentChain } : undefined,
+          metadata: newBuddyChain ? { buddyChain: newBuddyChain } : undefined,
         })
       }
       runtime.log?.(
-        `[reply] Message created (${sentMessage.id})${text ? '' : ' [media-only placeholder]'}${newAgentChain ? ` [chain depth: ${newAgentChain.depth}]` : ''}`,
+        `[reply] Message created (${sentMessage.id})${text ? '' : ' [media-only placeholder]'}${newBuddyChain ? ` [chain depth: ${newBuddyChain.depth}]` : ''}`,
       )
     }
 
@@ -686,9 +690,10 @@ async function processShadowDmMessage(params: {
   config: unknown
   runtime: { log?: (msg: string) => void; error?: (msg: string) => void }
   core: PluginRuntime
-  botUserId: string
-  botUsername: string
-  shadowAgentId: string | null
+  buddyUserId: string
+  buddyUsername: string
+  buddyDisplayName: string
+  shadowBuddyId: string | null
   socket: ShadowSocket
 }): Promise<void> {
   const {
@@ -698,21 +703,22 @@ async function processShadowDmMessage(params: {
     config,
     runtime,
     core,
-    botUserId,
-    botUsername,
-    shadowAgentId,
+    buddyUserId,
+    buddyUsername,
+    buddyDisplayName,
+    shadowBuddyId,
     socket,
   } = params
   const cfg = config as OpenClawConfig
 
   const senderLabel = dmMessage.author?.username ?? dmMessage.senderId
 
-  if (dmMessage.senderId === botUserId || dmMessage.authorId === botUserId) {
+  if (dmMessage.senderId === buddyUserId || dmMessage.authorId === buddyUserId) {
     runtime.log?.(`[dm] Skipping own DM message ${dmMessage.id}`)
     return
   }
   if (dmMessage.author?.isBot) {
-    runtime.log?.(`[dm] Skipping bot DM from ${senderLabel} (${dmMessage.id})`)
+    runtime.log?.(`[dm] Skipping buddy DM from ${senderLabel} (${dmMessage.id})`)
     return
   }
 
@@ -745,7 +751,7 @@ async function processShadowDmMessage(params: {
     peer: { kind: 'direct', id: peerId },
   })
 
-  runtime.log?.(`[routing] DM resolved agent: ${route.agentId} (account ${accountId})`)
+  runtime.log?.(`[routing] DM resolved buddy: ${route.agentId} (account ${accountId})`)
 
   const body = core.channel.reply.formatAgentEnvelope({
     channel: 'Shadow DM',
@@ -757,7 +763,7 @@ async function processShadowDmMessage(params: {
 
   const ctxPayload = core.channel.reply.finalizeInboundContext({
     Body: body,
-    BodyForAgent: bodyWithAttachments,
+    BodyForBuddy: bodyWithAttachments,
     RawBody: rawBody,
     CommandBody: rawBody,
     From: `shadowob:user:${senderId}`,
@@ -775,8 +781,10 @@ async function processShadowDmMessage(params: {
     WasMentioned: true,
     OriginatingChannel: 'shadowob',
     OriginatingTo: `shadowob:dm:${dmChannelId}`,
-    BotUserId: botUserId,
-    BotUsername: botUsername,
+    BuddyUserId: buddyUserId,
+    BuddyUsername: buddyUsername,
+    BuddyDisplayName: buddyDisplayName,
+    BuddyAtSlug: `@${buddyUsername}`,
     AgentId: route.agentId,
     ChannelId: dmChannelId,
   })
@@ -795,8 +803,8 @@ async function processShadowDmMessage(params: {
 
   runtime.log?.(`[dm] Dispatching to AI pipeline for DM message ${dmMessage.id}`)
   const client = new ShadowClient(account.serverUrl, account.token)
-  const triggerChain = (dmMessage as { metadata?: { agentChain?: AgentChainMetadata } }).metadata
-    ?.agentChain
+  const triggerChain = (dmMessage as { metadata?: { buddyChain?: BuddyChainMetadata } }).metadata
+    ?.buddyChain
 
   const typingCbs = createTypingCallbacks({
     start: async () => {
@@ -822,9 +830,9 @@ async function processShadowDmMessage(params: {
             replyToId: dmMessage.id,
             client,
             runtime,
-            agentChain: triggerChain,
-            agentId: shadowAgentId,
-            botUserId,
+            buddyChain: triggerChain,
+            buddyId: shadowBuddyId,
+            buddyUserId,
           })
         },
       },
@@ -843,11 +851,11 @@ async function deliverShadowDmReply(params: {
   replyToId?: string
   client: ShadowClient
   runtime: { log?: (msg: string) => void; error?: (msg: string) => void }
-  agentChain?: AgentChainMetadata
-  agentId: string | null
-  botUserId: string
+  buddyChain?: BuddyChainMetadata
+  buddyId: string | null
+  buddyUserId: string
 }): Promise<void> {
-  const { payload, dmChannelId, replyToId, client, runtime, agentChain, agentId, botUserId } =
+  const { payload, dmChannelId, replyToId, client, runtime, buddyChain, buddyId, buddyUserId } =
     params
 
   try {
@@ -860,15 +868,15 @@ async function deliverShadowDmReply(params: {
     runtime.log?.(`[dm-reply] Sending DM reply to channel ${dmChannelId}: "${text.slice(0, 80)}"`)
 
     const mediaUrls = [payload.mediaUrl, ...(payload.mediaUrls ?? [])].filter(Boolean) as string[]
-    const newAgentChain: AgentChainMetadata | undefined = agentId
+    const newBuddyChain: BuddyChainMetadata | undefined = buddyId
       ? {
-          agentId,
-          depth: (agentChain?.depth ?? 0) + 1,
-          participants: [...(agentChain?.participants ?? []), botUserId].filter(
+          buddyId,
+          depth: (buddyChain?.depth ?? 0) + 1,
+          participants: [...(buddyChain?.participants ?? []), buddyUserId].filter(
             Boolean,
           ) as string[],
-          startedAt: agentChain?.startedAt ?? Date.now(),
-          rootMessageId: agentChain?.rootMessageId ?? replyToId,
+          startedAt: buddyChain?.startedAt ?? Date.now(),
+          rootMessageId: buddyChain?.rootMessageId ?? replyToId,
         }
       : undefined
 
@@ -877,10 +885,10 @@ async function deliverShadowDmReply(params: {
       const contentToSend = text || '\u200B'
       sentMessage = await client.sendDmMessage(dmChannelId, contentToSend, {
         replyToId,
-        metadata: newAgentChain ? { agentChain: newAgentChain } : undefined,
+        metadata: newBuddyChain ? { buddyChain: newBuddyChain } : undefined,
       })
       runtime.log?.(
-        `[dm-reply] DM message created (${sentMessage.id})${text ? '' : ' [media-only placeholder]'}${newAgentChain ? ` [chain depth: ${newAgentChain.depth}]` : ''}`,
+        `[dm-reply] DM message created (${sentMessage.id})${text ? '' : ' [media-only placeholder]'}${newBuddyChain ? ` [chain depth: ${newBuddyChain.depth}]` : ''}`,
       )
     }
 
@@ -912,7 +920,12 @@ async function getSessionCachePath(accountId: string): Promise<string> {
 
 async function saveSessionCache(
   accountId: string,
-  data: { remoteConfig: ShadowRemoteConfig; botUserId: string; botUsername: string },
+  data: {
+    remoteConfig: ShadowRemoteConfig
+    buddyUserId: string
+    buddyUsername: string
+    buddyDisplayName: string
+  },
 ): Promise<void> {
   try {
     const cachePath = await getSessionCachePath(accountId)
@@ -923,9 +936,12 @@ async function saveSessionCache(
   }
 }
 
-async function loadSessionCache(
-  accountId: string,
-): Promise<{ remoteConfig: ShadowRemoteConfig; botUserId: string; botUsername: string } | null> {
+async function loadSessionCache(accountId: string): Promise<{
+  remoteConfig: ShadowRemoteConfig
+  buddyUserId: string
+  buddyUsername: string
+  buddyDisplayName: string
+} | null> {
   try {
     const cachePath = await getSessionCachePath(accountId)
     const raw = await fsPromises.readFile(cachePath, 'utf-8')
@@ -947,17 +963,18 @@ export async function monitorShadowProvider(
 
   const client = new ShadowClient(account.serverUrl, account.token)
   const me = await client.getMe()
-  const botUserId = me.id
+  const buddyUserId = me.id
 
-  runtime.log?.(`Shadow bot connected as ${me.username} (${botUserId})`)
+  const buddyDisplayName = me.displayName ?? me.username
+  runtime.log?.(`Shadow buddy connected as ${me.username} / ${buddyDisplayName} (${buddyUserId})`)
 
-  const agentId = account.agentId ?? me.agentId ?? null
-  if (!agentId) {
+  const buddyId = account.agentId ?? me.buddyId ?? null
+  if (!buddyId) {
     runtime.error?.(
-      '[config] Cannot resolve agentId — heartbeat and remote config will be unavailable',
+      '[config] Cannot resolve buddyId — heartbeat and remote config will be unavailable',
     )
   } else {
-    runtime.log?.(`[config] Resolved agentId: ${agentId}`)
+    runtime.log?.(`[config] Resolved buddyId: ${buddyId}`)
   }
 
   let remoteConfig: ShadowRemoteConfig | null = null
@@ -968,9 +985,9 @@ export async function monitorShadowProvider(
   >()
   const allChannelIds: string[] = []
 
-  if (agentId) {
+  if (buddyId) {
     try {
-      remoteConfig = await client.getAgentConfig(agentId)
+      remoteConfig = await client.getBuddyConfig(buddyId)
       runtime.log?.(`[config] Fetched remote config: ${remoteConfig.servers.length} server(s)`)
 
       for (const server of remoteConfig.servers) {
@@ -999,7 +1016,12 @@ export async function monitorShadowProvider(
       runtime.log?.(
         `[config] Monitoring ${allChannelIds.length} channel(s) across ${remoteConfig.servers.length} server(s)`,
       )
-      void saveSessionCache(accountId, { remoteConfig, botUserId, botUsername: me.username })
+      void saveSessionCache(accountId, {
+        remoteConfig,
+        buddyUserId,
+        buddyUsername: me.username,
+        buddyDisplayName,
+      })
     } catch (err) {
       runtime.error?.(`[config] Failed to fetch remote config: ${String(err)}`)
 
@@ -1027,10 +1049,10 @@ export async function monitorShadowProvider(
   }
 
   let heartbeatInterval: ReturnType<typeof setInterval> | null = null
-  if (agentId) {
+  if (buddyId) {
     const sendHeartbeat = async () => {
       try {
-        await client.sendHeartbeat(agentId!)
+        await client.sendHeartbeat(buddyId!)
         runtime.log?.('[heartbeat] Heartbeat sent')
       } catch (err) {
         runtime.error?.(`[heartbeat] Heartbeat failed: ${String(err)}`)
@@ -1091,11 +1113,11 @@ export async function monitorShadowProvider(
     runtime.log?.(`[ws] Reconnect attempt #${attempt}`)
   })
 
-  socket.on('server:joined', async (data: { serverId: string; agentId?: string }) => {
-    if (!agentId) return
+  socket.on('server:joined', async (data: { serverId: string; buddyId?: string }) => {
+    if (!buddyId) return
     runtime.log?.(`[ws] Received server:joined for server ${data.serverId} — refreshing channels`)
     try {
-      const updatedConfig = await client.getAgentConfig(agentId)
+      const updatedConfig = await client.getBuddyConfig(buddyId)
       runtime.log?.(`[config] Refreshed config: ${updatedConfig.servers.length} server(s)`)
       for (const server of updatedConfig.servers) {
         for (const ch of server.channels) {
@@ -1129,26 +1151,26 @@ export async function monitorShadowProvider(
     'channel:created',
     async (data: { id: string; name: string; serverId: string; type: string }) => {
       runtime.log?.(
-        `[ws] Received channel:created: #${data.name} (${data.id}) in server ${data.serverId} — ignoring (bot must be explicitly added)`,
+        `[ws] Received channel:created: #${data.name} (${data.id}) in server ${data.serverId} — ignoring (buddy must be explicitly added)`,
       )
     },
   )
 
   socket.on(
-    'agent:policy-changed',
+    'buddy:policy-changed',
     (data: {
-      agentId: string
+      buddyId: string
       serverId?: string
       channelId?: string | null
       mentionOnly?: boolean
       reply?: boolean
       config?: Record<string, unknown>
     }) => {
-      if (data.agentId !== agentId) return
+      if (data.buddyId !== buddyId) return
       if (!data.channelId) return
       const mentionOnly = data.mentionOnly ?? false
       runtime.log?.(
-        `[ws] Received agent:policy-changed for channel ${data.channelId}: mentionOnly=${mentionOnly}, reply=${data.reply}, config=${JSON.stringify(data.config ?? {})}`,
+        `[ws] Received buddy:policy-changed for channel ${data.channelId}: mentionOnly=${mentionOnly}, reply=${data.reply}, config=${JSON.stringify(data.config ?? {})}`,
       )
       const existing = channelPolicies.get(data.channelId)
       if (existing) {
@@ -1256,9 +1278,10 @@ export async function monitorShadowProvider(
             config,
             runtime,
             core,
-            botUserId,
-            botUsername: me.username,
-            shadowAgentId: agentId,
+            buddyUserId,
+            buddyUsername: me.username,
+            buddyDisplayName,
+            shadowBuddyId: buddyId,
             socket,
           })
         } catch (err) {
@@ -1302,9 +1325,10 @@ export async function monitorShadowProvider(
           config,
           runtime,
           core,
-          botUserId,
-          botUsername: me.username,
-          agentId,
+          buddyUserId,
+          buddyUsername: me.username,
+          buddyDisplayName,
+          buddyId,
           channelPolicies,
           channelServerMap,
           socket,

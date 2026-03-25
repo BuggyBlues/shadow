@@ -22,7 +22,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAutoSave } from '../../hooks/use-auto-save'
-import type { AgentConfig, CronConfig, CronSchedule, CronTask } from '../../lib/openclaw-api'
+import type { BuddyConfig, CronConfig, CronSchedule, CronTask } from '../../lib/openclaw-api'
 import { openClawApi } from '../../lib/openclaw-api'
 import { OpenClawButton, OpenClawSplitLayout } from './openclaw-ui'
 
@@ -32,7 +32,7 @@ export function CronPage() {
   const { t } = useTranslation()
   const [tasks, setTasks] = useState<CronTask[]>([])
   const [config, setConfig] = useState<CronConfig>({})
-  const [agents, setAgents] = useState<AgentConfig[]>([])
+  const [buddies, setBuddies] = useState<BuddyConfig[]>([])
   const [editTask, setEditTask] = useState<CronTask | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
@@ -46,11 +46,11 @@ export function CronPage() {
       const [t, c, a] = await Promise.all([
         openClawApi.listCronTasks(),
         openClawApi.getCronConfig(),
-        openClawApi.listAgents(),
+        openClawApi.listBuddies(),
       ])
       setTasks(t)
       setConfig(c ?? {})
-      setAgents(a)
+      setBuddies(a)
       setLoaded(true)
     } catch {
       setLoaded(true)
@@ -84,7 +84,7 @@ export function CronPage() {
       name: t('openclaw.cron.newTask', '新任务'),
       enabled: true,
       schedule: { kind: 'cron', expr: '0 * * * *' },
-      payload: { kind: 'agentTurn', message: '' },
+      payload: { kind: 'buddyTurn', message: '' },
     })
     await loadData()
     if (newTask) {
@@ -406,7 +406,7 @@ export function CronPage() {
             <CronTaskEditor
               key={editTask.id}
               task={editTask}
-              agents={agents}
+              buddies={buddies}
               onSave={async () => {
                 await loadData()
               }}
@@ -438,20 +438,20 @@ export function CronPage() {
 
 function CronTaskEditor({
   task,
-  agents,
+  buddies,
   onSave,
   onDelete,
 }: {
   task: CronTask
-  agents: AgentConfig[]
+  buddies: BuddyConfig[]
   onSave: () => void
   onDelete?: () => void
 }) {
   const [name, setName] = useState(task.name ?? '')
   const [enabled, setEnabled] = useState(task.enabled ?? true)
-  const [agentId, setAgentId] = useState(task.agentId ?? '')
+  const [buddyId, setBuddyId] = useState(task.buddyId ?? '')
   const [note, setNote] = useState(
-    task.payload.kind === 'agentTurn'
+    task.payload.kind === 'buddyTurn'
       ? (task.payload.message ?? '')
       : task.payload.kind === 'systemEvent'
         ? (task.payload.text ?? '')
@@ -516,9 +516,9 @@ function CronTaskEditor({
         id: task.id,
         name: name.trim(),
         enabled,
-        ...(agentId && { agentId }),
+        ...(buddyId && { buddyId }),
         schedule: buildSchedule(),
-        payload: { kind: 'agentTurn', message: note },
+        payload: { kind: 'buddyTurn', message: note },
       })
       onSave()
     } finally {
@@ -533,12 +533,12 @@ function CronTaskEditor({
       id: task.id,
       name: name.trim(),
       enabled,
-      ...(agentId && { agentId }),
+      ...(buddyId && { buddyId }),
       schedule: buildSchedule(),
-      payload: { kind: 'agentTurn', message: note },
+      payload: { kind: 'buddyTurn', message: note },
     })
     onSave()
-  }, [task.id, name, enabled, agentId, note, buildSchedule, onSave])
+  }, [task.id, name, enabled, buddyId, note, buildSchedule, onSave])
   const { autoSaveStatus, scheduleAutoSave } = useAutoSave(autoSaveFn, 1500)
 
   // Trigger auto-save on field changes (skip initial render)
@@ -553,7 +553,7 @@ function CronTaskEditor({
   }, [
     name,
     enabled,
-    agentId,
+    buddyId,
     note,
     repeatMode,
     timeOfDay,
@@ -620,19 +620,19 @@ function CronTaskEditor({
 
         <div>
           <label
-            htmlFor="cron-agent"
+            htmlFor="cron-buddy"
             className="block text-sm font-medium text-text-primary mb-1.5"
           >
             执行龙虾
           </label>
           <select
-            id="cron-agent"
-            value={agentId}
-            onChange={(e) => setAgentId(e.target.value)}
+            id="cron-buddy"
+            value={buddyId}
+            onChange={(e) => setBuddyId(e.target.value)}
             className="w-full px-3 py-2.5 rounded-lg bg-bg-secondary border border-bg-tertiary text-sm text-text-primary focus:outline-none focus:border-primary/50 transition"
           >
             <option value="">默认龙虾</option>
-            {agents.map((a) => (
+            {buddies.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.name || a.id}
               </option>

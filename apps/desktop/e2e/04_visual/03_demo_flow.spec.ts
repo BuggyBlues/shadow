@@ -273,7 +273,7 @@ test.describe
       // ACT 4 — EXPLORE
       // ═══════════════════════════════════════════════════════════
 
-      // ── f09: AI Agents — buddy marketplace ──
+      // ── f09: AI Buddies — buddy marketplace ──
       await page.goto('buddies')
       await page.waitForURL(/\/app\/buddies/)
       await page.waitForLoadState('networkidle')

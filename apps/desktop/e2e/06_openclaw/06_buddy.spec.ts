@@ -41,7 +41,7 @@ test.describe('Buddy Connection CRUD', () => {
         label: 'E2E Test Buddy',
         serverUrl: 'https://buddy-test.example.com',
         apiToken: 'test-api-token-12345',
-        agentId: 'agent-1',
+        buddyId: 'buddy-1',
         autoConnect: false,
       })
       const connections = await oc.listBuddyConnections()
@@ -74,7 +74,7 @@ test.describe('Buddy Connection CRUD', () => {
         label: 'E2E Updated Buddy',
         serverUrl: 'https://buddy-updated.example.com',
         apiToken: 'updated-token-67890',
-        agentId: 'agent-2',
+        buddyId: 'buddy-2',
         autoConnect: true,
       })
       const connections = await oc.listBuddyConnections()
@@ -83,14 +83,14 @@ test.describe('Buddy Connection CRUD', () => {
         label: updated?.label,
         serverUrl: updated?.serverUrl,
         autoConnect: updated?.autoConnect,
-        agentId: updated?.agentId,
+        buddyId: updated?.buddyId,
       }
     }, testConnectionId)
 
     expect(result.label).toBe('E2E Updated Buddy')
     expect(result.serverUrl).toBe('https://buddy-updated.example.com')
     expect(result.autoConnect).toBe(true)
-    expect(result.agentId).toBe('agent-2')
+    expect(result.buddyId).toBe('buddy-2')
   })
 
   test('removeBuddyConnection deletes a connection', async () => {
@@ -120,7 +120,7 @@ test.describe('Buddy Connect/Disconnect', () => {
         label: 'Lifecycle Test',
         serverUrl: 'https://buddy-lifecycle.example.com',
         apiToken: 'lifecycle-token',
-        agentId: '',
+        buddyId: '',
         autoConnect: false,
       })
     }, testConnId)
@@ -227,10 +227,10 @@ test.describe('Buddy Event Listener', () => {
   })
 })
 
-// ─── Buddy-Agent Binding ────────────────────────────────────────────────────
+// ─── Buddy-Buddy Binding ────────────────────────────────────────────────────
 
-test.describe('Buddy-Agent Binding', () => {
-  test('connection agentId persists after creation', async () => {
+test.describe('Buddy-Buddy Binding', () => {
+  test('connection buddyId persists after creation', async () => {
     const result = await page.evaluate(async () => {
       const oc = (window as any).desktopAPI.openClaw
       const connId = `e2e-binding-${Date.now()}`
@@ -240,7 +240,7 @@ test.describe('Buddy-Agent Binding', () => {
         label: 'Binding Test',
         serverUrl: 'https://binding-test.example.com',
         apiToken: 'binding-token',
-        agentId: 'agent-alpha',
+        buddyId: 'buddy-alpha',
         autoConnect: false,
       })
 
@@ -251,14 +251,14 @@ test.describe('Buddy-Agent Binding', () => {
       await oc.removeBuddyConnection(connId)
 
       return {
-        agentId: conn?.agentId,
+        buddyId: conn?.buddyId,
       }
     })
 
-    expect(result.agentId).toBe('agent-alpha')
+    expect(result.buddyId).toBe('buddy-alpha')
   })
 
-  test('updating connection agentId replaces the binding', async () => {
+  test('updating connection buddyId replaces the binding', async () => {
     const result = await page.evaluate(async () => {
       const oc = (window as any).desktopAPI.openClaw
       const connId = `e2e-rebind-${Date.now()}`
@@ -268,13 +268,13 @@ test.describe('Buddy-Agent Binding', () => {
         label: 'Rebind Test',
         serverUrl: 'https://rebind-test.example.com',
         apiToken: 'rebind-token',
-        agentId: 'old-agent',
+        buddyId: 'old-buddy',
         autoConnect: false,
       })
 
-      // Update with new agent
+      // Update with new buddy
       await oc.updateBuddyConnection(connId, {
-        agentId: 'new-agent',
+        buddyId: 'new-buddy',
       })
 
       const connections = await oc.listBuddyConnections()
@@ -284,11 +284,11 @@ test.describe('Buddy-Agent Binding', () => {
       await oc.removeBuddyConnection(connId)
 
       return {
-        agentId: conn?.agentId,
+        buddyId: conn?.buddyId,
       }
     })
 
-    expect(result.agentId).toBe('new-agent')
+    expect(result.buddyId).toBe('new-buddy')
   })
 })
 
@@ -306,7 +306,7 @@ test.describe('Auto-Connect Configuration', () => {
         label: 'AutoConnect Test',
         serverUrl: 'https://autoconn-test.example.com',
         apiToken: 'auto-token',
-        agentId: 'auto-agent',
+        buddyId: 'auto-buddy',
         autoConnect: true,
       })
 
@@ -332,7 +332,7 @@ test.describe('Auto-Connect Configuration', () => {
         label: 'No AutoConnect',
         serverUrl: 'https://noauto-test.example.com',
         apiToken: 'noauto-token',
-        agentId: 'noauto-agent',
+        buddyId: 'noauto-buddy',
         autoConnect: true,
       })
 

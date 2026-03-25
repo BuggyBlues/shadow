@@ -22,7 +22,7 @@ interface UserProfile {
   status?: string
   bio?: string | null
   createdAt?: string
-  agent?: {
+  buddy?: {
     id: string
     ownerId: string
     status: string
@@ -35,12 +35,12 @@ interface UserProfile {
     displayName: string
     avatarUrl: string | null
   } | null
-  ownedAgents: Array<{
+  ownedBuddies: Array<{
     id: string
     userId: string
     status: string
     totalOnlineSeconds: number
-    botUser?: { id: string; username: string; displayName: string; avatarUrl: string | null }
+    buddyUser?: { id: string; username: string; displayName: string; avatarUrl: string | null }
   }>
 }
 
@@ -212,32 +212,32 @@ export default function UserProfileScreen() {
           )}
 
           {/* Bot-specific: online duration */}
-          {profile.isBot && profile.agent && profile.agent.totalOnlineSeconds > 0 && (
+          {profile.isBot && profile.buddy && profile.buddy.totalOnlineSeconds > 0 && (
             <View style={[styles.sectionDivider, { borderTopColor: `${colors.border}60` }]}>
               <View style={styles.infoRow}>
                 <Clock size={14} color={colors.textMuted} />
                 <Text style={[styles.infoLabel, { color: colors.textMuted }]}>
                   {t('profile.totalOnline', '累计在线')}{' '}
-                  {formatDuration(profile.agent.totalOnlineSeconds)}
+                  {formatDuration(profile.buddy.totalOnlineSeconds)}
                 </Text>
               </View>
             </View>
           )}
 
           {/* Bot-specific: description */}
-          {profile.isBot && profile.agent?.config?.description && (
+          {profile.isBot && profile.buddy?.config?.description && (
             <View style={[styles.sectionDivider, { borderTopColor: `${colors.border}60` }]}>
               <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
                 {t('profile.description', '描述')}
               </Text>
               <Text style={[styles.descriptionText, { color: colors.textSecondary }]}>
-                {profile.agent.config.description}
+                {profile.buddy.config.description}
               </Text>
             </View>
           )}
 
           {/* Bot-specific: owner link */}
-          {profile.isBot && profile.agent && (
+          {profile.isBot && profile.buddy && (
             <View style={[styles.sectionDivider, { borderTopColor: `${colors.border}60` }]}>
               <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
                 {t('profile.owner', '主人')}
@@ -247,13 +247,13 @@ export default function UserProfileScreen() {
                   styles.ownerCard,
                   { backgroundColor: pressed ? colors.surfaceHover : colors.inputBackground },
                 ]}
-                onPress={() => router.push(`/(main)/profile/${profile.agent!.ownerId}`)}
+                onPress={() => router.push(`/(main)/profile/${profile.buddy!.ownerId}`)}
               >
                 <Avatar
                   uri={profile.ownerProfile?.avatarUrl ?? null}
                   name={profile.ownerProfile?.displayName ?? 'Owner'}
                   size={36}
-                  userId={profile.agent.ownerId}
+                  userId={profile.buddy.ownerId}
                 />
                 <View style={styles.ownerInfo}>
                   <Text style={[styles.ownerName, { color: colors.primary }]}>
@@ -270,42 +270,42 @@ export default function UserProfileScreen() {
             </View>
           )}
 
-          {/* Regular user: owned agents */}
-          {!profile.isBot && profile.ownedAgents?.length > 0 && (
+          {/* Regular user: owned buddies */}
+          {!profile.isBot && profile.ownedBuddies?.length > 0 && (
             <View style={[styles.sectionDivider, { borderTopColor: `${colors.border}60` }]}>
               <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
-                {t('profile.ownedBuddies', '拥有的 Buddy')} ({profile.ownedAgents.length})
+                {t('profile.ownedBuddies', '拥有的 Buddy')} ({profile.ownedBuddies.length})
               </Text>
-              {profile.ownedAgents.map((agent) => (
+              {profile.ownedBuddies.map((buddy) => (
                 <Pressable
-                  key={agent.id}
+                  key={buddy.id}
                   style={({ pressed }) => [
-                    styles.agentCard,
+                    styles.buddyCard,
                     { backgroundColor: pressed ? colors.surfaceHover : colors.inputBackground },
                   ]}
-                  onPress={() => router.push(`/(main)/profile/${agent.userId}`)}
+                  onPress={() => router.push(`/(main)/profile/${buddy.userId}`)}
                 >
-                  <View style={styles.agentAvatarWrap}>
+                  <View style={styles.buddyAvatarWrap}>
                     <Avatar
-                      uri={agent.botUser?.avatarUrl ?? null}
-                      name={agent.botUser?.displayName ?? 'Buddy'}
+                      uri={buddy.buddyUser?.avatarUrl ?? null}
+                      name={buddy.buddyUser?.displayName ?? 'Buddy'}
                       size={36}
-                      userId={agent.userId}
+                      userId={buddy.userId}
                     />
                     <View
                       style={[
-                        styles.agentStatusDot,
+                        styles.buddyStatusDot,
                         {
-                          backgroundColor: agent.status === 'running' ? '#22c55e' : '#6b7280',
+                          backgroundColor: buddy.status === 'running' ? '#22c55e' : '#6b7280',
                           borderColor: colors.inputBackground,
                         },
                       ]}
                     />
                   </View>
-                  <View style={styles.agentInfo}>
-                    <View style={styles.agentNameRow}>
-                      <Text style={[styles.agentName, { color: colors.text }]} numberOfLines={1}>
-                        {agent.botUser?.displayName ?? agent.botUser?.username ?? 'Buddy'}
+                  <View style={styles.buddyInfo}>
+                    <View style={styles.buddyNameRow}>
+                      <Text style={[styles.buddyName, { color: colors.text }]} numberOfLines={1}>
+                        {buddy.buddyUser?.displayName ?? buddy.buddyUser?.username ?? 'Buddy'}
                       </Text>
                       <View
                         style={[styles.botBadgeSmall, { backgroundColor: `${colors.primary}20` }]}
@@ -315,9 +315,9 @@ export default function UserProfileScreen() {
                         </Text>
                       </View>
                     </View>
-                    {agent.totalOnlineSeconds > 0 && (
-                      <Text style={[styles.agentOnline, { color: colors.textMuted }]}>
-                        {t('profile.online', '在线')} {formatDuration(agent.totalOnlineSeconds)}
+                    {buddy.totalOnlineSeconds > 0 && (
+                      <Text style={[styles.buddyOnline, { color: colors.textMuted }]}>
+                        {t('profile.online', '在线')} {formatDuration(buddy.totalOnlineSeconds)}
                       </Text>
                     )}
                   </View>
@@ -503,7 +503,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     marginTop: 1,
   },
-  agentCard: {
+  buddyCard: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: spacing.sm,
@@ -511,10 +511,10 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     marginBottom: spacing.xs,
   },
-  agentAvatarWrap: {
+  buddyAvatarWrap: {
     position: 'relative',
   },
-  agentStatusDot: {
+  buddyStatusDot: {
     position: 'absolute',
     bottom: -1,
     right: -1,
@@ -523,15 +523,15 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 2,
   },
-  agentInfo: {
+  buddyInfo: {
     flex: 1,
   },
-  agentNameRow: {
+  buddyNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
   },
-  agentName: {
+  buddyName: {
     fontSize: fontSize.sm,
     fontWeight: '600',
     flexShrink: 1,
@@ -545,7 +545,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
   },
-  agentOnline: {
+  buddyOnline: {
     fontSize: 11,
     marginTop: 2,
   },

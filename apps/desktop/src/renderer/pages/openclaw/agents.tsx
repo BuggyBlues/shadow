@@ -294,7 +294,7 @@ function AgentEditor({
   const [editorTab, setEditorTab] = useState<'basic' | 'advanced'>('basic')
 
   // Buddy connection for this agent
-  const buddyConn = buddyConnections.find((c) => c.agentId === agent.id)
+  const buddyConn = buddyConnections.find((c) => c.buddyId === agent.id)
 
   const modelOptions = useMemo(() => flattenModelOptions(providers), [providers])
 
@@ -348,7 +348,7 @@ function AgentEditor({
   const handleSave = async () => {
     setSaving(true)
     try {
-      const autoIdentityName = (name || agent.name || agentId).trim() || agentId
+      const autoIdentityName = (name || agent.name || agentId).trim() || buddyId
       const data: AgentConfig = {
         id: agentId,
         ...(name && { name }),
@@ -369,8 +369,8 @@ function AgentEditor({
       await openClawApi.updateAgent(agentId, data)
       await openClawApi.writeBootstrapFile(agentId, 'SOUL.md', persona.trim())
       // Sync name/persona to cloud buddy (best-effort)
-      if (buddyConn?.remoteAgentId) {
-        fetchApi(`/api/agents/${buddyConn.remoteAgentId}`, {
+      if (buddyConn?.remoteBuddyId) {
+        fetchApi(`/api/buddies/${buddyConn.remoteBuddyId}`, {
           method: 'PATCH',
           body: JSON.stringify({
             name: autoIdentityName,
@@ -386,7 +386,7 @@ function AgentEditor({
 
   // ── Auto-save: debounce agent config changes ──
   const autoSaveFn = useCallback(async () => {
-    const autoIdentityName = (name || agent.name || agentId).trim() || agentId
+    const autoIdentityName = (name || agent.name || agentId).trim() || buddyId
     const data: AgentConfig = {
       id: agentId,
       ...(name && { name }),
@@ -404,8 +404,8 @@ function AgentEditor({
     await openClawApi.updateAgent(agentId, data)
     await openClawApi.writeBootstrapFile(agentId, 'SOUL.md', persona.trim())
     // Sync name/persona to cloud buddy (best-effort)
-    if (buddyConn?.remoteAgentId) {
-      fetchApi(`/api/agents/${buddyConn.remoteAgentId}`, {
+    if (buddyConn?.remoteBuddyId) {
+      fetchApi(`/api/buddies/${buddyConn.remoteBuddyId}`, {
         method: 'PATCH',
         body: JSON.stringify({
           name: autoIdentityName,
@@ -469,7 +469,7 @@ function AgentEditor({
   }, [fileDirty, fileContent, scheduleFileAutoSave])
 
   const BOOTSTRAP_LABELS: Record<BootstrapFileName, { label: string; desc: string }> = {
-    'AGENTS.md': { label: 'AGENTS', desc: '智能体路由与多智能体配置' },
+    'BUDDIES.md': { label: 'BUDDIES', desc: '智能体路由与多智能体配置' },
     'SOUL.md': { label: 'SOUL', desc: '核心人格与行为准则' },
     'IDENTITY.md': { label: 'IDENTITY', desc: '名称、角色和公开形象' },
     'TOOLS.md': { label: 'TOOLS', desc: '工具使用说明与限制' },
@@ -534,7 +534,7 @@ function AgentEditor({
               <div className="bg-bg-secondary rounded-xl border border-bg-tertiary p-4 space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-text-primary mb-1.5">
-                    {t('openclaw.agents.agentName', '显示名称')}
+                    {t('openclaw.agents.buddyName', '显示名称')}
                   </label>
                   <input
                     type="text"
@@ -664,8 +664,8 @@ function AgentEditor({
                     className="flex items-center justify-between w-full text-left cursor-pointer group"
                     onClick={() =>
                       onNavigate('buddy', {
-                        initialAgentId: agent.id,
-                        returnTo: 'agents',
+                        initialBuddyId: agent.id,
+                        returnTo: 'buddies',
                       })
                     }
                   >

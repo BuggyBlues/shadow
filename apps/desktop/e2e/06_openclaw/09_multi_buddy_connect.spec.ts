@@ -1,5 +1,5 @@
 /**
- * Multi-Agent Shadow Channel Connection E2E Test
+ * Multi-Buddy Shadow Channel Connection E2E Test
  *
  * Verifies the gateway correctly attempts to connect multiple Shadow accounts:
  *   1. Write config with multiple fake accounts under channels.shadowob
@@ -37,7 +37,7 @@ test.afterAll(async () => {
   await app?.close().catch(() => {})
 })
 
-test.describe('Multi-Agent Shadow Connection', () => {
+test.describe('Multi-Buddy Shadow Connection', () => {
   test('gateway starts all configured shadowob accounts and logs connection attempts', async () => {
     test.setTimeout(120_000)
 
@@ -205,7 +205,7 @@ test.describe('Multi-Agent Shadow Connection', () => {
     ).toBe(accountIds.length)
 
     console.log(
-      `\n✅ Multi-agent connection test passed — ${foundAccounts.length}/${accountIds.length} accounts logged`,
+      `\n✅ Multi-buddy connection test passed — ${foundAccounts.length}/${accountIds.length} accounts logged`,
     )
   })
 })

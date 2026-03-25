@@ -18,7 +18,7 @@ import { showToast } from '../../../src/lib/toast'
 import { fontSize, radius, spacing, useColors } from '../../../src/theme'
 
 interface ListingForm {
-  agentId: string
+  buddyId: string
   title: string
   description: string
   skills: string
@@ -40,7 +40,7 @@ interface ListingForm {
 }
 
 const INITIAL: ListingForm = {
-  agentId: '',
+  buddyId: '',
   title: '',
   description: '',
   skills: '',
@@ -94,7 +94,7 @@ export default function CreateListingScreen() {
       const e = existing
       const di = (e.deviceInfo || {}) as Record<string, string>
       setForm({
-        agentId: (e.agentId as string) || '',
+        buddyId: (e.buddyId as string) || '',
         title: (e.title as string) || '',
         description: (e.description as string) || '',
         skills: ((e.skills as string[]) || []).join(', '),
@@ -146,7 +146,7 @@ export default function CreateListingScreen() {
 
   const submit = (status: 'draft' | 'active') => {
     mutation.mutate({
-      agentId: form.agentId || undefined,
+      buddyId: form.buddyId || undefined,
       title: form.title.trim(),
       description: form.description.trim() || undefined,
       skills: form.skills

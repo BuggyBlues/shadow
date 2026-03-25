@@ -26,7 +26,7 @@ import { useUIStore } from '../stores/ui.store'
 
 /* ── Types ───────────────────────────────────────────── */
 
-interface Agent {
+interface Buddy {
   id: string
   userId: string
   kernelType: string
@@ -45,7 +45,7 @@ interface Agent {
     listingStatus: string
     isListed: boolean
   } | null
-  botUser?: {
+  buddyUser?: {
     id: string
     username: string
     displayName: string | null
@@ -62,47 +62,47 @@ interface Agent {
 
 interface TokenResponse {
   token: string
-  agent: { id: string; userId: string; status: string }
-  botUser: { id: string; username: string; displayName: string | null; avatarUrl: string | null }
+  buddy: { id: string; userId: string; status: string }
+  buddyUser: { id: string; username: string; displayName: string | null; avatarUrl: string | null }
 }
 
-/** Renders a compact status badge for an agent's rental/listing status */
-function AgentListingBadge({ agent }: { agent: Agent }) {
+/** Renders a compact status badge for a buddy's rental/listing status */
+function BuddyListingBadge({ buddy }: { buddy: Buddy }) {
   const { t } = useTranslation()
-  if (agent.isRented) {
+  if (buddy.isRented) {
     return (
       <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-500 font-bold shrink-0">
-        🔒 {t('agentMgmt.rented')}
+        🔒 {t('buddyMgmt.rented')}
       </span>
     )
   }
-  if (agent.isListed) {
+  if (buddy.isListed) {
     return (
       <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-500 font-bold shrink-0">
-        📋 {t('agentMgmt.listed')}
+        📋 {t('buddyMgmt.listed')}
       </span>
     )
   }
-  if (agent.listingInfo) {
+  if (buddy.listingInfo) {
     const statusMap: Record<string, { label: string; className: string }> = {
       draft: {
-        label: t('agentMgmt.listingDraft'),
+        label: t('buddyMgmt.listingDraft'),
         className: 'bg-gray-500/20 text-gray-400',
       },
       paused: {
-        label: t('agentMgmt.listingPaused'),
+        label: t('buddyMgmt.listingPaused'),
         className: 'bg-yellow-500/20 text-yellow-500',
       },
       expired: {
-        label: t('agentMgmt.listingExpired'),
+        label: t('buddyMgmt.listingExpired'),
         className: 'bg-gray-500/20 text-gray-400',
       },
       closed: {
-        label: t('agentMgmt.listingClosed'),
+        label: t('buddyMgmt.listingClosed'),
         className: 'bg-red-500/20 text-red-400',
       },
     }
-    const info = statusMap[agent.listingInfo.listingStatus]
+    const info = statusMap[buddy.listingInfo.listingStatus]
     if (info) {
       return (
         <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0 ${info.className}`}>
@@ -114,12 +114,12 @@ function AgentListingBadge({ agent }: { agent: Agent }) {
   return null
 }
 
-/** Returns the status dot color class for an agent based on heartbeat-based online detection */
-function getAgentOnlineDotClass(agent: Agent): string {
-  if (agent.status === 'error') return 'bg-[#da373c]'
-  if (agent.status === 'stopped') return 'bg-[#80848e]'
+/** Returns the status dot color class for a buddy based on heartbeat-based online detection */
+function getBuddyOnlineDotClass(buddy: Buddy): string {
+  if (buddy.status === 'error') return 'bg-[#da373c]'
+  if (buddy.status === 'stopped') return 'bg-[#80848e]'
   // running — check heartbeat
-  if (agent.lastHeartbeat && Date.now() - new Date(agent.lastHeartbeat).getTime() < 90000) {
+  if (buddy.lastHeartbeat && Date.now() - new Date(buddy.lastHeartbeat).getTime() < 90000) {
     return 'bg-green-500'
   }
   return 'bg-[#80848e]' // running but heartbeat stale → show as offline
@@ -141,13 +141,13 @@ function formatOnlineDuration(
   return `${days}${t('time.days', '天')}${remainHours > 0 ? `${remainHours}${t('time.hours', '小时')}` : ''}`
 }
 
-/* ── Agent Management Page ──────────────────────────── */
+/* ── Buddy Management Page ──────────────────────────── */
 
 export function BuddyManagementPage() {
   const { t } = useTranslation()
   const unreadCount = useUnreadCount()
   useAppStatus({
-    title: t('agentMgmt.title'),
+    title: t('buddyMgmt.title'),
     unreadCount,
     hasNotification: unreadCount > 0,
     variant: 'workspace',
@@ -157,56 +157,56 @@ export function BuddyManagementPage() {
 
   const [showCreate, setShowCreate] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
-  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
+  const [selectedBuddy, setSelectedBuddy] = useState<Buddy | null>(null)
   const [generatedToken, setGeneratedToken] = useState<string | null>(null)
   const [tokenCopied, setTokenCopied] = useState(false)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [message, setMessage] = useState<{ text: string; success: boolean } | null>(null)
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; agent: Agent } | null>(
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; buddy: Buddy } | null>(
     null,
   )
 
-  // Fetch agents
-  const { data: agents = [], isLoading } = useQuery({
-    queryKey: ['agents'],
-    queryFn: () => fetchApi<Agent[]>('/api/agents'),
+  // Fetch buddies
+  const { data: buddies = [], isLoading } = useQuery({
+    queryKey: ['buddies'],
+    queryFn: () => fetchApi<Buddy[]>('/api/buddies'),
     refetchInterval: 30000, // Refresh every 30s for heartbeat status
   })
 
   // Delete mutation
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => fetchApi(`/api/agents/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => fetchApi(`/api/buddies/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['agents'] })
+      queryClient.invalidateQueries({ queryKey: ['buddies'] })
       setDeleteConfirmId(null)
-      if (selectedAgent?.id === deleteConfirmId) setSelectedAgent(null)
-      showMessage(t('agentMgmt.deleteSuccess'), true)
+      if (selectedBuddy?.id === deleteConfirmId) setSelectedBuddy(null)
+      showMessage(t('buddyMgmt.deleteSuccess'), true)
     },
-    onError: () => showMessage(t('agentMgmt.deleteFailed'), false),
+    onError: () => showMessage(t('buddyMgmt.deleteFailed'), false),
   })
 
   // Token mutation
   const tokenMutation = useMutation({
     mutationFn: (id: string) =>
-      fetchApi<TokenResponse>(`/api/agents/${id}/token`, { method: 'POST' }),
+      fetchApi<TokenResponse>(`/api/buddies/${id}/token`, { method: 'POST' }),
     onSuccess: (data) => {
       setGeneratedToken(data.token)
       setTokenCopied(false)
-      queryClient.invalidateQueries({ queryKey: ['agents'] })
+      queryClient.invalidateQueries({ queryKey: ['buddies'] })
     },
   })
 
   // Toggle (start/stop) mutation
   const toggleMutation = useMutation({
-    mutationFn: (agent: Agent) =>
-      fetchApi<Agent>(`/api/agents/${agent.id}/${agent.status === 'running' ? 'stop' : 'start'}`, {
+    mutationFn: (buddy: Buddy) =>
+      fetchApi<Buddy>(`/api/buddies/${buddy.id}/${buddy.status === 'running' ? 'stop' : 'start'}`, {
         method: 'POST',
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['agents'] })
-      // Refresh selected agent
-      if (selectedAgent) {
-        fetchApi<Agent>(`/api/agents/${selectedAgent.id}`).then((a) => setSelectedAgent(a))
+      queryClient.invalidateQueries({ queryKey: ['buddies'] })
+      // Refresh selected buddy
+      if (selectedBuddy) {
+        fetchApi<Buddy>(`/api/buddies/${selectedBuddy.id}`).then((a) => setSelectedBuddy(a))
       }
     },
   })
@@ -219,12 +219,12 @@ export function BuddyManagementPage() {
   const copyToken = async (token: string) => {
     await navigator.clipboard.writeText(token)
     setTokenCopied(true)
-    showMessage(t('agentMgmt.tokenCopied'), true)
+    showMessage(t('buddyMgmt.tokenCopied'), true)
   }
 
-  const handleAgentContextMenu = (e: React.MouseEvent, agent: Agent) => {
+  const handleBuddyContextMenu = (e: React.MouseEvent, buddy: Buddy) => {
     e.preventDefault()
-    setContextMenu({ x: e.clientX, y: e.clientY, agent })
+    setContextMenu({ x: e.clientX, y: e.clientY, buddy })
   }
 
   // Close context menu on click outside
@@ -252,11 +252,11 @@ export function BuddyManagementPage() {
   const statusLabel = (status: string) => {
     switch (status) {
       case 'running':
-        return t('agentMgmt.statusRunning')
+        return t('buddyMgmt.statusRunning')
       case 'stopped':
-        return t('agentMgmt.statusStopped')
+        return t('buddyMgmt.statusStopped')
       case 'error':
-        return t('agentMgmt.statusError')
+        return t('buddyMgmt.statusError')
       default:
         return status
     }
@@ -266,16 +266,16 @@ export function BuddyManagementPage() {
     <div className="flex-1 flex flex-col md:flex-row bg-bg-primary overflow-hidden">
       {/* Mobile header */}
       <div className="md:hidden flex items-center gap-2 px-4 py-3 bg-bg-secondary border-b border-border-subtle shrink-0">
-        {selectedAgent ? (
+        {selectedBuddy ? (
           <button
             onClick={() => {
-              setSelectedAgent(null)
+              setSelectedBuddy(null)
               setGeneratedToken(null)
             }}
             className="flex items-center gap-2 text-text-muted hover:text-text-primary transition text-sm font-medium"
           >
             <ArrowLeft size={16} />
-            {t('agentMgmt.title')}
+            {t('buddyMgmt.title')}
           </button>
         ) : (
           <>
@@ -292,35 +292,35 @@ export function BuddyManagementPage() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-[#23a559] bg-[#23a559]/10 hover:bg-[#23a559]/20 transition"
             >
               <Plus size={14} />
-              {t('agentMgmt.newAgent')}
+              {t('buddyMgmt.newBuddy')}
             </button>
           </>
         )}
       </div>
 
-      {/* Mobile agent list (when no agent selected) */}
-      {!selectedAgent && (
+      {/* Mobile buddy list (when no buddy selected) */}
+      {!selectedBuddy && (
         <div className="md:hidden flex-1 overflow-y-auto px-3 py-2 space-y-[2px]">
-          {agents.map((agent) => (
+          {buddies.map((buddy) => (
             <button
-              key={agent.id}
+              key={buddy.id}
               onClick={() => {
-                setSelectedAgent(agent)
+                setSelectedBuddy(buddy)
                 setGeneratedToken(null)
               }}
               className="flex items-center gap-3 w-full px-3 py-2 rounded-md text-[15px] font-medium text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary transition"
             >
               <UserAvatar
-                userId={agent.botUser?.id ?? agent.userId}
-                avatarUrl={agent.botUser?.avatarUrl}
-                displayName={agent.botUser?.displayName ?? undefined}
+                userId={buddy.buddyUser?.id ?? buddy.userId}
+                avatarUrl={buddy.buddyUser?.avatarUrl}
+                displayName={buddy.buddyUser?.displayName ?? undefined}
                 size="sm"
               />
               <span className="truncate flex-1 text-left">
-                {agent.botUser?.displayName ?? agent.botUser?.username ?? 'Agent'}
+                {buddy.buddyUser?.displayName ?? buddy.buddyUser?.username ?? 'Buddy'}
               </span>
-              <AgentListingBadge agent={agent} />
-              <span className={`w-2 h-2 rounded-full ${getAgentOnlineDotClass(agent)}`} />
+              <BuddyListingBadge buddy={buddy} />
+              <span className={`w-2 h-2 rounded-full ${getBuddyOnlineDotClass(buddy)}`} />
             </button>
           ))}
         </div>
@@ -338,52 +338,52 @@ export function BuddyManagementPage() {
           </button>
         </div>
         <div className="px-5 py-3 text-[12px] font-bold uppercase text-text-secondary tracking-wide mt-2">
-          {t('agentMgmt.title')}
+          {t('buddyMgmt.title')}
         </div>
 
-        {/* Agent list */}
+        {/* Buddy list */}
         <div className="flex-1 overflow-y-auto px-3 space-y-[2px]">
-          {agents.map((agent) => (
+          {buddies.map((buddy) => (
             <button
-              key={agent.id}
+              key={buddy.id}
               onClick={() => {
-                setSelectedAgent(agent)
+                setSelectedBuddy(buddy)
                 setGeneratedToken(null)
               }}
-              onContextMenu={(e) => handleAgentContextMenu(e, agent)}
+              onContextMenu={(e) => handleBuddyContextMenu(e, buddy)}
               className={`flex items-center gap-3 w-full px-3 py-2 rounded-md text-[15px] font-medium transition ${
-                selectedAgent?.id === agent.id
+                selectedBuddy?.id === buddy.id
                   ? 'bg-bg-modifier-active text-text-primary'
                   : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
               }`}
             >
               <UserAvatar
-                userId={agent.botUser?.id ?? agent.userId}
-                avatarUrl={agent.botUser?.avatarUrl}
-                displayName={agent.botUser?.displayName ?? undefined}
+                userId={buddy.buddyUser?.id ?? buddy.userId}
+                avatarUrl={buddy.buddyUser?.avatarUrl}
+                displayName={buddy.buddyUser?.displayName ?? undefined}
                 size="sm"
               />
               <span className="truncate flex-1 text-left">
-                {agent.botUser?.displayName ?? agent.botUser?.username ?? 'Agent'}
+                {buddy.buddyUser?.displayName ?? buddy.buddyUser?.username ?? 'Buddy'}
               </span>
-              <AgentListingBadge agent={agent} />
-              <span className={`w-2 h-2 rounded-full ${getAgentOnlineDotClass(agent)}`} />
+              <BuddyListingBadge buddy={buddy} />
+              <span className={`w-2 h-2 rounded-full ${getBuddyOnlineDotClass(buddy)}`} />
             </button>
           ))}
 
-          {/* New Agent button */}
+          {/* New Buddy button */}
           <button
             onClick={() => setShowCreate(true)}
             className="flex items-center gap-2 w-full px-3 py-2 rounded-md text-[15px] font-medium text-[#23a559] hover:bg-[#23a559]/10 transition mt-2 mb-2"
           >
             <Plus size={16} />
-            {t('agentMgmt.newAgent')}
+            {t('buddyMgmt.newBuddy')}
           </button>
         </div>
       </div>
 
       {/* Content */}
-      <div className={`flex-1 overflow-y-auto ${!selectedAgent ? 'hidden md:block' : ''}`}>
+      <div className={`flex-1 overflow-y-auto ${!selectedBuddy ? 'hidden md:block' : ''}`}>
         <div className="max-w-2xl mx-auto p-4 md:p-8">
           {/* Global message */}
           {message && (
@@ -396,24 +396,24 @@ export function BuddyManagementPage() {
             </div>
           )}
 
-          {selectedAgent ? (
-            <AgentDetail
-              agent={selectedAgent}
+          {selectedBuddy ? (
+            <BuddyDetail
+              buddy={selectedBuddy}
               generatedToken={generatedToken}
               tokenCopied={tokenCopied}
               tokenMutation={tokenMutation}
               statusColor={statusColor}
               statusLabel={statusLabel}
               onCopyToken={copyToken}
-              onDelete={() => setDeleteConfirmId(selectedAgent.id)}
+              onDelete={() => setDeleteConfirmId(selectedBuddy.id)}
               onEdit={() => setShowEdit(true)}
-              onToggle={(agent) => toggleMutation.mutate(agent)}
+              onToggle={(buddy) => toggleMutation.mutate(buddy)}
               togglePending={toggleMutation.isPending}
               t={t}
             />
           ) : (
             <EmptyState
-              agents={agents}
+              buddies={buddies}
               isLoading={isLoading}
               onCreateClick={() => setShowCreate(true)}
               t={t}
@@ -424,31 +424,31 @@ export function BuddyManagementPage() {
 
       {/* Create dialog */}
       {showCreate && (
-        <CreateAgentDialog
+        <CreateBuddyDialog
           onClose={() => setShowCreate(false)}
-          onSuccess={(agent) => {
-            queryClient.invalidateQueries({ queryKey: ['agents'] })
+          onSuccess={(buddy) => {
+            queryClient.invalidateQueries({ queryKey: ['buddies'] })
             setShowCreate(false)
-            setSelectedAgent(agent)
-            showMessage(t('agentMgmt.createSuccess'), true)
+            setSelectedBuddy(buddy)
+            showMessage(t('buddyMgmt.createSuccess'), true)
           }}
-          onError={(msg) => showMessage(msg || t('agentMgmt.createFailed'), false)}
+          onError={(msg) => showMessage(msg || t('buddyMgmt.createFailed'), false)}
           t={t}
         />
       )}
 
       {/* Edit dialog */}
-      {showEdit && selectedAgent && (
-        <EditAgentDialog
-          agent={selectedAgent}
+      {showEdit && selectedBuddy && (
+        <EditBuddyDialog
+          buddy={selectedBuddy}
           onClose={() => setShowEdit(false)}
-          onSuccess={(agent) => {
-            queryClient.invalidateQueries({ queryKey: ['agents'] })
+          onSuccess={(buddy) => {
+            queryClient.invalidateQueries({ queryKey: ['buddies'] })
             setShowEdit(false)
-            setSelectedAgent(agent)
-            showMessage(t('agentMgmt.editSuccess'), true)
+            setSelectedBuddy(buddy)
+            showMessage(t('buddyMgmt.editSuccess'), true)
           }}
-          onError={() => showMessage(t('agentMgmt.editFailed'), false)}
+          onError={() => showMessage(t('buddyMgmt.editFailed'), false)}
           t={t}
         />
       )}
@@ -464,7 +464,7 @@ export function BuddyManagementPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-xl font-bold text-text-primary mb-2">{t('common.confirm')}</h2>
-            <p className="text-text-muted text-sm mb-6">{t('agentMgmt.deleteConfirm')}</p>
+            <p className="text-text-muted text-sm mb-6">{t('buddyMgmt.deleteConfirm')}</p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setDeleteConfirmId(null)}
@@ -484,7 +484,7 @@ export function BuddyManagementPage() {
         </div>
       )}
 
-      {/* Agent context menu */}
+      {/* Buddy context menu */}
       {contextMenu && (
         <div
           className="fixed z-50 bg-bg-tertiary border border-border-dim rounded-lg shadow-xl py-1 min-w-[160px]"
@@ -493,36 +493,36 @@ export function BuddyManagementPage() {
           <button
             type="button"
             onClick={() => {
-              tokenMutation.mutate(contextMenu.agent.id)
-              setSelectedAgent(contextMenu.agent)
+              tokenMutation.mutate(contextMenu.buddy.id)
+              setSelectedBuddy(contextMenu.buddy)
               setContextMenu(null)
             }}
             className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
           >
             <Key size={14} />
-            {t('agentMgmt.generateToken')}
+            {t('buddyMgmt.generateToken')}
           </button>
           <button
             type="button"
             onClick={() => {
-              toggleMutation.mutate(contextMenu.agent)
+              toggleMutation.mutate(contextMenu.buddy)
               setContextMenu(null)
             }}
             className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
           >
-            {contextMenu.agent.status === 'running' ? (
+            {contextMenu.buddy.status === 'running' ? (
               <XCircle size={14} />
             ) : (
               <CheckCircle size={14} />
             )}
-            {contextMenu.agent.status === 'running'
-              ? t('agentMgmt.disable')
-              : t('agentMgmt.enable')}
+            {contextMenu.buddy.status === 'running'
+              ? t('buddyMgmt.disable')
+              : t('buddyMgmt.enable')}
           </button>
           <button
             type="button"
             onClick={() => {
-              setSelectedAgent(contextMenu.agent)
+              setSelectedBuddy(contextMenu.buddy)
               setShowEdit(true)
               setContextMenu(null)
             }}
@@ -535,7 +535,7 @@ export function BuddyManagementPage() {
           <button
             type="button"
             onClick={() => {
-              setDeleteConfirmId(contextMenu.agent.id)
+              setDeleteConfirmId(contextMenu.buddy.id)
               setContextMenu(null)
             }}
             className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition"
@@ -549,10 +549,10 @@ export function BuddyManagementPage() {
   )
 }
 
-/* ── Agent Detail Panel ──────────────────────────────── */
+/* ── Buddy Detail Panel ──────────────────────────────── */
 
-function AgentDetail({
-  agent,
+function BuddyDetail({
+  buddy,
   generatedToken,
   tokenCopied,
   tokenMutation,
@@ -565,7 +565,7 @@ function AgentDetail({
   togglePending,
   t,
 }: {
-  agent: Agent
+  buddy: Buddy
   generatedToken: string | null
   tokenCopied: boolean
   tokenMutation: ReturnType<typeof useMutation<TokenResponse, Error, string>>
@@ -574,21 +574,21 @@ function AgentDetail({
   onCopyToken: (token: string) => void
   onDelete: () => void
   onEdit: () => void
-  onToggle: (agent: Agent) => void
+  onToggle: (buddy: Buddy) => void
   togglePending: boolean
   t: (key: string) => string
 }) {
-  const name = agent.botUser?.displayName ?? agent.botUser?.username ?? 'Agent'
-  const desc = (agent.config?.description as string) ?? ''
+  const name = buddy.buddyUser?.displayName ?? buddy.buddyUser?.username ?? 'Buddy'
+  const desc = (buddy.config?.description as string) ?? ''
 
   return (
     <>
-      {/* Agent header */}
+      {/* Buddy header */}
       <div className="bg-bg-secondary rounded-xl p-6 mb-6 border border-border-subtle">
         <div className="flex items-center gap-4">
           <UserAvatar
-            userId={agent.botUser?.id ?? agent.userId}
-            avatarUrl={agent.botUser?.avatarUrl}
+            userId={buddy.buddyUser?.id ?? buddy.userId}
+            avatarUrl={buddy.buddyUser?.avatarUrl}
             displayName={name}
             size="xl"
           />
@@ -596,11 +596,11 @@ function AgentDetail({
             <div className="flex items-center gap-2">
               <h3 className="text-lg font-bold text-text-primary">{name}</h3>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/20 text-primary">
-                {t('common.bot')}
+                {t('common.buddy')}
               </span>
             </div>
-            {agent.botUser?.username && (
-              <p className="text-sm text-text-muted">@{agent.botUser.username}</p>
+            {buddy.buddyUser?.username && (
+              <p className="text-sm text-text-muted">@{buddy.buddyUser.username}</p>
             )}
             {desc && <p className="text-sm text-text-secondary mt-1">{desc}</p>}
           </div>
@@ -627,29 +627,29 @@ function AgentDetail({
       <div className="bg-bg-secondary rounded-xl p-6 mb-6 border border-border-subtle grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-[10px] font-bold uppercase text-text-muted mb-1">
-            {t('agentMgmt.status')}
+            {t('buddyMgmt.status')}
           </label>
           <div className="flex items-center gap-2">
             {(() => {
-              if (agent.status === 'error') {
+              if (buddy.status === 'error') {
                 return (
                   <div className="flex items-center gap-2 text-red-400">
                     <XCircle size={14} />
-                    <span className="text-sm font-medium">{t('agentMgmt.statusError')}</span>
+                    <span className="text-sm font-medium">{t('buddyMgmt.statusError')}</span>
                   </div>
                 )
               }
-              if (agent.status === 'stopped') {
+              if (buddy.status === 'stopped') {
                 return (
                   <div className="flex items-center gap-2 text-zinc-400">
                     <span className="w-3 h-3 rounded-full bg-gray-500" />
-                    <span className="text-sm font-medium">{t('agentMgmt.statusStopped')}</span>
+                    <span className="text-sm font-medium">{t('buddyMgmt.statusStopped')}</span>
                   </div>
                 )
               }
               // running — use heartbeat to determine online/offline
               const isOnline =
-                agent.lastHeartbeat && Date.now() - new Date(agent.lastHeartbeat).getTime() < 90000
+                buddy.lastHeartbeat && Date.now() - new Date(buddy.lastHeartbeat).getTime() < 90000
               return (
                 <div
                   className={`flex items-center gap-2 ${isOnline ? 'text-green-400' : 'text-zinc-400'}`}
@@ -667,72 +667,72 @@ function AgentDetail({
         </div>
         <div>
           <label className="block text-[10px] font-bold uppercase text-text-muted mb-1">
-            {t('agentMgmt.enableDisable')}
+            {t('buddyMgmt.enableDisable')}
           </label>
           <button
             type="button"
-            onClick={() => onToggle(agent)}
+            onClick={() => onToggle(buddy)}
             disabled={togglePending}
             className={`relative w-11 h-6 rounded-full transition-colors ${
-              agent.status === 'running' ? 'bg-green-500' : 'bg-zinc-600'
+              buddy.status === 'running' ? 'bg-green-500' : 'bg-zinc-600'
             } ${togglePending ? 'opacity-50' : ''}`}
           >
             <span
               className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
-                agent.status === 'running' ? 'translate-x-5' : ''
+                buddy.status === 'running' ? 'translate-x-5' : ''
               }`}
             />
           </button>
         </div>
         <div>
           <label className="block text-[10px] font-bold uppercase text-text-muted mb-1">
-            {t('agentMgmt.owner')}
+            {t('buddyMgmt.owner')}
           </label>
           <div className="flex items-center gap-2">
-            {agent.owner && (
+            {buddy.owner && (
               <UserAvatar
-                userId={agent.owner.id}
-                avatarUrl={agent.owner.avatarUrl}
-                displayName={agent.owner.displayName ?? agent.owner.username}
+                userId={buddy.owner.id}
+                avatarUrl={buddy.owner.avatarUrl}
+                displayName={buddy.owner.displayName ?? buddy.owner.username}
                 size="xs"
               />
             )}
             <p className="text-sm text-text-primary">
-              {agent.owner?.displayName ?? agent.owner?.username ?? '—'}
+              {buddy.owner?.displayName ?? buddy.owner?.username ?? '—'}
             </p>
           </div>
         </div>
         <div>
           <label className="block text-[10px] font-bold uppercase text-text-muted mb-1">
-            {t('agentMgmt.createdAt')}
+            {t('buddyMgmt.createdAt')}
           </label>
-          <p className="text-sm text-text-primary">{new Date(agent.createdAt).toLocaleString()}</p>
+          <p className="text-sm text-text-primary">{new Date(buddy.createdAt).toLocaleString()}</p>
         </div>
         <div>
           <label className="block text-[10px] font-bold uppercase text-text-muted mb-1">
-            {t('agentMgmt.totalOnlineTime')}
+            {t('buddyMgmt.totalOnlineTime')}
           </label>
           <p className="text-sm text-text-primary">
             {formatOnlineDuration(
-              agent.totalOnlineSeconds ?? 0,
+              buddy.totalOnlineSeconds ?? 0,
               t as (key: string, defaultValue?: string) => string,
             )}
           </p>
         </div>
         <div>
           <label className="block text-[10px] font-bold uppercase text-text-muted mb-1">
-            {t('agentMgmt.connection')}
+            {t('buddyMgmt.connection')}
           </label>
           {(() => {
-            if (!agent.lastHeartbeat) {
+            if (!buddy.lastHeartbeat) {
               return (
                 <div className="flex items-center gap-2 text-text-muted">
                   <span className="w-2 h-2 rounded-full bg-zinc-500" />
-                  <span className="text-sm">{t('agentMgmt.neverConnected')}</span>
+                  <span className="text-sm">{t('buddyMgmt.neverConnected')}</span>
                 </div>
               )
             }
-            const lastBeat = new Date(agent.lastHeartbeat).getTime()
+            const lastBeat = new Date(buddy.lastHeartbeat).getTime()
             const now = Date.now()
             const diffSec = Math.floor((now - lastBeat) / 1000)
             const isOnline = diffSec < 90
@@ -750,8 +750,8 @@ function AgentDetail({
                   }`}
                 >
                   {isOnline
-                    ? t('agentMgmt.connected')
-                    : `${t('agentMgmt.lastSeen')} ${new Date(agent.lastHeartbeat).toLocaleString()}`}
+                    ? t('buddyMgmt.connected')
+                    : `${t('buddyMgmt.lastSeen')} ${new Date(buddy.lastHeartbeat).toLocaleString()}`}
                 </span>
               </div>
             )
@@ -759,36 +759,36 @@ function AgentDetail({
         </div>
         <div>
           <label className="block text-[10px] font-bold uppercase text-text-muted mb-1">
-            {t('agentMgmt.rentalStatus')}
+            {t('buddyMgmt.rentalStatus')}
           </label>
           <div className="flex items-center gap-2">
-            {agent.isRented ? (
+            {buddy.isRented ? (
               <>
                 <span className="w-2 h-2 rounded-full bg-amber-400" />
-                <span className="text-sm text-amber-400 font-medium">{t('agentMgmt.rented')}</span>
+                <span className="text-sm text-amber-400 font-medium">{t('buddyMgmt.rented')}</span>
               </>
-            ) : agent.isListed ? (
+            ) : buddy.isListed ? (
               <>
                 <span className="w-2 h-2 rounded-full bg-green-400" />
-                <span className="text-sm text-green-400 font-medium">{t('agentMgmt.listed')}</span>
+                <span className="text-sm text-green-400 font-medium">{t('buddyMgmt.listed')}</span>
               </>
-            ) : agent.listingInfo ? (
+            ) : buddy.listingInfo ? (
               <>
                 <span className="w-2 h-2 rounded-full bg-yellow-400" />
                 <span className="text-sm text-yellow-400 font-medium">
-                  {agent.listingInfo.listingStatus === 'draft'
-                    ? t('agentMgmt.listingDraft')
-                    : agent.listingInfo.listingStatus === 'paused'
-                      ? t('agentMgmt.listingPaused')
-                      : agent.listingInfo.listingStatus === 'expired'
-                        ? t('agentMgmt.listingExpired')
-                        : t('agentMgmt.listingClosed')}
+                  {buddy.listingInfo.listingStatus === 'draft'
+                    ? t('buddyMgmt.listingDraft')
+                    : buddy.listingInfo.listingStatus === 'paused'
+                      ? t('buddyMgmt.listingPaused')
+                      : buddy.listingInfo.listingStatus === 'expired'
+                        ? t('buddyMgmt.listingExpired')
+                        : t('buddyMgmt.listingClosed')}
                 </span>
               </>
             ) : (
               <>
                 <span className="w-2 h-2 rounded-full bg-zinc-500" />
-                <span className="text-sm text-text-muted">{t('agentMgmt.notListed')}</span>
+                <span className="text-sm text-text-muted">{t('buddyMgmt.notListed')}</span>
               </>
             )}
           </div>
@@ -800,14 +800,14 @@ function AgentDetail({
         <div className="flex items-center gap-2 mb-2">
           <Key size={16} className="text-primary" />
           <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">
-            {t('agentMgmt.tokenTitle')}
+            {t('buddyMgmt.tokenTitle')}
           </h3>
         </div>
-        <p className="text-sm text-text-muted mb-4">{t('agentMgmt.tokenDesc')}</p>
+        <p className="text-sm text-text-muted mb-4">{t('buddyMgmt.tokenDesc')}</p>
 
         {(() => {
           const displayToken =
-            generatedToken ?? (agent.config?.lastToken as string | undefined) ?? null
+            generatedToken ?? (buddy.config?.lastToken as string | undefined) ?? null
           if (displayToken) {
             return (
               <div className="space-y-3">
@@ -827,21 +827,21 @@ function AgentDetail({
                     {tokenCopied ? t('common.copied') : t('common.copy')}
                   </button>
                   <button
-                    onClick={() => tokenMutation.mutate(agent.id)}
+                    onClick={() => tokenMutation.mutate(buddy.id)}
                     disabled={tokenMutation.isPending}
                     className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition bg-bg-tertiary text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary disabled:opacity-50"
                   >
                     <Key size={14} />
                     {tokenMutation.isPending
-                      ? t('agentMgmt.generating')
-                      : t('agentMgmt.regenerateToken')}
+                      ? t('buddyMgmt.generating')
+                      : t('buddyMgmt.regenerateToken')}
                   </button>
                 </div>
 
                 {/* YAML example */}
                 <div className="mt-4">
                   <label className="block text-[10px] font-bold uppercase text-text-muted mb-2">
-                    {t('agentMgmt.configExample')}
+                    {t('buddyMgmt.configExample')}
                   </label>
                   <pre className="bg-bg-tertiary rounded-lg p-4 text-xs text-text-secondary border border-border-subtle overflow-x-auto">
                     {`{
@@ -859,12 +859,12 @@ function AgentDetail({
           }
           return (
             <button
-              onClick={() => tokenMutation.mutate(agent.id)}
+              onClick={() => tokenMutation.mutate(buddy.id)}
               disabled={tokenMutation.isPending}
               className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-bold transition disabled:opacity-50"
             >
               <Key size={14} />
-              {tokenMutation.isPending ? t('agentMgmt.generating') : t('agentMgmt.generateToken')}
+              {tokenMutation.isPending ? t('buddyMgmt.generating') : t('buddyMgmt.generateToken')}
             </button>
           )
         })()}
@@ -872,9 +872,9 @@ function AgentDetail({
 
       {/* OpenClaw Setup Guide */}
       <OpenClawSetupGuide
-        agent={agent}
+        buddy={buddy}
         generatedToken={generatedToken}
-        onGenerateToken={() => tokenMutation.mutate(agent.id)}
+        onGenerateToken={() => tokenMutation.mutate(buddy.id)}
         generatingToken={tokenMutation.isPending}
         t={t}
       />
@@ -918,19 +918,19 @@ function CopyBlock({
 }
 
 function OpenClawSetupGuide({
-  agent,
+  buddy,
   generatedToken,
   onGenerateToken,
   generatingToken,
   t,
 }: {
-  agent: Agent
+  buddy: Buddy
   generatedToken: string | null
   onGenerateToken: () => void
   generatingToken: boolean
   t: (key: string) => string
 }) {
-  const token = (agent.config?.lastToken as string | undefined) ?? generatedToken ?? ''
+  const token = (buddy.config?.lastToken as string | undefined) ?? generatedToken ?? ''
   const hasToken = !!token.trim()
   const serverUrl = window.location.origin
   const [activeTab, setActiveTab] = useState<'manual' | 'chat'>('chat')
@@ -959,10 +959,10 @@ function OpenClawSetupGuide({
         <div className="flex items-center gap-2 mb-3">
           <BookOpen size={16} className="text-primary" />
           <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">
-            {t('agentMgmt.openclawGuideTitle')}
+            {t('buddyMgmt.openclawGuideTitle')}
           </h3>
         </div>
-        <p className="text-sm text-text-muted mb-4">{t('agentMgmt.setupTokenWarning')}</p>
+        <p className="text-sm text-text-muted mb-4">{t('buddyMgmt.setupTokenWarning')}</p>
         <button
           type="button"
           onClick={onGenerateToken}
@@ -970,7 +970,7 @@ function OpenClawSetupGuide({
           className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-bold transition disabled:opacity-50"
         >
           <Key size={14} />
-          {generatingToken ? t('agentMgmt.generating') : t('agentMgmt.generateToken')}
+          {generatingToken ? t('buddyMgmt.generating') : t('buddyMgmt.generateToken')}
         </button>
       </div>
     )
@@ -981,10 +981,10 @@ function OpenClawSetupGuide({
       <div className="flex items-center gap-2 mb-3">
         <BookOpen size={16} className="text-primary" />
         <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">
-          {t('agentMgmt.openclawGuideTitle')}
+          {t('buddyMgmt.openclawGuideTitle')}
         </h3>
       </div>
-      <p className="text-sm text-text-muted mb-4">{t('agentMgmt.openclawGuideDesc')}</p>
+      <p className="text-sm text-text-muted mb-4">{t('buddyMgmt.openclawGuideDesc')}</p>
 
       {/* Tab selector */}
       <div className="flex gap-1 mb-4 bg-bg-tertiary rounded-lg p-1">
@@ -998,7 +998,7 @@ function OpenClawSetupGuide({
           }`}
         >
           <Terminal size={12} />
-          {t('agentMgmt.setupManual')}
+          {t('buddyMgmt.setupManual')}
         </button>
         <button
           type="button"
@@ -1010,7 +1010,7 @@ function OpenClawSetupGuide({
           }`}
         >
           <MessageSquare size={12} />
-          {t('agentMgmt.setupChat')}
+          {t('buddyMgmt.setupChat')}
         </button>
       </div>
 
@@ -1019,12 +1019,12 @@ function OpenClawSetupGuide({
           {/* Quick bash one-liner */}
           <div className="mb-4">
             <p className="text-xs font-bold text-text-secondary mb-2">
-              {t('agentMgmt.setupBashTitle')}
+              {t('buddyMgmt.setupBashTitle')}
             </p>
             <CopyBlock content={bashCommand} t={t} />
             {!token && (
               <p className="text-[10px] text-yellow-400 mt-1.5 ml-1">
-                ⚠ {t('agentMgmt.setupTokenWarning')}
+                ⚠ {t('buddyMgmt.setupTokenWarning')}
               </p>
             )}
           </div>
@@ -1033,7 +1033,7 @@ function OpenClawSetupGuide({
 
           {/* Step-by-step */}
           <p className="text-xs font-bold text-text-muted uppercase tracking-wider mb-3">
-            {t('agentMgmt.setupStepByStep')}
+            {t('buddyMgmt.setupStepByStep')}
           </p>
 
           {/* Step 1: Install */}
@@ -1058,7 +1058,7 @@ function OpenClawSetupGuide({
                 2
               </span>
               <span className="text-sm font-bold text-text-primary">
-                {t('agentMgmt.setupConfigToken')}
+                {t('buddyMgmt.setupConfigToken')}
               </span>
             </div>
             <div className="ml-7">
@@ -1073,7 +1073,7 @@ function OpenClawSetupGuide({
                 3
               </span>
               <span className="text-sm font-bold text-text-primary">
-                {t('agentMgmt.setupConfigServer')}
+                {t('buddyMgmt.setupConfigServer')}
               </span>
             </div>
             <div className="ml-7">
@@ -1091,7 +1091,7 @@ function OpenClawSetupGuide({
                 4
               </span>
               <span className="text-sm font-bold text-text-primary">
-                {t('agentMgmt.openclawRunTitle')}
+                {t('buddyMgmt.openclawRunTitle')}
               </span>
             </div>
             <div className="ml-7">
@@ -1102,7 +1102,7 @@ function OpenClawSetupGuide({
       ) : (
         <>
           {/* AI chat prompt */}
-          <p className="text-xs text-text-muted mb-3">{t('agentMgmt.setupChatDesc')}</p>
+          <p className="text-xs text-text-muted mb-3">{t('buddyMgmt.setupChatDesc')}</p>
           <CopyBlock content={aiPrompt} t={t} />
         </>
       )}
@@ -1131,7 +1131,7 @@ function OpenClawSetupGuide({
           className="text-xs text-primary hover:text-primary-hover font-bold flex items-center gap-1 transition"
         >
           <BookOpen size={12} />
-          {t('agentMgmt.openclawFullDocs')}
+          {t('buddyMgmt.openclawFullDocs')}
         </a>
       </div>
     </div>
@@ -1141,12 +1141,12 @@ function OpenClawSetupGuide({
 /* ── Empty State ──────────────────────────────────────── */
 
 function EmptyState({
-  agents,
+  buddies,
   isLoading,
   onCreateClick,
   t,
 }: {
-  agents: Agent[]
+  buddies: Buddy[]
   isLoading: boolean
   onCreateClick: () => void
   t: (key: string) => string
@@ -1163,34 +1163,34 @@ function EmptyState({
     <div className="flex flex-col items-center justify-center h-64 text-center">
       <img src="/Logo.svg" alt="Buddy" className="w-12 h-12 mb-4 opacity-50" />
       <h2 className="text-xl font-bold text-text-primary mb-2">
-        {agents.length === 0 ? t('agentMgmt.noAgents') : t('agentMgmt.title')}
+        {buddies.length === 0 ? t('buddyMgmt.noBuddies') : t('buddyMgmt.title')}
       </h2>
       <p className="text-text-muted mb-6 max-w-md">
-        {agents.length === 0 ? t('agentMgmt.noAgentsDesc') : t('agentMgmt.subtitle')}
+        {buddies.length === 0 ? t('buddyMgmt.noBuddiesDesc') : t('buddyMgmt.subtitle')}
       </p>
-      {agents.length === 0 && (
+      {buddies.length === 0 && (
         <button
           onClick={onCreateClick}
           className="flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary-hover text-white rounded-xl font-bold transition"
         >
           <Plus size={18} />
-          {t('agentMgmt.newAgent')}
+          {t('buddyMgmt.newBuddy')}
         </button>
       )}
     </div>
   )
 }
 
-/* ── Create Agent Dialog ──────────────────────────────── */
+/* ── Create Buddy Dialog ──────────────────────────────── */
 
-function CreateAgentDialog({
+function CreateBuddyDialog({
   onClose,
   onSuccess,
   onError,
   t,
 }: {
   onClose: () => void
-  onSuccess: (agent: Agent) => void
+  onSuccess: (buddy: Buddy) => void
   onError: (message?: string) => void
   t: (key: string) => string
 }) {
@@ -1206,7 +1206,7 @@ function CreateAgentDialog({
       description?: string
       avatarUrl?: string
     }) =>
-      fetchApi<Agent>('/api/agents', {
+      fetchApi<Buddy>('/api/buddies', {
         method: 'POST',
         body: JSON.stringify({
           name: data.name,
@@ -1217,14 +1217,14 @@ function CreateAgentDialog({
           config: {},
         }),
       }),
-    onSuccess: (agent) => onSuccess(agent),
+    onSuccess: (buddy) => onSuccess(buddy),
     onError: (err: Error) => {
       if (err.message?.toLowerCase().includes('username already taken')) {
         const suffix = Math.random().toString(36).slice(2, 6)
         setUsername((prev) => `${prev.slice(0, 27)}_${suffix}`)
-        onError(t('agentMgmt.usernameTaken'))
+        onError(t('buddyMgmt.usernameTaken'))
       } else {
-        onError(err.message || t('agentMgmt.createFailed'))
+        onError(err.message || t('buddyMgmt.createFailed'))
       }
     },
   })
@@ -1232,18 +1232,18 @@ function CreateAgentDialog({
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
       <div className="bg-bg-secondary rounded-xl p-6 w-full max-w-[480px] mx-4 max-h-[80vh] overflow-y-auto border border-border-subtle">
-        <h2 className="text-xl font-bold text-text-primary mb-6">{t('agentMgmt.createTitle')}</h2>
+        <h2 className="text-xl font-bold text-text-primary mb-6">{t('buddyMgmt.createTitle')}</h2>
 
         {/* Name */}
         <div className="mb-4">
           <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
-            {t('agentMgmt.nameLabel')}
+            {t('buddyMgmt.nameLabel')}
           </label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder={t('agentMgmt.namePlaceholder')}
+            placeholder={t('buddyMgmt.namePlaceholder')}
             className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
             maxLength={64}
           />
@@ -1252,13 +1252,13 @@ function CreateAgentDialog({
         {/* Username */}
         <div className="mb-4">
           <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
-            {t('agentMgmt.usernameLabel')}
+            {t('buddyMgmt.usernameLabel')}
           </label>
           <input
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''))}
-            placeholder={t('agentMgmt.usernamePlaceholder')}
+            placeholder={t('buddyMgmt.usernamePlaceholder')}
             className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
             maxLength={32}
           />
@@ -1267,12 +1267,12 @@ function CreateAgentDialog({
         {/* Description */}
         <div className="mb-4">
           <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
-            {t('agentMgmt.descLabel')}
+            {t('buddyMgmt.descLabel')}
           </label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder={t('agentMgmt.descPlaceholder')}
+            placeholder={t('buddyMgmt.descPlaceholder')}
             className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition resize-none"
             rows={3}
             maxLength={500}
@@ -1282,7 +1282,7 @@ function CreateAgentDialog({
         {/* Avatar picker */}
         <div className="mb-6">
           <label className="block text-xs font-bold uppercase text-text-secondary mb-3">
-            {t('agentMgmt.avatarLabel')}
+            {t('buddyMgmt.avatarLabel')}
           </label>
           <AvatarEditor value={selectedAvatar ?? undefined} onChange={setSelectedAvatar} />
         </div>
@@ -1310,7 +1310,7 @@ function CreateAgentDialog({
             className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-primary-hover text-white font-bold rounded-lg transition disabled:opacity-50"
           >
             <img src="/Logo.svg" alt="Buddy" className="w-4 h-4" />
-            {createMutation.isPending ? t('agentMgmt.creating') : t('common.create')}
+            {createMutation.isPending ? t('buddyMgmt.creating') : t('common.create')}
           </button>
         </div>
       </div>
@@ -1318,51 +1318,53 @@ function CreateAgentDialog({
   )
 }
 
-/* ── Edit Agent Dialog ────────────────────────────────── */
+/* ── Edit Buddy Dialog ────────────────────────────────── */
 
-function EditAgentDialog({
-  agent,
+function EditBuddyDialog({
+  buddy,
   onClose,
   onSuccess,
   onError,
   t,
 }: {
-  agent: Agent
+  buddy: Buddy
   onClose: () => void
-  onSuccess: (agent: Agent) => void
+  onSuccess: (buddy: Buddy) => void
   onError: () => void
   t: (key: string) => string
 }) {
-  const [name, setName] = useState(agent.botUser?.displayName ?? agent.botUser?.username ?? 'Buddy')
-  const [description, setDescription] = useState((agent.config?.description as string) ?? '')
+  const [name, setName] = useState(
+    buddy.buddyUser?.displayName ?? buddy.buddyUser?.username ?? 'Buddy',
+  )
+  const [description, setDescription] = useState((buddy.config?.description as string) ?? '')
   const [selectedAvatar, setSelectedAvatar] = useState<string | null>(
-    agent.botUser?.avatarUrl ?? null,
+    buddy.buddyUser?.avatarUrl ?? null,
   )
 
   const updateMutation = useMutation({
     mutationFn: (data: { name: string; description?: string; avatarUrl?: string | null }) =>
-      fetchApi<Agent>(`/api/agents/${agent.id}`, {
+      fetchApi<Buddy>(`/api/buddies/${buddy.id}`, {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),
-    onSuccess: (agent) => onSuccess(agent),
+    onSuccess: (buddy) => onSuccess(buddy),
     onError: () => onError(),
   })
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
       <div className="bg-bg-secondary rounded-xl p-6 w-full max-w-[480px] mx-4 max-h-[80vh] overflow-y-auto border border-border-subtle">
-        <h2 className="text-xl font-bold text-text-primary mb-6">{t('agentMgmt.editTitle')}</h2>
+        <h2 className="text-xl font-bold text-text-primary mb-6">{t('buddyMgmt.editTitle')}</h2>
 
         <div className="mb-4">
           <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
-            {t('agentMgmt.nameLabel')}
+            {t('buddyMgmt.nameLabel')}
           </label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder={t('agentMgmt.namePlaceholder')}
+            placeholder={t('buddyMgmt.namePlaceholder')}
             className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
             maxLength={64}
           />
@@ -1370,12 +1372,12 @@ function EditAgentDialog({
 
         <div className="mb-4">
           <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
-            {t('agentMgmt.descLabel')}
+            {t('buddyMgmt.descLabel')}
           </label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder={t('agentMgmt.descPlaceholder')}
+            placeholder={t('buddyMgmt.descPlaceholder')}
             className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition resize-none"
             rows={3}
             maxLength={500}
@@ -1384,7 +1386,7 @@ function EditAgentDialog({
 
         <div className="mb-6">
           <label className="block text-xs font-bold uppercase text-text-secondary mb-3">
-            {t('agentMgmt.avatarLabel')}
+            {t('buddyMgmt.avatarLabel')}
           </label>
           <AvatarEditor value={selectedAvatar ?? undefined} onChange={setSelectedAvatar} />
         </div>
@@ -1424,7 +1426,7 @@ export function BuddyManagementContent() {
 
   const [showCreate, setShowCreate] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
-  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
+  const [selectedBuddy, setSelectedBuddy] = useState<Buddy | null>(null)
   const [generatedToken, setGeneratedToken] = useState<string | null>(null)
   const [tokenCopied, setTokenCopied] = useState(false)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
@@ -1440,42 +1442,42 @@ export function BuddyManagementContent() {
     }
   }, [pendingAction, setPendingAction])
 
-  const { data: agents = [], isLoading } = useQuery({
-    queryKey: ['agents'],
-    queryFn: () => fetchApi<Agent[]>('/api/agents'),
+  const { data: buddies = [], isLoading } = useQuery({
+    queryKey: ['buddies'],
+    queryFn: () => fetchApi<Buddy[]>('/api/buddies'),
     refetchInterval: 30000,
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => fetchApi(`/api/agents/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => fetchApi(`/api/buddies/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['agents'] })
+      queryClient.invalidateQueries({ queryKey: ['buddies'] })
       setDeleteConfirmId(null)
-      if (selectedAgent?.id === deleteConfirmId) setSelectedAgent(null)
-      showMsg(t('agentMgmt.deleteSuccess'), true)
+      if (selectedBuddy?.id === deleteConfirmId) setSelectedBuddy(null)
+      showMsg(t('buddyMgmt.deleteSuccess'), true)
     },
-    onError: () => showMsg(t('agentMgmt.deleteFailed'), false),
+    onError: () => showMsg(t('buddyMgmt.deleteFailed'), false),
   })
 
   const tokenMutation = useMutation({
     mutationFn: (id: string) =>
-      fetchApi<TokenResponse>(`/api/agents/${id}/token`, { method: 'POST' }),
+      fetchApi<TokenResponse>(`/api/buddies/${id}/token`, { method: 'POST' }),
     onSuccess: (data) => {
       setGeneratedToken(data.token)
       setTokenCopied(false)
-      queryClient.invalidateQueries({ queryKey: ['agents'] })
+      queryClient.invalidateQueries({ queryKey: ['buddies'] })
     },
   })
 
   const toggleMutation = useMutation({
-    mutationFn: (agent: Agent) =>
-      fetchApi<Agent>(`/api/agents/${agent.id}/${agent.status === 'running' ? 'stop' : 'start'}`, {
+    mutationFn: (buddy: Buddy) =>
+      fetchApi<Buddy>(`/api/buddies/${buddy.id}/${buddy.status === 'running' ? 'stop' : 'start'}`, {
         method: 'POST',
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['agents'] })
-      if (selectedAgent) {
-        fetchApi<Agent>(`/api/agents/${selectedAgent.id}`).then((a) => setSelectedAgent(a))
+      queryClient.invalidateQueries({ queryKey: ['buddies'] })
+      if (selectedBuddy) {
+        fetchApi<Buddy>(`/api/buddies/${selectedBuddy.id}`).then((a) => setSelectedBuddy(a))
       }
     },
   })
@@ -1488,7 +1490,7 @@ export function BuddyManagementContent() {
   const copyToken = async (token: string) => {
     await navigator.clipboard.writeText(token)
     setTokenCopied(true)
-    showMsg(t('agentMgmt.tokenCopied'), true)
+    showMsg(t('buddyMgmt.tokenCopied'), true)
   }
 
   const statusColor = (status: string) => {
@@ -1507,11 +1509,11 @@ export function BuddyManagementContent() {
   const statusLabel = (status: string) => {
     switch (status) {
       case 'running':
-        return t('agentMgmt.statusRunning')
+        return t('buddyMgmt.statusRunning')
       case 'stopped':
-        return t('agentMgmt.statusStopped')
+        return t('buddyMgmt.statusStopped')
       case 'error':
-        return t('agentMgmt.statusError')
+        return t('buddyMgmt.statusError')
       default:
         return status
     }
@@ -1521,13 +1523,13 @@ export function BuddyManagementContent() {
     <>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-text-primary">{t('agentMgmt.title')}</h2>
+        <h2 className="text-2xl font-bold text-text-primary">{t('buddyMgmt.title')}</h2>
         <button
           onClick={() => setShowCreate(true)}
           className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition font-bold text-sm"
         >
           <Plus size={16} />
-          {t('agentMgmt.newAgent')}
+          {t('buddyMgmt.newBuddy')}
         </button>
       </div>
 
@@ -1542,24 +1544,24 @@ export function BuddyManagementContent() {
         </div>
       )}
 
-      {/* Agent list */}
+      {/* Buddy list */}
       {isLoading ? (
         <div className="text-center text-text-muted py-8">{t('common.loading')}</div>
-      ) : agents.length === 0 ? (
+      ) : buddies.length === 0 ? (
         <div className="text-center text-text-muted py-12 bg-bg-secondary rounded-xl border border-border-subtle">
           <img src="/Logo.svg" alt="Buddy" className="w-12 h-12 mx-auto mb-3 opacity-50" />
-          <p className="text-sm">{t('agentMgmt.noAgentsDesc')}</p>
+          <p className="text-sm">{t('buddyMgmt.noBuddiesDesc')}</p>
         </div>
       ) : (
         <div className="space-y-2 mb-6">
-          {agents.map((agent) => {
-            const name = agent.botUser?.displayName ?? agent.botUser?.username ?? 'Buddy'
-            const isSelected = selectedAgent?.id === agent.id
+          {buddies.map((buddy) => {
+            const name = buddy.buddyUser?.displayName ?? buddy.buddyUser?.username ?? 'Buddy'
+            const isSelected = selectedBuddy?.id === buddy.id
             return (
               <button
-                key={agent.id}
+                key={buddy.id}
                 onClick={() => {
-                  setSelectedAgent(isSelected ? null : agent)
+                  setSelectedBuddy(isSelected ? null : buddy)
                   setGeneratedToken(null)
                 }}
                 className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-left transition border ${
@@ -1569,23 +1571,23 @@ export function BuddyManagementContent() {
                 }`}
               >
                 <UserAvatar
-                  userId={agent.botUser?.id ?? agent.userId}
-                  avatarUrl={agent.botUser?.avatarUrl}
-                  displayName={agent.botUser?.displayName ?? undefined}
+                  userId={buddy.buddyUser?.id ?? buddy.userId}
+                  avatarUrl={buddy.buddyUser?.avatarUrl}
+                  displayName={buddy.buddyUser?.displayName ?? undefined}
                   size="sm"
                 />
                 <span className="truncate flex-1">{name}</span>
-                {(agent.totalOnlineSeconds ?? 0) > 0 && (
+                {(buddy.totalOnlineSeconds ?? 0) > 0 && (
                   <span className="text-[10px] text-text-muted shrink-0">
                     {formatOnlineDuration(
-                      agent.totalOnlineSeconds,
+                      buddy.totalOnlineSeconds,
                       t as (key: string, defaultValue?: string) => string,
                     )}
                   </span>
                 )}
-                <AgentListingBadge agent={agent} />
+                <BuddyListingBadge buddy={buddy} />
                 <span
-                  className={`w-2 h-2 rounded-full shrink-0 ${getAgentOnlineDotClass(agent)}`}
+                  className={`w-2 h-2 rounded-full shrink-0 ${getBuddyOnlineDotClass(buddy)}`}
                 />
               </button>
             )
@@ -1593,19 +1595,19 @@ export function BuddyManagementContent() {
         </div>
       )}
 
-      {/* Selected agent detail */}
-      {selectedAgent && (
-        <AgentDetail
-          agent={selectedAgent}
+      {/* Selected buddy detail */}
+      {selectedBuddy && (
+        <BuddyDetail
+          buddy={selectedBuddy}
           generatedToken={generatedToken}
           tokenCopied={tokenCopied}
           tokenMutation={tokenMutation}
           statusColor={statusColor}
           statusLabel={statusLabel}
           onCopyToken={copyToken}
-          onDelete={() => setDeleteConfirmId(selectedAgent.id)}
+          onDelete={() => setDeleteConfirmId(selectedBuddy.id)}
           onEdit={() => setShowEdit(true)}
-          onToggle={(agent) => toggleMutation.mutate(agent)}
+          onToggle={(buddy) => toggleMutation.mutate(buddy)}
           togglePending={toggleMutation.isPending}
           t={t}
         />
@@ -1613,31 +1615,31 @@ export function BuddyManagementContent() {
 
       {/* Create dialog */}
       {showCreate && (
-        <CreateAgentDialog
+        <CreateBuddyDialog
           onClose={() => setShowCreate(false)}
-          onSuccess={(agent) => {
-            queryClient.invalidateQueries({ queryKey: ['agents'] })
+          onSuccess={(buddy) => {
+            queryClient.invalidateQueries({ queryKey: ['buddies'] })
             setShowCreate(false)
-            setSelectedAgent(agent)
-            showMsg(t('agentMgmt.createSuccess'), true)
+            setSelectedBuddy(buddy)
+            showMsg(t('buddyMgmt.createSuccess'), true)
           }}
-          onError={() => showMsg(t('agentMgmt.createFailed'), false)}
+          onError={() => showMsg(t('buddyMgmt.createFailed'), false)}
           t={t}
         />
       )}
 
       {/* Edit dialog */}
-      {showEdit && selectedAgent && (
-        <EditAgentDialog
-          agent={selectedAgent}
+      {showEdit && selectedBuddy && (
+        <EditBuddyDialog
+          buddy={selectedBuddy}
           onClose={() => setShowEdit(false)}
-          onSuccess={(agent) => {
-            queryClient.invalidateQueries({ queryKey: ['agents'] })
+          onSuccess={(buddy) => {
+            queryClient.invalidateQueries({ queryKey: ['buddies'] })
             setShowEdit(false)
-            setSelectedAgent(agent)
-            showMsg(t('agentMgmt.editSuccess'), true)
+            setSelectedBuddy(buddy)
+            showMsg(t('buddyMgmt.editSuccess'), true)
           }}
-          onError={() => showMsg(t('agentMgmt.editFailed'), false)}
+          onError={() => showMsg(t('buddyMgmt.editFailed'), false)}
           t={t}
         />
       )}
@@ -1653,7 +1655,7 @@ export function BuddyManagementContent() {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-xl font-bold text-text-primary mb-2">{t('common.confirm')}</h2>
-            <p className="text-text-muted text-sm mb-6">{t('agentMgmt.deleteConfirm')}</p>
+            <p className="text-text-muted text-sm mb-6">{t('buddyMgmt.deleteConfirm')}</p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setDeleteConfirmId(null)}

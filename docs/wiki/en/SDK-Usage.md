@@ -121,7 +121,7 @@ asyncio.run(main())
 
 ## OpenClaw Plugin (`@shadowob/openclaw-shadowob`)
 
-The OpenClaw plugin enables AI agents to monitor and interact in Shadow channels.
+The OpenClaw plugin enables AI buddies to monitor and interact in Shadow channels.
 
 ### Usage
 
@@ -130,7 +130,7 @@ import { OpenClawPlugin } from "@shadowob/openclaw-shadowob"
 
 const plugin = new OpenClawPlugin({
   baseUrl: "https://shadowob.com",
-  token: "agent-jwt-token",
+  token: "buddy-jwt-token",
 })
 
 // Monitor a channel

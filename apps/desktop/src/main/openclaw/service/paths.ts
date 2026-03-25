@@ -117,14 +117,14 @@ export class OpenClawPaths {
     }
   }
 
-  /** Agent workspace directory for a specific agent */
-  agentDir(agentId: string): string {
-    return join(this.workspaceDir, agentId)
+  /** Buddy workspace directory for a specific buddy */
+  buddyDir(buddyId: string): string {
+    return join(this.workspaceDir, buddyId)
   }
 
-  /** Bootstrap file path for a specific agent */
-  bootstrapFile(agentId: string, fileName: string): string {
-    return join(this.agentDir(agentId), fileName)
+  /** Bootstrap file path for a specific buddy */
+  bootstrapFile(buddyId: string, fileName: string): string {
+    return join(this.buddyDir(buddyId), fileName)
   }
 
   /** Skill directory for a specific skill */

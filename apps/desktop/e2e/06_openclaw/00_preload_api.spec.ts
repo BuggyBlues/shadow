@@ -63,22 +63,22 @@ test.describe('OpenClaw Preload API Surface', () => {
     expect(methods.saveConfig).toBe('function')
   })
 
-  test('openClaw exposes agent CRUD methods', async () => {
+  test('openClaw exposes buddy CRUD methods', async () => {
     const methods = await page.evaluate(() => {
       const oc = (window as any).desktopAPI.openClaw
       return {
-        listAgents: typeof oc.listAgents,
-        getAgent: typeof oc.getAgent,
-        createAgent: typeof oc.createAgent,
-        updateAgent: typeof oc.updateAgent,
-        deleteAgent: typeof oc.deleteAgent,
+        listBuddies: typeof oc.listBuddies,
+        getBuddy: typeof oc.getBuddy,
+        createBuddy: typeof oc.createBuddy,
+        updateBuddy: typeof oc.updateBuddy,
+        deleteBuddy: typeof oc.deleteBuddy,
       }
     })
-    expect(methods.listAgents).toBe('function')
-    expect(methods.getAgent).toBe('function')
-    expect(methods.createAgent).toBe('function')
-    expect(methods.updateAgent).toBe('function')
-    expect(methods.deleteAgent).toBe('function')
+    expect(methods.listBuddies).toBe('function')
+    expect(methods.getBuddy).toBe('function')
+    expect(methods.createBuddy).toBe('function')
+    expect(methods.updateBuddy).toBe('function')
+    expect(methods.deleteBuddy).toBe('function')
   })
 
   test('openClaw exposes channel methods', async () => {

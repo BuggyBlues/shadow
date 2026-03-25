@@ -5,8 +5,8 @@
  *   1. Rented clawBuddies appear in the tenant's friend list
  *   2. Rented claws are tagged with source='rented_claw' and rentalExpiresAt
  *   3. After contract termination, rented claw disappears from friend list
- *   4. Contract APIs return agentUserId when listing has an agentId
- *   5. DM channel can be created with the rented claw's bot user (the "use" flow)
+ *   4. Contract APIs return buddyUserId when listing has an buddyId
+ *   5. DM channel can be created with the rented claw's buddy user (the "use" flow)
  *
  * Requires: docker compose postgres running on localhost:5432
  */
@@ -40,8 +40,8 @@ let tenantUserId: string
 let ownerToken: string
 let tenantToken: string
 
-// Agent & bot user for the listing
-let agentId: string
+// Buddy & buddy user for the listing
+let buddyId: string
 let botUserId: string
 
 // IDs tracked across tests
@@ -96,7 +96,7 @@ beforeAll(async () => {
 
   // Create test users
   const userDao = container.resolve('userDao')
-  const agentDao = container.resolve('agentDao')
+  const buddyDao = container.resolve('buddyDao')
   const ts = Date.now()
 
   const owner = await userDao.create({
@@ -124,20 +124,20 @@ beforeAll(async () => {
     username: tenant!.username,
   })
 
-  // Create a bot user and agent for the owner
-  const botUser = await agentDao.createBotUser({
+  // Create a buddy user and buddy for the owner
+  const botUser = await buddyDao.createBotUser({
     username: `rfbot${ts}`,
     displayName: `Test Bot ${ts}`,
   })
   botUserId = botUser!.id
 
-  const agent = await agentDao.create({
+  const buddy = await buddyDao.create({
     userId: botUserId,
     kernelType: 'test',
     config: {},
     ownerId: ownerUserId,
   })
-  agentId = agent!.id
+  buddyId = buddy!.id
 
   // Give the tenant balance for deposits and rental
   const walletService = container.resolve('walletService')
@@ -149,7 +149,7 @@ afterAll(async () => {
     const { eq, inArray } = await import('drizzle-orm')
     const { clawListings, rentalContracts, rentalUsageRecords, rentalViolations, wallets, users } =
       schema
-    const { agents } = schema
+    const { buddies } = schema
 
     // Clean rental data
     if (contractId) {
@@ -177,16 +177,16 @@ afterAll(async () => {
       }
     }
 
-    // Delete agent
-    if (agentId) {
-      await db.delete(agents).where(eq(agents.id, agentId))
+    // Delete buddy
+    if (buddyId) {
+      await db.delete(buddies).where(eq(buddies.id, buddyId))
     }
 
     // Delete wallets
     if (tenantUserId) await db.delete(wallets).where(eq(wallets.userId, tenantUserId))
     if (ownerUserId) await db.delete(wallets).where(eq(wallets.userId, ownerUserId))
 
-    // Delete users (bot user + test users)
+    // Delete users (buddy user + test users)
     const userIds = [ownerUserId, tenantUserId, botUserId].filter(Boolean)
     if (userIds.length > 0) {
       await db.delete(users).where(inArray(users.id, userIds))
@@ -202,15 +202,15 @@ afterAll(async () => {
    ══════════════════════════════════════════════════════════ */
 
 describe('Rental ↔ Friendship Integration E2E', () => {
-  /* ─────── 1. Create listing with agentId ─────── */
+  /* ─────── 1. Create listing with buddyId ─────── */
 
-  it('should create a listing with an agentId', async () => {
+  it('should create a listing with an buddyId', async () => {
     const res = await req('POST', '/api/marketplace/listings', {
       token: ownerToken,
       body: {
-        agentId,
-        title: 'Test Bot with Agent',
-        description: 'A claw listing with a linked agent',
+        buddyId,
+        title: 'Test Bot with Buddy',
+        description: 'A claw listing with a linked buddy',
         skills: ['Testing'],
         deviceTier: 'mid_range',
         osType: 'linux',
@@ -295,35 +295,35 @@ describe('Rental ↔ Friendship Integration E2E', () => {
     expect(asOwned).toBeDefined()
   })
 
-  /* ─────── 5. Contract APIs include resolved agentUserId ─────── */
+  /* ─────── 5. Contract APIs include resolved buddyUserId ─────── */
 
-  it('should include non-null agentUserId in contract list', async () => {
+  it('should include non-null buddyUserId in contract list', async () => {
     const res = await req('GET', '/api/marketplace/contracts', {
       token: tenantToken,
       query: { role: 'tenant' },
     })
     expect(res.status).toBe(200)
 
-    const data = await json<{ contracts: { id: string; agentUserId: string | null }[] }>(res)
+    const data = await json<{ contracts: { id: string; buddyUserId: string | null }[] }>(res)
     const contract = data.contracts.find((c) => c.id === contractId)
     expect(contract).toBeDefined()
-    expect(contract!.agentUserId).toBe(botUserId)
+    expect(contract!.buddyUserId).toBe(botUserId)
   })
 
-  it('should include non-null agentUserId in contract detail', async () => {
+  it('should include non-null buddyUserId in contract detail', async () => {
     const res = await req('GET', `/api/marketplace/contracts/${contractId}`, {
       token: tenantToken,
     })
     expect(res.status).toBe(200)
 
-    const data = await json<{ id: string; agentUserId: string | null }>(res)
+    const data = await json<{ id: string; buddyUserId: string | null }>(res)
     expect(data.id).toBe(contractId)
-    expect(data.agentUserId).toBe(botUserId)
+    expect(data.buddyUserId).toBe(botUserId)
   })
 
   /* ─────── 6. "Use claw" flow: create DM channel with bot ─────── */
 
-  it('should create a DM channel with the rented claw bot user', async () => {
+  it('should create a DM channel with the rented claw buddy user', async () => {
     const res = await req('POST', '/api/dm/channels', {
       token: tenantToken,
       body: { userId: botUserId },
@@ -332,7 +332,7 @@ describe('Rental ↔ Friendship Integration E2E', () => {
 
     const data = await json<{ id: string; userAId: string; userBId: string }>(res)
     expect(data.id).toBeDefined()
-    // The DM channel should involve both the tenant and the bot user
+    // The DM channel should involve both the tenant and the buddy user
     const participants = [data.userAId, data.userBId]
     expect(participants).toContain(tenantUserId)
     expect(participants).toContain(botUserId)

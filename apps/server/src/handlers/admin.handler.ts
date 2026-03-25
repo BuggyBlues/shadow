@@ -236,16 +236,16 @@ export function createAdminHandler(container: AppContainer) {
     return c.json({ success: true })
   })
 
-  // ── Agents ────────────────────────────────────────
-  adminHandler.get('/agents', async (c) => {
-    const agentService = container.resolve('agentService')
-    const allAgents = await agentService.getAll()
-    // Enrich with bot user and owner info
+  // ── Buddies ────────────────────────────────────────
+  adminHandler.get('/buddies', async (c) => {
+    const buddyService = container.resolve('buddyService')
+    const allBuddies = await buddyService.getAll()
+    // Enrich with buddy user and owner info
     const enriched = await Promise.all(
-      allAgents.map(async (agent: { id: string; ownerId: string }) => {
-        const full = await agentService.getById(agent.id)
+      allBuddies.map(async (buddy: { id: string; ownerId: string }) => {
+        const full = await buddyService.getById(buddy.id)
         const userDao = container.resolve('userDao')
-        const owner = await userDao.findById(agent.ownerId)
+        const owner = await userDao.findById(buddy.ownerId)
         return {
           ...full,
           owner: owner
@@ -257,10 +257,10 @@ export function createAdminHandler(container: AppContainer) {
     return c.json(enriched.filter(Boolean))
   })
 
-  adminHandler.delete('/agents/:id', async (c) => {
-    const agentService = container.resolve('agentService')
+  adminHandler.delete('/buddies/:id', async (c) => {
+    const buddyService = container.resolve('buddyService')
     const id = c.req.param('id')
-    await agentService.delete(id)
+    await buddyService.delete(id)
     return c.json({ success: true })
   })
 

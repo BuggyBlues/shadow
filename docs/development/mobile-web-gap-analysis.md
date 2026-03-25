@@ -62,7 +62,7 @@ Feature comparison between `apps/mobile` and `apps/web`.
 |------------|:---:|:------:|-----|
 | Typing indicator | ✅ | ✅ | Same (3s throttle/timeout) |
 | member:joined / member:left | ✅ | ✅ | Same |
-| Agent activity | ✅ | ✅ | Same |
+| Buddy activity | ✅ | ✅ | Same |
 | Socket reconnect recovery | ✅ | ✅ | Same (mobile adds AppState listener) |
 
 ### 1.6 Channel Features
@@ -109,7 +109,7 @@ Current bottom tabs:
 |-----|------|---------|
 | Home | MessageSquare | Joined servers list + FAB to create |
 | Discover | Compass | Browse/search public servers |
-| Buddies | Bot | AI agent marketplace |
+| Buddies | Bot | AI buddy marketplace |
 | Settings | Settings | User settings |
 
 **Issue:** "Home" and "Discover" are separate tabs, fragmenting related functionality. Modern apps tend to merge these into a single entry with segmented controls or search filters.

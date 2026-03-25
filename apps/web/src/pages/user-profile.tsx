@@ -17,7 +17,7 @@ interface UserProfile {
   isBot: boolean
   status: string
   createdAt: string
-  agent?: {
+  buddy?: {
     id: string
     ownerId: string
     status: string
@@ -30,12 +30,12 @@ interface UserProfile {
     displayName: string
     avatarUrl: string | null
   } | null
-  ownedAgents: Array<{
+  ownedBuddies: Array<{
     id: string
     userId: string
     status: string
     totalOnlineSeconds: number
-    botUser?: { id: string; username: string; displayName: string; avatarUrl: string | null }
+    buddyUser?: { id: string; username: string; displayName: string; avatarUrl: string | null }
   }>
 }
 
@@ -134,25 +134,25 @@ export function UserProfilePage() {
                 <span className="text-sm text-text-secondary">{t(`member.${status}`, status)}</span>
               </div>
 
-              {/* Bot-specific info */}
-              {profile.isBot && profile.agent && (
+              {/* Buddy-specific info */}
+              {profile.isBot && profile.buddy && (
                 <>
                   {/* Online duration + rank */}
-                  {profile.agent.totalOnlineSeconds > 0 && (
+                  {profile.buddy.totalOnlineSeconds > 0 && (
                     <div className="flex items-center gap-3 mt-4 pt-4 border-t border-border-subtle">
                       <span className="text-sm text-text-muted">
-                        累计在线 {formatDuration(profile.agent.totalOnlineSeconds)}
+                        累计在线 {formatDuration(profile.buddy.totalOnlineSeconds)}
                       </span>
-                      <OnlineRank totalSeconds={profile.agent.totalOnlineSeconds} />
+                      <OnlineRank totalSeconds={profile.buddy.totalOnlineSeconds} />
                     </div>
                   )}
 
                   {/* Description */}
-                  {profile.agent.config?.description && (
+                  {profile.buddy.config?.description && (
                     <div className="mt-4 pt-4 border-t border-border-subtle">
                       <p className="text-xs uppercase tracking-wide text-text-muted mb-2">描述</p>
                       <p className="text-sm text-text-secondary whitespace-pre-wrap">
-                        {profile.agent.config.description}
+                        {profile.buddy.config.description}
                       </p>
                     </div>
                   )}
@@ -162,11 +162,11 @@ export function UserProfilePage() {
                     <p className="text-xs uppercase tracking-wide text-text-muted mb-2">主人</p>
                     <Link
                       to="/app/profile/$userId"
-                      params={{ userId: profile.agent.ownerId }}
+                      params={{ userId: profile.buddy.ownerId }}
                       className="flex items-center gap-3 p-2 rounded-xl hover:bg-bg-modifier-hover transition group"
                     >
                       <UserAvatar
-                        userId={profile.agent.ownerId}
+                        userId={profile.buddy.ownerId}
                         avatarUrl={profile.ownerProfile?.avatarUrl ?? null}
                         displayName={profile.ownerProfile?.displayName ?? '主人'}
                         size="sm"
@@ -187,46 +187,46 @@ export function UserProfilePage() {
                 </>
               )}
 
-              {/* Regular user: owned agents */}
-              {!profile.isBot && profile.ownedAgents.length > 0 && (
+              {/* Regular user: owned buddies */}
+              {!profile.isBot && profile.ownedBuddies.length > 0 && (
                 <div className="mt-6 pt-6 border-t border-border-subtle">
                   <h2 className="text-sm font-bold text-text-muted uppercase tracking-wide mb-3">
-                    拥有的 Buddy ({profile.ownedAgents.length})
+                    拥有的 Buddy ({profile.ownedBuddies.length})
                   </h2>
                   <div className="space-y-3">
-                    {profile.ownedAgents.map((agent) => (
+                    {profile.ownedBuddies.map((buddy) => (
                       <Link
-                        key={agent.id}
+                        key={buddy.id}
                         to="/app/profile/$userId"
-                        params={{ userId: agent.userId }}
+                        params={{ userId: buddy.userId }}
                         className="flex items-center gap-3 p-3 rounded-xl bg-bg-tertiary hover:bg-bg-modifier-hover transition group"
                       >
                         <div className="relative shrink-0">
                           <UserAvatar
-                            userId={agent.userId}
-                            avatarUrl={agent.botUser?.avatarUrl ?? null}
-                            displayName={agent.botUser?.displayName ?? 'Buddy'}
+                            userId={buddy.userId}
+                            avatarUrl={buddy.buddyUser?.avatarUrl ?? null}
+                            displayName={buddy.buddyUser?.displayName ?? 'Buddy'}
                             size="sm"
                           />
                           <div
-                            className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-bg-tertiary ${agent.status === 'running' ? 'bg-green-500' : 'bg-gray-500'}`}
+                            className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-bg-tertiary ${buddy.status === 'running' ? 'bg-green-500' : 'bg-gray-500'}`}
                           />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
                             <span className="text-sm font-medium text-text-primary truncate group-hover:text-primary transition">
-                              {agent.botUser?.displayName ?? agent.botUser?.username ?? 'Buddy'}
+                              {buddy.buddyUser?.displayName ?? buddy.buddyUser?.username ?? 'Buddy'}
                             </span>
                             <span className="text-[10px] bg-[#5865F2] text-white px-1.5 py-0.5 rounded-[3px] font-semibold shrink-0">
                               Buddy
                             </span>
                           </div>
-                          {agent.totalOnlineSeconds > 0 && (
+                          {buddy.totalOnlineSeconds > 0 && (
                             <div className="flex items-center gap-2 mt-0.5">
                               <span className="text-[11px] text-text-muted">
-                                在线 {formatDuration(agent.totalOnlineSeconds)}
+                                在线 {formatDuration(buddy.totalOnlineSeconds)}
                               </span>
-                              <OnlineRank totalSeconds={agent.totalOnlineSeconds} />
+                              <OnlineRank totalSeconds={buddy.totalOnlineSeconds} />
                             </div>
                           )}
                         </div>

@@ -9,7 +9,7 @@ import {
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core'
-import { agents } from './agents'
+import { buddies } from './agents'
 import { users } from './users'
 
 /* ──────────────── Enums ──────────────── */
@@ -44,8 +44,8 @@ export const clawListings = pgTable('claw_listings', {
   ownerId: uuid('owner_id')
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
-  /** Linked agent/buddy instance */
-  agentId: uuid('agent_id').references(() => agents.id, { onDelete: 'set null' }),
+  /** Linked buddy/buddy instance */
+  buddyId: uuid('agent_id').references(() => buddies.id, { onDelete: 'set null' }),
 
   /* ── Listing Info ── */
   title: varchar('title', { length: 200 }).notNull(),
@@ -165,7 +165,7 @@ export const rentalContracts = pgTable('rental_contracts', {
 
   /* ── Running Cost ── */
   totalCost: integer('total_cost').default(0).notNull(),
-  /** Agent's totalOnlineSeconds snapshot at last auto-billing (v1 only) */
+  /** Buddy's totalOnlineSeconds snapshot at last auto-billing (v1 only) */
   lastBilledOnlineSeconds: integer('last_billed_online_seconds').default(0).notNull(),
 
   /* ── Billing v2 Fields ── */

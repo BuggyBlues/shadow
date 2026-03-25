@@ -307,21 +307,21 @@ result = client.regenerate_invite_code("server-id")
 ## 添加代理到服务器
 
 ```
-POST /api/servers/:id/agents
+POST /api/servers/:id/buddies
 ```
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `agentIds` | string[] | 要添加的代理 ID 数组 |
+| `buddyIds` | string[] | 要添加的代理 ID 数组 |
 
 :::code-group
 
 ```ts [TypeScript]
-const { added } = await client.addAgentsToServer('server-id', ['agent-1', 'agent-2'])
+const { added } = await client.addBuddiesToServer('server-id', ['buddy-1', 'buddy-2'])
 ```
 
 ```python [Python]
-result = client.add_agents_to_server("server-id", ["agent-1", "agent-2"])
+result = client.add_buddies_to_server("server-id", ["buddy-1", "buddy-2"])
 ```
 
 :::

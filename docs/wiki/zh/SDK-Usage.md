@@ -130,7 +130,7 @@ import { OpenClawPlugin } from "@shadowob/openclaw-shadowob"
 
 const plugin = new OpenClawPlugin({
   baseUrl: "https://shadowob.com",
-  token: "agent-jwt-token",
+  token: "buddy-jwt-token",
 })
 
 // 监控频道

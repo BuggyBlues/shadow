@@ -89,7 +89,7 @@ export function UserProfileCard({
           </button>
           {user.isBot && (
             <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-medium shrink-0">
-              {t('common.bot')}
+              {t('common.buddy')}
             </span>
           )}
         </div>
@@ -118,7 +118,7 @@ export function UserProfileCard({
           </span>
         </div>
 
-        {/* Online duration + rank (bot only) */}
+        {/* Online duration + rank (buddy only) */}
         {user.isBot && totalOnlineSeconds != null && totalOnlineSeconds > 0 && (
           <div className="flex items-center justify-between mt-2">
             <span className="text-[11px] text-text-muted">

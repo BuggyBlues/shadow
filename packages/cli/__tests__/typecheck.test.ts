@@ -73,7 +73,7 @@ describe('SDK Method Signatures', () => {
     >()
     expectTypeOf<ShadowClient['createListing']>().toEqualTypeOf<
       (data: {
-        agentId: string
+        buddyId: string
         pricePerHour: number
         title: string
         description?: string

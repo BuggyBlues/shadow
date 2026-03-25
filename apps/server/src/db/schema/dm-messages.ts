@@ -14,7 +14,7 @@ export const dmMessages = pgTable('dm_messages', {
     .references(() => users.id, { onDelete: 'cascade' }),
   replyToId: uuid('reply_to_id'),
   isEdited: boolean('is_edited').default(false).notNull(),
-  /** Metadata for agent chains, custom data, etc. */
+  /** Metadata for buddy chains, custom data, etc. */
   metadata: jsonb('metadata').$type<MessageMetadata>(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),

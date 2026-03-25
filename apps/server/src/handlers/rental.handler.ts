@@ -59,7 +59,7 @@ export function createRentalHandler(container: AppContainer) {
   h.get('/marketplace/my-listings', async (c) => {
     const user = c.get('user')
     const rentalService = container.resolve('rentalService')
-    const agentDao = container.resolve('agentDao')
+    const buddyDao = container.resolve('buddyDao')
     const limit = Number(c.req.query('limit') || '50')
     const offset = Number(c.req.query('offset') || '0')
     const listings = await rentalService.getMyListings(user.userId, { limit, offset })
@@ -69,27 +69,27 @@ export function createRentalHandler(container: AppContainer) {
       (l) => l.listingStatus === 'active' && l.isListed === true && l.isRented === false,
     )
 
-    // Enrich listings with agent status
+    // Enrich listings with buddy status
     const enriched = await Promise.all(
       filtered.map(async (l) => {
-        let agent: {
+        let buddy: {
           status: string
           lastHeartbeat: Date | null
           totalOnlineSeconds: number
         } | null = null
-        if (l.agentId) {
-          const agentData = await agentDao.findById(l.agentId)
-          if (agentData) {
-            agent = {
-              status: agentData.status,
-              lastHeartbeat: agentData.lastHeartbeat,
-              totalOnlineSeconds: agentData.totalOnlineSeconds,
+        if (l.buddyId) {
+          const buddyData = await buddyDao.findById(l.buddyId)
+          if (buddyData) {
+            buddy = {
+              status: buddyData.status,
+              lastHeartbeat: buddyData.lastHeartbeat,
+              totalOnlineSeconds: buddyData.totalOnlineSeconds,
             }
           }
         }
         return {
           ...l,
-          agent,
+          buddy,
         }
       }),
     )
@@ -158,7 +158,7 @@ export function createRentalHandler(container: AppContainer) {
     const user = c.get('user')
     const rentalService = container.resolve('rentalService')
     const clawListingDao = container.resolve('clawListingDao')
-    const agentDao = container.resolve('agentDao')
+    const buddyDao = container.resolve('buddyDao')
     const role = c.req.query('role') as 'tenant' | 'owner' | undefined
     const status = c.req.query('status')
     const limit = Number(c.req.query('limit') || '50')
@@ -169,21 +169,21 @@ export function createRentalHandler(container: AppContainer) {
       limit,
       offset,
     })
-    // Enrich each contract with listing summary and agent bot user ID
+    // Enrich each contract with listing summary and buddy buddy user ID
     const enriched = await Promise.all(
       contracts.map(async (contract) => {
         const listing = await clawListingDao.findById(contract.listingId)
-        let agentUserId: string | null = null
-        if (listing?.agentId) {
-          const agent = await agentDao.findById(listing.agentId)
-          if (agent) agentUserId = agent.userId
+        let buddyUserId: string | null = null
+        if (listing?.buddyId) {
+          const buddy = await buddyDao.findById(listing.buddyId)
+          if (buddy) buddyUserId = buddy.userId
         }
         return {
           ...contract,
           listing: listing
             ? { title: listing.title, deviceTier: listing.deviceTier, osType: listing.osType }
             : null,
-          agentUserId,
+          buddyUserId,
         }
       }),
     )
@@ -195,25 +195,25 @@ export function createRentalHandler(container: AppContainer) {
     const user = c.get('user')
     const rentalService = container.resolve('rentalService')
     const clawListingDao = container.resolve('clawListingDao')
-    const agentDao = container.resolve('agentDao')
+    const buddyDao = container.resolve('buddyDao')
     const detail = await rentalService.getContractDetail(c.req.param('contractId'))
     // Ensure the user is a party to the contract
     if (detail.tenantId !== user.userId && detail.ownerId !== user.userId) {
       throw Object.assign(new Error('Not a party to this contract'), { status: 403 })
     }
-    // Enrich with listing summary and agent bot user ID
+    // Enrich with listing summary and buddy buddy user ID
     const listing = await clawListingDao.findById(detail.listingId)
-    let agentUserId: string | null = null
-    if (listing?.agentId) {
-      const agent = await agentDao.findById(listing.agentId)
-      if (agent) agentUserId = agent.userId
+    let buddyUserId: string | null = null
+    if (listing?.buddyId) {
+      const buddy = await buddyDao.findById(listing.buddyId)
+      if (buddy) buddyUserId = buddy.userId
     }
     return c.json({
       ...detail,
       listing: listing
         ? { title: listing.title, deviceTier: listing.deviceTier, osType: listing.osType }
         : null,
-      agentUserId,
+      buddyUserId,
     })
   })
 
@@ -238,31 +238,31 @@ export function createRentalHandler(container: AppContainer) {
      Usage & Billing
      ══════════════════════════════════════════ */
 
-  /** Check if chat is disabled for an agent bot user (listed or rented-out).
+  /** Check if chat is disabled for a buddy buddy user (listed or rented-out).
    *  Also returns rental info when the requesting user is the active tenant. */
-  h.get('/marketplace/agent-chat-status/:agentUserId', async (c) => {
-    const agentDao = container.resolve('agentDao')
+  h.get('/marketplace/buddy-chat-status/:buddyUserId', async (c) => {
+    const buddyDao = container.resolve('buddyDao')
     const clawListingDao = container.resolve('clawListingDao')
     const rentalContractDao = container.resolve('rentalContractDao')
     const user = c.get('user')
-    const agentUserId = c.req.param('agentUserId')
+    const buddyUserId = c.req.param('buddyUserId')
 
-    // Find agent by userId
-    const agent = await agentDao.findByUserId(agentUserId)
-    if (!agent) {
+    // Find buddy by userId
+    const buddy = await buddyDao.findByUserId(buddyUserId)
+    if (!buddy) {
       return c.json({ chatDisabled: false })
     }
 
-    // Check if agent has any listing
-    const listings = await clawListingDao.findByOwnerId(agent.ownerId)
-    const agentListing = listings.find((l) => l.agentId === agent.id)
-    if (!agentListing) {
-      // No listing for this agent - always allow chat
+    // Check if buddy has any listing
+    const listings = await clawListingDao.findByOwnerId(buddy.ownerId)
+    const buddyListing = listings.find((l) => l.buddyId === buddy.id)
+    if (!buddyListing) {
+      // No listing for this buddy - always allow chat
       return c.json({ chatDisabled: false })
     }
 
-    const isListed = agentListing.isListed && agentListing.listingStatus === 'active'
-    const activeContract = await rentalContractDao.findActiveByListingId(agentListing.id)
+    const isListed = buddyListing.isListed && buddyListing.listingStatus === 'active'
+    const activeContract = await rentalContractDao.findActiveByListingId(buddyListing.id)
     const isRentedOut = !!activeContract
 
     // If the requesting user is the active tenant, chat is ENABLED + return rental info
@@ -280,7 +280,7 @@ export function createRentalHandler(container: AppContainer) {
       })
     }
 
-    // Agent is listed or rented out - chat is disabled for everyone (including owner)
+    // Buddy is listed or rented out - chat is disabled for everyone (including owner)
     if (isRentedOut) {
       return c.json({ chatDisabled: true, reason: 'rented_out' })
     }
@@ -288,16 +288,16 @@ export function createRentalHandler(container: AppContainer) {
       return c.json({ chatDisabled: true, reason: 'listed' })
     }
 
-    // Agent has a listing but not listed and no active contract
+    // Buddy has a listing but not listed and no active contract
     // Owner can chat, but non-owner cannot (rental expired)
-    if (agent.ownerId === user.userId) {
+    if (buddy.ownerId === user.userId) {
       return c.json({ chatDisabled: false })
     }
 
     return c.json({ chatDisabled: true, reason: 'expired' })
   })
 
-  /** Record a usage session (typically called by the system/agent) */
+  /** Record a usage session (typically called by the system/buddy) */
   h.post(
     '/marketplace/contracts/:contractId/usage',
     zValidator('json', recordUsageSchema),

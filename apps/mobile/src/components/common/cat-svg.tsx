@@ -13,7 +13,7 @@ const AnimatedRect = Animated.createAnimatedComponent(Rect)
 const _AnimatedCircle = Animated.createAnimatedComponent(Circle)
 
 // Members: Abstract people group icon
-export function AgentCatSvg({
+export function BuddyCatSvg({
   width = 100,
   height = 100,
   style,

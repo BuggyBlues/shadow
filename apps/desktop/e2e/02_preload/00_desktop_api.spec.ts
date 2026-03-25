@@ -51,20 +51,20 @@ test('desktopAPI exposes window methods', async () => {
   expect(methods.minimizeToTray).toBe('function')
 })
 
-test('desktopAPI exposes agent management methods', async () => {
+test('desktopAPI exposes buddy management methods', async () => {
   const methods = await page.evaluate(() => {
     const api = (window as any).desktopAPI
     return {
-      startAgent: typeof api.startAgent,
-      stopAgent: typeof api.stopAgent,
-      getAgentStatus: typeof api.getAgentStatus,
-      listAgents: typeof api.listAgents,
+      startBuddy: typeof api.startBuddy,
+      stopBuddy: typeof api.stopBuddy,
+      getBuddyStatus: typeof api.getBuddyStatus,
+      listBuddies: typeof api.listBuddies,
     }
   })
-  expect(methods.startAgent).toBe('function')
-  expect(methods.stopAgent).toBe('function')
-  expect(methods.getAgentStatus).toBe('function')
-  expect(methods.listAgents).toBe('function')
+  expect(methods.startBuddy).toBe('function')
+  expect(methods.stopBuddy).toBe('function')
+  expect(methods.getBuddyStatus).toBe('function')
+  expect(methods.listBuddies).toBe('function')
 })
 
 test('desktopAPI exposes event listener methods', async () => {
@@ -72,11 +72,11 @@ test('desktopAPI exposes event listener methods', async () => {
     const api = (window as any).desktopAPI
     return {
       onNavigateToChannel: typeof api.onNavigateToChannel,
-      onAgentMessage: typeof api.onAgentMessage,
-      onAgentExited: typeof api.onAgentExited,
+      onBuddyMessage: typeof api.onBuddyMessage,
+      onBuddyExited: typeof api.onBuddyExited,
     }
   })
   expect(methods.onNavigateToChannel).toBe('function')
-  expect(methods.onAgentMessage).toBe('function')
-  expect(methods.onAgentExited).toBe('function')
+  expect(methods.onBuddyMessage).toBe('function')
+  expect(methods.onBuddyExited).toBe('function')
 })

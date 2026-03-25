@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { GatewayStatus } from '../../lib/openclaw-api'
 import { openClawApi } from '../../lib/openclaw-api'
-import { AgentsPage } from './agents'
+import { BuddiesPage } from './buddies'
 import { BuddyPage } from './buddy'
 import { ChannelsPage } from './channels'
 import { CronPage } from './cron'
@@ -27,7 +27,7 @@ import { SkillHubPage } from './skillhub'
 export type { OpenClawPageId }
 
 export interface NavContext {
-  initialAgentId?: string
+  initialBuddyId?: string
   returnTo?: OpenClawPageId
 }
 
@@ -52,14 +52,14 @@ export function OpenClawPage() {
     }
   }, [])
 
-  // Check if onboarding is needed (no agents and no providers configured)
+  // Check if onboarding is needed (no buddies and no providers configured)
   useEffect(() => {
     if (!openClawApi.isAvailable || initialChecked) return
-    Promise.all([openClawApi.listAgents(), openClawApi.listModels()])
-      .then(([agents, models]) => {
-        const hasAgents = agents.length > 0
+    Promise.all([openClawApi.listBuddies(), openClawApi.listModels()])
+      .then(([buddies, models]) => {
+        const hasBuddies = buddies.length > 0
         const hasProviders = Object.keys(models).length > 0
-        if (!hasAgents && !hasProviders) {
+        if (!hasBuddies && !hasProviders) {
           setActivePage('onboard')
         }
       })
@@ -84,8 +84,8 @@ export function OpenClawPage() {
         <ChannelsPage />
       ) : activePage === 'models' ? (
         <ModelsPage />
-      ) : activePage === 'agents' ? (
-        <AgentsPage onNavigate={navigate} />
+      ) : activePage === 'buddies' ? (
+        <BuddiesPage onNavigate={navigate} />
       ) : activePage === 'cron' ? (
         <CronPage />
       ) : activePage === 'buddy' ? (

@@ -40,7 +40,7 @@ interface ListingOwner {
 interface Listing {
   id: string
   ownerId: string
-  agentId: string | null
+  buddyId: string | null
   title: string
   description: string | null
   skills: string[]

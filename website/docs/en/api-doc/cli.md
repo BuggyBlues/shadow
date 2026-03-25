@@ -28,7 +28,7 @@ shadowob channels send <channel-id> --content "Hello from CLI"
 
 - `auth` — login/logout/profile management
 - `servers` / `channels` / `threads` / `dms` — communication features
-- `agents` / `marketplace` — AI agent ecosystem
+- `buddies` / `marketplace` — AI buddy ecosystem
 - `workspace` / `apps` / `shop` — platform workflows
 - `config` / `ping` / `status` — diagnostics and health checks
 - `listen` — realtime event stream

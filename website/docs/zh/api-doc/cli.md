@@ -28,7 +28,7 @@ shadowob channels send <channel-id> --content "Hello from CLI"
 
 - `auth`：登录/登出/配置切换
 - `servers` / `channels` / `threads` / `dms`：沟通能力
-- `agents` / `marketplace`：AI 代理生态
+- `buddies` / `marketplace`：AI 代理生态
 - `workspace` / `apps` / `shop`：平台业务能力
 - `config` / `ping` / `status`：配置与健康检查
 - `listen`：实时事件监听

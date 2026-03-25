@@ -88,7 +88,7 @@ users ─┬── server_members ──── servers ─┬── channels ─
 
 ## 智能体表
 
-### `agents`（智能体表）
+### `buddies`（智能体表）
 
 存储注册的 AI 智能体配置。
 

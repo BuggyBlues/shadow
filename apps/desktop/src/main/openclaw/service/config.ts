@@ -8,17 +8,17 @@
  * - Read/write openclaw.json with in-memory caching
  * - File watcher for external CLI edits (SIGHUP, manual edits)
  * - Preserve unknown fields (OpenClaw uses zod strict schemas)
- * - Agent, Model, Channel, Cron, Skill sub-config CRUD
- * - Bootstrap file management per agent
+ * - Buddy, Model, Channel, Cron, Skill sub-config CRUD
+ * - Bootstrap file management per buddy
  */
 
 import { chmodSync, existsSync, mkdirSync, readFileSync, watch, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { AgentConfig, ModelProviderEntry, OpenClawConfig, SkillManifest } from '../types'
+import type { BuddyConfig, ModelProviderEntry, OpenClawConfig, SkillManifest } from '../types'
 import type { OpenClawPaths } from './paths'
 
 export type BootstrapFileName =
-  | 'AGENTS.md'
+  | 'BUDDIES.md'
   | 'SOUL.md'
   | 'IDENTITY.md'
   | 'TOOLS.md'
@@ -26,7 +26,7 @@ export type BootstrapFileName =
   | 'HEARTBEAT.md'
   | 'BOOT.md'
 const VALID_BOOTSTRAP_FILES = new Set<string>([
-  'AGENTS.md',
+  'BUDDIES.md',
   'SOUL.md',
   'IDENTITY.md',
   'TOOLS.md',
@@ -88,14 +88,14 @@ export class ConfigService {
 
       const cfg: OpenClawConfig = {
         ...parsed,
-        agents: {
-          ...defaults.agents,
-          ...(parsed.agents && typeof parsed.agents === 'object'
-            ? (parsed.agents as Record<string, unknown>)
+        buddies: {
+          ...defaults.buddies,
+          ...(parsed.buddies && typeof parsed.buddies === 'object'
+            ? (parsed.buddies as Record<string, unknown>)
             : {}),
-          list: Array.isArray((parsed.agents as Record<string, unknown>)?.list)
-            ? ((parsed.agents as Record<string, unknown>).list as AgentConfig[])
-            : defaults.agents.list,
+          list: Array.isArray((parsed.buddies as Record<string, unknown>)?.list)
+            ? ((parsed.buddies as Record<string, unknown>).list as BuddyConfig[])
+            : defaults.buddies.list,
         },
         plugins: {
           ...defaults.plugins,
@@ -150,40 +150,40 @@ export class ConfigService {
     for (const cb of this.changeCallbacks) cb(config)
   }
 
-  // ─── Agents ───────────────────────────────────────────────────────────────
+  // ─── Agents ────────────────────────────────────────────────────────────────
 
-  getAgents(): AgentConfig[] {
-    return this.read().agents.list
+  getBuddys(): BuddyConfig[] {
+    return this.read().buddies.list
   }
 
-  getAgent(id: string): AgentConfig | null {
-    return this.read().agents.list.find((a) => a.id === id) ?? null
+  getBuddy(id: string): BuddyConfig | null {
+    return this.read().buddies.list.find((a) => a.id === id) ?? null
   }
 
-  createAgent(agent: AgentConfig): void {
+  createBuddy(buddy: BuddyConfig): void {
     const cfg = this.read()
-    if (cfg.agents.list.some((a) => a.id === agent.id)) {
-      throw new Error(`Agent '${agent.id}' already exists`)
+    if (cfg.buddies.list.some((a) => a.id === buddy.id)) {
+      throw new Error(`Buddy '${buddy.id}' already exists`)
     }
-    // Auto-set workspace for non-main agents so each agent has isolated files
-    if (agent.id !== 'main' && !agent.workspace) {
-      agent.workspace = join(this.paths.workspaceDir, agent.id)
+    // Auto-set workspace for non-main buddies so each buddy has isolated files
+    if (buddy.id !== 'main' && !buddy.workspace) {
+      buddy.workspace = join(this.paths.workspaceDir, buddy.id)
     }
-    cfg.agents.list.push(agent)
+    cfg.buddies.list.push(buddy)
     this.write(cfg)
   }
 
-  updateAgent(id: string, updates: Partial<AgentConfig>): void {
+  updateBuddy(id: string, updates: Partial<BuddyConfig>): void {
     const cfg = this.read()
-    const idx = cfg.agents.list.findIndex((a) => a.id === id)
-    if (idx === -1) throw new Error(`Agent '${id}' not found`)
-    cfg.agents.list[idx] = { ...cfg.agents.list[idx], ...updates, id }
+    const idx = cfg.buddies.list.findIndex((a) => a.id === id)
+    if (idx === -1) throw new Error(`Buddy '${id}' not found`)
+    cfg.buddies.list[idx] = { ...cfg.buddies.list[idx], ...updates, id }
     this.write(cfg)
   }
 
-  deleteAgent(id: string): void {
+  deleteBuddy(id: string): void {
     const cfg = this.read()
-    cfg.agents.list = cfg.agents.list.filter((a) => a.id !== id)
+    cfg.buddies.list = cfg.buddies.list.filter((a) => a.id !== id)
     this.write(cfg)
   }
 
@@ -211,7 +211,7 @@ export class ConfigService {
   /** Get the default model as "providerId/modelId" */
   getDefaultModel(): string | null {
     const cfg = this.read()
-    const model = (cfg.agents as Record<string, unknown>)?.defaults as
+    const model = (cfg.buddies as Record<string, unknown>)?.defaults as
       | Record<string, unknown>
       | undefined
     const modelEntry = model?.model
@@ -225,10 +225,10 @@ export class ConfigService {
   /** Set the default model as "providerId/modelId" */
   setDefaultModel(modelKey: string): void {
     const cfg = this.read()
-    if (!cfg.agents) (cfg as Record<string, unknown>).agents = { list: [], defaults: {} }
-    const agents = cfg.agents as Record<string, unknown>
-    if (!agents.defaults) agents.defaults = {}
-    const defaults = agents.defaults as Record<string, unknown>
+    if (!cfg.buddies) (cfg as Record<string, unknown>).buddies = { list: [], defaults: {} }
+    const buddies = cfg.buddies as Record<string, unknown>
+    if (!buddies.defaults) buddies.defaults = {}
+    const defaults = buddies.defaults as Record<string, unknown>
     const existing = defaults.model
     if (existing && typeof existing === 'object') {
       ;(existing as Record<string, unknown>).primary = modelKey
@@ -303,30 +303,30 @@ export class ConfigService {
 
   // ─── Bootstrap Files ─────────────────────────────────────────────────────
 
-  listBootstrapFiles(agentId: string): { fileName: BootstrapFileName; exists: boolean }[] {
-    const agentDir = this.paths.agentDir(agentId)
+  listBootstrapFiles(buddyId: string): { fileName: BootstrapFileName; exists: boolean }[] {
+    const buddyDir = this.paths.buddyDir(buddyId)
     return Array.from(VALID_BOOTSTRAP_FILES).map((fileName) => ({
       fileName: fileName as BootstrapFileName,
-      exists: existsSync(join(agentDir, fileName)),
+      exists: existsSync(join(buddyDir, fileName)),
     }))
   }
 
-  readBootstrapFile(agentId: string, fileName: BootstrapFileName): string | null {
+  readBootstrapFile(buddyId: string, fileName: BootstrapFileName): string | null {
     if (!VALID_BOOTSTRAP_FILES.has(fileName)) return null
-    const filePath = this.paths.bootstrapFile(agentId, fileName)
+    const filePath = this.paths.bootstrapFile(buddyId, fileName)
     if (!existsSync(filePath)) return null
     return readFileSync(filePath, 'utf-8')
   }
 
-  writeBootstrapFile(agentId: string, fileName: BootstrapFileName, content: string): void {
+  writeBootstrapFile(buddyId: string, fileName: BootstrapFileName, content: string): void {
     if (!VALID_BOOTSTRAP_FILES.has(fileName)) {
       throw new Error(`Invalid bootstrap file: ${fileName}`)
     }
-    const agentDir = this.paths.agentDir(agentId)
-    if (!existsSync(agentDir)) {
-      mkdirSync(agentDir, { recursive: true })
+    const buddyDir = this.paths.buddyDir(buddyId)
+    if (!existsSync(buddyDir)) {
+      mkdirSync(buddyDir, { recursive: true })
     }
-    writeFileSync(this.paths.bootstrapFile(agentId, fileName), content, 'utf-8')
+    writeFileSync(this.paths.bootstrapFile(buddyId, fileName), content, 'utf-8')
   }
 
   // ─── Installed Skills (reads from disk) ───────────────────────────────────
@@ -445,14 +445,14 @@ export class ConfigService {
     this.write(config)
   }
 
-  // ─── Bindings (multi-agent routing) ─────────────────────────────────────
+  // ─── Bindings (multi-buddy routing) ─────────────────────────────────────
 
   /**
    * Add a binding that routes inbound messages from a (channel, accountId) pair
-   * to a specific local agent. Uses OpenClaw's native `bindings` array so that
-   * resolveAgentRoute() returns the correct agentId AND sessionKey.
+   * to a specific local buddy. Uses OpenClaw's native `bindings` array so that
+   * resolveBuddyRoute() returns the correct buddyId AND sessionKey.
    */
-  addAgentBinding(agentId: string, channel: string, accountId: string): void {
+  addBuddyBinding(buddyId: string, channel: string, accountId: string): void {
     const config = this.read()
     if (!config.bindings) config.bindings = []
 
@@ -462,7 +462,7 @@ export class ConfigService {
     )
 
     config.bindings.push({
-      agentId,
+      buddyId,
       match: { channel, accountId },
     })
     this.write(config)
@@ -470,16 +470,16 @@ export class ConfigService {
 
   /**
    * Remove all bindings matching the given channel and/or accountId.
-   * If only channel is specified, removes all bindings for that channel+agent.
+   * If only channel is specified, removes all bindings for that channel+buddy.
    */
-  removeAgentBindings(params: { agentId?: string; channel?: string; accountId?: string }): void {
+  removeBuddyBindings(params: { buddyId?: string; channel?: string; accountId?: string }): void {
     const config = this.read()
     if (!config.bindings?.length) return
 
     config.bindings = config.bindings.filter((b) => {
       if (params.channel && b.match.channel !== params.channel) return true
       if (params.accountId && b.match.accountId !== params.accountId) return true
-      if (params.agentId && b.agentId !== params.agentId) return true
+      if (params.buddyId && b.buddyId !== params.buddyId) return true
       return false
     })
     this.write(config)
@@ -563,15 +563,15 @@ export class ConfigService {
       dirty = true
     }
 
-    // 6b. Strip localAgentId from channel accounts (desktop-only, not part of OpenClaw schema)
+    // 6b. Strip localBuddyId from channel accounts (desktop-only, not part of OpenClaw schema)
     const shadowBlock = (cfg.channels?.shadowob ?? cfg.channels?.['openclaw-shadowob']) as
       | Record<string, unknown>
       | undefined
     if (shadowBlock?.accounts && typeof shadowBlock.accounts === 'object') {
       const accounts = shadowBlock.accounts as Record<string, Record<string, unknown>>
       for (const acct of Object.values(accounts)) {
-        if ('localAgentId' in acct) {
-          delete acct.localAgentId
+        if ('localBuddyId' in acct) {
+          delete acct.localBuddyId
           dirty = true
         }
       }
@@ -583,15 +583,15 @@ export class ConfigService {
       dirty = true
     }
 
-    // 8.5 Migrate accountAgentMap → bindings (OpenClaw native multi-agent routing)
-    // Step A: collect all accountAgentMap entries from both old locations
-    const oldPluginMap = (cfg.plugins.entries?.['openclaw-shadowob']?.config?.accountAgentMap ??
-      cfg.plugins.entries?.shadowob?.config?.accountAgentMap) as Record<string, string> | undefined
+    // 8.5 Migrate accountBuddyMap → bindings (OpenClaw native multi-agent routing)
+    // Step A: collect all accountBuddyMap entries from both old locations
+    const oldPluginMap = (cfg.plugins.entries?.['openclaw-shadowob']?.config?.accountBuddyMap ??
+      cfg.plugins.entries?.shadowob?.config?.accountBuddyMap) as Record<string, string> | undefined
     const sb = (cfg.channels?.shadowob ?? cfg.channels?.['openclaw-shadowob'] ?? {}) as Record<
       string,
       unknown
     >
-    const channelMap = sb.accountAgentMap as Record<string, string> | undefined
+    const channelMap = sb.accountBuddyMap as Record<string, string> | undefined
 
     const allMappings: Record<string, string> = { ...oldPluginMap, ...channelMap }
 
@@ -606,21 +606,21 @@ export class ConfigService {
         )
         if (!exists) {
           cfg.bindings.push({
-            agentId: agId,
+            buddyId: agId,
             match: { channel: 'shadowob', accountId: accId },
           })
         }
       }
 
-      // Clean up old accountAgentMap from both locations
-      if (cfg.plugins.entries?.['openclaw-shadowob']?.config?.accountAgentMap) {
-        delete cfg.plugins.entries['openclaw-shadowob'].config!.accountAgentMap
+      // Clean up old accountBuddyMap from both locations
+      if (cfg.plugins.entries?.['openclaw-shadowob']?.config?.accountBuddyMap) {
+        delete cfg.plugins.entries['openclaw-shadowob'].config!.accountBuddyMap
       }
-      if (cfg.plugins.entries?.shadowob?.config?.accountAgentMap) {
-        delete cfg.plugins.entries.shadowob.config!.accountAgentMap
+      if (cfg.plugins.entries?.shadowob?.config?.accountBuddyMap) {
+        delete cfg.plugins.entries.shadowob.config!.accountBuddyMap
       }
       if (channelMap) {
-        delete (sb as Record<string, unknown>).accountAgentMap
+        delete (sb as Record<string, unknown>).accountBuddyMap
         cfg.channels = { ...(cfg.channels ?? {}), shadowob: sb }
       }
       dirty = true
@@ -646,10 +646,10 @@ export class ConfigService {
       dirty = true
     }
 
-    // 8.8 Ensure non-main agents have workspace set (multi-agent isolation)
-    for (const agent of cfg.agents.list) {
-      if (agent.id !== 'main' && !agent.workspace) {
-        agent.workspace = join(this.paths.workspaceDir, agent.id)
+    // 8.8 Ensure non-main buddies have workspace set (multi-buddy isolation)
+    for (const buddy of cfg.buddies.list) {
+      if (buddy.id !== 'main' && !buddy.workspace) {
+        buddy.workspace = join(this.paths.workspaceDir, buddy.id)
         dirty = true
       }
     }
@@ -686,8 +686,8 @@ export class ConfigService {
         mode: 'local',
         auth: { token: authToken },
       },
-      agents: {
-        list: [{ id: 'main', name: 'Main Agent' }],
+      buddies: {
+        list: [{ id: 'main', name: 'Main Buddy' }],
         defaults: {
           model: { primary: 'gpt-4o' },
           workspace: this.paths.workspaceDir,

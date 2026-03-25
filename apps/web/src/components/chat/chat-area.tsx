@@ -26,7 +26,7 @@ import { showToast } from '../../lib/toast'
 import { useAuthStore } from '../../stores/auth.store'
 import { useChatStore } from '../../stores/chat.store'
 import { useUIStore } from '../../stores/ui.store'
-import { AddAgentDialog, InvitePanel } from '../member/member-list'
+import { InvitePanel, MemberAddBuddyDialog } from '../member/member-list'
 import { NotificationBell } from '../notification/notification-bell'
 import { type PickerResult, WorkspaceFilePicker } from '../workspace'
 import { FilePreviewPanel } from './file-preview-panel'
@@ -400,7 +400,7 @@ export function ChatArea() {
     }
   })
 
-  // Listen for agent activity status
+  // Listen for buddy activity status
   useSocketEvent(
     'presence:activity',
     (data: { userId: string; activity: string | null; channelId: string }) => {
@@ -866,7 +866,7 @@ export function ChatArea() {
           </div>
         )}
 
-        {/* Agent activity indicator */}
+        {/* Buddy activity indicator */}
         {activityUsers.length > 0 && (
           <div className="px-4 py-1 text-xs text-text-muted flex items-center gap-1">
             <span className="relative flex h-2 w-2">
@@ -1004,7 +1004,7 @@ function EmptyChannelState({
       )}
 
       {showAddBuddy && serverId && (
-        <AddAgentDialog
+        <MemberAddBuddyDialog
           serverId={serverId}
           channelId={channelId ?? undefined}
           onClose={() => setShowAddBuddy(false)}

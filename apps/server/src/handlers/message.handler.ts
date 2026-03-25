@@ -79,7 +79,7 @@ export function createMessageHandler(container: AppContainer) {
   // DELETE /api/messages/:id
   messageHandler.delete('/messages/:id', async (c) => {
     const messageService = container.resolve('messageService')
-    const agentDao = container.resolve('agentDao')
+    const buddyDao = container.resolve('buddyDao')
     const id = c.req.param('id')
     const user = c.get('user')
 
@@ -90,8 +90,8 @@ export function createMessageHandler(container: AppContainer) {
     let canDelete = message.authorId === user.userId
     if (!canDelete && message.authorId) {
       // Check if the message author is a bot owned by the requester
-      const agent = await agentDao.findByUserId(message.authorId)
-      if (agent && agent.ownerId === user.userId) {
+      const buddy = await buddyDao.findByUserId(message.authorId)
+      if (buddy && buddy.ownerId === user.userId) {
         canDelete = true
       }
     }

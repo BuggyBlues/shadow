@@ -60,11 +60,11 @@ interface Member {
   role: string
 }
 
-interface BuddyAgent {
+interface BuddyMember {
   id: string
   ownerId: string
   userId: string
-  botUser?: {
+  buddyUser?: {
     id: string
     username: string
     displayName?: string | null
@@ -73,7 +73,7 @@ interface BuddyAgent {
 }
 
 type ChannelType = 'text' | 'voice' | 'announcement'
-type ActiveTab = 'bots' | 'members' | 'myAgents'
+type ActiveTab = 'bots' | 'members' | 'myBuddies'
 
 export default function CreateChannelScreen() {
   const { serverSlug } = useLocalSearchParams<{ serverSlug: string }>()
@@ -94,7 +94,7 @@ export default function CreateChannelScreen() {
   const [categoryId, setCategoryId] = useState<string | null>(null)
   const [memberSearch, setMemberSearch] = useState('')
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set())
-  const [selectedAgents, setSelectedAgents] = useState<Set<string>>(new Set())
+  const [selectedBuddys, setSelectedBuddys] = useState<Set<string>>(new Set())
   const [activeTab, setActiveTab] = useState<ActiveTab>('bots')
 
   const { data: server, isLoading: isServerLoading } = useQuery({
@@ -115,9 +115,9 @@ export default function CreateChannelScreen() {
     enabled: !!server?.id,
   })
 
-  const { data: myAgents = [] } = useQuery({
-    queryKey: ['my-agents-for-channel-create'],
-    queryFn: () => fetchApi<BuddyAgent[]>('/api/agents'),
+  const { data: myBuddies = [] } = useQuery({
+    queryKey: ['my-buddies-for-channel-create'],
+    queryFn: () => fetchApi<BuddyMember[]>('/api/buddies'),
   })
 
   const selectableMembers = useMemo(() => {
@@ -142,27 +142,27 @@ export default function CreateChannelScreen() {
       })
   }, [members, memberSearch])
 
-  const serverBotUserIds = useMemo(
+  const serverBuddyUserIds = useMemo(
     () => new Set(members.filter((m) => m.user.isBot).map((m) => m.user.id)),
     [members],
   )
 
-  const selectableMyAgents = useMemo(() => {
+  const selectableMyBuddies = useMemo(() => {
     const q = memberSearch.toLowerCase()
-    return myAgents
-      .filter((agent) => agent.botUser && !serverBotUserIds.has(agent.botUser.id))
-      .filter((agent) => {
+    return myBuddies
+      .filter((buddy) => buddy.buddyUser && !serverBuddyUserIds.has(buddy.buddyUser.id))
+      .filter((buddy) => {
         if (!q) return true
         const displayName = (
-          agent.botUser?.displayName ||
-          agent.botUser?.username ||
+          buddy.buddyUser?.displayName ||
+          buddy.buddyUser?.username ||
           ''
         ).toLowerCase()
         return displayName.includes(q)
       })
-  }, [memberSearch, myAgents, serverBotUserIds])
+  }, [memberSearch, myBuddies, serverBuddyUserIds])
 
-  const selectionCount = selectedMembers.size + selectedAgents.size
+  const selectionCount = selectedMembers.size + selectedBuddys.size
 
   const channelTypeLabel = (type: ChannelType) => {
     switch (type) {
@@ -194,10 +194,10 @@ export default function CreateChannelScreen() {
       if (member) names.push(member.user.displayName || member.user.username)
     })
 
-    selectedAgents.forEach((agentId) => {
-      const agent = myAgents.find((item) => item.id === agentId)
-      if (agent?.botUser) {
-        names.push(agent.botUser.displayName || agent.botUser.username || 'Buddy')
+    selectedBuddys.forEach((buddyId) => {
+      const buddy = myBuddies.find((item) => item.id === buddyId)
+      if (buddy?.buddyUser) {
+        names.push(buddy.buddyUser.displayName || buddy.buddyUser.username || 'Buddy')
       }
     })
 
@@ -218,10 +218,10 @@ export default function CreateChannelScreen() {
       icon: Users,
       count: selectableMembers.length,
     },
-    myAgents: {
+    myBuddies: {
       label: t('members.myBuddies', '我的 Buddy'),
       icon: Sparkles,
-      count: selectableMyAgents.length,
+      count: selectableMyBuddies.length,
     },
   } as const
 
@@ -240,20 +240,20 @@ export default function CreateChannelScreen() {
       }
     })
 
-    selectedAgents.forEach((agentId) => {
-      const agent = myAgents.find((item) => item.id === agentId)
-      if (agent?.botUser) {
+    selectedBuddys.forEach((buddyId) => {
+      const buddy = myBuddies.find((item) => item.id === buddyId)
+      if (buddy?.buddyUser) {
         items.push({
-          id: agent.id,
-          name: agent.botUser.displayName || agent.botUser.username || 'Buddy',
-          avatarUrl: agent.botUser.avatarUrl ?? null,
-          userId: agent.botUser.id,
+          id: buddy.id,
+          name: buddy.buddyUser.displayName || buddy.buddyUser.username || 'Buddy',
+          avatarUrl: buddy.buddyUser.avatarUrl ?? null,
+          userId: buddy.buddyUser.id,
         })
       }
     })
 
     return items.slice(0, 6)
-  }, [members, myAgents, selectedAgents, selectedMembers])
+  }, [members, myBuddies, selectedBuddys, selectedMembers])
 
   const toggleMemberSelection = (userId: string) => {
     setSelectedMembers((prev) => {
@@ -264,11 +264,11 @@ export default function CreateChannelScreen() {
     })
   }
 
-  const toggleAgentSelection = (agentId: string) => {
-    setSelectedAgents((prev) => {
+  const toggleBuddySelection = (buddyId: string) => {
+    setSelectedBuddys((prev) => {
       const next = new Set(prev)
-      if (next.has(agentId)) next.delete(agentId)
-      else next.add(agentId)
+      if (next.has(buddyId)) next.delete(buddyId)
+      else next.add(buddyId)
       return next
     })
   }
@@ -279,8 +279,8 @@ export default function CreateChannelScreen() {
       return
     }
 
-    if (selectedAgents.has(id)) {
-      toggleAgentSelection(id)
+    if (selectedBuddys.has(id)) {
+      toggleBuddySelection(id)
     }
   }
 
@@ -301,24 +301,24 @@ export default function CreateChannelScreen() {
         }),
       )
 
-      const agentPromises = Array.from(selectedAgents).map(async (agentId) => {
-        const agent = myAgents.find((item) => item.id === agentId)
-        if (!agent) return
+      const buddyPromises = Array.from(selectedBuddys).map(async (buddyId) => {
+        const buddy = myBuddies.find((item) => item.id === buddyId)
+        if (!buddy) return
 
-        await fetchApi(`/api/servers/${server.id}/agents`, {
+        await fetchApi(`/api/servers/${server.id}/buddies`, {
           method: 'POST',
-          body: JSON.stringify({ agentIds: [agent.id] }),
+          body: JSON.stringify({ buddyIds: [buddy.id] }),
         })
 
-        if (agent.botUser?.id) {
+        if (buddy.buddyUser?.id) {
           await fetchApi(`/api/channels/${channel.id}/members`, {
             method: 'POST',
-            body: JSON.stringify({ userId: agent.botUser.id }),
+            body: JSON.stringify({ userId: buddy.buddyUser.id }),
           })
         }
       })
 
-      await Promise.all([...memberPromises, ...agentPromises])
+      await Promise.all([...memberPromises, ...buddyPromises])
       return channel
     },
     onSuccess: (data) => {
@@ -340,7 +340,7 @@ export default function CreateChannelScreen() {
   }
 
   const handleBack = () => {
-    if (channelName.trim() || selectedMembers.size > 0 || selectedAgents.size > 0) {
+    if (channelName.trim() || selectedMembers.size > 0 || selectedBuddys.size > 0) {
       Alert.alert(
         t('common.discardChanges', '放弃更改'),
         t('common.discardChangesConfirm', '确定要放弃当前的更改吗？'),
@@ -676,27 +676,27 @@ export default function CreateChannelScreen() {
                   )
                 })}
 
-              {activeTab === 'myAgents' &&
-                selectableMyAgents.map((agent) => {
-                  const selected = selectedAgents.has(agent.id)
+              {activeTab === 'myBuddies' &&
+                selectableMyBuddies.map((buddy) => {
+                  const selected = selectedBuddys.has(buddy.id)
                   return (
                     <SelectableRow
-                      key={agent.id}
+                      key={buddy.id}
                       colors={colors}
                       selected={selected}
-                      name={agent.botUser?.displayName || agent.botUser?.username || '?'}
+                      name={buddy.buddyUser?.displayName || buddy.buddyUser?.username || '?'}
                       meta={t('members.notOnServer', '未加入服务器')}
-                      avatarUrl={agent.botUser?.avatarUrl ?? null}
-                      userId={agent.botUser?.id}
+                      avatarUrl={buddy.buddyUser?.avatarUrl ?? null}
+                      userId={buddy.buddyUser?.id}
                       highlight
-                      onPress={() => toggleAgentSelection(agent.id)}
+                      onPress={() => toggleBuddySelection(buddy.id)}
                     />
                   )
                 })}
 
               {((activeTab === 'bots' && selectableBots.length === 0) ||
                 (activeTab === 'members' && selectableMembers.length === 0) ||
-                (activeTab === 'myAgents' && selectableMyAgents.length === 0)) && (
+                (activeTab === 'myBuddies' && selectableMyBuddies.length === 0)) && (
                 <View style={styles.emptyStateWrap}>
                   <CircleAlert size={18} color={colors.textMuted} />
                   <Text style={[styles.emptyText, { color: colors.textMuted }]}>

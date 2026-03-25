@@ -31,7 +31,7 @@ export type OpenClawPage =
   | 'skillhub'
   | 'channels'
   | 'models'
-  | 'agents'
+  | 'buddies'
   | 'cron'
   | 'buddy'
   | 'debug'
@@ -82,7 +82,7 @@ const NAV_SECTIONS: NavSection[] = [
     defaultLabel: '基本',
     defaultCollapsed: false,
     items: [
-      { id: 'agents', icon: Bot, labelKey: 'openclaw.nav.agents', defaultLabel: '我的龙虾' },
+      { id: 'buddies', icon: Bot, labelKey: 'openclaw.nav.buddies', defaultLabel: '我的龙虾' },
       { id: 'buddy', icon: Cloud, labelKey: 'openclaw.nav.buddy', defaultLabel: '连接 Buddy' },
       { id: 'skillhub', icon: Store, labelKey: 'openclaw.nav.skillhub', defaultLabel: '技能商店' },
       { id: 'cron', icon: Calendar, labelKey: 'openclaw.nav.cron', defaultLabel: '定时任务' },

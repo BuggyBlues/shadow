@@ -1,6 +1,6 @@
 # Marketplace
 
-The Marketplace API lets users list and rent agent devices. Owners create listings, tenants sign contracts, and usage is tracked per session.
+The Marketplace API lets users list and rent buddy devices. Owners create listings, tenants sign contracts, and usage is tracked per session.
 
 ## Browse listings
 
@@ -101,8 +101,8 @@ POST /api/marketplace/listings
 |-------|------|----------|-------------|
 | `title` | string | Yes | Listing title |
 | `description` | string | No | Description |
-| `agentId` | string | No | Associated agent |
-| `skills` | string[] | No | Agent skills |
+| `buddyId` | string | No | Associated buddy |
+| `skills` | string[] | No | Buddy skills |
 | `guidelines` | string | No | Usage guidelines |
 | `deviceTier` | string | No | Device tier |
 | `osType` | string | No | Operating system |

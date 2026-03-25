@@ -177,7 +177,7 @@ export class ClawListingDao {
 
   async create(data: {
     ownerId: string
-    agentId?: string
+    buddyId?: string
     title: string
     description?: string
     skills?: string[]
@@ -249,18 +249,18 @@ export class ClawListingDao {
     await this.db.delete(clawListings).where(eq(clawListings.id, id))
   }
 
-  /** Find active (listed) listings that reference any of the given agent IDs */
-  async findActiveByAgentIds(agentIds: string[]) {
-    if (agentIds.length === 0) return []
+  /** Find active (listed) listings that reference any of the given buddy IDs */
+  async findActiveByBuddyIds(buddyIds: string[]) {
+    if (buddyIds.length === 0) return []
     return this.db
       .select()
       .from(clawListings)
-      .where(and(inArray(clawListings.agentId, agentIds), eq(clawListings.listingStatus, 'active')))
+      .where(and(inArray(clawListings.buddyId, buddyIds), eq(clawListings.listingStatus, 'active')))
   }
 
-  /** Find all listings (any status) that reference any of the given agent IDs */
-  async findByAgentIds(agentIds: string[]) {
-    if (agentIds.length === 0) return []
-    return this.db.select().from(clawListings).where(inArray(clawListings.agentId, agentIds))
+  /** Find all listings (any status) that reference any of the given buddy IDs */
+  async findByBuddyIds(buddyIds: string[]) {
+    if (buddyIds.length === 0) return []
+    return this.db.select().from(clawListings).where(inArray(clawListings.buddyId, buddyIds))
   }
 }

@@ -90,7 +90,7 @@ export interface ShadowUser {
   displayName?: string
   avatarUrl?: string
   isBot?: boolean
-  agentId?: string
+  buddyId?: string
 }
 
 export interface ShadowNotification {
@@ -131,8 +131,8 @@ export interface ShadowRemoteServer {
 }
 
 export interface ShadowRemoteConfig {
-  agentId: string
-  botUserId: string
+  buddyId: string
+  buddyUserId: string
   servers: ShadowRemoteServer[]
 }
 
@@ -199,7 +199,7 @@ export interface ServerJoinedPayload {
 }
 
 export interface PolicyChangedPayload {
-  agentId: string
+  buddyId: string
   serverId: string
   channelId?: string | null
 }
@@ -266,7 +266,7 @@ export interface ShadowOAuthToken {
 
 export interface ShadowListing {
   id: string
-  agentId: string
+  buddyId: string
   title: string
   description: string
   pricePerHour: number
@@ -274,7 +274,7 @@ export interface ShadowListing {
   tags: string[]
   isActive: boolean
   createdAt: string
-  agent?: { id: string; name: string; status: string }
+  buddy?: { id: string; name: string; status: string }
 }
 
 export interface ShadowContract {
@@ -418,7 +418,7 @@ export interface ServerEventMap {
   'channel:member-added': (payload: ChannelMemberAddedPayload) => void
   'channel:member-removed': (payload: ChannelMemberRemovedPayload) => void
   'server:joined': (payload: ServerJoinedPayload) => void
-  'agent:policy-changed': (payload: PolicyChangedPayload) => void
+  'buddy:policy-changed': (payload: PolicyChangedPayload) => void
   error: (payload: { message: string }) => void
 }
 

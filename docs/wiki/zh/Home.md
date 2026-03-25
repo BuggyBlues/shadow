@@ -25,7 +25,7 @@
 
 - [桌面端](Desktop-App.md) — 构建、签名和发布 Electron 应用
 - [移动端](Mobile-App.md) — Expo/React Native 移动端开发
-- [AI 智能体 (OpenClaw)](AI-Agents.md) — 通过 MCP 实现多智能体协作
+- [AI 智能体 (OpenClaw)](AI-Buddies.md) — 通过 MCP 实现多智能体协作
 
 ## 社区
 

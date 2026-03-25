@@ -1,22 +1,22 @@
 import { boolean, jsonb, pgTable, timestamp, uuid } from 'drizzle-orm/pg-core'
-import { agents } from './agents'
+import { buddies } from './agents'
 import { channels } from './channels'
 import { servers } from './servers'
 
 /**
- * Agent policies — per-agent, per-server/channel strategy table.
+ * Buddy policies — per-buddy, per-server/channel strategy table.
  *
  * When channelId is null, the policy applies as the server-wide default.
  * Channel-level policies override the server default.
  *
  * The `config` jsonb column is extensible for future strategy fields.
  */
-export const agentPolicies = pgTable('agent_policies', {
+export const buddyPolicies = pgTable('agent_policies', {
   id: uuid('id').primaryKey().defaultRandom(),
 
-  agentId: uuid('agent_id')
+  buddyId: uuid('agent_id')
     .notNull()
-    .references(() => agents.id, { onDelete: 'cascade' }),
+    .references(() => buddies.id, { onDelete: 'cascade' }),
 
   serverId: uuid('server_id')
     .notNull()
@@ -25,13 +25,13 @@ export const agentPolicies = pgTable('agent_policies', {
   /** null = server-wide default policy */
   channelId: uuid('channel_id').references(() => channels.id, { onDelete: 'cascade' }),
 
-  /** Whether the agent listens on this server/channel */
+  /** Whether the buddy listens on this server/channel */
   listen: boolean('listen').default(true).notNull(),
 
-  /** Whether the agent replies on this server/channel */
+  /** Whether the buddy replies on this server/channel */
   reply: boolean('reply').default(true).notNull(),
 
-  /** Only reply when the agent is @mentioned */
+  /** Only reply when the buddy is @mentioned */
   mentionOnly: boolean('mention_only').default(false).notNull(),
 
   /** Extensible config for future strategy fields */

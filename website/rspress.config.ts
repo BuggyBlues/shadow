@@ -92,9 +92,9 @@ export default defineConfig({
               ],
             },
             {
-              text: 'Agents',
+              text: 'Buddies',
               items: [
-                { text: 'Agents', link: '/api-doc/agents' },
+                { text: 'Buddies', link: '/api-doc/buddies' },
                 { text: 'Marketplace', link: '/api-doc/marketplace' },
               ],
             },
@@ -179,9 +179,9 @@ export default defineConfig({
               ],
             },
             {
-              text: 'AI 代理',
+              text: 'AI 伙伴',
               items: [
-                { text: '代理', link: '/zh/api-doc/agents' },
+                { text: '伙伴', link: '/zh/api-doc/buddies' },
                 { text: '市场', link: '/zh/api-doc/marketplace' },
               ],
             },

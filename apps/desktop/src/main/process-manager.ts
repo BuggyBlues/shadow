@@ -14,16 +14,16 @@ let processIdCounter = 0
 
 export function setupProcessManager(): void {
   ipcMain.handle(
-    'desktop:startAgent',
+    'desktop:startBuddy',
     (_event, args: { name: string; scriptPath: string; args?: string[] }) => {
       // Validate scriptPath is within the app directory
       const resolvedPath = resolve(args.scriptPath)
       const appPath = app.getAppPath()
       if (!resolvedPath.startsWith(appPath)) {
-        throw new Error('Agent script must be within the application directory')
+        throw new Error('Buddy script must be within the application directory')
       }
 
-      const id = `agent-${++processIdCounter}`
+      const id = `buddy-${++processIdCounter}`
       const child = fork(resolvedPath, args.args ?? [], {
         stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
         silent: true,
@@ -39,24 +39,24 @@ export function setupProcessManager(): void {
 
       child.on('exit', (code) => {
         managedProcesses.delete(id)
-        _event.sender.send('desktop:agentExited', { id, code })
+        _event.sender.send('desktop:buddyExited', { id, code })
       })
 
       child.on('error', (err) => {
-        console.error(`Agent process ${id} error:`, err)
+        console.error(`Buddy process ${id} error:`, err)
         managedProcesses.delete(id)
-        _event.sender.send('desktop:agentExited', { id, code: 1 })
+        _event.sender.send('desktop:buddyExited', { id, code: 1 })
       })
 
       child.on('message', (msg) => {
-        _event.sender.send('desktop:agentMessage', { id, message: msg })
+        _event.sender.send('desktop:buddyMessage', { id, message: msg })
       })
 
       return { id, pid: child.pid }
     },
   )
 
-  ipcMain.handle('desktop:stopAgent', (_event, processId: string) => {
+  ipcMain.handle('desktop:stopBuddy', (_event, processId: string) => {
     const managed = managedProcesses.get(processId)
     if (managed) {
       managed.process.kill('SIGTERM')
@@ -64,7 +64,7 @@ export function setupProcessManager(): void {
     }
   })
 
-  ipcMain.handle('desktop:getAgentStatus', (_event, processId: string) => {
+  ipcMain.handle('desktop:getBuddyStatus', (_event, processId: string) => {
     const managed = managedProcesses.get(processId)
     if (!managed) return { running: false }
     return {
@@ -75,7 +75,7 @@ export function setupProcessManager(): void {
     }
   })
 
-  ipcMain.handle('desktop:listAgents', () => {
+  ipcMain.handle('desktop:listBuddies', () => {
     return Array.from(managedProcesses.entries()).map(([id, m]) => ({
       id,
       name: m.name,
@@ -86,7 +86,7 @@ export function setupProcessManager(): void {
   })
 }
 
-export function killAllAgents(): void {
+export function killAllBuddies(): void {
   for (const [id, managed] of managedProcesses) {
     managed.process.kill('SIGTERM')
     managedProcesses.delete(id)

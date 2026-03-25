@@ -26,9 +26,9 @@ function formatDatetimeLocal(isoString: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-interface AgentOption {
+interface BuddyOption {
   id: string
-  botUser?: {
+  buddyUser?: {
     id: string
     username: string
     displayName: string | null
@@ -39,7 +39,7 @@ interface AgentOption {
 }
 
 interface ListingForm {
-  agentId: string
+  buddyId: string
   title: string
   description: string
   skills: string
@@ -61,7 +61,7 @@ interface ListingForm {
 }
 
 const INITIAL_FORM: ListingForm = {
-  agentId: '',
+  buddyId: '',
   title: '',
   description: '',
   skills: '',
@@ -92,10 +92,10 @@ export function CreateListingPage() {
   const [form, setForm] = useState<ListingForm>(INITIAL_FORM)
   const [showDeviceDetail, setShowDeviceDetail] = useState(false)
 
-  // Fetch user's agents for the dropdown
-  const { data: agents = [] } = useQuery({
-    queryKey: ['agents'],
-    queryFn: () => fetchApi<AgentOption[]>('/api/agents'),
+  // Fetch user's buddies for the dropdown
+  const { data: buddies = [] } = useQuery({
+    queryKey: ['buddies'],
+    queryFn: () => fetchApi<BuddyOption[]>('/api/buddies'),
   })
 
   // Load existing listing for edit
@@ -110,7 +110,7 @@ export function CreateListingPage() {
       const e = existing as Record<string, unknown>
       const deviceInfo = (e.deviceInfo || {}) as Record<string, string>
       setForm({
-        agentId: (e.agentId as string) || '',
+        buddyId: (e.buddyId as string) || '',
         title: (e.title as string) || '',
         description: (e.description as string) || '',
         skills: ((e.skills as string[]) || []).join(', '),
@@ -177,7 +177,7 @@ export function CreateListingPage() {
   const handleSubmit = (e: React.FormEvent, status: 'draft' | 'active') => {
     e.preventDefault()
     mutation.mutate({
-      agentId: form.agentId || undefined,
+      buddyId: form.buddyId || undefined,
       title: form.title.trim(),
       description: form.description.trim() || undefined,
       skills: form.skills
@@ -243,32 +243,33 @@ export function CreateListingPage() {
               {t('marketplace.basicInfo', '基本信息')}
             </h2>
             <div className="space-y-4">
-              {/* Agent / Claw selector */}
+              {/* Buddy / Claw selector */}
               <label className="block">
                 <span className="text-sm font-bold text-gray-500 block mb-1">
                   {t('marketplace.selectClaw', '选择 Claw')}
                 </span>
                 <select
-                  value={form.agentId}
-                  onChange={(e) => update('agentId', e.target.value)}
+                  value={form.buddyId}
+                  onChange={(e) => update('buddyId', e.target.value)}
                   className="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 font-medium focus:outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100 bg-white"
                 >
                   <option value="">{t('marketplace.noClawSelected', '-- 不绑定 Claw --')}</option>
-                  {agents.map((agent) => {
-                    const name = agent.botUser?.displayName ?? agent.botUser?.username ?? agent.id
-                    const disabled = !!agent.isRented
+                  {buddies.map((buddy) => {
+                    const name =
+                      buddy.buddyUser?.displayName ?? buddy.buddyUser?.username ?? buddy.id
+                    const disabled = !!buddy.isRented
                     return (
-                      <option key={agent.id} value={agent.id} disabled={disabled}>
+                      <option key={buddy.id} value={buddy.id} disabled={disabled}>
                         {name}
                         {disabled ? ` 🔒 ${t('marketplace.clawRented', '租赁中')}` : ''}
-                        {agent.isListed && !disabled
+                        {buddy.isListed && !disabled
                           ? ` (${t('marketplace.clawListed', '已上架')})`
                           : ''}
                       </option>
                     )
                   })}
                 </select>
-                {agents.length === 0 && (
+                {buddies.length === 0 && (
                   <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
                     <Lock className="w-3 h-3" />
                     {t('marketplace.noClawHint', '你还没有 Claw，请先在 Buddy 管理页面创建')}

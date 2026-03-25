@@ -1,9 +1,9 @@
 /**
- * P2P Rental System — Filtering & Agent Chat Status E2E Tests
+ * P2P Rental System — Filtering & Buddy Chat Status E2E Tests
  *
  * Tests:
  *   1. my-listings endpoint filters out rented and unlisted listings
- *   2. agent-chat-status endpoint returns correct disabled state
+ *   2. buddy-chat-status endpoint returns correct disabled state
  *
  * Requires: docker compose postgres running on localhost:5432
  */
@@ -35,14 +35,14 @@ let tenantUserId: string
 let ownerToken: string
 let tenantToken: string
 
-// Agent / bot IDs
+// Buddy / bot IDs
 let botUserId: string
-let agentId: string
+let buddyId: string
 
 // Listing IDs
 let activeListingId: string
 let draftListingId: string
-let agentListingId: string // listing linked to agent
+let buddyListingId: string // listing linked to buddy
 
 /* ── Helper: make HTTP request through Hono ── */
 
@@ -89,7 +89,7 @@ beforeAll(async () => {
   app.route('/api', createRentalHandler(container))
 
   const userDao = container.resolve('userDao')
-  const agentDao = container.resolve('agentDao')
+  const buddyDao = container.resolve('buddyDao')
   const ts = Date.now()
 
   // Create owner user
@@ -123,20 +123,20 @@ beforeAll(async () => {
   const walletService = container.resolve('walletService')
   await walletService.topUp(tenantUserId, 10000, 'Test balance for filtering E2E')
 
-  // Create bot user + agent (owned by owner)
-  const botUser = await agentDao.createBotUser({
+  // Create buddy user + buddy (owned by owner)
+  const botUser = await buddyDao.createBotUser({
     username: `filterbot${ts}`,
     displayName: `Filter Test Bot ${ts}`,
   })
   botUserId = botUser!.id
 
-  const agent = await agentDao.create({
+  const buddy = await buddyDao.create({
     userId: botUserId,
     kernelType: 'docker',
     config: {},
     ownerId: ownerUserId,
   })
-  agentId = agent!.id
+  buddyId = buddy!.id
 }, 30_000)
 
 afterAll(async () => {
@@ -149,7 +149,7 @@ afterAll(async () => {
       rentalViolations,
       wallets,
       users,
-      agents,
+      buddies,
     } = schema
 
     // Clean rental data (contracts first due to FK)
@@ -180,16 +180,16 @@ afterAll(async () => {
       await db.delete(clawListings).where(eq(clawListings.ownerId, ownerUserId))
     }
 
-    // Delete agent
-    if (agentId) {
-      await db.delete(agents).where(eq(agents.id, agentId))
+    // Delete buddy
+    if (buddyId) {
+      await db.delete(buddies).where(eq(buddies.id, buddyId))
     }
 
     // Delete wallets
     if (tenantUserId) await db.delete(wallets).where(eq(wallets.userId, tenantUserId))
     if (ownerUserId) await db.delete(wallets).where(eq(wallets.userId, ownerUserId))
 
-    // Delete users (bot user too)
+    // Delete users (buddy user too)
     const userIds = [ownerUserId, tenantUserId, botUserId].filter(Boolean)
     if (userIds.length > 0) {
       await db.delete(users).where(inArray(users.id, userIds))
@@ -204,10 +204,10 @@ afterAll(async () => {
    Tests
    ══════════════════════════════════════════════════════════ */
 
-describe('Rental Filtering & Agent Chat Status E2E', () => {
+describe('Rental Filtering & Buddy Chat Status E2E', () => {
   /* ─────── 1. Setup listings ─────── */
 
-  it('should create an active listed listing (no agent)', async () => {
+  it('should create an active listed listing (no buddy)', async () => {
     const res = await req('POST', '/api/marketplace/listings', {
       token: ownerToken,
       body: {
@@ -243,15 +243,15 @@ describe('Rental Filtering & Agent Chat Status E2E', () => {
     draftListingId = data.id
   })
 
-  it('should create an active listing linked to agent', async () => {
-    // Create directly in DB since the API might not expose agentId field
+  it('should create an active listing linked to buddy', async () => {
+    // Create directly in DB since the API might not expose buddyId field
     const result = await db
       .insert(schema.clawListings)
       .values({
         ownerId: ownerUserId,
-        agentId,
-        title: 'Filter Test Agent Listing',
-        description: 'Agent-linked listing for chat status tests',
+        buddyId,
+        title: 'Filter Test Buddy Listing',
+        description: 'Buddy-linked listing for chat status tests',
         deviceTier: 'high_end',
         osType: 'macos',
         hourlyRate: 20,
@@ -261,7 +261,7 @@ describe('Rental Filtering & Agent Chat Status E2E', () => {
         isListed: true,
       })
       .returning()
-    agentListingId = result[0]!.id
+    buddyListingId = result[0]!.id
   })
 
   /* ─────── 2. my-listings filtering ─────── */
@@ -286,21 +286,21 @@ describe('Rental Filtering & Agent Chat Status E2E', () => {
     expect(found).toBeUndefined()
   })
 
-  it('should include agent listing (active & listed) in my-listings', async () => {
+  it('should include buddy listing (active & listed) in my-listings', async () => {
     const res = await req('GET', '/api/marketplace/my-listings', {
       token: ownerToken,
     })
     expect(res.status).toBe(200)
     const data = await json<{ listings: { id: string }[] }>(res)
-    const found = data.listings.find((l) => l.id === agentListingId)
+    const found = data.listings.find((l) => l.id === buddyListingId)
     expect(found).toBeDefined()
   })
 
-  /* ─────── 3. Agent chat status — listed agent ─────── */
+  /* ─────── 3. Buddy chat status — listed buddy ─────── */
 
   it('should return chatDisabled: false for unknown user', async () => {
     const fakeUserId = '00000000-0000-0000-0000-000000000000'
-    const res = await req('GET', `/api/marketplace/agent-chat-status/${fakeUserId}`, {
+    const res = await req('GET', `/api/marketplace/buddy-chat-status/${fakeUserId}`, {
       token: ownerToken,
     })
     expect(res.status).toBe(200)
@@ -309,8 +309,8 @@ describe('Rental Filtering & Agent Chat Status E2E', () => {
     expect(data.reason).toBeUndefined()
   })
 
-  it('should return chatDisabled: true with reason "listed" for listed agent', async () => {
-    const res = await req('GET', `/api/marketplace/agent-chat-status/${botUserId}`, {
+  it('should return chatDisabled: true with reason "listed" for listed buddy', async () => {
+    const res = await req('GET', `/api/marketplace/buddy-chat-status/${botUserId}`, {
       token: ownerToken,
     })
     expect(res.status).toBe(200)
@@ -319,36 +319,36 @@ describe('Rental Filtering & Agent Chat Status E2E', () => {
     expect(data.reason).toBe('listed')
   })
 
-  /* ─────── 4. Rent the agent listing → rented_out ─────── */
+  /* ─────── 4. Rent the buddy listing → rented_out ─────── */
 
-  let agentContractId: string
+  let buddyContractId: string
 
-  it('should sign contract on agent listing', async () => {
+  it('should sign contract on buddy listing', async () => {
     const res = await req('POST', '/api/marketplace/contracts', {
       token: tenantToken,
       body: {
-        listingId: agentListingId,
+        listingId: buddyListingId,
         durationHours: 24,
         agreedToTerms: true,
       },
     })
     expect(res.status).toBe(201)
     const data = await json<{ id: string }>(res)
-    agentContractId = data.id
+    buddyContractId = data.id
   })
 
-  it('should exclude rented agent listing from my-listings', async () => {
+  it('should exclude rented buddy listing from my-listings', async () => {
     const res = await req('GET', '/api/marketplace/my-listings', {
       token: ownerToken,
     })
     expect(res.status).toBe(200)
     const data = await json<{ listings: { id: string }[] }>(res)
-    const found = data.listings.find((l) => l.id === agentListingId)
+    const found = data.listings.find((l) => l.id === buddyListingId)
     expect(found).toBeUndefined()
   })
 
-  it('should return chatDisabled: true with reason "rented_out" for rented agent', async () => {
-    const res = await req('GET', `/api/marketplace/agent-chat-status/${botUserId}`, {
+  it('should return chatDisabled: true with reason "rented_out" for rented buddy', async () => {
+    const res = await req('GET', `/api/marketplace/buddy-chat-status/${botUserId}`, {
       token: ownerToken,
     })
     expect(res.status).toBe(200)
@@ -359,16 +359,16 @@ describe('Rental Filtering & Agent Chat Status E2E', () => {
 
   /* ─────── 5. Terminate contract & delist → chatDisabled: false ─────── */
 
-  it('should terminate the agent contract', async () => {
-    const res = await req('POST', `/api/marketplace/contracts/${agentContractId}/terminate`, {
+  it('should terminate the buddy contract', async () => {
+    const res = await req('POST', `/api/marketplace/contracts/${buddyContractId}/terminate`, {
       token: tenantToken,
       body: { reason: 'Test termination' },
     })
     expect(res.status).toBe(200)
   })
 
-  it('should delist agent listing', async () => {
-    const res = await req('PUT', `/api/marketplace/listings/${agentListingId}/toggle`, {
+  it('should delist buddy listing', async () => {
+    const res = await req('PUT', `/api/marketplace/listings/${buddyListingId}/toggle`, {
       token: ownerToken,
       body: { isListed: false },
     })
@@ -376,7 +376,7 @@ describe('Rental Filtering & Agent Chat Status E2E', () => {
   })
 
   it('should return chatDisabled: false after termination and delisting', async () => {
-    const res = await req('GET', `/api/marketplace/agent-chat-status/${botUserId}`, {
+    const res = await req('GET', `/api/marketplace/buddy-chat-status/${botUserId}`, {
       token: ownerToken,
     })
     expect(res.status).toBe(200)
@@ -384,20 +384,20 @@ describe('Rental Filtering & Agent Chat Status E2E', () => {
     expect(data.chatDisabled).toBe(false)
   })
 
-  it('should exclude delisted agent listing from my-listings', async () => {
+  it('should exclude delisted buddy listing from my-listings', async () => {
     const res = await req('GET', '/api/marketplace/my-listings', {
       token: ownerToken,
     })
     expect(res.status).toBe(200)
     const data = await json<{ listings: { id: string }[] }>(res)
-    const delistedFound = data.listings.find((l) => l.id === agentListingId)
+    const delistedFound = data.listings.find((l) => l.id === buddyListingId)
     expect(delistedFound).toBeUndefined()
   })
 
-  /* ─────── 6. Re-list agent listing → back in my-listings ─────── */
+  /* ─────── 6. Re-list buddy listing → back in my-listings ─────── */
 
-  it('should re-list agent listing and see it in my-listings again', async () => {
-    const res = await req('PUT', `/api/marketplace/listings/${agentListingId}/toggle`, {
+  it('should re-list buddy listing and see it in my-listings again', async () => {
+    const res = await req('PUT', `/api/marketplace/listings/${buddyListingId}/toggle`, {
       token: ownerToken,
       body: { isListed: true },
     })
@@ -408,7 +408,7 @@ describe('Rental Filtering & Agent Chat Status E2E', () => {
     })
     expect(myRes.status).toBe(200)
     const data = await json<{ listings: { id: string }[] }>(myRes)
-    const found = data.listings.find((l) => l.id === agentListingId)
+    const found = data.listings.find((l) => l.id === buddyListingId)
     expect(found).toBeDefined()
   })
 })
