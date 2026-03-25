@@ -12,6 +12,7 @@
   "scripts": {
     "build": "tsup src/index.ts --format esm --out-dir dist --clean",
     "dev": "tsup src/index.ts --format esm --out-dir dist --clean --watch",
+    "prepack": "pnpm build",
     "lint": "biome lint .",
     "typecheck": "pnpm --filter @shadowob/shared build && pnpm --filter @shadowob/sdk build && tsc --noEmit",
     "test": "vitest run --exclude=__tests__/e2e/**",
