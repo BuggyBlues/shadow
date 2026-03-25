@@ -1387,5 +1387,15 @@
     "hourShort": "时",
     "minShort": "分",
     "secShort": "秒"
+  },
+  "sort": {
+    "title": "排序和筛选",
+    "byPosition": "默认顺序",
+    "byCreatedAt": "创建时间",
+    "byUpdatedAt": "更新时间",
+    "byLastMessage": "最新消息",
+    "byLastAccessed": "访问时间",
+    "filterPlaceholder": "搜索频道...",
+    "clear": "清除筛选"
   }
 }
