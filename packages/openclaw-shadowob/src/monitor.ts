@@ -16,11 +16,11 @@
 
 import type { ShadowChannelPolicy, ShadowMessage, ShadowRemoteConfig } from '@shadowob/sdk'
 import { ShadowClient, ShadowSocket } from '@shadowob/sdk'
+import type { OpenClawConfig } from 'openclaw/plugin-sdk/core'
 import { getShadowRuntime } from './runtime.js'
 import type {
   AgentChainMetadata,
   CreateTypingCallbacksParams,
-  OpenClawConfig,
   PluginRuntime,
   ReplyPayload,
   ShadowAccountConfig,
@@ -45,7 +45,7 @@ async function getDataDir(): Promise<string> {
 export type ShadowMonitorOptions = {
   account: ShadowAccountConfig
   accountId: string
-  config: unknown // OpenClawConfig
+  config: unknown
   runtime: { log?: (msg: string) => void; error?: (msg: string) => void }
   abortSignal: AbortSignal
 }
@@ -56,10 +56,6 @@ export type ShadowMonitorResult = {
 
 // ─── Typing Keepalive ─────────────────────────────────────────────────────
 
-/**
- * Creates typing callbacks with a keepalive loop that periodically re-emits
- * the typing indicator so it stays visible during long AI processing.
- */
 function createTypingCallbacks(params: CreateTypingCallbacksParams): TypingCallbacks {
   const {
     start,
@@ -93,7 +89,6 @@ function createTypingCallbacks(params: CreateTypingCallbacksParams): TypingCallb
         return
       }
 
-      // Re-emit typing on an interval so the indicator stays visible
       keepaliveTimer = setInterval(async () => {
         try {
           await start()
@@ -102,7 +97,6 @@ function createTypingCallbacks(params: CreateTypingCallbacksParams): TypingCallb
         }
       }, keepaliveIntervalMs)
 
-      // Safety: auto-stop after max duration
       maxDurationTimer = setTimeout(() => {
         cleanup()
         stop?.().catch((err) => onStopError?.(err))
@@ -118,9 +112,8 @@ function createTypingCallbacks(params: CreateTypingCallbacksParams): TypingCallb
   }
 }
 
-/**
- * Process an incoming Shadow message and dispatch to the AI pipeline.
- */
+// ─── Process Channel Message ──────────────────────────────────────────────
+
 async function processShadowMessage(params: {
   message: ShadowMessage
   account: ShadowAccountConfig
@@ -156,7 +149,6 @@ async function processShadowMessage(params: {
 
   const senderLabel = message.author?.username ?? message.authorId
 
-  // Skip own messages
   if (message.authorId === botUserId) {
     runtime.log?.(`[msg] Skipping own message ${message.id}`)
     return
@@ -168,7 +160,6 @@ async function processShadowMessage(params: {
     const policy = channelPolicies.get(message.channelId)
     const policyConfig = policy?.config as ShadowPolicyConfig | undefined
 
-    // Default: skip bot messages unless replyToBuddy is enabled
     if (!policyConfig?.replyToBuddy) {
       runtime.log?.(
         `[msg] Skipping bot message from ${senderLabel} (replyToBuddy=false) (${message.id})`,
@@ -176,11 +167,9 @@ async function processShadowMessage(params: {
       return
     }
 
-    // Check maxBuddyChainDepth (anti-loop)
     const maxDepth = policyConfig.maxBuddyChainDepth ?? 3
     const chainMeta = message.metadata?.agentChain as AgentChainMetadata | undefined
     if (chainMeta) {
-      // Check if we've exceeded the chain depth
       if (chainMeta.depth >= maxDepth) {
         runtime.log?.(
           `[msg] Buddy chain depth ${chainMeta.depth} >= max ${maxDepth}, stopping loop (${message.id})`,
@@ -188,7 +177,6 @@ async function processShadowMessage(params: {
         return
       }
 
-      // Check if we're already in the chain (circular detection)
       if (chainMeta.participants?.includes(botUserId)) {
         runtime.log?.(
           `[msg] Already in buddy chain [${chainMeta.participants.join(', ')}], skipping to prevent loop (${message.id})`,
@@ -196,7 +184,6 @@ async function processShadowMessage(params: {
         return
       }
 
-      // Check blacklist
       const senderAgentId = message.author?.id
       if (senderAgentId && policyConfig.buddyBlacklist?.includes(senderAgentId)) {
         runtime.log?.(
@@ -205,7 +192,6 @@ async function processShadowMessage(params: {
         return
       }
 
-      // Check whitelist (if defined)
       if (
         senderAgentId &&
         policyConfig.buddyWhitelist?.length &&
@@ -218,7 +204,6 @@ async function processShadowMessage(params: {
       }
     }
 
-    // Mark that we're processing a Buddy message (skip smartReply later)
     isProcessingBuddyMessage = true
     runtime.log?.(
       `[msg] Processing bot message from ${senderLabel} (replyToBuddy=true) (${message.id})`,
@@ -226,17 +211,13 @@ async function processShadowMessage(params: {
   }
 
   const channelId = message.channelId
-
-  // Look up channel policy (may have been fetched above)
   const policy = channelPolicies.get(channelId)
 
-  // If policy exists and listen is false, skip
   if (policy && !policy.listen) {
     runtime.log?.(`[msg] Policy blocks listen for channel ${channelId}, skipping`)
     return
   }
 
-  // If reply is false (disabled/silent mode), skip
   if (policy && !policy.reply) {
     runtime.log?.(`[msg] Policy blocks reply for channel ${channelId}, skipping (${message.id})`)
     return
@@ -259,7 +240,6 @@ async function processShadowMessage(params: {
     )
   }
 
-  // Custom policy: replyToUsers — only reply to specific users
   const policyConfig = policy?.config as ShadowPolicyConfig | undefined
   if (policyConfig?.replyToUsers?.length) {
     const allowedUsers = policyConfig.replyToUsers.map((u) => u.toLowerCase())
@@ -272,7 +252,6 @@ async function processShadowMessage(params: {
     }
   }
 
-  // Custom policy: keywords — only reply when message contains any keyword
   if (policyConfig?.keywords?.length) {
     const lowerContent = message.content.toLowerCase()
     const matched = policyConfig.keywords.some((kw) => lowerContent.includes(kw.toLowerCase()))
@@ -283,21 +262,16 @@ async function processShadowMessage(params: {
     runtime.log?.(`[msg] keywords policy — keyword matched, processing (${message.id})`)
   }
 
-  // Smart reply: skip if message is targeting someone else (not this Buddy)
-  // Skip this check if:
-  // 1. Processing a Buddy message (already validated by replyToBuddy)
-  // 2. Was explicitly mentioned (mentionOnly passed)
-  const smartReplyEnabled = policyConfig?.smartReply !== false // Default: enabled
+  // Smart reply: skip if message is targeting someone else
+  const smartReplyEnabled = policyConfig?.smartReply !== false
   if (smartReplyEnabled && !isProcessingBuddyMessage && !wasMentionedExplicitly) {
-    // 1. Check if message has @mentions to other users (but not this Buddy)
-    const mentionPattern = /@([a-zA-Z0-9_\-\u4e00-\u9fa5]+)/g // Support Chinese and other unicode chars
+    const mentionPattern = /@([a-zA-Z0-9_\-\u4e00-\u9fa5]+)/g
     const allMentions = message.content.match(mentionPattern) || []
     const mentionsWithoutSelf = allMentions.filter((m) => {
-      const mentionedUser = m.slice(1).toLowerCase() // Remove @ prefix
+      const mentionedUser = m.slice(1).toLowerCase()
       return mentionedUser !== botUsername.toLowerCase()
     })
 
-    // If there are @mentions but none to this Buddy, skip
     if (allMentions.length > 0 && mentionsWithoutSelf.length === allMentions.length) {
       runtime.log?.(
         `[msg] Smart reply: message @mentions others (${allMentions.join(', ')}) but not @${botUsername}, skipping (${message.id})`,
@@ -305,12 +279,8 @@ async function processShadowMessage(params: {
       return
     }
 
-    // 2. Check if message is a reply to someone else's message
-    // Note: This requires the replyTo message info with author to be available
-    // If the SDK/Server provides this in the future, we can enable this check
     const replyToData = (message as { replyTo?: { authorId?: string } }).replyTo
     if (replyToData?.authorId && replyToData.authorId !== botUserId) {
-      // The message is a reply to someone else, skip unless we're also mentioned
       const selfMentioned = allMentions.some((m) => {
         const mentionedUser = m.slice(1).toLowerCase()
         return mentionedUser === botUsername.toLowerCase()
@@ -334,21 +304,16 @@ async function processShadowMessage(params: {
   const rawBody = message.content
   const chatType = message.threadId ? 'thread' : 'channel'
 
-  // 1. Resolve agent route — use threadId as sub-conversation for session isolation
   const peerId = message.threadId ? `${channelId}:thread:${message.threadId}` : channelId
   const route = core.channel.routing.resolveAgentRoute({
     cfg,
     channel: 'shadowob',
     accountId,
-    peer: {
-      kind: 'group',
-      id: peerId,
-    },
+    peer: { kind: 'group', id: peerId },
   })
 
   runtime.log?.(`[routing] Resolved agent: ${route.agentId} (account ${accountId})`)
 
-  // 2. Build envelope
   const body = core.channel.reply.formatAgentEnvelope({
     channel: 'Shadow',
     from: senderName,
@@ -357,15 +322,12 @@ async function processShadowMessage(params: {
     body: rawBody,
   })
 
-  // Extract media URLs from attachments AND from inline markdown images/files
+  // Extract media URLs from attachments and inline markdown
   const attachmentUrls = (message.attachments ?? []).map((a) => a.url).filter(Boolean)
-
-  // Parse markdown for image/file URLs: ![alt](url) and [name](url)
   const markdownMediaRegex = /!?\[[^\]]*\]\(([^)]+)\)/g
   const markdownUrls: string[] = []
   for (const mdMatch of rawBody.matchAll(markdownMediaRegex)) {
     const url = mdMatch[1]!
-    // Only include media paths (uploads), not arbitrary links
     if (url.startsWith('/') && url.includes('/uploads/')) {
       markdownUrls.push(url)
     } else if (url.startsWith('http')) {
@@ -373,12 +335,8 @@ async function processShadowMessage(params: {
     }
   }
 
-  // Merge and deduplicate
   const allRawUrls = [...new Set([...attachmentUrls, ...markdownUrls])]
 
-  // Download media files to local paths for the AI pipeline.
-  // OpenClaw's AI reads images/files from MediaPath (local absolute paths),
-  // not from MediaUrl (HTTP URLs). We download each file and save locally.
   const mediaClient = new ShadowClient(account.serverUrl, account.token)
   const localMediaPaths: string[] = []
   const localMediaTypes: string[] = []
@@ -404,7 +362,6 @@ async function processShadowMessage(params: {
   }
 
   if (allRawUrls.length > 0) {
-    // Dynamic imports for fs/path (available at Node.js runtime)
     // @ts-expect-error node:fs/promises available at runtime
     const fsPromises = await import('node:fs/promises')
     // @ts-expect-error node:path available at runtime
@@ -443,9 +400,6 @@ async function processShadowMessage(params: {
     }
   }
 
-  // Build media context fields following OpenClaw convention.
-  // MediaPath/MediaPaths = local file paths (primary, used by AI pipeline)
-  // MediaUrl/MediaUrls = HTTP URLs (supplementary)
   const mediaCtx: Record<string, unknown> = {}
   if (localMediaPaths.length > 0) {
     mediaCtx.MediaPath = localMediaPaths[0]
@@ -456,22 +410,15 @@ async function processShadowMessage(params: {
     mediaCtx.MediaTypes = localMediaTypes
   }
 
-  // Strip markdown image/file syntax from the text body sent to the AI agent.
-  // The images are already provided via MediaPath — no need to send the raw markdown.
   let cleanBody = rawBody
   if (localMediaPaths.length > 0) {
     cleanBody = rawBody
       .replace(/!?\[[^\]]*\]\([^)]*\/uploads\/[^)]+\)/g, '')
       .replace(/\n{2,}/g, '\n')
       .trim()
-    // If nothing is left after stripping, set a sensible default
-    if (!cleanBody) {
-      cleanBody = '[Media attached]'
-    }
+    if (!cleanBody) cleanBody = '[Media attached]'
   }
 
-  // 3. Build and finalize MsgContext
-  // Resolve server context from channel → server mapping
   const serverInfo = channelServerMap.get(channelId)
   const escapedBotUsername = botUsername.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const mentionRegex = new RegExp(`@${escapedBotUsername}(?:\\s|$)`, 'i')
@@ -497,7 +444,6 @@ async function processShadowMessage(params: {
     WasMentioned: wasMentioned,
     OriginatingChannel: 'shadowob',
     OriginatingTo: `shadowob:channel:${channelId}`,
-    // Server context — allows the AI agent to know which server it's operating in
     ...(serverInfo
       ? {
           ServerId: serverInfo.serverId,
@@ -506,21 +452,19 @@ async function processShadowMessage(params: {
           ChannelName: serverInfo.channelName,
         }
       : {}),
-    // Buddy self-identity — allows the AI agent to know who it is
     BotUserId: botUserId,
     BotUsername: botUsername,
     AgentId: route.agentId,
-    // Channel context
     ChannelId: channelId,
     ...(message.threadId ? { ThreadId: message.threadId } : {}),
     ...(message.replyToId ? { ReplyToId: message.replyToId } : {}),
     ...mediaCtx,
   })
 
-  // 4. Record session
-  const storePath = core.channel.session.resolveStorePath(cfg.session?.store, {
-    agentId: route.agentId,
-  })
+  const storePath = core.channel.session.resolveStorePath(
+    (cfg as Record<string, unknown>).session as unknown,
+    { agentId: route.agentId },
+  )
   await core.channel.session.recordInboundSession({
     storePath,
     sessionKey: ctxPayload.SessionKey ?? route.sessionKey,
@@ -530,20 +474,15 @@ async function processShadowMessage(params: {
     },
   })
 
-  // 5. Check reply policy before dispatching
   if (policy && !policy.reply) {
     runtime.log?.(`[msg] Policy blocks reply for channel ${channelId}, skipping dispatch`)
     return
   }
 
-  // 6. Dispatch to AI + deliver reply
   runtime.log?.(`[msg] Dispatching to AI pipeline for message ${message.id}`)
   const client = new ShadowClient(account.serverUrl, account.token)
-
-  // Extract agent chain metadata from the triggering message (for anti-loop)
   const triggerChain = message.metadata?.agentChain as AgentChainMetadata | undefined
 
-  // Build typing callbacks: emit typing indicator during AI processing
   const typingCbs = createTypingCallbacks({
     start: async () => {
       socket.sendTyping(channelId)
@@ -553,14 +492,11 @@ async function processShadowMessage(params: {
     },
   })
 
-  // Emit activity: thinking
   socket.updateActivity(channelId, 'thinking')
-  // Start typing indicator
   typingCbs.onReplyStart().catch(() => {})
 
   try {
     if (core.channel.reply.createReplyDispatcherWithTyping) {
-      // Use typing-aware dispatcher when available
       const { markDispatchIdle, markRunComplete } =
         core.channel.reply.createReplyDispatcherWithTyping({
           typingCallbacks: typingCbs,
@@ -580,7 +516,6 @@ async function processShadowMessage(params: {
           },
         })
 
-      // Feed through a standard dispatch call that uses the typed dispatcher
       await core.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
         ctx: ctxPayload,
         cfg,
@@ -605,15 +540,12 @@ async function processShadowMessage(params: {
       markDispatchIdle()
       markRunComplete()
     } else {
-      // Fallback: use standard dispatcher without typing integration
       await core.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
         ctx: ctxPayload,
         cfg,
         dispatcherOptions: {
           deliver: async (payload: ReplyPayload) => {
-            // Emit activity: working (during reply delivery)
             socket.updateActivity(channelId, 'working')
-            // Re-emit typing during delivery
             socket.sendTyping(channelId)
 
             await deliverShadowReply({
@@ -632,25 +564,21 @@ async function processShadowMessage(params: {
       })
     }
 
-    // Emit activity: ready (after reply sent)
     socket.updateActivity(channelId, 'ready')
   } catch (err) {
     runtime.error?.(`[msg] AI dispatch failed for message ${message.id}: ${String(err)}`)
     socket.updateActivity(channelId, null)
     throw err
   } finally {
-    // Stop typing keepalive
     typingCbs.onCleanup?.()
-    // Auto-clear activity after 3 seconds
     setTimeout(() => {
       socket.updateActivity(channelId, null)
     }, 3000)
   }
 }
 
-/**
- * Deliver a reply to a Shadow channel.
- */
+// ─── Reply Delivery ───────────────────────────────────────────────────────
+
 async function deliverShadowReply(params: {
   payload: ReplyPayload
   channelId: string
@@ -658,11 +586,8 @@ async function deliverShadowReply(params: {
   replyToId?: string
   client: ShadowClient
   runtime: { log?: (msg: string) => void; error?: (msg: string) => void }
-  /** Agent chain metadata from the triggering message (for anti-loop) */
   agentChain?: AgentChainMetadata
-  /** This Buddy's agent ID */
   agentId: string | null
-  /** This Buddy's bot user ID */
   botUserId: string
 }): Promise<void> {
   const {
@@ -684,13 +609,9 @@ async function deliverShadowReply(params: {
     }
 
     const text = payload.text ?? ''
-
     runtime.log?.(`[reply] Sending reply to channel ${channelId}: "${text.slice(0, 80)}"`)
 
-    // Collect media URLs first so we know whether media is present
     const mediaUrls = [payload.mediaUrl, ...(payload.mediaUrls ?? [])].filter(Boolean) as string[]
-
-    // Build agent chain metadata for anti-loop tracking
     const newAgentChain: AgentChainMetadata | undefined = agentId
       ? {
           agentId,
@@ -703,11 +624,9 @@ async function deliverShadowReply(params: {
         }
       : undefined
 
-    // Send the text message first (or a placeholder if media-only)
     let sentMessage: ShadowMessage | null = null
-    // Always create a message when we have media so attachments can be linked
     if (text || mediaUrls.length > 0) {
-      const contentToSend = text || '\u200B' // zero-width space placeholder for media-only
+      const contentToSend = text || '\u200B'
       if (threadId) {
         sentMessage = await client.sendToThread(threadId, contentToSend)
       } else {
@@ -721,7 +640,6 @@ async function deliverShadowReply(params: {
       )
     }
 
-    // Upload media files and attach to the message
     if (mediaUrls.length > 0) {
       const messageId = sentMessage?.id
       for (const mediaUrl of mediaUrls) {
@@ -741,10 +659,8 @@ async function deliverShadowReply(params: {
   }
 }
 
-/**
- * Process an incoming DM message and dispatch to the AI pipeline.
- * Similar to processShadowMessage but for direct messages.
- */
+// ─── Process DM Message ───────────────────────────────────────────────────
+
 async function processShadowDmMessage(params: {
   dmMessage: {
     id: string
@@ -791,12 +707,10 @@ async function processShadowDmMessage(params: {
 
   const senderLabel = dmMessage.author?.username ?? dmMessage.senderId
 
-  // Skip own messages
   if (dmMessage.senderId === botUserId || dmMessage.authorId === botUserId) {
     runtime.log?.(`[dm] Skipping own DM message ${dmMessage.id}`)
     return
   }
-  // Skip messages from other bots
   if (dmMessage.author?.isBot) {
     runtime.log?.(`[dm] Skipping bot DM from ${senderLabel} (${dmMessage.id})`)
     return
@@ -812,7 +726,6 @@ async function processShadowDmMessage(params: {
   const rawBody = dmMessage.content
   const dmChannelId = dmMessage.dmChannelId
 
-  // Build attachment context for AI (if any)
   const attachments = dmMessage.attachments ?? []
   let bodyWithAttachments = rawBody
   if (attachments.length > 0) {
@@ -824,21 +737,16 @@ async function processShadowDmMessage(params: {
       : attachmentLines.join('\n')
   }
 
-  // 1. Resolve agent route — use dmChannelId for session isolation
   const peerId = `dm:${dmChannelId}`
   const route = core.channel.routing.resolveAgentRoute({
     cfg,
     channel: 'shadowob',
     accountId,
-    peer: {
-      kind: 'private',
-      id: peerId,
-    },
+    peer: { kind: 'private', id: peerId },
   })
 
   runtime.log?.(`[routing] DM resolved agent: ${route.agentId} (account ${accountId})`)
 
-  // 2. Build envelope
   const body = core.channel.reply.formatAgentEnvelope({
     channel: 'Shadow DM',
     from: senderName,
@@ -847,7 +755,6 @@ async function processShadowDmMessage(params: {
     body: bodyWithAttachments,
   })
 
-  // 3. Build and finalize MsgContext for DM
   const ctxPayload = core.channel.reply.finalizeInboundContext({
     Body: body,
     BodyForAgent: bodyWithAttachments,
@@ -865,21 +772,19 @@ async function processShadowDmMessage(params: {
     Provider: 'shadowob',
     Surface: 'shadowob',
     MessageSid: dmMessage.id,
-    WasMentioned: true, // Always "mentioned" in DM
+    WasMentioned: true,
     OriginatingChannel: 'shadowob',
     OriginatingTo: `shadowob:dm:${dmChannelId}`,
-    // Buddy self-identity — allows the AI agent to know who it is
     BotUserId: botUserId,
     BotUsername: botUsername,
     AgentId: route.agentId,
-    // DM channel context
     ChannelId: dmChannelId,
   })
 
-  // 4. Record session
-  const storePath = core.channel.session.resolveStorePath(cfg.session?.store, {
-    agentId: route.agentId,
-  })
+  const storePath = core.channel.session.resolveStorePath(
+    (cfg as Record<string, unknown>).session as unknown,
+    { agentId: route.agentId },
+  )
   await core.channel.session.recordInboundSession({
     storePath,
     sessionKey: ctxPayload.SessionKey ?? route.sessionKey,
@@ -889,15 +794,11 @@ async function processShadowDmMessage(params: {
     },
   })
 
-  // 5. Dispatch to AI + deliver reply via DM
   runtime.log?.(`[dm] Dispatching to AI pipeline for DM message ${dmMessage.id}`)
   const client = new ShadowClient(account.serverUrl, account.token)
-
-  // Extract agent chain metadata from the triggering DM message (for anti-loop)
   const triggerChain = (dmMessage as { metadata?: { agentChain?: AgentChainMetadata } }).metadata
     ?.agentChain
 
-  // Build typing callbacks for DM channel
   const typingCbs = createTypingCallbacks({
     start: async () => {
       socket.sendDmTyping(dmChannelId)
@@ -907,7 +808,6 @@ async function processShadowDmMessage(params: {
     },
   })
 
-  // Start typing indicator
   typingCbs.onReplyStart().catch(() => {})
 
   try {
@@ -916,9 +816,7 @@ async function processShadowDmMessage(params: {
       cfg,
       dispatcherOptions: {
         deliver: async (payload: ReplyPayload) => {
-          // Re-emit typing during delivery
           socket.sendDmTyping(dmChannelId)
-
           await deliverShadowDmReply({
             payload,
             dmChannelId,
@@ -936,26 +834,18 @@ async function processShadowDmMessage(params: {
     runtime.error?.(`[dm] AI dispatch failed for DM message ${dmMessage.id}: ${String(err)}`)
     throw err
   } finally {
-    // Stop typing keepalive
     typingCbs.onCleanup?.()
   }
 }
 
-/**
- * Deliver a reply to a Shadow DM channel.
- * Mirrors deliverShadowReply but for DM channels.
- */
 async function deliverShadowDmReply(params: {
   payload: ReplyPayload
   dmChannelId: string
   replyToId?: string
   client: ShadowClient
   runtime: { log?: (msg: string) => void; error?: (msg: string) => void }
-  /** Agent chain metadata from the triggering message (for anti-loop) */
   agentChain?: AgentChainMetadata
-  /** This Buddy's agent ID */
   agentId: string | null
-  /** This Buddy's bot user ID */
   botUserId: string
 }): Promise<void> {
   const { payload, dmChannelId, replyToId, client, runtime, agentChain, agentId, botUserId } =
@@ -970,10 +860,7 @@ async function deliverShadowDmReply(params: {
     const text = payload.text ?? ''
     runtime.log?.(`[dm-reply] Sending DM reply to channel ${dmChannelId}: "${text.slice(0, 80)}"`)
 
-    // Collect media URLs first so we know whether media is present
     const mediaUrls = [payload.mediaUrl, ...(payload.mediaUrls ?? [])].filter(Boolean) as string[]
-
-    // Build agent chain metadata for anti-loop tracking
     const newAgentChain: AgentChainMetadata | undefined = agentId
       ? {
           agentId,
@@ -986,10 +873,9 @@ async function deliverShadowDmReply(params: {
         }
       : undefined
 
-    // Send the text message first (or a placeholder if media-only)
     let sentMessage: ShadowMessage | null = null
     if (text || mediaUrls.length > 0) {
-      const contentToSend = text || '\u200B' // zero-width space placeholder for media-only
+      const contentToSend = text || '\u200B'
       sentMessage = await client.sendDmMessage(dmChannelId, contentToSend, {
         replyToId,
         metadata: newAgentChain ? { agentChain: newAgentChain } : undefined,
@@ -999,7 +885,6 @@ async function deliverShadowDmReply(params: {
       )
     }
 
-    // Upload media files and attach to the message
     if (mediaUrls.length > 0) {
       const messageId = sentMessage?.id
       for (const mediaUrl of mediaUrls) {
@@ -1019,10 +904,8 @@ async function deliverShadowDmReply(params: {
   }
 }
 
-/**
- * Session cache — persists remote config to disk so restart recovery is faster.
- * Saves to ~/.openclaw/shadow/session-cache-<accountId>.json
- */
+// ─── Session Cache ────────────────────────────────────────────────────────
+
 async function getSessionCachePath(accountId: string): Promise<string> {
   // @ts-expect-error node:path available at runtime
   const nodePath = await import('node:path')
@@ -1061,12 +944,8 @@ async function loadSessionCache(
   }
 }
 
-/**
- * Main monitor provider for Shadow.
- *
- * Connects to Shadow's Socket.IO gateway and listens for incoming messages.
- * Server/channel info and policies are fetched from the Shadow API.
- */
+// ─── Main Monitor ─────────────────────────────────────────────────────────
+
 export async function monitorShadowProvider(
   options: ShadowMonitorOptions,
 ): Promise<ShadowMonitorResult> {
@@ -1075,14 +954,12 @@ export async function monitorShadowProvider(
   const core = getShadowRuntime()
   let stopped = false
 
-  // Probe the bot user to get its ID + agentId
   const client = new ShadowClient(account.serverUrl, account.token)
   const me = await client.getMe()
   const botUserId = me.id
 
   runtime.log?.(`Shadow bot connected as ${me.username} (${botUserId})`)
 
-  // Resolve agentId: prefer account config, fall back to /api/auth/me response
   const agentId = account.agentId ?? me.agentId ?? null
   if (!agentId) {
     runtime.error?.(
@@ -1092,7 +969,6 @@ export async function monitorShadowProvider(
     runtime.log?.(`[config] Resolved agentId: ${agentId}`)
   }
 
-  // Fetch remote config (servers, channels, policies)
   let remoteConfig: ShadowRemoteConfig | null = null
   const channelPolicies = new Map<string, ShadowChannelPolicy>()
   const channelServerMap = new Map<
@@ -1106,7 +982,6 @@ export async function monitorShadowProvider(
       remoteConfig = await client.getAgentConfig(agentId)
       runtime.log?.(`[config] Fetched remote config: ${remoteConfig.servers.length} server(s)`)
 
-      // Build channel → policy map and channel → server map
       for (const server of remoteConfig.servers) {
         runtime.log?.(
           `[config] Server "${server.name}" (${server.id}) — ${server.channels.length} channel(s)`,
@@ -1119,7 +994,6 @@ export async function monitorShadowProvider(
             serverName: server.name,
             channelName: ch.name,
           })
-          // Only join channels where listen is enabled
           if (ch.policy.listen) {
             allChannelIds.push(ch.id)
             runtime.log?.(
@@ -1134,13 +1008,10 @@ export async function monitorShadowProvider(
       runtime.log?.(
         `[config] Monitoring ${allChannelIds.length} channel(s) across ${remoteConfig.servers.length} server(s)`,
       )
-
-      // Persist to disk for restart recovery
       void saveSessionCache(accountId, { remoteConfig, botUserId, botUsername: me.username })
     } catch (err) {
       runtime.error?.(`[config] Failed to fetch remote config: ${String(err)}`)
 
-      // Try to load from cached session
       const cached = await loadSessionCache(accountId)
       if (cached) {
         runtime.log?.('[config] Loaded session from cache — using cached config')
@@ -1154,9 +1025,7 @@ export async function monitorShadowProvider(
               serverName: server.name,
               channelName: ch.name,
             })
-            if (ch.policy.listen) {
-              allChannelIds.push(ch.id)
-            }
+            if (ch.policy.listen) allChannelIds.push(ch.id)
           }
         }
         runtime.log?.(`[config] Restored ${allChannelIds.length} channel(s) from cache`)
@@ -1166,7 +1035,6 @@ export async function monitorShadowProvider(
     }
   }
 
-  // Start heartbeat reporting
   let heartbeatInterval: ReturnType<typeof setInterval> | null = null
   if (agentId) {
     const sendHeartbeat = async () => {
@@ -1177,13 +1045,10 @@ export async function monitorShadowProvider(
         runtime.error?.(`[heartbeat] Heartbeat failed: ${String(err)}`)
       }
     }
-    // Send initial heartbeat
     void sendHeartbeat()
-    // Then every 30 seconds
     heartbeatInterval = setInterval(sendHeartbeat, 30_000)
   }
 
-  // Connect to Shadow Socket.IO
   runtime.log?.(`[ws] Connecting to Shadow WebSocket at ${account.serverUrl}`)
 
   const socket = new ShadowSocket({
@@ -1194,25 +1059,20 @@ export async function monitorShadowProvider(
 
   socket.onConnect(() => {
     runtime.log?.(`[ws] Connected (sid=${socket.raw.id})`)
-    // Join all monitored channel rooms
     if (allChannelIds.length === 0) {
       runtime.log?.('[ws] No channels to join — allChannelIds is empty')
     }
     for (const chId of allChannelIds) {
       runtime.log?.(`[ws] Emitting channel:join for ${chId}`)
       socket.joinChannel(chId).then((ack) => {
-        if (ack?.ok) {
-          runtime.log?.(`[ws] ✓ Joined channel room ${chId} (server confirmed)`)
-        } else {
-          runtime.log?.(`[ws] channel:join for ${chId} — no ack received (older server?)`)
-        }
+        if (ack?.ok) runtime.log?.(`[ws] ✓ Joined channel room ${chId} (server confirmed)`)
+        else runtime.log?.(`[ws] channel:join for ${chId} — no ack received (older server?)`)
       })
     }
     runtime.log?.(
       `[ws] Emitted channel:join for ${allChannelIds.length} channel(s), listening for messages`,
     )
 
-    // Join all DM channel rooms (mirrors channel:join pattern for DM support)
     ;(async () => {
       try {
         const dmChannels = await client.listDmChannels()
@@ -1230,29 +1090,22 @@ export async function monitorShadowProvider(
   socket.onConnectError((err) => {
     runtime.error?.(`[ws] Connection error: ${err.message}`)
   })
-
   socket.onDisconnect((reason) => {
     runtime.log?.(`[ws] Disconnected: ${reason}`)
   })
-
   socket.raw.io.on('reconnect', (attempt: number) => {
     runtime.log?.(`[ws] Reconnected after ${attempt} attempt(s)`)
   })
-
   socket.raw.io.on('reconnect_attempt', (attempt: number) => {
     runtime.log?.(`[ws] Reconnect attempt #${attempt}`)
   })
 
-  // Listen for server:joined — bot added to a new server, refresh channels
   socket.on('server:joined', async (data: { serverId: string; agentId?: string }) => {
     if (!agentId) return
     runtime.log?.(`[ws] Received server:joined for server ${data.serverId} — refreshing channels`)
-
     try {
       const updatedConfig = await client.getAgentConfig(agentId)
       runtime.log?.(`[config] Refreshed config: ${updatedConfig.servers.length} server(s)`)
-
-      // Rebuild channel policies and join new channels
       for (const server of updatedConfig.servers) {
         for (const ch of server.channels) {
           channelServerMap.set(ch.id, {
@@ -1267,13 +1120,10 @@ export async function monitorShadowProvider(
               allChannelIds.push(ch.id)
               runtime.log?.(`[config] New channel: #${ch.name} (${ch.id}) — joining`)
               socket.joinChannel(ch.id).then((ack) => {
-                if (ack?.ok) {
-                  runtime.log?.(`[ws] ✓ Joined new channel room ${ch.id}`)
-                }
+                if (ack?.ok) runtime.log?.(`[ws] ✓ Joined new channel room ${ch.id}`)
               })
             }
           } else {
-            // Update policy if changed
             channelPolicies.set(ch.id, ch.policy)
           }
         }
@@ -1284,9 +1134,6 @@ export async function monitorShadowProvider(
     }
   })
 
-  // Listen for channel:created — new channel added to a server the bot is in
-  // With channel member isolation, bots don't auto-join new channels.
-  // This event is only sent to non-bot members now, but guard anyway.
   socket.on(
     'channel:created',
     async (data: { id: string; name: string; serverId: string; type: string }) => {
@@ -1296,7 +1143,6 @@ export async function monitorShadowProvider(
     },
   )
 
-  // Listen for agent:policy-changed — update channel policy in real-time
   socket.on(
     'agent:policy-changed',
     (data: {
@@ -1332,7 +1178,6 @@ export async function monitorShadowProvider(
     },
   )
 
-  // Listen for channel:member-added — bot added to a channel, join its room
   socket.on('channel:member-added', (data: { channelId: string; serverId?: string }) => {
     runtime.log?.(
       `[ws] Received channel:member-added: channel ${data.channelId} in server ${data.serverId}`,
@@ -1348,13 +1193,10 @@ export async function monitorShadowProvider(
       allChannelIds.push(data.channelId)
     }
     socket.joinChannel(data.channelId).then((ack) => {
-      if (ack?.ok) {
-        runtime.log?.(`[ws] ✓ Joined channel room ${data.channelId} after member-added`)
-      }
+      if (ack?.ok) runtime.log?.(`[ws] ✓ Joined channel room ${data.channelId} after member-added`)
     })
   })
 
-  // Listen for channel:member-removed — bot removed from a channel, leave its room
   socket.on('channel:member-removed', (data: { channelId: string; serverId?: string }) => {
     runtime.log?.(
       `[ws] Received channel:member-removed: channel ${data.channelId} in server ${data.serverId}`,
@@ -1366,8 +1208,6 @@ export async function monitorShadowProvider(
     runtime.log?.(`[ws] Left channel room ${data.channelId} after member-removed`)
   })
 
-  // Listen for DM messages (relayed to bot's DM room and user room by the server)
-  // Dedup set to avoid processing duplicate events from overlapping rooms
   const processedDmIds = new Set<string>()
   socket.on(
     'dm:message:new',
@@ -1396,13 +1236,11 @@ export async function monitorShadowProvider(
       }
       createdAt: string
     }) => {
-      // Dedup: skip if already processing this message
       if (processedDmIds.has(dmMessage.id)) {
         runtime.log?.(`[ws] Skipping duplicate dm:message:new ${dmMessage.id}`)
         return
       }
       processedDmIds.add(dmMessage.id)
-      // Evict old entries to prevent memory leak
       if (processedDmIds.size > 500) {
         const first = processedDmIds.values().next().value
         if (first) processedDmIds.delete(first)
@@ -1418,7 +1256,6 @@ export async function monitorShadowProvider(
         return
       }
 
-      // Retry-aware DM message processing
       const processWithRetry = async (attempt = 0) => {
         try {
           await processShadowDmMessage({
@@ -1449,7 +1286,6 @@ export async function monitorShadowProvider(
     },
   )
 
-  // Listen for new messages
   socket.on('message:new', (message: ShadowMessage) => {
     const senderLabel = message.author?.username ?? message.authorId
     runtime.log?.(
@@ -1461,13 +1297,11 @@ export async function monitorShadowProvider(
       return
     }
 
-    // Filter: only process messages from monitored channels
     if (allChannelIds.length > 0 && !allChannelIds.includes(message.channelId)) {
       runtime.log?.(`[ws] Message from unmonitored channel ${message.channelId}, ignoring`)
       return
     }
 
-    // Retry-aware message processing
     const processWithRetry = async (attempt = 0) => {
       try {
         await processShadowMessage({
@@ -1499,7 +1333,6 @@ export async function monitorShadowProvider(
     void processWithRetry()
   })
 
-  // Start the socket connection after all listeners are registered
   socket.connect()
 
   const stop = () => {
@@ -1512,9 +1345,6 @@ export async function monitorShadowProvider(
 
   abortSignal.addEventListener('abort', stop, { once: true })
 
-  // Keep the monitor alive — return a Promise that resolves only when aborted.
-  // Without this, the gateway framework sees startAccount() resolve immediately
-  // and triggers an auto-restart loop.
   await new Promise<void>((resolve) => {
     if (abortSignal.aborted) {
       resolve()
