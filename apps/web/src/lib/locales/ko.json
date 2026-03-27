@@ -208,6 +208,7 @@
     "noChannels": "채널이 없습니다",
     "createChannel": "채널 생성",
     "channelName": "채널 이름",
+    "channels": "채널",
     "typeText": "텍스트",
     "typeVoice": "음성",
     "typeAnnouncement": "공지",
@@ -245,6 +246,16 @@
     "homepageHtmlPlaceholder": "<h1>환영합니다!</h1>\n<p>이것은 서버 홈페이지입니다.</p>",
     "homepageHtmlDesc": "서버 홈페이지의 사용자 정의 HTML. 비워두면 기본값이 사용됩니다.",
     "channels": "채널"
+  },
+  "sort": {
+    "title": "정렬 및 필터",
+    "byPosition": "기본 순서",
+    "byCreatedAt": "생성 시간",
+    "byUpdatedAt": "업데이트 시간",
+    "byLastMessage": "최신 메시지",
+    "byLastAccessed": "접속 시간",
+    "filterPlaceholder": "채널 검색...",
+    "clear": "필터 지우기"
   },
   "chat": {
     "selectChannel": "채널을 선택하여 채팅을 시작하세요",
