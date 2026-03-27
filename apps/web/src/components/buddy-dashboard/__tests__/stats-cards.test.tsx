@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from 'vitest'
 import { StatsCards } from '../stats-cards'
 
 // @vitest-environment jsdom
-import '@testing-library/jest-dom'
 
 // Mock i18next
 vi.mock('react-i18next', () => ({
@@ -29,23 +28,23 @@ describe('StatsCards', () => {
   it('renders all stat cards', () => {
     render(<StatsCards stats={mockStats} />)
 
-    expect(screen.getByText('buddyDashboard.totalMessages')).toBeInTheDocument()
-    expect(screen.getByText('buddyDashboard.onlineTime')).toBeInTheDocument()
-    expect(screen.getByText('buddyDashboard.activeDays')).toBeInTheDocument()
-    expect(screen.getByText('buddyDashboard.currentStreak')).toBeInTheDocument()
+    expect(screen.getByText('buddyDashboard.totalMessages')).toBeTruthy()
+    expect(screen.getByText('buddyDashboard.onlineTime')).toBeTruthy()
+    expect(screen.getByText('buddyDashboard.activeDays')).toBeTruthy()
+    expect(screen.getByText('buddyDashboard.currentStreak')).toBeTruthy()
   })
 
   it('displays correct values', () => {
     render(<StatsCards stats={mockStats} />)
 
-    expect(screen.getByText('1,234')).toBeInTheDocument() // totalMessages
-    expect(screen.getByText('1h 1m')).toBeInTheDocument() // online time
-    expect(screen.getByText('15')).toBeInTheDocument() // active days
-    expect(screen.getByText('buddyDashboard.days {"count":5}')).toBeInTheDocument() // streak
+    expect(screen.getByText('1,234')).toBeTruthy() // totalMessages
+    expect(screen.getByText('1h 1m')).toBeTruthy() // online time
+    expect(screen.getByText('15')).toBeTruthy() // active days
+    expect(screen.getByText('buddyDashboard.days {"count":5}')).toBeTruthy() // streak
   })
 
   it('shows best streak when available', () => {
     render(<StatsCards stats={mockStats} />)
-    expect(screen.getByText(/buddyDashboard.best/)).toBeInTheDocument()
+    expect(screen.getByText(/buddyDashboard.best/)).toBeTruthy()
   })
 })
