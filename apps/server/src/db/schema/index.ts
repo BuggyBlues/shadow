@@ -1,4 +1,9 @@
 export { agentPolicies } from './agent-policies'
+export {
+  buddyPermissions,
+  buddyServerSettings,
+  buddyVisibilityEnum,
+} from './buddy-permissions'
 export { agentStatusEnum, agents } from './agents'
 export {
   agentActivityEvents,

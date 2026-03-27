@@ -3,6 +3,7 @@ import type { Server as SocketIOServer } from 'socket.io'
 import { AgentDao } from './dao/agent.dao'
 import { AgentDashboardDao } from './dao/agent-dashboard.dao'
 import { AgentPolicyDao } from './dao/agent-policy.dao'
+import { BuddyPermissionDao } from './dao/buddy-permission.dao'
 import { AppDao } from './dao/app.dao'
 import { CartDao } from './dao/cart.dao'
 import { ChannelDao } from './dao/channel.dao'
@@ -35,6 +36,7 @@ import { logger } from './lib/logger'
 import { AgentService } from './services/agent.service'
 import { AgentDashboardService } from './services/agent-dashboard.service'
 import { AgentPolicyService } from './services/agent-policy.service'
+import { BuddyPermissionService } from './services/buddy-permission.service'
 import { AppService } from './services/app.service'
 // Service classes
 import { AuthService } from './services/auth.service'
@@ -77,6 +79,7 @@ export interface Cradle {
   agentDao: AgentDao
   agentPolicyDao: AgentPolicyDao
   agentDashboardDao: AgentDashboardDao
+  buddyPermissionDao: BuddyPermissionDao
   friendshipDao: FriendshipDao
   inviteCodeDao: InviteCodeDao
   oauthAppDao: OAuthAppDao
@@ -129,6 +132,7 @@ export interface Cradle {
   mediaService: MediaService
   agentService: AgentService
   agentPolicyService: AgentPolicyService
+  buddyPermissionService: BuddyPermissionService
   appService: AppService
   shopService: ShopService
   productService: ProductService
@@ -166,6 +170,7 @@ export function createAppContainer(db: Database): AppContainer {
     notificationDao: asClass(NotificationDao).singleton(),
     agentDao: asClass(AgentDao).singleton(),
     agentPolicyDao: asClass(AgentPolicyDao).singleton(),
+    buddyPermissionDao: asClass(BuddyPermissionDao).singleton(),
     friendshipDao: asClass(FriendshipDao).singleton(),
     inviteCodeDao: asClass(InviteCodeDao).singleton(),
     oauthAppDao: asClass(OAuthAppDao).singleton(),
@@ -218,6 +223,7 @@ export function createAppContainer(db: Database): AppContainer {
     mediaService: asClass(MediaService).singleton(),
     agentService: asClass(AgentService).singleton(),
     agentPolicyService: asClass(AgentPolicyService).singleton(),
+    buddyPermissionService: asClass(BuddyPermissionService).singleton(),
     appService: asClass(AppService).singleton(),
     shopService: asClass(ShopService).singleton(),
     productService: asClass(ProductService).singleton(),
