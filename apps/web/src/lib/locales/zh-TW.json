@@ -208,6 +208,7 @@
     "noChannels": "暫無頻道",
     "createChannel": "建立頻道",
     "channelName": "頻道名稱",
+    "channels": "頻道",
     "typeText": "文字",
     "typeVoice": "語音",
     "typeAnnouncement": "公告",
@@ -245,6 +246,16 @@
     "homepageHtmlPlaceholder": "<h1>歡迎！</h1>\n<p>這是伺服器主頁。</p>",
     "homepageHtmlDesc": "伺服器主頁的自訂 HTML。留空使用預設主頁。",
     "channels": "頻道"
+  },
+  "sort": {
+    "title": "排序和篩選",
+    "byPosition": "預設順序",
+    "byCreatedAt": "建立時間",
+    "byUpdatedAt": "更新時間",
+    "byLastMessage": "最新訊息",
+    "byLastAccessed": "訪問時間",
+    "filterPlaceholder": "搜尋頻道...",
+    "clear": "清除篩選"
   },
   "chat": {
     "selectChannel": "選擇一個頻道開始聊天",
