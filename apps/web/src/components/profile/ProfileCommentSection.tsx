@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
-import { MessageSquare, MoreHorizontal, Reply, Send, Trash2 } from 'lucide-react'
+import { MessageSquare, MoreHorizontal, Reply, Send, Trash2, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../../lib/api'
@@ -50,8 +50,6 @@ export function ProfileCommentSection({ profileUserId }: ProfileCommentSectionPr
   const currentUser = useAuthStore((s) => s.user)
   const queryClient = useQueryClient()
   const [newComment, setNewComment] = useState('')
-  const [replyTo, setReplyTo] = useState<Comment | null>(null)
-  const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set())
 
   // Fetch comments
   const { data: comments = [], isLoading } = useQuery({
@@ -81,7 +79,6 @@ export function ProfileCommentSection({ profileUserId }: ProfileCommentSectionPr
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile-comments', profileUserId] })
       setNewComment('')
-      setReplyTo(null)
     },
     onError: (err: Error) => {
       showToast(err.message || t('common.error', '操作失败'), 'error')
@@ -137,20 +134,18 @@ export function ProfileCommentSection({ profileUserId }: ProfileCommentSectionPr
     if (!newComment.trim()) return
     createCommentMutation.mutate({
       content: newComment.trim(),
-      parentId: replyTo?.id,
     })
   }
 
-  const toggleReplies = (commentId: string) => {
-    setExpandedReplies((prev) => {
-      const next = new Set(prev)
-      if (next.has(commentId)) {
-        next.delete(commentId)
-      } else {
-        next.add(commentId)
-      }
-      return next
+  const handleCreateReply = (parentId: string, content: string) => {
+    createCommentMutation.mutate({
+      content,
+      parentId,
     })
+  }
+
+  const handleDeleteComment = (id: string) => {
+    deleteCommentMutation.mutate(id)
   }
 
   return (
@@ -179,21 +174,6 @@ export function ProfileCommentSection({ profileUserId }: ProfileCommentSectionPr
       {/* New Comment Form */}
       {currentUser && (
         <form onSubmit={handleSubmit} className="mb-6">
-          {replyTo && (
-            <div className="flex items-center gap-2 mb-2 text-sm text-text-muted">
-              <Reply className="w-4 h-4" />
-              <span>
-                {t('profile.replyingTo', '回复')} {replyTo.author.displayName}
-              </span>
-              <button
-                type="button"
-                onClick={() => setReplyTo(null)}
-                className="text-text-muted hover:text-text-primary"
-              >
-                ✕
-              </button>
-            </div>
-          )}
           <div className="flex gap-3">
             <UserAvatar
               userId={currentUser.id}
@@ -236,11 +216,12 @@ export function ProfileCommentSection({ profileUserId }: ProfileCommentSectionPr
               key={comment.id}
               comment={comment}
               currentUserId={currentUser?.id ?? null}
-              onReply={() => setReplyTo(comment)}
-              onDelete={() => deleteCommentMutation.mutate(comment.id)}
+              currentAvatarUrl={currentUser?.avatarUrl ?? null}
+              currentDisplayName={currentUser?.displayName ?? ''}
+              onDelete={handleDeleteComment}
               onToggleReaction={handleToggleReaction}
-              showReplies={expandedReplies.has(comment.id)}
-              onToggleReplies={() => toggleReplies(comment.id)}
+              onCreateReply={handleCreateReply}
+              isSubmitting={createCommentMutation.isPending}
             />
           ))}
         </div>
@@ -252,25 +233,30 @@ export function ProfileCommentSection({ profileUserId }: ProfileCommentSectionPr
 interface CommentItemProps {
   comment: Comment
   currentUserId: string | null
-  onReply: () => void
-  onDelete: () => void
+  currentAvatarUrl: string | null
+  currentDisplayName: string
+  onDelete: (id: string) => void
   onToggleReaction: (commentId: string, emoji: string, reacted: boolean) => void
-  showReplies: boolean
-  onToggleReplies: () => void
+  onCreateReply: (parentId: string, content: string) => void
+  isSubmitting: boolean
 }
 
 function CommentItem({
   comment,
   currentUserId,
-  onReply,
+  currentAvatarUrl,
+  currentDisplayName,
   onDelete,
   onToggleReaction,
-  showReplies,
-  onToggleReplies,
+  onCreateReply,
+  isSubmitting,
 }: CommentItemProps) {
   const { t } = useTranslation()
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
+  const [showReplies, setShowReplies] = useState(false)
+  const [showReplyInput, setShowReplyInput] = useState(false)
+  const [replyContent, setReplyContent] = useState('')
   const emojiPickerRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -297,6 +283,13 @@ function CommentItem({
 
   const isOwner = currentUserId === comment.authorId
 
+  const handleReplySubmit = () => {
+    if (!replyContent.trim()) return
+    onCreateReply(comment.id, replyContent.trim())
+    setReplyContent('')
+    setShowReplyInput(false)
+  }
+
   return (
     <div className="group">
       <div className="flex gap-3 p-3 rounded-xl hover:bg-bg-modifier-hover transition">
@@ -307,21 +300,51 @@ function CommentItem({
           size="sm"
         />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="font-medium text-text-primary truncate">
-              {comment.author.displayName}
-            </span>
-            {comment.author.isBot && (
-              <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-medium">
-                Buddy
+          {/* Header with name, bot badge, time and delete button */}
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-text-primary truncate">
+                {comment.author.displayName}
               </span>
+              {comment.author.isBot && (
+                <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-medium">
+                  Buddy
+                </span>
+              )}
+              <span className="text-xs text-text-muted">
+                {formatDistanceToNow(new Date(comment.createdAt), {
+                  addSuffix: true,
+                  locale: zhCN,
+                })}
+              </span>
+            </div>
+            {/* Delete button - always visible for owner, no wrap */}
+            {isOwner && (
+              <div className="relative shrink-0" ref={menuRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowMenu(!showMenu)}
+                  className="p-1 text-text-muted hover:text-text-primary transition rounded hover:bg-bg-tertiary"
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </button>
+                {showMenu && (
+                  <div className="absolute right-0 top-6 z-10 bg-bg-secondary border border-border-dim rounded-lg shadow-lg overflow-hidden min-w-[80px]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onDelete(comment.id)
+                        setShowMenu(false)
+                      }}
+                      className="flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 w-full whitespace-nowrap"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      {t('common.delete', '删除')}
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
-            <span className="text-xs text-text-muted">
-              {formatDistanceToNow(new Date(comment.createdAt), {
-                addSuffix: true,
-                locale: zhCN,
-              })}
-            </span>
           </div>
 
           <p className="text-sm text-text-secondary whitespace-pre-wrap break-words">
@@ -383,7 +406,7 @@ function CommentItem({
             {currentUserId && (
               <button
                 type="button"
-                onClick={onReply}
+                onClick={() => setShowReplyInput(!showReplyInput)}
                 className="text-xs px-2 py-1 text-text-muted hover:text-text-secondary hover:bg-bg-tertiary rounded transition flex items-center gap-1"
               >
                 <Reply className="w-3 h-3" />
@@ -395,7 +418,7 @@ function CommentItem({
             {comment.replyCount && comment.replyCount > 0 && (
               <button
                 type="button"
-                onClick={onToggleReplies}
+                onClick={() => setShowReplies(!showReplies)}
                 className="text-xs px-2 py-1 text-primary hover:underline transition"
               >
                 {showReplies
@@ -405,82 +428,171 @@ function CommentItem({
             )}
           </div>
 
+          {/* Reply Input - Independent box for each comment */}
+          {showReplyInput && currentUserId && (
+            <div className="mt-3 pl-2">
+              <div className="flex gap-2">
+                <UserAvatar
+                  userId={currentUserId}
+                  avatarUrl={currentAvatarUrl}
+                  displayName={currentDisplayName}
+                  size="sm"
+                />
+                <div className="flex-1 flex gap-2">
+                  <input
+                    type="text"
+                    value={replyContent}
+                    onChange={(e) => setReplyContent(e.target.value)}
+                    placeholder={`${t('profile.replyTo', '回复')} ${comment.author.displayName}...`}
+                    className="flex-1 px-3 py-1.5 text-sm bg-bg-tertiary border border-border-dim rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary"
+                    maxLength={500}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        handleReplySubmit()
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleReplySubmit}
+                    disabled={!replyContent.trim() || isSubmitting}
+                    className="px-3 py-1.5 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowReplyInput(false)
+                      setReplyContent('')
+                    }}
+                    className="px-2 py-1.5 text-text-muted hover:text-text-primary transition"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Replies */}
           {showReplies && replies.length > 0 && (
             <div className="mt-3 space-y-3 pl-4 border-l-2 border-border-dim">
               {replies.map((reply) => (
-                <div key={reply.id} className="flex gap-2">
-                  <UserAvatar
-                    userId={reply.author.id}
-                    avatarUrl={reply.author.avatarUrl}
-                    displayName={reply.author.displayName}
-                    size="xs"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-text-primary truncate">
-                        {reply.author.displayName}
-                      </span>
-                      <span className="text-xs text-text-muted">
-                        {formatDistanceToNow(new Date(reply.createdAt), {
-                          addSuffix: true,
-                          locale: zhCN,
-                        })}
-                      </span>
-                    </div>
-                    <p className="text-sm text-text-secondary">{reply.content}</p>
-                    {/* Reply reactions */}
-                    <div className="flex flex-wrap items-center gap-2 mt-1">
-                      {reply.reactions.map((reaction) => (
-                        <button
-                          key={reaction.emoji}
-                          type="button"
-                          onClick={() =>
-                            onToggleReaction(reply.id, reaction.emoji, reaction.reacted)
-                          }
-                          className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition ${
-                            reaction.reacted
-                              ? 'bg-primary/20 text-primary'
-                              : 'bg-bg-tertiary text-text-secondary hover:bg-bg-modifier-hover'
-                          }`}
-                        >
-                          <span>{reaction.emoji}</span>
-                          <span className="font-medium">{reaction.count}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                <ReplyItem
+                  key={reply.id}
+                  reply={reply}
+                  currentUserId={currentUserId}
+                  onToggleReaction={onToggleReaction}
+                  onDelete={onDelete}
+                />
               ))}
             </div>
           )}
         </div>
+      </div>
+    </div>
+  )
+}
 
-        {/* Actions menu */}
-        {isOwner && (
-          <div className="relative" ref={menuRef}>
-            <button
-              type="button"
-              onClick={() => setShowMenu(!showMenu)}
-              className="opacity-0 group-hover:opacity-100 p-1 text-text-muted hover:text-text-primary transition"
-            >
-              <MoreHorizontal className="w-4 h-4" />
-            </button>
-            {showMenu && (
-              <div className="absolute right-0 top-6 z-10 bg-bg-secondary border border-border-dim rounded-lg shadow-lg overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => {
-                    onDelete()
-                    setShowMenu(false)
-                  }}
-                  className="flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 w-full"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  {t('common.delete', '删除')}
-                </button>
-              </div>
+interface ReplyItemProps {
+  reply: Comment
+  currentUserId: string | null
+  onToggleReaction: (commentId: string, emoji: string, reacted: boolean) => void
+  onDelete: (id: string) => void
+}
+
+function ReplyItem({ reply, currentUserId, onToggleReaction, onDelete }: ReplyItemProps) {
+  const { t } = useTranslation()
+  const [showMenu, setShowMenu] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const isOwner = currentUserId === reply.authorId
+
+  return (
+    <div className="flex gap-2 group">
+      <UserAvatar
+        userId={reply.author.id}
+        avatarUrl={reply.author.avatarUrl}
+        displayName={reply.author.displayName}
+        size="xs"
+      />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-text-primary truncate">
+              {reply.author.displayName}
+            </span>
+            {reply.author.isBot && (
+              <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-medium">
+                Buddy
+              </span>
             )}
+            <span className="text-xs text-text-muted">
+              {formatDistanceToNow(new Date(reply.createdAt), {
+                addSuffix: true,
+                locale: zhCN,
+              })}
+            </span>
+          </div>
+          {/* Delete button for reply */}
+          {isOwner && (
+            <div className="relative shrink-0" ref={menuRef}>
+              <button
+                type="button"
+                onClick={() => setShowMenu(!showMenu)}
+                className="p-1 text-text-muted hover:text-text-primary transition opacity-0 group-hover:opacity-100"
+              >
+                <MoreHorizontal className="w-3 h-3" />
+              </button>
+              {showMenu && (
+                <div className="absolute right-0 top-5 z-10 bg-bg-secondary border border-border-dim rounded-lg shadow-lg overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onDelete(reply.id)
+                      setShowMenu(false)
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 w-full whitespace-nowrap"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    {t('common.delete', '删除')}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <p className="text-sm text-text-secondary">{reply.content}</p>
+        {/* Reply reactions */}
+        {reply.reactions.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 mt-1">
+            {reply.reactions.map((reaction) => (
+              <button
+                key={reaction.emoji}
+                type="button"
+                onClick={() => onToggleReaction(reply.id, reaction.emoji, reaction.reacted)}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition ${
+                  reaction.reacted
+                    ? 'bg-primary/20 text-primary'
+                    : 'bg-bg-tertiary text-text-secondary hover:bg-bg-modifier-hover'
+                }`}
+              >
+                <span>{reaction.emoji}</span>
+                <span className="font-medium">{reaction.count}</span>
+              </button>
+            ))}
           </div>
         )}
       </div>

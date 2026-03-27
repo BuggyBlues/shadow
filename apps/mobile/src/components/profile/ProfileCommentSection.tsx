@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
-import { MessageSquare, MoreHorizontal, Reply, Send, Trash2 } from 'lucide-react-native'
+import { MessageSquare, MoreHorizontal, Reply, Send, Trash2, X } from 'lucide-react-native'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -61,9 +61,6 @@ export function ProfileCommentSection({ profileUserId }: ProfileCommentSectionPr
   const currentUser = useAuthStore((s) => s.user)
   const queryClient = useQueryClient()
   const [newComment, setNewComment] = useState('')
-  const [replyTo, setReplyTo] = useState<Comment | null>(null)
-  const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set())
-  const [selectedCommentForEmoji, setSelectedCommentForEmoji] = useState<string | null>(null)
 
   // Fetch comments
   const { data: comments = [], isLoading } = useQuery({
@@ -93,7 +90,6 @@ export function ProfileCommentSection({ profileUserId }: ProfileCommentSectionPr
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile-comments', profileUserId] })
       setNewComment('')
-      setReplyTo(null)
     },
   })
 
@@ -114,7 +110,6 @@ export function ProfileCommentSection({ profileUserId }: ProfileCommentSectionPr
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile-comments', profileUserId] })
-      setSelectedCommentForEmoji(null)
     },
   })
 
@@ -146,46 +141,45 @@ export function ProfileCommentSection({ profileUserId }: ProfileCommentSectionPr
     if (!newComment.trim()) return
     createCommentMutation.mutate({
       content: newComment.trim(),
-      parentId: replyTo?.id,
     })
-  }, [newComment, replyTo, createCommentMutation])
+  }, [newComment, createCommentMutation])
 
-  const toggleReplies = useCallback((commentId: string) => {
-    setExpandedReplies((prev) => {
-      const next = new Set(prev)
-      if (next.has(commentId)) {
-        next.delete(commentId)
-      } else {
-        next.add(commentId)
-      }
-      return next
-    })
-  }, [])
+  const handleCreateReply = useCallback(
+    (parentId: string, content: string) => {
+      createCommentMutation.mutate({
+        content,
+        parentId,
+      })
+    },
+    [createCommentMutation],
+  )
+
+  const handleDeleteComment = useCallback(
+    (id: string) => {
+      deleteCommentMutation.mutate(id)
+    },
+    [deleteCommentMutation],
+  )
 
   const renderComment = useCallback(
     ({ item }: { item: Comment }) => (
       <CommentItem
         comment={item}
         currentUserId={currentUser?.id ?? null}
-        onReply={() => setReplyTo(item)}
-        onDelete={() => deleteCommentMutation.mutate(item.id)}
+        currentAvatarUrl={currentUser?.avatarUrl ?? null}
+        currentDisplayName={currentUser?.displayName ?? ''}
+        onDelete={handleDeleteComment}
         onToggleReaction={handleToggleReaction}
-        showReplies={expandedReplies.has(item.id)}
-        onToggleReplies={() => toggleReplies(item.id)}
-        showEmojiPicker={selectedCommentForEmoji === item.id}
-        onShowEmojiPicker={() =>
-          setSelectedCommentForEmoji(selectedCommentForEmoji === item.id ? null : item.id)
-        }
-        onCloseEmojiPicker={() => setSelectedCommentForEmoji(null)}
+        onCreateReply={handleCreateReply}
+        isSubmitting={createCommentMutation.isPending}
       />
     ),
     [
       currentUser,
-      deleteCommentMutation,
+      handleDeleteComment,
       handleToggleReaction,
-      expandedReplies,
-      toggleReplies,
-      selectedCommentForEmoji,
+      handleCreateReply,
+      createCommentMutation.isPending,
     ],
   )
 
@@ -220,17 +214,6 @@ export function ProfileCommentSection({ profileUserId }: ProfileCommentSectionPr
       {/* New Comment Form */}
       {currentUser && (
         <View style={styles.inputContainer}>
-          {replyTo && (
-            <View style={[styles.replyIndicator, { backgroundColor: `${colors.primary}15` }]}>
-              <Reply size={12} color={colors.primary} />
-              <Text style={[styles.replyText, { color: colors.primary }]}>
-                {t('profile.replyingTo', '回复')} {replyTo.author.displayName}
-              </Text>
-              <Pressable onPress={() => setReplyTo(null)}>
-                <Text style={[styles.replyCancel, { color: colors.textMuted }]}>✕</Text>
-              </Pressable>
-            </View>
-          )}
           <View style={[styles.inputRow, { backgroundColor: colors.inputBackground }]}>
             <Avatar
               uri={currentUser.avatarUrl}
@@ -289,31 +272,31 @@ export function ProfileCommentSection({ profileUserId }: ProfileCommentSectionPr
 interface CommentItemProps {
   comment: Comment
   currentUserId: string | null
-  onReply: () => void
-  onDelete: () => void
+  currentAvatarUrl: string | null
+  currentDisplayName: string
+  onDelete: (id: string) => void
   onToggleReaction: (commentId: string, emoji: string, reacted: boolean) => void
-  showReplies: boolean
-  onToggleReplies: () => void
-  showEmojiPicker: boolean
-  onShowEmojiPicker: () => void
-  onCloseEmojiPicker: () => void
+  onCreateReply: (parentId: string, content: string) => void
+  isSubmitting: boolean
 }
 
 function CommentItem({
   comment,
   currentUserId,
-  onReply,
+  currentAvatarUrl,
+  currentDisplayName,
   onDelete,
   onToggleReaction,
-  showReplies,
-  onToggleReplies,
-  showEmojiPicker,
-  onShowEmojiPicker,
-  onCloseEmojiPicker,
+  onCreateReply,
+  isSubmitting,
 }: CommentItemProps) {
   const colors = useColors()
   const { t } = useTranslation()
   const [showMenu, setShowMenu] = useState(false)
+  const [showReplies, setShowReplies] = useState(false)
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [showReplyInput, setShowReplyInput] = useState(false)
+  const [replyContent, setReplyContent] = useState('')
 
   // Fetch replies when expanded
   const { data: replies = [] } = useQuery({
@@ -323,6 +306,13 @@ function CommentItem({
   })
 
   const isOwner = currentUserId === comment.authorId
+
+  const handleReplySubmit = useCallback(() => {
+    if (!replyContent.trim()) return
+    onCreateReply(comment.id, replyContent.trim())
+    setReplyContent('')
+    setShowReplyInput(false)
+  }, [comment.id, replyContent, onCreateReply])
 
   return (
     <View style={[styles.commentItem, { borderBottomColor: `${colors.border}30` }]}>
@@ -334,21 +324,48 @@ function CommentItem({
           userId={comment.author.id}
         />
         <View style={styles.commentContent}>
+          {/* Header row */}
           <View style={styles.commentHeader}>
-            <Text style={[styles.authorName, { color: colors.text }]}>
-              {comment.author.displayName}
-            </Text>
-            {comment.author.isBot && (
-              <View style={[styles.botBadge, { backgroundColor: `${colors.primary}20` }]}>
-                <Text style={[styles.botBadgeText, { color: colors.primary }]}>Buddy</Text>
+            <View style={styles.commentHeaderLeft}>
+              <Text style={[styles.authorName, { color: colors.text }]} numberOfLines={1}>
+                {comment.author.displayName}
+              </Text>
+              {comment.author.isBot && (
+                <View style={[styles.botBadge, { backgroundColor: `${colors.primary}20` }]}>
+                  <Text style={[styles.botBadgeText, { color: colors.primary }]}>Buddy</Text>
+                </View>
+              )}
+              <Text style={[styles.timeAgo, { color: colors.textMuted }]}>
+                {formatDistanceToNow(new Date(comment.createdAt), {
+                  addSuffix: true,
+                  locale: zhCN,
+                })}
+              </Text>
+            </View>
+            {/* Delete button - right side */}
+            {isOwner && (
+              <View style={styles.menuContainer}>
+                <Pressable style={styles.menuBtn} onPress={() => setShowMenu(!showMenu)}>
+                  <MoreHorizontal size={18} color={colors.textMuted} />
+                </Pressable>
+                {showMenu && (
+                  <View style={[styles.menuDropdown, { backgroundColor: colors.surface }]}>
+                    <Pressable
+                      style={[styles.menuItem, { backgroundColor: colors.surfaceHover }]}
+                      onPress={() => {
+                        onDelete(comment.id)
+                        setShowMenu(false)
+                      }}
+                    >
+                      <Trash2 size={16} color="#ef4444" />
+                      <Text style={[styles.menuItemText, { color: '#ef4444' }]}>
+                        {t('common.delete', '删除')}
+                      </Text>
+                    </Pressable>
+                  </View>
+                )}
               </View>
             )}
-            <Text style={[styles.timeAgo, { color: colors.textMuted }]}>
-              {formatDistanceToNow(new Date(comment.createdAt), {
-                addSuffix: true,
-                locale: zhCN,
-              })}
-            </Text>
           </View>
 
           <Text style={[styles.commentText, { color: colors.textSecondary }]}>
@@ -361,7 +378,7 @@ function CommentItem({
             {currentUserId && (
               <Pressable
                 style={[styles.emojiBtn, { backgroundColor: colors.inputBackground }]}
-                onPress={onShowEmojiPicker}
+                onPress={() => setShowEmojiPicker(!showEmojiPicker)}
               >
                 <Text style={styles.emojiBtnText}>+😊</Text>
               </Pressable>
@@ -397,7 +414,7 @@ function CommentItem({
             {currentUserId && (
               <Pressable
                 style={[styles.actionBtn, { backgroundColor: colors.inputBackground }]}
-                onPress={onReply}
+                onPress={() => setShowReplyInput(!showReplyInput)}
               >
                 <Reply size={14} color={colors.textMuted} />
               </Pressable>
@@ -405,7 +422,7 @@ function CommentItem({
 
             {/* Reply count */}
             {comment.replyCount && comment.replyCount > 0 && (
-              <Pressable onPress={onToggleReplies}>
+              <Pressable onPress={() => setShowReplies(!showReplies)}>
                 <Text style={[styles.replyCountBtn, { color: colors.primary }]}>
                   {showReplies
                     ? t('profile.hideReplies', '收起回复')
@@ -424,7 +441,7 @@ function CommentItem({
                   style={styles.emojiOption}
                   onPress={() => {
                     onToggleReaction(comment.id, emoji, false)
-                    onCloseEmojiPicker()
+                    setShowEmojiPicker(false)
                   }}
                 >
                   <Text style={styles.emojiOptionText}>{emoji}</Text>
@@ -433,92 +450,168 @@ function CommentItem({
             </View>
           )}
 
+          {/* Reply Input - Independent for each comment */}
+          {showReplyInput && currentUserId && (
+            <View style={styles.replyInputContainer}>
+              <Avatar
+                uri={currentAvatarUrl}
+                name={currentDisplayName}
+                size={28}
+                userId={currentUserId}
+              />
+              <View
+                style={[
+                  styles.replyInputRow,
+                  { backgroundColor: colors.inputBackground, borderColor: colors.border },
+                ]}
+              >
+                <TextInput
+                  style={[styles.replyInput, { color: colors.text }]}
+                  value={replyContent}
+                  onChangeText={setReplyContent}
+                  placeholder={`${t('profile.replyTo', '回复')} ${comment.author.displayName}...`}
+                  placeholderTextColor={colors.textMuted}
+                  maxLength={500}
+                  multiline
+                />
+                <Pressable
+                  style={[
+                    styles.replySendBtn,
+                    { backgroundColor: replyContent.trim() ? colors.primary : 'transparent' },
+                  ]}
+                  onPress={handleReplySubmit}
+                  disabled={!replyContent.trim() || isSubmitting}
+                >
+                  <Send size={16} color={replyContent.trim() ? '#fff' : colors.textMuted} />
+                </Pressable>
+                <Pressable
+                  style={styles.replyCancelBtn}
+                  onPress={() => {
+                    setShowReplyInput(false)
+                    setReplyContent('')
+                  }}
+                >
+                  <X size={16} color={colors.textMuted} />
+                </Pressable>
+              </View>
+            </View>
+          )}
+
           {/* Replies */}
           {showReplies && replies.length > 0 && (
             <View style={[styles.repliesContainer, { borderLeftColor: colors.border }]}>
               {replies.map((reply) => (
-                <View key={reply.id} style={styles.replyItem}>
-                  <Avatar
-                    uri={reply.author.avatarUrl}
-                    name={reply.author.displayName}
-                    size={24}
-                    userId={reply.author.id}
-                  />
-                  <View style={styles.replyContent}>
-                    <View style={styles.replyHeader}>
-                      <Text style={[styles.replyAuthor, { color: colors.text }]}>
-                        {reply.author.displayName}
-                      </Text>
-                      <Text style={[styles.replyTime, { color: colors.textMuted }]}>
-                        {formatDistanceToNow(new Date(reply.createdAt), {
-                          addSuffix: true,
-                          locale: zhCN,
-                        })}
-                      </Text>
-                    </View>
-                    <Text style={[styles.replyTextContent, { color: colors.textSecondary }]}>
-                      {reply.content}
-                    </Text>
-                    {/* Reply reactions */}
-                    {reply.reactions.length > 0 && (
-                      <View style={styles.replyReactionsRow}>
-                        {reply.reactions.map((reaction) => (
-                          <Pressable
-                            key={reaction.emoji}
-                            style={[
-                              styles.reactionBtnSmall,
-                              {
-                                backgroundColor: reaction.reacted
-                                  ? `${colors.primary}20`
-                                  : colors.inputBackground,
-                              },
-                            ]}
-                            onPress={() =>
-                              onToggleReaction(reply.id, reaction.emoji, reaction.reacted)
-                            }
-                          >
-                            <Text style={styles.reactionEmojiSmall}>{reaction.emoji}</Text>
-                            <Text
-                              style={[
-                                styles.reactionCountSmall,
-                                { color: reaction.reacted ? colors.primary : colors.textMuted },
-                              ]}
-                            >
-                              {reaction.count}
-                            </Text>
-                          </Pressable>
-                        ))}
-                      </View>
-                    )}
-                  </View>
-                </View>
+                <ReplyItem
+                  key={reply.id}
+                  reply={reply}
+                  currentUserId={currentUserId}
+                  onToggleReaction={onToggleReaction}
+                  onDelete={onDelete}
+                />
               ))}
             </View>
           )}
         </View>
+      </View>
+    </View>
+  )
+}
 
-        {/* Actions menu */}
-        {isOwner && (
-          <View style={styles.menuContainer}>
-            <Pressable style={styles.menuBtn} onPress={() => setShowMenu(!showMenu)}>
-              <MoreHorizontal size={18} color={colors.textMuted} />
-            </Pressable>
-            {showMenu && (
-              <View style={[styles.menuDropdown, { backgroundColor: colors.surface }]}>
-                <Pressable
-                  style={[styles.menuItem, { backgroundColor: colors.surfaceHover }]}
-                  onPress={() => {
-                    onDelete()
-                    setShowMenu(false)
-                  }}
-                >
-                  <Trash2 size={16} color="#ef4444" />
-                  <Text style={[styles.menuItemText, { color: '#ef4444' }]}>
-                    {t('common.delete', '删除')}
-                  </Text>
-                </Pressable>
+interface ReplyItemProps {
+  reply: Comment
+  currentUserId: string | null
+  onToggleReaction: (commentId: string, emoji: string, reacted: boolean) => void
+  onDelete: (id: string) => void
+}
+
+function ReplyItem({ reply, currentUserId, onToggleReaction, onDelete }: ReplyItemProps) {
+  const colors = useColors()
+  const { t } = useTranslation()
+  const [showMenu, setShowMenu] = useState(false)
+
+  const isOwner = currentUserId === reply.authorId
+
+  return (
+    <View style={styles.replyItem}>
+      <Avatar
+        uri={reply.author.avatarUrl}
+        name={reply.author.displayName}
+        size={24}
+        userId={reply.author.id}
+      />
+      <View style={styles.replyContent}>
+        <View style={styles.replyHeader}>
+          <View style={styles.replyHeaderLeft}>
+            <Text style={[styles.replyAuthor, { color: colors.text }]}>
+              {reply.author.displayName}
+            </Text>
+            {reply.author.isBot && (
+              <View style={[styles.botBadgeSmall, { backgroundColor: `${colors.primary}20` }]}>
+                <Text style={[styles.botBadgeSmallText, { color: colors.primary }]}>Buddy</Text>
               </View>
             )}
+            <Text style={[styles.replyTime, { color: colors.textMuted }]}>
+              {formatDistanceToNow(new Date(reply.createdAt), {
+                addSuffix: true,
+                locale: zhCN,
+              })}
+            </Text>
+          </View>
+          {/* Delete for reply owner */}
+          {isOwner && (
+            <View style={styles.replyMenuContainer}>
+              <Pressable onPress={() => setShowMenu(!showMenu)}>
+                <MoreHorizontal size={14} color={colors.textMuted} />
+              </Pressable>
+              {showMenu && (
+                <View style={[styles.replyMenuDropdown, { backgroundColor: colors.surface }]}>
+                  <Pressable
+                    style={[styles.menuItem, { backgroundColor: colors.surfaceHover }]}
+                    onPress={() => {
+                      onDelete(reply.id)
+                      setShowMenu(false)
+                    }}
+                  >
+                    <Trash2 size={14} color="#ef4444" />
+                    <Text style={[styles.menuItemText, { color: '#ef4444' }]}>
+                      {t('common.delete', '删除')}
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+        <Text style={[styles.replyTextContent, { color: colors.textSecondary }]}>
+          {reply.content}
+        </Text>
+        {/* Reply reactions */}
+        {reply.reactions.length > 0 && (
+          <View style={styles.replyReactionsRow}>
+            {reply.reactions.map((reaction) => (
+              <Pressable
+                key={reaction.emoji}
+                style={[
+                  styles.reactionBtnSmall,
+                  {
+                    backgroundColor: reaction.reacted
+                      ? `${colors.primary}20`
+                      : colors.inputBackground,
+                  },
+                ]}
+                onPress={() => onToggleReaction(reply.id, reaction.emoji, reaction.reacted)}
+              >
+                <Text style={styles.reactionEmojiSmall}>{reaction.emoji}</Text>
+                <Text
+                  style={[
+                    styles.reactionCountSmall,
+                    { color: reaction.reacted ? colors.primary : colors.textMuted },
+                  ]}
+                >
+                  {reaction.count}
+                </Text>
+              </Pressable>
+            ))}
           </View>
         )}
       </View>
@@ -569,22 +662,6 @@ const styles = StyleSheet.create({
   inputContainer: {
     marginBottom: spacing.md,
   },
-  replyIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.sm,
-    marginBottom: spacing.xs,
-  },
-  replyText: {
-    fontSize: fontSize.xs,
-    flex: 1,
-  },
-  replyCancel: {
-    fontSize: fontSize.sm,
-  },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -629,17 +706,25 @@ const styles = StyleSheet.create({
   commentHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    justifyContent: 'space-between',
     marginBottom: 2,
+  },
+  commentHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flex: 1,
   },
   authorName: {
     fontSize: fontSize.sm,
     fontWeight: '600',
+    flexShrink: 1,
   },
   botBadge: {
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: 3,
+    flexShrink: 0,
   },
   botBadgeText: {
     fontSize: 10,
@@ -647,7 +732,7 @@ const styles = StyleSheet.create({
   },
   timeAgo: {
     fontSize: fontSize.xs,
-    marginLeft: spacing.xs,
+    flexShrink: 0,
   },
   commentText: {
     fontSize: fontSize.sm,
@@ -712,6 +797,43 @@ const styles = StyleSheet.create({
   emojiOptionText: {
     fontSize: fontSize.xl,
   },
+  replyInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    paddingLeft: spacing.xs,
+  },
+  replyInputRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+  },
+  replyInput: {
+    flex: 1,
+    fontSize: fontSize.sm,
+    minHeight: 28,
+    maxHeight: 80,
+    paddingVertical: spacing.xs,
+  },
+  replySendBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  replyCancelBtn: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   repliesContainer: {
     marginTop: spacing.sm,
     paddingLeft: spacing.md,
@@ -728,11 +850,26 @@ const styles = StyleSheet.create({
   replyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  replyHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.xs,
+    flex: 1,
   },
   replyAuthor: {
     fontSize: fontSize.sm,
     fontWeight: '500',
+  },
+  botBadgeSmall: {
+    paddingHorizontal: 4,
+    paddingVertical: 0,
+    borderRadius: 2,
+  },
+  botBadgeSmallText: {
+    fontSize: 9,
+    fontWeight: '700',
   },
   replyTime: {
     fontSize: fontSize.xs,
@@ -763,6 +900,7 @@ const styles = StyleSheet.create({
   },
   menuContainer: {
     position: 'relative',
+    flexShrink: 0,
   },
   menuBtn: {
     padding: spacing.xs,
@@ -778,7 +916,24 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
     overflow: 'hidden',
-    minWidth: 100,
+    minWidth: 80,
+  },
+  replyMenuContainer: {
+    position: 'relative',
+    flexShrink: 0,
+  },
+  replyMenuDropdown: {
+    position: 'absolute',
+    right: 0,
+    top: 18,
+    borderRadius: radius.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 5,
+    overflow: 'hidden',
+    minWidth: 70,
   },
   menuItem: {
     flexDirection: 'row',
