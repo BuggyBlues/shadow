@@ -66,6 +66,8 @@ export class AgentDashboardService {
       agentDashboardDao: AgentDashboardDao
       agentDao: AgentDao
       rentalContractDao: RentalContractDao
+      clawListingDao: ClawListingDao
+      userDao: UserDao
       logger: Logger
     }
   ) {}
@@ -203,13 +205,69 @@ export class AgentDashboardService {
   }
 
   private async getRentalStats(agentId: string): Promise<RentalStats> {
-    // Get all contracts where this agent was rented
-    // This requires joining with clawListings to find by agentId
-    // For now, return placeholder data
+    // Find listings for this agent
+    const listings = await this.deps.clawListingDao.findByAgentId(agentId)
+
+    if (listings.length === 0) {
+      return {
+        totalRentals: 0,
+        totalIncome: 0,
+        averageDuration: 0,
+      }
+    }
+
+    const listingIds = listings.map((l) => l.id)
+
+    // Get all contracts for these listings
+    const contracts = await this.deps.rentalContractDao.findByListingIds(listingIds)
+
+    if (contracts.length === 0) {
+      return {
+        totalRentals: 0,
+        totalIncome: 0,
+        averageDuration: 0,
+      }
+    }
+
+    // Calculate stats
+    const completedContracts = contracts.filter((c) => c.status === 'completed')
+    const totalRentals = completedContracts.length
+
+    // Calculate total income from usage records
+    let totalIncome = 0
+    for (const contract of completedContracts) {
+      totalIncome += contract.totalCost ?? 0
+    }
+
+    // Calculate average duration
+    let totalDuration = 0
+    for (const contract of completedContracts) {
+      if (contract.startsAt && contract.terminatedAt) {
+        const duration = new Date(contract.terminatedAt).getTime() - new Date(contract.startsAt).getTime()
+        totalDuration += duration / (1000 * 60 * 60 * 24) // Convert to days
+      }
+    }
+    const averageDuration = totalRentals > 0 ? totalDuration / totalRentals : 0
+
+    // Find current tenant (active contract)
+    const activeContract = contracts.find((c) => c.status === 'active')
+    let currentTenant: RentalStats['currentTenant']
+    if (activeContract) {
+      const tenant = await this.deps.userDao.findById(activeContract.tenantId)
+      if (tenant) {
+        currentTenant = {
+          id: tenant.id,
+          username: tenant.username,
+          displayName: tenant.displayName ?? tenant.username,
+        }
+      }
+    }
+
     return {
-      totalRentals: 0,
-      totalIncome: 0,
-      averageDuration: 0,
+      totalRentals,
+      totalIncome,
+      averageDuration,
+      currentTenant,
     }
   }
 

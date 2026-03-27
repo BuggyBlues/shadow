@@ -3,6 +3,7 @@ import type { Server as SocketIOServer } from 'socket.io'
 import { AgentDashboardDao } from './dao/agent-dashboard.dao'
 import { AgentDao } from './dao/agent.dao'
 import { AgentPolicyDao } from './dao/agent-policy.dao'
+import { AgentService } from './services/agent.service'
 import { AppDao } from './dao/app.dao'
 import { CartDao } from './dao/cart.dao'
 import { ChannelDao } from './dao/channel.dao'
@@ -75,6 +76,7 @@ export interface Cradle {
   notificationDao: NotificationDao
   agentDao: AgentDao
   agentPolicyDao: AgentPolicyDao
+  agentDashboardDao: AgentDashboardDao
   friendshipDao: FriendshipDao
   inviteCodeDao: InviteCodeDao
   oauthAppDao: OAuthAppDao
@@ -202,6 +204,7 @@ export function createAppContainer(db: Database): AppContainer {
     serverService: asClass(ServerService).singleton(),
     channelService: asClass(ChannelService).singleton(),
     messageService: asClass(MessageService).singleton(),
+    agentDao: asClass(AgentDao).singleton(),
     searchService: asClass(SearchService).singleton(),
     notificationService: asClass(NotificationService).singleton(),
     permissionService: asClass(PermissionService).singleton(),

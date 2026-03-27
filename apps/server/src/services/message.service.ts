@@ -1,3 +1,5 @@
+import type { AgentDashboardDao } from '../dao/agent-dashboard.dao'
+import type { AgentDao } from '../dao/agent.dao'
 import type { ChannelDao } from '../dao/channel.dao'
 import type { MessageDao } from '../dao/message.dao'
 import type { UserDao } from '../dao/user.dao'
@@ -10,7 +12,13 @@ import type {
 } from '../validators/message.schema'
 
 export class MessageService {
-  constructor(private deps: { messageDao: MessageDao; userDao: UserDao; channelDao: ChannelDao }) {}
+  constructor(private deps: {
+    messageDao: MessageDao
+    userDao: UserDao
+    channelDao: ChannelDao
+    agentDao: AgentDao
+    agentDashboardDao: AgentDashboardDao
+  }) {}
 
   async getByChannelId(channelId: string, limit?: number, cursor?: string) {
     return this.deps.messageDao.findByChannelId(channelId, limit, cursor)
@@ -53,8 +61,25 @@ export class MessageService {
       }
     }
 
+    // Track message stats for Buddy Dashboard if author is a bot
+    if (user?.isBot) {
+      try {
+        const agent = await this.deps.agentDao.findByUserId(authorId)
+        if (agent) {
+          await this.deps.agentDashboardDao.incrementMessageCount(agent.id, new Date().toISOString().split('T')[0])
+          await this.deps.agentDashboardDao.incrementHourlyMessage(agent.id, new Date().getHours())
+          await this.deps.agentDashboardDao.createEvent(agent.id, 'message', {
+            preview: input.content.substring(0, 100),
+            channelId,
+            messageId: message.id,
+          })
+        }
+      } catch {
+        // Non-critical: don't fail message creation if stats tracking fails
+      }
+    }
+
     // Attach author info and attachments for broadcasting
-    const user = await this.deps.userDao.findById(authorId)
     const messageAttachments = await this.deps.messageDao.getAttachments(message.id)
     return {
       ...message,
@@ -63,7 +88,7 @@ export class MessageService {
             id: user.id,
             username: user.username,
             displayName: user.displayName,
-            avatarUrl: user.avatarUrl,
+            avatarName: user.avatarUrl,
             status: user.status,
             isBot: user.isBot,
           }
