@@ -63,6 +63,10 @@ export class MessageService {
       }
     }
 
+    // Attach author info and attachments for broadcasting
+    const user = await this.deps.userDao.findById(authorId)
+    const messageAttachments = await this.deps.messageDao.getAttachments(message.id)
+
     // Track message stats for Buddy Dashboard if author is a bot
     if (user?.isBot) {
       try {
@@ -90,8 +94,6 @@ export class MessageService {
       }
     }
 
-    // Attach author info and attachments for broadcasting
-    const messageAttachments = await this.deps.messageDao.getAttachments(message.id)
     return {
       ...message,
       author: user
