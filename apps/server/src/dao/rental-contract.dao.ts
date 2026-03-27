@@ -126,6 +126,16 @@ export class RentalContractDao {
     return this.db.select().from(rentalContracts).where(eq(rentalContracts.status, 'active'))
   }
 
+  /** Find contracts by listing IDs */
+  async findByListingIds(listingIds: string[]) {
+    if (listingIds.length === 0) return []
+    return this.db
+      .select()
+      .from(rentalContracts)
+      .where(inArray(rentalContracts.listingId, listingIds))
+      .orderBy(desc(rentalContracts.createdAt))
+  }
+
   async create(data: {
     contractNo: string
     listingId: string

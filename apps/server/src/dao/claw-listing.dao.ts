@@ -23,6 +23,14 @@ export class ClawListingDao {
       .offset(opts?.offset ?? 0)
   }
 
+  async findByAgentId(agentId: string) {
+    return this.db
+      .select()
+      .from(clawListings)
+      .where(eq(clawListings.agentId, agentId))
+      .orderBy(desc(clawListings.createdAt))
+  }
+
   /** Helper: get IDs of listings currently actively rented */
   async getActivelyRentedListingIds(): Promise<string[]> {
     const rows = await this.db
