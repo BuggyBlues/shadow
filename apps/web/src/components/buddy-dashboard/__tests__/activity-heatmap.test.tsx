@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from 'vitest'
 import { ActivityHeatmap } from '../activity-heatmap'
 
 // @vitest-environment jsdom
-import '@testing-library/jest-dom'
 
 // Mock i18next
 vi.mock('react-i18next', () => ({
@@ -23,13 +22,13 @@ describe('ActivityHeatmap', () => {
 
   it('renders without crashing', () => {
     render(<ActivityHeatmap data={mockData} />)
-    expect(screen.getByText('buddyDashboard.activityHeatmap')).toBeInTheDocument()
+    expect(screen.getByText('buddyDashboard.activityHeatmap')).toBeTruthy()
   })
 
   it('renders legend with all levels', () => {
     render(<ActivityHeatmap data={mockData} />)
-    expect(screen.getByText('buddyDashboard.less')).toBeInTheDocument()
-    expect(screen.getByText('buddyDashboard.more')).toBeInTheDocument()
+    expect(screen.getByText('buddyDashboard.less')).toBeTruthy()
+    expect(screen.getByText('buddyDashboard.more')).toBeTruthy()
   })
 
   it('renders heatmap cells', () => {
