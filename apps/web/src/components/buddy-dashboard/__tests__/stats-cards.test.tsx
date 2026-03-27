@@ -7,11 +7,9 @@ import { StatsCards } from '../stats-cards'
 // Mock i18next
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, params?: Record<string, unknown>) => {
-      if (params) {
-        return `${key} ${JSON.stringify(params)}`
-      }
-      return key
+    t: (key: string, defaultValue?: string) => {
+      // Return default value if provided, otherwise return key
+      return defaultValue || key
     },
   }),
 }))
@@ -28,10 +26,10 @@ describe('StatsCards', () => {
   it('renders all stat cards', () => {
     render(<StatsCards stats={mockStats} />)
 
-    expect(screen.getByText('buddyDashboard.totalMessages')).toBeTruthy()
-    expect(screen.getByText('buddyDashboard.onlineTime')).toBeTruthy()
-    expect(screen.getByText('buddyDashboard.activeDays')).toBeTruthy()
-    expect(screen.getByText('buddyDashboard.currentStreak')).toBeTruthy()
+    expect(screen.getByText('Total Messages')).toBeTruthy()
+    expect(screen.getByText('Online Time')).toBeTruthy()
+    expect(screen.getByText('Active Days (30d)')).toBeTruthy()
+    expect(screen.getByText('Current Streak')).toBeTruthy()
   })
 
   it('displays correct values', () => {
@@ -40,11 +38,11 @@ describe('StatsCards', () => {
     expect(screen.getByText('1,234')).toBeTruthy() // totalMessages
     expect(screen.getByText('1h 1m')).toBeTruthy() // online time
     expect(screen.getByText('15')).toBeTruthy() // active days
-    expect(screen.getByText('buddyDashboard.days {"count":5}')).toBeTruthy() // streak
+    expect(screen.getByText('5 days')).toBeTruthy() // streak
   })
 
   it('shows best streak when available', () => {
     render(<StatsCards stats={mockStats} />)
-    expect(screen.getByText(/buddyDashboard.best/)).toBeTruthy()
+    expect(screen.getByText(/Best/)).toBeTruthy()
   })
 })
