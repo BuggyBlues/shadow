@@ -7,7 +7,7 @@ import { ActivityHeatmap } from '../activity-heatmap'
 // Mock i18next
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    t: (key: string, defaultValue?: string) => defaultValue || key,
   }),
 }))
 
@@ -22,13 +22,13 @@ describe('ActivityHeatmap', () => {
 
   it('renders without crashing', () => {
     render(<ActivityHeatmap data={mockData} />)
-    expect(screen.getByText('buddyDashboard.activityHeatmap')).toBeTruthy()
+    expect(screen.getByText('Activity Heatmap')).toBeTruthy()
   })
 
   it('renders legend with all levels', () => {
     render(<ActivityHeatmap data={mockData} />)
-    expect(screen.getByText('buddyDashboard.less')).toBeTruthy()
-    expect(screen.getByText('buddyDashboard.more')).toBeTruthy()
+    expect(screen.getByText('Less')).toBeTruthy()
+    expect(screen.getByText('More')).toBeTruthy()
   })
 
   it('renders heatmap cells', () => {
