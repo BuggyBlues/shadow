@@ -244,7 +244,26 @@
     "homepageHtml": "홈페이지 HTML",
     "homepageHtmlPlaceholder": "<h1>환영합니다!</h1>\n<p>이것은 서버 홈페이지입니다.</p>",
     "homepageHtmlDesc": "서버 홈페이지의 사용자 정의 HTML. 비워두면 기본값이 사용됩니다.",
-    "channels": "채널"
+    "channels": "채널",
+    "showArchived": "보관된 채널 표시",
+    "archiveChannel": "채널 보관",
+    "archiveChannelConfirm": "이 채널을 보관하시겠습니까? 보관 후 채널은 읽기 전용이 됩니다.",
+    "unarchiveChannel": "보관 해제",
+    "unarchiveChannelConfirm": "이 채널의 보관을 해제하시겠습니까?",
+    "archiveSuccess": "채널이 보관되었습니다",
+    "unarchiveSuccess": "보관이 해제되었습니다",
+    "archivedNotice": "이 채널은 보관되었습니다. 메시지를 보낼 수 없습니다.",
+    "unarchive": "보관 해제"
+  },
+  "sort": {
+    "title": "정렬 및 필터",
+    "byPosition": "기본 순서",
+    "byCreatedAt": "생성 시간",
+    "byUpdatedAt": "업데이트 시간",
+    "byLastMessage": "최신 메시지",
+    "byLastAccessed": "접근 시간",
+    "filterPlaceholder": "채널 검색...",
+    "clear": "필터 지우기"
   },
   "chat": {
     "selectChannel": "채널을 선택하여 채팅을 시작하세요",
@@ -1439,15 +1458,5 @@
     "timeout": "等待超时",
     "timeoutDesc": "你可以在设置中稍后配置 Buddy",
     "redirecting": "正在跳转到服务器..."
-  },
-  "sort": {
-    "title": "정렬 및 필터",
-    "byPosition": "기본 순서",
-    "byCreatedAt": "생성 시간",
-    "byUpdatedAt": "업데이트 시간",
-    "byLastMessage": "최신 메시지",
-    "byLastAccessed": "접속 시간",
-    "filterPlaceholder": "채널 검색...",
-    "clear": "필터 지우기"
   }
 }

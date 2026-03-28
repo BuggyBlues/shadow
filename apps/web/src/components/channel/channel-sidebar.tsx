@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocation, useNavigate } from '@tanstack/react-router'
 import {
   AppWindow,
+  Archive,
   Check,
   ChevronDown,
   ChevronRight,
@@ -166,14 +167,16 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
 
   // Channel sorting and filter
   const [filterKeyword, setFilterKeyword] = useState('')
+  const [showArchived, setShowArchived] = useState(false)
   const hasActiveFilter = filterKeyword.trim().length > 0
   const { sortChannels, updateLastAccessed } = useChannelSort(server?.id)
   const sortedChannels = sortChannels(rawChannels)
-  const channels = hasActiveFilter
+  const filteredChannels = hasActiveFilter
     ? sortedChannels.filter((ch) =>
         ch.name.toLowerCase().includes(filterKeyword.toLowerCase().trim()),
       )
     : sortedChannels
+  const channels = showArchived ? filteredChannels : filteredChannels.filter((ch) => !ch.isArchived)
 
   const { data: scopedUnread } = useQuery({
     queryKey: ['notification-scoped-unread'],
@@ -413,6 +416,26 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
           })
         }
       }
+    },
+  })
+
+  const archiveChannel = useMutation({
+    mutationFn: (channelId: string) =>
+      fetchApi(`/api/channels/${channelId}/archive`, {
+        method: 'POST',
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['channels', serverSlug] })
+    },
+  })
+
+  const unarchiveChannel = useMutation({
+    mutationFn: (channelId: string) =>
+      fetchApi(`/api/channels/${channelId}/unarchive`, {
+        method: 'POST',
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['channels', serverSlug] })
     },
   })
 
@@ -761,6 +784,8 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
                 filterKeyword={filterKeyword}
                 onFilterChange={setFilterKeyword}
                 hasActiveFilter={hasActiveFilter}
+                showArchived={showArchived}
+                onShowArchivedChange={setShowArchived}
               />
               <button
                 type="button"
@@ -1257,6 +1282,35 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
             },
             {
               items: [
+                {
+                  icon: Archive,
+                  label: contextMenu.channel.isArchived
+                    ? t('channel.unarchiveChannel', { defaultValue: '取消归档' })
+                    : t('channel.archiveChannel', { defaultValue: '归档频道' }),
+                  onClick: async () => {
+                    if (contextMenu.channel.isArchived) {
+                      const ok = await useConfirmStore.getState().confirm({
+                        title: t('channel.unarchiveChannel', { defaultValue: '取消归档' }),
+                        message: t('channel.unarchiveChannelConfirm', {
+                          defaultValue: '确定要取消归档此频道吗？',
+                        }),
+                      })
+                      if (ok) {
+                        unarchiveChannel.mutate(contextMenu.channel.id)
+                      }
+                    } else {
+                      const ok = await useConfirmStore.getState().confirm({
+                        title: t('channel.archiveChannel', { defaultValue: '归档频道' }),
+                        message: t('channel.archiveChannelConfirm', {
+                          defaultValue: '确定要归档此频道吗？归档后频道将变为只读。',
+                        }),
+                      })
+                      if (ok) {
+                        archiveChannel.mutate(contextMenu.channel.id)
+                      }
+                    }
+                  },
+                },
                 {
                   icon: Trash2,
                   label: t('channel.deleteChannel'),

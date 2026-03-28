@@ -366,5 +366,41 @@ export function createChannelHandler(container: AppContainer) {
     })
   })
 
+  // POST /api/channels/:id/archive — archive a channel
+  channelHandler.post('/channels/:id/archive', async (c) => {
+    const channelService = container.resolve('channelService')
+    const io = container.resolve('io')
+    const id = c.req.param('id')
+    const userId = c.get('user').userId
+    const body = await c.req.json<{ reason?: string }>().catch(() => ({}))
+    const channel = await channelService.archive(id, userId, body.reason)
+
+    // Broadcast channel update to all users in the channel
+    io.to(`channel:${id}`).emit('channel:updated', { id, isArchived: true })
+
+    return c.json({ success: true, channel })
+  })
+
+  // POST /api/channels/:id/unarchive — unarchive a channel
+  channelHandler.post('/channels/:id/unarchive', async (c) => {
+    const channelService = container.resolve('channelService')
+    const io = container.resolve('io')
+    const id = c.req.param('id')
+    const channel = await channelService.unarchive(id)
+
+    // Broadcast channel update to all users in the channel
+    io.to(`channel:${id}`).emit('channel:updated', { id, isArchived: false })
+
+    return c.json({ success: true, channel })
+  })
+
+  // GET /api/servers/:serverId/channels/archived — list archived channels
+  channelHandler.get('/servers/:serverId/channels/archived', async (c) => {
+    const channelService = container.resolve('channelService')
+    const serverId = await resolveServerId(c.req.param('serverId'))
+    const channels = await channelService.getArchivedChannels(serverId)
+    return c.json(channels)
+  })
+
   return channelHandler
 }

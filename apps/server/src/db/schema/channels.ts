@@ -27,4 +27,8 @@ export const channels = pgTable('channels', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   /** Last message timestamp for sorting by activity */
   lastMessageAt: timestamp('last_message_at', { withTimezone: true }),
+  /** Archive status */
+  isArchived: boolean('is_archived').default(false),
+  archivedAt: timestamp('archived_at', { withTimezone: true }),
+  archivedBy: varchar('archived_by', { length: 36 }),
 })
