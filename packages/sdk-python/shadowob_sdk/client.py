@@ -505,6 +505,53 @@ class ShadowClient:
     def delete_invite(self, invite_id: str) -> dict[str, Any]:
         return self._delete(f"/api/invites/{invite_id}")
 
+    def get_invite_by_code(self, code: str) -> dict[str, Any]:
+        return self._get(f"/api/invites/{code}")
+
+    def accept_invite(self, code: str) -> dict[str, Any]:
+        return self._post(f"/api/invites/{code}/accept")
+
+    def create_server_invite(
+        self,
+        server_id: str,
+        expires_in: int | None = None,
+        max_uses: int | None = None,
+        note: str | None = None,
+    ) -> dict[str, Any]:
+        data = {}
+        if expires_in is not None:
+            data["expiresIn"] = expires_in
+        if max_uses is not None:
+            data["maxUses"] = max_uses
+        if note is not None:
+            data["note"] = note
+        return self._post(f"/api/invites/servers/{server_id}", json=data)
+
+    def create_channel_invite(
+        self,
+        channel_id: str,
+        expires_in: int | None = None,
+        max_uses: int | None = None,
+        note: str | None = None,
+    ) -> dict[str, Any]:
+        data = {}
+        if expires_in is not None:
+            data["expiresIn"] = expires_in
+        if max_uses is not None:
+            data["maxUses"] = max_uses
+        if note is not None:
+            data["note"] = note
+        return self._post(f"/api/invites/channels/{channel_id}", json=data)
+
+    def reset_user_invites(self) -> dict[str, Any]:
+        return self._post("/api/invites/reset")
+
+    def reset_server_invites(self, server_id: str) -> dict[str, Any]:
+        return self._post(f"/api/invites/servers/{server_id}/reset")
+
+    def reset_channel_invites(self, channel_id: str) -> dict[str, Any]:
+        return self._post(f"/api/invites/channels/{channel_id}/reset")
+
     # ── Media ────────────────────────────────────────────────────────────
 
     def upload_media(

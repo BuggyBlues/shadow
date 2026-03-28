@@ -36,6 +36,11 @@ export class ChannelMemberDao {
     return result[0] ?? null
   }
 
+  /** Alias for get - find membership by user and channel */
+  async findByUserAndChannel(userId: string, channelId: string) {
+    return this.get(channelId, userId)
+  }
+
   /** Get all channel IDs a user belongs to within a set of channel IDs. */
   async getUserChannelIds(userId: string, channelIds: string[]) {
     if (channelIds.length === 0) return []

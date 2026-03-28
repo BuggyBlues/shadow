@@ -1,6 +1,20 @@
-import { and, eq, isNull, sql } from 'drizzle-orm'
+import { and, eq, isNull, or, sql } from 'drizzle-orm'
 import type { Database } from '../db'
-import { inviteCodes, users } from '../db/schema'
+import { channels, inviteCodes, servers, users } from '../db/schema'
+
+export type InviteType = 'server' | 'channel' | 'user'
+
+export interface CreateInviteData {
+  code: string
+  type: InviteType
+  createdBy: string
+  serverId?: string
+  channelId?: string
+  userId?: string
+  note?: string
+  expiresAt?: Date
+  maxUses?: number
+}
 
 export class InviteCodeDao {
   constructor(private deps: { db: Database }) {}
@@ -9,13 +23,19 @@ export class InviteCodeDao {
     return this.deps.db
   }
 
-  async create(data: { code: string; createdBy: string; note?: string }) {
+  async create(data: CreateInviteData) {
     const result = await this.db
       .insert(inviteCodes)
       .values({
         code: data.code,
+        type: data.type,
         createdBy: data.createdBy,
+        serverId: data.serverId,
+        channelId: data.channelId,
+        userId: data.userId,
         note: data.note,
+        expiresAt: data.expiresAt,
+        maxUses: data.maxUses,
       })
       .returning()
     return result[0]
@@ -23,8 +43,29 @@ export class InviteCodeDao {
 
   async findByCode(code: string) {
     const result = await this.db
-      .select()
+      .select({
+        invite: inviteCodes,
+        createdBy: {
+          id: users.id,
+          username: users.username,
+          displayName: users.displayName,
+          avatarUrl: users.avatarUrl,
+        },
+        server: {
+          id: servers.id,
+          name: servers.name,
+          iconUrl: servers.iconUrl,
+          bannerUrl: servers.bannerUrl,
+        },
+        channel: {
+          id: channels.id,
+          name: channels.name,
+        },
+      })
       .from(inviteCodes)
+      .leftJoin(users, eq(inviteCodes.createdBy, users.id))
+      .leftJoin(servers, eq(inviteCodes.serverId, servers.id))
+      .leftJoin(channels, eq(inviteCodes.channelId, channels.id))
       .where(eq(inviteCodes.code, code))
       .limit(1)
     return result[0] ?? null
@@ -40,11 +81,17 @@ export class InviteCodeDao {
   }
 
   async findAvailable(code: string) {
+    const now = new Date()
     const result = await this.db
       .select()
       .from(inviteCodes)
       .where(
-        and(eq(inviteCodes.code, code), eq(inviteCodes.isActive, true), isNull(inviteCodes.usedBy)),
+        and(
+          eq(inviteCodes.code, code),
+          eq(inviteCodes.isActive, true),
+          or(isNull(inviteCodes.expiresAt), sql`${inviteCodes.expiresAt} > ${now}`),
+          or(isNull(inviteCodes.maxUses), sql`${inviteCodes.usedCount} < ${inviteCodes.maxUses}`),
+        ),
       )
       .limit(1)
     return result[0] ?? null
@@ -53,7 +100,11 @@ export class InviteCodeDao {
   async markUsed(id: string, userId: string) {
     const result = await this.db
       .update(inviteCodes)
-      .set({ usedBy: userId, usedAt: new Date(), isActive: false })
+      .set({
+        usedBy: userId,
+        usedAt: new Date(),
+        usedCount: sql`${inviteCodes.usedCount} + 1`,
+      })
       .where(eq(inviteCodes.id, id))
       .returning()
     return result[0] ?? null
@@ -133,5 +184,64 @@ export class InviteCodeDao {
       ...r.inviteCode,
       usedByUser: r.usedByUser?.id ? r.usedByUser : null,
     }))
+  }
+
+  /** Find invites by entity (server/channel/user) */
+  async findByEntity(type: InviteType, entityId: string, limit = 50, offset = 0) {
+    let whereClause: ReturnType<typeof eq>
+    switch (type) {
+      case 'server':
+        whereClause = eq(inviteCodes.serverId, entityId)
+        break
+      case 'channel':
+        whereClause = eq(inviteCodes.channelId, entityId)
+        break
+      case 'user':
+        whereClause = eq(inviteCodes.userId, entityId)
+        break
+    }
+
+    const rows = await this.db
+      .select({
+        inviteCode: inviteCodes,
+        usedByUser: {
+          id: users.id,
+          username: users.username,
+          displayName: users.displayName,
+          avatarUrl: users.avatarUrl,
+        },
+      })
+      .from(inviteCodes)
+      .leftJoin(users, eq(inviteCodes.usedBy, users.id))
+      .where(and(whereClause, eq(inviteCodes.isActive, true)))
+      .orderBy(sql`${inviteCodes.createdAt} DESC`)
+      .limit(limit)
+      .offset(offset)
+
+    return rows.map((r) => ({
+      ...r.inviteCode,
+      usedByUser: r.usedByUser?.id ? r.usedByUser : null,
+    }))
+  }
+
+  /** Reset all invites for an entity (deactivate existing) */
+  async resetEntityInvites(type: InviteType, entityId: string) {
+    let whereClause: ReturnType<typeof eq>
+    switch (type) {
+      case 'server':
+        whereClause = eq(inviteCodes.serverId, entityId)
+        break
+      case 'channel':
+        whereClause = eq(inviteCodes.channelId, entityId)
+        break
+      case 'user':
+        whereClause = eq(inviteCodes.userId, entityId)
+        break
+    }
+
+    await this.db
+      .update(inviteCodes)
+      .set({ isActive: false })
+      .where(and(whereClause, eq(inviteCodes.isActive, true)))
   }
 }

@@ -1540,5 +1540,26 @@
     "timeout": "等待超时",
     "timeoutDesc": "你可以在设置中稍后配置 Buddy",
     "redirecting": "正在跳转到服务器..."
+  },
+  "qr": {
+    "scanTitle": "QRコードをスキャン",
+    "posterTitle": "QRコード名刺",
+    "dragDropImage": "QRコード画像をドラッグ＆ドロップ",
+    "orClickToUpload": "またはクリックしてアップロード",
+    "invalidImage": "有効な画像ファイルをアップロードしてください",
+    "decodeFailed": "QRコードのデコードに失敗しました",
+    "noQRFound": "画像にQRコードが見つかりません",
+    "invalidQRCode": "無効なQRコード形式です",
+    "acceptInvite": "招待を受け入れる",
+    "alreadyMember": "既にメンバーです",
+    "acceptFailed": "招待の受け入れに失敗しました",
+    "download": "ダウンロード",
+    "share": "共有",
+    "reset": "リセット",
+    "linkCopied": "リンクをクリップボードにコピーしました",
+    "expiresAt": "有効期限",
+    "serverInvite": "サーバー招待",
+    "userInvite": "ユーザー招待",
+    "unknownUser": "不明なユーザー"
   }
 }

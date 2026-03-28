@@ -1,8 +1,8 @@
 import { useNavigate } from '@tanstack/react-router'
-import { QrCode, X } from 'lucide-react'
-import { QRCodeSVG } from 'qrcode.react'
+import { QrCode } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { QRPoster } from '../qr'
 import { UserAvatar } from './avatar'
 import { formatDuration, OnlineRank } from './online-rank'
 
@@ -181,48 +181,14 @@ export function UserProfileCard({
 
       {/* QR Code Business Card Modal */}
       {showQrCard && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60"
-          onClick={() => setShowQrCard(false)}
-          onKeyDown={(e) => e.key === 'Escape' && setShowQrCard(false)}
-        >
-          <div
-            className="bg-bg-secondary rounded-2xl p-8 w-[320px] flex flex-col items-center relative shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={() => {}}
-          >
-            <button
-              type="button"
-              onClick={() => setShowQrCard(false)}
-              className="absolute top-4 right-4 text-text-muted hover:text-text-primary transition"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <UserAvatar
-              userId={user.id}
-              avatarUrl={user.avatarUrl}
-              displayName={user.displayName}
-              size="lg"
-              className="w-16 h-16"
-            />
-            <h2 className="text-lg font-bold text-text-primary mt-3">{user.displayName}</h2>
-            <p className="text-sm text-text-muted">@{user.username}</p>
-
-            <div className="bg-white p-4 rounded-xl mt-5">
-              <QRCodeSVG
-                value={`${window.location.origin}/app/profile/${user.username}`}
-                size={180}
-                bgColor="#ffffff"
-                fgColor="#000000"
-              />
-            </div>
-
-            <p className="text-xs text-text-muted mt-4">
-              {t('profile.scanToVisit', '扫一扫，访问主页')}
-            </p>
-          </div>
-        </div>
+        <QRPoster
+          type={user.isBot ? 'buddy' : 'user'}
+          entityId={user.id}
+          entityName={user.displayName}
+          entityAvatar={user.avatarUrl}
+          entityDescription={user.isBot ? description : undefined}
+          onClose={() => setShowQrCard(false)}
+        />
       )}
     </div>
   )

@@ -9,11 +9,12 @@ import {
   LogOut,
   Paintbrush,
   QrCode,
+  Scan,
   Shield,
   Target,
   User,
 } from 'lucide-react-native'
-import React from 'react'
+import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -21,6 +22,7 @@ import { Avatar } from '../../../src/components/common/avatar'
 import { DottedBackground } from '../../../src/components/common/dotted-background'
 import { LoadingScreen } from '../../../src/components/common/loading-screen'
 import { ShrimpCoinIcon } from '../../../src/components/common/shrimp-coin'
+import { QRScanner } from '../../../src/components/qr'
 import { fetchApi } from '../../../src/lib/api'
 import { disconnectSocket } from '../../../src/lib/socket'
 import { useAuthStore } from '../../../src/stores/auth.store'
@@ -32,6 +34,7 @@ export default function SettingsScreen() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const { user, logout } = useAuthStore()
+  const [showQRScanner, setShowQRScanner] = useState(false)
 
   const { data: wallet } = useQuery({
     queryKey: ['wallet'],
@@ -285,6 +288,21 @@ export default function SettingsScreen() {
                 {t('settings.qrCard', '名片')}
               </Text>
             </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.quickAction,
+                glassCardStyle,
+                { backgroundColor: colors.surface, transform: [{ scale: pressed ? 0.98 : 1 }] },
+              ]}
+              onPress={() => setShowQRScanner(true)}
+            >
+              <View style={[styles.quickIconCircle, { backgroundColor: '#5865f220' }]}>
+                <Scan size={18} color="#5865f2" />
+              </View>
+              <Text style={[styles.quickLabel, { color: colors.textSecondary }]}>
+                {t('qr.scan', '扫码')}
+              </Text>
+            </Pressable>
           </View>
 
           {/* ── Section groups ──────────────────────── */}
@@ -310,6 +328,9 @@ export default function SettingsScreen() {
           <View style={{ height: insets.bottom + 100 }} />
         </ScrollView>
       </View>
+
+      {/* QR Scanner Modal */}
+      <QRScanner visible={showQRScanner} onClose={() => setShowQRScanner(false)} />
     </DottedBackground>
   )
 }

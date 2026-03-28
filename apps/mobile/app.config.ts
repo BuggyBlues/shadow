@@ -24,6 +24,8 @@ const config: ExpoConfig = {
       NSSpeechRecognitionUsageDescription:
         'This app uses speech recognition to convert voice to text for chat input.',
       NSMicrophoneUsageDescription: 'This app uses the microphone for voice input in chat.',
+      NSCameraUsageDescription:
+        'This app uses the camera to scan QR codes for joining servers and adding friends.',
     },
   },
   android: {

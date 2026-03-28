@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from '@tanstack/react-router'
 import {
   AppWindow,
   Archive,
+  Bot,
   Check,
   ChevronDown,
   ChevronRight,
@@ -17,6 +18,7 @@ import {
   Menu,
   PawPrint,
   Plus,
+  QrCode,
   Save,
   Settings,
   ShoppingBag,
@@ -37,6 +39,7 @@ import { useUIStore } from '../../stores/ui.store'
 import { useConfirmStore } from '../common/confirm-dialog'
 import { ContextMenu } from '../common/context-menu'
 import { InvitePanel } from '../common/invite-panel'
+import { QRPoster } from '../qr'
 import { ChannelSortFilterButton } from './channel-sort-button'
 
 interface Channel {
@@ -149,6 +152,8 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
   } | null>(null)
   const [showInvitePanel, setShowInvitePanel] = useState(false)
   const [inviteInitialTab, setInviteInitialTab] = useState<'members' | 'buddies'>('members')
+  const [showQRPoster, setShowQRPoster] = useState(false)
+  const [showChannelQRPoster, setShowChannelQRPoster] = useState<Channel | null>(null)
   const [inviteTargetChannel, setInviteTargetChannel] = useState<Channel | null>(null)
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null)
   const [editChannelName, setEditChannelName] = useState('')
@@ -1143,6 +1148,15 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
                         )}
                       </button>
                     </div>
+                    {/* QR Poster Button */}
+                    <button
+                      type="button"
+                      onClick={() => setShowQRPoster(true)}
+                      className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2 bg-bg-primary hover:bg-bg-modifier-hover rounded-lg text-text-primary transition"
+                    >
+                      <QrCode size={16} />
+                      {t('qr.posterTitle')}
+                    </button>
                   </div>
                 )}
 
@@ -1230,6 +1244,22 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
                 },
                 {
                   icon: PawPrint,
+                  label: t('channel.addPawBot'),
+                  onClick: () => {
+                    setInviteTargetChannel(contextMenu.channel)
+                    setInviteInitialTab('buddies')
+                    setShowInvitePanel(true)
+                  },
+                },
+                {
+                  icon: QrCode,
+                  label: t('qr.posterTitle'),
+                  onClick: () => {
+                    setShowChannelQRPoster(contextMenu.channel)
+                  },
+                },
+                {
+                  icon: Bot,
                   label: t('channel.addAgent'),
                   onClick: () => {
                     setInviteTargetChannel(contextMenu.channel)
@@ -1415,6 +1445,41 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
             setShowInvitePanel(false)
             setInviteTargetChannel(null)
           }}
+        />
+      )}
+
+      {/* Add Agent dialog */}
+      {showAddAgent && (
+        <AddAgentDialog
+          serverId={serverSlug}
+          onClose={() => setShowAddAgent(false)}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['members'] })
+            setShowAddAgent(false)
+          }}
+          t={t}
+        />
+      )}
+
+      {/* Server QR Poster Modal */}
+      {showQRPoster && server && (
+        <QRPoster
+          type="server"
+          entityId={server.id}
+          entityName={server.name}
+          entityAvatar={server.iconUrl}
+          entityBanner={server.bannerUrl}
+          onClose={() => setShowQRPoster(false)}
+        />
+      )}
+
+      {/* Channel QR Poster Modal */}
+      {showChannelQRPoster && server && (
+        <QRPoster
+          type="channel"
+          entityId={showChannelQRPoster.id}
+          entityName={showChannelQRPoster.name}
+          onClose={() => setShowChannelQRPoster(null)}
         />
       )}
     </div>

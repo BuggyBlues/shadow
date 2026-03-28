@@ -1540,5 +1540,26 @@
     "timeout": "等待超时",
     "timeoutDesc": "你可以在设置中稍后配置 Buddy",
     "redirecting": "正在跳转到服务器..."
+  },
+  "qr": {
+    "scanTitle": "掃描QR碼",
+    "posterTitle": "QR碼名片",
+    "dragDropImage": "拖放QR碼圖片",
+    "orClickToUpload": "或點撃上傳",
+    "invalidImage": "請上傳有效的圖片文件",
+    "decodeFailed": "QR碼解析失敗",
+    "noQRFound": "未在圖片中找到QR碼",
+    "invalidQRCode": "無效的QR碼格式",
+    "acceptInvite": "接受邀請",
+    "alreadyMember": "已經是成員",
+    "acceptFailed": "接受邀請失敗",
+    "download": "下載",
+    "share": "分享",
+    "reset": "重置",
+    "linkCopied": "鏈接已複製到剪貼板",
+    "expiresAt": "過期時間",
+    "serverInvite": "伺服器邀請",
+    "userInvite": "用戶邀請",
+    "unknownUser": "未知用戶"
   }
 }

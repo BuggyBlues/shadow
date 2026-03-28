@@ -9,6 +9,7 @@ import {
   Lock,
   LogOut,
   Plus,
+  Scan,
   UserPlus,
   Volume2,
 } from 'lucide-react'
@@ -24,6 +25,7 @@ import { useChatStore } from '../../stores/chat.store'
 import { useUIStore } from '../../stores/ui.store'
 import { useConfirmStore } from '../common/confirm-dialog'
 import { ContextMenu } from '../common/context-menu'
+import { QRScanner } from '../qr'
 
 interface ServerEntry {
   server: {
@@ -156,6 +158,7 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
   const { activeServerId, setActiveServer } = useChatStore()
   const [showCreate, setShowCreate] = useState(false)
   const [showJoin, setShowJoin] = useState(false)
+  const [showQRScanner, setShowQRScanner] = useState(false)
   const [newName, setNewName] = useState('')
   const [isPublic, setIsPublic] = useState(true)
   const [joinCode, setJoinCode] = useState('')
@@ -370,6 +373,15 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
           title={t('server.joinServer')}
         >
           <UserPlus size={20} />
+        </button>
+
+        {/* QR Scanner */}
+        <button
+          onClick={() => setShowQRScanner(true)}
+          className="w-12 h-12 rounded-[24px] hover:rounded-[16px] bg-bg-primary hover:bg-[#5865F2] transition-all duration-200 flex items-center justify-center text-[#5865F2] hover:text-white"
+          title={t('qr.scanTitle')}
+        >
+          <Scan size={20} />
         </button>
 
         {/* Discover servers */}
@@ -679,6 +691,9 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
           ]}
         />
       )}
+
+      {/* QR Scanner Modal */}
+      {showQRScanner && <QRScanner onClose={() => setShowQRScanner(false)} />}
     </div>
   )
 }

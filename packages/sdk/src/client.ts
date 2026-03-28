@@ -648,6 +648,58 @@ export class ShadowClient {
     return this.request(`/api/invite-codes/${inviteId}`, { method: 'DELETE' })
   }
 
+  async getInviteByCode(code: string): Promise<{
+    code: string
+    type: 'server' | 'channel' | 'user'
+    server?: { id: string; name: string; iconUrl: string | null; bannerUrl: string | null }
+    channel?: { id: string; name: string }
+    createdBy?: { id: string; username: string; displayName: string; avatarUrl: string | null }
+  }> {
+    return this.request(`/api/invites/${encodeURIComponent(code)}`)
+  }
+
+  async acceptInvite(code: string): Promise<{
+    success: boolean
+    type: string
+    serverId?: string
+    channelId?: string
+    userId?: string
+  }> {
+    return this.request(`/api/invites/${encodeURIComponent(code)}/accept`, { method: 'POST' })
+  }
+
+  async createServerInvite(
+    serverId: string,
+    options?: { expiresIn?: number; maxUses?: number; note?: string },
+  ): Promise<{ code: string; expiresAt: string | null }> {
+    return this.request(`/api/invites/servers/${serverId}`, {
+      method: 'POST',
+      body: JSON.stringify(options ?? {}),
+    })
+  }
+
+  async createChannelInvite(
+    channelId: string,
+    options?: { expiresIn?: number; maxUses?: number; note?: string },
+  ): Promise<{ code: string; expiresAt: string | null }> {
+    return this.request(`/api/invites/channels/${channelId}`, {
+      method: 'POST',
+      body: JSON.stringify(options ?? {}),
+    })
+  }
+
+  async resetUserInvites(): Promise<{ success: boolean }> {
+    return this.request('/api/invites/reset', { method: 'POST' })
+  }
+
+  async resetServerInvites(serverId: string): Promise<{ success: boolean }> {
+    return this.request(`/api/invites/servers/${serverId}/reset`, { method: 'POST' })
+  }
+
+  async resetChannelInvites(channelId: string): Promise<{ success: boolean }> {
+    return this.request(`/api/invites/channels/${channelId}/reset`, { method: 'POST' })
+  }
+
   // ── Media ─────────────────────────────────────────────────────────────
 
   async uploadMedia(

@@ -1540,5 +1540,26 @@
     "byLastAccessed": "Last Accessed",
     "filterPlaceholder": "Search channels...",
     "clear": "Clear Filters"
+  },
+  "qr": {
+    "scanTitle": "Scan QR Code",
+    "posterTitle": "QR Code Poster",
+    "dragDropImage": "Drag and drop a QR code image",
+    "orClickToUpload": "or click to upload",
+    "invalidImage": "Please upload a valid image file",
+    "decodeFailed": "Failed to decode QR code",
+    "noQRFound": "No QR code found in image",
+    "invalidQRCode": "Invalid QR code format",
+    "acceptInvite": "Accept Invite",
+    "alreadyMember": "Already a member",
+    "acceptFailed": "Failed to accept invite",
+    "download": "Download",
+    "share": "Share",
+    "reset": "Reset",
+    "linkCopied": "Link copied to clipboard",
+    "expiresAt": "Expires at",
+    "serverInvite": "Server Invite",
+    "userInvite": "User Invite",
+    "unknownUser": "Unknown User"
   }
 }

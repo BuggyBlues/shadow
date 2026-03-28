@@ -4,11 +4,11 @@ import { Clock, QrCode, User, X } from 'lucide-react-native'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
-import QRCode from 'react-native-qrcode-svg'
 import { Avatar } from '../../../src/components/common/avatar'
 import { LoadingScreen } from '../../../src/components/common/loading-screen'
 import { StatusBadge } from '../../../src/components/common/status-badge'
 import { ProfileCommentSection } from '../../../src/components/profile/ProfileCommentSection'
+import { QRPoster } from '../../../src/components/qr'
 import { fetchApi } from '../../../src/lib/api'
 import { showToast } from '../../../src/lib/toast'
 import { useAuthStore } from '../../../src/stores/auth.store'
@@ -347,49 +347,15 @@ export default function UserProfileScreen() {
       </ScrollView>
 
       {/* QR Code Business Card Modal */}
-      <Modal
+      <QRPoster
         visible={showQrCard}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowQrCard(false)}
-      >
-        <Pressable style={styles.qrOverlay} onPress={() => setShowQrCard(false)}>
-          <Pressable
-            style={[styles.qrCard, { backgroundColor: colors.surface }]}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <Pressable style={styles.qrClose} onPress={() => setShowQrCard(false)}>
-              <X size={20} color={colors.textMuted} />
-            </Pressable>
-
-            <Avatar
-              uri={profile.avatarUrl}
-              name={profile.displayName || profile.username}
-              size={64}
-              userId={profile.id}
-            />
-            <Text style={[styles.qrName, { color: colors.text }]}>
-              {profile.displayName || profile.username}
-            </Text>
-            <Text style={[styles.qrUsername, { color: colors.textMuted }]}>
-              @{profile.username}
-            </Text>
-
-            <View style={[styles.qrCodeWrap, { backgroundColor: '#fff' }]}>
-              <QRCode
-                value={`shadow://user/${profile.username}`}
-                size={180}
-                backgroundColor="#fff"
-                color="#000"
-              />
-            </View>
-
-            <Text style={[styles.qrHint, { color: colors.textMuted }]}>
-              {t('profile.scanToAdd', '扫一扫，加好友')}
-            </Text>
-          </Pressable>
-        </Pressable>
-      </Modal>
+        onClose={() => setShowQrCard(false)}
+        type={profile.isBot ? 'buddy' : 'user'}
+        entityId={profile.id}
+        entityName={profile.displayName || profile.username}
+        entityAvatar={profile.avatarUrl}
+        entityDescription={profile.agent?.config?.description}
+      />
     </>
   )
 }

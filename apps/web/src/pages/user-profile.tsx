@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from '@tanstack/react-router'
-import { ChevronLeft, LayoutDashboard, QrCode, X } from 'lucide-react'
-import { QRCodeSVG } from 'qrcode.react'
+import { ChevronLeft, LayoutDashboard, QrCode } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { UserAvatar } from '../components/common/avatar'
 import { formatDuration, OnlineRank } from '../components/common/online-rank'
 import { ProfileCommentSection } from '../components/profile/ProfileCommentSection'
+import { QRPoster } from '../components/qr'
 import { fetchApi } from '../lib/api'
 import { useAuthStore } from '../stores/auth.store'
 
@@ -265,49 +265,14 @@ export function UserProfilePage() {
       </div>
 
       {/* QR Code Business Card Modal */}
-      {showQrCard && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-          onClick={() => setShowQrCard(false)}
-          onKeyDown={(e) => e.key === 'Escape' && setShowQrCard(false)}
-        >
-          <div
-            className="bg-bg-secondary rounded-2xl p-8 w-[320px] flex flex-col items-center relative shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={() => {}}
-          >
-            <button
-              type="button"
-              onClick={() => setShowQrCard(false)}
-              className="absolute top-4 right-4 text-text-muted hover:text-text-primary transition"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <UserAvatar
-              userId={profile.id}
-              avatarUrl={profile.avatarUrl}
-              displayName={profile.displayName}
-              size="lg"
-              className="w-16 h-16"
-            />
-            <h2 className="text-lg font-bold text-text-primary mt-3">{profile.displayName}</h2>
-            <p className="text-sm text-text-muted">@{profile.username}</p>
-
-            <div className="bg-white p-4 rounded-xl mt-5">
-              <QRCodeSVG
-                value={`shadow://user/${profile.username}`}
-                size={180}
-                bgColor="#ffffff"
-                fgColor="#000000"
-              />
-            </div>
-
-            <p className="text-xs text-text-muted mt-4">
-              {t('profile.scanToAdd', '扫一扫，加好友')}
-            </p>
-          </div>
-        </div>
+      {showQrCard && profile && (
+        <QRPoster
+          type="user"
+          entityId={profile.id}
+          entityName={profile.displayName}
+          entityAvatar={profile.avatarUrl}
+          onClose={() => setShowQrCard(false)}
+        />
       )}
     </>
   )
