@@ -543,6 +543,78 @@ Issue certificate
 
 ---
 
+## Q19: Hardware production and pricing?
+
+**Development model:** Self-developed
+
+**Price target:** Under ¥199 (affordable)
+
+**Production roadmap:**
+
+| Stage | Approach |
+|-------|----------|
+| Early beta | Internal test production |
+| Mass production | Crowdfunding (similar to YueXingTong model) |
+
+---
+
+## Q20: Hardware-Buddy relationship?
+
+**Design philosophy:** Hardware and Buddy are decoupled
+
+| Concept | Description |
+|---------|-------------|
+| Hardware role | Community browser/terminal |
+| Buddy role | Runs on community, accessed via hardware |
+| Binding | Hardware can access any Buddy in user's community |
+
+**Hardware evolution roadmap:**
+
+| Phase | Features |
+|-------|----------|
+| Phase 1 | Basic community access (messages, channels) |
+| Phase 2 | IoT protocol support (control smart home devices) |
+| Future | Embodied AI direction (robotics, movement, sensors) |
+
+**Note:** Early hardware doesn't need "cultivation" - it's a tool, not a pet.
+
+---
+
+## Q21: Ad alliance design?
+
+**Ad integration:** Third-party ad platforms (not direct clients initially)
+
+**Revenue split (standard model):**
+
+| Party | Share |
+|-------|-------|
+| Buddy Owner | 60-70% |
+| Platform | 30-40% |
+
+**Ad placement:**
+- In Buddy-generated works (articles, images, reports)
+- Context-aware recommendations
+- Non-intrusive, relevant to content
+
+---
+
+## Q22: Next phase priorities?
+
+**Execution model:** Parallel development
+
+| Direction | Team | Timeline |
+|-----------|------|----------|
+| Hardware-software | Hardware team | Parallel |
+| Shrimp Cloud | Cloud team | Parallel |
+| Operations & acquisition | Marketing team | Parallel |
+
+**Coordination:**
+- Weekly sync meetings
+- Shared milestone tracking
+- Cross-team dependencies identified early
+
+---
+
 ## Decision Timeline
 
 | Date | Decision | Note |
@@ -582,6 +654,13 @@ Issue certificate
 | 2026-03-28 | Hardware purpose: hands-free scenarios + accessibility support | |
 | 2026-03-28 | Shrimp Cloud features: clone, host, backup, key management (no sync) | |
 | 2026-03-28 | Shrimp Cloud revenue: early Shrimp Coins, later ad alliance | |
+| 2026-03-28 | Hardware development: self-developed, price under ¥199 | |
+| 2026-03-28 | Hardware production: beta test → crowdfunding (YueXingTong model) | |
+| 2026-03-28 | Hardware-Buddy decoupled: hardware is community browser | |
+| 2026-03-28 | Hardware evolution: basic access → IoT → embodied AI | |
+| 2026-03-28 | Ad alliance: third-party ad platforms | |
+| 2026-03-28 | Revenue split: Owner 60-70%, Platform 30-40% | |
+| 2026-03-28 | Next phase priorities: parallel development | |
 
 ---
 
@@ -594,7 +673,7 @@ Issue certificate
 5. Official Buddy final design choice?
 6. Invite leaderboard needed?
 7. Owner showcase UI design (tech not considered for now)
-8. Hardware-software integration specific timeline?
+8. Hardware production specific timeline?
 
 ---
 
