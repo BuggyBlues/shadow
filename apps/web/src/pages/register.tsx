@@ -86,11 +86,34 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-bg-tertiary p-4  bg-center">
-      <div className="w-full max-w-[480px] bg-bg-primary rounded-[5px] p-8 shadow-[0_2px_10px_0_rgba(0,0,0,0.2)]">
+    <div className="min-h-screen flex items-center justify-center bg-bg-tertiary p-4 relative overflow-hidden">
+      {/* Branded background */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: 'radial-gradient(rgba(0,200,214,0.06) 2px, transparent 2px)',
+          backgroundSize: '32px 32px',
+        }}
+      />
+      <div
+        className="absolute -top-32 -right-32 w-96 h-96 rounded-full opacity-20 blur-[80px]"
+        style={{ background: '#f8e71c' }}
+      />
+      <div
+        className="absolute -bottom-32 -left-32 w-80 h-80 rounded-full opacity-15 blur-[80px]"
+        style={{ background: '#00c8d6' }}
+      />
+
+      <div className="w-full max-w-[480px] bg-bg-primary rounded-2xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.3)] border border-border-subtle relative z-10">
         <div className="text-center mb-6">
-          <img src="/Logo.svg" alt="Shadow" className="w-12 h-12 mx-auto mb-3" />
-          <h1 className="text-2xl font-semibold text-white mb-2 tracking-wide">
+          <div className="relative inline-block mb-4">
+            <img
+              src="/Logo.svg"
+              alt="Shadow"
+              className="w-16 h-16 mx-auto drop-shadow-[0_0_12px_rgba(0,200,214,0.3)]"
+            />
+          </div>
+          <h1 className="text-2xl font-bold text-text-primary mb-2 tracking-wide">
             {t('auth.registerTitle')}
           </h1>
           <p className="text-text-secondary text-[15px]">{t('auth.registerSubtitle')}</p>
@@ -98,7 +121,7 @@ export function RegisterPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-[3px] p-3 text-[#fa777c] text-sm">
+            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-[#fa777c] text-sm">
               {error}
             </div>
           )}
@@ -116,7 +139,7 @@ export function RegisterPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
-              className="w-full bg-bg-tertiary text-text-primary rounded-[3px] px-3 py-2.5 outline-none focus:ring-0 transition"
+              className="w-full bg-bg-tertiary text-text-primary rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-primary/30 transition border border-border-subtle"
               placeholder="you@shadowob.com"
             />
           </div>
@@ -131,7 +154,7 @@ export function RegisterPage() {
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               autoComplete="nickname"
-              className="w-full bg-bg-tertiary text-text-primary rounded-[3px] px-3 py-2.5 outline-none focus:ring-0 transition"
+              className="w-full bg-bg-tertiary text-text-primary rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-primary/30 transition border border-border-subtle"
               placeholder={t('auth.displayNamePlaceholder')}
             />
           </div>
@@ -147,7 +170,7 @@ export function RegisterPage() {
               required
               minLength={8}
               autoComplete="new-password"
-              className="w-full bg-bg-tertiary text-text-primary rounded-[3px] px-3 py-2.5 outline-none focus:ring-0 transition"
+              className="w-full bg-bg-tertiary text-text-primary rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-primary/30 transition border border-border-subtle"
               placeholder={t('auth.passwordPlaceholder')}
             />
           </div>
@@ -161,7 +184,7 @@ export function RegisterPage() {
               value={inviteCode}
               onChange={(e) => setInviteCode(e.target.value)}
               required
-              className="w-full bg-bg-tertiary text-text-primary rounded-[3px] px-3 py-2.5 outline-none focus:ring-0 transition font-mono tracking-wider"
+              className="w-full bg-bg-tertiary text-text-primary rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-primary/30 transition font-mono tracking-wider border border-border-subtle"
               placeholder={t('auth.inviteCodePlaceholder')}
             />
             <p className="text-[11px] text-text-muted mt-1.5">{t('auth.inviteCodeHint')}</p>
@@ -170,7 +193,7 @@ export function RegisterPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#5865F2] hover:bg-[#4752c4] text-white font-medium py-2.5 rounded-[3px] transition mt-2 disabled:opacity-50 text-[15px]"
+            className="w-full bg-primary hover:bg-primary-hover text-bg-tertiary font-bold py-2.5 rounded-xl transition mt-2 disabled:opacity-50 text-[15px] shadow-[0_4px_16px_rgba(0,200,214,0.25)]"
           >
             {loading ? t('auth.registerLoading') : t('auth.registerSubmit')}
           </button>
@@ -189,7 +212,7 @@ export function RegisterPage() {
         <div className="flex flex-col gap-2">
           <a
             href={`${import.meta.env.VITE_API_BASE ?? ''}/api/auth/oauth/google?redirect=${encodeURIComponent(searchParams.redirect ?? '/app/settings')}`}
-            className="flex items-center justify-center gap-2 w-full bg-white hover:bg-gray-100 text-gray-800 font-medium py-2.5 rounded-[3px] transition text-[14px]"
+            className="flex items-center justify-center gap-2 w-full bg-white hover:bg-gray-100 text-gray-800 font-medium py-2.5 rounded-xl transition text-[14px]"
           >
             <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" role="img" aria-label="Google">
               <title>Google</title>
@@ -214,7 +237,7 @@ export function RegisterPage() {
           </a>
           <a
             href={`${import.meta.env.VITE_API_BASE ?? ''}/api/auth/oauth/github?redirect=${encodeURIComponent(searchParams.redirect ?? '/app/settings')}`}
-            className="flex items-center justify-center gap-2 w-full bg-[#24292f] hover:bg-[#32383f] text-white font-medium py-2.5 rounded-[3px] transition text-[14px]"
+            className="flex items-center justify-center gap-2 w-full bg-[#24292f] hover:bg-[#32383f] text-white font-medium py-2.5 rounded-xl transition text-[14px]"
           >
             <svg
               className="w-[18px] h-[18px]"

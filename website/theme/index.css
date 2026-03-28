@@ -249,6 +249,111 @@ html.dark .glass-nav {
   border-color: var(--shadow-card-border);
 }
 
+/* ===== Section visual rhythm ===== */
+
+/* Alternating section tint — adds subtle warmth/coolness */
+.section-tinted {
+  background: linear-gradient(180deg, var(--shadow-section-from) 0%, var(--shadow-section-to) 100%);
+  border-top: 1px solid color-mix(in oklab, var(--shadow-card-border) 60%, transparent 40%);
+  border-bottom: 1px solid color-mix(in oklab, var(--shadow-card-border) 60%, transparent 40%);
+}
+
+/* Section heading accent underline */
+.section-heading-accent {
+  position: relative;
+  display: inline-block;
+}
+.section-heading-accent::after {
+  content: "";
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 4px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--shadow-accent), var(--shadow-warm));
+}
+
+/* Wave divider between sections */
+.wave-divider {
+  width: 100%;
+  height: 64px;
+  overflow: hidden;
+  position: relative;
+  z-index: 5;
+}
+.wave-divider svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.wave-divider--flip {
+  transform: scaleY(-1);
+}
+
+/* Gradient accent strip */
+.gradient-strip {
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--shadow-accent) 20%,
+    var(--shadow-warm) 50%,
+    var(--shadow-accent) 80%,
+    transparent 100%
+  );
+  opacity: 0.5;
+}
+
+/* Hero mesh gradient overlay */
+.hero-mesh {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 600px 400px at 20% 30%, rgba(103, 232, 249, 0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 500px 350px at 80% 60%, rgba(253, 230, 138, 0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 400px 300px at 50% 80%, rgba(165, 243, 252, 0.06) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 1;
+}
+html.dark .hero-mesh {
+  background:
+    radial-gradient(ellipse 600px 400px at 20% 30%, rgba(0, 243, 255, 0.05) 0%, transparent 70%),
+    radial-gradient(ellipse 500px 350px at 80% 60%, rgba(248, 231, 28, 0.04) 0%, transparent 70%),
+    radial-gradient(ellipse 400px 300px at 50% 80%, rgba(103, 232, 249, 0.03) 0%, transparent 70%);
+}
+
+/* Stagger entrance animation for cards */
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-up {
+  animation: fadeSlideUp 0.6s ease-out both;
+}
+.animate-delay-1 {
+  animation-delay: 0.1s;
+}
+.animate-delay-2 {
+  animation-delay: 0.2s;
+}
+.animate-delay-3 {
+  animation-delay: 0.3s;
+}
+
+/* Stats counter glow */
+.stat-glow {
+  text-shadow: 0 0 20px color-mix(in oklab, var(--shadow-accent) 30%, transparent);
+}
+
 /* ===== Dark mode cat eye glow animation ===== */
 html.dark .cat-eye-yellow {
   filter: url(#glowYellow);

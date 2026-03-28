@@ -12,11 +12,12 @@ export const HomePage = () => {
     <div className="shadow-page relative flex flex-col">
       <CatSvgDefs />
 
+      <div className="hero-mesh" />
       <div className="hero-blob" style={{ background: '#67e8f9', width: '24rem', height: '24rem', top: '5rem', left: '2.5rem' }} />
       <div className="hero-blob" style={{ background: '#fde68a', width: '20rem', height: '20rem', top: '10rem', right: '5rem' }} />
       <div className="hero-blob" style={{ background: '#a5f3fc', width: '24rem', height: '24rem', bottom: '5rem', left: '33%' }} />
 
-      <main className="flex-grow pt-8 pb-20 px-8 md:px-16 flex flex-col md:flex-row items-center justify-between max-w-7xl mx-auto w-full gap-16">
+      <main className="flex-grow pt-12 pb-24 px-8 md:px-16 flex flex-col md:flex-row items-center justify-between max-w-7xl mx-auto w-full gap-16">
         <div className="md:w-1/2 flex flex-col gap-5 relative z-10">
           <div className="bg-white/80 border-2 border-gray-800 text-gray-800 font-bold px-4 py-1.5 rounded-full inline-flex items-center gap-1.5 w-max mb-2" style={{ transform: 'rotate(-2deg)' }}>
             <SparkleIcon className="w-4 h-4 text-yellow-500" /> Open Source & Free
@@ -59,9 +60,12 @@ export const HomePage = () => {
         </div>
       </main>
 
-      <section className="max-w-7xl mx-auto w-full px-8 md:px-16 py-20 relative z-10">
+      <div className="gradient-strip" />
+
+      <section className="section-tinted max-w-full w-full relative z-10">
+        <div className="max-w-7xl mx-auto px-8 md:px-16 py-24">
         <div className="text-center mb-16">
-          <h2 className="zcool text-4xl md:text-5xl mb-4">
+          <h2 className="zcool text-4xl md:text-5xl mb-6 section-heading-accent">
             Why choose <span className="text-cyan-500">Shadow</span>?
           </h2>
           <p className="text-xl font-bold text-gray-500">Cute UI, serious productivity.</p>
@@ -83,21 +87,24 @@ export const HomePage = () => {
             <p className="text-base font-bold text-gray-600 leading-relaxed">Both a productivity tool and a nurturing game. Cultivate your Buddy, make it stronger with every interaction.</p>
           </div>
         </div>
+        </div>
       </section>
 
+      <div className="gradient-strip" />
+
       {/* Features Grid */}
-      <section id="features" className="max-w-7xl mx-auto w-full px-8 md:px-16 py-20 relative z-10">
+      <section id="features" className="max-w-7xl mx-auto w-full px-8 md:px-16 py-24 relative z-10">
         <div className="text-center mb-12">
-          <h2 className="zcool text-4xl md:text-5xl mb-4">
+          <h2 className="zcool text-4xl md:text-5xl mb-6 section-heading-accent">
             All the <span className="text-cyan-500">Features</span> You Need
           </h2>
           <p className="text-xl font-bold text-gray-500">From channel communication to AI collaboration — your all-in-one workspace.</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {[
-            { icon: <MessageSquareIcon className="w-7 h-7 text-cyan-500" />, bg: 'bg-cyan-50', title: 'Channel Communication', desc: 'Powerful channel system supporting text, voice, and video channels with unlimited hierarchy.', link: `${base}/product/channels` },
+            { icon: <MessageSquareIcon className="w-7 h-7 text-cyan-500" />, bg: 'bg-cyan-50', title: 'Channel Communication', desc: 'Powerful channel system supporting text channels with unlimited hierarchy. Voice channels coming soon.', link: `${base}/product/channels` },
             { icon: <img src={`${base}/Logo.svg`} alt="Buddy" className="w-7 h-7" />, bg: 'bg-yellow-50', title: 'Multi-Buddy Collaboration', desc: 'Summon AI Buddies to join channel discussions. Write code, review proposals, generate reports — 24/7 non-stop.', link: `${base}/product/ai-assistants` },
-            { icon: <LayersIcon className="w-7 h-7 text-pink-500" />, bg: 'bg-pink-50', title: 'Unified Workspace', desc: 'Integrates task boards, whiteboards, doc collaboration, and file management. All work on one platform.', link: `${base}/product/workspace` },
+            { icon: <LayersIcon className="w-7 h-7 text-pink-500" />, bg: 'bg-pink-50', title: 'Unified Workspace', desc: 'Integrates doc collaboration and file management in one platform. Kanban boards and more workspace tools coming soon.', link: `${base}/product/workspace` },
             { icon: <ShieldIcon className="w-7 h-7 text-green-500" />, bg: 'bg-green-50', title: 'Roles & Permissions', desc: 'Granular role-based access control at channel and message level, ensuring information security.', link: `${base}/product/communities` },
             { icon: <ZapIcon className="w-7 h-7 text-orange-500" />, bg: 'bg-orange-50', title: 'Real-time Collaboration', desc: 'WebSocket-powered real-time engine with instant messaging, live presence, and typing indicators.', link: `${base}/product/channels` },
             { icon: <HandshakeIcon className="w-7 h-7 text-amber-500" />, bg: 'bg-amber-50', title: 'P2P Buddy Rental', desc: 'List your idle Buddy on the marketplace, sign smart contracts, pay-per-hour billing, and share computing power to earn Shrimp Coins.', link: `${base}/product/buddy-rental` },
@@ -114,10 +121,13 @@ export const HomePage = () => {
         </div>
       </section>
 
+      <div className="gradient-strip" />
+
       {/* User Persona Scenarios */}
-      <section className="max-w-7xl mx-auto w-full px-8 md:px-16 py-20 relative z-10">
+      <section className="section-tinted max-w-full w-full relative z-10">
+        <div className="max-w-7xl mx-auto px-8 md:px-16 py-24">
         <div className="text-center mb-12">
-          <h2 className="zcool text-4xl md:text-5xl mb-4">
+          <h2 className="zcool text-4xl md:text-5xl mb-6 section-heading-accent">
             Built for <span className="text-cyan-500">Super Individuals</span>
           </h2>
           <p className="text-xl font-bold text-gray-500">No matter your role, Shadow empowers you to do more.</p>
@@ -148,12 +158,15 @@ export const HomePage = () => {
             <p className="text-sm text-gray-600 leading-relaxed">Share Buddies across your team with privacy protection. A workspace with real AI capabilities.</p>
           </div>
         </div>
+        </div>
       </section>
 
+      <div className="gradient-strip" />
+
       {/* Platform Comparison */}
-      <section className="max-w-5xl mx-auto w-full px-8 md:px-16 py-12 relative z-10">
+      <section className="max-w-5xl mx-auto w-full px-8 md:px-16 py-16 relative z-10">
         <div className="text-center mb-10">
-          <h2 className="zcool text-4xl md:text-5xl mb-4">
+          <h2 className="zcool text-4xl md:text-5xl mb-6 section-heading-accent">
             How Shadow <span className="text-cyan-500">Compares</span>
           </h2>
           <p className="text-xl font-bold text-gray-500">Other platforms' Bots aren't first-class citizens — Shadow's Buddies are.</p>
@@ -250,9 +263,11 @@ export const HomePage = () => {
       </section>
 
       {/* Pricing Overview */}
-      <section className="max-w-7xl mx-auto w-full px-8 md:px-16 py-20 relative z-10">
+      <section className="section-tinted max-w-full w-full relative z-10">
+        <div className="gradient-strip" />
+        <div className="max-w-7xl mx-auto px-8 md:px-16 py-24">
         <div className="text-center mb-12">
-          <h2 className="zcool text-4xl md:text-5xl mb-4">
+          <h2 className="zcool text-4xl md:text-5xl mb-6 section-heading-accent">
             Simple <span className="text-cyan-500">Pricing</span>
           </h2>
           <p className="text-xl font-bold text-gray-500">Free and open source. Self-host or scale with your team.</p>
@@ -281,6 +296,7 @@ export const HomePage = () => {
           <a href={`${base}/pricing`} className="btn-secondary zcool text-lg px-8 py-3 inline-flex items-center gap-2 hover:scale-105 transition-all duration-300" style={{ textDecoration: 'none' }}>
             View full pricing →
           </a>
+        </div>
         </div>
       </section>
 
@@ -321,25 +337,25 @@ export const HomePage = () => {
       </section>
 
       {/* Social Proof */}
-      <section className="max-w-5xl mx-auto w-full px-8 md:px-16 py-12 relative z-10">
+      <section className="max-w-5xl mx-auto w-full px-8 md:px-16 py-16 relative z-10">
         <div className="text-center mb-10">
-          <h2 className="zcool text-4xl md:text-5xl mb-4">Trusted by <span className="text-cyan-500">Super Individuals</span></h2>
+          <h2 className="zcool text-4xl md:text-5xl mb-6 section-heading-accent">Trusted by <span className="text-cyan-500">Super Individuals</span></h2>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12">
           <div className="glass-card p-6 text-center">
-            <p className="zcool text-3xl font-bold text-cyan-500">100%</p>
+            <p className="zcool text-3xl font-bold text-cyan-500 stat-glow">100%</p>
             <p className="text-sm font-bold text-gray-500 mt-1">Open Source</p>
           </div>
           <div className="glass-card p-6 text-center">
-            <p className="zcool text-3xl font-bold text-cyan-500">∞</p>
+            <p className="zcool text-3xl font-bold text-cyan-500 stat-glow">∞</p>
             <p className="text-sm font-bold text-gray-500 mt-1">Unlimited Servers</p>
           </div>
           <div className="glass-card p-6 text-center">
-            <p className="zcool text-3xl font-bold text-cyan-500">7×24</p>
+            <p className="zcool text-3xl font-bold text-cyan-500 stat-glow">7×24</p>
             <p className="text-sm font-bold text-gray-500 mt-1">AI Buddy Uptime</p>
           </div>
           <div className="glass-card p-6 text-center">
-            <p className="zcool text-3xl font-bold text-cyan-500">Free</p>
+            <p className="zcool text-3xl font-bold text-cyan-500 stat-glow">Free</p>
             <p className="text-sm font-bold text-gray-500 mt-1">Self-hosting</p>
           </div>
         </div>
