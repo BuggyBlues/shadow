@@ -20,7 +20,8 @@
     "changelog:archive": "node scripts/archive-changelog.mjs",
     "test": "npx playwright test",
     "test:e2e": "npx playwright test",
-    "generate-icons": "node scripts/generate-icons.mjs"
+    "generate-icons": "node scripts/generate-icons.mjs",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@shadowob/shared": "workspace:*",

@@ -11,7 +11,8 @@
     "preandroid": "pnpm --filter @shadowob/shared build",
     "ios": "expo run:ios",
     "prebuild": "expo prebuild",
-    "lint": "biome check src/ app/"
+    "lint": "biome check src/ app/",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",

@@ -18,5 +18,6 @@
     "noEmit": true,
     "ignoreDeprecations": "5.0"
   },
+  "include": [],
   "exclude": ["node_modules", "dist", "build", ".turbo"]
 }

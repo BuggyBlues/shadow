@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import { execSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { serve } from '@hono/node-server'
@@ -18,22 +19,42 @@ import { setupWebSocket } from './ws'
 const PORT = Number(process.env.PORT ?? 3002)
 
 async function main() {
-  // Run database migrations
-  const migrationCandidates = [
-    process.env.MIGRATIONS_DIR,
-    path.resolve(process.cwd(), 'src/db/migrations'),
-    path.resolve(process.cwd(), 'dist/db/migrations'),
-    path.resolve(process.cwd(), 'apps/server/migrations'),
-    path.resolve(process.cwd(), 'apps/server/src/db/migrations'),
-  ].filter((p): p is string => Boolean(p))
+  // Database schema sync / migration
+  // DB_PUSH=true → dev mode: use drizzle-kit push (direct schema sync, no migration files)
+  // DB_PUSH=false (default) → production mode: apply file-based migrations
+  const useDbPush = process.env.DB_PUSH === 'true'
 
-  const migrationsPath = migrationCandidates.find((p) => fs.existsSync(p))
-  if (!migrationsPath) {
-    throw new Error(`Migrations folder not found. Tried: ${migrationCandidates.join(', ')}`)
+  if (useDbPush) {
+    logger.info('DB_PUSH=true — syncing schema directly via drizzle-kit push...')
+    try {
+      execSync('npx drizzle-kit push --force', {
+        cwd: process.env.SERVER_CWD ?? process.cwd(),
+        stdio: 'inherit',
+        env: { ...process.env },
+      })
+      logger.info('Database schema push completed')
+    } catch (err) {
+      logger.error({ err }, 'drizzle-kit push failed')
+      throw err
+    }
+  } else {
+    // File-based migrations (production)
+    const migrationCandidates = [
+      process.env.MIGRATIONS_DIR,
+      path.resolve(process.cwd(), 'src/db/migrations'),
+      path.resolve(process.cwd(), 'dist/db/migrations'),
+      path.resolve(process.cwd(), 'apps/server/migrations'),
+      path.resolve(process.cwd(), 'apps/server/src/db/migrations'),
+    ].filter((p): p is string => Boolean(p))
+
+    const migrationsPath = migrationCandidates.find((p) => fs.existsSync(p))
+    if (!migrationsPath) {
+      throw new Error(`Migrations folder not found. Tried: ${migrationCandidates.join(', ')}`)
+    }
+    logger.info('Running database migrations...')
+    await migrate(db, { migrationsFolder: migrationsPath })
+    logger.info('Database migrations completed')
   }
-  logger.info('Running database migrations...')
-  await migrate(db, { migrationsFolder: migrationsPath })
-  logger.info('Database migrations completed')
 
   // Create DI container
   const container = createAppContainer(db)

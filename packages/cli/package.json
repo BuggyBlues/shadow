@@ -14,7 +14,7 @@
     "dev": "tsup src/index.ts --format esm --out-dir dist --clean --watch",
     "prepack": "pnpm build",
     "lint": "biome lint .",
-    "typecheck": "pnpm --filter @shadowob/shared build && pnpm --filter @shadowob/sdk build && tsc --noEmit",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run --exclude=__tests__/e2e/**",
     "test:watch": "vitest --exclude=__tests__/e2e/**",
     "test:e2e": "vitest run __tests__/e2e"
