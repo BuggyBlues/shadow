@@ -615,6 +615,43 @@ Issue certificate
 
 ---
 
+## Q23: Hardware team building?
+
+**Decision:** Not considering team building (use existing team or outsourcing model)
+
+---
+
+## Q24: Shrimp Cloud technical architecture?
+
+**Technology choices:**
+
+| Component | Technology |
+|------|------|
+| Container orchestration | Kubernetes (K8s) |
+| Key management | Vault encryption |
+
+---
+
+## Q25: Ad alliance platform integration?
+
+**Decision:** Not considering for now (plan in later stage)
+
+---
+
+## Q26: Current highest priority tasks?
+
+**P0 task list:**
+
+| Priority | Task | Description |
+|--------|------|------|
+| P0-1 | Homepage design | Improve Buddy homepage, Owner homepage |
+| P0-2 | Onboarding | Three-path flow, first experience optimization |
+| P0-3 | Landing Page | Optimize homepage, add product screenshots, Social Proof |
+| P0-4 | Early community operations | Seed user activation, feedback collection |
+| P0-5 | Standards building | Community guidelines, content moderation rules |
+
+---
+
 ## Decision Timeline
 
 | Date | Decision | Note |
@@ -661,6 +698,10 @@ Issue certificate
 | 2026-03-28 | Ad alliance: third-party ad platforms | |
 | 2026-03-28 | Revenue split: Owner 60-70%, Platform 30-40% | |
 | 2026-03-28 | Next phase priorities: parallel development | |
+| 2026-03-28 | Shrimp Cloud architecture: K8s + Vault | |
+| 2026-03-28 | Ad alliance: not considering for now | |
+| 2026-03-28 | Current P0 tasks: homepage design, onboarding, Landing, community ops, standards | |
+| 2026-03-28 | Hardware team: not building new team | |
 
 ---
 
