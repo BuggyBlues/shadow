@@ -23,48 +23,47 @@ export const PricingPage = () => {
       features: [
         '全部产品功能',
         '无限服务器 & 频道',
-        'AI Buddy 集成',
+        'AI 搭子集成',
         '社区店铺 & 工作区',
-        'OpenClaw P2P 算力市场',
+        'Buddy P2P 租赁市场',
+        '社区支持',
+      ],
+    },
+    {
+      name: '家庭版',
+      price: '免费',
+      desc: '私有化部署，数据自主',
+      color: 'border-green-400',
+      badge: null,
+      btn: 'bg-gradient-to-r from-green-400 to-green-500 text-gray-900 hover:scale-105',
+      btnText: '立即部署',
+      btnHref: GITHUB_URL,
+      features: [
+        '社区版全部功能',
+        '私有化部署',
+        '完整数据自主',
+        '隐私保护',
+        '你的硬件，你做主',
         '社区支持',
       ],
     },
     {
       name: '团队版',
       price: '联系我们',
-      desc: '面向团队的私有化部署',
+      desc: '团队协作，定制品牌',
       popular: true,
       color: 'border-cyan-400',
-      badge: '最受欢迎',
+      badge: '团队首选',
       btn: 'bg-gradient-to-r from-cyan-400 to-cyan-500 text-gray-900 hover:scale-105',
       btnText: '联系我们',
       btnHref: GITHUB_URL,
       features: [
-        '社区版全部功能',
-        '私有化部署',
+        '家庭版全部功能',
         '优先技术支持',
-        '自定义品牌',
-        '高级权限管理',
+        '定制 Logo 品牌',
+        '高级权限控制',
+        '团队 Buddy 共享',
         'SLA 保障',
-      ],
-    },
-    {
-      name: '企业版',
-      price: '定制',
-      desc: '面向大型组织的定制方案',
-      color: 'border-yellow-400',
-      badge: null,
-      btn: 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900 hover:scale-105',
-      btnText: '联系我们',
-      btnHref: GITHUB_URL,
-      features: [
-        '团队版全部功能',
-        '多节点集群部署',
-        'SSO / LDAP 集成',
-        'SLA 保障 99.9%',
-        '专属客户经理',
-        '定制开发支持',
-        '安全审计日志',
       ],
     },
   ]
@@ -73,51 +72,50 @@ export const PricingPage = () => {
     {
       category: '部署方式',
       rows: [
-        { label: '自托管（单节点）', vals: [true, true, true] },
-        { label: '私有云部署', vals: [false, true, true] },
-        { label: '多节点集群', vals: [false, false, true] },
-        { label: '纯内网部署', vals: [false, false, true] },
+        { label: '云端托管（社区）', vals: [true, false, false] },
+        { label: '自托管（单节点）', vals: [false, true, true] },
+        { label: '私有化部署', vals: [false, true, true] },
       ],
     },
     {
       category: '产品功能',
       rows: [
         { label: '服务器 & 频道', vals: ['无限', '无限', '无限'] },
-        { label: 'AI Buddy 集成', vals: [true, true, true] },
-        { label: 'OpenClaw 算力市场', vals: [true, true, true] },
+        { label: 'AI 搭子集成', vals: [true, true, true] },
+        { label: 'Buddy 租赁市场', vals: [true, true, true] },
         { label: '社区店铺', vals: [true, true, true] },
         { label: '共享工作区', vals: [true, true, true] },
-        { label: '自定义品牌', vals: [false, true, true] },
+        { label: '自定义品牌', vals: [false, false, true] },
+        { label: '团队 Buddy 共享', vals: [false, false, true] },
       ],
     },
     {
-      category: '管理与安全',
+      category: '数据与隐私',
       rows: [
-        { label: '权限管理', vals: ['基础', '高级', '自定义'] },
-        { label: 'SSO / LDAP', vals: [false, false, true] },
-        { label: '安全审计日志', vals: [false, false, true] },
-        { label: 'SLA 保障', vals: [false, '有', '99.9%'] },
+        { label: '数据自主', vals: [false, true, true] },
+        { label: '隐私保护', vals: ['标准', '完整', '完整'] },
+        { label: '权限管理', vals: ['基础', '基础', '高级'] },
       ],
     },
     {
       category: '技术支持',
       rows: [
         { label: '社区支持', vals: [true, true, true] },
-        { label: '优先支持', vals: [false, true, true] },
-        { label: '专属客户经理', vals: [false, false, true] },
-        { label: '定制开发', vals: [false, false, true] },
+        { label: '优先支持', vals: [false, false, true] },
+        { label: 'SLA 保障', vals: [false, false, true] },
       ],
     },
   ]
 
   const faqs = [
-    { q: '虾豆真的免费吗？', a: '是的！虾豆是开源项目，所有产品功能完全免费。团队版和企业版提供私有化部署授权、优先技术支持和企业级功能。' },
-    { q: '团队版和企业版有什么区别？', a: '团队版面向中小团队，提供私有化部署和优先技术支持。企业版支持集群部署、SSO/LDAP、专属客户经理和定制开发。' },
-    { q: '如何开始私有化部署？', a: '通过 GitHub 联系我们讨论需求，我们会提供量身定制的部署方案和授权协议。' },
-    { q: '可以先试用再购买授权吗？', a: '当然可以！社区版拥有全部产品功能，你可以自由部署和评估，然后再决定是否需要付费方案。' },
+    { q: '虾豆真的免费吗？', a: '是的！虾豆完全开源，所有产品功能免费使用。家庭版支持免费自部署。团队版提供定制品牌、优先支持和高级团队功能。' },
+    { q: '家庭版和团队版有什么区别？', a: '家庭版面向注重隐私的个人用户，支持自部署和数据自主。团队版额外提供定制品牌、优先支持、高级权限和团队 Buddy 共享功能。' },
+    { q: '如何自部署虾豆？', a: '克隆 GitHub 仓库，按照部署指南操作。Docker Compose 一键启动，几分钟即可在自己的硬件上运行。' },
+    { q: '可以先试用再自部署吗？', a: '当然可以！社区版在我们的云端运行，拥有全部功能。你可以立即注册使用，然后随时迁移到自部署。' },
+    { q: '什么是虾币？', a: '虾币（🦐）是平台内的流通货币。完成任务获得、注册赠送、也可以直接充值。可用于租赁 Buddy、购买店铺商品、参与社区活动。' },
   ]
 
-  const tierNames = ['社区版', '团队版', '企业版']
+  const tierNames = ['社区版', '家庭版', '团队版']
 
   return (
     <div className="shadow-page" style={{ fontFamily: "'Nunito', 'ZCOOL KuaiLe', sans-serif" }}>
@@ -126,7 +124,7 @@ export const PricingPage = () => {
       <section className="pt-10 pb-10 px-8 md:px-16 max-w-6xl mx-auto text-center">
         <h1 className="zcool text-4xl md:text-6xl mb-6 leading-tight">简单透明的定价</h1>
         <p className="text-lg md:text-xl font-bold max-w-2xl mx-auto" style={{ color: 'var(--shadow-text-muted)' }}>
-          开源免费，团队与企业可选私有化部署授权。
+          免费开源，自部署免费，团队功能按需定制。
         </p>
       </section>
 

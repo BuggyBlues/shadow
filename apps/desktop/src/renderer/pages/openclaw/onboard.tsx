@@ -136,7 +136,7 @@ export function OnboardPage({ onNavigate }: OnboardPageProps) {
             {[
               t('openclaw.onboard.stepWelcome', '欢迎'),
               t('openclaw.onboard.stepModel', '模型'),
-              t('openclaw.onboard.stepAgent', '龙虾'),
+              t('openclaw.onboard.stepAgent', 'Buddy'),
               t('openclaw.onboard.stepDone', '完成'),
             ].map((label, i) => (
               <span
@@ -199,8 +199,8 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
     },
     {
       icon: Bot,
-      title: t('openclaw.onboard.feat2Title', '创建智能体'),
-      desc: t('openclaw.onboard.feat2Desc', '配置个性化的 AI 龙虾，赋予独特人格和技能'),
+      title: t('openclaw.onboard.feat2Title', '创建 Buddy'),
+      desc: t('openclaw.onboard.feat2Desc', '配置个性化的 AI 搭子，赋予独特人格和技能'),
     },
     {
       icon: Link2,
@@ -226,12 +226,12 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
           </div>
         </div>
         <h1 className="text-2xl font-black text-text-primary">
-          {t('openclaw.onboard.welcomeTitle', '欢迎使用 OpenClaw')}
+          {t('openclaw.onboard.welcomeTitle', '欢迎使用 Shadow 桌面端')}
         </h1>
         <p className="text-text-muted max-w-md mx-auto leading-relaxed">
           {t(
             'openclaw.onboard.welcomeDesc',
-            '只需几步，即可配置你的 AI 龙虾智能体，接入模型并开始对话。',
+            '只需几步，即可配置你的 AI 搭子，接入模型并开始对话。',
           )}
         </p>
       </div>
@@ -371,7 +371,7 @@ function ModelStep({
           title={t('openclaw.onboard.modelTitle', '配置模型提供商')}
           desc={t(
             'openclaw.onboard.modelDesc',
-            '选择一个 AI 模型提供商并填入 API Key，为你的智能体提供语言模型支持。',
+            '选择一个 AI 模型提供商并填入 API Key，为你的 Buddy 提供语言模型支持。',
           )}
         />
       </div>
@@ -632,8 +632,8 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     color: '#6366f1',
     title: '通用助手',
     desc: '万能 AI 助理，适合日常问答',
-    agentName: 'AI 助手',
-    soul: `# 通用 AI 助手\n\n你是一位全能的 AI 助理，擅长回答各类问题、完成多样化任务。\n\n## 核心原则\n- 回答准确、简洁、有条理\n- 遇到不确定的问题时坦诚告知\n- 根据用户的语言和风格自动适配\n- 优先提供可操作的建议和方案\n\n## 沟通风格\n友好而专业，善于用结构化方式组织信息，必要时使用示例帮助理解。`,
+    agentName: 'AI 搭子',
+    soul: `# 通用 AI 搭子\n\n你是一位全能的 AI 搭子，擅长回答各类问题、完成多样化任务。\n\n## 核心原则\n- 回答准确、简洁、有条理\n- 遇到不确定的问题时坦诚告知\n- 根据用户的语言和风格自动适配\n- 优先提供可操作的建议和方案\n\n## 沟通风格\n友好而专业，善于用结构化方式组织信息，必要时使用示例帮助理解。`,
   },
   {
     icon: Code2,
@@ -929,7 +929,7 @@ function AgentStep({
 
   const selectCustom = () => {
     setSelectedPresetIdx(-1)
-    setAgentName(t('openclaw.onboard.defaultAgentName', '我的龙虾'))
+    setAgentName(t('openclaw.onboard.defaultAgentName', '我的 Buddy'))
     setSoulContent('')
     setSoulExpanded(true)
   }
@@ -972,10 +972,10 @@ function AgentStep({
       <div className="pt-6 space-y-5 animate-fade-in-up">
         <StepHeader
           icon={Bot}
-          title={t('openclaw.onboard.agentTitle', '创建你的第一个龙虾')}
+          title={t('openclaw.onboard.agentTitle', '创建你的第一个 Buddy')}
           desc={t(
             'openclaw.onboard.personaDesc',
-            '选择一个人设模板快速开始，或自定义你自己的龙虾角色。',
+            '选择一个人设模板快速开始，或自定义你自己的 Buddy 角色。',
           )}
         />
 
@@ -1035,7 +1035,7 @@ function AgentStep({
                 {t('openclaw.onboard.customPersona', '自定义人设')}
               </div>
               <div className="text-xs text-text-muted">
-                {t('openclaw.onboard.customPersonaDesc', '从零开始定义你的龙虾角色')}
+                {t('openclaw.onboard.customPersonaDesc', '从零开始定义你的 Buddy 角色')}
               </div>
             </div>
           </button>
@@ -1070,10 +1070,10 @@ function AgentStep({
     <div className="pt-6 space-y-5 animate-fade-in-up">
       <StepHeader
         icon={Bot}
-        title={t('openclaw.onboard.agentTitle', '创建你的第一个龙虾')}
+        title={t('openclaw.onboard.agentTitle', '创建你的第一个 Buddy')}
         desc={t(
-          'openclaw.onboard.agentDesc',
-          '龙虾（智能体）是处理消息的核心角色。可以稍后在「我的龙虾」中进一步自定义。',
+          'openclaw.onboard.agentDetailDesc',
+          'Buddy 是处理消息的核心角色。可以稍后在「我的 Buddy」中进一步自定义。',
         )}
       />
 
@@ -1099,7 +1099,7 @@ function AgentStep({
       {/* Agent Name */}
       <div className="space-y-2">
         <label className="text-sm font-medium text-text-primary" htmlFor="onboard-agent-name">
-          {t('openclaw.onboard.agentName', '龙虾名称')}
+          {t('openclaw.onboard.agentName', 'Buddy 名称')}
         </label>
         <input
           id="onboard-agent-name"
@@ -1137,7 +1137,7 @@ function AgentStep({
             onChange={(e) => setSoulContent(e.target.value)}
             placeholder={t(
               'openclaw.onboard.soulPlaceholder',
-              '描述龙虾的人格、行为准则和沟通风格…\n支持 Markdown 格式',
+              '描述 Buddy 的人格、行为准则和沟通风格…\n支持 Markdown 格式',
             )}
           />
         )}
@@ -1167,7 +1167,7 @@ function AgentStep({
         <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2.5 text-xs text-amber-400">
           {t(
             'openclaw.onboard.noModelsHint',
-            '暂未配置模型提供商，智能体将不指定默认模型。你可以之后在模型页面配置。',
+            '暂未配置模型提供商，Buddy 将不指定默认模型。你可以之后在模型页面配置。',
           )}
         </div>
       )}
@@ -1202,7 +1202,7 @@ function AgentStep({
             className="gap-2"
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-            {t('openclaw.onboard.createAgent', '创建龙虾')}
+            {t('openclaw.onboard.createAgent', '创建 Buddy')}
           </OpenClawButton>
         </div>
       </div>
@@ -1326,7 +1326,7 @@ function DoneStep({
     },
     savedAgentId && {
       icon: Bot,
-      label: t('openclaw.onboard.doneAgent', '智能体已创建'),
+      label: t('openclaw.onboard.doneAgent', 'Buddy 已创建'),
     },
   ].filter(Boolean) as Array<{ icon: typeof Cpu; label: string }>
 
@@ -1334,7 +1334,7 @@ function DoneStep({
     {
       icon: Store,
       title: t('openclaw.onboard.nextSkills', '安装技能'),
-      desc: t('openclaw.onboard.nextSkillsDesc', '为龙虾添加搜索、代码执行等技能'),
+      desc: t('openclaw.onboard.nextSkillsDesc', '为 Buddy 添加搜索、代码执行等技能'),
       page: 'skillhub' as const,
     },
     {
@@ -1369,7 +1369,7 @@ function DoneStep({
         <p className="text-text-muted max-w-md mx-auto">
           {t(
             'openclaw.onboard.doneDesc',
-            '你的龙虾已准备就绪。点击下方按钮一键启动网关，开始使用。',
+            '你的 Buddy 已准备就绪。点击下方按钮一键启动网关，开始使用。',
           )}
         </p>
       </div>

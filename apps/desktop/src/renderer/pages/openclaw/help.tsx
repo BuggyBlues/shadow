@@ -52,7 +52,7 @@ export function HelpPage({ onNavigate }: HelpPageProps) {
               <p className="text-xs text-text-muted mt-0.5">
                 {t(
                   'openclaw.help.wizardDesc',
-                  '首次使用？通过设置向导快速完成模型配置、创建智能体、关联 Buddy，一键启动。',
+                  '首次使用？通过设置向导快速完成模型配置、创建 Buddy、关联远程连接，一键启动。',
                 )}
               </p>
             </div>
@@ -75,7 +75,7 @@ export function HelpPage({ onNavigate }: HelpPageProps) {
               question={t('openclaw.help.faq1Q', '什么是 Buddy？')}
               answer={t(
                 'openclaw.help.faq1A',
-                'Buddy 是虾豆平台的智能体代理。通过 Buddy 连接，你的本地 AI 智能体可以加入远程虾豆频道，像真实用户一样参与对话。每个 Buddy 连接会绑定一个本地智能体，当其他用户在频道中 @提及 Buddy 时，消息将被转发到本地智能体进行处理和回复。',
+                'Buddy 是虾豆平台的 AI 搭子代理。通过 Buddy 连接，你的本地 AI 搭子可以加入远程虾豆频道，像真实用户一样参与对话。每个 Buddy 连接会绑定一个本地 AI 搭子，当其他用户在频道中 @提及 Buddy 时，消息将被转发到本地 AI 搭子进行处理和回复。',
               )}
             />
             <FaqCard
@@ -86,7 +86,7 @@ export function HelpPage({ onNavigate }: HelpPageProps) {
               )}
             />
             <FaqCard
-              question={t('openclaw.help.faq3Q', '龙虾服务启动失败怎么办？')}
+              question={t('openclaw.help.faq3Q', 'Buddy 服务启动失败怎么办？')}
               answer={t(
                 'openclaw.help.faq3A',
                 '请检查调试控制台中的日志信息。常见原因包括：1) 端口被占用 — 可在仪表盘查看当前端口号，关闭占用进程后重试。2) 依赖安装失败 — 检查网络连接后重新安装。3) 配置文件损坏 — 可在仪表盘中重置配置。如果问题持续，可尝试在调试页面查看详细日志。',
@@ -100,17 +100,17 @@ export function HelpPage({ onNavigate }: HelpPageProps) {
               )}
             />
             <FaqCard
-              question={t('openclaw.help.faq4Q', '如何让智能体使用技能？')}
+              question={t('openclaw.help.faq4Q', '如何让 Buddy 使用技能？')}
               answer={t(
                 'openclaw.help.faq4A',
-                '前往「技能商店」浏览并安装所需技能（如网页搜索、代码执行、图片生成等），然后在「我的龙虾」中编辑智能体，在技能列表中勾选要启用的技能即可。一个智能体可以同时启用多个技能，技能会自动被模型作为工具调用。',
+                '前往「技能商店」浏览并安装所需技能（如网页搜索、代码执行、图片生成等），然后在「我的 Buddy」中编辑 Buddy，在技能列表中勾选要启用的技能即可。一个 Buddy 可以同时启用多个技能，技能会自动被模型作为工具调用。',
               )}
             />
             <FaqCard
               question={t('openclaw.help.faq5Q', '可以连接多个 IM 平台吗？')}
               answer={t(
                 'openclaw.help.faq5A',
-                '可以。在「IM 通道」页面可以配置 Telegram、Discord、Slack 等多个平台。每个平台独立配置，你的智能体会同时在所有已配置的平台上工作。不同平台的消息是独立处理的，不会互相干扰。',
+                '可以。在「IM 通道」页面可以配置 Telegram、Discord、Slack 等多个平台。每个平台独立配置，你的 Buddy 会同时在所有已配置的平台上工作。不同平台的消息是独立处理的，不会互相干扰。',
               )}
             />
             <FaqCard
@@ -136,14 +136,14 @@ export function HelpPage({ onNavigate }: HelpPageProps) {
             <ArrowRight size={16} className="text-text-muted shrink-0" />
             <ArchNode label="Buddy" icon={Link2} highlight />
             <ArrowRight size={16} className="text-text-muted shrink-0" />
-            <ArchNode label={t('openclaw.help.archGateway', '龙虾服务')} icon={Zap} highlight />
+            <ArchNode label={t('openclaw.help.archGateway', 'Buddy 服务')} icon={Zap} highlight />
             <ArrowRight size={16} className="text-text-muted shrink-0" />
-            <ArchNode label={t('openclaw.help.archAgent', '智能体')} icon={Bot} />
+            <ArchNode label={t('openclaw.help.archAgent', 'Buddy')} icon={Bot} />
           </div>
           <p className="text-xs text-text-muted text-center">
             {t(
               'openclaw.help.archDesc',
-              '用户在虾豆频道发送消息 → 通过 Buddy 连接转发 → 龙虾服务处理 → 智能体生成回复 → 返回频道',
+              '用户在虾豆频道发送消息 → 通过 Buddy 连接转发 → Buddy 服务处理 → Buddy 生成回复 → 返回频道',
             )}
           </p>
         </section>

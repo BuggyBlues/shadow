@@ -25,46 +25,45 @@ export const PricingPage = () => {
         'Unlimited servers & channels',
         'AI Buddy integration',
         'Community shop & workspace',
-        'OpenClaw P2P marketplace',
+        'Buddy P2P marketplace',
+        'Community support',
+      ],
+    },
+    {
+      name: 'Home',
+      price: 'Free',
+      desc: 'Self-hosted, full data autonomy',
+      color: 'border-green-400',
+      badge: null,
+      btn: 'bg-gradient-to-r from-green-400 to-green-500 text-gray-900 hover:scale-105',
+      btnText: 'Deploy Now',
+      btnHref: GITHUB_URL,
+      features: [
+        'Everything in Community',
+        'Self-hosted deployment',
+        'Full data autonomy',
+        'Privacy protection',
+        'Your hardware, your rules',
         'Community support',
       ],
     },
     {
       name: 'Team',
       price: 'Contact Us',
-      desc: 'Private deployment for teams',
+      desc: 'Team collaboration with custom branding',
       popular: true,
       color: 'border-cyan-400',
-      badge: 'Most Popular',
+      badge: 'For Teams',
       btn: 'bg-gradient-to-r from-cyan-400 to-cyan-500 text-gray-900 hover:scale-105',
       btnText: 'Contact Us',
       btnHref: GITHUB_URL,
       features: [
-        'Everything in Community',
-        'Private deployment',
+        'Everything in Home',
         'Priority technical support',
-        'Custom branding',
+        'Custom logo branding',
         'Advanced permission control',
+        'Team Buddy sharing',
         'SLA guarantee',
-      ],
-    },
-    {
-      name: 'Enterprise',
-      price: 'Custom',
-      desc: 'Tailored for large organizations',
-      color: 'border-yellow-400',
-      badge: null,
-      btn: 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900 hover:scale-105',
-      btnText: 'Contact Us',
-      btnHref: GITHUB_URL,
-      features: [
-        'Everything in Team',
-        'Multi-node cluster deployment',
-        'SSO / LDAP integration',
-        '99.9% SLA guarantee',
-        'Dedicated account manager',
-        'Custom development',
-        'Security audit logs',
       ],
     },
   ]
@@ -73,10 +72,9 @@ export const PricingPage = () => {
     {
       category: 'Deployment',
       rows: [
-        { label: 'Self-hosted (single node)', vals: [true, true, true] },
-        { label: 'Private cloud deployment', vals: [false, true, true] },
-        { label: 'Multi-node cluster', vals: [false, false, true] },
-        { label: 'Air-gapped deployment', vals: [false, false, true] },
+        { label: 'Cloud-hosted (community)', vals: [true, false, false] },
+        { label: 'Self-hosted (single node)', vals: [false, true, true] },
+        { label: 'Private deployment', vals: [false, true, true] },
       ],
     },
     {
@@ -84,40 +82,40 @@ export const PricingPage = () => {
       rows: [
         { label: 'Servers & channels', vals: ['Unlimited', 'Unlimited', 'Unlimited'] },
         { label: 'AI Buddy integration', vals: [true, true, true] },
-        { label: 'OpenClaw marketplace', vals: [true, true, true] },
+        { label: 'Buddy marketplace', vals: [true, true, true] },
         { label: 'Community shop', vals: [true, true, true] },
         { label: 'Shared workspace', vals: [true, true, true] },
-        { label: 'Custom branding', vals: [false, true, true] },
+        { label: 'Custom branding', vals: [false, false, true] },
+        { label: 'Team Buddy sharing', vals: [false, false, true] },
       ],
     },
     {
-      category: 'Admin & Security',
+      category: 'Data & Privacy',
       rows: [
-        { label: 'Role-based permissions', vals: ['Basic', 'Advanced', 'Custom'] },
-        { label: 'SSO / LDAP', vals: [false, false, true] },
-        { label: 'Security audit logs', vals: [false, false, true] },
-        { label: 'SLA guarantee', vals: [false, 'Yes', '99.9%'] },
+        { label: 'Data autonomy', vals: [false, true, true] },
+        { label: 'Privacy protection', vals: ['Standard', 'Full', 'Full'] },
+        { label: 'Role-based permissions', vals: ['Basic', 'Basic', 'Advanced'] },
       ],
     },
     {
       category: 'Support',
       rows: [
         { label: 'Community support', vals: [true, true, true] },
-        { label: 'Priority support', vals: [false, true, true] },
-        { label: 'Dedicated account manager', vals: [false, false, true] },
-        { label: 'Custom development', vals: [false, false, true] },
+        { label: 'Priority support', vals: [false, false, true] },
+        { label: 'SLA guarantee', vals: [false, false, true] },
       ],
     },
   ]
 
   const faqs = [
-    { q: 'Is Shadow really free?', a: 'Yes! Shadow is open-source. All product features are free. Team and Enterprise plans provide private deployment licensing, priority support, and enterprise features.' },
-    { q: 'What is the difference between Team and Enterprise?', a: 'Team is designed for small-to-medium teams needing private deployment and priority support. Enterprise includes cluster deployment, SSO/LDAP, dedicated account management, and custom development.' },
-    { q: 'How do I get started with private deployment?', a: 'Contact us via GitHub to discuss your requirements. We will provide a deployment plan and licensing agreement tailored to your needs.' },
-    { q: 'Can I try Shadow before purchasing a license?', a: 'Absolutely! The Community version has all product features. You can deploy and evaluate it freely before deciding on a paid plan.' },
+    { q: 'Is Shadow really free?', a: 'Yes! Shadow is fully open-source. All product features are free. The Home plan lets you self-host for free. The Team plan provides custom branding, priority support, and advanced team features.' },
+    { q: 'What is the difference between Home and Team?', a: 'Home is for privacy-conscious individuals who want to self-host and own their data. Team adds custom branding, priority support, advanced permissions, and team-wide Buddy sharing for small teams.' },
+    { q: 'How do I self-host Shadow?', a: 'Clone the GitHub repo and follow the deployment guide. Docker Compose setup gets you running in minutes on your own hardware.' },
+    { q: 'Can I try Shadow before self-hosting?', a: 'Absolutely! The Community version runs on our cloud with all features. You can sign up and start using it immediately, then migrate to self-hosted whenever you want.' },
+    { q: 'What are Shrimp Coins?', a: 'Shrimp Coins (🦐) are the in-platform currency. Earn them by completing tasks, receive them as gifts, or purchase them. Use them to rent Buddies, buy shop items, and participate in community activities.' },
   ]
 
-  const tierNames = ['Community', 'Team', 'Enterprise']
+  const tierNames = ['Community', 'Home', 'Team']
 
   return (
     <div className="shadow-page" style={{ fontFamily: "'Nunito', 'ZCOOL KuaiLe', sans-serif" }}>
@@ -126,7 +124,7 @@ export const PricingPage = () => {
       <section className="pt-10 pb-10 px-8 md:px-16 max-w-6xl mx-auto text-center">
         <h1 className="zcool text-4xl md:text-6xl mb-6 leading-tight">Simple, Transparent Pricing</h1>
         <p className="text-lg md:text-xl font-bold max-w-2xl mx-auto" style={{ color: 'var(--shadow-text-muted)' }}>
-          Open-source and free. Private deployment licensing available for teams and enterprises.
+          Free and open source. Self-host for free or get team features with custom branding.
         </p>
       </section>
 

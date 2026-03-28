@@ -484,3 +484,70 @@ export function BuildingIcon({ className = '' }: { className?: string }) {
     </svg>
   )
 }
+
+export function ServerIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg {...svgBase(className)}>
+      <title>Server</title>
+      <rect width="20" height="8" x="2" y="2" rx="2" ry="2" />
+      <rect width="20" height="8" x="2" y="14" rx="2" ry="2" />
+      <line x1="6" x2="6.01" y1="6" y2="6" />
+      <line x1="6" x2="6.01" y1="18" y2="18" />
+    </svg>
+  )
+}
+
+export function StoreIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg {...svgBase(className)}>
+      <title>Store</title>
+      <path d="M2 7l2-4h16l2 4" />
+      <path d="M2 7h20" />
+      <path d="M6 7v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7" />
+      <path d="M2 7a2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 5 0" />
+    </svg>
+  )
+}
+
+export function CoinIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg {...svgBase(className)}>
+      <title>Coin</title>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M9.5 9.5c.6-.6 1.5-1 2.5-1s1.9.4 2.5 1" />
+      <path d="M9.5 14.5c.6.6 1.5 1 2.5 1s1.9-.4 2.5-1" />
+      <line x1="12" y1="8" x2="12" y2="16" />
+    </svg>
+  )
+}
+
+export function UsersIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg {...svgBase(className)}>
+      <title>Users</title>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  )
+}
+
+export function TvIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg {...svgBase(className)}>
+      <title>Channel</title>
+      <rect width="20" height="15" x="2" y="7" rx="2" ry="2" />
+      <polyline points="17 2 12 7 7 2" />
+    </svg>
+  )
+}
+
+export function FolderIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg {...svgBase(className)}>
+      <title>Folder</title>
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+    </svg>
+  )
+}

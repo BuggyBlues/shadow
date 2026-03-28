@@ -708,7 +708,7 @@ export function MarketplaceDetailPage() {
                   className="text-2xl md:text-3xl font-bold text-amber-950 mb-1"
                   style={{ fontFamily: "'ZCOOL KuaiLe', cursive" }}
                 >
-                  {t('marketplace.rentalContract', 'OpenClaw 租赁合同')}
+                  {t('marketplace.rentalContract', 'Buddy 租赁合同')}
                 </h2>
                 <p className="text-amber-800/60 font-bold uppercase tracking-[0.2em] text-xs">
                   P2P RENTAL AGREEMENT
@@ -783,10 +783,10 @@ export function MarketplaceDetailPage() {
                     {t('marketplace.platformTerms', '平台服务条款')}
                   </h3>
                   <div className="bg-white/40 rounded-lg p-3 text-xs text-amber-900/70 leading-relaxed whitespace-pre-wrap max-h-28 overflow-y-auto">
-                    {`虾豆平台 OpenClaw 租赁服务条款
+                    {`虾豆平台 Buddy 租赁服务条款
 
 1. 平台收取 5% 的服务手续费。
-2. 出租方不得自行使用已出租的 OpenClaw，违者需支付违约金。
+2. 出租方不得自行使用已出租的 Buddy，违者需支付违约金。
 3. 使用方应遵守使用准则，不得滥用或用于非法用途。
 4. Token 消耗费用和电费由使用方承担。
 5. 任一方可提前终止租约，已产生的费用不予退还。

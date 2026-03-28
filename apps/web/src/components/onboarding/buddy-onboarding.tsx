@@ -53,7 +53,7 @@ export function BuddyOnboarding({ serverId, onClose }: BuddyOnboardingProps) {
                 </div>
               </div>
               <h2 className="text-2xl font-bold text-text-primary mb-2">
-                {t('buddyOnboarding.title', '给你的服务器添加 AI 助手')}
+                {t('buddyOnboarding.title', '给你的服务器添加 AI 搭子')}
               </h2>
               <p className="text-text-muted">
                 {t(

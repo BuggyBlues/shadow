@@ -108,7 +108,7 @@ export const BuddiesPage = () => {
               className="relative flex items-center justify-center w-12 h-12 rounded-2xl transition-all"
               style={{ background: 'var(--shadow-card-bg)', border: '2px solid var(--shadow-card-border)' }}>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ color: 'var(--shadow-text-muted)' }}>
-                <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               {activeFilterCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-cyan-500 text-white text-[10px] font-bold flex items-center justify-center">{activeFilterCount}</span>
@@ -159,15 +159,15 @@ export const BuddiesPage = () => {
       <section className="max-w-7xl mx-auto px-6 md:px-16 pt-4 pb-8">
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <span className="text-sm font-bold" style={{ color: 'var(--shadow-text-dim)' }}>
-            {loading ? '加载中...' : `共 ${total} 个 OpenClaw 可供租赁`}
+            {loading ? '加载中...' : `共 ${total} 个 Buddy 可供租赁`}
           </span>
           <div className="flex items-center gap-3">
             <a href="/app/marketplace/my-rentals" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-400 to-cyan-500 text-white font-bold text-sm hover:scale-105 transition-transform shadow-md zcool" style={{ textDecoration: 'none' }}>
               查看我的租赁
             </a>
             <a href="/app/marketplace/create" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-gray-900 font-bold text-sm hover:scale-105 transition-transform shadow-md zcool" style={{ textDecoration: 'none' }}>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 5v14m-7-7h14"/></svg>
-              上架我的 Claw
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 5v14m-7-7h14" /></svg>
+              上架我的 Buddy
             </a>
           </div>
         </div>
@@ -219,11 +219,11 @@ export const BuddiesPage = () => {
                     </div>
                     <div className="flex items-center gap-3 text-xs font-bold" style={{ color: 'var(--shadow-text-dim)' }}>
                       <span className="flex items-center gap-0.5">
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
                         {l.viewCount || 0}
                       </span>
                       <span className="flex items-center gap-0.5">
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
                         {l.rentalCount || 0}
                       </span>
                     </div>
@@ -236,7 +236,7 @@ export const BuddiesPage = () => {
 
         {!loading && !error && listings.length === 0 && (
           <div className="text-center py-16">
-            <p className="text-xl font-bold" style={{ color: 'var(--shadow-text-dim)' }}>还没有挂单，快来成为第一个上架 Claw 的人吧！</p>
+            <p className="text-xl font-bold" style={{ color: 'var(--shadow-text-dim)' }}>还没有挂单，快来成为第一个上架 Buddy 的人吧！</p>
           </div>
         )}
       </section>
@@ -245,8 +245,8 @@ export const BuddiesPage = () => {
       <section className="max-w-4xl mx-auto px-6 md:px-16 pb-20">
         <div className="glass-card p-10 md:p-14 text-center">
           <h2 className="zcool text-3xl md:text-4xl mb-4">想打造自己的 Buddy？</h2>
-          <p className="text-lg font-bold mb-8" style={{ color: 'var(--shadow-text-muted)' }}>通过 Buddy Token 和 OpenClaw 插件接入你的 AI 模型，几分钟即可上线。</p>
-          <a href={`${base}/zh/product/openclaw`} className="btn-secondary zcool text-xl px-10 py-4 hover:scale-105 transition-transform" style={{ textDecoration: 'none' }}>查看 OpenClaw 插件文档</a>
+          <p className="text-lg font-bold mb-8" style={{ color: 'var(--shadow-text-muted)' }}>通过 Buddy Token 和 Shadow 桌面端接入你的 AI 模型，几分钟即可上线。</p>
+          <a href={`${base}/zh/product/openclaw`} className="btn-secondary zcool text-xl px-10 py-4 hover:scale-105 transition-transform" style={{ textDecoration: 'none' }}>查看 Shadow 桌面端文档</a>
         </div>
       </section>
 

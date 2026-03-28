@@ -4,7 +4,7 @@
  * 完整的 Onboarding 流程：
  * 1. 欢迎
  * 2. 配置模型
- * 3. 创建智能体
+ * 3. 创建 Buddy
  * 4. 绑定 Buddy
  * 5. 完成
  *
@@ -69,7 +69,7 @@ type OnboardingStep = 'welcome' | 'auth' | 'model' | 'agent' | 'buddy' | 'done'
 // 时间线步骤
 const STEPS: OnboardingStep[] = ['welcome', 'auth', 'model', 'agent', 'buddy', 'done']
 
-// 智能体预设模板
+// Buddy 预设模板
 interface PersonaPreset {
   icon: typeof Sparkles
   color: string
@@ -83,10 +83,10 @@ const PERSONA_PRESETS: PersonaPreset[] = [
   {
     icon: Sparkles,
     color: '#6366f1',
-    title: '通用助手',
-    desc: '万能 AI 助理，适合日常问答',
-    agentName: 'AI 助手',
-    soul: `# 通用 AI 助手\n\n你是一位全能的 AI 助理，擅长回答各类问题、完成多样化任务。\n\n## 核心原则\n- 回答准确、简洁、有条理\n- 遇到不确定的问题时坦诚告知\n- 根据用户的语言和风格自动适配\n- 优先提供可操作的建议和方案\n\n## 沟通风格\n友好而专业，善于用结构化方式组织信息，必要时使用示例帮助理解。`,
+    title: '通用搭子',
+    desc: '万能 AI 搭子，适合日常问答',
+    agentName: 'AI 搭子',
+    soul: `# 通用 AI 搭子\n\n你是一位全能的 AI 搭子，擅长回答各类问题、完成多样化任务。\n\n## 核心原则\n- 回答准确、简洁、有条理\n- 遇到不确定的问题时坦诚告知\n- 根据用户的语言和风格自动适配\n- 优先提供可操作的建议和方案\n\n## 沟通风格\n友好而专业，善于用结构化方式组织信息，必要时使用示例帮助理解。`,
   },
   {
     icon: Code2,
@@ -124,7 +124,7 @@ const PERSONA_PRESETS: PersonaPreset[] = [
     icon: User,
     color: '#8b5cf6',
     title: '自定义',
-    desc: '创建你自己的 AI 助手',
+    desc: '创建你自己的 AI 搭子',
     agentName: '',
     soul: '',
   },
@@ -282,10 +282,10 @@ function WelcomeStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => voi
 
       <div className="space-y-2">
         <h1 className="text-2xl font-black text-text-primary">
-          {t('onboard.welcome', '欢迎使用 OpenClaw')}
+          {t('onboard.welcome', '欢迎使用 Shadow 桌面端')}
         </h1>
         <p className="text-text-muted text-sm leading-relaxed">
-          {t('onboard.welcomeDesc', '只需几步，完成配置，开启你的 AI 助手之旅')}
+          {t('onboard.welcomeDesc', '只需几步，完成配置，开启你的 AI 搭子之旅')}
         </p>
       </div>
 
@@ -411,7 +411,7 @@ function AuthStep({
         <p className="text-sm text-text-muted">
           {mode === 'login'
             ? t('onboard.loginDesc', '登录以同步你的设置和数据')
-            : t('onboard.registerDesc', '创建账号以使用 OpenClaw')}
+            : t('onboard.registerDesc', '创建账号以使用 Shadow 桌面端')}
         </p>
       </div>
 
@@ -823,7 +823,7 @@ function AgentStep({
 }) {
   const { t } = useTranslation()
   const [selectedPresetIdx, setSelectedPresetIdx] = useState(0)
-  const [agentName, setAgentName] = useState(PERSONA_PRESETS[0]?.agentName || 'AI 助手')
+  const [agentName, setAgentName] = useState(PERSONA_PRESETS[0]?.agentName || 'AI 搭子')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -866,10 +866,10 @@ function AgentStep({
           <Bot size={24} className="text-danger" />
         </div>
         <h2 className="text-xl font-bold text-text-primary">
-          {t('onboard.agentTitle', '创建你的 AI 助手')}
+          {t('onboard.agentTitle', '创建你的 AI 搭子')}
         </h2>
         <p className="text-sm text-text-muted">
-          {t('onboard.agentDesc', '选择一个预设，给你的 AI 助手起个名字')}
+          {t('onboard.agentDesc', '选择一个预设，给你的 AI 搭子起个名字')}
         </p>
       </div>
 
@@ -1046,7 +1046,7 @@ function BuddyStep({
           {t('onboard.buddyTitle', '绑定 Buddy')}
         </h2>
         <p className="text-sm text-text-muted">
-          {t('onboard.buddyDesc', '将 AI 助手连接到 Shadow 服务器')}
+          {t('onboard.buddyDesc', '将 AI 搭子连接到 Shadow 服务器')}
         </p>
       </div>
 
@@ -1130,7 +1130,7 @@ function DoneStep({
   const completedItems = [
     { label: t('onboard.doneAuth', '账号登录成功'), done: true },
     { label: t('onboard.doneModel', '模型提供商已配置'), done: true },
-    { label: t('onboard.doneAgent', `AI 助手「${savedAgentName}」已创建`), done: !!savedAgentName },
+    { label: t('onboard.doneAgent', `AI 搭子「${savedAgentName}」已创建`), done: !!savedAgentName },
     { label: t('onboard.doneBuddy', 'Buddy 已绑定到 Shadow'), done: !!savedServerId },
   ]
 
@@ -1149,7 +1149,7 @@ function DoneStep({
         <h2 className="text-2xl font-black text-text-primary">
           {t('onboard.doneTitle', '设置完成！')}
         </h2>
-        <p className="text-sm text-text-muted">{t('onboard.doneDesc', '你的 AI 助手已准备就绪')}</p>
+        <p className="text-sm text-text-muted">{t('onboard.doneDesc', '你的 AI 搭子已准备就绪')}</p>
       </div>
 
       <div className="space-y-2 text-left">

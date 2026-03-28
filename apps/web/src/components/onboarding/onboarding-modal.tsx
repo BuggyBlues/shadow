@@ -32,7 +32,7 @@ interface OnboardingModalProps {
 
 type Step =
   | 'newcomer-guide'
-  | 'rent-claw'
+  | 'rent-buddy'
   | 'welcome'
   | 'create-server'
   | 'join-server'
@@ -259,7 +259,7 @@ export function OnboardingModal({ open, onClose }: OnboardingModalProps) {
         {/* Timeline - PC only */}
         {!isMobile &&
           step !== 'newcomer-guide' &&
-          step !== 'rent-claw' &&
+          step !== 'rent-buddy' &&
           step !== 'welcome' &&
           step !== 'complete' && <Timeline />}
 
@@ -268,13 +268,13 @@ export function OnboardingModal({ open, onClose }: OnboardingModalProps) {
           {/* Newcomer Guide */}
           {step === 'newcomer-guide' && (
             <NewcomerGuide
-              onHaveClaw={() => setStep('welcome')}
-              onNoClaw={() => setStep('rent-claw')}
+              onHaveBuddy={() => setStep('welcome')}
+              onNoBuddy={() => setStep('rent-buddy')}
             />
           )}
 
           {/* Rental Guide */}
-          {step === 'rent-claw' && (
+          {step === 'rent-buddy' && (
             <RentalGuide
               onRentSuccess={async (listingId, contractId) => {
                 onClose()
@@ -323,7 +323,7 @@ export function OnboardingModal({ open, onClose }: OnboardingModalProps) {
                   {t('onboarding.welcome', '欢迎来到 Shadow！')}
                 </h1>
                 <p className="text-text-muted text-sm">
-                  {t('onboarding.welcomeDesc', '构建你的 AI 社区，让智能体成为你的队友')}
+                  {t('onboarding.welcomeDesc', '构建你的 AI 社区，让 AI 搭子成为你的队友')}
                 </p>
               </div>
 
@@ -646,7 +646,7 @@ function CreateBuddyStep({
   onSkip: () => void
 }) {
   const { t } = useTranslation()
-  const [name, setName] = useState('AI 助手')
+  const [name, setName] = useState('AI 搭子')
   const [username, setUsername] = useState(() => {
     const suffix = Math.random().toString(36).slice(2, 8)
     return `buddy_${suffix}`
@@ -690,23 +690,23 @@ function CreateBuddyStep({
           <Bot size={32} className="text-white" />
         </div>
         <h2 className="text-xl font-bold text-text-primary mb-2">
-          {t('buddyOnboarding.createTitle', '创建你的 AI 助手')}
+          {t('buddyOnboarding.createTitle', '创建你的 AI 搭子')}
         </h2>
         <p className="text-sm text-text-muted">
-          {t('buddyOnboarding.createDesc', '给你的 AI 助手起个名字，它将在频道中与你对话')}
+          {t('buddyOnboarding.createDesc', '给你的 AI 搭子起个名字，它将在频道中与你对话')}
         </p>
       </div>
 
       <div className="space-y-4 mb-6">
         <div>
           <label className="block text-sm font-medium text-text-primary mb-2">
-            {t('buddyOnboarding.buddyName', '助手名称')}
+            {t('buddyOnboarding.buddyName', '搭子名称')}
           </label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="AI 助手"
+            placeholder="AI 搭子"
             className="w-full px-4 py-3 bg-bg-tertiary border border-border-subtle rounded-xl text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary"
             maxLength={64}
           />
@@ -800,7 +800,7 @@ function BuddyConfigStep({
           {t('buddyOnboarding.configTitle', '配置 Buddy 连接')}
         </h2>
         <p className="text-sm text-text-muted">
-          {t('buddyOnboarding.configDesc', '使用 OpenClaw 桌面端连接你的 Buddy')}
+          {t('buddyOnboarding.configDesc', '使用 Shadow 桌面端连接你的 Buddy')}
         </p>
       </div>
 
@@ -833,14 +833,14 @@ function BuddyConfigStep({
             {t('buddyOnboarding.method1', '使用桌面端')}
           </h3>
           <a
-            href="https://openclaw.ai/download"
+            href="https://github.com/buggyblues/shadow/releases"
             target="_blank"
             rel="noopener noreferrer"
             className="block text-center p-3 bg-bg-secondary hover:bg-bg-modifier-hover rounded-lg transition mb-2"
           >
             <Download size={20} className="mx-auto mb-1 text-primary" />
             <span className="text-xs font-medium text-text-primary">
-              {t('buddyOnboarding.downloadDesktopApp', '下载 OpenClaw')}
+              {t('buddyOnboarding.downloadDesktopApp', '下载 Shadow 桌面端')}
             </span>
           </a>
           <p className="text-xs text-text-muted text-center">
@@ -869,7 +869,7 @@ function BuddyConfigStep({
             </button>
           </div>
           <p className="text-xs text-text-muted text-center">
-            {t('buddyOnboarding.commandHint', '在 OpenClaw 中输入')}
+            {t('buddyOnboarding.commandHint', '在 Shadow 桌面端中输入')}
           </p>
         </div>
       </div>
@@ -927,7 +927,7 @@ function WaitingBuddyStep({
         await fetchApi(`/api/channels/${generalChannel.id}/messages`, {
           method: 'POST',
           body: JSON.stringify({
-            content: '👋 大家好！我是 AI 助手，有什么可以帮助你们的吗？',
+            content: '👋 大家好！我是 AI 搭子，有什么可以帮助你们的吗？',
           }),
         })
       }
@@ -1014,7 +1014,7 @@ function WaitingBuddyStep({
             {t('buddyOnboarding.waiting', '等待 Buddy 上线...')}
           </h2>
           <p className="text-sm text-text-muted mb-4">
-            {t('buddyOnboarding.waitingDesc', '请在 OpenClaw 桌面端完成配置')}
+            {t('buddyOnboarding.waitingDesc', '请在 Shadow 桌面端完成配置')}
           </p>
           <div className="text-3xl font-bold text-primary mb-4">{countdown}s</div>
           <div className="w-full bg-bg-tertiary rounded-full h-2 mb-4">

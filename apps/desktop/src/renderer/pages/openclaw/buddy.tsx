@@ -492,7 +492,7 @@ function AddConnectionView({
                 className="flex items-center gap-1 text-xs text-text-muted hover:text-primary transition mb-2 cursor-pointer"
               >
                 <ArrowLeft size={12} />
-                {t('openclaw.buddy.backToAgent', '返回智能体编辑')}
+                {t('openclaw.buddy.backToAgent', '返回 Buddy 编辑')}
               </button>
             )}
             <h2 className="text-lg font-bold text-text-primary mb-1">
@@ -632,7 +632,7 @@ function AddConnectionView({
                 <p className="text-sm text-text-primary">
                   {t(
                     'openclaw.buddy.createHint',
-                    '将在云端创建一个与本地智能体同名的 Buddy，并自动关联。',
+                    '将在云端创建一个与本地 Buddy 同名的连接，并自动关联。',
                   )}
                 </p>
               </div>
@@ -642,19 +642,19 @@ function AddConnectionView({
           {/* ━━━ Agent Binding ━━━ */}
           <section>
             <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
-              {t('openclaw.buddy.agentBinding', '本地智能体绑定')}
+              {t('openclaw.buddy.agentBinding', '本地 Buddy 绑定')}
             </h3>
             <div className="bg-bg-secondary rounded-xl border border-bg-tertiary p-4 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-text-primary mb-1.5">
-                  {t('openclaw.buddy.agent', '本地智能体')}
+                  {t('openclaw.buddy.agent', '本地 Buddy')}
                 </label>
                 <select
                   value={agentId}
                   onChange={(e) => setAgentId(e.target.value)}
                   className="w-full px-3 py-2.5 rounded-lg bg-bg-primary border border-bg-tertiary text-sm text-text-primary focus:outline-none focus:border-primary/50 transition"
                 >
-                  <option value="">{t('openclaw.buddy.selectAgent', '选择智能体...')}</option>
+                  <option value="">{t('openclaw.buddy.selectAgent', '选择 Buddy...')}</option>
                   {agents.map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.identity?.emoji} {a.name || a.id}
@@ -662,7 +662,7 @@ function AddConnectionView({
                   ))}
                 </select>
                 <p className="text-[10px] text-text-muted mt-1">
-                  {t('openclaw.buddy.agentHint', '用于处理来自该 Buddy 消息的智能体')}
+                  {t('openclaw.buddy.agentHint', '用于处理来自该 Buddy 消息的本地 Buddy')}
                 </p>
               </div>
 
@@ -714,7 +714,7 @@ function AddConnectionView({
                       <Server size={24} className="text-primary" />
                     </div>
                     <span className="text-[10px] text-text-muted font-medium">
-                      {t('openclaw.buddy.localAgent', '本地智能体')}
+                      {t('openclaw.buddy.localAgent', '本地 Buddy')}
                     </span>
                   </div>
 
@@ -865,7 +865,7 @@ function ConnectionDetailView({
             </div>
             <div>
               <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
-                {t('openclaw.buddy.agentLabel', '智能体')}
+                {t('openclaw.buddy.agentLabel', 'Buddy')}
               </p>
               {editingAgent ? (
                 <div className="flex items-center gap-2">
@@ -874,7 +874,7 @@ function ConnectionDetailView({
                     onChange={(e) => setNewAgentId(e.target.value)}
                     className="flex-1 px-2 py-1 rounded-md bg-bg-primary border border-bg-tertiary text-sm text-text-primary focus:outline-none focus:border-primary/50 transition"
                   >
-                    <option value="">{t('openclaw.buddy.selectAgent', '选择智能体...')}</option>
+                    <option value="">{t('openclaw.buddy.selectAgent', '选择 Buddy...')}</option>
                     {agents.map((a) => (
                       <option key={a.id} value={a.id}>
                         {a.identity?.emoji} {a.name || a.id}
@@ -915,7 +915,7 @@ function ConnectionDetailView({
                     type="button"
                     onClick={() => setEditingAgent(true)}
                     className="text-text-muted hover:text-primary transition cursor-pointer"
-                    title={t('openclaw.buddy.changeAgent', '更换智能体')}
+                    title={t('openclaw.buddy.changeAgent', '更换 Buddy')}
                   >
                     <Edit3 size={12} />
                   </button>

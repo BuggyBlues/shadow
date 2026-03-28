@@ -45,9 +45,9 @@ const COMMAND_GROUPS: CommandGroup[] = [
     ],
   },
   {
-    label: '智能体',
+    label: 'Buddy',
     commands: [
-      { label: 'agents list', args: 'agents list', desc: '列出智能体' },
+      { label: 'agents list', args: 'agents list', desc: '列出 Buddy' },
       { label: 'agents bindings', args: 'agents bindings', desc: '路由绑定' },
     ],
   },

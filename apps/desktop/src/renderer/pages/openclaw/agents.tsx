@@ -469,7 +469,7 @@ function AgentEditor({
   }, [fileDirty, fileContent, scheduleFileAutoSave])
 
   const BOOTSTRAP_LABELS: Record<BootstrapFileName, { label: string; desc: string }> = {
-    'AGENTS.md': { label: 'AGENTS', desc: '智能体路由与多智能体配置' },
+    'AGENTS.md': { label: 'AGENTS', desc: 'Buddy 路由与多 Buddy 配置' },
     'SOUL.md': { label: 'SOUL', desc: '核心人格与行为准则' },
     'IDENTITY.md': { label: 'IDENTITY', desc: '名称、角色和公开形象' },
     'TOOLS.md': { label: 'TOOLS', desc: '工具使用说明与限制' },
@@ -555,7 +555,7 @@ function AgentEditor({
                     onChange={(e) => setPersona(e.target.value)}
                     placeholder={t(
                       'openclaw.agents.personaPlaceholder',
-                      '描述该智能体的人设与行为偏好，将自动同步到 SOUL.md',
+                      '描述该 Buddy 的人设与行为偏好，将自动同步到 SOUL.md',
                     )}
                     className="w-full px-3 py-2.5 rounded-lg bg-bg-primary border border-bg-tertiary text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition resize-y"
                   />
@@ -765,7 +765,7 @@ function AgentEditor({
             <p className="text-sm text-text-muted">
               {t(
                 'openclaw.agents.bootstrapDesc',
-                '编辑智能体引导文件，定义人格、身份、工具和行为。',
+                '编辑 Buddy 引导文件，定义人格、身份、工具和行为。',
               )}
             </p>
 
@@ -858,7 +858,7 @@ function AgentEditor({
                       {t('openclaw.agents.enableMemory', '启用记忆搜索')}
                     </p>
                     <p className="text-[10px] text-text-muted">
-                      {t('openclaw.agents.memoryHint', '允许智能体搜索和回忆过去的对话')}
+                      {t('openclaw.agents.memoryHint', '允许 Buddy 搜索和回忆过去的对话')}
                     </p>
                   </div>
                   <ToggleSwitch checked={memoryEnabled} onChange={setMemoryEnabled} />
@@ -878,7 +878,7 @@ function AgentEditor({
                       {t('openclaw.agents.enableHeartbeat', '启用心跳')}
                     </p>
                     <p className="text-[10px] text-text-muted">
-                      {t('openclaw.agents.heartbeatHint', '周期任务与主动智能体行为')}
+                      {t('openclaw.agents.heartbeatHint', '周期任务与主动 Buddy 行为')}
                     </p>
                   </div>
                   <ToggleSwitch checked={heartbeatEnabled} onChange={setHeartbeatEnabled} />
@@ -889,11 +889,11 @@ function AgentEditor({
             {/* Runtime info */}
             <section>
               <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
-                {t('openclaw.agents.info', '智能体信息')}
+                {t('openclaw.agents.info', 'Buddy 信息')}
               </h3>
               <div className="bg-bg-secondary rounded-xl border border-bg-tertiary p-4 space-y-2">
-                <InfoRow label="智能体 ID" value={agent?.id ?? ''} mono />
-                {agent?.agentDir && <InfoRow label="智能体目录" value={agent.agentDir} mono />}
+                <InfoRow label="Buddy ID" value={agent?.id ?? ''} mono />
+                {agent?.agentDir && <InfoRow label="Buddy 目录" value={agent.agentDir} mono />}
                 {agent?.workspace && <InfoRow label="工作空间" value={agent.workspace} mono />}
               </div>
             </section>

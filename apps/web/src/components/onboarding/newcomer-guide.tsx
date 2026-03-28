@@ -1,11 +1,11 @@
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
 import { type ElementType, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AgentCatSvg, CatSvgDefs, ChannelCatSvg, WorkCatSvg } from './cat-svg'
+import { BuddyCatSvg, CatSvgDefs, ChannelCatSvg, WorkCatSvg } from './cat-svg'
 
 interface NewcomerGuideProps {
-  onHaveClaw: () => void
-  onNoClaw: () => void
+  onHaveBuddy: () => void
+  onNoBuddy: () => void
 }
 
 type SlideId = 'slide1' | 'slide2' | 'slide3' | 'slide4' | 'slide5'
@@ -20,7 +20,7 @@ type Slide = {
 const slides: Slide[] = [
   {
     id: 'slide1',
-    icon: AgentCatSvg,
+    icon: BuddyCatSvg,
     color: 'text-amber-400',
     tags: ['产品定位', '超级社区', '协作空间'],
   },
@@ -38,9 +38,9 @@ const slides: Slide[] = [
   },
   {
     id: 'slide4',
-    icon: AgentCatSvg,
+    icon: BuddyCatSvg,
     color: 'text-purple-400',
-    tags: ['多 Agent', '自动协作', '持续产出'],
+    tags: ['多 Buddy', '自动协作', '持续产出'],
   },
   {
     id: 'slide5',
@@ -50,7 +50,7 @@ const slides: Slide[] = [
   },
 ]
 
-export function NewcomerGuide({ onHaveClaw, onNoClaw }: NewcomerGuideProps) {
+export function NewcomerGuide({ onHaveBuddy, onNoBuddy }: NewcomerGuideProps) {
   const { t } = useTranslation()
   const [currentSlide, setCurrentSlide] = useState(0)
 
@@ -160,7 +160,7 @@ export function NewcomerGuide({ onHaveClaw, onNoClaw }: NewcomerGuideProps) {
         {/* Action Buttons */}
         <div className="flex flex-col gap-3 w-full max-w-md mx-auto z-10 px-4">
           <button
-            onClick={onHaveClaw}
+            onClick={onHaveBuddy}
             className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white font-bold py-3.5 px-6 rounded-xl shadow-lg shadow-orange-500/20 active:scale-[0.98] transition-all duration-200 text-lg"
           >
             <span>{t('onboarding.newcomer.btnHaveClaw', '立即加入')}</span>
@@ -168,7 +168,7 @@ export function NewcomerGuide({ onHaveClaw, onNoClaw }: NewcomerGuideProps) {
           </button>
 
           <button
-            onClick={onNoClaw}
+            onClick={onNoBuddy}
             className="w-full text-text-muted hover:text-text-primary py-3 px-6 rounded-xl hover:bg-bg-tertiary transition-colors text-sm font-medium"
           >
             {t('onboarding.newcomer.btnNoClaw', '先逛逛，稍后加入')}

@@ -237,6 +237,8 @@ export function PublicNav({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
           buddies: 'Buddy 集市',
           pricing: '定价',
           product: '文档',
+          guide: '玩法指南',
+          tokens: '虾币',
           apiDocs: 'API',
           login: '登录',
           launch: '启动！',
@@ -245,6 +247,8 @@ export function PublicNav({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
           buddies: 'Buddy Market',
           pricing: 'Pricing',
           product: 'Docs',
+          guide: 'Guide',
+          tokens: 'Shrimp Coins',
           apiDocs: 'API',
           login: 'Login',
           launch: 'Launch',
@@ -276,11 +280,25 @@ export function PublicNav({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
           {t.buddies}
         </a>
         <a
+          href={`${base}${prefix}/guide`}
+          className="hover:text-cyan-600 transition border-b-2 border-transparent hover:border-cyan-500 py-1"
+          style={{ textDecoration: 'none', color: 'var(--shadow-text-muted)' }}
+        >
+          {t.guide}
+        </a>
+        <a
           href={`${base}${prefix}/pricing`}
           className="hover:text-cyan-600 transition border-b-2 border-transparent hover:border-cyan-500 py-1"
           style={{ textDecoration: 'none', color: 'var(--shadow-text-muted)' }}
         >
           {t.pricing}
+        </a>
+        <a
+          href={`${base}${prefix}/tokens`}
+          className="hover:text-cyan-600 transition border-b-2 border-transparent hover:border-cyan-500 py-1"
+          style={{ textDecoration: 'none', color: 'var(--shadow-text-muted)' }}
+        >
+          {t.tokens}
         </a>
         <a
           href={`${base}${prefix}/product`}
@@ -315,24 +333,134 @@ export function PublicNav({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
 }
 
 /* ─── Shared footer component ─── */
-export function PublicFooter() {
+export function PublicFooter({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
   const base = getBase()
+  const prefix = lang === 'zh' ? '/zh' : ''
   const brandLegal = '虾豆 ShadowOwnBuddy © 2026'
   const poweredBy = 'Powered by Hono & React & Shadow'
+
+  const columns =
+    lang === 'zh'
+      ? [
+          {
+            title: '产品',
+            links: [
+              { text: '频道', href: `${base}${prefix}/product/channels` },
+              { text: 'AI 搭子', href: `${base}${prefix}/product/ai-assistants` },
+              { text: 'Buddy 集市', href: `${base}${prefix}/buddies` },
+              { text: '社区', href: `${base}${prefix}/product/communities` },
+              { text: '工作区', href: `${base}${prefix}/product/workspace` },
+              { text: '店铺', href: `${base}${prefix}/product/shop` },
+              { text: '桌面端', href: `${base}${prefix}/desktop` },
+            ],
+          },
+          {
+            title: '资源',
+            links: [
+              { text: '玩法指南', href: `${base}${prefix}/guide` },
+              { text: '虾币', href: `${base}${prefix}/tokens` },
+              { text: '产品文档', href: `${base}${prefix}/product` },
+              { text: 'API 文档', href: `${base}${prefix}/api-doc/introduction` },
+              { text: '定价', href: `${base}${prefix}/pricing` },
+            ],
+          },
+          {
+            title: '社区',
+            links: [
+              { text: 'GitHub', href: 'https://github.com/buggyblues/shadow', external: true },
+              { text: 'Discord', href: '#' },
+              { text: 'Twitter / X', href: '#' },
+            ],
+          },
+        ]
+      : [
+          {
+            title: 'Product',
+            links: [
+              { text: 'Channels', href: `${base}${prefix}/product/channels` },
+              { text: 'AI Buddies', href: `${base}${prefix}/product/ai-assistants` },
+              { text: 'Buddy Market', href: `${base}${prefix}/buddies` },
+              { text: 'Communities', href: `${base}${prefix}/product/communities` },
+              { text: 'Workspace', href: `${base}${prefix}/product/workspace` },
+              { text: 'Shop', href: `${base}${prefix}/product/shop` },
+              { text: 'Desktop', href: `${base}${prefix}/desktop` },
+            ],
+          },
+          {
+            title: 'Resources',
+            links: [
+              { text: 'Getting Started', href: `${base}${prefix}/guide` },
+              { text: 'Shrimp Coins', href: `${base}${prefix}/tokens` },
+              { text: 'Product Docs', href: `${base}${prefix}/product` },
+              { text: 'API Reference', href: `${base}${prefix}/api-doc/introduction` },
+              { text: 'Pricing', href: `${base}${prefix}/pricing` },
+            ],
+          },
+          {
+            title: 'Community',
+            links: [
+              { text: 'GitHub', href: 'https://github.com/buggyblues/shadow', external: true },
+              { text: 'Discord', href: '#' },
+              { text: 'Twitter / X', href: '#' },
+            ],
+          },
+        ]
+
   return (
     <footer
-      className="glass-nav mt-auto py-8 text-center border-t-2 relative z-10 w-full"
+      className="glass-nav mt-auto py-12 border-t-2 relative z-10 w-full"
       style={{ borderColor: 'var(--shadow-card-border)' }}
     >
-      <div className="flex justify-center items-center gap-2 mb-3">
-        <img src={`${base}/Logo.svg`} className="w-7 h-7 opacity-80" alt="Shadow cat" />
-        <span className="zcool text-xl font-bold" style={{ color: 'var(--shadow-text-dim)' }}>
-          {brandLegal}
-        </span>
+      <div className="max-w-6xl mx-auto px-8 md:px-16">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
+          {/* Brand column */}
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <img src={`${base}/Logo.svg`} className="w-8 h-8" alt="Shadow cat" />
+              <span className="zcool text-lg font-bold" style={{ color: 'var(--shadow-text)' }}>
+                虾豆
+              </span>
+            </div>
+            <p className="text-xs font-medium mb-3" style={{ color: 'var(--shadow-text-dim)' }}>
+              {lang === 'zh' ? '超级个体的超级社区' : 'The Super Community for Super Individuals'}
+            </p>
+          </div>
+          {/* Link columns */}
+          {columns.map((col) => (
+            <div key={col.title}>
+              <h4 className="zcool text-sm font-bold mb-4" style={{ color: 'var(--shadow-text)' }}>
+                {col.title}
+              </h4>
+              <ul className="space-y-2">
+                {col.links.map((link) => (
+                  <li key={link.text}>
+                    <a
+                      href={link.href}
+                      {...(link.external ? { target: '_blank', rel: 'noreferrer' } : {})}
+                      className="text-xs font-medium hover:text-cyan-500 transition"
+                      style={{ textDecoration: 'none', color: 'var(--shadow-text-dim)' }}
+                    >
+                      {link.text}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        {/* Bottom bar */}
+        <div
+          className="pt-6 flex flex-col md:flex-row justify-between items-center gap-2 border-t"
+          style={{ borderColor: 'var(--shadow-card-border)' }}
+        >
+          <span className="text-xs font-medium" style={{ color: 'var(--shadow-text-dim)' }}>
+            {brandLegal}
+          </span>
+          <span className="text-xs font-medium" style={{ color: 'var(--shadow-text-dim)' }}>
+            {poweredBy}
+          </span>
+        </div>
       </div>
-      <p className="text-sm font-bold" style={{ color: 'var(--shadow-text-dim)' }}>
-        {poweredBy}
-      </p>
     </footer>
   )
 }

@@ -32,7 +32,7 @@ export function QuickstartSettings() {
     {
       icon: Bot,
       title: 'Buddy 管理',
-      desc: '创建和配置你的 AI 助手',
+      desc: '创建和配置你的 AI 搭子',
       color: 'text-cyan-400',
       bgColor: 'bg-cyan-500/10',
       action: () => navigate({ to: '/settings/buddy' }),
@@ -40,7 +40,7 @@ export function QuickstartSettings() {
     {
       icon: Sparkles,
       title: 'Buddy 集市',
-      desc: '浏览和租赁 AI 助手',
+      desc: '浏览和租赁 AI 搭子',
       color: 'text-amber-400',
       bgColor: 'bg-amber-500/10',
       action: () => {
@@ -80,7 +80,7 @@ export function QuickstartSettings() {
     {
       step: 1,
       title: '创建 Buddy',
-      desc: 'Buddy 是你的 AI 助手。在「Buddy 管理」中创建一个新 Buddy，设置名称和描述。',
+      desc: 'Buddy 是你的 AI 搭子。在「Buddy 管理」中创建一个新 Buddy，设置名称和描述。',
     },
     {
       step: 2,
@@ -89,8 +89,8 @@ export function QuickstartSettings() {
     },
     {
       step: 3,
-      title: '连接 OpenClaw',
-      desc: '下载 OpenClaw 桌面端，用它可以连接你的 Buddy 并在本地运行。',
+      title: '连接 Shadow 桌面端',
+      desc: '下载 Shadow 桌面端，用它可以连接你的 Buddy 并在本地运行。',
     },
     {
       step: 4,

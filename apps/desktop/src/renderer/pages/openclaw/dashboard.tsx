@@ -224,7 +224,7 @@ export function OpenClawDashboard({ onNavigate }: DashboardProps) {
     },
     {
       icon: Bot,
-      label: t('openclaw.dashboard.agents', '智能体'),
+      label: t('openclaw.dashboard.agents', 'Buddy'),
       count: agentCount,
       page: 'agents' as const,
     },
@@ -242,7 +242,7 @@ export function OpenClawDashboard({ onNavigate }: DashboardProps) {
     },
     {
       icon: Link2,
-      label: t('openclaw.dashboard.buddies', '伙伴'),
+      label: t('openclaw.dashboard.buddies', 'Buddy 连接'),
       count: buddyCount,
       page: 'buddy' as const,
     },
@@ -252,7 +252,7 @@ export function OpenClawDashboard({ onNavigate }: DashboardProps) {
     <div className="flex-1 overflow-y-auto no-scrollbar">
       <OpenClawTopBar
         title={t('openclaw.dashboard.title', '仪表盘')}
-        subtitle={t('openclaw.dashboard.subtitle', '管理你的 AI 龙虾服务与集成')}
+        subtitle={t('openclaw.dashboard.subtitle', '管理你的 AI 搭子服务与集成')}
       />
 
       <div className="px-6 pb-8 space-y-6 max-w-5xl">
@@ -268,7 +268,7 @@ export function OpenClawDashboard({ onNavigate }: DashboardProps) {
               <div className="min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <h3 className="text-lg font-bold text-text-primary">
-                    {t('openclaw.dashboard.gatewayTitle', '龙虾服务')}
+                    {t('openclaw.dashboard.gatewayTitle', 'Buddy 服务')}
                   </h3>
                   <span
                     className={`px-2 py-0.5 rounded-full text-xs font-bold ${stateInfo.color} ${stateInfo.bg}`}
@@ -278,8 +278,8 @@ export function OpenClawDashboard({ onNavigate }: DashboardProps) {
                 </div>
                 <p className="text-sm text-text-muted">
                   {isRunning
-                    ? t('openclaw.dashboard.statusRunning', '龙虾服务正在运行，一切准备就绪。')
-                    : t('openclaw.dashboard.statusOffline', '启动龙虾服务，释放所有潜能。')}
+                    ? t('openclaw.dashboard.statusRunning', 'Buddy 服务正在运行，一切准备就绪。')
+                    : t('openclaw.dashboard.statusOffline', '启动 Buddy 服务，释放所有潜能。')}
                 </p>
               </div>
             </div>
@@ -450,12 +450,12 @@ export function OpenClawDashboard({ onNavigate }: DashboardProps) {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-bold text-text-primary group-hover:text-danger transition-colors">
-                  {t('openclaw.dashboard.onboardTitle', '🦞 开始设置你的 AI 龙虾')}
+                  {t('openclaw.dashboard.onboardTitle', '🤖 开始设置你的 AI 搭子')}
                 </div>
                 <div className="text-xs text-text-muted mt-0.5">
                   {t(
                     'openclaw.dashboard.onboardDesc',
-                    '只需几步即可配置模型、创建智能体并开始对话。点击开始初始设置向导。',
+                    '只需几步即可配置模型、创建 Buddy 并开始对话。点击开始初始设置向导。',
                   )}
                 </div>
               </div>
@@ -505,7 +505,7 @@ export function OpenClawDashboard({ onNavigate }: DashboardProps) {
           <QuickAction
             icon={Link2}
             title={t('openclaw.dashboard.connectBuddy', '连接 Buddy')}
-            desc={t('openclaw.dashboard.connectBuddyDesc', '将本地智能体连接到远程服务器')}
+            desc={t('openclaw.dashboard.connectBuddyDesc', '将本地 Buddy 连接到远程服务器')}
             onClick={() => onNavigate('buddy')}
           />
         </div>
@@ -513,7 +513,7 @@ export function OpenClawDashboard({ onNavigate }: DashboardProps) {
         {/* ─── Gateway Config ─── */}
         <section className="rounded-2xl border border-border-subtle bg-bg-secondary p-6">
           <h3 className="text-sm font-bold text-text-primary mb-4">
-            {t('openclaw.dashboard.behaviorConfig', '龙虾服务行为管理')}
+            {t('openclaw.dashboard.behaviorConfig', 'Buddy 服务行为管理')}
           </h3>
           <div className="space-y-3">
             <ToggleRow

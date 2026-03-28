@@ -710,7 +710,7 @@ export default function BuddyManagementScreen() {
                                     <Text
                                       style={[styles.configBlockLabel, { color: colors.textMuted }]}
                                     >
-                                      发送给 AI 助手的提示词
+                                      发送给 AI 搭子的提示词
                                     </Text>
                                     <Pressable
                                       style={({ pressed }) => [
@@ -732,7 +732,7 @@ export default function BuddyManagementScreen() {
                                   <Text
                                     style={[styles.aiPromptText, { color: colors.textSecondary }]}
                                   >
-                                    复制上方提示词发送给你的 AI 助手（如 Claude、ChatGPT
+                                    复制上方提示词发送给你的 AI 搭子（如 Claude、ChatGPT
                                     等），它会帮你完成配置。
                                   </Text>
                                 </View>

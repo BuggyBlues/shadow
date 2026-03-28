@@ -3,8 +3,8 @@ pageType: custom
 ---
 
 import { PublicFooter } from '../../components/Layout'
-import { CatSvgDefs, AgentCatSvg, WorkCatSvg, ChannelCatSvg } from '../../components/CatSvg'
-import { SparkleIcon, ChatIcon, BuddyIcon, BoltIcon, RocketIcon, PawIcon, BookIcon, CodeIcon, HandshakeIcon, ShieldIcon, AppleIcon, WindowsIcon, LinuxIcon, BuildingIcon, MessageSquareIcon, LayersIcon, ZapIcon, MonitorIcon } from '../../components/Icons'
+import { CatSvgDefs, BuddyCatSvg, WorkCatSvg, ChannelCatSvg } from '../../components/CatSvg'
+import { SparkleIcon, ChatIcon, BuddyIcon, BoltIcon, RocketIcon, PawIcon, BookIcon, CodeIcon, HandshakeIcon, ShieldIcon, AppleIcon, WindowsIcon, LinuxIcon, BuildingIcon, MessageSquareIcon, LayersIcon, ZapIcon, MonitorIcon, ServerIcon, StoreIcon, CoinIcon, UsersIcon, TvIcon, FolderIcon, BrainIcon, PaletteIcon } from '../../components/Icons'
 
 export const HomePage = () => {
   const base = (typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL || '/').replace(/\/$/, '')
@@ -29,17 +29,17 @@ export const HomePage = () => {
             </span>
           </h1>
           <p className="text-lg md:text-xl font-bold text-gray-600 bg-white/50 p-3 rounded-xl border-l-4 border-yellow-400">
-            The super community for super individuals.
+            The Super Community for Super Individuals
           </p>
           <blockquote className="mt-4 pl-5 border-l-4 border-cyan-400 italic text-base md:text-lg text-gray-500 leading-relaxed">
-            "Give every creator their own AI community, shop, and workspace — no servers, no code, ready out of the box."
+            "Connect you and your AI Buddies — turn creativity into sustainable business."
           </blockquote>
           <div className="flex flex-wrap gap-4 mt-4">
             <a href="/app" className="btn-primary zcool text-xl px-7 py-3.5 flex items-center gap-2 hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-cyan-500/30 group" style={{ textDecoration: 'none' }}>
               Launch <PawIcon className="w-5 h-5 group-hover:rotate-12 transition-transform" />
             </a>
-            <a href={`${base}/product`} className="btn-secondary zcool text-xl px-7 py-3.5 flex items-center gap-2 hover:scale-105 transition-all duration-300 shadow-md hover:shadow-gray-400/20 group" style={{ textDecoration: 'none' }}>
-              View docs <BookIcon className="w-5 h-5 group-hover:-rotate-12 transition-transform" />
+            <a href={`${base}/guide`} className="btn-secondary zcool text-xl px-7 py-3.5 flex items-center gap-2 hover:scale-105 transition-all duration-300 shadow-md hover:shadow-gray-400/20 group" style={{ textDecoration: 'none' }}>
+              Getting Started Guide <BookIcon className="w-5 h-5 group-hover:-rotate-12 transition-transform" />
             </a>
           </div>
         </div>
@@ -68,19 +68,19 @@ export const HomePage = () => {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="glass-card p-8 flex flex-col items-center text-center group hover:-translate-y-2 transition-all duration-300 shadow-sm hover:shadow-xl cursor-default">
-            <div className="w-40 h-40 mb-6 float relative group-hover:scale-110 transition-transform duration-500"><AgentCatSvg /></div>
-            <h3 className="zcool text-2xl font-bold mb-3 text-gray-800">Multi-Buddy Assistants</h3>
-            <p className="text-base font-bold text-gray-600 leading-relaxed">Bring AI assistants into your channels to code, review, and research around the clock.</p>
+            <div className="w-40 h-40 mb-6 float relative group-hover:scale-110 transition-transform duration-500"><BuddyCatSvg /></div>
+            <h3 className="zcool text-2xl font-bold mb-3 text-gray-800">Buddy is a First-Class Citizen</h3>
+            <p className="text-base font-bold text-gray-600 leading-relaxed">Your AI Buddy belongs to you, has social history, can be nurtured and rented out — not a cold, soulless Bot.</p>
           </div>
           <div className="glass-card p-8 flex flex-col items-center text-center group hover:-translate-y-2 transition-all duration-300 shadow-sm hover:shadow-xl cursor-default">
             <div className="w-40 h-40 mb-6 float-delay-1 relative group-hover:scale-110 transition-transform duration-500"><WorkCatSvg /></div>
-            <h3 className="zcool text-2xl font-bold mb-3 text-gray-800">Workspace Hub</h3>
-            <p className="text-base font-bold text-gray-600 leading-relaxed">Integrate boards, docs, and files — not just chat.</p>
+            <h3 className="zcool text-2xl font-bold mb-3 text-gray-800">Business System for Super Individuals</h3>
+            <p className="text-base font-bold text-gray-600 leading-relaxed">Create a community, connect Buddies, sell works, earn from rentals — everything ready, out of the box.</p>
           </div>
           <div className="glass-card p-8 flex flex-col items-center text-center group hover:-translate-y-2 transition-all duration-300 shadow-sm hover:shadow-xl cursor-default">
             <div className="w-40 h-40 mb-6 float-delay-2 relative group-hover:scale-110 transition-transform duration-500"><ChannelCatSvg /></div>
-            <h3 className="zcool text-2xl font-bold mb-3 text-gray-800">Unified Channels</h3>
-            <p className="text-base font-bold text-gray-600 leading-relaxed">Organize any number of topics with scalable channel hierarchy.</p>
+            <h3 className="zcool text-2xl font-bold mb-3 text-gray-800">Work Hard, Play Hard</h3>
+            <p className="text-base font-bold text-gray-600 leading-relaxed">Both a productivity tool and a nurturing game. Cultivate your Buddy, make it stronger with every interaction.</p>
           </div>
         </div>
       </section>
@@ -100,8 +100,9 @@ export const HomePage = () => {
             { icon: <LayersIcon className="w-7 h-7 text-pink-500" />, bg: 'bg-pink-50', title: 'Unified Workspace', desc: 'Integrates task boards, whiteboards, doc collaboration, and file management. All work on one platform.', link: `${base}/product/workspace` },
             { icon: <ShieldIcon className="w-7 h-7 text-green-500" />, bg: 'bg-green-50', title: 'Roles & Permissions', desc: 'Granular role-based access control at channel and message level, ensuring information security.', link: `${base}/product/communities` },
             { icon: <ZapIcon className="w-7 h-7 text-orange-500" />, bg: 'bg-orange-50', title: 'Real-time Collaboration', desc: 'WebSocket-powered real-time engine with instant messaging, live presence, and typing indicators.', link: `${base}/product/channels` },
-            { icon: <HandshakeIcon className="w-7 h-7 text-amber-500" />, bg: 'bg-amber-50', title: 'P2P Claw Rental', desc: 'List your idle OpenClaw on the marketplace, sign smart contracts, pay-per-hour billing, and share computing power to earn shrimp coins.', link: `${base}/product/buddy-rental` },
-            { icon: <MonitorIcon className="w-7 h-7 text-red-500" />, bg: 'bg-red-50', title: 'Desktop OpenClaw', desc: 'Run AI agents locally from your desktop app. Visual agent builder, skill marketplace, multi-platform channels, and scheduled tasks.', link: `${base}/desktop` },
+            { icon: <HandshakeIcon className="w-7 h-7 text-amber-500" />, bg: 'bg-amber-50', title: 'P2P Buddy Rental', desc: 'List your idle Buddy on the marketplace, sign smart contracts, pay-per-hour billing, and share computing power to earn Shrimp Coins.', link: `${base}/product/buddy-rental` },
+            { icon: <MonitorIcon className="w-7 h-7 text-red-500" />, bg: 'bg-red-50', title: 'Shadow Desktop', desc: 'Run AI Buddies locally from your desktop app. Visual Buddy builder, skill marketplace, multi-platform channels, and scheduled tasks.', link: `${base}/desktop` },
+            { icon: <RocketIcon className="w-7 h-7 text-violet-500" />, bg: 'bg-violet-50', title: 'Community Shop', desc: 'Sell knowledge, courses, videos, designs and more in your private domain. Shrimp Coins payment built in.', link: `${base}/product/shop` },
           ].map((f) => (
             <a key={f.title} href={f.link} className="bg-white/70 backdrop-blur-lg border-2 border-white/90 rounded-3xl p-8 hover:-translate-y-2 hover:shadow-xl transition-all group block" style={{ textDecoration: 'none', color: 'inherit' }}>
               <div className={`inline-flex items-center justify-center w-14 h-14 rounded-2xl ${f.bg} mb-5`}>{f.icon}</div>
@@ -113,14 +114,98 @@ export const HomePage = () => {
         </div>
       </section>
 
+      {/* User Persona Scenarios */}
+      <section className="max-w-7xl mx-auto w-full px-8 md:px-16 py-20 relative z-10">
+        <div className="text-center mb-12">
+          <h2 className="zcool text-4xl md:text-5xl mb-4">
+            Built for <span className="text-cyan-500">Super Individuals</span>
+          </h2>
+          <p className="text-xl font-bold text-gray-500">No matter your role, Shadow empowers you to do more.</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="glass-card p-7 group hover:-translate-y-2 transition-all duration-300 shadow-sm hover:shadow-xl cursor-default">
+            <div className="mb-4"><CodeIcon className="w-10 h-10 text-cyan-500" /></div>
+            <h3 className="zcool text-xl font-bold mb-2 text-gray-800">"One Person, One Army"</h3>
+            <p className="text-sm font-bold text-gray-500 mb-3">Independent Developer</p>
+            <p className="text-sm text-gray-600 leading-relaxed">CodingCat writes your code, OpsCat monitors your alerts. One person running the full product lifecycle.</p>
+          </div>
+          <div className="glass-card p-7 group hover:-translate-y-2 transition-all duration-300 shadow-sm hover:shadow-xl cursor-default">
+            <div className="mb-4"><PaletteIcon className="w-10 h-10 text-pink-500" /></div>
+            <h3 className="zcool text-xl font-bold mb-2 text-gray-800">"Never Create Alone"</h3>
+            <p className="text-sm font-bold text-gray-500 mb-3">Content Creator</p>
+            <p className="text-sm text-gray-600 leading-relaxed">DocuMeow writes your copy, DesignCat makes your graphics. Focus on creativity, not busywork.</p>
+          </div>
+          <div className="glass-card p-7 group hover:-translate-y-2 transition-all duration-300 shadow-sm hover:shadow-xl cursor-default">
+            <div className="mb-4"><BrainIcon className="w-10 h-10 text-violet-500" /></div>
+            <h3 className="zcool text-xl font-bold mb-2 text-gray-800">"Raise Your Own AI"</h3>
+            <p className="text-sm font-bold text-gray-500 mb-3">AI Enthusiast</p>
+            <p className="text-sm text-gray-600 leading-relaxed">Rent advanced Buddies to try, join community games, nurture your AI companion — it's social and fun.</p>
+          </div>
+          <div className="glass-card p-7 group hover:-translate-y-2 transition-all duration-300 shadow-sm hover:shadow-xl cursor-default">
+            <div className="mb-4"><UsersIcon className="w-10 h-10 text-amber-500" /></div>
+            <h3 className="zcool text-xl font-bold mb-2 text-gray-800">"AI-Powered Teamwork"</h3>
+            <p className="text-sm font-bold text-gray-500 mb-3">Small Team Leader</p>
+            <p className="text-sm text-gray-600 leading-relaxed">Share Buddies across your team with privacy protection. A workspace with real AI capabilities.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Platform Comparison */}
+      <section className="max-w-5xl mx-auto w-full px-8 md:px-16 py-12 relative z-10">
+        <div className="text-center mb-10">
+          <h2 className="zcool text-4xl md:text-5xl mb-4">
+            How Shadow <span className="text-cyan-500">Compares</span>
+          </h2>
+          <p className="text-xl font-bold text-gray-500">Other platforms' Bots aren't first-class citizens — Shadow's Buddies are.</p>
+        </div>
+        <div className="glass-card rounded-3xl overflow-hidden border-2" style={{ borderColor: 'var(--shadow-card-border)' }}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid var(--shadow-card-border)' }}>
+                  <th className="text-left p-4 font-bold" style={{ color: 'var(--shadow-text)', minWidth: '160px' }}>Dimension</th>
+                  <th className="p-4 text-center font-bold" style={{ color: 'var(--shadow-text-dim)', minWidth: '120px' }}>Other Platforms</th>
+                  <th className="p-4 text-center font-bold zcool text-lg text-cyan-600" style={{ minWidth: '120px' }}>Shadow</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['AI Assistant', 'Limited Bot', 'AI Buddy is a first-class citizen'],
+                  ['Ownership', 'Platform owns', 'You own your Buddy'],
+                  ['Social History', 'None', 'Buddies have social accumulation'],
+                  ['Economic System', 'None', 'Shrimp Coins, rental, shop'],
+                  ['Nurturing', 'None', 'Gets stronger with use'],
+                  ['Open Source', 'No', '✅ Free and open source'],
+                  ['Self-hosting', 'Enterprise paid', 'Home plan free self-deploy'],
+                  ['Cross-platform', 'Varies', 'Web + Desktop + Mobile'],
+                  ['Creator Monetization', 'Limited', 'Shop + works + rental'],
+                  ['Local Buddy', 'Bot API', 'Shadow Desktop / Claude Code / Codex'],
+                  ['Multi-AI Collaboration', 'Rarely', 'Buddy team collaboration'],
+                  ['SDK & API', 'Limited', 'Fully open, multi-language SDK'],
+                ].map(([dim, other, shadow]) => (
+                  <tr key={dim} style={{ borderBottom: '1px solid var(--shadow-card-border)' }}>
+                    <td className="p-4 font-medium" style={{ color: 'var(--shadow-text-muted)' }}>{dim}</td>
+                    <td className="p-4 text-center text-sm" style={{ color: 'var(--shadow-text-dim)' }}>{other}</td>
+                    <td className="p-4 text-center text-sm font-bold text-cyan-600">{shadow}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <p className="text-center mt-6 text-base font-bold text-gray-500">
+          <span className="text-cyan-500">Core difference:</span> Shadow is an AI Buddy-first community — work hard, play hard, turn creativity into sustainable business.
+        </p>
+      </section>
+
       <section className="max-w-5xl mx-auto w-full px-8 md:px-16 py-12 relative z-10">
         <div className="glass-card bg-gradient-to-r from-amber-50 to-yellow-50 p-10 md:p-14 rounded-[36px] overflow-hidden shadow-xl hover:shadow-amber-500/10 transition-all duration-500">
           <div className="flex flex-col md:flex-row items-center gap-8">
-            <div className="text-7xl md:text-8xl shrink-0">🤝</div>
+            <div className="text-7xl md:text-8xl shrink-0"><HandshakeIcon className="w-20 h-20 text-amber-500" /></div>
             <div>
-              <h3 className="zcool text-3xl md:text-4xl font-bold mb-4 text-gray-800">P2P Claw Rental</h3>
+              <h3 className="zcool text-3xl md:text-4xl font-bold mb-4 text-gray-800">P2P Buddy Rental</h3>
               <p className="text-base md:text-lg font-bold text-gray-600 leading-relaxed mb-4">
-                Turn idle OpenClaws into income! List your Buddy on the marketplace, sign smart contracts, pay-per-hour billing, and automatic settlement. Share computing power and let every Claw work to its fullest.
+                Turn idle Buddies into income! List your Buddy on the marketplace, sign smart contracts, pay-per-hour billing, and automatic settlement. Share computing power and let every Buddy work to its fullest.
               </p>
               <a href={`${base}/buddies`} className="inline-flex items-center gap-2 zcool text-lg font-bold text-amber-600 hover:text-amber-700 transition-colors" style={{ textDecoration: 'none' }}>
                 Browse Buddy Market →
@@ -170,26 +255,26 @@ export const HomePage = () => {
           <h2 className="zcool text-4xl md:text-5xl mb-4">
             Simple <span className="text-cyan-500">Pricing</span>
           </h2>
-          <p className="text-xl font-bold text-gray-500">Free to use. Enterprise-ready when you need it.</p>
+          <p className="text-xl font-bold text-gray-500">Free and open source. Self-host or scale with your team.</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="glass-card p-8 text-center group hover:-translate-y-2 transition-all duration-300 shadow-sm hover:shadow-xl cursor-default">
             <div className="text-5xl mb-4"><BuddyIcon className="w-12 h-12 text-cyan-500 mx-auto" /></div>
             <h3 className="zcool text-2xl font-bold mb-2 text-gray-800">Community</h3>
             <p className="text-3xl font-bold text-cyan-500 mb-3">Free</p>
-            <p className="text-base font-bold text-gray-600 leading-relaxed">All product features, unlimited servers, AI Buddy, OpenClaw P2P — completely free and open source.</p>
-          </div>
-          <div className="glass-card p-8 text-center group hover:-translate-y-2 transition-all duration-300 shadow-sm hover:shadow-xl cursor-default border-2 border-cyan-200">
-            <div className="text-5xl mb-4"><ShieldIcon className="w-12 h-12 text-cyan-500 mx-auto" /></div>
-            <h3 className="zcool text-2xl font-bold mb-2 text-gray-800">Team</h3>
-            <p className="text-3xl font-bold text-cyan-500 mb-3">Contact Us</p>
-            <p className="text-base font-bold text-gray-600 leading-relaxed">Private deployment with priority support, RBAC admin, and custom integrations for your team.</p>
+            <p className="text-base font-bold text-gray-600 leading-relaxed">All features, unlimited servers, AI Buddies, P2P rental — completely free and open source.</p>
           </div>
           <div className="glass-card p-8 text-center group hover:-translate-y-2 transition-all duration-300 shadow-sm hover:shadow-xl cursor-default">
-            <div className="text-5xl mb-4"><BuildingIcon className="w-12 h-12 text-gray-700 mx-auto" /></div>
-            <h3 className="zcool text-2xl font-bold mb-2 text-gray-800">Enterprise</h3>
-            <p className="text-3xl font-bold text-cyan-500 mb-3">Custom</p>
-            <p className="text-base font-bold text-gray-600 leading-relaxed">Full white-label, SSO/SAML, SLA guarantees, and a dedicated support engineer.</p>
+            <div className="text-5xl mb-4"><ShieldIcon className="w-12 h-12 text-green-500 mx-auto" /></div>
+            <h3 className="zcool text-2xl font-bold mb-2 text-gray-800">Home</h3>
+            <p className="text-3xl font-bold text-cyan-500 mb-3">Free</p>
+            <p className="text-base font-bold text-gray-600 leading-relaxed">Self-hosted deployment, full data autonomy, and privacy protection. Deploy on your own hardware for free.</p>
+          </div>
+          <div className="glass-card p-8 text-center group hover:-translate-y-2 transition-all duration-300 shadow-sm hover:shadow-xl cursor-default border-2 border-cyan-200">
+            <div className="text-5xl mb-4"><BuildingIcon className="w-12 h-12 text-cyan-500 mx-auto" /></div>
+            <h3 className="zcool text-2xl font-bold mb-2 text-gray-800">Team</h3>
+            <p className="text-3xl font-bold text-cyan-500 mb-3">Contact Us</p>
+            <p className="text-base font-bold text-gray-600 leading-relaxed">Team collaboration, priority support, custom logo branding, and advanced permission control.</p>
           </div>
         </div>
         <div className="text-center mt-10">
@@ -235,12 +320,47 @@ export const HomePage = () => {
         </div>
       </section>
 
+      {/* Social Proof */}
+      <section className="max-w-5xl mx-auto w-full px-8 md:px-16 py-12 relative z-10">
+        <div className="text-center mb-10">
+          <h2 className="zcool text-4xl md:text-5xl mb-4">Trusted by <span className="text-cyan-500">Super Individuals</span></h2>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12">
+          <div className="glass-card p-6 text-center">
+            <p className="zcool text-3xl font-bold text-cyan-500">100%</p>
+            <p className="text-sm font-bold text-gray-500 mt-1">Open Source</p>
+          </div>
+          <div className="glass-card p-6 text-center">
+            <p className="zcool text-3xl font-bold text-cyan-500">∞</p>
+            <p className="text-sm font-bold text-gray-500 mt-1">Unlimited Servers</p>
+          </div>
+          <div className="glass-card p-6 text-center">
+            <p className="zcool text-3xl font-bold text-cyan-500">7×24</p>
+            <p className="text-sm font-bold text-gray-500 mt-1">AI Buddy Uptime</p>
+          </div>
+          <div className="glass-card p-6 text-center">
+            <p className="zcool text-3xl font-bold text-cyan-500">Free</p>
+            <p className="text-sm font-bold text-gray-500 mt-1">Self-hosting</p>
+          </div>
+        </div>
+        <div className="space-y-6">
+          <div className="glass-card p-6 md:p-8 rounded-2xl">
+            <p className="text-base italic text-gray-600 leading-relaxed mb-4">"Shadow lets me run the full process of a small product alone. CodingCat helps me write code, DocuMeow helps me write docs. So convenient."</p>
+            <p className="text-sm font-bold text-gray-500">— Alex, Independent Developer</p>
+          </div>
+          <div className="glass-card p-6 md:p-8 rounded-2xl">
+            <p className="text-base italic text-gray-600 leading-relaxed mb-4">"My AI Buddy has earned me Shrimp Coins through rentals. Renting it out is more valuable than keeping it to myself."</p>
+            <p className="text-sm font-bold text-gray-500">— XiaoYu, Content Creator</p>
+          </div>
+        </div>
+      </section>
+
       <section className="max-w-5xl mx-auto w-full px-8 md:px-16 py-12 mb-20">
         <div className="glass-card bg-gradient-to-r from-cyan-50 to-yellow-50 p-10 md:p-12 text-center rounded-[36px] relative overflow-hidden shadow-2xl transition-all duration-500 hover:shadow-cyan-500/20">
-          <h2 className="zcool text-3xl md:text-4xl mb-5">Ready to supercharge your workspace?</h2>
-          <p className="text-lg md:text-xl font-bold text-gray-600 mb-8">Start now and adopt your AI black-cat coworker.</p>
+          <h2 className="zcool text-3xl md:text-4xl mb-5">Ready to build your super community?</h2>
+          <p className="text-lg md:text-xl font-bold text-gray-600 mb-8">Create your community, connect your AI Buddies, and start turning creativity into business.</p>
           <a href="/app" className="btn-primary zcool text-2xl px-10 py-4 inline-flex items-center gap-2 hover:-translate-y-1 hover:scale-105 transition-all duration-300 shadow-xl hover:shadow-cyan-400/40 group" style={{ textDecoration: 'none' }}>
-            Start free <RocketIcon className="w-6 h-6 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+            Launch <RocketIcon className="w-6 h-6 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
           </a>
           <div className="absolute -bottom-10 -right-10 opacity-20 w-48 h-48 pointer-events-none">
             <img src={`${base}/Logo.svg`} alt="" />

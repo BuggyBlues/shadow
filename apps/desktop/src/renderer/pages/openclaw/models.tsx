@@ -209,7 +209,7 @@ export function ModelsPage() {
             <p className="text-sm text-text-muted">
               {t(
                 'openclaw.models.subtitle',
-                '配置 AI 模型提供商和 API 密钥，为智能体提供语言模型能力',
+                '配置 AI 模型提供商和 API 密钥，为 Buddy 提供语言模型能力',
               )}
             </p>
           </div>
@@ -535,7 +535,7 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
       <p className="text-sm text-text-muted max-w-md mb-6">
         {t(
           'openclaw.models.noProvidersDesc',
-          '添加 AI 模型提供商，为你的龙虾智能体提供语言模型支持。支持 OpenAI、Claude、Gemini 等主流模型，也可以使用 Ollama 运行本地模型。',
+          '添加 AI 模型提供商，为你的 Buddy 提供语言模型支持。支持 OpenAI、Claude、Gemini 等主流模型，也可以使用 Ollama 运行本地模型。',
         )}
       </p>
       <button

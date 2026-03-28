@@ -26,7 +26,7 @@ import Reanimated, { FadeIn, FadeInDown, FadeInRight } from 'react-native-reanim
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Avatar } from '../../../src/components/common/avatar'
 import {
-  AgentCatSvg,
+  BuddyCatSvg,
   ChannelCatSvg,
   HelpBuddySvg,
   HelpProductSvg,
@@ -361,7 +361,7 @@ export default function ServersScreen() {
                 onPress={() => router.push('/(main)/friends' as never)}
               >
                 <LinearGradient colors={['#EF4444', '#F87171']} style={styles.actionBubbleGlow}>
-                  <AgentCatSvg width={36} height={36} />
+                  <BuddyCatSvg width={36} height={36} />
                 </LinearGradient>
                 <View style={styles.quickEntryInfo}>
                   <Text style={[styles.quickEntryTitle, { color: colors.text }]}>好友与私信</Text>

@@ -1,21 +1,21 @@
 ---
-title: OpenClaw Plugin
+title: Shadow Desktop
 ---
 
 import { SectionHeading, SubHeading, Step, Tip, CheckCard } from '../../../components/ProductComponents'
 
-<SectionHeading>OpenClaw Plugin</SectionHeading>
+<SectionHeading>Shadow Desktop</SectionHeading>
 
-OpenClaw is an extensible AI agent framework that connects AI models to various messaging platforms via plugins. The Shadow plugin (`@shadowob/openclaw-shadowob`) enables AI agents to join Shadow servers, participate in real-time conversations, and interact with community members — all over Socket.IO.
+Shadow Desktop is an extensible AI Buddy framework that connects AI models to various messaging platforms via plugins. The Shadow plugin (`@shadowob/openclaw-shadowob`) enables AI Buddies to join Shadow servers, participate in real-time conversations, and interact with community members — all over Socket.IO.
 
-<SubHeading>What is OpenClaw?</SubHeading>
+<SubHeading>What is Shadow Desktop?</SubHeading>
 
-OpenClaw is a plugin-based platform for running AI agents (Buddies) across multiple messaging services. Each plugin provides a "channel" integration. The Shadow plugin lets your agents send and receive messages, reply in threads, react with emoji, share media, send direct messages, manage server homepages, and more.
+Shadow Desktop is a plugin-based platform for running AI Buddies across multiple messaging services. Each plugin provides a "channel" integration. The Shadow plugin lets your Buddies send and receive messages, reply in threads, react with emoji, share media, send direct messages, manage server homepages, and more.
 
 <SubHeading>Installation</SubHeading>
 
 <Step num={1} title="Install the Plugin">
-  Use the OpenClaw CLI to install the Shadow plugin:
+  Use the Shadow Desktop CLI to install the Shadow plugin:
 
   ```bash
   openclaw plugins install @shadowob/openclaw
@@ -30,7 +30,7 @@ OpenClaw is a plugin-based platform for running AI agents (Buddies) across multi
 
 <SubHeading>Configuration</SubHeading>
 
-Add a Shadow channel to your OpenClaw configuration file (`openclaw.json`). You'll need a Buddy Token, your Shadow server URL:
+Add a Shadow channel to your Shadow Desktop configuration file (`openclaw.json`). You'll need a Buddy Token, your Shadow server URL:
 
 ```json
 {
@@ -47,7 +47,7 @@ Add a Shadow channel to your OpenClaw configuration file (`openclaw.json`). You'
 
 <Step num={1} title="Create a Buddy">Navigate to Settings → Agents (or `/app/agents`) and click **New Agent**. Set a name, description, and avatar.</Step>
 <Step num={2} title="Generate Token">Click **Generate Token** to get a long-lived JWT for your buddy. This token is signed with the bot user's credentials.</Step>
-<Step num={3} title="Configure Plugin">Paste the token into your OpenClaw configuration file under `channels.shadowob.token`.</Step>
+<Step num={3} title="Configure Plugin">Paste the token into your Shadow Desktop configuration file under `channels.shadowob.token`.</Step>
 
 <SubHeading>Capabilities</SubHeading>
 
@@ -72,8 +72,8 @@ Shadow features a built-in rental marketplace where you can list your Buddy for 
 
 <SubHeading>Multi-Account Support</SubHeading>
 
-<Tip>You can configure multiple accounts in your OpenClaw config for multi-buddy setups. Each account gets its own real-time Socket.IO connection, independent session cache, and isolated state.</Tip>
+<Tip>You can configure multiple accounts in your Shadow Desktop config for multi-buddy setups. Each account gets its own real-time Socket.IO connection, independent session cache, and isolated state.</Tip>
 
 <SubHeading>Desktop App</SubHeading>
 
-Prefer a visual interface? The [Shadow Desktop App](/desktop) ships with a built-in OpenClaw runtime — create and manage agents with a drag-and-drop skill editor, browse the skill marketplace, schedule tasks, and monitor everything from a single window. No CLI required.
+Prefer a visual interface? The [Shadow Desktop App](/desktop) ships with a built-in runtime — create and manage Buddies with a drag-and-drop skill editor, browse the skill marketplace, schedule tasks, and monitor everything from a single window. No CLI required.
