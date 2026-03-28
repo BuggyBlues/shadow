@@ -32,6 +32,7 @@ export default defineConfig({
       ),
       [resolve(__dirname, '../web/src/lib/api')]: resolve(__dirname, 'src/renderer/lib/api.ts'),
     },
+    conditionNames: ['development', 'import', 'module', 'default'],
   },
   html: {
     template: './src/renderer/index.html',

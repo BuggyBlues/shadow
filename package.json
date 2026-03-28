@@ -20,11 +20,14 @@
     }
   },
   "scripts": {
-    "dev": "pnpm -r --parallel dev",
-    "build": "pnpm -r build",
+    "dev": "pnpm build:packages && pnpm -r --parallel dev",
+    "build:packages": "pnpm --filter @shadowob/shared build && pnpm --filter @shadowob/sdk build && pnpm --filter @shadowob/oauth build && pnpm --filter @shadowob/openclaw-shadowob build && pnpm --filter @shadowob/cli build",
+    "build": "pnpm build:packages && pnpm -r build",
     "lint": "biome lint .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
+    "typecheck": "pnpm -r --parallel typecheck",
+    "typecheck:staged": "node scripts/typecheck-staged.mjs",
     "check:migrations": "node scripts/check-drizzle-migrations.mjs",
     "check:sdk-versions": "node scripts/check-sdk-version-consistency.mjs",
     "check:workspace-deps": "node scripts/check-workspace-deps.mjs",
@@ -52,6 +55,9 @@
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,css,md}": [
       "biome check --write --no-errors-on-unmatched"
+    ],
+    "*.{ts,tsx}": [
+      "bash -c 'pnpm typecheck:staged'"
     ]
   },
   "devDependencies": {

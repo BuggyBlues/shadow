@@ -59,6 +59,7 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "prepack": "pnpm build",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
   },

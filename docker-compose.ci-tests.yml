@@ -64,10 +64,14 @@ services:
         echo "=== Pre-push checks ==="
         node scripts/pre-push-checks.mjs
 
-        echo "=== Build dependencies ==="
-        pnpm --filter @shadowob/shared build
-        pnpm --filter @shadowob/sdk build
-        pnpm --filter @shadowob/cli build
+        echo "=== Build shared packages ==="
+        pnpm build:packages
+
+        echo "=== Typecheck (packages - strict) ==="
+        pnpm --filter "./packages/*" --parallel typecheck
+
+        echo "=== Typecheck (apps - report only) ==="
+        pnpm --filter "./apps/*" --parallel typecheck || echo "⚠ App typecheck errors exist — non-blocking for now"
 
         echo "=== Database migration ==="
         pnpm --filter @shadowob/server db:migrate

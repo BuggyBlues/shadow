@@ -12,6 +12,7 @@ export default defineConfig({
     alias: {
       '@': './src',
     },
+    conditionNames: ['development', 'import', 'module', 'default'],
   },
   html: {
     template: './index.html',
