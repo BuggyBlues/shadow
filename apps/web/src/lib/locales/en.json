@@ -244,7 +244,14 @@
     "homepageHtml": "Homepage HTML",
     "homepageHtmlPlaceholder": "<h1>Welcome!</h1>\n<p>This is the server homepage.</p>",
     "homepageHtmlDesc": "Custom HTML for the server homepage. Leave empty to use the default.",
-    "channels": "Channels"
+    "channels": "Channels",
+    "showArchived": "Show Archived",
+    "archiveChannel": "Archive Channel",
+    "archiveChannelConfirm": "Are you sure you want to archive this channel? It will become read-only.",
+    "unarchiveChannel": "Unarchive Channel",
+    "unarchiveChannelConfirm": "Are you sure you want to unarchive this channel?",
+    "archiveSuccess": "Channel archived",
+    "unarchiveSuccess": "Channel unarchived"
   },
   "chat": {
     "selectChannel": "Select a channel to start chatting",

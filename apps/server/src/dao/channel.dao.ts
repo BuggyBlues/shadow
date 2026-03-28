@@ -46,6 +46,7 @@ export class ChannelDao {
     type?: 'text' | 'voice' | 'announcement'
     topic?: string
     isPrivate?: boolean
+    lastMessageAt?: Date
   }) {
     const result = await this.db
       .insert(channels)
@@ -55,6 +56,7 @@ export class ChannelDao {
         type: data.type ?? 'text',
         topic: data.topic,
         isPrivate: data.isPrivate ?? false,
+        lastMessageAt: data.lastMessageAt,
       })
       .returning()
     return result[0]
@@ -89,5 +91,41 @@ export class ChannelDao {
         .set({ position: pos.position, updatedAt: new Date() })
         .where(eq(channels.id, pos.id))
     }
+  }
+
+  async findArchivedByServerId(serverId: string) {
+    return this.db
+      .select()
+      .from(channels)
+      .where(and(eq(channels.serverId, serverId), eq(channels.isArchived, true)))
+      .orderBy(desc(channels.archivedAt))
+  }
+
+  async archive(id: string, archivedBy: string) {
+    const result = await this.db
+      .update(channels)
+      .set({
+        isArchived: true,
+        archivedAt: new Date(),
+        archivedBy,
+        updatedAt: new Date(),
+      })
+      .where(eq(channels.id, id))
+      .returning()
+    return result[0] ?? null
+  }
+
+  async unarchive(id: string) {
+    const result = await this.db
+      .update(channels)
+      .set({
+        isArchived: false,
+        archivedAt: null,
+        archivedBy: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(channels.id, id))
+      .returning()
+    return result[0] ?? null
   }
 }

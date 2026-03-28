@@ -46,6 +46,7 @@ export class ChannelService {
       type: input.type,
       topic: input.topic,
       isPrivate: input.isPrivate,
+      lastMessageAt: new Date(),
     })
 
     // Add only the creator to the new channel
@@ -169,5 +170,34 @@ export class ChannelService {
       // channel_members table may not exist — fall back to server members
       return this.deps.serverDao.getMembers(serverId)
     }
+  }
+
+  /** Archive a channel */
+  async archive(id: string, userId: string, _reason?: string) {
+    const channel = await this.deps.channelDao.findById(id)
+    if (!channel) {
+      throw Object.assign(new Error('Channel not found'), { status: 404 })
+    }
+    if (channel.isArchived) {
+      throw Object.assign(new Error('Channel is already archived'), { status: 400 })
+    }
+    return this.deps.channelDao.archive(id, userId)
+  }
+
+  /** Unarchive a channel */
+  async unarchive(id: string) {
+    const channel = await this.deps.channelDao.findById(id)
+    if (!channel) {
+      throw Object.assign(new Error('Channel not found'), { status: 404 })
+    }
+    if (!channel.isArchived) {
+      throw Object.assign(new Error('Channel is not archived'), { status: 400 })
+    }
+    return this.deps.channelDao.unarchive(id)
+  }
+
+  /** Get archived channels for a server */
+  async getArchivedChannels(serverId: string) {
+    return this.deps.channelDao.findArchivedByServerId(serverId)
   }
 }

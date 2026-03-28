@@ -244,7 +244,14 @@
     "homepageHtml": "主页 HTML",
     "homepageHtmlPlaceholder": "<h1>欢迎！</h1>\n<p>这是服务器主页。</p>",
     "homepageHtmlDesc": "服务器主页的自定义 HTML。留空使用默认主页。",
-    "channels": "频道"
+    "channels": "频道",
+    "showArchived": "显示已归档",
+    "archiveChannel": "归档频道",
+    "archiveChannelConfirm": "确定要归档此频道吗？归档后频道将变为只读。",
+    "unarchiveChannel": "取消归档",
+    "unarchiveChannelConfirm": "确定要取消归档此频道吗？",
+    "archiveSuccess": "频道已归档",
+    "unarchiveSuccess": "频道已取消归档"
   },
   "chat": {
     "selectChannel": "选择一个频道开始聊天",

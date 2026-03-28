@@ -1,5 +1,6 @@
 import type { ChannelSortBy } from '@shadowob/shared'
 import {
+  Archive,
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
@@ -27,6 +28,8 @@ interface ChannelSortFilterButtonProps {
   filterKeyword: string
   onFilterChange: (keyword: string) => void
   hasActiveFilter: boolean
+  showArchived?: boolean
+  onShowArchivedChange?: (show: boolean) => void
 }
 
 export function ChannelSortFilterButton({
@@ -34,6 +37,8 @@ export function ChannelSortFilterButton({
   filterKeyword,
   onFilterChange,
   hasActiveFilter,
+  showArchived = false,
+  onShowArchivedChange,
 }: ChannelSortFilterButtonProps) {
   const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
@@ -42,7 +47,7 @@ export function ChannelSortFilterButton({
   const { sortBy, sortDirection, setSortBy, toggleSortDirection, hasCustomSort } =
     useChannelSort(serverId)
 
-  const isActive = hasCustomSort || hasActiveFilter
+  const isActive = hasCustomSort || hasActiveFilter || showArchived
 
   const sortOptions: SortOption[] = [
     {
@@ -106,6 +111,7 @@ export function ChannelSortFilterButton({
   const handleClear = () => {
     onFilterChange('')
     setSortBy('position')
+    onShowArchivedChange?.(false)
   }
 
   const dropdown = isOpen ? (
@@ -172,6 +178,27 @@ export function ChannelSortFilterButton({
             )
           })}
         </div>
+
+        {/* Show Archived Toggle */}
+        {onShowArchivedChange && (
+          <div className="px-2 py-1 border-t border-border-subtle">
+            <button
+              type="button"
+              onClick={() => onShowArchivedChange(!showArchived)}
+              className={`flex items-center gap-2 w-full px-2 py-1 text-xs transition ${
+                showArchived
+                  ? 'text-primary bg-primary/10'
+                  : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
+              }`}
+            >
+              <Archive size={14} className={showArchived ? 'text-primary' : 'text-text-muted'} />
+              <span className="flex-1 text-left">
+                {t('channel.showArchived', { defaultValue: '显示已归档' })}
+              </span>
+              {showArchived && <Check size={12} className="text-primary" />}
+            </button>
+          </div>
+        )}
 
         {/* Clear Button */}
         {isActive && (

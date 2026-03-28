@@ -244,7 +244,26 @@
     "homepageHtml": "ホームページ HTML",
     "homepageHtmlPlaceholder": "<h1>ようこそ！</h1>\n<p>これはサーバーのホームページです。</p>",
     "homepageHtmlDesc": "サーバーホームページのカスタムHTML。空にするとデフォルトが使用されます。",
-    "channels": "チャンネル"
+    "channels": "チャンネル",
+    "showArchived": "アーカイブを表示",
+    "archiveChannel": "チャンネルをアーカイブ",
+    "archiveChannelConfirm": "このチャンネルをアーカイブしますか？アーカイブ後、チャンネルは読み取り専用になります。",
+    "unarchiveChannel": "アーカイブを解除",
+    "unarchiveChannelConfirm": "このチャンネルのアーカイブを解除しますか？",
+    "archiveSuccess": "チャンネルをアーカイブしました",
+    "unarchiveSuccess": "アーカイブを解除しました",
+    "archivedNotice": "このチャンネルはアーカイブされています。メッセージを送信できません。",
+    "unarchive": "アーカイブ解除"
+  },
+  "sort": {
+    "title": "並び替えとフィルター",
+    "byPosition": "デフォルト順",
+    "byCreatedAt": "作成日時",
+    "byUpdatedAt": "更新日時",
+    "byLastMessage": "最新メッセージ",
+    "byLastAccessed": "アクセス日時",
+    "filterPlaceholder": "チャンネルを検索...",
+    "clear": "フィルターをクリア"
   },
   "chat": {
     "selectChannel": "チャンネルを選んでチャットを始めましょう",
@@ -1388,15 +1407,5 @@
     "timeout": "等待超时",
     "timeoutDesc": "你可以在设置中稍后配置 Buddy",
     "redirecting": "正在跳转到服务器..."
-  },
-  "sort": {
-    "title": "並べ替えとフィルター",
-    "byPosition": "デフォルト順",
-    "byCreatedAt": "作成日時",
-    "byUpdatedAt": "更新日時",
-    "byLastMessage": "最新メッセージ",
-    "byLastAccessed": "アクセス日時",
-    "filterPlaceholder": "チャンネルを検索...",
-    "clear": "フィルターをクリア"
   }
 }

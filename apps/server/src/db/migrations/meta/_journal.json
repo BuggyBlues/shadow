@@ -215,8 +215,15 @@
     {
       "idx": 30,
       "version": "7",
-      "when": 1774677800000,
+      "when": 1774591700000,
       "tag": "0030_add_profile_comments",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1774591800000,
+      "tag": "0031_add_channel_archive",
       "breakpoints": true
     }
   ]

@@ -244,7 +244,26 @@
     "homepageHtml": "主頁 HTML",
     "homepageHtmlPlaceholder": "<h1>歡迎！</h1>\n<p>這是伺服器主頁。</p>",
     "homepageHtmlDesc": "伺服器主頁的自訂 HTML。留空使用預設主頁。",
-    "channels": "頻道"
+    "channels": "頻道",
+    "showArchived": "顯示已歸檔",
+    "archiveChannel": "歸檔頻道",
+    "archiveChannelConfirm": "確定要歸檔此頻道嗎？歸檔後頻道將變為唯讀。",
+    "unarchiveChannel": "取消歸檔",
+    "unarchiveChannelConfirm": "確定要取消歸檔此頻道嗎？",
+    "archiveSuccess": "頻道已歸檔",
+    "unarchiveSuccess": "頻道已取消歸檔",
+    "archivedNotice": "此頻道已歸檔，無法傳送訊息",
+    "unarchive": "取消歸檔"
+  },
+  "sort": {
+    "title": "排序和篩選",
+    "byPosition": "默訅順序",
+    "byCreatedAt": "創建時間",
+    "byUpdatedAt": "更新時間",
+    "byLastMessage": "最新消息",
+    "byLastAccessed": "訪問時間",
+    "filterPlaceholder": "搜索頻道...",
+    "clear": "清除篩選"
   },
   "chat": {
     "selectChannel": "選擇一個頻道開始聊天",
@@ -1388,15 +1407,5 @@
     "timeout": "等待超时",
     "timeoutDesc": "你可以在设置中稍后配置 Buddy",
     "redirecting": "正在跳转到服务器..."
-  },
-  "sort": {
-    "title": "排序和篩選",
-    "byPosition": "預設順序",
-    "byCreatedAt": "建立時間",
-    "byUpdatedAt": "更新時間",
-    "byLastMessage": "最新訊息",
-    "byLastAccessed": "訪問時間",
-    "filterPlaceholder": "搜尋頻道...",
-    "clear": "清除篩選"
   }
 }
