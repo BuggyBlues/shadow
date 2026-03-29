@@ -84,6 +84,9 @@ jobs:
       - name: Lint (Biome)
         run: pnpm lint
 
+      - name: i18n check
+        run: pnpm check:i18n
+
       - name: Build shared packages (for typecheck)
         run: pnpm build:packages
 

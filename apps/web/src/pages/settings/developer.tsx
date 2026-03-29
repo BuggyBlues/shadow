@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { TFunction } from 'i18next'
 import { AlertTriangle, Copy, Eye, EyeOff, Pencil, Plus, RotateCw, Trash2 } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../../lib/api'
 
 interface OAuthApp {
@@ -54,6 +56,7 @@ function AppLogo({
 }
 
 export function DeveloperSettings() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [newSecret, setNewSecret] = useState<string | null>(null)
@@ -133,8 +136,12 @@ export function DeveloperSettings() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-text-primary">开发者设置</h2>
-          <p className="text-sm text-text-muted mt-1">管理你的 OAuth 应用，接入 Shadow 开放平台</p>
+          <h2 className="text-xl font-bold text-text-primary">
+            {t('oauth.developerTitle', '开发者设置')}
+          </h2>
+          <p className="text-sm text-text-muted mt-1">
+            {t('oauth.developerDesc', '管理你的 OAuth 应用，接入 Shadow 开放平台')}
+          </p>
         </div>
         <button
           type="button"
@@ -142,7 +149,7 @@ export function DeveloperSettings() {
           className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition text-sm font-medium"
         >
           <Plus size={16} />
-          创建应用
+          {t('oauth.createApp', '创建应用')}
         </button>
       </div>
 
@@ -152,7 +159,9 @@ export function DeveloperSettings() {
           <div className="flex items-start gap-3">
             <AlertTriangle className="text-warning shrink-0 mt-0.5" size={20} />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-warning">Client Secret（仅显示一次）</p>
+              <p className="text-sm font-medium text-warning">
+                {t('oauth.secretWarning', 'Client Secret（仅显示一次）')}
+              </p>
               <div className="flex items-center gap-2 mt-2">
                 <code className="flex-1 text-xs bg-bg-secondary px-3 py-2 rounded-lg font-mono break-all">
                   {showSecret ? newSecret : '•'.repeat(40)}
@@ -177,7 +186,7 @@ export function DeveloperSettings() {
                 onClick={() => setNewSecret(null)}
                 className="text-xs text-text-muted mt-2 hover:text-text-primary transition"
               >
-                我已保存，关闭提示
+                {t('oauth.secretDismiss', '我已保存，关闭提示')}
               </button>
             </div>
           </div>
@@ -187,6 +196,7 @@ export function DeveloperSettings() {
       {/* Create app form */}
       {showCreateForm && (
         <CreateAppForm
+          t={t}
           onSubmit={(data) => createMutation.mutate(data)}
           onCancel={() => setShowCreateForm(false)}
           isPending={createMutation.isPending}
@@ -195,11 +205,13 @@ export function DeveloperSettings() {
 
       {/* App list */}
       {isLoading ? (
-        <div className="text-center text-text-muted py-8">加载中...</div>
+        <div className="text-center text-text-muted py-8">{t('common.loading', '加载中...')}</div>
       ) : apps.length === 0 ? (
         <div className="text-center text-text-muted py-12">
-          <p className="text-lg mb-2">暂无 OAuth 应用</p>
-          <p className="text-sm">创建你的第一个应用，开始接入 Shadow 开放平台</p>
+          <p className="text-lg mb-2">{t('oauth.noApps', '暂无 OAuth 应用')}</p>
+          <p className="text-sm">
+            {t('oauth.noAppsHint', '创建你的第一个应用，开始接入 Shadow 开放平台')}
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -223,7 +235,7 @@ export function DeveloperSettings() {
                     type="button"
                     onClick={() => setEditingAppId(editingAppId === app.id ? null : app.id)}
                     className="p-2 text-text-muted hover:text-primary hover:bg-bg-modifier-hover rounded-lg transition"
-                    title="编辑应用"
+                    title={t('oauth.editApp', '编辑应用')}
                   >
                     <Pencil size={16} />
                   </button>
@@ -231,7 +243,7 @@ export function DeveloperSettings() {
                     type="button"
                     onClick={() => resetSecretMutation.mutate(app.id)}
                     className="p-2 text-text-muted hover:text-primary hover:bg-bg-modifier-hover rounded-lg transition"
-                    title="重置 Secret"
+                    title={t('oauth.resetSecret', '重置 Secret')}
                   >
                     <RotateCw size={16} />
                   </button>
@@ -239,7 +251,7 @@ export function DeveloperSettings() {
                     type="button"
                     onClick={() => setDeleteConfirmId(app.id)}
                     className="p-2 text-text-muted hover:text-danger hover:bg-danger/10 rounded-lg transition"
-                    title="删除应用"
+                    title={t('oauth.deleteApp', '删除应用')}
                   >
                     <Trash2 size={16} />
                   </button>
@@ -248,7 +260,9 @@ export function DeveloperSettings() {
 
               <div className="mt-3 grid grid-cols-1 gap-2 text-xs">
                 <div className="flex items-center gap-2">
-                  <span className="text-text-muted w-20 shrink-0">Client ID</span>
+                  <span className="text-text-muted w-20 shrink-0">
+                    {t('oauth.clientId', 'Client ID')}
+                  </span>
                   <code className="bg-bg-primary px-2 py-1 rounded font-mono text-text-secondary flex-1 truncate">
                     {app.clientId}
                   </code>
@@ -261,14 +275,18 @@ export function DeveloperSettings() {
                   </button>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-text-muted w-20 shrink-0">Redirect URIs</span>
+                  <span className="text-text-muted w-20 shrink-0">
+                    {t('oauth.redirectUris', 'Redirect URIs')}
+                  </span>
                   <span className="text-text-secondary truncate">
                     {app.redirectUris.join(', ')}
                   </span>
                 </div>
                 {app.homepageUrl && (
                   <div className="flex items-center gap-2">
-                    <span className="text-text-muted w-20 shrink-0">Homepage</span>
+                    <span className="text-text-muted w-20 shrink-0">
+                      {t('oauth.homepage', 'Homepage')}
+                    </span>
                     <a
                       href={app.homepageUrl}
                       target="_blank"
@@ -280,7 +298,9 @@ export function DeveloperSettings() {
                   </div>
                 )}
                 <div className="flex items-center gap-2">
-                  <span className="text-text-muted w-20 shrink-0">创建时间</span>
+                  <span className="text-text-muted w-20 shrink-0">
+                    {t('oauth.createdAt', '创建时间')}
+                  </span>
                   <span className="text-text-secondary">
                     {new Date(app.createdAt).toLocaleDateString()}
                   </span>
@@ -291,7 +311,7 @@ export function DeveloperSettings() {
               {deleteConfirmId === app.id && (
                 <div className="mt-3 p-3 bg-danger/10 rounded-lg border border-danger/20">
                   <p className="text-sm text-danger font-medium">
-                    确定要删除此应用吗？此操作不可恢复。
+                    {t('oauth.deleteConfirmMsg', '确定要删除此应用吗？此操作不可恢复。')}
                   </p>
                   <div className="flex gap-2 mt-2">
                     <button
@@ -300,14 +320,14 @@ export function DeveloperSettings() {
                       className="px-3 py-1.5 bg-danger text-white rounded-lg text-xs font-medium hover:bg-danger/90 transition"
                       disabled={deleteMutation.isPending}
                     >
-                      确认删除
+                      {t('oauth.confirmDelete', '确认删除')}
                     </button>
                     <button
                       type="button"
                       onClick={() => setDeleteConfirmId(null)}
                       className="px-3 py-1.5 bg-bg-primary text-text-secondary rounded-lg text-xs font-medium hover:bg-bg-modifier-hover transition"
                     >
-                      取消
+                      {t('common.cancel', '取消')}
                     </button>
                   </div>
                 </div>
@@ -316,6 +336,7 @@ export function DeveloperSettings() {
               {/* Inline edit form */}
               {editingAppId === app.id && (
                 <EditAppForm
+                  t={t}
                   app={app}
                   onSave={(data) => updateMutation.mutate({ appId: app.id, data })}
                   onCancel={() => setEditingAppId(null)}
@@ -334,30 +355,32 @@ function LogoUploader({
   value,
   onChange,
   name,
+  t,
 }: {
   value: string
   onChange: (v: string) => void
   name: string
+  t: TFunction
 }) {
   const [showUrlInput, setShowUrlInput] = useState(!!value)
 
   return (
     <div>
-      <label className="block text-sm font-medium text-text-secondary mb-1">应用图标</label>
+      <label className="block text-sm font-medium text-text-secondary mb-1">
+        {t('oauth.appIcon', '应用图标')}
+      </label>
       <div className="flex items-start gap-4">
         <button
           type="button"
           onClick={() => setShowUrlInput(true)}
           className="w-16 h-16 rounded-xl border-2 border-dashed border-border-subtle hover:border-primary/50 flex items-center justify-center transition shrink-0 overflow-hidden group"
-          title="设置应用图标"
+          title={t('oauth.setAppIcon', '设置应用图标')}
         >
           {value.trim() ? (
             <AppLogo url={value.trim()} name={name || 'A'} size="w-16 h-16" textSize="text-2xl" />
           ) : (
             <span className="text-text-muted text-xs text-center leading-tight group-hover:text-primary transition">
-              点击
-              <br />
-              设置
+              {t('oauth.clickToSet', '点击设置')}
             </span>
           )}
         </button>
@@ -370,7 +393,9 @@ function LogoUploader({
               placeholder="https://your-app.com/icon.png"
               className="w-full px-3 py-2 bg-bg-primary border border-border-subtle rounded-lg text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
-            <p className="text-xs text-text-muted mt-1">可选，输入图标的 URL 地址</p>
+            <p className="text-xs text-text-muted mt-1">
+              {t('oauth.iconUrlHint', '可选，输入图标的 URL 地址')}
+            </p>
           </div>
         )}
       </div>
@@ -379,10 +404,12 @@ function LogoUploader({
 }
 
 function CreateAppForm({
+  t,
   onSubmit,
   onCancel,
   isPending,
 }: {
+  t: TFunction
   onSubmit: (data: {
     name: string
     description?: string
@@ -416,11 +443,11 @@ function CreateAppForm({
       onSubmit={handleSubmit}
       className="bg-bg-secondary rounded-xl p-5 border border-border-subtle space-y-4"
     >
-      <h3 className="font-semibold text-text-primary">创建新应用</h3>
+      <h3 className="font-semibold text-text-primary">{t('oauth.createNew', '创建新应用')}</h3>
 
       <div>
         <label className="block text-sm font-medium text-text-secondary mb-1">
-          应用名称 <span className="text-danger">*</span>
+          {t('oauth.appName', '应用名称')} <span className="text-danger">*</span>
         </label>
         <input
           type="text"
@@ -434,12 +461,14 @@ function CreateAppForm({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-text-secondary mb-1">应用描述</label>
+        <label className="block text-sm font-medium text-text-secondary mb-1">
+          {t('oauth.appDesc', '应用描述')}
+        </label>
         <input
           type="text"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="简要描述你的应用"
+          placeholder={t('oauth.descPlaceholder', '简要描述你的应用')}
           className="w-full px-3 py-2 bg-bg-primary border border-border-subtle rounded-lg text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/50"
           maxLength={1024}
         />
@@ -447,7 +476,7 @@ function CreateAppForm({
 
       <div>
         <label className="block text-sm font-medium text-text-secondary mb-1">
-          Redirect URI <span className="text-danger">*</span>
+          {t('oauth.redirectUri', 'Redirect URI')} <span className="text-danger">*</span>
         </label>
         <input
           type="url"
@@ -460,7 +489,9 @@ function CreateAppForm({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-text-secondary mb-1">Homepage URL</label>
+        <label className="block text-sm font-medium text-text-secondary mb-1">
+          {t('oauth.homepageUrl', 'Homepage URL')}
+        </label>
         <input
           type="url"
           value={homepageUrl}
@@ -470,7 +501,7 @@ function CreateAppForm({
         />
       </div>
 
-      <LogoUploader value={logoUrl} onChange={setLogoUrl} name={name} />
+      <LogoUploader value={logoUrl} onChange={setLogoUrl} name={name} t={t} />
 
       <div className="flex gap-2 justify-end">
         <button
@@ -478,14 +509,14 @@ function CreateAppForm({
           onClick={onCancel}
           className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary bg-bg-primary rounded-lg transition"
         >
-          取消
+          {t('common.cancel', '取消')}
         </button>
         <button
           type="submit"
           disabled={isPending || !name.trim() || !redirectUri.trim()}
           className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 transition disabled:opacity-50"
         >
-          {isPending ? '创建中...' : '创建应用'}
+          {isPending ? t('oauth.creating', '创建中...') : t('oauth.createApp', '创建应用')}
         </button>
       </div>
     </form>
@@ -493,11 +524,13 @@ function CreateAppForm({
 }
 
 function EditAppForm({
+  t,
   app,
   onSave,
   onCancel,
   isPending,
 }: {
+  t: TFunction
   app: OAuthApp
   onSave: (data: {
     name?: string
@@ -534,7 +567,9 @@ function EditAppForm({
     >
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-text-muted mb-1">应用名称</label>
+          <label className="block text-xs font-medium text-text-muted mb-1">
+            {t('oauth.appName', '应用名称')}
+          </label>
           <input
             type="text"
             value={name}
@@ -545,7 +580,9 @@ function EditAppForm({
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-text-muted mb-1">应用描述</label>
+          <label className="block text-xs font-medium text-text-muted mb-1">
+            {t('oauth.appDesc', '应用描述')}
+          </label>
           <input
             type="text"
             value={description}
@@ -557,7 +594,9 @@ function EditAppForm({
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-text-muted mb-1">Redirect URI</label>
+          <label className="block text-xs font-medium text-text-muted mb-1">
+            {t('oauth.redirectUri', 'Redirect URI')}
+          </label>
           <input
             type="url"
             value={redirectUri}
@@ -567,7 +606,9 @@ function EditAppForm({
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-text-muted mb-1">Homepage URL</label>
+          <label className="block text-xs font-medium text-text-muted mb-1">
+            {t('oauth.homepageUrl', 'Homepage URL')}
+          </label>
           <input
             type="url"
             value={homepageUrl}
@@ -577,7 +618,9 @@ function EditAppForm({
         </div>
       </div>
       <div>
-        <label className="block text-xs font-medium text-text-muted mb-1">应用图标 URL</label>
+        <label className="block text-xs font-medium text-text-muted mb-1">
+          {t('oauth.appIconUrl', '应用图标 URL')}
+        </label>
         <div className="flex items-center gap-2">
           <AppLogo url={logoUrl.trim() || null} name={name || 'A'} size="w-8 h-8" />
           <input
@@ -595,14 +638,14 @@ function EditAppForm({
           onClick={onCancel}
           className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary bg-bg-primary rounded-lg transition"
         >
-          取消
+          {t('common.cancel', '取消')}
         </button>
         <button
           type="submit"
           disabled={isPending || !name.trim() || !redirectUri.trim()}
           className="px-3 py-1.5 text-xs font-medium text-white bg-primary rounded-lg hover:bg-primary/90 transition disabled:opacity-50"
         >
-          {isPending ? '保存中...' : '保存'}
+          {isPending ? t('common.saving', '保存中...') : t('common.save', '保存')}
         </button>
       </div>
     </form>
