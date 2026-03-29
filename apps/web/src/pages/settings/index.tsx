@@ -51,53 +51,77 @@ type SettingsTab =
 interface NavItem {
   id: SettingsTab
   icon: typeof User
-  label: string
+  labelKey: string
+  labelFallback: string
 }
 
 interface NavSection {
   key: string
-  label: string
+  labelKey: string
+  labelFallback: string
   items: NavItem[]
 }
 
 const NAV_SECTIONS: NavSection[] = [
   {
     key: 'start',
-    label: '快速开始',
-    items: [{ id: 'quickstart', icon: Rocket, label: '快速开始' }],
+    labelKey: 'settings.sectionStart',
+    labelFallback: '快速开始',
+    items: [
+      {
+        id: 'quickstart',
+        icon: Rocket,
+        labelKey: 'settings.tabQuickStart',
+        labelFallback: '快速开始',
+      },
+    ],
   },
   {
     key: 'social',
-    label: '社交',
+    labelKey: 'settings.sectionSocial',
+    labelFallback: '社交',
     items: [
-      { id: 'friends', icon: Users, label: '好友' },
-      { id: 'chat', icon: MessageCircle, label: '聊天' },
+      { id: 'friends', icon: Users, labelKey: 'settings.tabFriends', labelFallback: '好友' },
+      { id: 'chat', icon: MessageCircle, labelKey: 'settings.tabChat', labelFallback: '聊天' },
     ],
   },
   {
     key: 'personal',
-    label: '个人设置',
+    labelKey: 'settings.sectionPersonal',
+    labelFallback: '个人设置',
     items: [
-      { id: 'profile', icon: User, label: '个人资料' },
-      { id: 'appearance', icon: Paintbrush, label: '外观' },
+      { id: 'profile', icon: User, labelKey: 'settings.tabProfile', labelFallback: '个人资料' },
+      {
+        id: 'appearance',
+        icon: Paintbrush,
+        labelKey: 'settings.tabAppearance',
+        labelFallback: '外观',
+      },
     ],
   },
   {
     key: 'work',
-    label: '工作与安全',
+    labelKey: 'settings.sectionWork',
+    labelFallback: '工作与安全',
     items: [
-      { id: 'notification', icon: Bell, label: '通知' },
-      { id: 'tasks', icon: Target, label: '任务中心' },
-      { id: 'account', icon: Shield, label: '账号安全' },
+      {
+        id: 'notification',
+        icon: Bell,
+        labelKey: 'settings.tabNotification',
+        labelFallback: '通知',
+      },
+      { id: 'tasks', icon: Target, labelKey: 'settings.tabTasks', labelFallback: '任务中心' },
+      { id: 'account', icon: Shield, labelKey: 'settings.tabAccount', labelFallback: '账号安全' },
     ],
   },
   {
     key: 'ecosystem',
-    label: '生态与邀请',
+    labelKey: 'settings.sectionEcosystem',
+    labelFallback: '生态与邀请',
     items: [
-      { id: 'buddy', icon: Bot, label: 'Buddy 管理' },
-      { id: 'invite', icon: Link2, label: '邀请好友' },
-      { id: 'developer', icon: Code2, label: '开发者' },
+      { id: 'buddy', icon: Bot, labelKey: 'settings.tabBuddy', labelFallback: 'Buddy 管理' },
+      { id: 'invite', icon: Link2, labelKey: 'settings.tabInvite', labelFallback: '邀请好友' },
+      { id: 'developer', icon: Code2, labelKey: 'settings.tabDeveloper', labelFallback: '开发者' },
     ],
   },
 ]
@@ -180,20 +204,22 @@ export function SettingsPage() {
     <div className="flex-1 flex flex-col md:flex-row bg-bg-primary overflow-hidden">
       {/* Mobile tab bar */}
       <div className="md:hidden flex overflow-x-auto border-b border-border-subtle bg-bg-secondary px-2 py-2 gap-1 shrink-0">
-        {NAV_SECTIONS.flatMap((section) => section.items).map(({ id, icon: Icon, label }) => (
-          <button
-            key={id}
-            onClick={() => handleTabChange(id)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition ${
-              activeTab === id
-                ? 'bg-primary/10 text-primary'
-                : 'text-text-muted hover:text-text-primary hover:bg-bg-modifier-hover'
-            }`}
-          >
-            <Icon size={14} />
-            {label}
-          </button>
-        ))}
+        {NAV_SECTIONS.flatMap((section) => section.items).map(
+          ({ id, icon: Icon, labelKey, labelFallback }) => (
+            <button
+              key={id}
+              onClick={() => handleTabChange(id)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition ${
+                activeTab === id
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-text-muted hover:text-text-primary hover:bg-bg-modifier-hover'
+              }`}
+            >
+              <Icon size={14} />
+              {t(labelKey, labelFallback)}
+            </button>
+          ),
+        )}
       </div>
 
       {/* Desktop Sidebar - OpenClaw Style */}
@@ -219,7 +245,7 @@ export function SettingsPage() {
                       isOpen || hasActivePage ? '' : '-rotate-90'
                     }`}
                   />
-                  {section.label}
+                  {t(section.labelKey, section.labelFallback)}
                 </button>
                 {(isOpen || hasActivePage) && (
                   <div className="mt-0.5 space-y-0.5">
@@ -247,7 +273,7 @@ export function SettingsPage() {
                             }`}
                             strokeWidth={2.2}
                           />
-                          <span className="truncate">{item.label}</span>
+                          <span className="truncate">{t(item.labelKey, item.labelFallback)}</span>
                         </button>
                       )
                     })}
