@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Copy, LogOut, MessageSquare, Sparkles, Trash2, User, UserPlus, X } from 'lucide-react'
+import { Check, Copy, LogOut, MessageSquare, Trash2, User, UserPlus, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
@@ -9,6 +9,7 @@ import { useAuthStore } from '../../stores/auth.store'
 import { useChatStore } from '../../stores/chat.store'
 import { useUIStore } from '../../stores/ui.store'
 import { UserAvatar } from '../common/avatar'
+import { BuddyIcon } from '../common/icons/BuddyIcon'
 import { BuddyListItem, BuddyListItemData, memberToBuddyItem } from '../common/buddy-list-item'
 import { useConfirmStore } from '../common/confirm-dialog'
 import { useContextMenuPosition } from '../common/context-menu'
@@ -316,10 +317,10 @@ export function MemberList() {
               setInviteInitialTab('buddies')
               setShowInvitePanel(true)
             }}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-text-muted hover:text-text-primary hover:bg-bg-primary/30 transition flex-1"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-[#C44DFF] hover:text-[#FF6B9D] hover:bg-[#C44DFF]/10 transition flex-1"
             title={t('channel.addAgent')}
           >
-            <Sparkles size={13} className="text-[#E8403E]" />
+            <BuddyIcon size={14} />
             <span className="truncate">{t('channel.addAgent')}</span>
           </button>
         </div>

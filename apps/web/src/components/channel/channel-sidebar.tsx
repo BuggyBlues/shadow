@@ -19,7 +19,6 @@ import {
   Save,
   Settings,
   ShoppingBag,
-  Sparkles,
   Trash2,
   UserPlus,
   Volume2,
@@ -36,6 +35,7 @@ import { useChatStore } from '../../stores/chat.store'
 import { useUIStore } from '../../stores/ui.store'
 import { useConfirmStore } from '../common/confirm-dialog'
 import { ContextMenu } from '../common/context-menu'
+import { BuddyIcon } from '../common/icons/BuddyIcon'
 import { InvitePanel } from '../common/invite-panel'
 import { ChannelSortFilterButton } from './channel-sort-button'
 
@@ -1229,7 +1229,7 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
                   },
                 },
                 {
-                  icon: Sparkles,
+                  icon: BuddyIcon,
                   label: t('channel.addAgent'),
                   onClick: () => {
                     setInviteTargetChannel(contextMenu.channel)
@@ -1366,7 +1366,7 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
                   },
                 },
                 {
-                  icon: Sparkles,
+                  icon: BuddyIcon,
                   label: t('channel.addAgent'),
                   onClick: () => {
                     setInviteTargetChannel(null)
