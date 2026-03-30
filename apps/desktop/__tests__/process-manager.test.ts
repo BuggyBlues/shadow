@@ -68,11 +68,6 @@ describe('process-manager', () => {
     expect(mockIpcHandlers.has('desktop:listAgents')).toBe(true)
   })
 
-  it.skip('should reject script paths outside app directory', async () => {
-    // TODO: Fix mock for path.resolve
-    // This test requires proper ESM mocking of node:path
-  })
-
   it('should return agent status for running process', async () => {
     const { resolve } = await import('node:path')
     ;(resolve as ReturnType<typeof vi.fn>).mockReturnValue('/app/agents/test.js')
