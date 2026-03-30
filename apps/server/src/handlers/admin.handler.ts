@@ -88,6 +88,7 @@ export function createAdminHandler(container: AppContainer) {
       for (let i = 0; i < count; i++) {
         const code = await inviteCodeDao.create({
           code: generateCode(),
+          type: 'user',
           createdBy: user.userId,
           note,
         })
