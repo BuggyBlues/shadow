@@ -19,6 +19,7 @@ import {
   Save,
   Settings,
   ShoppingBag,
+  Sparkles,
   Trash2,
   UserPlus,
   Volume2,
@@ -35,6 +36,7 @@ import { useChatStore } from '../../stores/chat.store'
 import { useUIStore } from '../../stores/ui.store'
 import { useConfirmStore } from '../common/confirm-dialog'
 import { ContextMenu } from '../common/context-menu'
+import { InvitePanel } from '../common/invite-panel'
 import { ChannelSortFilterButton } from './channel-sort-button'
 
 interface Channel {
@@ -145,8 +147,8 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
     y: number
     channel: Channel
   } | null>(null)
-  const [showAddAgent, setShowAddAgent] = useState(false)
   const [showInvitePanel, setShowInvitePanel] = useState(false)
+  const [inviteInitialTab, setInviteInitialTab] = useState<'members' | 'buddies'>('members')
   const [inviteTargetChannel, setInviteTargetChannel] = useState<Channel | null>(null)
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null)
   const [editChannelName, setEditChannelName] = useState('')
@@ -1222,12 +1224,18 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
                   label: t('channel.inviteMember'),
                   onClick: () => {
                     setInviteTargetChannel(contextMenu.channel)
+                    setInviteInitialTab('members')
                     setShowInvitePanel(true)
                   },
                 },
                 {
+                  icon: Sparkles,
                   label: t('channel.addAgent'),
-                  onClick: () => setShowAddAgent(true),
+                  onClick: () => {
+                    setInviteTargetChannel(contextMenu.channel)
+                    setInviteInitialTab('buddies')
+                    setShowInvitePanel(true)
+                  },
                 },
               ],
             },
@@ -1353,12 +1361,18 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
                   label: t('channel.inviteMember'),
                   onClick: () => {
                     setInviteTargetChannel(null)
+                    setInviteInitialTab('members')
                     setShowInvitePanel(true)
                   },
                 },
                 {
+                  icon: Sparkles,
                   label: t('channel.addAgent'),
-                  onClick: () => setShowAddAgent(true),
+                  onClick: () => {
+                    setInviteTargetChannel(null)
+                    setInviteInitialTab('buddies')
+                    setShowInvitePanel(true)
+                  },
                 },
               ],
             },
@@ -1394,399 +1408,16 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
       {showInvitePanel && server?.inviteCode && (
         <InvitePanel
           serverId={serverSlug}
-          serverInviteCode={server.inviteCode}
-          inviteTargetChannel={inviteTargetChannel}
-          copiedInvite={copiedInvite}
-          onCopyInvite={copyInviteCode}
+          channelId={inviteTargetChannel?.id}
+          channelName={inviteTargetChannel?.name}
+          initialTab={inviteInitialTab}
           onClose={() => {
             setShowInvitePanel(false)
             setInviteTargetChannel(null)
           }}
         />
       )}
-
-      {/* Add Agent dialog */}
-      {showAddAgent && (
-        <AddAgentDialog
-          serverId={serverSlug}
-          onClose={() => setShowAddAgent(false)}
-          onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ['members'] })
-            setShowAddAgent(false)
-          }}
-          t={t}
-        />
-      )}
     </div>
   )
 }
 
-interface BuddyAgent {
-  id: string
-  ownerId: string
-  status: string
-  botUser?: {
-    id: string
-    username: string
-    displayName: string | null
-    avatarUrl: string | null
-  } | null
-}
-
-function InvitePanel({
-  serverId,
-  serverInviteCode,
-  inviteTargetChannel,
-  copiedInvite,
-  onCopyInvite,
-  onClose,
-}: {
-  serverId: string
-  serverInviteCode: string
-  inviteTargetChannel: Channel | null
-  copiedInvite: boolean
-  onCopyInvite: () => void
-  onClose: () => void
-}) {
-  const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState<'members' | 'buddies'>('members')
-
-  const { data: serverMembers = [] } = useQuery({
-    queryKey: ['server-members', serverId],
-    queryFn: () => fetchApi<ServerMember[]>(`/api/servers/${serverId}/members`),
-    enabled: !!serverId,
-  })
-
-  const { data: myBuddies = [] } = useQuery({
-    queryKey: ['my-buddies-for-invite'],
-    queryFn: () => fetchApi<BuddyAgent[]>('/api/agents'),
-  })
-
-  const { data: channelMembers = [] } = useQuery({
-    queryKey: ['channel-members', inviteTargetChannel?.id],
-    queryFn: () =>
-      fetchApi<
-        Array<{
-          user: { id: string }
-        }>
-      >(`/api/channels/${inviteTargetChannel?.id}/members`),
-    enabled: !!inviteTargetChannel?.id,
-  })
-
-  const inviteToChannel = useMutation({
-    mutationFn: (userId: string) =>
-      fetchApi(`/api/channels/${inviteTargetChannel?.id}/members`, {
-        method: 'POST',
-        body: JSON.stringify({ userId }),
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['channel-members', inviteTargetChannel?.id] })
-      queryClient.invalidateQueries({ queryKey: ['members'] })
-    },
-  })
-
-  // Add buddy to server mutation
-  const addBuddyToServer = useMutation({
-    mutationFn: (agentId: string) =>
-      fetchApi(`/api/servers/${serverId}/agents`, {
-        method: 'POST',
-        body: JSON.stringify({ agentIds: [agentId] }),
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['server-members', serverId] })
-      queryClient.invalidateQueries({ queryKey: ['members'] })
-    },
-  })
-
-  const joinedUserIds = new Set(channelMembers.map((m) => m.user.id))
-  const serverMemberUserIds = new Set(serverMembers.map((m) => m.userId))
-  const candidates = serverMembers.filter((m) => !!m.user && !m.user.isBot)
-
-  // Filter buddies: not already in server and have botUser
-  const availableBuddies = myBuddies.filter(
-    (b) => b.botUser && !serverMemberUserIds.has(b.botUser.id),
-  )
-
-  return (
-    <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
-      <div className="bg-bg-secondary rounded-xl p-6 w-[520px] border border-border-subtle max-h-[80vh] overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-text-primary">邀请成员</h2>
-          <button onClick={onClose} className="text-text-muted hover:text-text-primary transition">
-            <X size={18} />
-          </button>
-        </div>
-
-        <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
-          邀请链接
-        </label>
-        <div className="flex items-center gap-2 mb-4">
-          <code className="flex-1 bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 font-mono text-xs truncate">
-            {`${window.location.origin}/app/invite/${serverInviteCode}`}
-          </code>
-          <button
-            onClick={onCopyInvite}
-            className="px-3 py-3 bg-bg-tertiary rounded-lg text-text-muted hover:text-text-primary transition"
-            title="复制"
-          >
-            {copiedInvite ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
-          </button>
-        </div>
-
-        {/* Tab switcher */}
-        <div className="flex items-center gap-1 mb-3 bg-bg-tertiary rounded-lg p-1">
-          <button
-            type="button"
-            onClick={() => setActiveTab('members')}
-            className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition ${
-              activeTab === 'members'
-                ? 'bg-bg-secondary text-text-primary'
-                : 'text-text-muted hover:text-text-secondary'
-            }`}
-          >
-            服务器成员 ({candidates.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('buddies')}
-            className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition ${
-              activeTab === 'buddies'
-                ? 'bg-bg-secondary text-text-primary'
-                : 'text-text-muted hover:text-text-secondary'
-            }`}
-          >
-            我的 Buddy ({availableBuddies.length})
-          </button>
-        </div>
-
-        <div className="text-xs text-text-muted mb-2">
-          {activeTab === 'members'
-            ? inviteTargetChannel
-              ? `邀请同服务器成员加入频道 #${inviteTargetChannel.name}（对方会在通知中心收到）`
-              : '选择左侧频道后，可一键邀请同服务器成员加入该频道。'
-            : '添加 Buddy 到服务器，添加后会自动加入当前频道。'}
-        </div>
-
-        <div className="flex-1 overflow-y-auto space-y-1 pr-1">
-          {activeTab === 'members' ? (
-            candidates.length === 0 ? (
-              <div className="text-center py-8 text-text-muted text-sm">
-                暂无其他服务器成员可邀请
-              </div>
-            ) : (
-              candidates.map((m) => {
-                const u = m.user!
-                const inChannel = inviteTargetChannel ? joinedUserIds.has(u.id) : false
-                return (
-                  <div
-                    key={u.id}
-                    className="flex items-center gap-3 px-3 py-2 rounded-lg bg-bg-tertiary/40 border border-border-subtle"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-bg-tertiary overflow-hidden flex items-center justify-center text-xs text-text-primary font-bold">
-                      {u.avatarUrl ? (
-                        <img src={u.avatarUrl} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        (u.displayName || u.username).charAt(0).toUpperCase()
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm text-text-primary truncate">
-                        {u.displayName || u.username}
-                      </p>
-                      <p className="text-xs text-text-muted truncate">@{u.username}</p>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={!inviteTargetChannel || inChannel || inviteToChannel.isPending}
-                      onClick={() => inviteToChannel.mutate(u.id)}
-                      className="px-3 py-1.5 text-xs rounded-md bg-primary hover:bg-primary-hover text-white font-bold disabled:opacity-40"
-                    >
-                      {inChannel ? '已在频道中' : '邀请'}
-                    </button>
-                  </div>
-                )
-              })
-            )
-          ) : availableBuddies.length === 0 ? (
-            <div className="text-center py-8 text-text-muted text-sm">
-              暂无可用 Buddy，
-              <a href="/buddy" className="text-primary hover:underline">
-                去创建
-              </a>
-            </div>
-          ) : (
-            availableBuddies.map((buddy) => {
-              const u = buddy.botUser!
-              return (
-                <div
-                  key={buddy.id}
-                  className="flex items-center gap-3 px-3 py-2 rounded-lg bg-bg-tertiary/40 border border-border-subtle"
-                >
-                  <div className="w-8 h-8 rounded-full bg-bg-tertiary overflow-hidden flex items-center justify-center text-xs text-text-primary font-bold">
-                    {u.avatarUrl ? (
-                      <img src={u.avatarUrl} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      (u.displayName || u.username).charAt(0).toUpperCase()
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-sm text-text-primary truncate">
-                        {u.displayName || u.username}
-                      </p>
-                      <img src="/Logo.svg" alt="Buddy" className="w-3.5 h-3.5 opacity-60" />
-                    </div>
-                    <p className="text-xs text-text-muted truncate">@{u.username}</p>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={addBuddyToServer.isPending}
-                    onClick={() => addBuddyToServer.mutate(buddy.id)}
-                    className="px-3 py-1.5 text-xs rounded-md bg-primary hover:bg-primary-hover text-white font-bold disabled:opacity-40"
-                  >
-                    {addBuddyToServer.isPending ? '添加中...' : '添加到服务器'}
-                  </button>
-                </div>
-              )
-            })
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/* ── Add Agent Dialog ──────────────────────────────────── */
-
-interface AgentOption {
-  id: string
-  userId: string
-  status: string
-  botUser?: {
-    id: string
-    username: string
-    displayName: string | null
-    avatarUrl: string | null
-  } | null
-}
-
-function AddAgentDialog({
-  serverId,
-  onClose,
-  onSuccess,
-  t,
-}: {
-  serverId: string
-  onClose: () => void
-  onSuccess: () => void
-  t: (key: string) => string
-}) {
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [adding, setAdding] = useState(false)
-
-  const { data: agents = [] } = useQuery({
-    queryKey: ['agents'],
-    queryFn: () => fetchApi<AgentOption[]>('/api/agents'),
-  })
-
-  const toggleAgent = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  const handleAdd = async () => {
-    if (selectedIds.size === 0) return
-    setAdding(true)
-    try {
-      await fetchApi(`/api/servers/${serverId}/agents`, {
-        method: 'POST',
-        body: JSON.stringify({ agentIds: Array.from(selectedIds) }),
-      })
-      onSuccess()
-    } catch {
-      /* error handled silently */
-    } finally {
-      setAdding(false)
-    }
-  }
-
-  return (
-    <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
-      <div className="bg-bg-secondary rounded-xl p-6 w-96 max-h-[60vh] flex flex-col border border-border-subtle">
-        <h2 className="text-lg font-bold text-text-primary mb-4">{t('channel.addAgent')}</h2>
-
-        {agents.length === 0 ? (
-          <p className="text-text-muted text-sm py-4">{t('channel.noAgentsAvailable')}</p>
-        ) : (
-          <div className="flex-1 overflow-y-auto space-y-1 mb-4">
-            {agents.map((agent) => {
-              const name = agent.botUser?.displayName ?? agent.botUser?.username ?? 'Buddy'
-              const isSelected = selectedIds.has(agent.id)
-              return (
-                <button
-                  key={agent.id}
-                  type="button"
-                  onClick={() => toggleAgent(agent.id)}
-                  className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm transition ${
-                    isSelected
-                      ? 'bg-primary/20 text-text-primary'
-                      : 'text-text-secondary hover:bg-bg-primary/30'
-                  }`}
-                >
-                  <div
-                    className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
-                      isSelected ? 'border-primary bg-primary' : 'border-border-dim'
-                    }`}
-                  >
-                    {isSelected && <Check size={10} className="text-white" />}
-                  </div>
-                  <span className="truncate">{name}</span>
-                  <span
-                    className={`ml-auto w-2 h-2 rounded-full ${
-                      agent.status === 'running'
-                        ? 'bg-green-400'
-                        : agent.status === 'error'
-                          ? 'bg-red-400'
-                          : 'bg-zinc-500'
-                    }`}
-                  />
-                </button>
-              )
-            })}
-          </div>
-        )}
-
-        <div className="flex justify-end gap-3 pt-2 border-t border-border-subtle">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-text-secondary hover:text-text-primary transition rounded-lg"
-          >
-            {t('common.cancel')}
-          </button>
-          <button
-            onClick={handleAdd}
-            disabled={selectedIds.size === 0 || adding}
-            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg font-bold transition disabled:opacity-50"
-          >
-            <img src="/Logo.svg" alt="Buddy" className="w-4 h-4" />
-            {adding ? t('common.loading') : t('channel.addAgentConfirm')}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}

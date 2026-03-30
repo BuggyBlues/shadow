@@ -398,7 +398,20 @@
     "policyMaxBuddyChainDepth": "Max conversation chain depth",
     "policyMaxBuddyChainDepthDesc": "Prevent infinite loops between Buddies (default: 3)",
     "policySmartReply": "Smart Reply",
-    "policySmartReplyDesc": "Skip messages clearly targeting others (e.g., @mentions others but not this Buddy)"
+    "policySmartReplyDesc": "Skip messages clearly targeting others (e.g., @mentions others but not this Buddy)",
+    "members": "Members",
+    "inviteMembers": "Invite Members",
+    "inviteToChannelDesc": "Invite server members to join channel #{{channel}} (they'll be notified)",
+    "inviteSelectChannelDesc": "Select a channel to invite members to join.",
+    "addBuddyToChannelDesc": "Add Buddy to server and automatically join channel #{{channel}}",
+    "addBuddyToServerDesc": "Add Buddy to server.",
+    "buddiesOnServer": "Buddies on Server",
+    "myBuddies": "My Buddies",
+    "noBuddies": "No Buddies available",
+    "goCreate": "Go create",
+    "noInvitable": "No other server members to invite",
+    "selectedBuddies": "{{count}} Buddies selected",
+    "addToServer": "Add to Server"
   },
   "features": {
     "pageTitle": "All the Collaboration Features You Need",

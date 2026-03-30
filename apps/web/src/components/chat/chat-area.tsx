@@ -14,6 +14,7 @@ import {
   Loader2,
   LogIn,
   LogOut,
+  Sparkles,
   UserPlus,
   Users,
   X,
@@ -28,7 +29,7 @@ import { useAuthStore } from '../../stores/auth.store'
 import { useChatStore } from '../../stores/chat.store'
 import { useUIStore } from '../../stores/ui.store'
 import { useConfirmStore } from '../common/confirm-dialog'
-import { AddAgentDialog, InvitePanel } from '../member/member-list'
+import { InvitePanel } from '../common/invite-panel'
 import { NotificationBell } from '../notification/notification-bell'
 import { type PickerResult, WorkspaceFilePicker } from '../workspace'
 import { FilePreviewPanel } from './file-preview-panel'
@@ -1011,7 +1012,7 @@ function EmptyChannelState({
 }) {
   const { t } = useTranslation()
   const [showInvitePanel, setShowInvitePanel] = useState(false)
-  const [showAddBuddy, setShowAddBuddy] = useState(false)
+  const [inviteInitialTab, setInviteInitialTab] = useState<'members' | 'buddies'>('members')
 
   return (
     <>
@@ -1043,19 +1044,25 @@ function EmptyChannelState({
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => setShowInvitePanel(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-medium transition"
+              onClick={() => {
+                setInviteInitialTab('members')
+                setShowInvitePanel(true)
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-[#5865F2] hover:bg-[#4752C4] text-white rounded-lg text-sm font-medium transition"
             >
               <UserPlus size={16} />
-              邀请成员
+              {t('channel.inviteMember')}
             </button>
             <button
               type="button"
-              onClick={() => setShowAddBuddy(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary hover:bg-bg-modifier-hover text-text-primary rounded-lg text-sm font-medium transition"
+              onClick={() => {
+                setInviteInitialTab('buddies')
+                setShowInvitePanel(true)
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-[#E8403E] hover:bg-[#D93540] text-white rounded-lg text-sm font-medium transition"
             >
-              <img src="/Logo.svg" alt="Buddy" className="w-4 h-4" />
-              添加 Buddy
+              <Sparkles size={16} />
+              {t('channel.addAgent')}
             </button>
           </div>
         )}
@@ -1066,16 +1073,8 @@ function EmptyChannelState({
           serverId={serverId}
           channelId={channelId}
           channelName={channelName}
+          initialTab={inviteInitialTab}
           onClose={() => setShowInvitePanel(false)}
-        />
-      )}
-
-      {showAddBuddy && serverId && (
-        <AddAgentDialog
-          serverId={serverId}
-          channelId={channelId ?? undefined}
-          onClose={() => setShowAddBuddy(false)}
-          onSuccess={() => setShowAddBuddy(false)}
         />
       )}
     </>
