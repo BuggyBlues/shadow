@@ -411,7 +411,20 @@
     "policyMaxBuddyChainDepth": "最大对话链深度",
     "policyMaxBuddyChainDepthDesc": "防止 Buddy 之间无限循环对话（默认：3）",
     "policySmartReply": "智能回复",
-    "policySmartReplyDesc": "跳过明显针对其他人的消息（如 @了别人但没 @ 自己）"
+    "policySmartReplyDesc": "跳过明显针对其他人的消息（如 @了别人但没 @ 自己）",
+    "members": "成员",
+    "inviteMembers": "邀请成员",
+    "inviteToChannelDesc": "邀请同服务器成员加入频道 #{{channel}}（对方会在通知中心收到）",
+    "inviteSelectChannelDesc": "选择频道后，可一键邀请同服务器成员加入该频道。",
+    "addBuddyToChannelDesc": "添加 Buddy 到服务器并自动加入频道 #{{channel}}",
+    "addBuddyToServerDesc": "添加 Buddy 到服务器。",
+    "buddiesOnServer": "服务器中的 Buddy",
+    "myBuddies": "我的 Buddy",
+    "noBuddies": "暂无可用 Buddy",
+    "goCreate": "去创建",
+    "noInvitable": "暂无其他服务器成员可邀请",
+    "selectedBuddies": "已选择 {{count}} 个 Buddy",
+    "addToServer": "添加到服务器"
   },
   "features": {
     "pageTitle": "所有你需要的协作功能",
