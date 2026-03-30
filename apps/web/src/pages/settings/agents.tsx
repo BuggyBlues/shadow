@@ -86,7 +86,8 @@ function AgentCard({
       </div>
 
       <div className="mt-4 flex items-center gap-2">
-        <div
+        <button
+          type="button"
           role="switch"
           aria-checked={agent.enabled}
           onClick={onToggle}
@@ -99,7 +100,7 @@ function AgentCard({
               agent.enabled ? 'translate-x-4' : ''
             }`}
           />
-        </div>
+        </button>
 
         <button
           onClick={onSetActive}
