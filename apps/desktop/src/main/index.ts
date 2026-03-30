@@ -15,6 +15,7 @@ import { setupNotificationHandler } from './notifications'
 import { closeOnboardingWindow, createOnboardingWindow } from './onboarding-window'
 import { cleanupOpenClaw, initOpenClaw } from './openclaw'
 import { killAllAgents, setupProcessManager } from './process-manager'
+import { setupAgentIPC } from './agent-ipc'
 import { registerGlobalShortcuts, unregisterAllShortcuts } from './shortcuts'
 import { createTray } from './tray'
 import { createWindow, getMainWindow } from './window'
@@ -88,6 +89,7 @@ app.on('ready', async () => {
   registerGlobalShortcuts()
   setupNotificationHandler()
   setupProcessManager()
+  setupAgentIPC()
   setupAutoUpdater()
   initOpenClaw()
 

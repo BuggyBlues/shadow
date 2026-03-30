@@ -257,6 +257,23 @@ const desktopAPI = {
       return () => ipcRenderer.removeListener('openclaw:buddy:status-changed', handler)
     },
   },
+
+  // ─── Agents ─────────────────────────────────────────────────────────
+  // Unified agent management (native + ACP runtime)
+  // References: https://docs.openclaw.ai/tools/acp-agents
+
+  agents: {
+    getAgents: () => ipcRenderer.invoke('desktop:getAgents'),
+    getAgentTemplates: () => ipcRenderer.invoke('desktop:getAgentTemplates'),
+    createAgent: (config: unknown) => ipcRenderer.invoke('desktop:createAgent', config),
+    updateAgent: (id: string, updates: unknown) =>
+      ipcRenderer.invoke('desktop:updateAgent', { id, updates }),
+    deleteAgent: (id: string) => ipcRenderer.invoke('desktop:deleteAgent', id),
+    setActiveAgent: (id: string | null) => ipcRenderer.invoke('desktop:setActiveAgent', id),
+    getActiveAgent: () => ipcRenderer.invoke('desktop:getActiveAgent'),
+    checkAgent: (id: string) => ipcRenderer.invoke('desktop:checkAgent', id),
+    getACPCommand: (id: string) => ipcRenderer.invoke('desktop:getACPCommand', id),
+  },
 }
 
 contextBridge.exposeInMainWorld('desktopAPI', desktopAPI)

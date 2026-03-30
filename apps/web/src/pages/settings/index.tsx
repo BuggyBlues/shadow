@@ -28,6 +28,7 @@ import { DmChatView } from '../dm-chat'
 import { FriendsContent } from '../friends'
 import { AccountSettings } from './account'
 import { AppearanceSettings } from './appearance'
+import { AgentsSettings } from './agents'
 import { DeveloperSettings } from './developer'
 import { InviteSettings } from './invite'
 import { NotificationSettings } from './notification'
@@ -46,6 +47,7 @@ type SettingsTab =
   | 'notification'
   | 'friends'
   | 'chat'
+  | 'agents'
   | 'developer'
 
 interface NavItem {
@@ -120,6 +122,7 @@ const NAV_SECTIONS: NavSection[] = [
     labelFallback: '生态与邀请',
     items: [
       { id: 'buddy', icon: Bot, labelKey: 'settings.tabBuddy', labelFallback: 'Buddy 管理' },
+      { id: 'agents', icon: Bot, labelKey: 'settings.tabAgents', labelFallback: 'Agents' },
       { id: 'invite', icon: Link2, labelKey: 'settings.tabInvite', labelFallback: '邀请好友' },
       { id: 'developer', icon: Code2, labelKey: 'settings.tabDeveloper', labelFallback: '开发者' },
     ],
@@ -326,6 +329,7 @@ export function SettingsPage() {
               {activeTab === 'invite' && <InviteSettings />}
               {activeTab === 'tasks' && <TaskSettings />}
               {activeTab === 'buddy' && <BuddyManagementContent />}
+              {activeTab === 'agents' && <AgentsSettings />}
               {activeTab === 'developer' && <DeveloperSettings />}
             </div>
           </div>

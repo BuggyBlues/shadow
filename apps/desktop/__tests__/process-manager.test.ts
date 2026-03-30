@@ -7,6 +7,14 @@ const mockChild = {
   on: vi.fn(),
 }
 
+// Mock fs
+vi.mock('node:fs', () => ({
+  existsSync: vi.fn(() => false),
+  mkdirSync: vi.fn(),
+  readFileSync: vi.fn(),
+  writeFileSync: vi.fn(),
+}))
+
 // Mock child_process
 vi.mock('node:child_process', () => ({
   fork: vi.fn(() => mockChild),
@@ -26,6 +34,8 @@ const mockIpcHandlers = new Map<string, (...args: any[]) => any>()
 vi.mock('electron', () => ({
   app: {
     getAppPath: vi.fn(() => '/app'),
+    getPath: vi.fn(() => '/tmp/test-user-data'),
+    getName: vi.fn(() => 'Shadow'),
   },
   ipcMain: {
     handle: vi.fn((channel: string, handler: (...args: any[]) => any) => {
@@ -68,7 +78,7 @@ describe('process-manager', () => {
     const handler = mockIpcHandlers.get('desktop:startAgent')!
     const mockEvent = { sender: { send: vi.fn() } }
 
-    expect(() => handler(mockEvent, { name: 'test', scriptPath: '/malicious/script.js' })).toThrow(
+    await expect(handler(mockEvent, { name: 'test', scriptPath: '/malicious/script.js' })).rejects.toThrow(
       'Agent script must be within the application directory',
     )
   })
