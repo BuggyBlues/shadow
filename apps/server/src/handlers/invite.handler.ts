@@ -59,6 +59,8 @@ export function createInviteHandler(container: AppContainer) {
       maxUses: invite.invite.maxUses,
       usedCount: invite.invite.usedCount,
       createdBy: invite.createdBy,
+      server: invite.server,
+      channel: invite.channel,
     })
   })
 
@@ -82,6 +84,7 @@ export function createInviteHandler(container: AppContainer) {
           code: generateCode(),
           type: 'user',
           createdBy: user.userId,
+          userId: user.userId,
           note,
         })
         codes.push(code)
@@ -90,9 +93,99 @@ export function createInviteHandler(container: AppContainer) {
     },
   )
 
+  // Create server invite
+  handler.post(
+    '/servers/:serverId',
+    zValidator(
+      'json',
+      z.object({
+        expiresIn: z.number().min(0).optional(),
+        maxUses: z.number().min(1).optional(),
+        note: z.string().max(200).optional(),
+      }),
+    ),
+    async (c) => {
+      const inviteCodeDao = container.resolve('inviteCodeDao')
+      const serverDao = container.resolve('serverDao')
+      const user = c.get('user') as { userId: string }
+      const serverId = c.req.param('serverId')
+      const { expiresIn, maxUses, note } = c.req.valid('json')
+
+      // Check if user is a member of the server
+      const membership = await serverDao.getMember(serverId, user.userId)
+      if (!membership) {
+        return c.json({ error: 'Not a member of this server' }, 403)
+      }
+
+      const expiresAt = expiresIn && expiresIn > 0 ? new Date(Date.now() + expiresIn * 1000) : undefined
+
+      const code = await inviteCodeDao.create({
+        code: generateCode(),
+        type: 'server',
+        createdBy: user.userId,
+        serverId,
+        note,
+        expiresAt,
+        maxUses,
+      })
+
+      return c.json(code, 201)
+    },
+  )
+
+  // Create channel invite
+  handler.post(
+    '/channels/:channelId',
+    zValidator(
+      'json',
+      z.object({
+        expiresIn: z.number().min(0).optional(),
+        maxUses: z.number().min(1).optional(),
+        note: z.string().max(200).optional(),
+      }),
+    ),
+    async (c) => {
+      const inviteCodeDao = container.resolve('inviteCodeDao')
+      const channelDao = container.resolve('channelDao')
+      const serverDao = container.resolve('serverDao')
+      const user = c.get('user') as { userId: string }
+      const channelId = c.req.param('channelId')
+      const { expiresIn, maxUses, note } = c.req.valid('json')
+
+      // Get channel to find server
+      const channel = await channelDao.findById(channelId)
+      if (!channel) {
+        return c.json({ error: 'Channel not found' }, 404)
+      }
+
+      // Check if user is a member of the server
+      const membership = await serverDao.getMember(channel.serverId, user.userId)
+      if (!membership) {
+        return c.json({ error: 'Not a member of this server' }, 403)
+      }
+
+      const expiresAt = expiresIn && expiresIn > 0 ? new Date(Date.now() + expiresIn * 1000) : undefined
+
+      const code = await inviteCodeDao.create({
+        code: generateCode(),
+        type: 'channel',
+        createdBy: user.userId,
+        channelId,
+        serverId: channel.serverId,
+        note,
+        expiresAt,
+        maxUses,
+      })
+
+      return c.json(code, 201)
+    },
+  )
+
   // Accept/Use invite
   handler.post('/:code/accept', async (c) => {
     const inviteCodeDao = container.resolve('inviteCodeDao')
+    const serverDao = container.resolve('serverDao')
+    const channelMemberDao = container.resolve('channelMemberDao')
     const friendshipDao = container.resolve('friendshipDao')
     const user = c.get('user') as { userId: string }
     const code = c.req.param('code')
@@ -105,21 +198,107 @@ export function createInviteHandler(container: AppContainer) {
     // Mark as used
     await inviteCodeDao.markUsed(invite.id, user.userId)
 
-    // Handle user invites (friend requests)
-    if (invite.type === 'user' && invite.userId) {
-      const existing = await friendshipDao.findBetween(user.userId, invite.userId)
-      if (existing) {
-        return c.json({ error: 'Friendship already exists', userId: invite.userId }, 409)
+    // Handle different invite types
+    switch (invite.type) {
+      case 'server': {
+        if (!invite.serverId) {
+          return c.json({ error: 'Invalid server invite' }, 400)
+        }
+        // Check if already member
+        const existing = await serverDao.getMember(invite.serverId, user.userId)
+        if (existing) {
+          return c.json({ error: 'Already a member', serverId: invite.serverId }, 409)
+        }
+        // Add to server
+        await serverDao.addMember(invite.serverId, user.userId, 'member')
+        return c.json({ success: true, type: 'server', serverId: invite.serverId })
       }
-      await friendshipDao.create({
-        requesterId: user.userId,
-        addresseeId: invite.userId,
-        status: 'pending',
-      })
-      return c.json({ success: true, type: 'user', userId: invite.userId })
+
+      case 'channel': {
+        if (!invite.channelId || !invite.serverId) {
+          return c.json({ error: 'Invalid channel invite' }, 400)
+        }
+        // First join server if not already member
+        const serverMember = await serverDao.getMember(invite.serverId, user.userId)
+        if (!serverMember) {
+          await serverDao.addMember(invite.serverId, user.userId, 'member')
+        }
+        // Add to channel
+        await channelMemberDao.add(invite.channelId, user.userId)
+        return c.json({
+          success: true,
+          type: 'channel',
+          channelId: invite.channelId,
+          serverId: invite.serverId,
+        })
+      }
+
+      case 'user': {
+        if (!invite.userId) {
+          return c.json({ error: 'Invalid user invite' }, 400)
+        }
+        // Send friend request
+        const existing = await friendshipDao.findBetween(user.userId, invite.userId)
+        if (existing) {
+          return c.json({ error: 'Friendship already exists', userId: invite.userId }, 409)
+        }
+        await friendshipDao.create({
+          requesterId: user.userId,
+          addresseeId: invite.userId,
+          status: 'pending',
+        })
+        return c.json({ success: true, type: 'user', userId: invite.userId })
+      }
+
+      default:
+        return c.json({ error: 'Unknown invite type' }, 400)
+    }
+  })
+
+  // Reset invites for an entity
+  handler.post('/reset', async (c) => {
+    const inviteCodeDao = container.resolve('inviteCodeDao')
+    const user = c.get('user') as { userId: string }
+
+    await inviteCodeDao.resetEntityInvites('user', user.userId)
+
+    return c.json({ success: true })
+  })
+
+  handler.post('/servers/:serverId/reset', async (c) => {
+    const inviteCodeDao = container.resolve('inviteCodeDao')
+    const serverDao = container.resolve('serverDao')
+    const user = c.get('user') as { userId: string }
+    const serverId = c.req.param('serverId')
+
+    const membership = await serverDao.getMember(serverId, user.userId)
+    if (!membership) {
+      return c.json({ error: 'Not a member of this server' }, 403)
     }
 
-    return c.json({ success: true, type: invite.type })
+    await inviteCodeDao.resetEntityInvites('server', serverId)
+    return c.json({ success: true })
+  })
+
+  handler.post('/channels/:channelId/reset', async (c) => {
+    const inviteCodeDao = container.resolve('inviteCodeDao')
+    const channelDao = container.resolve('channelDao')
+    const serverDao = container.resolve('serverDao')
+    const user = c.get('user') as { userId: string }
+    const channelId = c.req.param('channelId')
+
+    const channel = await channelDao.findById(channelId)
+    if (!channel) {
+      return c.json({ error: 'Channel not found' }, 404)
+    }
+
+    const membership = await serverDao.getMember(channel.serverId, user.userId)
+    if (!membership) {
+      return c.json({ error: 'Not a member of this server' }, 403)
+    }
+
+    await inviteCodeDao.resetEntityInvites('channel', channelId)
+    return c.json({ success: true })
   })
 
   // Deactivate own invite code
@@ -128,7 +307,6 @@ export function createInviteHandler(container: AppContainer) {
     const user = c.get('user') as { userId: string }
     const id = c.req.param('id')
 
-    // Verify ownership
     const codes = await inviteCodeDao.findByCreator(user.userId, 1000, 0)
     const owned = codes.find((code) => code.id === id)
     if (!owned) {
@@ -145,7 +323,6 @@ export function createInviteHandler(container: AppContainer) {
     const user = c.get('user') as { userId: string }
     const id = c.req.param('id')
 
-    // Verify ownership
     const codes = await inviteCodeDao.findByCreator(user.userId, 1000, 0)
     const owned = codes.find((code) => code.id === id)
     if (!owned) {
