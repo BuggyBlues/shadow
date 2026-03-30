@@ -322,7 +322,10 @@ iOS/macOS Native App → Apple IAP → Server Verification
 
 **Question 1: Stripe Account Region** ✅ **DECIDED: Hong Kong**
 - Stripe 账户注册于香港
-- 支持香港地区支付方式，符合亚太区业务需求
+- **Test Mode Keys:** 已从 YeeJone 获取，配置在环境变量中
+  - `STRIPE_PUBLISHABLE_KEY` (pk_test_*)
+  - `STRIPE_SECRET_KEY` (sk_test_*)
+- **Note:** Production keys to be configured separately in deployment secrets
 
 **Question 2: Supported Currencies** ✅ **DECIDED: Multi-currency**
 - 支持多货币支付
