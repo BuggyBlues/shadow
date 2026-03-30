@@ -14,7 +14,6 @@ import {
   Loader2,
   LogIn,
   LogOut,
-  Sparkles,
   UserPlus,
   Users,
   X,
@@ -29,6 +28,7 @@ import { useAuthStore } from '../../stores/auth.store'
 import { useChatStore } from '../../stores/chat.store'
 import { useUIStore } from '../../stores/ui.store'
 import { useConfirmStore } from '../common/confirm-dialog'
+import { BuddyIcon } from '../common/icons/BuddyIcon'
 import { InvitePanel } from '../common/invite-panel'
 import { NotificationBell } from '../notification/notification-bell'
 import { type PickerResult, WorkspaceFilePicker } from '../workspace'
@@ -1059,9 +1059,9 @@ function EmptyChannelState({
                 setInviteInitialTab('buddies')
                 setShowInvitePanel(true)
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-[#E8403E] hover:bg-[#D93540] text-white rounded-lg text-sm font-medium transition"
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#FF6B9D] via-[#C44DFF] to-[#6B8CFF] hover:opacity-90 text-white rounded-lg text-sm font-medium transition shadow-md shadow-[#C44DFF]/20"
             >
-              <Sparkles size={16} />
+              <BuddyIcon size={16} />
               {t('channel.addAgent')}
             </button>
           </div>
