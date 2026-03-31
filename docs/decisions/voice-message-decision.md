@@ -31,12 +31,13 @@
 
 ### D3: Waveform Display
 
-**Decision:** 动态波形图（预计算存储）
+**Decision:** 动态波形图（服务端生成）
 
 **Rationale:**
-- 预计算波形峰值数组，存储在 metadata
+- 服务端上传时自动计算波形峰值数组
+- 存储在 attachment metadata，客户端直接使用
 - 播放时 Canvas 渲染动画，无解码延迟
-- 视觉效果好，性能可控
+- 简化客户端实现（CLI/Web/Mobile 不需波形计算逻辑）
 
 ---
 
@@ -58,12 +59,18 @@
 
 ### D6: Waveform Data Source
 
-**Decision:** 预计算存储在 attachment metadata
+**Decision:** 服务端生成并存储在 attachment metadata
 
 **Rationale:**
-- 录音时计算波形峰值数组
+- 服务端使用 ffmpeg 或音频分析库计算波形
+- 上传音频时自动生成，无需客户端计算
 - 存储约 60 个数值点（每秒 1 个）
-- 播放时直接渲染，无实时解码开销
+- CLI/Web/Mobile 只需上传音频，波形自动返回
+
+**Implementation:**
+- 服务端新增 `WaveformService` 使用 ffmpeg filter 或 Web Audio 解码
+- 上传完成后异步计算波形，更新 metadata
+- 或上传时同步计算（小文件延迟可接受）
 
 ---
 
@@ -208,12 +215,12 @@ interface AttachmentMetadata {
 
 ### D20: Implementation Order
 
-1. **Phase 1:** 附件 metadata 结构 + 服务器支持
+1. **Phase 1:** 附件 metadata 结构 + 服务端波形生成 + 格式转换
 2. **Phase 2:** 语音消息播放器组件（Web + Mobile）
 3. **Phase 3:** 移动端录音功能（expo-av）
 4. **Phase 4:** Web 端录音功能（MediaRecorder）
 5. **Phase 5:** 本地缓存机制
-6. **Phase 6:** 可选：语音转文字联动
+6. **Phase 6:** SDK/CLI 支持 + 语音转文字联动
 
 ---
 
@@ -225,21 +232,33 @@ interface AttachmentMetadata {
    - 扩展 `attachments` 表或使用 JSON metadata 字段
    - 存储 voice: { duration, waveform, transcript }
 
-2. **Upload Permission Check**
+2. **Waveform Generation (NEW)**
+   - 新增 `WaveformService` 使用 ffmpeg 生成波形
+   - 上传音频时自动计算波形和时长
+   - 支持 AAC/MP3/WebM 等多种音频格式
+
+3. **Format Conversion (NEW)**
+   - 新增 `AudioConverterService` 使用 ffmpeg 转换格式
+   - iOS AAC → WebM 自动转换
+   - 与波形生成流程集成
+
+4. **Upload Permission Check**
    - 确保只有上传者可以使用 attachment 发送消息
 
 ### Web Implementation
 
-1. **Recording:** MediaRecorder API + Web Audio API 分析波形
+1. **Recording:** MediaRecorder API
 2. **Playback:** HTML5 Audio + Canvas 波形动画
 3. **Cache:** IndexedDB 或 localStorage 存储音频文件
+4. **Waveform:** 渲染服务端返回的波形数据，无需计算
 
 ### Mobile Implementation
 
 1. **Recording:** expo-av Audio.Recording API
 2. **Playback:** expo-av Audio.Sound API
-3. **Waveform:** React Native Reanimated + Canvas/SVG
+3. **Waveform:** React Native Reanimated + Canvas/SVG 渲染
 4. **Cache:** FileSystem + AsyncStorage metadata
+5. **Waveform:** 渲染服务端返回的波形数据，无需计算
 
 ---
 
@@ -312,15 +331,17 @@ async sendVoiceMessage(
   channelId: string,
   audioBlob: Blob | ArrayBuffer,
   options: {
-    duration: number
-    waveform: number[]
-    transcript?: string
+    duration?: number      // 可选，服务端自动计算
+    transcript?: string    // 可选，语音转文字
     replyToId?: string
   }
 ): Promise<ShadowMessage>
 ```
 
-**Rationale:** 简化语音消息发送流程，封装上传+发送两步操作。
+**Rationale:**
+- 简化语音消息发送流程，封装上传+发送两步操作
+- 波形由服务端自动生成，客户端无需传入
+- duration 可选，服务端从音频文件自动提取
 
 ---
 
@@ -330,14 +351,13 @@ async sendVoiceMessage(
 
 ```bash
 shadowob voice send --channel <id> --file <audio.webm> \
-  --duration 5 --waveform-json <waveform.json> \
   [--transcript "语音转文字内容"]
 ```
 
 **Rationale:**
 - CLI 场景不需要录制功能（用户已有音频文件）
 - 提供便捷的语音消息发送入口
-- 波形数据可预计算或通过工具生成
+- 波形和时长由服务端自动生成，CLI 无需计算
 
 ---
 
@@ -347,29 +367,33 @@ shadowob voice send --channel <id> --file <audio.webm> \
 
 | 文档 | 更新内容 |
 |------|---------|
-| `media.md` | 添加 voice metadata 说明，上传时可选传入 |
+| `media.md` | 添加 voice metadata 说明，服务端自动生成波形和时长 |
 | `messages.md` | 添加语音消息发送示例 |
 
 **Rationale:** 语音消息是附件功能的扩展，不需要单独文档页面。
 
 ---
 
-### D25: Metadata Server Consumption
+### D25: Metadata Server Generation
 
-**Decision:** 服务端消费 metadata，存储到 attachment
+**Decision:** 服务端自动生成 metadata
 
 **流程：**
 ```
 客户端上传 → POST /api/media/upload
-  body: { file, metadata: { voice: { duration, waveform, transcript } } }
-服务端存储 → attachment.metadata = { voice: ... }
-返回 → { id, url, metadata }
+  body: { file }
+服务端处理 → 
+  1. 存储音频文件
+  2. 使用 ffmpeg 提取时长 duration
+  3. 使用 ffmpeg/音频分析生成波形 waveform
+  4. 存储 metadata = { voice: { duration, waveform } }
+返回 → { id, url, metadata: { voice: { duration, waveform } } }
 ```
 
 **Rationale:**
-- metadata 由客户端计算（波形分析）
-- 服务端只负责存储和返回
-- 避免服务端重复计算波形
+- 波形和时长由服务端统一计算，保证一致性
+- 简化客户端实现（CLI/Web/Mobile 不需波形计算逻辑）
+- 支持任意音频格式，服务端自动处理转换和计算
 
 ---
 
@@ -403,12 +427,13 @@ def send_voice_message(
     channel_id: str,
     audio_path: str,
     *,
-    duration: float,
-    waveform: list[float],
+    duration: float | None = None,  # 可选，服务端自动计算
     transcript: str | None = None,
 ) -> dict[str, Any]:
     ...
 ```
+
+**Rationale:** 波形由服务端生成，客户端只需上传音频文件。
 
 ---
 
@@ -416,9 +441,9 @@ def send_voice_message(
 
 **Decision:** 更新 OpenAPI schema
 
-- `Attachment` schema 添加 `metadata` 字段
-- `MediaUploadRequest` schema 添加可选 `metadata` 字段
-- `MediaUploadResponse` schema 包含 `metadata`
+- `Attachment` schema 添加 `metadata` 字段（服务端生成）
+- `MediaUploadResponse` schema 包含 `metadata`（服务端返回）
+- 上传请求无需传入 metadata
 
 ---
 
@@ -432,39 +457,48 @@ def send_voice_message(
 
 ---
 
-### D30: Audio Format Conversion Strategy
+### D30: Audio Format Conversion + Waveform Generation
 
-**Decision:** 客户端转换优先，服务端支持 fallback
+**Decision:** 服务端统一处理格式转换和波形生成
 
-| 平台 | 录制格式 | 转换策略 |
+| 平台 | 录制格式 | 服务端处理 |
 |------|---------|---------|
-| Web | WebM (Opus) | 无需转换 |
-| iOS | AAC (m4a) | 客户端转换为 WebM，或服务端 ffmpeg fallback |
-| Android | WebM/Opus | 无需转换 |
+| Web | WebM (Opus) | 直接生成波形 |
+| iOS | AAC (m4a) | ffmpeg 转换 WebM + 生成波形 |
+| Android | WebM/Opus | 直接生成波形 |
 
-**服务端转换能力：**
-- 使用 `fluent-ffmpeg` 处理上传的 AAC 文件
-- 转换后更新 attachment.contentType 和 url
-- 波形数据转换后重新计算（或客户端预计算）
+**服务端处理流程：**
+1. 接收音频文件（任意格式）
+2. 使用 `ffprobe` 提取时长
+3. 使用 `ffmpeg` 生成波形数据（60 个采样点）
+4. 如需格式转换，同步转换为 WebM
+5. 更新 attachment.metadata
 
 ---
 
-### D31: Waveform Generation Utility
+### D31: Server Waveform Service
 
-**Decision:** 提供客户端波形生成工具
+**Decision:** 服务端波形生成服务
 
 ```typescript
-// packages/shared/src/lib/waveform.ts
-export async function generateWaveform(
-  audioBlob: Blob,
-  points: number = 60
-): Promise<number[]>
+// apps/server/src/services/waveform.service.ts
+export class WaveformService {
+  /**
+   * 从音频文件生成波形数据
+   * @param filePath 音频文件路径
+   * @param points 采样点数量（默认 60）
+   */
+  async generateWaveform(
+    filePath: string,
+    points: number = 60
+  ): Promise<{ waveform: number[]; duration: number }>
+}
 ```
 
-**Rationale:**
-- 统一波形生成逻辑，Web/Mobile 共用
-- 使用 Web Audio API decodeAudioData + AnalyserNode
-- 移动端可使用 expo-av 的 Audio 分析能力
+**实现方案：**
+- 使用 `ffmpeg` 的 ` silencedetect` 或 `volumedetect` filter
+- 或使用 Node.js 音频库如 `node-wav` + 手动采样
+- 返回归一化波形数组 [0-1]
 
 ---
 
@@ -472,7 +506,8 @@ export async function generateWaveform(
 
 ### Server
 - `apps/server/src/db/schema/attachments.ts` - 添加 metadata 字段
-- `apps/server/src/services/media.service.ts` - 支持 audio/webm + metadata 存储 + 格式转换
+- `apps/server/src/services/media.service.ts` - 支持 audio/webm + metadata 存储
+- `apps/server/src/services/waveform.service.ts` (NEW) - 波形生成服务
 - `apps/server/src/services/audio-converter.service.ts` (NEW) - ffmpeg 格式转换
 - `apps/server/src/validators/message.schema.ts` - 验证 voice metadata
 - `apps/server/__tests__/voice-message-e2e.test.ts` (NEW) - E2E 测试
@@ -480,7 +515,6 @@ export async function generateWaveform(
 ### SDK (TypeScript)
 - `packages/sdk/src/types.ts` - ShadowAttachment 添加 metadata
 - `packages/sdk/src/client.ts` - 新增 sendVoiceMessage()
-- `packages/sdk/src/lib/waveform.ts` (NEW) - 波形生成工具
 
 ### SDK (Python)
 - `packages/sdk-python/shadowob_sdk/types.py` - Attachment 添加 metadata
@@ -504,21 +538,19 @@ export async function generateWaveform(
 - `apps/mobile/src/hooks/use-voice-recording.ts` (NEW)
 - `apps/mobile/src/hooks/use-voice-player.ts` (NEW)
 - `apps/mobile/src/lib/voice-cache.ts` (NEW)
-- `apps/mobile/src/lib/waveform-generator.ts` (NEW) - 波形生成
 - `apps/mobile/src/components/chat/chat-composer.tsx` - 集成录音按钮
 
 ### Desktop
 - 无新增文件，复用 Web 组件
 
 ### Website Docs
-- `website/docs/en/api-doc/media.md` - 添加 voice metadata 说明
+- `website/docs/en/api-doc/media.md` - 添加 voice metadata 说明（服务端生成）
 - `website/docs/en/api-doc/messages.md` - 添加语音消息示例
 - `website/docs/zh/api-doc/media.md` - 中文同步
 - `website/docs/zh/api-doc/messages.md` - 中文同步
 
 ### Shared
 - `packages/shared/src/types/message.types.ts` - 添加 AttachmentMetadata 类型
-- `packages/shared/src/lib/waveform.ts` (NEW) - 波形生成工具
 
 ---
 
