@@ -1,0 +1,128 @@
+{
+  "version": "1",
+  "environment": "development",
+  "workspace": {
+    "enabled": false,
+    "storageSize": "1Gi",
+    "mountPath": "/workspace/shared",
+    "accessMode": "ReadWriteOnce"
+  },
+  "skills": {
+    "installDir": "/app/skills",
+    "entries": [
+      {
+        "name": "web-search",
+        "source": "bundled",
+        "enabled": true
+      }
+    ]
+  },
+  "plugins": {
+    "shadowob": {
+      "servers": [
+        {
+          "id": "e2e-server",
+          "name": "Shadow Cloud E2E Server",
+          "slug": "shadowob-cloud-e2e",
+          "description": "Automated E2E test server for shadowob-cloud CLI",
+          "isPublic": false,
+          "channels": [
+            {
+              "id": "e2e-general",
+              "title": "general",
+              "type": "text"
+            },
+            {
+              "id": "e2e-agents",
+              "title": "agents",
+              "type": "text"
+            }
+          ]
+        }
+      ],
+      "buddies": [
+        {
+          "id": "e2e-assistant",
+          "name": "E2E Assistant",
+          "description": "OpenClaw AI assistant for E2E testing"
+        }
+      ],
+      "bindings": [
+        {
+          "targetId": "e2e-assistant",
+          "targetType": "buddy",
+          "servers": ["e2e-server"],
+          "channels": ["e2e-general", "e2e-agents"],
+          "agentId": "e2e-agent"
+        }
+      ]
+    }
+  },
+  "registry": {
+    "providers": [
+      {
+        "id": "openai-stub",
+        "baseUrl": "http://mock-openai.local/v1",
+        "apiKey": "sk-test-key-for-e2e-testing",
+        "models": [{ "id": "gpt-4o", "name": "GPT-4o" }]
+      }
+    ],
+    "configurations": [
+      {
+        "id": "e2e-base",
+        "openclaw": {
+          "agents": {
+            "defaults": {
+              "workspace": "/workspace"
+            },
+            "list": [
+              {
+                "id": "default",
+                "systemPrompt": "You are an E2E test assistant. Respond with 'E2E OK' to any message."
+              }
+            ]
+          },
+          "tools": {
+            "allow": []
+          },
+          "gateway": {
+            "bind": "lan",
+            "port": 3100
+          }
+        }
+      }
+    ]
+  },
+  "deployments": {
+    "namespace": "shadowob-cloud-e2e",
+    "agents": [
+      {
+        "id": "e2e-agent",
+        "runtime": "openclaw",
+        "image": "shadowob/openclaw-runner:latest",
+        "replicas": 1,
+        "configuration": {
+          "extends": "e2e-base",
+          "openclaw": {
+            "agents": {
+              "list": [
+                {
+                  "id": "default",
+                  "systemPrompt": "You are an E2E test assistant for shadowob-cloud."
+                }
+              ]
+            }
+          }
+        },
+        "resources": {
+          "requests": { "cpu": "100m", "memory": "256Mi" },
+          "limits": { "cpu": "500m", "memory": "512Mi" }
+        },
+        "env": {
+          "LOG_LEVEL": "debug",
+          "E2E_TEST": "true"
+        }
+      }
+    ]
+  }
+}

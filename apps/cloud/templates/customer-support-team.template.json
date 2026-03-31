@@ -1,0 +1,227 @@
+{
+  "version": "1.0.0",
+  "name": "Customer Support Team",
+  "description": "Two-agent support team: a triage agent that categorizes and routes incoming tickets, and a resolution agent that auto-resolves common issues and escalates complex ones.",
+  "environment": "production",
+  "team": {
+    "name": "customer-support-team",
+    "description": "Automated customer support: triage, resolution, and escalation",
+    "defaultModel": {
+      "preferred": "anthropic/claude-sonnet-4-5",
+      "fallbacks": ["deepseek/deepseek-chat", "openai/gpt-4o", "anthropic/claude-haiku-4-5"],
+      "constraints": {
+        "temperature": 0.3,
+        "maxTokens": 4096
+      }
+    }
+  },
+  "plugins": {
+    "shadowob": {
+      "servers": [
+        {
+          "id": "support-hub",
+          "name": "Support Hub",
+          "slug": "support-hub",
+          "channels": [
+            {
+              "id": "tickets",
+              "title": "Tickets",
+              "type": "text"
+            },
+            {
+              "id": "escalations",
+              "title": "Escalations",
+              "type": "text"
+            },
+            {
+              "id": "metrics",
+              "title": "Support Metrics",
+              "type": "text"
+            }
+          ]
+        }
+      ],
+      "buddies": [
+        {
+          "id": "triage-bot",
+          "name": "Support Triage"
+        },
+        {
+          "id": "resolver-bot",
+          "name": "Issue Resolver"
+        }
+      ],
+      "bindings": [
+        {
+          "targetId": "triage-bot",
+          "targetType": "buddy",
+          "servers": ["support-hub"],
+          "channels": ["tickets", "escalations"],
+          "agentId": "support-triage"
+        },
+        {
+          "targetId": "resolver-bot",
+          "targetType": "buddy",
+          "servers": ["support-hub"],
+          "channels": ["tickets", "escalations"],
+          "agentId": "issue-resolver"
+        }
+      ]
+    }
+  },
+  "registry": {
+    "providers": [
+      {
+        "id": "anthropic",
+        "api": "anthropic",
+        "apiKey": "${env:ANTHROPIC_API_KEY}",
+        "models": [
+          {
+            "id": "claude-sonnet-4-5",
+            "contextWindow": 200000
+          },
+          {
+            "id": "claude-haiku-4-5",
+            "contextWindow": 200000
+          }
+        ]
+      },
+      {
+        "id": "deepseek",
+        "api": "openai",
+        "baseUrl": "https://api.deepseek.com/v1",
+        "apiKey": "${env:DEEPSEEK_API_KEY}",
+        "models": [
+          {
+            "id": "deepseek-chat",
+            "contextWindow": 65536
+          },
+          {
+            "id": "deepseek-reasoner",
+            "contextWindow": 65536
+          }
+        ]
+      }
+    ],
+    "configurations": [
+      {
+        "id": "support-base",
+        "openclaw": {
+          "tools": {
+            "profile": "messaging",
+            "web": {
+              "fetch": {
+                "enabled": true
+              }
+            }
+          },
+          "session": {
+            "dmScope": "per-peer"
+          },
+          "messages": {
+            "ackReaction": "👀",
+            "ackReactionScope": "all",
+            "removeAckAfterReply": true
+          }
+        }
+      }
+    ]
+  },
+  "deployments": {
+    "namespace": "customer-support",
+    "agents": [
+      {
+        "id": "support-triage",
+        "runtime": "openclaw",
+        "description": "Triages incoming support tickets: categorizes by issue type and priority, assigns to the resolver or escalates to human support.",
+        "identity": {
+          "name": "Support Triage",
+          "personality": "You are an empathetic, highly organized support triage specialist. You acknowledge every message immediately, categorize the issue quickly, and route it appropriately. You're warm and professional — customers feel heard. You never make them wait more than 2 minutes for an acknowledgment. You're expert at distinguishing billing issues, technical bugs, feature requests, and account issues.",
+          "systemPrompt": "Triage incoming customer support requests. For each incoming ticket:\n1. Acknowledge immediately (within 60 seconds)\n2. Categorize: billing | technical | account | feature-request | other\n3. Assess priority: critical (service down) | high (major feature broken) | medium | low\n4. Route: assign to resolver for standard issues, escalate to human for: account security, refund disputes > $100, legal threats, abusive users\n5. Create a ticket entry in the database (use the tickets tool)\n\nTone: warm, professional, empathetic. Never make customers feel like a number."
+        },
+        "integrations": [
+          {
+            "name": "notion",
+            "credentials": {
+              "NOTION_TOKEN": "${env:NOTION_TOKEN}"
+            }
+          },
+          {
+            "name": "postgresql",
+            "credentials": {
+              "DATABASE_URL": "${env:DATABASE_URL}"
+            }
+          }
+        ],
+        "configuration": {
+          "extends": "support-base",
+          "openclaw": {
+            "agents": {
+              "defaults": {
+                "heartbeat": {
+                  "every": "4h",
+                  "prompt": "Generate a support queue summary: open tickets by category and priority. Flag any SLA breaches (tickets open > 24h without response).",
+                  "to": "shadowob",
+                  "target": "metrics"
+                }
+              }
+            }
+          }
+        },
+        "resources": {
+          "requests": {
+            "cpu": "100m",
+            "memory": "256Mi"
+          },
+          "limits": {
+            "cpu": "500m",
+            "memory": "512Mi"
+          }
+        }
+      },
+      {
+        "id": "issue-resolver",
+        "runtime": "openclaw",
+        "description": "Resolves common support tickets automatically: resets passwords, looks up order status, explains features, and generates refund requests.",
+        "identity": {
+          "name": "Issue Resolver",
+          "personality": "You are a knowledgeable product support specialist who can resolve most common issues without human intervention. You have deep knowledge of the product, billing system, and common troubleshooting steps. You're patient, clear, and always verify that the issue is actually resolved before closing a ticket. You know when to escalate and do so without hesitation.",
+          "systemPrompt": "Resolve assigned support tickets. For each ticket:\n1. Read the full customer history from the database\n2. Look up relevant account information\n3. Apply the appropriate resolution:\n   - Password reset: use account tools\n   - Billing issue: look up in Stripe, explain or create refund request\n   - Feature question: provide clear answer with documentation link\n   - Technical bug: confirm steps to reproduce, log in Notion, provide workaround\n4. Respond to customer with clear resolution steps\n5. Mark ticket resolved or escalate if unable to resolve\n6. Follow up in 24h to confirm resolution\n\nNever make refunds > $50 without flagging to human escalation channel."
+        },
+        "integrations": [
+          {
+            "name": "stripe",
+            "credentials": {
+              "STRIPE_SECRET_KEY": "${env:STRIPE_SECRET_KEY}"
+            }
+          },
+          {
+            "name": "notion",
+            "credentials": {
+              "NOTION_TOKEN": "${env:NOTION_TOKEN}"
+            }
+          },
+          {
+            "name": "postgresql",
+            "credentials": {
+              "DATABASE_URL": "${env:DATABASE_URL}"
+            }
+          }
+        ],
+        "configuration": {
+          "extends": "support-base"
+        },
+        "resources": {
+          "requests": {
+            "cpu": "200m",
+            "memory": "512Mi"
+          },
+          "limits": {
+            "cpu": "1000m",
+            "memory": "1Gi"
+          }
+        }
+      }
+    ]
+  }
+}

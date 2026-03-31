@@ -1,0 +1,246 @@
+{
+  "version": "1.0.0",
+  "name": "Metrics & Analytics Team",
+  "description": "Two-agent metrics team: a data analyst that pulls daily revenue/traffic reports from Stripe, GA4, and Mixpanel, and an alert agent that watches for anomalies 24/7.",
+  "environment": "production",
+  "team": {
+    "name": "metrics-team",
+    "description": "Business metrics monitoring and analytics reporting team",
+    "defaultModel": {
+      "preferred": "anthropic/claude-sonnet-4-5",
+      "fallbacks": ["deepseek/deepseek-chat", "openai/gpt-4o-mini"],
+      "constraints": {
+        "temperature": 0.1,
+        "maxTokens": 8192
+      }
+    }
+  },
+  "plugins": {
+    "shadowob": {
+      "servers": [
+        {
+          "id": "metrics-hub",
+          "name": "Metrics Hub",
+          "slug": "metrics-hub",
+          "channels": [
+            {
+              "id": "daily-reports",
+              "title": "Daily Reports",
+              "type": "text"
+            },
+            {
+              "id": "alerts",
+              "title": "Alerts",
+              "type": "text"
+            }
+          ]
+        }
+      ],
+      "buddies": [
+        {
+          "id": "analyst-bot",
+          "name": "Data Analyst"
+        },
+        {
+          "id": "alert-bot",
+          "name": "Anomaly Alerter"
+        }
+      ],
+      "bindings": [
+        {
+          "targetId": "analyst-bot",
+          "targetType": "buddy",
+          "servers": ["metrics-hub"],
+          "channels": ["daily-reports"],
+          "agentId": "data-analyst"
+        },
+        {
+          "targetId": "alert-bot",
+          "targetType": "buddy",
+          "servers": ["metrics-hub"],
+          "channels": ["alerts"],
+          "agentId": "anomaly-alerter"
+        }
+      ]
+    }
+  },
+  "registry": {
+    "providers": [
+      {
+        "id": "anthropic",
+        "api": "anthropic",
+        "apiKey": "${env:ANTHROPIC_API_KEY}",
+        "models": [
+          {
+            "id": "claude-sonnet-4-5",
+            "contextWindow": 200000
+          },
+          {
+            "id": "claude-haiku-4-5",
+            "contextWindow": 200000
+          }
+        ]
+      },
+      {
+        "id": "deepseek",
+        "api": "openai",
+        "baseUrl": "https://api.deepseek.com/v1",
+        "apiKey": "${env:DEEPSEEK_API_KEY}",
+        "models": [
+          {
+            "id": "deepseek-chat",
+            "contextWindow": 65536
+          },
+          {
+            "id": "deepseek-reasoner",
+            "contextWindow": 65536
+          }
+        ]
+      },
+      {
+        "id": "openai",
+        "api": "openai",
+        "apiKey": "${env:OPENAI_API_KEY}",
+        "models": [
+          {
+            "id": "gpt-4o-mini",
+            "contextWindow": 128000
+          }
+        ]
+      }
+    ],
+    "configurations": [
+      {
+        "id": "metrics-base",
+        "openclaw": {
+          "tools": {
+            "profile": "coding",
+            "web": {
+              "fetch": {
+                "enabled": true,
+                "maxChars": 50000
+              }
+            }
+          },
+          "session": {
+            "dmScope": "per-peer"
+          }
+        }
+      }
+    ]
+  },
+  "deployments": {
+    "namespace": "metrics-team",
+    "agents": [
+      {
+        "id": "data-analyst",
+        "runtime": "openclaw",
+        "description": "Pulls revenue, traffic, and product analytics data every morning and delivers a comprehensive report to your team channel.",
+        "identity": {
+          "name": "Data Analyst",
+          "personality": "You are a sharp data analyst who delivers concise, insight-rich reports. You never just dump raw numbers — you always highlight trends, anomalies, and what they mean for the business. Your reports have a consistent structure: headline metrics, trend analysis, notable changes, and a 'what to watch' section. You're enthusiastic about data but respect people's time.",
+          "systemPrompt": "Generate a daily business metrics report at 9:00 AM UTC every day. Pull data from:\n- Stripe: MRR, new subscriptions, churn, failed payments\n- Google Analytics 4: Sessions, users, conversion rate, top pages\n- Mixpanel: Active users, retention, key funnel metrics\n\nReport format:\n## 📊 Daily Metrics Report — {date}\n**Revenue**: ...\n**Traffic**: ...\n**Product**: ...\n**Trends**: ...\n**Watch**: ..."
+        },
+        "integrations": [
+          {
+            "name": "stripe",
+            "credentials": {
+              "STRIPE_SECRET_KEY": "${env:STRIPE_SECRET_KEY}"
+            }
+          },
+          {
+            "name": "google-analytics",
+            "credentials": {
+              "GA4_PROPERTY_ID": "${env:GA4_PROPERTY_ID}",
+              "GOOGLE_APPLICATION_CREDENTIALS": "${env:GOOGLE_CREDENTIALS_B64}"
+            }
+          },
+          {
+            "name": "mixpanel",
+            "credentials": {
+              "MIXPANEL_SERVICE_ACCOUNT_USERNAME": "${env:MIXPANEL_USERNAME}",
+              "MIXPANEL_SERVICE_ACCOUNT_SECRET": "${env:MIXPANEL_SECRET}",
+              "MIXPANEL_PROJECT_ID": "${env:MIXPANEL_PROJECT_ID}"
+            }
+          }
+        ],
+        "configuration": {
+          "extends": "metrics-base",
+          "openclaw": {
+            "agents": {
+              "defaults": {
+                "heartbeat": {
+                  "every": "24h",
+                  "session": "daily-report",
+                  "prompt": "Generate today's morning metrics report. Pull data from Stripe, GA4, and Mixpanel. Format it clearly.",
+                  "to": "shadowob",
+                  "target": "daily-reports"
+                }
+              }
+            }
+          }
+        },
+        "resources": {
+          "requests": {
+            "cpu": "100m",
+            "memory": "256Mi"
+          },
+          "limits": {
+            "cpu": "500m",
+            "memory": "512Mi"
+          }
+        }
+      },
+      {
+        "id": "anomaly-alerter",
+        "runtime": "openclaw",
+        "description": "Watches key business metrics every hour for anomalies: sudden revenue drops, traffic spikes, conversion rate changes, or unusual churn.",
+        "identity": {
+          "name": "Anomaly Alerter",
+          "personality": "You are an always-on anomaly detection sentinel for business metrics. You only alert when something is genuinely unusual — not just normal variance. You calibrate your thresholds based on historical baselines. When you alert, you include: what changed, by how much, when it changed, and a hypothesis for why. You never cry wolf.",
+          "systemPrompt": "Monitor business metrics every hour for anomalies:\n- Revenue: Alert if hourly Stripe revenue drops >40% vs same hour yesterday\n- Traffic: Alert if sessions drop >50% or spike >200% vs baseline\n- Errors: Alert if 5xx error rate exceeds 2%\n- Churn: Alert if cancellations in a 4-hour window exceed baseline by 3x\n\nFor each alert include: metric name, current value, expected range, % deviation, and your top hypothesis."
+        },
+        "integrations": [
+          {
+            "name": "stripe",
+            "credentials": {
+              "STRIPE_SECRET_KEY": "${env:STRIPE_SECRET_KEY}"
+            }
+          },
+          {
+            "name": "google-analytics",
+            "credentials": {
+              "GA4_PROPERTY_ID": "${env:GA4_PROPERTY_ID}",
+              "GOOGLE_APPLICATION_CREDENTIALS": "${env:GOOGLE_CREDENTIALS_B64}"
+            }
+          }
+        ],
+        "configuration": {
+          "extends": "metrics-base",
+          "openclaw": {
+            "agents": {
+              "defaults": {
+                "heartbeat": {
+                  "every": "1h",
+                  "prompt": "Check all monitored metrics for anomalies in the last hour. Only alert if something is genuinely unusual. Stay silent if all metrics are normal.",
+                  "to": "shadowob",
+                  "target": "alerts"
+                }
+              }
+            }
+          }
+        },
+        "resources": {
+          "requests": {
+            "cpu": "100m",
+            "memory": "256Mi"
+          },
+          "limits": {
+            "cpu": "500m",
+            "memory": "512Mi"
+          }
+        }
+      }
+    ]
+  }
+}

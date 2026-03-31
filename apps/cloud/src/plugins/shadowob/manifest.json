@@ -1,0 +1,49 @@
+{
+  "id": "shadowob",
+  "name": "Shadow",
+  "description": "Connect agents to Shadow chat platform with servers, channels, and buddy avatars",
+  "version": "1.0.0",
+  "category": "communication",
+  "icon": "message-circle",
+  "website": "https://shadow.ob",
+  "auth": {
+    "type": "token",
+    "fields": [
+      {
+        "key": "SHADOW_SERVER_URL",
+        "label": "Shadow Server URL",
+        "description": "Shadow platform server base URL",
+        "required": true,
+        "sensitive": false,
+        "placeholder": "https://shadow.example.com"
+      },
+      {
+        "key": "SHADOWOB_API_TOKEN",
+        "label": "Shadow API Token",
+        "description": "Your Shadow platform API token for provisioning",
+        "required": false,
+        "sensitive": true
+      }
+    ]
+  },
+  "config": {
+    "type": "object",
+    "properties": {
+      "servers": {
+        "type": "array",
+        "description": "Shadow servers to provision"
+      },
+      "buddies": {
+        "type": "array",
+        "description": "Buddy agents to create"
+      },
+      "bindings": {
+        "type": "array",
+        "description": "Binding rules connecting buddies to agents and channels"
+      }
+    }
+  },
+  "capabilities": ["channel"],
+  "tags": ["communication", "chat", "shadow", "built-in"],
+  "popularity": 100
+}

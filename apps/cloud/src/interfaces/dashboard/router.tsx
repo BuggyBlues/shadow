@@ -1,0 +1,186 @@
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+  Outlet,
+  redirect,
+} from '@tanstack/react-router'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { Layout } from '@/components/Layout'
+import { ActivityPage } from '@/pages/ActivityPage'
+import { ClustersPage } from '@/pages/ClustersPage'
+import { DeploymentDetailPage } from '@/pages/DeploymentDetailPage'
+import { DeployWizardPage } from '@/pages/DeployWizardPage'
+import { MonitoringPage } from '@/pages/MonitoringPage'
+import { MyTemplateDetailPage } from '@/pages/MyTemplateDetailPage'
+import { MyTemplatesPage } from '@/pages/MyTemplatesPage'
+import { OverviewPage } from '@/pages/OverviewPage'
+import { SecretsPage } from '@/pages/SecretsPage'
+import { SettingsPage } from '@/pages/SettingsPage'
+import { StoreDetailPage } from '@/pages/StoreDetailPage'
+import { StorePage } from '@/pages/StorePage'
+import { ValidatePage } from '@/pages/ValidatePage'
+
+function withErrorBoundary(Page: React.ComponentType) {
+  return function WrappedPage() {
+    return (
+      <ErrorBoundary>
+        <Page />
+      </ErrorBoundary>
+    )
+  }
+}
+
+const rootRoute = createRootRoute({
+  component: () => (
+    <Layout>
+      <Outlet />
+    </Layout>
+  ),
+})
+
+// ── Console ───────────────────────────────────────────────────────────────────
+
+const indexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/',
+  component: withErrorBoundary(OverviewPage),
+})
+
+// ── Agent Store ───────────────────────────────────────────────────────────────
+
+const storeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/store',
+  component: withErrorBoundary(StorePage),
+})
+
+const storeDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/store/$name',
+  component: withErrorBoundary(StoreDetailPage),
+})
+
+const deployWizardRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/store/$name/deploy',
+  component: withErrorBoundary(DeployWizardPage),
+})
+
+// ── Clusters ──────────────────────────────────────────────────────────────────
+
+const clustersRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/clusters',
+  component: withErrorBoundary(ClustersPage),
+})
+
+const deploymentDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/deployments/$namespace/$id',
+  component: withErrorBoundary(DeploymentDetailPage),
+})
+
+// ── Configuration ─────────────────────────────────────────────────────────────
+
+// Configuration redirects to My Templates (merged)
+const configRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/config',
+  beforeLoad: () => {
+    throw redirect({ to: '/my-templates' })
+  },
+})
+
+const validateRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/validate',
+  component: withErrorBoundary(ValidatePage),
+})
+
+// ── Monitoring ────────────────────────────────────────────────────────────────
+
+const monitoringRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/monitoring',
+  component: withErrorBoundary(MonitoringPage),
+})
+
+// Doctor redirects to Overview (merged)
+const doctorRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/doctor',
+  beforeLoad: () => {
+    throw redirect({ to: '/' })
+  },
+})
+
+// Legacy /templates redirects to /store
+const templatesRedirectRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/templates',
+  beforeLoad: () => {
+    throw redirect({ to: '/store' })
+  },
+})
+
+// ── Operations ────────────────────────────────────────────────────────────────
+
+const activityRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/activity',
+  component: withErrorBoundary(ActivityPage),
+})
+
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings',
+  component: withErrorBoundary(SettingsPage),
+})
+
+const secretsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/secrets',
+  component: withErrorBoundary(SecretsPage),
+})
+
+const myTemplatesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/my-templates',
+  component: withErrorBoundary(MyTemplatesPage),
+})
+
+const myTemplateDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/my-templates/$name',
+  component: withErrorBoundary(MyTemplateDetailPage),
+})
+
+// ── Router ────────────────────────────────────────────────────────────────────
+
+const routeTree = rootRoute.addChildren([
+  indexRoute,
+  storeRoute,
+  storeDetailRoute,
+  deployWizardRoute,
+  clustersRoute,
+  deploymentDetailRoute,
+  configRoute,
+  validateRoute,
+  monitoringRoute,
+  doctorRoute,
+  templatesRedirectRoute,
+  activityRoute,
+  settingsRoute,
+  secretsRoute,
+  myTemplatesRoute,
+  myTemplateDetailRoute,
+])
+
+export const router = createRouter({ routeTree })
+
+declare module '@tanstack/react-router' {
+  interface Register {
+    router: typeof router
+  }
+}

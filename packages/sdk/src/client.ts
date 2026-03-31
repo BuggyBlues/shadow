@@ -147,6 +147,7 @@ export class ShadowClient {
 
   async createAgent(data: {
     name: string
+    username: string
     displayName?: string
     avatarUrl?: string | null
   }): Promise<{ id: string; token: string; userId: string }> {

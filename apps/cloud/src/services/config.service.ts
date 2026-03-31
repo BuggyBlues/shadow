@@ -1,0 +1,73 @@
+/**
+ * ConfigService — configuration parsing, validation, and resolution.
+ *
+ * Wraps config/parser.ts, config/security.ts, and config/template.ts
+ * as an injectable service with a clean interface.
+ */
+
+import {
+  buildOpenClawConfig,
+  deepMerge,
+  expandExtends,
+  parseConfigFile,
+  resolveConfig,
+} from '../config/parser.js'
+import type { AgentDeployment, CloudConfig, Configuration } from '../config/schema.js'
+import { type SecurityViolation, validateNoInlineKeys } from '../config/security.js'
+import { collectTemplateRefs } from '../config/template.js'
+
+export class ConfigService {
+  /** Parse and validate a cloud config file using typia. */
+  parseFile(filePath: string): CloudConfig {
+    return parseConfigFile(filePath)
+  }
+
+  /** Expand 'extends' references and resolve template variables. */
+  resolve(config: CloudConfig): CloudConfig {
+    return resolveConfig(config)
+  }
+
+  /** Build OpenClaw config for a specific agent. */
+  buildOpenClawConfig(agent: AgentDeployment, config: CloudConfig) {
+    return buildOpenClawConfig(agent, config)
+  }
+
+  /**
+   * Full validation: parse + security check + collect template refs.
+   * Returns the parsed config and any security violations found.
+   */
+  validate(filePath: string): { config: CloudConfig; violations: SecurityViolation[] } {
+    const config = parseConfigFile(filePath)
+    const violations = validateNoInlineKeys(config)
+    return { config, violations }
+  }
+
+  /**
+   * Parse, validate, and resolve in one call.
+   * Convenience for callers that need the final resolved config.
+   */
+  resolveFromFile(filePath: string): CloudConfig {
+    const config = parseConfigFile(filePath)
+    return resolveConfig(config)
+  }
+
+  /** Detect inline API keys in config (SEC-01). */
+  validateSecurity(config: CloudConfig): SecurityViolation[] {
+    return validateNoInlineKeys(config)
+  }
+
+  /** Collect all ${env:...} and ${secret:...} references. */
+  collectTemplateRefs(config: CloudConfig) {
+    return collectTemplateRefs(config)
+  }
+
+  /** Deep merge two objects (arrays replaced, not merged). */
+  deepMerge<T extends Record<string, unknown>>(base: T, override: Partial<T>): T {
+    return deepMerge(base, override)
+  }
+
+  /** Expand 'extends' in an agent configuration. */
+  expandExtends(agentConfig: Parameters<typeof expandExtends>[0], configs: Configuration[]) {
+    return expandExtends(agentConfig, configs)
+  }
+}

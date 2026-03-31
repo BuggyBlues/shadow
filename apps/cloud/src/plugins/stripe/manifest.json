@@ -1,0 +1,40 @@
+{
+  "id": "stripe",
+  "name": "Stripe",
+  "description": "Connect agents to Stripe for payment processing, billing, invoices, and subscription management via the official Stripe Agent Toolkit MCP server",
+  "version": "1.0.0",
+  "category": "finance",
+  "icon": "credit-card",
+  "website": "https://stripe.com",
+  "docs": "https://docs.stripe.com/api",
+  "auth": {
+    "type": "api-key",
+    "fields": [
+      {
+        "key": "STRIPE_SECRET_KEY",
+        "label": "Stripe Secret Key",
+        "description": "Stripe API secret key (recommended: use a Restricted API Key rk_* for better security)",
+        "required": true,
+        "sensitive": true,
+        "placeholder": "sk_... or rk_..."
+      }
+    ]
+  },
+  "config": {
+    "type": "object",
+    "properties": {
+      "testMode": {
+        "type": "boolean",
+        "default": true,
+        "description": "Use Stripe test mode (sk_test_*) instead of live mode"
+      },
+      "connectedAccount": {
+        "type": "string",
+        "description": "Optional Stripe connected account ID for Connect platforms (acct_*)"
+      }
+    }
+  },
+  "capabilities": ["tool", "webhook", "data-source", "action"],
+  "tags": ["finance", "payments", "billing", "subscriptions", "invoices", "mcp"],
+  "popularity": 92
+}

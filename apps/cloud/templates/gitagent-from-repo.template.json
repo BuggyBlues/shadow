@@ -1,0 +1,333 @@
+{
+  "_comment": "Template: Deploy agents defined in a gitagent-standard git repository.",
+  "_comment2": "Supports two overlay strategies: init-container (default) and build-image.",
+  "_comment3": "See https://github.com/open-gitagent/gitagent for the gitagent directory spec.",
+  "version": "1.0.0",
+  "name": "GitAgent from Repository",
+  "description": "Deploy one or more agents whose soul, rules, skills, tools, hooks, and scheduler are all defined in a gitagent-standard git repository. Supports private repos via SSH keys or HTTPS tokens. Uses Docker image layers (build-image) or Kubernetes init-containers (init-container) to overlay the repository files into the agent runtime.",
+  "environment": "production",
+  "team": {
+    "name": "gitagent-team",
+    "description": "Agents sourced from a gitagent-standard git repository",
+    "defaultModel": {
+      "preferred": "anthropic/claude-sonnet-4-5",
+      "fallbacks": ["deepseek/deepseek-chat", "openai/gpt-4o"],
+      "constraints": {
+        "temperature": 0.3,
+        "maxTokens": 8192
+      }
+    }
+  },
+  "registry": {
+    "providers": [
+      {
+        "id": "anthropic",
+        "api": "anthropic",
+        "apiKey": "${env:ANTHROPIC_API_KEY}",
+        "models": [
+          {
+            "id": "claude-sonnet-4-5",
+            "contextWindow": 200000
+          },
+          {
+            "id": "claude-haiku-4-5",
+            "contextWindow": 200000
+          }
+        ]
+      },
+      {
+        "id": "openai",
+        "api": "openai",
+        "apiKey": "${env:OPENAI_API_KEY}",
+        "models": [
+          {
+            "id": "gpt-4o",
+            "contextWindow": 128000
+          }
+        ]
+      }
+    ]
+  },
+  "deployments": {
+    "namespace": "gitagent-team",
+    "imagePullPolicy": "IfNotPresent",
+    "agents": [
+      {
+        "_comment": "Strategy 1: init-container (default) — no pre-build required.",
+        "_comment2": "Kubernetes adds an alpine/git init container that clones the repo at pod startup.",
+        "_comment3": "The cloned files are mounted at mountPath (/agent) for the OpenClaw runtime.",
+        "id": "my-agent-init",
+        "runtime": "openclaw",
+        "description": "Agent whose definition lives in a git repository (init-container strategy)",
+        "source": {
+          "git": {
+            "url": "https://github.com/my-org/my-agents",
+            "ref": "main",
+            "dir": "agents/my-agent",
+            "depth": 1,
+            "_comment_auth": "For private repos: use tokenSecret (HTTPS) or sshKeySecret (SSH)"
+          },
+          "strategy": "init-container",
+          "mountPath": "/agent",
+          "_comment_include": "Optional: restrict which files/dirs are copied. Default: all standard gitagent files.",
+          "_comment_include2": "include: [\"SOUL.md\", \"RULES.md\", \"skills\", \"tools\"]"
+        },
+        "_comment_identity": "With gitagent source, SOUL.md → identity.personality, RULES.md → hard constraints.",
+        "_comment_identity2": "You can still set identity here to override or supplement the git-sourced content.",
+        "identity": {
+          "name": "My Agent"
+        },
+        "configuration": {
+          "openclaw": {
+            "tools": {
+              "profile": "full",
+              "web": {
+                "fetch": {
+                  "enabled": true
+                }
+              }
+            }
+          }
+        },
+        "resources": {
+          "requests": {
+            "cpu": "200m",
+            "memory": "512Mi"
+          },
+          "limits": {
+            "cpu": "1000m",
+            "memory": "1Gi"
+          }
+        }
+      },
+      {
+        "_comment": "Strategy 2: build-image — bakes git content into Docker image layers at build time.",
+        "_comment2": "Run `shadowob-cloud build` to generate and build the image before deploying.",
+        "_comment3": "Better for production: no git access needed at runtime, reproducible layers.",
+        "id": "my-agent-built",
+        "runtime": "openclaw",
+        "description": "Agent whose definition is baked into a custom Docker image layer at build time",
+        "source": {
+          "git": {
+            "url": "https://github.com/my-org/my-agents",
+            "ref": "v1.2.0",
+            "dir": "agents/my-agent",
+            "depth": 1,
+            "_comment_token": "tokenSecret can be a K8s Secret name or an env var like GITHUB_TOKEN for HTTPS private repos",
+            "tokenSecret": "${env:GITHUB_TOKEN}"
+          },
+          "strategy": "build-image",
+          "mountPath": "/agent",
+          "imageTag": "ghcr.io/my-org/my-agent:v1.2.0"
+        },
+        "_comment_image": "After `shadowob-cloud build`, set image to the built tag.",
+        "image": "ghcr.io/my-org/my-agent:v1.2.0",
+        "identity": {
+          "name": "My Agent (Built)"
+        },
+        "configuration": {
+          "openclaw": {
+            "tools": {
+              "profile": "full"
+            }
+          }
+        },
+        "resources": {
+          "requests": {
+            "cpu": "200m",
+            "memory": "512Mi"
+          },
+          "limits": {
+            "cpu": "1000m",
+            "memory": "1Gi"
+          }
+        }
+      },
+      {
+        "_comment": "SSH-authenticated private repo — for repos that require SSH key access.",
+        "_comment2": "Create a K8s secret first: kubectl create secret generic git-ssh-key --from-file=ssh-privatekey=~/.ssh/id_ed25519",
+        "id": "private-agent",
+        "runtime": "openclaw",
+        "description": "Agent from a private git repository authenticated via SSH",
+        "source": {
+          "git": {
+            "url": "git@github.com:my-org/private-agents.git",
+            "ref": "main",
+            "dir": "agents/private-agent",
+            "sshKeySecret": "git-ssh-key"
+          },
+          "strategy": "init-container",
+          "mountPath": "/agent"
+        },
+        "identity": {
+          "name": "Private Agent"
+        },
+        "configuration": {
+          "openclaw": {
+            "tools": {
+              "profile": "full"
+            }
+          }
+        },
+        "resources": {
+          "requests": {
+            "cpu": "200m",
+            "memory": "512Mi"
+          },
+          "limits": {
+            "cpu": "1000m",
+            "memory": "1Gi"
+          }
+        }
+      },
+      {
+        "_comment": "Monorepo example — multiple agents from the same repository, different subdirectories.",
+        "_comment2": "All agents share the same git.url; each points to its own agents/<name> subdirectory.",
+        "id": "monorepo-agent-a",
+        "runtime": "openclaw",
+        "description": "Agent A from a monorepo — agents/agent-a subdirectory",
+        "source": {
+          "git": {
+            "url": "https://github.com/my-org/agents-monorepo",
+            "ref": "main",
+            "dir": "agents/agent-a"
+          },
+          "strategy": "init-container",
+          "mountPath": "/agent"
+        },
+        "identity": {
+          "name": "Agent A"
+        },
+        "configuration": {
+          "openclaw": {
+            "tools": {
+              "profile": "full"
+            }
+          }
+        },
+        "resources": {
+          "requests": {
+            "cpu": "100m",
+            "memory": "256Mi"
+          },
+          "limits": {
+            "cpu": "500m",
+            "memory": "512Mi"
+          }
+        }
+      },
+      {
+        "id": "monorepo-agent-b",
+        "runtime": "openclaw",
+        "description": "Agent B from the same monorepo — agents/agent-b subdirectory",
+        "source": {
+          "git": {
+            "url": "https://github.com/my-org/agents-monorepo",
+            "ref": "main",
+            "dir": "agents/agent-b"
+          },
+          "strategy": "init-container",
+          "mountPath": "/agent"
+        },
+        "identity": {
+          "name": "Agent B"
+        },
+        "configuration": {
+          "openclaw": {
+            "tools": {
+              "profile": "full"
+            }
+          }
+        },
+        "resources": {
+          "requests": {
+            "cpu": "100m",
+            "memory": "256Mi"
+          },
+          "limits": {
+            "cpu": "500m",
+            "memory": "512Mi"
+          }
+        }
+      },
+      {
+        "_comment": "Local dev path example — reference a local gitagent directory during development.",
+        "_comment2": "At deploy time, shadowob-cloud reads the local files and enriches the agent config.",
+        "_comment3": "In production, switch source.git to a git URL.",
+        "id": "local-dev-agent",
+        "runtime": "openclaw",
+        "description": "Agent loaded from a local gitagent directory (development only)",
+        "source": {
+          "path": "./my-agent",
+          "strategy": "init-container",
+          "mountPath": "/agent"
+        },
+        "identity": {
+          "name": "Local Dev Agent"
+        },
+        "configuration": {
+          "openclaw": {
+            "tools": {
+              "profile": "full"
+            }
+          }
+        },
+        "resources": {
+          "requests": {
+            "cpu": "100m",
+            "memory": "256Mi"
+          },
+          "limits": {
+            "cpu": "500m",
+            "memory": "512Mi"
+          }
+        }
+      }
+    ]
+  },
+  "_gitagent_directory_structure": {
+    "_comment": "For reference: the standard gitagent repository layout (from https://github.com/open-gitagent/gitagent)",
+    "layout": {
+      "agent.yaml": "Required. Agent manifest: name, version, model, tools, skills, compliance.",
+      "SOUL.md": "Required. Agent personality and identity definition.",
+      "RULES.md": "Optional. Hard constraints injected into the system prompt.",
+      "AGENTS.md": "Optional. Multi-agent orchestration hints.",
+      "INSTRUCTIONS.md": "Optional. Additional standing instructions.",
+      "scheduler.yml": "Optional. Cron/event schedules.",
+      "skills/": "Optional. Skill definitions (skills/{name}/SKILL.md with YAML frontmatter).",
+      "tools/": "Optional. Tool definitions (tools/{name}.yaml).",
+      "hooks/": "Optional. Lifecycle hooks (hooks/hooks.yaml, hooks/bootstrap.md, hooks/teardown.md).",
+      "skillflows/": "Optional. Multi-step workflow definitions (skillflows/{name}.yaml).",
+      "memory/": "Optional. Memory strategy (memory/MEMORY.md, memory/runtime/ for live state).",
+      "knowledge/": "Optional. Knowledge base references (knowledge/index.yaml).",
+      "compliance/": "Optional. Regulatory compliance configuration."
+    },
+    "example_agent_yaml": {
+      "name": "my-agent",
+      "version": "1.0.0",
+      "description": "A helpful assistant agent",
+      "model": {
+        "preferred": "anthropic/claude-sonnet-4-5",
+        "fallbacks": ["openai/gpt-4o"],
+        "constraints": {
+          "temperature": 0.3,
+          "max_tokens": 8192
+        }
+      },
+      "skills": ["code-review", "summarize"],
+      "tools": ["web-search", "file-ops"],
+      "runtime": "openclaw",
+      "compliance": {
+        "risk_tier": "medium",
+        "frameworks": ["ISO-42001"],
+        "supervision": {
+          "human_in_the_loop": "async"
+        },
+        "recordkeeping": {
+          "audit_logging": true,
+          "retention_period": "90d"
+        }
+      }
+    }
+  }
+}
