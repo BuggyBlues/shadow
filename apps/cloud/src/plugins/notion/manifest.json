@@ -1,0 +1,36 @@
+{
+  "id": "notion",
+  "name": "Notion",
+  "description": "Connect agents to Notion for page management, database queries, search, and knowledge management via the official Notion MCP server",
+  "version": "1.0.0",
+  "category": "productivity",
+  "icon": "file-text",
+  "website": "https://notion.so",
+  "docs": "https://github.com/makenotion/notion-mcp-server",
+  "auth": {
+    "type": "token",
+    "fields": [
+      {
+        "key": "NOTION_TOKEN",
+        "label": "Notion Integration Token",
+        "description": "Internal integration token from https://www.notion.so/profile/integrations",
+        "required": true,
+        "sensitive": true,
+        "placeholder": "ntn_..."
+      }
+    ]
+  },
+  "config": {
+    "type": "object",
+    "properties": {
+      "readOnly": {
+        "type": "boolean",
+        "default": false,
+        "description": "Restrict integration to read-only capabilities"
+      }
+    }
+  },
+  "capabilities": ["tool", "data-source"],
+  "tags": ["productivity", "wiki", "docs", "tasks", "mcp", "notion"],
+  "popularity": 90
+}

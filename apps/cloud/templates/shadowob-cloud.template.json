@@ -1,0 +1,108 @@
+{
+  "version": "1.0.0",
+  "environment": "production",
+  "plugins": {
+    "shadowob": {
+      "servers": [
+        {
+          "id": "my-server",
+          "name": "My Shadow Server",
+          "channels": [
+            {
+              "id": "general",
+              "title": "General"
+            }
+          ]
+        }
+      ],
+      "buddies": [
+        {
+          "id": "my-buddy",
+          "name": "My AI Assistant"
+        }
+      ],
+      "bindings": [
+        {
+          "targetId": "my-buddy",
+          "targetType": "buddy",
+          "servers": ["my-server"],
+          "channels": ["general"],
+          "agentId": "my-agent"
+        }
+      ]
+    }
+  },
+  "registry": {
+    "providers": [
+      {
+        "id": "openai",
+        "apiType": "openai-completions",
+        "baseUrl": "https://api.openai.com/v1",
+        "apiKey": "${env:OPENAI_API_KEY}",
+        "models": [
+          {
+            "id": "gpt-4o-mini",
+            "labels": ["fast", "chat"]
+          },
+          {
+            "id": "gpt-4o",
+            "labels": ["reasoning"]
+          }
+        ]
+      },
+      {
+        "id": "deepseek",
+        "api": "openai",
+        "baseUrl": "https://api.deepseek.com/v1",
+        "apiKey": "${env:DEEPSEEK_API_KEY}",
+        "models": [
+          {
+            "id": "deepseek-chat",
+            "contextWindow": 65536
+          },
+          {
+            "id": "deepseek-reasoner",
+            "contextWindow": 65536
+          }
+        ]
+      }
+    ],
+    "configurations": [
+      {
+        "id": "base-chat",
+        "openclaw": {
+          "policies": {
+            "maxTokensPerResponse": 1024,
+            "timeoutSeconds": 30
+          }
+        }
+      }
+    ]
+  },
+  "deployments": {
+    "namespace": "shadowob-cloud",
+    "agents": [
+      {
+        "id": "my-agent",
+        "runtime": "openclaw",
+        "configuration": {
+          "extends": "base-chat",
+          "openclaw": {
+            "systemPrompt": "You are a helpful AI assistant.",
+            "tools": {
+              "profile": "full",
+              "web": {
+                "search": {
+                  "enabled": true
+                },
+                "fetch": {
+                  "enabled": true
+                }
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

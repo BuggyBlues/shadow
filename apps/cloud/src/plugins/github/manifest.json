@@ -1,0 +1,41 @@
+{
+  "id": "github",
+  "name": "GitHub",
+  "description": "Connect agents to GitHub for code review, PR management, issue tracking, and repository operations via the official GitHub MCP server",
+  "version": "1.0.0",
+  "category": "code",
+  "icon": "github",
+  "website": "https://github.com",
+  "docs": "https://github.com/github/github-mcp-server",
+  "auth": {
+    "type": "token",
+    "fields": [
+      {
+        "key": "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "label": "GitHub Personal Access Token",
+        "description": "Personal access token with repo, issues, and pull request scopes",
+        "required": true,
+        "sensitive": true,
+        "placeholder": "ghp_..."
+      }
+    ]
+  },
+  "config": {
+    "type": "object",
+    "properties": {
+      "toolsets": {
+        "type": "string",
+        "description": "Comma-separated list of tool groups to enable (repos, issues, pull_requests, code_security, experiments, users, notifications)",
+        "default": "repos,issues,pull_requests"
+      },
+      "readOnly": {
+        "type": "boolean",
+        "default": false,
+        "description": "Restrict to read-only operations"
+      }
+    }
+  },
+  "capabilities": ["tool", "webhook", "action"],
+  "tags": ["code", "git", "vcs", "developer", "devops", "mcp"],
+  "popularity": 98
+}

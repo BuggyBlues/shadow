@@ -1,0 +1,292 @@
+@import "tailwindcss";
+
+/* ── Dark mode: class-based strategy ───────────────────────────────── */
+@variant dark (&:where(.dark, .dark *));
+
+/* ── Neon Frost Design System ─────────────────────────────────────── */
+
+@theme {
+  /* Brand palette */
+  --color-nf-cyan: #00F3FF;
+  --color-nf-cyan-strong: #00c6d1;
+  --color-nf-yellow: #F8E71C;
+  --color-nf-yellow-strong: #ffb300;
+  --color-nf-crimson: #FF2A55;
+  --color-nf-emerald: #00E676;
+  --color-nf-indigo: #7C4DFF;
+
+  /* Bouncy timing function */
+  --ease-bouncy: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Border radii */
+  --radius-pill: 9999px;
+  --radius-card: 24px;
+  --radius-input: 16px;
+}
+
+/* ── Fonts ──────────────────────────────────────────────────────────── */
+
+@layer base {
+  @font-face {
+    font-family: 'Nunito';
+    font-style: normal;
+    font-weight: 500 900;
+    font-display: swap;
+    src: url('https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800;900&display=swap');
+  }
+
+  html {
+    font-family: 'Nunito', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* ── Dark theme (default) ──────────────────────────────────────────── */
+
+:root, .dark {
+  --nf-bg-core:     #050508;
+  --nf-bg-surface:  #12121A;
+  --nf-bg-raised:   #1a1a26;
+  --nf-bg-glass:    rgba(18, 18, 26, 0.75);
+  --nf-bg-glass-2:  rgba(30, 30, 42, 0.6);
+
+  --nf-border:      rgba(255, 255, 255, 0.08);
+  --nf-border-strong: rgba(255, 255, 255, 0.15);
+
+  --nf-text-high:   #F1F5F9;
+  --nf-text-mid:    #94A3B8;
+  --nf-text-muted:  #64748B;
+
+  --nf-sidebar-bg:  #0a0a12;
+  --nf-sidebar-active: rgba(0, 243, 255, 0.12);
+
+  --nf-glass-blur:  24px;
+  --nf-shadow-card: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+  --nf-shadow-glow: 0 0 40px rgba(0, 198, 209, 0.15);
+}
+
+/* ── Light theme ───────────────────────────────────────────────────── */
+
+.light {
+  --nf-bg-core:     #F8FAFC;
+  --nf-bg-surface:  #FFFFFF;
+  --nf-bg-raised:   #F1F5F9;
+  --nf-bg-glass:    rgba(255, 255, 255, 0.75);
+  --nf-bg-glass-2:  rgba(241, 245, 249, 0.6);
+
+  --nf-border:      rgba(0, 0, 0, 0.08);
+  --nf-border-strong: rgba(0, 0, 0, 0.15);
+
+  --nf-text-high:   #0F172A;
+  --nf-text-mid:    #475569;
+  --nf-text-muted:  #94A3B8;
+
+  --nf-sidebar-bg:  #FFFFFF;
+  --nf-sidebar-active: rgba(0, 198, 209, 0.10);
+
+  --nf-glass-blur:  32px;
+  --nf-shadow-card: 0 8px 32px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9);
+  --nf-shadow-glow: 0 0 40px rgba(0, 198, 209, 0.08);
+}
+
+/* ── Utility classes ───────────────────────────────────────────────── */
+
+@layer utilities {
+  .nf-glass {
+    background: var(--nf-bg-glass);
+    backdrop-filter: blur(var(--nf-glass-blur));
+    -webkit-backdrop-filter: blur(var(--nf-glass-blur));
+    border: 1px solid var(--nf-border);
+    box-shadow: var(--nf-shadow-card);
+  }
+
+  .nf-glass-2 {
+    background: var(--nf-bg-glass-2);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--nf-border);
+  }
+
+  .nf-glow {
+    box-shadow: var(--nf-shadow-glow);
+  }
+
+  .nf-bouncy {
+    transition: all 0.4s var(--ease-bouncy);
+  }
+  .nf-bouncy:hover {
+    transform: translateY(-3px) scale(1.02);
+  }
+  .nf-bouncy:active {
+    transform: translateY(0) scale(0.97);
+  }
+
+  .nf-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 10px 24px;
+    border-radius: var(--radius-pill);
+    font-weight: 800;
+    letter-spacing: 0.03em;
+  }
+
+  .nf-pill-cyan {
+    background: linear-gradient(135deg, var(--color-nf-cyan), var(--color-nf-cyan-strong));
+    color: #050508;
+    box-shadow: 0 6px 20px rgba(0, 198, 209, 0.3), inset 0 1px 2px rgba(255,255,255,0.5);
+  }
+
+  .nf-pill-yellow {
+    background: linear-gradient(135deg, var(--color-nf-yellow), var(--color-nf-yellow-strong));
+    color: #050508;
+    box-shadow: 0 6px 20px rgba(248, 231, 28, 0.3), inset 0 1px 2px rgba(255,255,255,0.5);
+  }
+
+  .nf-card {
+    background: var(--nf-bg-surface);
+    border-radius: var(--radius-card);
+    border: 1px solid var(--nf-border);
+    box-shadow: var(--nf-shadow-card);
+    padding: 24px;
+  }
+
+  .nf-input {
+    width: 100%;
+    padding: 12px 18px;
+    border-radius: var(--radius-input);
+    border: 1.5px solid var(--nf-border-strong);
+    background: var(--nf-bg-surface);
+    color: var(--nf-text-high);
+    font-weight: 600;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .nf-input:focus {
+    border-color: var(--color-nf-cyan-strong);
+    box-shadow: 0 0 0 3px rgba(0, 198, 209, 0.15);
+  }
+  .nf-input::placeholder {
+    color: var(--nf-text-muted);
+    font-weight: 500;
+  }
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--nf-border-strong);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--nf-text-muted);
+}
+
+/* ── Background orbs (optional ambient glow for pages) ─────────────── */
+
+@keyframes nf-float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, 50px) scale(1.04); }
+  66% { transform: translate(-20px, 15px) scale(0.96); }
+}
+
+.nf-orb {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(120px);
+  z-index: 0;
+  opacity: 0.3;
+  pointer-events: none;
+  animation: nf-float 25s infinite ease-in-out;
+}
+
+.light .nf-orb {
+  opacity: 0.15;
+}
+
+/* ── Light-mode overrides for existing Tailwind usage ──────────────── */
+/* These let existing gray-950/900/800 dark palette adapt to light theme */
+
+@layer utilities {
+  .light .bg-gray-950 { background-color: var(--nf-bg-core) !important; }
+  .light .bg-gray-900 { background-color: var(--nf-bg-surface) !important; }
+  .light .bg-gray-800 { background-color: var(--nf-bg-raised) !important; }
+  .light .bg-gray-800\/20 { background-color: rgba(0,0,0,0.03) !important; }
+  .light .bg-gray-800\/60 { background-color: rgba(0,0,0,0.04) !important; }
+
+  .light .border-gray-800 { border-color: var(--nf-border) !important; }
+  .light .border-gray-800\/50 { border-color: var(--nf-border) !important; }
+  .light .border-gray-700 { border-color: var(--nf-border-strong) !important; }
+
+  .light .text-white { color: var(--nf-text-high) !important; }
+  .light .text-gray-200 { color: var(--nf-text-high) !important; }
+  .light .text-gray-300 { color: var(--nf-text-high) !important; }
+  .light .text-gray-400 { color: var(--nf-text-mid) !important; }
+  .light .text-gray-500 { color: var(--nf-text-muted) !important; }
+  .light .text-gray-600 { color: var(--nf-text-muted) !important; }
+  .light .text-gray-700 { color: var(--nf-text-muted) !important; }
+
+  .light .divide-gray-800\/50 > :not(:last-child) { border-color: var(--nf-border) !important; }
+  .light .divide-gray-800 > :not(:last-child) { border-color: var(--nf-border) !important; }
+
+  /* Replace blue accent with cyan in light mode */
+  .light .text-blue-400 { color: var(--color-nf-cyan-strong) !important; }
+  .light .text-blue-300 { color: var(--color-nf-cyan) !important; }
+  .light .bg-blue-600\/20 { background-color: var(--nf-sidebar-active) !important; }
+
+  .light .bg-gray-900\/50 { background-color: rgba(241, 245, 249, 0.5) !important; }
+  .light .bg-gray-900\/30 { background-color: rgba(241, 245, 249, 0.3) !important; }
+  .light .bg-gray-700 { background-color: #E2E8F0 !important; }
+  .light .bg-black\/70 { background-color: rgba(0, 0, 0, 0.4) !important; }
+  .light .bg-black\/50 { background-color: rgba(0, 0, 0, 0.3) !important; }
+
+  /* Badge / status light-mode backgrounds */
+  .light .bg-green-900\/50 { background-color: rgba(0, 230, 118, 0.1) !important; }
+  .light .bg-green-900\/30 { background-color: rgba(0, 230, 118, 0.08) !important; }
+  .light .bg-yellow-900\/50 { background-color: rgba(248, 231, 28, 0.1) !important; }
+  .light .bg-red-900\/50 { background-color: rgba(255, 42, 85, 0.1) !important; }
+  .light .bg-red-900\/30 { background-color: rgba(255, 42, 85, 0.08) !important; }
+  .light .bg-blue-900\/50 { background-color: rgba(0, 198, 209, 0.1) !important; }
+  .light .bg-blue-600 { background-color: var(--color-nf-cyan-strong) !important; }
+  .light .bg-blue-500\/10 { background-color: rgba(0, 198, 209, 0.1) !important; }
+  .light .bg-blue-500\/50 { background-color: rgba(0, 198, 209, 0.3) !important; }
+  .light .hover\:bg-blue-500:hover { background-color: var(--color-nf-cyan) !important; }
+  .light .hover\:bg-gray-700:hover { background-color: #E2E8F0 !important; }
+  .light .hover\:bg-gray-800:hover { background-color: var(--nf-bg-raised) !important; }
+  .light .hover\:border-gray-700:hover { border-color: var(--nf-border-strong) !important; }
+  .light .hover\:border-gray-500:hover { border-color: var(--nf-text-muted) !important; }
+  .light .hover\:text-white:hover { color: var(--nf-text-high) !important; }
+  .light .hover\:text-gray-300:hover { color: var(--nf-text-high) !important; }
+  .light .border-gray-600 { border-color: var(--nf-border-strong) !important; }
+  .light .border-blue-500 { border-color: var(--color-nf-cyan-strong) !important; }
+  .light .border-blue-600 { border-color: var(--color-nf-cyan-strong) !important; }
+  .light .border-red-500 { border-color: var(--color-nf-crimson) !important; }
+
+  /* Focus states */
+  .light .focus\:border-blue-500:focus { border-color: var(--color-nf-cyan-strong) !important; }
+  .light .focus\:ring-blue-500\/30:focus { --tw-ring-color: rgba(0, 198, 209, 0.3) !important; }
+
+  /* Placeholder */
+  .light .placeholder-gray-600::placeholder { color: var(--nf-text-muted) !important; }
+
+  /* Gradient overlays in light mode */
+  .light .from-blue-950\/40 { --tw-gradient-from: rgba(0, 198, 209, 0.06) !important; }
+  .light .from-green-950\/30 { --tw-gradient-from: rgba(0, 230, 118, 0.06) !important; }
+  .light .from-purple-950\/30 { --tw-gradient-from: rgba(124, 77, 255, 0.06) !important; }
+  .light .from-yellow-950\/30 { --tw-gradient-from: rgba(248, 231, 28, 0.06) !important; }
+  .light .to-gray-900 { --tw-gradient-to: var(--nf-bg-surface) !important; }
+
+  /* Button colors in light mode */
+  .light .bg-red-600 { background-color: var(--color-nf-crimson) !important; }
+  .light .hover\:bg-red-500:hover { background-color: #FF4D73 !important; }
+  .light .disabled\:bg-gray-700:disabled { background-color: #E2E8F0 !important; }
+  .light .disabled\:text-gray-500:disabled { color: var(--nf-text-muted) !important; }
+}

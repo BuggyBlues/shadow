@@ -1,0 +1,111 @@
+{
+  "$comment": "Template with managed-agents features: vault isolation, permissions, networking, versioning",
+  "version": "1",
+  "name": "Managed Agents Demo",
+  "description": "Demonstrates P0/P1 managed-agents features",
+  "environment": "development",
+
+  "vaults": {
+    "default": {
+      "providers": {
+        "anthropic": { "apiKey": "${env:ANTHROPIC_API_KEY}" },
+        "openai": { "apiKey": "${env:OPENAI_API_KEY}" }
+      },
+      "secrets": {
+        "github-token": "${env:GITHUB_TOKEN}"
+      }
+    },
+    "restricted": {
+      "providers": {
+        "anthropic": { "apiKey": "${env:RESTRICTED_ANTHROPIC_KEY}" }
+      }
+    }
+  },
+
+  "registry": {
+    "configurations": [
+      {
+        "id": "base",
+        "openclaw": {
+          "agents": {
+            "defaults": {
+              "model": { "primary": "claude-sonnet-4-20250514" }
+            }
+          }
+        }
+      }
+    ]
+  },
+
+  "deployments": {
+    "namespace": "managed-agents-demo",
+    "agents": [
+      {
+        "id": "code-assistant",
+        "runtime": "claude-code",
+        "version": "1.0.0",
+        "changelog": "Initial release with coding assistance",
+        "vault": "default",
+        "configuration": { "extends": "base" },
+        "permissions": {
+          "default": "approve-reads",
+          "tools": {
+            "bash": "always-ask",
+            "file-write": "approve-reads",
+            "web-fetch": "always-allow",
+            "mcp-*": "always-ask"
+          },
+          "nonInteractive": "deny"
+        },
+        "networking": {
+          "type": "limited",
+          "allowedHosts": ["api.anthropic.com", "api.github.com"],
+          "allowMcpServers": true,
+          "allowPackageManagers": false
+        },
+        "identity": {
+          "name": "Code Assistant",
+          "personality": "You are a careful, security-conscious code reviewer.",
+          "systemPrompt": "Help users write clean, tested, and secure code."
+        },
+        "description": "Code assistant with restricted permissions and vault isolation"
+      },
+      {
+        "id": "researcher",
+        "runtime": "openclaw",
+        "version": "2.1.0",
+        "changelog": "Added web search capabilities",
+        "vault": "restricted",
+        "configuration": { "extends": "base" },
+        "permissions": {
+          "default": "always-allow",
+          "tools": {
+            "bash": "deny-all",
+            "file-write": "deny-all"
+          }
+        },
+        "networking": {
+          "type": "unrestricted"
+        },
+        "identity": {
+          "name": "Researcher",
+          "systemPrompt": "Research topics and provide summaries."
+        },
+        "description": "Research agent with unrestricted networking but no filesystem access"
+      },
+      {
+        "id": "sandboxed-runner",
+        "runtime": "openclaw",
+        "version": "0.5.0",
+        "configuration": { "extends": "base" },
+        "permissions": {
+          "default": "deny-all"
+        },
+        "networking": {
+          "type": "deny-all"
+        },
+        "description": "Fully sandboxed agent — no network, no tools"
+      }
+    ]
+  }
+}

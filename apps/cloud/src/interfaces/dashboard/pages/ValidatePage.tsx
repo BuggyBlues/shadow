@@ -1,0 +1,172 @@
+import { useMutation } from '@tanstack/react-query'
+import { clsx } from 'clsx'
+import { AlertTriangle, CheckCircle, Shield } from 'lucide-react'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { api, type ValidateResult } from '@/lib/api'
+import { useToast } from '@/stores/toast'
+
+export function ValidatePage() {
+  const { t } = useTranslation()
+  const toast = useToast()
+  const [configText, setConfigText] = useState('')
+  const [result, setResult] = useState<ValidateResult | null>(null)
+
+  const mutation = useMutation({
+    mutationFn: (config: unknown) => api.validate(config),
+    onSuccess: (data) => {
+      setResult(data)
+      if (data.valid) toast.success(`Valid: ${data.agents} agent(s)`)
+      else toast.error(`Invalid: ${data.violations.length} violation(s)`)
+    },
+  })
+
+  const handleValidate = () => {
+    try {
+      const parsed = JSON.parse(configText)
+      setResult(null)
+      mutation.mutate(parsed)
+    } catch {
+      toast.error('Invalid JSON — cannot validate')
+      setResult(null)
+      mutation.reset()
+    }
+  }
+
+  const handleLoadSample = async () => {
+    try {
+      const content = await api.init()
+      setConfigText(JSON.stringify(content, null, 2))
+      toast.info('Template loaded')
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return (
+    <div className="p-6 max-w-4xl">
+      <div className="mb-6">
+        <h1 className="text-xl font-semibold">{t('validate.title')}</h1>
+        <p className="text-sm text-gray-500 mt-0.5">{t('validate.description')}</p>
+      </div>
+
+      <div className="space-y-4">
+        {/* Editor */}
+        <div className="relative">
+          <textarea
+            value={configText}
+            onChange={(e) => setConfigText(e.target.value)}
+            placeholder={t('validate.pasteConfig')}
+            className="w-full h-80 bg-gray-950 border border-gray-700 rounded-lg p-4 font-mono text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-blue-500 resize-y"
+            spellCheck={false}
+          />
+          <button
+            type="button"
+            onClick={handleLoadSample}
+            className="absolute top-2 right-2 text-xs text-gray-500 hover:text-white border border-gray-700 rounded px-2 py-1"
+          >
+            {t('validate.loadTemplate')}
+          </button>
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleValidate}
+            disabled={!configText.trim() || mutation.isPending}
+            className={clsx(
+              'flex items-center gap-1.5 text-sm px-4 py-2 rounded transition-colors',
+              !configText.trim() || mutation.isPending
+                ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-500 text-white',
+            )}
+          >
+            <Shield size={14} />
+            {mutation.isPending ? t('validate.validating') : t('validate.title')}
+          </button>
+        </div>
+
+        {/* Parse error */}
+        {mutation.error && (
+          <div className="bg-red-900/30 border border-red-800 rounded-lg p-4 text-red-400 text-sm">
+            <div className="flex items-center gap-2 mb-1 font-medium">
+              <AlertTriangle size={14} />
+              {t('validate.validationError')}
+            </div>
+            <p className="font-mono text-xs">{mutation.error.message}</p>
+          </div>
+        )}
+
+        {/* Results */}
+        {result && (
+          <div
+            className={clsx(
+              'border rounded-lg p-4',
+              result.valid ? 'bg-green-900/20 border-green-800' : 'bg-red-900/20 border-red-800',
+            )}
+          >
+            <div className="flex items-center gap-2 mb-3">
+              {result.valid ? (
+                <CheckCircle size={16} className="text-green-400" />
+              ) : (
+                <AlertTriangle size={16} className="text-red-400" />
+              )}
+              <span
+                className={clsx(
+                  'text-sm font-medium',
+                  result.valid ? 'text-green-400' : 'text-red-400',
+                )}
+              >
+                {result.valid ? t('validate.configValid') : t('validate.configHasIssues')}
+              </span>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-3 mb-3">
+              <div className="bg-gray-900/50 rounded p-2">
+                <p className="text-xs text-gray-500">{t('validate.agents')}</p>
+                <p className="text-lg font-semibold">{result.agents}</p>
+              </div>
+              <div className="bg-gray-900/50 rounded p-2">
+                <p className="text-xs text-gray-500">{t('validate.configurations')}</p>
+                <p className="text-lg font-semibold">{result.configurations}</p>
+              </div>
+              <div className="bg-gray-900/50 rounded p-2">
+                <p className="text-xs text-gray-500">{t('validate.templateRefs')}</p>
+                <p className="text-xs mt-1 text-gray-400">
+                  {result.templateRefs.env} {t('validate.env')}, {result.templateRefs.secret}{' '}
+                  {t('validate.secret')}, {result.templateRefs.file} {t('validate.file')}
+                </p>
+              </div>
+            </div>
+
+            {/* Violations */}
+            {result.violations.length > 0 && (
+              <div className="space-y-1 mb-2">
+                <p className="text-xs text-red-400 font-medium">{t('validate.inlineApiKeys')}</p>
+                {result.violations.map((v, i) => (
+                  <div key={i} className="text-xs text-red-300 font-mono pl-4">
+                    {v.path} (prefix: {v.prefix})
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Extends errors */}
+            {result.extendsErrors.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-xs text-red-400 font-medium">{t('validate.extendsErrors')}</p>
+                {result.extendsErrors.map((e, i) => (
+                  <div key={i} className="text-xs text-red-300 font-mono pl-4">
+                    {e}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

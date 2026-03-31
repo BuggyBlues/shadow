@@ -44,9 +44,10 @@ jobs:
             const data = require('fs').readFileSync('/dev/stdin','utf8');
             try {
               const obj = JSON.parse(data);
-              const meta = obj.metadata || {};
-              const vuln = meta.vulnerabilities || {};
-              const count = (vuln.critical || 0) + (vuln.high || 0);
+              let count = 0;
+              for (const adv of Object.values(obj.advisories || {})) {
+                if (adv.severity === 'critical' || adv.severity === 'high') count++;
+              }
               console.log(count);
             } catch { console.log('0'); }
           ")

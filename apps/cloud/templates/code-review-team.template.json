@@ -1,0 +1,276 @@
+{
+  "version": "1.0.0",
+  "name": "Code Review Team",
+  "description": "Three-agent code review team: code reviewer, security scanner, and documentation auditor. Automatically reviews PRs on GitHub, flags security issues, and ensures documentation stays current.",
+  "environment": "production",
+  "team": {
+    "name": "code-review-team",
+    "description": "Automated code review, security scanning, and documentation audit team",
+    "defaultModel": {
+      "preferred": "anthropic/claude-sonnet-4-5",
+      "fallbacks": ["deepseek/deepseek-chat", "openai/gpt-4o"],
+      "constraints": {
+        "temperature": 0.2,
+        "maxTokens": 8192,
+        "thinkingLevel": "medium"
+      }
+    }
+  },
+  "plugins": {
+    "shadowob": {
+      "servers": [
+        {
+          "id": "eng-hub",
+          "name": "Engineering Hub",
+          "slug": "eng-hub",
+          "channels": [
+            {
+              "id": "code-reviews",
+              "title": "Code Reviews",
+              "type": "text"
+            },
+            {
+              "id": "security",
+              "title": "Security",
+              "type": "text"
+            },
+            {
+              "id": "docs",
+              "title": "Documentation",
+              "type": "text"
+            }
+          ]
+        }
+      ],
+      "buddies": [
+        {
+          "id": "reviewer-bot",
+          "name": "Code Reviewer"
+        },
+        {
+          "id": "security-bot",
+          "name": "Security Scanner"
+        },
+        {
+          "id": "docs-bot",
+          "name": "Docs Auditor"
+        }
+      ],
+      "bindings": [
+        {
+          "targetId": "reviewer-bot",
+          "targetType": "buddy",
+          "servers": ["eng-hub"],
+          "channels": ["code-reviews"],
+          "agentId": "code-reviewer"
+        },
+        {
+          "targetId": "security-bot",
+          "targetType": "buddy",
+          "servers": ["eng-hub"],
+          "channels": ["security"],
+          "agentId": "security-scanner"
+        },
+        {
+          "targetId": "docs-bot",
+          "targetType": "buddy",
+          "servers": ["eng-hub"],
+          "channels": ["docs"],
+          "agentId": "docs-auditor"
+        }
+      ]
+    }
+  },
+  "registry": {
+    "providers": [
+      {
+        "id": "anthropic",
+        "api": "anthropic",
+        "apiKey": "${env:ANTHROPIC_API_KEY}",
+        "models": [
+          {
+            "id": "claude-sonnet-4-5",
+            "contextWindow": 200000
+          },
+          {
+            "id": "claude-haiku-4-5",
+            "contextWindow": 200000
+          }
+        ]
+      },
+      {
+        "id": "deepseek",
+        "api": "openai",
+        "baseUrl": "https://api.deepseek.com/v1",
+        "apiKey": "${env:DEEPSEEK_API_KEY}",
+        "models": [
+          {
+            "id": "deepseek-chat",
+            "contextWindow": 65536
+          },
+          {
+            "id": "deepseek-reasoner",
+            "contextWindow": 65536
+          }
+        ]
+      }
+    ],
+    "configurations": [
+      {
+        "id": "eng-base",
+        "openclaw": {
+          "tools": {
+            "profile": "coding",
+            "web": {
+              "fetch": {
+                "enabled": true
+              }
+            }
+          },
+          "session": {
+            "dmScope": "per-peer"
+          }
+        }
+      }
+    ]
+  },
+  "workspace": {
+    "enabled": true,
+    "storageSize": "20Gi",
+    "mountPath": "/workspace/shared"
+  },
+  "deployments": {
+    "namespace": "code-review-team",
+    "agents": [
+      {
+        "id": "code-reviewer",
+        "runtime": "openclaw",
+        "description": "Reviews open GitHub PRs for code quality, performance, and best practices. Posts review comments directly on the PR.",
+        "identity": {
+          "name": "Code Reviewer",
+          "personality": "You are a senior software engineer with 10+ years of experience across TypeScript, Python, Go, and Rust. You give thorough, constructive code reviews that focus on correctness, performance, maintainability, and elegance. You always explain *why* something should change, not just *what* to change. You're generous with praise when code is well-written. You prioritize blocking issues before style nits.",
+          "systemPrompt": "Review GitHub pull requests in the configured repository. Every 15 minutes, check for open PRs that haven't been reviewed yet. For each unreviewed PR:\n1. Read all changed files\n2. Check for: correctness, performance, security (surface-level), test coverage, code style\n3. Post a review comment on the PR with: summary, blocking issues (if any), suggestions, and praise for good code\n4. Report to the code-reviews channel with a brief summary\n\nALWAYS:\n- Be constructive and specific\n- Suggest the fix, not just the problem\n- Distinguish blocking from non-blocking issues"
+        },
+        "integrations": [
+          {
+            "name": "github",
+            "credentials": {
+              "GITHUB_TOKEN": "${env:GITHUB_TOKEN}"
+            }
+          }
+        ],
+        "configuration": {
+          "extends": "eng-base",
+          "openclaw": {
+            "agents": {
+              "defaults": {
+                "heartbeat": {
+                  "every": "15m",
+                  "prompt": "Check for open PRs that need review. Review any unreviewed PRs. Report your findings.",
+                  "to": "shadowob",
+                  "target": "code-reviews"
+                }
+              }
+            }
+          }
+        },
+        "resources": {
+          "requests": {
+            "cpu": "200m",
+            "memory": "512Mi"
+          },
+          "limits": {
+            "cpu": "2000m",
+            "memory": "2Gi"
+          }
+        }
+      },
+      {
+        "id": "security-scanner",
+        "runtime": "openclaw",
+        "description": "Scans PRs for security issues: injection vulnerabilities, exposed secrets, insecure dependencies, OWASP Top 10 violations.",
+        "identity": {
+          "name": "Security Scanner",
+          "personality": "You are a cybersecurity specialist focused on application security. You know the OWASP Top 10 cold, understand common vulnerability patterns in TypeScript/Python/Go, and can spot hardcoded secrets from a mile away. You are methodical, never miss injection patterns, and always provide clear remediation guidance with code examples. You take security seriously but understand business context.",
+          "systemPrompt": "Perform security analysis on every open GitHub PR. Check for:\n- OWASP Top 10 violations (SQL injection, XSS, CSRF, insecure deserialization, etc.)\n- Hardcoded secrets, API keys, and credentials\n- Dangerous function calls (eval(), exec(), subprocess.run with shell=True, etc.)\n- Insecure dependencies (check npm audit / pip audit output)\n- Authentication/authorization flaws\n- Improper input validation\n\nFor each finding: severity (CRITICAL/HIGH/MEDIUM/LOW), file:line, description, and remediation code.\nPost findings as PR review comments. Alert the security channel for CRITICAL/HIGH findings immediately."
+        },
+        "integrations": [
+          {
+            "name": "github",
+            "credentials": {
+              "GITHUB_TOKEN": "${env:GITHUB_TOKEN}"
+            }
+          }
+        ],
+        "configuration": {
+          "extends": "eng-base",
+          "openclaw": {
+            "agents": {
+              "defaults": {
+                "heartbeat": {
+                  "every": "20m",
+                  "prompt": "Scan all open PRs for security vulnerabilities. Report any HIGH or CRITICAL findings immediately.",
+                  "to": "shadowob",
+                  "target": "security"
+                }
+              }
+            }
+          }
+        },
+        "resources": {
+          "requests": {
+            "cpu": "200m",
+            "memory": "512Mi"
+          },
+          "limits": {
+            "cpu": "2000m",
+            "memory": "2Gi"
+          }
+        }
+      },
+      {
+        "id": "docs-auditor",
+        "runtime": "openclaw",
+        "description": "Audits PRs for missing or outdated documentation: README, API docs, inline comments, and changelogs.",
+        "identity": {
+          "name": "Docs Auditor",
+          "personality": "You believe that code without documentation is a liability. You check every PR for missing JSDoc/docstrings on public APIs, missing README updates for new features, absent changelog entries, and unclear naming. You write beautifully clear documentation yourself and expect the same from the code you review. You're persistent but fair — you know when a comment is obvious noise vs essential context.",
+          "systemPrompt": "Audit GitHub PRs for documentation quality. For each PR check:\n1. New public functions/classes/APIs have JSDoc/docstring\n2. New features are documented in README or relevant docs files\n3. CHANGELOG.md is updated for user-facing changes\n4. Complex logic has explanatory comments\n5. Variable and function names are self-documenting\n\nPost documentation feedback as PR review suggestions. Generate a weekly docs quality report every Monday at 8am UTC to the docs channel."
+        },
+        "integrations": [
+          {
+            "name": "github",
+            "credentials": {
+              "GITHUB_TOKEN": "${env:GITHUB_TOKEN}"
+            }
+          }
+        ],
+        "configuration": {
+          "extends": "eng-base",
+          "openclaw": {
+            "agents": {
+              "defaults": {
+                "heartbeat": {
+                  "every": "30m",
+                  "prompt": "Check open PRs for documentation gaps. Report missing docs. On Mondays generate a weekly docs quality report.",
+                  "to": "shadowob",
+                  "target": "docs"
+                }
+              }
+            }
+          }
+        },
+        "resources": {
+          "requests": {
+            "cpu": "100m",
+            "memory": "256Mi"
+          },
+          "limits": {
+            "cpu": "1000m",
+            "memory": "1Gi"
+          }
+        }
+      }
+    ]
+  }
+}

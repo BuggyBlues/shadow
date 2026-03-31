@@ -77,7 +77,8 @@
       "!apps/desktop/test-results",
       "!docs/e2e/screenshots",
       "!**/*.min.js",
-      "!**/drizzle"
+      "!**/drizzle",
+      "!apps/cloud/src/interfaces/dashboard/styles/globals.css"
     ]
   }
 }

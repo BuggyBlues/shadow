@@ -1,0 +1,64 @@
+/**
+ * IoC Container — service registry and dependency injection.
+ *
+ * All services are registered here and injected via constructor.
+ * Use createContainer() to get a fully-wired ServiceContainer.
+ *
+ * For SDK use: import { createContainer } from '@shadowob/cloud/services/container'
+ * For testing: pass overrides to createContainer({ logger: mockLogger })
+ */
+
+import { type Logger, log } from '../utils/logger.js'
+import { ConfigService } from './config.service.js'
+import { DeployService } from './deploy.service.js'
+import { ImageService } from './image.service.js'
+import { K8sService } from './k8s.service.js'
+import { ManifestService } from './manifest.service.js'
+import { ProvisionService } from './provision.service.js'
+import { RuntimeService } from './runtime.service.js'
+import { TemplateService } from './template.service.js'
+
+/**
+ * Service container interface — all services accessible via a single object.
+ */
+export interface ServiceContainer {
+  logger: Logger
+  config: ConfigService
+  manifest: ManifestService
+  provision: ProvisionService
+  deploy: DeployService
+  template: TemplateService
+  runtime: RuntimeService
+  image: ImageService
+  k8s: K8sService
+}
+
+/**
+ * Create a fully-wired service container.
+ *
+ * @param overrides - Optional partial overrides for testing or custom configurations.
+ *                    Override individual services or the logger.
+ */
+export function createContainer(overrides?: Partial<ServiceContainer>): ServiceContainer {
+  const logger = overrides?.logger ?? log
+  const config = overrides?.config ?? new ConfigService()
+  const manifest = overrides?.manifest ?? new ManifestService()
+  const provision = overrides?.provision ?? new ProvisionService()
+  const template = overrides?.template ?? new TemplateService()
+  const runtime = overrides?.runtime ?? new RuntimeService()
+  const image = overrides?.image ?? new ImageService(logger)
+  const k8s = overrides?.k8s ?? new K8sService()
+  const deploy = overrides?.deploy ?? new DeployService(config, manifest, provision, k8s, logger)
+
+  return { logger, config, manifest, provision, deploy, template, runtime, image, k8s }
+}
+
+// Re-export service classes for SDK use
+export { ConfigService } from './config.service.js'
+export { type DeployOptions, type DeployResult, DeployService } from './deploy.service.js'
+export { IMAGES, type ImageBuildOptions, ImageService } from './image.service.js'
+export { K8sService } from './k8s.service.js'
+export { ManifestService } from './manifest.service.js'
+export { ProvisionService } from './provision.service.js'
+export { RuntimeService } from './runtime.service.js'
+export { type TemplateMeta, TemplateService } from './template.service.js'

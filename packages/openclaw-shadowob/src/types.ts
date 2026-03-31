@@ -14,6 +14,12 @@ export type ShadowAccountConfig = {
   serverUrl: string
   enabled?: boolean
   agentId?: string
+  /** Buddy display name — injected by cloud parser for AI context */
+  buddyName?: string
+  /** Buddy description — injected by cloud parser for AI context */
+  buddyDescription?: string
+  /** Buddy config ID — injected by cloud parser for AI context */
+  buddyId?: string
 }
 
 // ─── Shadow Policy Config (per-channel, from remote config) ─────────────────

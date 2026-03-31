@@ -42,6 +42,7 @@ export function createAgentsCommand(): Command {
     .command('create')
     .description('Create a new agent')
     .requiredOption('--name <name>', 'Agent name')
+    .requiredOption('--username <username>', 'Agent username')
     .option('--display-name <name>', 'Display name')
     .option('--avatar-url <url>', 'Avatar URL')
     .option('--profile <name>', 'Profile to use')
@@ -49,6 +50,7 @@ export function createAgentsCommand(): Command {
     .action(
       async (options: {
         name: string
+        username: string
         displayName?: string
         avatarUrl?: string
         profile?: string
@@ -58,6 +60,7 @@ export function createAgentsCommand(): Command {
           const client = await getClient(options.profile)
           const agent = await client.createAgent({
             name: options.name,
+            username: options.username,
             displayName: options.displayName,
             avatarUrl: options.avatarUrl,
           })

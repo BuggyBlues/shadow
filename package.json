@@ -16,11 +16,34 @@
       "sharp"
     ],
     "overrides": {
-      "isbinaryfile": "^5.0.7"
+      "isbinaryfile": "^5.0.7",
+      "axios": ">=1.15.0",
+      "@xmldom/xmldom": ">=0.8.12",
+      "basic-ftp": ">=5.2.2",
+      "node-forge": ">=1.4.0",
+      "socket.io-parser": ">=4.2.6",
+      "fast-xml-parser": ">=5.5.6",
+      "picomatch@<3": ">=2.3.2",
+      "picomatch@>=3 <4": ">=3.0.2",
+      "picomatch@>=4": ">=4.0.4",
+      "lodash": ">=4.18.0",
+      "lodash-es": ">=4.18.0",
+      "openclaw": ">=2026.3.24",
+      "tar": ">=7.5.11"
+    },
+    "auditConfig": {
+      "ignoreCves": [
+        "CVE-2023-30533",
+        "CVE-2024-22363",
+        "CVE-2026-4926"
+      ]
     }
   },
   "scripts": {
     "dev": "pnpm build:packages && pnpm -r --parallel dev",
+    "dev:cloud": "pnpm --filter @shadowob/cloud dev",
+    "dev:cloud-dashboard": "pnpm --filter @shadowob/cloud dashboard:dev",
+    "cloud:serve": "pnpm --filter @shadowob/cloud exec shadow-cloud serve",
     "build:packages": "pnpm --filter @shadowob/shared build && pnpm --filter @shadowob/sdk build && pnpm --filter @shadowob/oauth build && pnpm --filter @shadowob/openclaw-shadowob build && pnpm --filter @shadowob/cli build",
     "build": "pnpm build:packages && pnpm -r build",
     "lint": "biome lint . --diagnostic-level=error",
@@ -38,6 +61,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "e2e:cloud:cli": "pnpm --filter @shadowob/cloud test:e2e:cli",
+    "e2e:cloud:dashboard": "pnpm --filter @shadowob/cloud test:e2e:dashboard",
     "e2e:screenshots:readme": "node scripts/e2e/capture-readme-gallery.mjs",
     "e2e:screenshots:seed": "node scripts/e2e/seed-screenshot-env.mjs",
     "e2e:screenshots:web": "pnpm --filter @shadowob/desktop exec playwright test -c playwright.web.config.ts",

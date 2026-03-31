@@ -458,6 +458,12 @@ async function processShadowMessage(params: {
     BotUsername: botUsername,
     AgentId: route.agentId,
     ChannelId: channelId,
+    // Buddy identity context — injected from cloud config via account metadata.
+    // Allows the AI to know "who it is" (buddy name, description) and "where it is"
+    // (server, channel) for self-aware buddy behavior.
+    ...(account.buddyName ? { BuddyName: account.buddyName } : {}),
+    ...(account.buddyId ? { BuddyId: account.buddyId } : {}),
+    ...(account.buddyDescription ? { BuddyDescription: account.buddyDescription } : {}),
     ...(message.threadId ? { ThreadId: message.threadId } : {}),
     ...(message.replyToId ? { ReplyToId: message.replyToId } : {}),
     ...mediaCtx,
