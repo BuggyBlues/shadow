@@ -50,6 +50,10 @@ export class AgentDashboardDao {
         updates.onlineSeconds = sql`${agentDailyStats.onlineSeconds} + ${data.onlineSeconds}`
       }
 
+      if (!existing[0]) {
+        throw new Error('Existing record not found')
+      }
+
       const result = await this.db
         .update(agentDailyStats)
         .set(updates)
@@ -130,6 +134,10 @@ export class AgentDashboardDao {
         updates.activityCount = sql`${agentHourlyStats.activityCount} + ${data.activityCount}`
       }
 
+      if (!existing[0]) {
+        throw new Error('Existing record not found')
+      }
+
       const result = await this.db
         .update(agentHourlyStats)
         .set(updates)
@@ -204,6 +212,9 @@ export class AgentDashboardDao {
     today.setHours(0, 0, 0, 0)
 
     // Check if today or yesterday has activity for current streak
+    if (stats.length === 0) {
+      return { current: 0, longest: 0 }
+    }
     const mostRecent = new Date(stats[0].date)
     mostRecent.setHours(0, 0, 0, 0)
     const daysSinceLastActivity = Math.floor(
