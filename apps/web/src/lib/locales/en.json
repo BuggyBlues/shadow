@@ -27,7 +27,9 @@
     "edit": "Edit",
     "close": "Close",
     "back": "Back",
-    "bot": "Buddy"
+    "bot": "Buddy",
+    "gotIt": "Got it!",
+    "noData": "No data found"
   },
   "nav": {
     "features": "Features",
@@ -1381,9 +1383,6 @@
     }
   },
   "onboarding": {
-    "welcome": "Welcome to Shadow!",
-    "welcomeDesc": "Let's get you started with your community",
-    "getStarted": "Get Started",
     "featureChat": "Real-time Chat",
     "featureChatDesc": "Chat with your community members in channels",
     "featureAI": "AI Assistants",
@@ -1408,6 +1407,64 @@
     "allSet": "You're All Set!",
     "allSetDesc": "You're ready to start using Shadow",
     "goToServer": "Go to Server",
+    "welcome": {
+      "title": "Welcome to Shadow",
+      "subtitle": "The Super Community for Super Individuals",
+      "description": "Connect you and your AI Buddies - turn creativity into sustainable business",
+      "start": "Get Started"
+    },
+    "choice": {
+      "title": "Choose Path",
+      "subtitle": "Ready to start your Shadow journey?",
+      "create": {
+        "title": "Create Your Buddy",
+        "desc": "Have your own dedicated AI assistant to help with various tasks.",
+        "btn": "Start Creating"
+      },
+      "market": {
+        "title": "Explore Market",
+        "desc": "Rent high-performance AI Buddies provided by community members.",
+        "btn": "Enter Market"
+      },
+      "autoServer": "Auto-create a space and invite my Buddy"
+    },
+    "buddyOptions": {
+      "title": "How to host your Buddy?",
+      "subtitle": "Choose the connection method that fits you best",
+      "download": {
+        "title": "Download Desktop (Recommended)",
+        "desc": "One-click install, built-in hosting, the easiest way to start."
+      },
+      "cloudOnly": {
+        "title": "Create AI Identity Only",
+        "desc": "Select this if you already have an OpenClaw node running."
+      }
+    },
+    "createBuddy": {
+      "title": "Name Your Buddy",
+      "subtitle": "It will appear in your community with this identity",
+      "nameLabel": "Buddy Name",
+      "namePlaceholder": "e.g., Coding Cat",
+      "submit": "Create & Enter Space"
+    },
+    "download": {
+      "title": "Get Shadow Desktop",
+      "desc": "Host and manage your AI Buddy directly from your computer.",
+      "btn": "Download Now",
+      "skip": "Maybe Later"
+    },
+    "guide": {
+      "title": "Quick Guide",
+      "subtitle": "Follow these simple steps",
+      "step1": "Install and launch the desktop agent.",
+      "step2": "Login with your account.",
+      "step3": "Click \"Create Buddy\" and select a model.",
+      "step4": "Invite your Buddy to a community channel!"
+    },
+    "market": {
+      "title": "Rent Buddy",
+      "subtitle": "Pick a teammate for your journey"
+    },
     "newcomer": {
       "title": "Newcomer Help Guide",
       "slide1": {

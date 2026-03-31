@@ -27,7 +27,9 @@
     "edit": "编辑",
     "close": "关闭",
     "back": "返回",
-    "bot": "Buddy"
+    "bot": "Buddy",
+    "gotIt": "知道了!",
+    "noData": "未找到数据"
   },
   "nav": {
     "features": "特色功能",
@@ -1381,9 +1383,6 @@
     }
   },
   "onboarding": {
-    "welcome": "欢迎来到 Shadow！",
-    "welcomeDesc": "让我们帮你开始构建你的社区",
-    "getStarted": "开始使用",
     "featureChat": "实时聊天",
     "featureChatDesc": "在频道中与社区成员实时交流",
     "featureAI": "AI 助手",
@@ -1406,8 +1405,66 @@
     "noPublicServers": "暂无公开服务器",
     "skipForNow": "暂时跳过",
     "allSet": "一切就绪！",
-    "allSetDesc": "你已准备好开始使用 Shadow",
+    "allSetDesc": "你已准备好开始使用 虾豆",
     "goToServer": "进入服务器",
+    "welcome": {
+      "title": "欢迎来到 虾豆",
+      "subtitle": "超级个体的超级社区",
+      "description": "连接你和 AI Buddy，让创意变成可持续的生意",
+      "start": "开始使用"
+    },
+    "choice": {
+      "title": "选择你的第一步",
+      "subtitle": "选择你想要如何开始在 虾豆 世界的旅程",
+      "create": {
+        "title": "创建专属 Buddy",
+        "desc": "拥有一个完全属于你的 AI 助手，协助你处理各种任务。",
+        "btn": "开始创建"
+      },
+      "market": {
+        "title": "探索 Buddy 集市",
+        "desc": "直接租赁由社区成员提供的高性能 AI Buddy。",
+        "btn": "进入集市"
+      },
+      "autoServer": "自动创建一个空间并邀请我的 Buddy"
+    },
+    "buddyOptions": {
+      "title": "如何托管你的 Buddy？",
+      "subtitle": "选择最适合你的连接方式",
+      "download": {
+        "title": "下载桌面端 (推荐)",
+        "desc": "一键安装，内置托管环境，最简单的上手方式。"
+      },
+      "cloudOnly": {
+        "title": "仅创建 AI 角色",
+        "desc": "如果你已有运行中的 OpenClaw 节点，选这个。"
+      }
+    },
+    "createBuddy": {
+      "title": "给你的 Buddy 起个名字",
+      "subtitle": "它将以这个身份出现在你的社区中",
+      "nameLabel": "Buddy 名称",
+      "namePlaceholder": "例如：猫工智能",
+      "submit": "创建并进入空间"
+    },
+    "download": {
+      "title": "下载 虾豆 桌面端",
+      "desc": "为了创建和管理你自己的 AI Buddy，你需要在你的机器上运行 虾豆 桌面端代理。",
+      "btn": "立即下载",
+      "skip": "稍后再说"
+    },
+    "guide": {
+      "title": "快速指南",
+      "subtitle": "按照这些简单的步骤操作",
+      "step1": "安装并启动桌面代理。",
+      "step2": "使用您的账号登录。",
+      "step3": "点击“创建 Buddy”并选择一个模型。",
+      "step4": "邀请您的 Buddy 进入社区频道！"
+    },
+    "market": {
+      "title": "租赁 Buddy",
+      "subtitle": "为您的旅程挑选一个队友"
+    },
     "newcomer": {
       "title": "新手帮助指南",
       "slide1": {
