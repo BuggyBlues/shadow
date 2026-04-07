@@ -1,3 +1,4 @@
+import { Badge, Button, Card } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   CheckCircle,
@@ -55,54 +56,50 @@ interface OrderReview {
 
 const STATUS_CONFIG: Record<
   string,
-  { label: string; color: string; bg: string; icon: React.ElementType }
+  {
+    label: string
+    badgeVariant: 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'neutral'
+    icon: React.ElementType
+  }
 > = {
   pending: {
     label: '待付款',
-    color: 'text-amber-600 dark:text-amber-400',
-    bg: 'bg-amber-50 dark:bg-amber-900/20',
+    badgeVariant: 'warning',
     icon: Clock,
   },
   paid: {
     label: '待发货',
-    color: 'text-cyan-600 dark:text-cyan-400',
-    bg: 'bg-cyan-50 dark:bg-cyan-900/20',
+    badgeVariant: 'info',
     icon: Package,
   },
   processing: {
     label: '处理中',
-    color: 'text-cyan-600 dark:text-cyan-400',
-    bg: 'bg-cyan-50 dark:bg-cyan-900/20',
+    badgeVariant: 'info',
     icon: Package,
   },
   shipped: {
     label: '已发货',
-    color: 'text-blue-600 dark:text-blue-400',
-    bg: 'bg-blue-50 dark:bg-blue-900/20',
+    badgeVariant: 'primary',
     icon: Truck,
   },
   delivered: {
     label: '已送达',
-    color: 'text-emerald-600 dark:text-emerald-400',
-    bg: 'bg-emerald-50 dark:bg-emerald-900/20',
+    badgeVariant: 'success',
     icon: CheckCircle,
   },
   completed: {
     label: '已完成',
-    color: 'text-emerald-600 dark:text-emerald-400',
-    bg: 'bg-emerald-50 dark:bg-emerald-900/20',
+    badgeVariant: 'success',
     icon: ShieldCheck,
   },
   cancelled: {
     label: '已取消',
-    color: 'text-gray-500 dark:text-gray-400',
-    bg: 'bg-gray-100 dark:bg-gray-800',
+    badgeVariant: 'neutral',
     icon: XCircle,
   },
   refunded: {
     label: '已退款',
-    color: 'text-rose-600 dark:text-rose-400',
-    bg: 'bg-rose-50 dark:bg-rose-900/20',
+    badgeVariant: 'danger',
     icon: XCircle,
   },
 }
@@ -205,42 +202,39 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
 
   if (orders.length === 0 && !statusFilter) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[#F9FAFB] dark:bg-bg-primary h-full">
-        <div className="w-32 h-32 mb-6 rounded-full bg-cyan-50 dark:bg-cyan-900/10 flex items-center justify-center shadow-inner relative">
-          <ClipboardList size={48} className="text-cyan-300 dark:text-cyan-800" strokeWidth={1.5} />
+      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-bg-primary h-full">
+        <div className="w-32 h-32 mb-6 rounded-full bg-primary/5 flex items-center justify-center relative">
+          <ClipboardList size={48} className="text-primary/30" strokeWidth={1.5} />
         </div>
-        <h3 className="text-lg font-bold text-gray-900 dark:text-text-primary mb-2">
+        <h3 className="text-lg font-black uppercase tracking-tight text-text-primary mb-2">
           暂无订单记录
         </h3>
-        <p className="text-sm text-gray-500 dark:text-text-muted mb-8">您还没有下过任何订单哦</p>
+        <p className="text-sm text-text-muted font-bold italic mb-8">您还没有下过任何订单哦</p>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#F9FAFB] dark:bg-bg-primary font-sans relative">
+    <div className="flex flex-col h-full bg-bg-primary font-sans relative">
       {/* ── Status Filter Tabs ── */}
-      <div className="flex px-4 py-2 bg-white dark:bg-bg-secondary sticky top-0 z-10 shadow-sm gap-2 overflow-x-auto no-scrollbar border-b border-gray-100 dark:border-border-subtle">
+      <div className="flex px-4 py-2 bg-[rgba(255,255,255,0.75)] dark:bg-[rgba(255,255,255,0.03)] backdrop-blur-[32px] sticky top-0 z-10 gap-2 overflow-x-auto no-scrollbar border-b border-border-subtle">
         {statusTabs.map((tab) => (
-          <button
+          <Button
             key={tab.key ?? 'all'}
-            type="button"
+            variant={statusFilter === tab.key ? 'primary' : 'ghost'}
+            size="xs"
             onClick={() => setStatusFilter(tab.key)}
-            className={`px-4 py-2 text-xs font-bold rounded-full whitespace-nowrap transition-all ${
-              statusFilter === tab.key
-                ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md'
-                : 'bg-gray-100 text-gray-600 dark:bg-bg-tertiary dark:text-text-secondary hover:bg-gray-200 dark:hover:bg-bg-modifier-hover'
-            }`}
+            className="whitespace-nowrap"
           >
             {tab.label}
-          </button>
+          </Button>
         ))}
       </div>
 
       {/* ── Order List ── */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
         {orders.length === 0 && statusFilter ? (
-          <div className="py-20 text-center text-gray-400 dark:text-text-muted text-sm">
+          <div className="py-20 text-center text-text-muted text-sm font-bold italic">
             该状态下暂无订单
           </div>
         ) : (
@@ -252,29 +246,28 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
             const totalQuantity = order.items.reduce((sum, item) => sum + item.quantity, 0)
 
             return (
-              <div
+              <Card
                 key={order.id}
-                className="bg-white dark:bg-bg-secondary rounded-2xl border border-gray-100 dark:border-border-subtle overflow-hidden shadow-sm hover:shadow-md transition-all duration-300"
+                variant="glass"
+                className="!rounded-[24px] hover:shadow-[0_10px_25px_rgba(0,243,255,0.08)] transition-all duration-300"
               >
                 {/* Order Header */}
                 <button
                   type="button"
                   onClick={() => setExpandedOrder(isExpanded ? null : order.id)}
-                  className="w-full px-5 py-4 flex items-center justify-between text-left bg-gray-50/50 dark:bg-bg-tertiary/30 hover:bg-gray-50 dark:hover:bg-bg-tertiary transition-colors"
+                  className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-white/5 transition-colors"
                 >
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-center gap-2">
-                      <span
-                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold flex items-center gap-1 ${statusCfg.bg} ${statusCfg.color}`}
-                      >
-                        <StatusIcon size={10} strokeWidth={3} />
+                      <Badge variant={statusCfg.badgeVariant} size="xs">
+                        <StatusIcon size={10} strokeWidth={3} className="mr-1" />
                         {statusCfg.label}
-                      </span>
-                      <span className="text-gray-400 dark:text-text-muted text-[11px] font-medium tracking-wider">
+                      </Badge>
+                      <span className="text-text-muted text-[11px] font-black tracking-wider">
                         #{order.orderNo.slice(-8).toUpperCase()}
                       </span>
                     </div>
-                    <span className="text-gray-400 dark:text-text-muted text-[10px]">
+                    <span className="text-text-muted text-[10px]">
                       {new Date(order.createdAt).toLocaleString(undefined, {
                         month: 'short',
                         day: 'numeric',
@@ -286,16 +279,14 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
 
                   <div className="flex items-center gap-3">
                     <div className="text-right">
-                      <p className="text-[10px] text-gray-500 dark:text-text-muted mb-0.5">
-                        合计 {totalQuantity} 件
-                      </p>
-                      <span className="text-gray-900 dark:text-text-primary text-sm font-black flex items-baseline justify-end gap-0.5">
+                      <p className="text-[10px] text-text-muted mb-0.5">合计 {totalQuantity} 件</p>
+                      <span className="text-text-primary text-sm font-black flex items-baseline justify-end gap-0.5">
                         <PriceDisplay amount={order.totalAmount} />
                       </span>
                     </div>
                     <ChevronRight
                       size={16}
-                      className={`text-gray-400 transition-transform duration-300 ${isExpanded ? 'rotate-90' : ''}`}
+                      className={`text-text-muted transition-transform duration-300 ${isExpanded ? 'rotate-90' : ''}`}
                     />
                   </div>
                 </button>
@@ -304,30 +295,30 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
                 <div className="px-5 pb-4 pt-2">
                   {order.items.slice(0, isExpanded ? undefined : 1).map((item) => (
                     <div key={item.id} className="flex items-start gap-3 mt-4 first:mt-2">
-                      <div className="w-16 h-16 bg-gray-100 dark:bg-bg-tertiary rounded-xl overflow-hidden shrink-0 border border-gray-100 dark:border-border-dim">
+                      <div className="w-16 h-16 bg-bg-tertiary rounded-[16px] overflow-hidden shrink-0 border border-white/10">
                         {item.imageUrl ? (
                           <img src={item.imageUrl} alt="" className="w-full h-full object-cover" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-300 dark:text-gray-600">
+                          <div className="w-full h-full flex items-center justify-center text-text-muted">
                             <Package size={20} className="opacity-50" />
                           </div>
                         )}
                       </div>
 
                       <div className="flex-1 min-w-0 pt-0.5">
-                        <p className="text-gray-900 dark:text-text-primary text-sm font-bold line-clamp-1 leading-snug">
+                        <p className="text-text-primary text-sm font-black line-clamp-1 leading-snug">
                           {item.productName}
                         </p>
                         {item.specValues?.length > 0 && (
-                          <p className="text-gray-500 dark:text-text-muted text-[11px] mt-1 font-medium bg-gray-50 dark:bg-bg-tertiary inline-block px-1.5 py-0.5 rounded">
+                          <p className="text-text-muted text-[11px] mt-1 font-black bg-bg-tertiary inline-block px-1.5 py-0.5 rounded-full border border-white/10">
                             {item.specValues.join(' / ')}
                           </p>
                         )}
                         <div className="flex items-center justify-between mt-2">
-                          <span className="text-gray-900 dark:text-text-primary text-sm font-bold">
+                          <span className="text-text-primary text-sm font-black">
                             <PriceDisplay amount={item.price} />
                           </span>
-                          <span className="text-gray-400 dark:text-text-muted text-xs font-medium">
+                          <span className="text-text-muted text-xs font-black">
                             x{item.quantity}
                           </span>
                         </div>
@@ -337,52 +328,50 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
 
                   {!isExpanded && order.items.length > 1 && (
                     <div className="mt-3 text-center">
-                      <p className="text-gray-400 dark:text-text-muted text-[11px] font-medium bg-gray-50 dark:bg-bg-tertiary py-1 rounded-lg">
+                      <p className="text-text-muted text-[11px] font-black bg-bg-tertiary py-1 rounded-[12px] border border-white/10">
                         以及其他 {order.items.length - 1} 件商品...
                       </p>
                     </div>
                   )}
 
                   {/* Actions */}
-                  <div className="mt-5 pt-4 border-t border-gray-100 dark:border-border-subtle border-dashed flex items-center justify-end gap-2">
+                  <div className="mt-5 pt-4 border-t border-border-subtle border-dashed flex items-center justify-end gap-2">
                     {['pending', 'paid'].includes(order.status) && (
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => cancelOrder.mutate(order.id)}
-                        disabled={cancelOrder.isPending}
-                        className="px-4 py-2 text-xs font-bold text-gray-500 dark:text-text-muted bg-gray-100 dark:bg-bg-tertiary rounded-xl hover:bg-gray-200 dark:hover:bg-bg-modifier-hover transition-all active:scale-95 disabled:opacity-50"
+                        loading={cancelOrder.isPending}
                       >
                         取消订单
-                      </button>
+                      </Button>
                     )}
 
                     {['delivered', 'completed'].includes(order.status) &&
                       (orderReviews[order.id]?.length || 0) === 0 &&
                       reviewingOrder !== order.id && (
-                        <button
-                          type="button"
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => setReviewingOrder(order.id)}
-                          className="px-4 py-2 text-xs font-bold text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/20 border border-cyan-200 dark:border-cyan-800 rounded-xl hover:bg-cyan-100 dark:hover:bg-cyan-900/40 transition-all active:scale-95 hover:shadow-sm"
                         >
                           我要评价
-                        </button>
+                        </Button>
                       )}
                     {['delivered', 'completed'].includes(order.status) &&
                       (orderReviews[order.id]?.length || 0) > 0 && (
-                        <span className="px-4 py-2 text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-200 dark:border-emerald-900/40">
-                          已评价
-                        </span>
+                        <Badge variant="success">已评价</Badge>
                       )}
                   </div>
 
                   {isExpanded && (orderReviews[order.id]?.length || 0) > 0 && (
-                    <div className="mt-4 p-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-900/10 border border-emerald-200/60 dark:border-emerald-900/30 space-y-2">
-                      <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                    <div className="mt-4 p-3 rounded-[16px] bg-success/5 border border-success/20 space-y-2 backdrop-blur-sm">
+                      <p className="text-xs font-black uppercase tracking-widest text-success">
                         我的评价
                       </p>
                       {orderReviews[order.id]!.map((rv) => (
-                        <div key={rv.id} className="text-xs text-emerald-700 dark:text-emerald-300">
-                          <span className="font-bold">评分 {rv.rating} 星：</span>
+                        <div key={rv.id} className="text-xs text-success">
+                          <span className="font-black">评分 {rv.rating} 星：</span>
                           <span>{rv.content || '（未填写文字）'}</span>
                           {rv.isAnonymous ? <span className="ml-2 text-[10px]">匿名</span> : null}
                         </div>
@@ -391,7 +380,7 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
                   )}
 
                   {isExpanded && (
-                    <div className="mt-4 p-3 rounded-xl bg-gray-50 dark:bg-bg-tertiary border border-gray-100 dark:border-border-dim text-xs space-y-1 text-gray-600 dark:text-text-muted">
+                    <div className="mt-4 p-3 rounded-[16px] bg-[rgba(255,255,255,0.03)] backdrop-blur-[32px] border border-white/10 text-xs space-y-1 text-text-muted">
                       <p>订单号：{order.orderNo}</p>
                       {order.trackingNo ? <p>物流单号：{order.trackingNo}</p> : null}
                       {order.buyerNote ? <p>买家备注：{order.buyerNote}</p> : null}
@@ -413,11 +402,11 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
 
                   {/* Inline Review Form */}
                   {reviewingOrder === order.id && (
-                    <div className="mt-4 p-4 bg-gray-50 dark:bg-bg-tertiary rounded-2xl animate-in slide-in-from-top-2 duration-200">
+                    <div className="mt-4 p-4 bg-[rgba(255,255,255,0.03)] backdrop-blur-[32px] border border-white/10 rounded-[24px] animate-in slide-in-from-top-2 duration-200">
                       {/* Product selector for multi-item orders */}
                       {order.items.length > 1 && (
                         <div className="mb-3">
-                          <span className="text-xs font-bold text-gray-700 dark:text-text-secondary block mb-2">
+                          <span className="text-xs font-black uppercase tracking-widest text-text-secondary block mb-2">
                             选择要评价的商品
                           </span>
                           <div className="flex flex-wrap gap-2">
@@ -426,10 +415,10 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
                                 key={item.id}
                                 type="button"
                                 onClick={() => setReviewProductId(item.productId)}
-                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all border ${
+                                className={`px-3 py-1.5 text-xs font-black rounded-full transition-all border ${
                                   (reviewProductId || order.items[0]?.productId) === item.productId
-                                    ? 'border-cyan-500 bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400'
-                                    : 'border-gray-200 dark:border-border-dim text-gray-600 dark:text-gray-400 hover:border-gray-300'
+                                    ? 'border-primary bg-primary/10 text-primary'
+                                    : 'border-white/10 text-text-muted hover:border-primary/30'
                                 }`}
                               >
                                 {item.productName}
@@ -438,7 +427,7 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
                           </div>
                         </div>
                       )}
-                      <span className="text-xs font-bold text-gray-700 dark:text-text-secondary block mb-2">
+                      <span className="text-xs font-black uppercase tracking-widest text-text-secondary block mb-2">
                         商品评分
                       </span>
                       <div className="flex items-center gap-1.5 mb-3">
@@ -453,8 +442,8 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
                               size={22}
                               className={
                                 i < reviewRating
-                                  ? 'text-yellow-400 fill-yellow-400'
-                                  : 'text-gray-300 dark:text-gray-600'
+                                  ? 'text-[#F8E71C] fill-[#F8E71C]'
+                                  : 'text-text-muted'
                               }
                             />
                           </button>
@@ -464,9 +453,9 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
                         value={reviewContent}
                         onChange={(e) => setReviewContent(e.target.value)}
                         placeholder="商品满足您的期待吗？说说您的真实感受..."
-                        className="w-full h-24 p-3 bg-white dark:bg-bg-secondary text-gray-900 dark:text-text-primary text-sm rounded-xl border border-gray-200 dark:border-border-dim focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 resize-none transition-all"
+                        className="w-full h-24 p-3 bg-[rgba(255,255,255,0.03)] backdrop-blur-[32px] text-text-primary text-sm rounded-[16px] border-2 border-white/10 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none transition-all"
                       />
-                      <label className="mt-3 flex items-center gap-2 text-xs text-gray-600 dark:text-text-muted font-medium">
+                      <label className="mt-3 flex items-center gap-2 text-xs text-text-muted font-black">
                         <input
                           type="checkbox"
                           checked={reviewAnonymous}
@@ -475,15 +464,12 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
                         匿名评价
                       </label>
                       <div className="flex justify-end gap-2 mt-3">
-                        <button
-                          type="button"
-                          onClick={() => setReviewingOrder(null)}
-                          className="px-4 py-2 text-xs font-bold text-gray-500 hover:bg-gray-200 dark:hover:bg-bg-modifier-hover rounded-xl transition-all active:scale-95"
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => setReviewingOrder(null)}>
                           取消
-                        </button>
-                        <button
-                          type="button"
+                        </Button>
+                        <Button
+                          variant="primary"
+                          size="sm"
                           onClick={() =>
                             submitReview.mutate({
                               orderId: order.id,
@@ -493,16 +479,15 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
                               isAnonymous: reviewAnonymous,
                             })
                           }
-                          disabled={submitReview.isPending}
-                          className="px-5 py-2 text-xs font-bold bg-cyan-600 text-white rounded-xl shadow-md shadow-cyan-900/20 hover:bg-cyan-700 transition-all active:scale-95 disabled:opacity-50"
+                          loading={submitReview.isPending}
                         >
                           提交评价
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   )}
                 </div>
-              </div>
+              </Card>
             )
           })
         )}

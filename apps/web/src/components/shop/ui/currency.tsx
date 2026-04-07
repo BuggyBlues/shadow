@@ -51,7 +51,7 @@ export function PriceDisplay({
   if (amount === 0 && showFree) {
     return (
       <span
-        className={`text-emerald-500 font-bold inline-flex items-center ${className}`}
+        className={`text-success font-black inline-flex items-center ${className}`}
         style={{ fontSize: size }}
       >
         免费

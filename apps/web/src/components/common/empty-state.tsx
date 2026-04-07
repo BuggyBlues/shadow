@@ -1,3 +1,4 @@
+import { Button } from '@shadowob/ui'
 import type { LucideIcon } from 'lucide-react'
 import { ButtonHTMLAttributes, forwardRef } from 'react'
 
@@ -30,38 +31,29 @@ export const EmptyState = forwardRef<HTMLDivElement, EmptyStateProps>(
           <div className="text-5xl mb-4">{iconEmoji}</div>
         ) : Icon ? (
           <div className="w-16 h-16 rounded-2xl bg-bg-tertiary flex items-center justify-center mb-4">
-            <Icon size={32} className="text-text-muted" />
+            <Icon size={32} className="text-muted-foreground" />
           </div>
         ) : null}
 
         {/* Title */}
-        <h3 className="text-lg font-semibold text-text-primary text-center mb-2">{title}</h3>
+        <h3 className="text-lg font-semibold text-primary text-center mb-2">{title}</h3>
 
         {/* Description */}
         {description && (
-          <p className="text-sm text-text-muted text-center max-w-sm mb-6">{description}</p>
+          <p className="text-sm text-muted-foreground text-center max-w-sm mb-6">{description}</p>
         )}
 
         {/* Actions */}
         <div className="flex items-center gap-3">
           {action && (
-            <button
-              type="button"
-              onClick={action.onClick}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-lg hover:opacity-90 transition"
-            >
-              {action.icon && <action.icon size={18} />}
+            <Button variant="primary" size="sm" onClick={action.onClick} icon={action.icon}>
               {action.label}
-            </button>
+            </Button>
           )}
           {secondaryAction && (
-            <button
-              type="button"
-              onClick={secondaryAction.onClick}
-              className="inline-flex items-center gap-2 px-4 py-2 text-text-muted hover:text-text-primary hover:bg-bg-modifier-hover rounded-lg transition"
-            >
+            <Button variant="ghost" size="sm" onClick={secondaryAction.onClick}>
               {secondaryAction.label}
-            </button>
+            </Button>
           )}
         </div>
       </div>

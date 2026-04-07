@@ -1,5 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Copy, LogOut, MessageSquare, PawPrint, Trash2, User, UserPlus, X } from 'lucide-react'
+import {
+  Check,
+  Copy,
+  LogOut,
+  MessageSquare,
+  PawPrint,
+  Trash2,
+  User,
+  UserPlus,
+  X,
+} from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
@@ -316,7 +326,7 @@ export function MemberList() {
               setInviteInitialTab('buddies')
               setShowInvitePanel(true)
             }}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-[#FF6B9D] hover:text-[#FF4081] hover:bg-[#FF6B9D]/10 transition flex-1"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-accent hover:text-accent hover:bg-accent/10 transition flex-1"
             title={t('channel.addAgent')}
           >
             <PawPrint size={14} />
@@ -657,7 +667,7 @@ function BotContextMenu({
                     className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
                   >
                     {currentMode === 'replyAll' ? (
-                      <Check size={14} className="text-green-400" />
+                      <Check size={14} className="text-success" />
                     ) : (
                       <span className="w-[14px]" />
                     )}
@@ -682,7 +692,7 @@ function BotContextMenu({
                     className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
                   >
                     {currentMode === 'mentionOnly' ? (
-                      <Check size={14} className="text-green-400" />
+                      <Check size={14} className="text-success" />
                     ) : (
                       <span className="w-[14px]" />
                     )}
@@ -715,7 +725,7 @@ function BotContextMenu({
                     className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
                   >
                     {currentMode === 'custom' ? (
-                      <Check size={14} className="text-green-400" />
+                      <Check size={14} className="text-success" />
                     ) : (
                       <span className="w-[14px]" />
                     )}
@@ -741,11 +751,11 @@ function BotContextMenu({
                     className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
                   >
                     {currentMode === 'disabled' ? (
-                      <Check size={14} className="text-red-400" />
+                      <Check size={14} className="text-danger" />
                     ) : (
                       <span className="w-[14px]" />
                     )}
-                    <span className={currentMode === 'disabled' ? 'text-red-400' : ''}>
+                    <span className={currentMode === 'disabled' ? 'text-danger' : ''}>
                       {t('member.policyDisabled')}
                     </span>
                   </button>
@@ -777,7 +787,7 @@ function BotContextMenu({
                     })
                   }
                 }}
-                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition"
+                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-danger hover:bg-danger/10 transition"
               >
                 <Trash2 size={14} />
                 {t('member.removeFromChannel')}
@@ -804,7 +814,7 @@ function BotContextMenu({
                     })
                   }
                 }}
-                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition"
+                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-danger hover:bg-danger/10 transition"
               >
                 <LogOut size={14} />
                 {isBot ? t('member.removeBot') : t('member.kickMember')}
@@ -888,7 +898,7 @@ function BotContextMenu({
                           onClick={() =>
                             setCustomReplyToUsers((prev) => prev.filter((u) => u !== username))
                           }
-                          className="ml-0.5 hover:text-red-400 transition"
+                          className="ml-0.5 hover:text-danger transition"
                         >
                           <X size={10} />
                         </button>

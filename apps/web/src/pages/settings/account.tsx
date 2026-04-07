@@ -1,3 +1,4 @@
+import { Button, cn, Input } from '@shadowob/ui'
 import { useNavigate } from '@tanstack/react-router'
 import { KeyRound, LogOut, Shield } from 'lucide-react'
 import { useState } from 'react'
@@ -70,23 +71,23 @@ export function AccountSettings() {
 
   return (
     <>
-      <h2 className="text-2xl font-bold text-text-primary mb-6">{t('settings.accountTitle')}</h2>
+      <h2 className="text-2xl font-black text-text-primary mb-6">{t('settings.accountTitle')}</h2>
 
-      <div className="bg-bg-secondary rounded-xl p-6 space-y-5 border border-border-subtle">
+      <div className="bg-white/[0.03] backdrop-blur-[32px] rounded-[24px] p-6 space-y-5 border border-white/[0.08]">
         <div>
-          <p className="text-xs font-bold uppercase text-text-secondary mb-1">
+          <p className="text-[11px] font-black uppercase text-text-muted tracking-[0.15em] mb-1">
             {t('settings.emailLabel')}
           </p>
           <p className="text-text-primary">{user.email}</p>
         </div>
         <div>
-          <p className="text-xs font-bold uppercase text-text-secondary mb-1">
+          <p className="text-[11px] font-black uppercase text-text-muted tracking-[0.15em] mb-1">
             {t('settings.usernameLabel')}
           </p>
           <p className="text-text-primary">@{user.username}</p>
         </div>
         <div>
-          <p className="text-xs font-bold uppercase text-text-secondary mb-1">
+          <p className="text-[11px] font-black uppercase text-text-muted tracking-[0.15em] mb-1">
             {t('settings.userIdLabel')}
           </p>
           <p className="text-text-muted text-xs font-mono">{user.id}</p>
@@ -94,37 +95,39 @@ export function AccountSettings() {
       </div>
 
       {/* Change Password Section */}
-      <div className="mt-6 bg-bg-secondary rounded-xl p-6 border border-border-subtle">
-        <h3 className="text-lg font-bold text-text-primary mb-2 flex items-center gap-2">
+      <div className="mt-6 bg-white/[0.03] backdrop-blur-[32px] rounded-[24px] p-6 border border-white/[0.08]">
+        <h3 className="text-lg font-black text-text-primary mb-2 flex items-center gap-2">
           <KeyRound size={20} />
           {t('settings.changePasswordTitle')}
         </h3>
         <p className="text-sm text-text-muted mb-4">{t('settings.changePasswordDesc')}</p>
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => setShowPasswordModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary border border-primary/20 rounded-lg hover:bg-primary/20 transition text-sm font-bold"
+          className="normal-case tracking-normal"
         >
           <KeyRound size={16} />
           {t('settings.changePassword')}
-        </button>
+        </Button>
       </div>
 
       {/* Danger Zone */}
-      <div className="mt-8 p-6 bg-bg-secondary rounded-xl border border-danger/20">
-        <h3 className="text-lg font-bold text-danger mb-2 flex items-center gap-2">
+      <div className="mt-8 p-6 bg-danger/5 rounded-[24px] border border-danger/20">
+        <h3 className="text-lg font-black text-danger mb-2 flex items-center gap-2">
           <Shield size={20} />
           {t('settings.dangerTitle')}
         </h3>
         <p className="text-sm text-text-muted mb-4">{t('settings.dangerLogoutWarning')}</p>
-        <button
-          type="button"
+        <Button
+          variant="danger"
+          size="sm"
           onClick={() => setShowLogoutConfirm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-danger/10 text-danger border border-danger/20 rounded-lg hover:bg-danger/20 transition text-sm font-bold"
+          className="normal-case tracking-normal"
         >
           <LogOut size={16} />
           {t('settings.logout')}
-        </button>
+        </Button>
       </div>
 
       {/* Change Password Modal */}
@@ -142,7 +145,7 @@ export function AccountSettings() {
             onKeyDown={(e) => e.stopPropagation()}
             role="document"
           >
-            <h2 className="text-xl font-bold text-text-primary mb-4 flex items-center gap-2">
+            <h2 className="text-xl font-black text-text-primary mb-4 flex items-center gap-2">
               <KeyRound size={20} />
               {t('settings.changePasswordTitle')}
             </h2>
@@ -163,77 +166,83 @@ export function AccountSettings() {
               <div>
                 <label
                   htmlFor="oldPassword"
-                  className="block text-xs font-bold uppercase text-text-secondary mb-1"
+                  className="block text-[11px] font-black uppercase text-text-muted tracking-[0.2em] ml-1 mb-2"
                 >
                   {t('settings.oldPasswordLabel')}
                 </label>
-                <input
+                <Input
                   id="oldPassword"
                   type="password"
                   value={passwordForm.oldPassword}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, oldPassword: e.target.value })}
-                  className="w-full bg-bg-primary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary border border-border-subtle"
+                  onChange={(e) =>
+                    setPasswordForm({ ...passwordForm, oldPassword: e.target.value })
+                  }
                   placeholder={t('settings.oldPasswordPlaceholder')}
                   disabled={passwordLoading}
                   required
+                  className="rounded-[16px] px-4 py-3"
                 />
               </div>
               <div>
                 <label
                   htmlFor="newPassword"
-                  className="block text-xs font-bold uppercase text-text-secondary mb-1"
+                  className="block text-[11px] font-black uppercase text-text-muted tracking-[0.2em] ml-1 mb-2"
                 >
                   {t('settings.newPasswordLabel')}
                 </label>
-                <input
+                <Input
                   id="newPassword"
                   type="password"
                   value={passwordForm.newPassword}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                  className="w-full bg-bg-primary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary border border-border-subtle"
+                  onChange={(e) =>
+                    setPasswordForm({ ...passwordForm, newPassword: e.target.value })
+                  }
                   placeholder={t('settings.newPasswordPlaceholder')}
                   disabled={passwordLoading}
                   required
                   minLength={8}
+                  className="rounded-[16px] px-4 py-3"
                 />
               </div>
               <div>
                 <label
                   htmlFor="confirmPassword"
-                  className="block text-xs font-bold uppercase text-text-secondary mb-1"
+                  className="block text-[11px] font-black uppercase text-text-muted tracking-[0.2em] ml-1 mb-2"
                 >
                   {t('settings.confirmPasswordLabel')}
                 </label>
-                <input
+                <Input
                   id="confirmPassword"
                   type="password"
                   value={passwordForm.confirmPassword}
                   onChange={(e) =>
                     setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })
                   }
-                  className="w-full bg-bg-primary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary border border-border-subtle"
                   placeholder={t('settings.confirmPasswordPlaceholder')}
                   disabled={passwordLoading}
                   required
+                  className="rounded-[16px] px-4 py-3"
                 />
               </div>
 
               <div className="flex justify-end gap-3 pt-2">
-                <button
+                <Button
+                  variant="ghost"
                   type="button"
                   onClick={() => setShowPasswordModal(false)}
-                  className="px-4 py-2 text-text-secondary hover:text-text-primary transition rounded-lg"
                   disabled={passwordLoading}
+                  className="normal-case tracking-normal"
                 >
                   {t('common.cancel')}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="primary"
                   type="submit"
-                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/80 transition font-bold disabled:opacity-50"
                   disabled={passwordLoading}
+                  className="normal-case tracking-normal"
                 >
                   {passwordLoading ? t('settings.changingPassword') : t('settings.changePassword')}
-                </button>
+                </Button>
               </div>
             </form>
           </div>
@@ -255,25 +264,27 @@ export function AccountSettings() {
             onKeyDown={(e) => e.stopPropagation()}
             role="document"
           >
-            <h2 className="text-xl font-bold text-text-primary mb-2">
+            <h2 className="text-xl font-black text-text-primary mb-2">
               {t('settings.logoutConfirmTitle')}
             </h2>
             <p className="text-text-muted text-sm mb-6">{t('settings.logoutConfirmMessage')}</p>
             <div className="flex justify-end gap-3">
-              <button
+              <Button
+                variant="ghost"
                 type="button"
                 onClick={() => setShowLogoutConfirm(false)}
-                className="px-4 py-2 text-text-secondary hover:text-text-primary transition rounded-lg"
+                className="normal-case tracking-normal"
               >
                 {t('common.cancel')}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="danger"
                 type="button"
                 onClick={handleLogout}
-                className="px-4 py-2 bg-danger text-white rounded-lg hover:bg-red-600 transition font-bold"
+                className="normal-case tracking-normal"
               >
                 {t('settings.logout')}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

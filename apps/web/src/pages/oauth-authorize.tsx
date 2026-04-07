@@ -1,3 +1,4 @@
+import { Button, Card, Spinner } from '@shadowob/ui'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -23,7 +24,7 @@ function AuthAppLogo({ url, name }: { url: string | null; name: string }) {
   }
 
   return (
-    <div className="w-12 h-12 rounded-lg bg-[#5865F2] flex items-center justify-center text-white font-bold text-lg">
+    <div className="w-12 h-12 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-lg">
       {name[0]?.toUpperCase()}
     </div>
   )
@@ -149,14 +150,14 @@ export function OAuthAuthorizePage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-bg-tertiary">
-        <div className="w-8 h-8 border-2 border-[#5865F2] border-t-transparent rounded-full animate-spin" />
+        <Spinner size="md" />
       </div>
     )
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-bg-tertiary p-4">
-      <div className="w-full max-w-[480px] bg-bg-primary rounded-md p-8 shadow-[0_2px_10px_0_rgba(0,0,0,0.2)]">
+      <Card variant="glass" className="w-full max-w-[480px] p-8">
         <div className="text-center mb-6">
           <img src="/Logo.svg" alt="Shadow" className="w-10 h-10 mx-auto mb-3" />
           <h1 className="text-xl font-semibold text-white mb-2">
@@ -165,7 +166,7 @@ export function OAuthAuthorizePage() {
         </div>
 
         {error && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-[3px] p-3 text-[#fa777c] text-sm mb-4">
+          <div className="bg-danger/10 border border-danger/20 rounded-[24px] p-3 text-danger text-sm mb-4">
             {error}
           </div>
         )}
@@ -234,27 +235,24 @@ export function OAuthAuthorizePage() {
             </div>
 
             <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={handleDeny}
-                className="flex-1 bg-bg-tertiary hover:bg-bg-secondary text-text-primary font-medium py-2.5 rounded-[3px] transition text-[15px]"
-              >
+              <Button variant="glass" className="flex-1" onClick={handleDeny}>
                 {t('oauth.deny', 'Deny')}
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="primary"
+                className="flex-1"
                 onClick={handleApprove}
                 disabled={approving}
-                className="flex-1 bg-[#5865F2] hover:bg-[#4752c4] text-white font-medium py-2.5 rounded-[3px] transition text-[15px] disabled:opacity-50"
+                loading={approving}
               >
                 {approving
                   ? t('oauth.authorizing', 'Authorizing...')
                   : t('oauth.authorize', 'Authorize')}
-              </button>
+              </Button>
             </div>
           </>
         )}
-      </div>
+      </Card>
     </div>
   )
 }

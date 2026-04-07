@@ -1,3 +1,4 @@
+import { Button, Input } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Check, Copy, PawPrint, Search, UserPlus, X } from 'lucide-react'
@@ -125,8 +126,7 @@ export function InvitePanel({
 
   const { data: channelMembers = [] } = useQuery({
     queryKey: ['channel-members', channelId],
-    queryFn: () =>
-      fetchApi<Array<{ user: { id: string } }>>(`/api/channels/${channelId}/members`),
+    queryFn: () => fetchApi<Array<{ user: { id: string } }>>(`/api/channels/${channelId}/members`),
     enabled: !!channelId,
   })
 
@@ -166,8 +166,7 @@ export function InvitePanel({
   const filteredMyBuddies = myBuddiesNotOnServer.filter((b) => {
     if (!search.trim()) return true
     const name = (b.botUser?.displayName ?? b.botUser?.username ?? '').toLowerCase()
-    const desc =
-      typeof b.config?.description === 'string' ? b.config.description.toLowerCase() : ''
+    const desc = typeof b.config?.description === 'string' ? b.config.description.toLowerCase() : ''
     const q = search.trim().toLowerCase()
     return name.includes(q) || desc.includes(q)
   })
@@ -294,15 +293,15 @@ export function InvitePanel({
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="bg-bg-secondary rounded-xl p-6 w-[520px] border border-border-subtle max-h-[80vh] overflow-hidden flex flex-col">
+      <div className="bg-bg-primary/95 backdrop-blur-xl rounded-[16px] border border-border/10 shadow-xl p-6 w-[520px] max-h-[80vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-text-primary">
             {activeTab === 'members' ? t('channel.inviteMember') : t('channel.addAgent')}
           </h2>
-          <button onClick={onClose} className="text-text-muted hover:text-text-primary transition">
+          <Button variant="ghost" size="icon" onClick={onClose}>
             <X size={18} />
-          </button>
+          </Button>
         </div>
 
         {/* Invite Link */}
@@ -315,14 +314,15 @@ export function InvitePanel({
               ? `${window.location.origin}/app/invite/${server.inviteCode}`
               : '...'}
           </code>
-          <button
+          <Button
+            variant="glass"
+            size="sm"
             onClick={copyInviteCode}
             disabled={!server?.inviteCode}
-            className="px-3 py-3 bg-bg-tertiary rounded-lg text-text-muted hover:text-text-primary transition disabled:opacity-50"
             title={t('common.copy')}
           >
-            {copiedInvite ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
-          </button>
+            {copiedInvite ? <Check size={16} className="text-success" /> : <Copy size={16} />}
+          </Button>
         </div>
 
         {/* Tab Switcher */}
@@ -332,7 +332,7 @@ export function InvitePanel({
             onClick={() => setActiveTab('members')}
             className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition ${
               activeTab === 'members'
-                ? 'bg-bg-secondary text-[#5865F2] shadow-sm'
+                ? 'bg-bg-secondary text-primary shadow-sm'
                 : 'text-text-muted hover:text-text-secondary'
             }`}
           >
@@ -344,7 +344,7 @@ export function InvitePanel({
             onClick={() => setActiveTab('buddies')}
             className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition ${
               activeTab === 'buddies'
-                ? 'bg-bg-secondary text-[#FF6B9D] shadow-sm'
+                ? 'bg-bg-secondary text-accent shadow-sm'
                 : 'text-text-muted hover:text-text-secondary'
             }`}
           >
@@ -367,16 +367,14 @@ export function InvitePanel({
         {/* Search (only for buddies tab) */}
         {activeTab === 'buddies' && (
           <div className="mb-3">
-            <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={t('channel.searchBuddy')}
-                className="w-full bg-bg-tertiary text-text-primary rounded-lg pl-9 pr-3 py-2 text-xs outline-none focus:ring-1 focus:ring-primary placeholder:text-text-muted"
-              />
-            </div>
+            <Input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('channel.searchBuddy')}
+              icon={Search}
+              className="text-xs py-2"
+            />
           </div>
         )}
 
@@ -404,14 +402,14 @@ export function InvitePanel({
                       </p>
                       <p className="text-xs text-text-muted truncate">@{u.username}</p>
                     </div>
-                    <button
-                      type="button"
+                    <Button
+                      variant="accent"
+                      size="xs"
                       disabled={!channelId || inChannel || inviteToChannel.isPending}
                       onClick={() => inviteToChannel.mutate(u.id)}
-                      className="px-3 py-1.5 text-xs rounded-md bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold disabled:opacity-40 transition"
                     >
                       {inChannel ? t('member.inChannel') : t('members.invite')}
-                    </button>
+                    </Button>
                   </div>
                 )
               })
@@ -441,24 +439,28 @@ export function InvitePanel({
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
                             <p className="text-sm text-text-primary truncate">{name}</p>
-                            <span className="text-[10px] bg-[#5865F2] text-white px-1.5 py-0.5 rounded-[3px] font-semibold flex items-center gap-0.5 shrink-0">
+                            <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded-[3px] font-semibold flex items-center gap-0.5 shrink-0">
                               <Check size={8} className="text-white" />
                               Buddy
                             </span>
                           </div>
                           {description && (
-                            <p className="text-xs text-text-muted mt-0.5 line-clamp-1">{description}</p>
+                            <p className="text-xs text-text-muted mt-0.5 line-clamp-1">
+                              {description}
+                            </p>
                           )}
-                          <p className="text-[11px] text-text-muted/70">{t('member.notInChannel')}</p>
+                          <p className="text-[11px] text-text-muted/70">
+                            {t('member.notInChannel')}
+                          </p>
                         </div>
-                        <button
-                          type="button"
+                        <Button
+                          variant="accent"
+                          size="xs"
                           onClick={() => handleAddServerBotToChannel(u.id)}
                           disabled={isAdding}
-                          className="shrink-0 mt-0.5 px-3 py-1.5 text-xs rounded-md bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold disabled:opacity-50 transition"
                         >
                           {isAdding ? t('common.loading') : t('member.addToChannel')}
-                        </button>
+                        </Button>
                       </div>
                     )
                   })}
@@ -477,7 +479,9 @@ export function InvitePanel({
                     const u = buddy.botUser!
                     const name = u.displayName || u.username
                     const description =
-                      typeof buddy.config?.description === 'string' ? buddy.config.description : null
+                      typeof buddy.config?.description === 'string'
+                        ? buddy.config.description
+                        : null
                     const ownerName = buddy.owner?.displayName ?? buddy.owner?.username ?? null
                     const isSelected = selectedBuddyIds.has(buddy.id)
                     const isAdding = addingSingleId === buddy.id
@@ -489,7 +493,7 @@ export function InvitePanel({
                         onClick={() => toggleBuddy(buddy.id)}
                         className={`flex items-start gap-3 w-full px-3 py-2 rounded-lg text-left transition mb-1 ${
                           isSelected
-                            ? 'bg-[#FF6B9D]/15 border border-[#FF6B9D]/30'
+                            ? 'bg-accent/15 border border-accent/30'
                             : 'bg-bg-tertiary/40 border border-border-subtle hover:bg-bg-tertiary/60'
                         }`}
                       >
@@ -497,7 +501,7 @@ export function InvitePanel({
                         <div
                           className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 mt-0.5 ${
                             isSelected
-                              ? 'border-[#FF6B9D] bg-[#FF6B9D]'
+                              ? 'border-accent bg-accent'
                               : 'border-border-dim bg-transparent'
                           }`}
                         >
@@ -509,7 +513,7 @@ export function InvitePanel({
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
                             <p className="text-sm text-text-primary truncate">{name}</p>
-                            <PawPrint size={12} className="text-[#FF6B9D] shrink-0" />
+                            <PawPrint size={12} className="text-accent shrink-0" />
                             <span
                               className={`w-2 h-2 rounded-full shrink-0 ${
                                 buddy.status === 'running'
@@ -521,7 +525,9 @@ export function InvitePanel({
                             />
                           </div>
                           {description && (
-                            <p className="text-xs text-text-muted mt-0.5 line-clamp-1">{description}</p>
+                            <p className="text-xs text-text-muted mt-0.5 line-clamp-1">
+                              {description}
+                            </p>
                           )}
                           {ownerName && (
                             <p className="text-[11px] text-text-muted/70">
@@ -544,7 +550,7 @@ export function InvitePanel({
                       <button
                         type="button"
                         onClick={handleGoToBuddySettings}
-                        className="text-[#FF6B9D] hover:underline ml-1"
+                        className="text-accent hover:underline ml-1"
                       >
                         {t('member.goCreate')}
                       </button>
@@ -565,20 +571,19 @@ export function InvitePanel({
               {t('member.selectedBuddies', { count: selectedBuddyIds.size })}
             </span>
             <div className="flex items-center gap-2">
-              <button
-                onClick={onClose}
-                className="px-4 py-2 text-text-secondary hover:text-text-primary transition rounded-lg text-xs"
-              >
+              <Button variant="ghost" size="sm" onClick={onClose}>
                 {t('common.cancel')}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={handleAddBuddiesToServer}
                 disabled={selectedBuddyIds.size === 0 || addingBuddies}
-                className="flex items-center gap-1.5 px-4 py-2 bg-[#FF6B9D] hover:bg-[#FF4081] text-white rounded-lg font-bold text-xs transition disabled:opacity-50"
+                icon={PawPrint}
+                loading={addingBuddies}
               >
-                <PawPrint size={14} />
-                {addingBuddies ? t('common.loading') : t('member.addToServer')}
-              </button>
+                {t('member.addToServer')}
+              </Button>
             </div>
           </div>
         )}

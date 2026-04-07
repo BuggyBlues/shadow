@@ -30,7 +30,7 @@ export function UserAvatar({
     <img
       src={src}
       alt={displayName ?? ''}
-      className={`${sizeClass} rounded-full bg-bg-tertiary object-cover shrink-0 ${className}`}
+      className={`${sizeClass} rounded-full bg-bg-secondary object-cover shrink-0 ${className}`}
     />
   )
 }

@@ -1,3 +1,4 @@
+import { Button, cn } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchApi } from '../../lib/api'
 
@@ -46,11 +47,11 @@ export function NotificationSettings() {
 
   return (
     <>
-      <h2 className="text-2xl font-bold text-text-primary mb-2">通知设置</h2>
+      <h2 className="text-2xl font-black text-text-primary mb-2">通知设置</h2>
       <p className="text-text-muted text-sm mb-6">管理通知策略、频道/服务器静音。</p>
 
-      <div className="bg-bg-secondary rounded-xl border border-border-subtle p-6 mb-6">
-        <label className="block text-xs font-bold uppercase text-text-secondary mb-4 tracking-wide">
+      <div className="bg-white/[0.03] backdrop-blur-[32px] rounded-[24px] border border-white/[0.08] p-6 mb-6">
+        <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.2em] ml-1 mb-4">
           通知策略
         </label>
         <div className="space-y-2">
@@ -77,14 +78,18 @@ export function NotificationSettings() {
                 key={item.value}
                 type="button"
                 onClick={() => updatePref.mutate({ strategy: item.value })}
-                className={`w-full text-left p-3 rounded-lg border transition ${
+                className={cn(
+                  'w-full text-left p-3 rounded-[16px] border-2 transition-all duration-300',
                   checked
-                    ? 'border-primary bg-primary/10'
-                    : 'border-border-subtle hover:border-border-dim bg-bg-tertiary'
-                }`}
+                    ? 'border-primary bg-primary/10 shadow-[0_0_20px_rgba(0,198,209,0.1)]'
+                    : 'border-white/[0.06] hover:border-white/[0.12] bg-white/[0.02]',
+                )}
               >
                 <p
-                  className={`text-sm font-bold ${checked ? 'text-primary' : 'text-text-primary'}`}
+                  className={cn(
+                    'text-sm font-bold',
+                    checked ? 'text-primary' : 'text-text-primary',
+                  )}
                 >
                   {item.title}
                 </p>
@@ -95,8 +100,8 @@ export function NotificationSettings() {
         </div>
       </div>
 
-      <div className="bg-bg-secondary rounded-xl border border-border-subtle p-6">
-        <h3 className="text-lg font-bold text-text-primary mb-3">已静音服务器</h3>
+      <div className="bg-white/[0.03] backdrop-blur-[32px] rounded-[24px] border border-white/[0.08] p-6">
+        <h3 className="text-lg font-black text-text-primary mb-3">已静音服务器</h3>
         {mutedServers.length === 0 ? (
           <p className="text-sm text-text-muted">暂无已静音服务器</p>
         ) : (
@@ -107,7 +112,9 @@ export function NotificationSettings() {
                 className="flex items-center justify-between rounded-lg bg-bg-tertiary px-3 py-2"
               >
                 <span className="text-sm text-text-primary truncate">{s.server.name}</span>
-                <button
+                <Button
+                  variant="ghost"
+                  size="xs"
                   type="button"
                   onClick={() =>
                     updatePref.mutate({
@@ -116,10 +123,10 @@ export function NotificationSettings() {
                       ),
                     })
                   }
-                  className="text-xs px-2 py-1 rounded bg-bg-modifier-hover hover:bg-bg-modifier-active text-text-secondary"
+                  className="text-xs normal-case tracking-normal"
                 >
                   取消静音
-                </button>
+                </Button>
               </div>
             ))}
           </div>

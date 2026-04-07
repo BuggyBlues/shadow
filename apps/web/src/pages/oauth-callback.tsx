@@ -1,3 +1,4 @@
+import { Spinner } from '@shadowob/ui'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect } from 'react'
 import { fetchApi } from '../lib/api'
@@ -48,7 +49,7 @@ export function OAuthCallbackPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-bg-tertiary">
       <div className="text-center">
-        <div className="w-8 h-8 border-2 border-[#5865F2] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+        <Spinner size="md" className="mx-auto mb-4" />
         <p className="text-text-secondary text-sm">正在登录...</p>
       </div>
     </div>

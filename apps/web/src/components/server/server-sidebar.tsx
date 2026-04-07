@@ -1,3 +1,14 @@
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+  Button,
+  cn,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import {
@@ -13,7 +24,6 @@ import {
   Volume2,
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { useSocketEvent } from '../../hooks/use-socket'
 import { fetchApi } from '../../lib/api'
@@ -37,42 +47,6 @@ interface ServerEntry {
   member: { role: string }
 }
 
-// Simple tooltip component using portal to avoid overflow clipping
-function ServerTooltip({
-  text,
-  targetRef,
-  visible,
-}: {
-  text: string
-  targetRef: React.RefObject<HTMLButtonElement | null>
-  visible: boolean
-}) {
-  const [position, setPosition] = useState({ top: 0, left: 0 })
-
-  useEffect(() => {
-    if (visible && targetRef.current) {
-      const rect = targetRef.current.getBoundingClientRect()
-      setPosition({
-        top: rect.top + rect.height / 2,
-        left: rect.right + 12,
-      })
-    }
-  }, [visible, targetRef])
-
-  if (!visible) return null
-
-  return createPortal(
-    <div
-      className="fixed px-3 py-1.5 bg-bg-tertiary text-text-primary text-sm font-medium rounded-md shadow-lg whitespace-nowrap pointer-events-none z-[9999] -translate-y-1/2"
-      style={{ top: position.top, left: position.left }}
-    >
-      {text}
-      <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-bg-tertiary" />
-    </div>,
-    document.body,
-  )
-}
-
 // Individual server item component to properly use hooks
 function ServerItem({
   server,
@@ -93,9 +67,6 @@ function ServerItem({
   onSelect: (id: string, slug?: string | null) => void
   onContextMenu: (e: React.MouseEvent, serverEntry: ServerEntry) => void
 }) {
-  const buttonRef = useRef<HTMLButtonElement>(null)
-  const [tooltipVisible, setTooltipVisible] = useState(false)
-
   const handleContextMenu = useCallback(
     (e: React.MouseEvent) => {
       onContextMenu(e, { server, member })
@@ -104,36 +75,53 @@ function ServerItem({
   )
 
   return (
-    <div className="relative shrink-0">
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={() => onSelect(server.id, server.slug)}
-        onContextMenu={handleContextMenu}
-        onMouseEnter={() => setTooltipVisible(true)}
-        onMouseLeave={() => setTooltipVisible(false)}
-        className={`w-12 h-12 transition-all duration-200 flex items-center justify-center font-bold text-[15px] overflow-hidden ${
-          isActive
-            ? 'bg-[#5865F2] rounded-[16px] text-white shadow-sm'
-            : 'bg-bg-primary text-text-primary rounded-[24px] hover:rounded-[16px] hover:bg-[#5865F2] hover:text-white'
-        }`}
-      >
-        {server.iconUrl ? (
-          <img src={server.iconUrl} alt="" className="w-full h-full object-cover" />
-        ) : (
-          <img src={getCatAvatar(index)} alt={server.name} className="w-10 h-10" />
+    <div className="relative shrink-0 flex items-center">
+      {/* Active indicator pill */}
+      <div
+        className={cn(
+          'absolute -left-1 w-1 rounded-r-full bg-primary transition-all duration-200',
+          isActive ? 'h-10' : unreadCount > 0 && !isMuted ? 'h-2' : 'h-0 group-hover/item:h-5',
         )}
-      </button>
+      />
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={() => onSelect(server.id, server.slug)}
+            onContextMenu={handleContextMenu}
+            className={cn(
+              'w-12 h-12 transition-all duration-200 flex items-center justify-center overflow-hidden',
+              isActive
+                ? 'rounded-[16px] bg-primary/20 ring-1 ring-primary/30 shadow-[0_0_12px_rgba(0,243,255,0.15)]'
+                : 'rounded-[24px] hover:rounded-[16px] bg-white/5 hover:bg-primary/10',
+            )}
+          >
+            <Avatar className="w-12 h-12 rounded-[inherit]">
+              {server.iconUrl ? (
+                <AvatarImage src={server.iconUrl} alt={server.name} className="object-cover" />
+              ) : (
+                <AvatarImage
+                  src={getCatAvatar(index)}
+                  alt={server.name}
+                  className="w-10 h-10 m-auto"
+                />
+              )}
+              <AvatarFallback className="rounded-[inherit] bg-white/10 text-text-primary font-bold text-[15px]">
+                {server.name.charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right">{server.name}</TooltipContent>
+      </Tooltip>
       {server.isPublic === false && (
-        <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-bg-secondary flex items-center justify-center shadow-sm">
+        <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-bg-deep/80 backdrop-blur flex items-center justify-center shadow-sm">
           <Lock size={10} className="text-text-muted" />
         </span>
       )}
       {unreadCount > 0 && !isMuted && (
-        <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-danger border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.35)]" />
+        <span className="absolute -top-0.5 -right-0.5 min-w-[8px] h-2 rounded-full bg-primary shadow-[0_0_6px_rgba(0,243,255,0.5)]" />
       )}
-      {/* Portal Tooltip */}
-      <ServerTooltip text={server.name} targetRef={buttonRef} visible={tooltipVisible} />
     </div>
   )
 }
@@ -310,375 +298,404 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
   }
 
   return (
-    <div className="w-[72px] bg-bg-tertiary flex flex-col items-center py-3 shrink-0 h-full">
-      {/* User avatar → settings/profile */}
-      <div className="relative group/user shrink-0">
-        <button
-          onClick={() => navigate({ to: '/settings' })}
-          className="w-12 h-12 rounded-full bg-bg-primary hover:ring-2 hover:ring-primary/60 transition-all duration-200 flex items-center justify-center overflow-hidden"
-          title={user?.displayName || user?.username || t('settings.tabProfile')}
-        >
-          {user?.avatarUrl ? (
-            <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full bg-[#5865F2] flex items-center justify-center text-white font-bold text-lg">
-              {(user?.displayName || user?.username || '?').charAt(0).toUpperCase()}
-            </div>
-          )}
-        </button>
-        {/* Tooltip */}
-        <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1.5 bg-bg-tertiary text-text-primary text-sm font-medium rounded-md shadow-lg whitespace-nowrap pointer-events-none opacity-0 group-hover/user:opacity-100 transition-opacity z-50">
-          {user?.displayName || user?.username}
-          <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-bg-tertiary" />
-        </div>
-      </div>
-
-      <div className="w-8 h-0.5 bg-divider rounded-full my-1 shrink-0" />
-
-      {/* Scrollable server list */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col items-center gap-2 min-h-0 py-1 scrollbar-hidden">
-        {servers.map((s, i) => (
-          <ServerItem
-            key={s.server.id}
-            server={s.server}
-            member={s.member}
-            index={i}
-            isActive={activeServerId === s.server.id}
-            unreadCount={scopedUnread?.serverUnread?.[s.server.id] ?? 0}
-            isMuted={notificationPreference?.mutedServerIds?.includes(s.server.id) ?? false}
-            onSelect={handleSelect}
-            onContextMenu={handleContextMenu}
-          />
-        ))}
-      </div>
-
-      {/* Action buttons — fixed at bottom */}
-      <div className="flex flex-col items-center gap-2 pt-2 shrink-0">
-        <div className="w-8 h-0.5 bg-divider rounded-full" />
-        <button
-          onClick={() => setShowCreate(!showCreate)}
-          className="w-12 h-12 rounded-[24px] hover:rounded-[16px] bg-bg-primary hover:bg-[#23a559] transition-all duration-200 flex items-center justify-center text-[#23a559] hover:text-white"
-          title={t('server.createServer')}
-        >
-          <Plus size={24} />
-        </button>
-
-        {/* Join server */}
-        <button
-          onClick={() => setShowJoin(!showJoin)}
-          className="w-12 h-12 rounded-[24px] hover:rounded-[16px] bg-bg-primary hover:bg-[#5865F2] transition-all duration-200 flex items-center justify-center text-[#5865F2] hover:text-white"
-          title={t('server.joinServer')}
-        >
-          <UserPlus size={20} />
-        </button>
-
-        {/* Discover servers */}
-        <button
-          onClick={() => navigate({ to: '/discover' })}
-          className="w-12 h-12 rounded-[24px] hover:rounded-[16px] bg-bg-primary hover:bg-[#23a559] transition-all duration-200 flex items-center justify-center text-[#23a559] hover:text-white"
-          title={t('server.discover')}
-        >
-          <Compass size={24} className="opacity-90" />
-        </button>
-
-        {/* OpenClaw — desktop only */}
-        {'desktopAPI' in window && (
-          <button
-            onClick={() => navigate({ to: '/openclaw' })}
-            className="w-12 h-12 rounded-[24px] hover:rounded-[16px] bg-bg-primary hover:bg-[#E8403E]/10 transition-all duration-200 flex items-center justify-center hover:scale-105"
-            title="OpenClaw"
-          >
-            <svg
-              width={24}
-              height={24}
-              viewBox="0 0 100 100"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
+    <TooltipProvider delayDuration={200}>
+      <div className="w-[72px] bg-bg-deep/90 backdrop-blur-xl border-r border-border/10 flex flex-col items-center py-3 shrink-0 h-full">
+        {/* User avatar → settings/profile */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate({ to: '/settings' })}
+              className="w-12 h-12 rounded-full p-0 overflow-hidden hover:ring-2 hover:ring-primary/40 transition-all"
             >
-              <defs>
-                <radialGradient
-                  id="sb_oc_body"
-                  cx="0"
-                  cy="0"
-                  r="1"
-                  gradientUnits="userSpaceOnUse"
-                  gradientTransform="translate(50 48) rotate(90) scale(42)"
+              <Avatar className="w-12 h-12">
+                <AvatarImage
+                  src={user?.avatarUrl ?? undefined}
+                  alt={user?.displayName || user?.username}
+                />
+                <AvatarFallback className="bg-primary/20 text-primary font-bold text-lg">
+                  {(user?.displayName || user?.username || '?').charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">{user?.displayName || user?.username}</TooltipContent>
+        </Tooltip>
+
+        <div className="w-8 h-0.5 bg-border/20 rounded-full my-1 shrink-0" />
+
+        {/* Scrollable server list */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col items-center gap-2 min-h-0 py-1 scrollbar-hidden">
+          {servers.map((s, i) => (
+            <ServerItem
+              key={s.server.id}
+              server={s.server}
+              member={s.member}
+              index={i}
+              isActive={activeServerId === s.server.id}
+              unreadCount={scopedUnread?.serverUnread?.[s.server.id] ?? 0}
+              isMuted={notificationPreference?.mutedServerIds?.includes(s.server.id) ?? false}
+              onSelect={handleSelect}
+              onContextMenu={handleContextMenu}
+            />
+          ))}
+        </div>
+
+        {/* Action buttons — fixed at bottom */}
+        <div className="flex flex-col items-center gap-2 pt-2 shrink-0">
+          <div className="w-8 h-0.5 bg-border/20 rounded-full" />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="glass"
+                size="icon"
+                className="rounded-[16px]"
+                onClick={() => setShowCreate(!showCreate)}
+              >
+                <Plus size={24} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">{t('server.createServer')}</TooltipContent>
+          </Tooltip>
+
+          {/* Join server */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="glass"
+                size="icon"
+                className="rounded-[16px]"
+                onClick={() => setShowJoin(!showJoin)}
+              >
+                <UserPlus size={20} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">{t('server.joinServer')}</TooltipContent>
+          </Tooltip>
+
+          {/* Discover servers */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="glass"
+                size="icon"
+                className="rounded-[16px]"
+                onClick={() => navigate({ to: '/discover' })}
+              >
+                <Compass size={24} className="opacity-90" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">{t('server.discover')}</TooltipContent>
+          </Tooltip>
+
+          {/* OpenClaw — desktop only */}
+          {'desktopAPI' in window && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-[16px] hover:scale-105"
+                  onClick={() => navigate({ to: '/openclaw' })}
                 >
-                  <stop stopColor="#FF5E69" />
-                  <stop offset="1" stopColor="#E53945" />
-                </radialGradient>
-                <linearGradient
-                  id="sb_oc_claw"
-                  x1="10"
-                  y1="50"
-                  x2="30"
-                  y2="70"
-                  gradientUnits="userSpaceOnUse"
+                  <svg
+                    width={24}
+                    height={24}
+                    viewBox="0 0 100 100"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <defs>
+                      <radialGradient
+                        id="sb_oc_body"
+                        cx="0"
+                        cy="0"
+                        r="1"
+                        gradientUnits="userSpaceOnUse"
+                        gradientTransform="translate(50 48) rotate(90) scale(42)"
+                      >
+                        <stop stopColor="#FF5E69" />
+                        <stop offset="1" stopColor="#E53945" />
+                      </radialGradient>
+                      <linearGradient
+                        id="sb_oc_claw"
+                        x1="10"
+                        y1="50"
+                        x2="30"
+                        y2="70"
+                        gradientUnits="userSpaceOnUse"
+                      >
+                        <stop stopColor="#FF5E69" />
+                        <stop offset="1" stopColor="#D93540" />
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M40 15C35 5 25 5 20 10"
+                      stroke="#E53945"
+                      strokeWidth="4"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M60 15C65 5 75 5 80 10"
+                      stroke="#E53945"
+                      strokeWidth="4"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M35 85C35 88 32 92 28 92C24 92 22 88 24 85"
+                      stroke="#B3242E"
+                      strokeWidth="6"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M65 85C65 88 68 92 72 92C76 92 78 88 76 85"
+                      stroke="#B3242E"
+                      strokeWidth="6"
+                      strokeLinecap="round"
+                    />
+                    <circle cx="15" cy="55" r="12" fill="url(#sb_oc_claw)" />
+                    <circle cx="85" cy="55" r="12" fill="url(#sb_oc_claw)" />
+                    <circle cx="50" cy="50" r="40" fill="url(#sb_oc_body)" />
+                    <circle cx="35" cy="42" r="9" fill="white" />
+                    <circle cx="65" cy="42" r="9" fill="white" />
+                    <circle cx="37" cy="41" r="5" fill="#1a1a2e" />
+                    <circle cx="67" cy="41" r="5" fill="#1a1a2e" />
+                    <circle cx="38" cy="39" r="2" fill="white" />
+                    <circle cx="68" cy="39" r="2" fill="white" />
+                    <circle cx="24" cy="55" r="5" fill="#FFC1C7" opacity="0.5" />
+                    <circle cx="76" cy="55" r="5" fill="#FFC1C7" opacity="0.5" />
+                    <path
+                      d="M42 60C45 64 55 64 58 60"
+                      stroke="#8B1A24"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      fill="none"
+                    />
+                  </svg>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">OpenClaw</TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+
+        {/* Simple create dialog */}
+        {showCreate && (
+          <div
+            className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+            onClick={() => setShowCreate(false)}
+          >
+            <div
+              className="bg-bg-secondary rounded-xl p-6 w-96 border border-border-subtle"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-xl font-bold text-text-primary mb-4">
+                {t('server.createServer')}
+              </h2>
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (
+                    e.key === 'Enter' &&
+                    !e.shiftKey &&
+                    !e.nativeEvent.isComposing &&
+                    e.keyCode !== 229 &&
+                    newName.trim()
+                  ) {
+                    e.preventDefault()
+                    createServer.mutate({ name: newName.trim(), isPublic })
+                  }
+                }}
+                placeholder={t('server.serverName')}
+                className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary mb-4"
+              />
+              {/* Public/Private toggle */}
+              <div className="flex items-center justify-between mb-4 p-3 bg-bg-tertiary rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-bg-primary flex items-center justify-center">
+                    {isPublic ? (
+                      <Globe size={16} className="text-text-primary" />
+                    ) : (
+                      <Lock size={16} className="text-text-primary" />
+                    )}
+                  </div>
+                  <div>
+                    <div className="text-text-primary font-medium text-sm">
+                      {isPublic ? t('server.publicServer') : t('server.privateServer')}
+                    </div>
+                    <div className="text-text-muted text-xs">
+                      {isPublic ? t('server.publicServerDesc') : t('server.privateServerDesc')}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsPublic(!isPublic)}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${
+                    isPublic ? 'bg-primary' : 'bg-bg-primary'
+                  }`}
                 >
-                  <stop stopColor="#FF5E69" />
-                  <stop offset="1" stopColor="#D93540" />
-                </linearGradient>
-              </defs>
-              <path
-                d="M40 15C35 5 25 5 20 10"
-                stroke="#E53945"
-                strokeWidth="4"
-                strokeLinecap="round"
+                  <span
+                    className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                      isPublic ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowCreate(false)}
+                  className="px-4 py-2 text-text-secondary hover:text-text-primary transition rounded-lg"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  onClick={() =>
+                    newName.trim() && createServer.mutate({ name: newName.trim(), isPublic })
+                  }
+                  disabled={!newName.trim() || createServer.isPending}
+                  className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition disabled:opacity-50 font-bold"
+                >
+                  {t('common.create')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Join server dialog */}
+        {showJoin && (
+          <div
+            className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+            onClick={() => setShowJoin(false)}
+          >
+            <div
+              className="bg-bg-secondary rounded-xl p-6 w-96 border border-border-subtle"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-xl font-bold text-text-primary mb-2">{t('server.joinServer')}</h2>
+              <p className="text-text-muted text-sm mb-4">{t('server.joinServerDesc')}</p>
+              <input
+                type="text"
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value)}
+                onKeyDown={(e) => {
+                  if (
+                    e.key === 'Enter' &&
+                    !e.shiftKey &&
+                    !e.nativeEvent.isComposing &&
+                    e.keyCode !== 229 &&
+                    joinCode.trim().length === 8
+                  ) {
+                    e.preventDefault()
+                    joinServer.mutate(joinCode.trim())
+                  }
+                }}
+                placeholder={t('server.inviteCodePlaceholder')}
+                maxLength={8}
+                className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary mb-4 font-mono text-center text-lg tracking-widest"
               />
-              <path
-                d="M60 15C65 5 75 5 80 10"
-                stroke="#E53945"
-                strokeWidth="4"
-                strokeLinecap="round"
-              />
-              <path
-                d="M35 85C35 88 32 92 28 92C24 92 22 88 24 85"
-                stroke="#B3242E"
-                strokeWidth="6"
-                strokeLinecap="round"
-              />
-              <path
-                d="M65 85C65 88 68 92 72 92C76 92 78 88 76 85"
-                stroke="#B3242E"
-                strokeWidth="6"
-                strokeLinecap="round"
-              />
-              <circle cx="15" cy="55" r="12" fill="url(#sb_oc_claw)" />
-              <circle cx="85" cy="55" r="12" fill="url(#sb_oc_claw)" />
-              <circle cx="50" cy="50" r="40" fill="url(#sb_oc_body)" />
-              <circle cx="35" cy="42" r="9" fill="white" />
-              <circle cx="65" cy="42" r="9" fill="white" />
-              <circle cx="37" cy="41" r="5" fill="#1a1a2e" />
-              <circle cx="67" cy="41" r="5" fill="#1a1a2e" />
-              <circle cx="38" cy="39" r="2" fill="white" />
-              <circle cx="68" cy="39" r="2" fill="white" />
-              <circle cx="24" cy="55" r="5" fill="#FFC1C7" opacity="0.5" />
-              <circle cx="76" cy="55" r="5" fill="#FFC1C7" opacity="0.5" />
-              <path
-                d="M42 60C45 64 55 64 58 60"
-                stroke="#8B1A24"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                fill="none"
-              />
-            </svg>
-          </button>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowJoin(false)}
+                  className="px-4 py-2 text-text-secondary hover:text-text-primary transition rounded-lg"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  onClick={() => joinCode.trim() && joinServer.mutate(joinCode.trim())}
+                  disabled={joinCode.trim().length !== 8 || joinServer.isPending}
+                  className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition disabled:opacity-50 font-bold"
+                >
+                  {t('server.joinButton')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Server context menu */}
+        {contextMenu && (
+          <ContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            onClose={closeContextMenu}
+            groups={[
+              {
+                items: [
+                  {
+                    icon: Info,
+                    label: t('server.serverInfo'),
+                    onClick: () =>
+                      handleSelect(contextMenu.server.server.id, contextMenu.server.server.slug),
+                  },
+                  {
+                    icon: UserPlus,
+                    label: t('server.inviteMembers'),
+                    onClick: () =>
+                      handleSelect(contextMenu.server.server.id, contextMenu.server.server.slug),
+                  },
+                ],
+              },
+              {
+                items: [
+                  {
+                    icon: Volume2,
+                    label: (notificationPreference?.mutedServerIds ?? []).includes(
+                      contextMenu.server.server.id,
+                    )
+                      ? '取消静音服务器'
+                      : '静音服务器通知',
+                    onClick: () => {
+                      const targetId = contextMenu.server.server.id
+                      const current = notificationPreference?.mutedServerIds ?? []
+                      const isMuted = current.includes(targetId)
+                      const next = isMuted
+                        ? current.filter((id) => id !== targetId)
+                        : [...current, targetId]
+                      updateNotificationPreference.mutate({ mutedServerIds: next })
+                    },
+                  },
+                  {
+                    icon: copiedId ? Check : Copy,
+                    label: copiedId ? t('common.copied') : t('server.copyServerId'),
+                    onClick: () => {
+                      navigator.clipboard.writeText(contextMenu.server.server.id)
+                      setCopiedId(true)
+                      setTimeout(() => setCopiedId(false), 2000)
+                    },
+                  },
+                ],
+              },
+              ...(user?.id !== contextMenu.server.server.ownerId
+                ? [
+                    {
+                      items: [
+                        {
+                          icon: LogOut,
+                          label: t('server.leaveServer'),
+                          danger: true,
+                          onClick: async () => {
+                            const name = contextMenu.server.server.name
+                            const ok = await useConfirmStore.getState().confirm({
+                              title: t('server.leaveServer'),
+                              message: t('server.leaveConfirm', { name }),
+                            })
+                            if (ok) {
+                              leaveServer.mutate(contextMenu.server.server.id)
+                            }
+                          },
+                        },
+                      ],
+                    },
+                  ]
+                : []),
+            ]}
+          />
         )}
       </div>
-
-      {/* Simple create dialog */}
-      {showCreate && (
-        <div
-          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
-          onClick={() => setShowCreate(false)}
-        >
-          <div
-            className="bg-bg-secondary rounded-xl p-6 w-96 border border-border-subtle"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="text-xl font-bold text-text-primary mb-4">{t('server.createServer')}</h2>
-            <input
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => {
-                if (
-                  e.key === 'Enter' &&
-                  !e.shiftKey &&
-                  !e.nativeEvent.isComposing &&
-                  e.keyCode !== 229 &&
-                  newName.trim()
-                ) {
-                  e.preventDefault()
-                  createServer.mutate({ name: newName.trim(), isPublic })
-                }
-              }}
-              placeholder={t('server.serverName')}
-              className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary mb-4"
-            />
-            {/* Public/Private toggle */}
-            <div className="flex items-center justify-between mb-4 p-3 bg-bg-tertiary rounded-lg">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-bg-primary flex items-center justify-center">
-                  {isPublic ? (
-                    <Globe size={16} className="text-text-primary" />
-                  ) : (
-                    <Lock size={16} className="text-text-primary" />
-                  )}
-                </div>
-                <div>
-                  <div className="text-text-primary font-medium text-sm">
-                    {isPublic ? t('server.publicServer') : t('server.privateServer')}
-                  </div>
-                  <div className="text-text-muted text-xs">
-                    {isPublic ? t('server.publicServerDesc') : t('server.privateServerDesc')}
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsPublic(!isPublic)}
-                className={`relative w-11 h-6 rounded-full transition-colors ${
-                  isPublic ? 'bg-primary' : 'bg-bg-primary'
-                }`}
-              >
-                <span
-                  className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                    isPublic ? 'translate-x-5' : 'translate-x-0'
-                  }`}
-                />
-              </button>
-            </div>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowCreate(false)}
-                className="px-4 py-2 text-text-secondary hover:text-text-primary transition rounded-lg"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={() =>
-                  newName.trim() && createServer.mutate({ name: newName.trim(), isPublic })
-                }
-                disabled={!newName.trim() || createServer.isPending}
-                className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition disabled:opacity-50 font-bold"
-              >
-                {t('common.create')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Join server dialog */}
-      {showJoin && (
-        <div
-          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
-          onClick={() => setShowJoin(false)}
-        >
-          <div
-            className="bg-bg-secondary rounded-xl p-6 w-96 border border-border-subtle"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="text-xl font-bold text-text-primary mb-2">{t('server.joinServer')}</h2>
-            <p className="text-text-muted text-sm mb-4">{t('server.joinServerDesc')}</p>
-            <input
-              type="text"
-              value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value)}
-              onKeyDown={(e) => {
-                if (
-                  e.key === 'Enter' &&
-                  !e.shiftKey &&
-                  !e.nativeEvent.isComposing &&
-                  e.keyCode !== 229 &&
-                  joinCode.trim().length === 8
-                ) {
-                  e.preventDefault()
-                  joinServer.mutate(joinCode.trim())
-                }
-              }}
-              placeholder={t('server.inviteCodePlaceholder')}
-              maxLength={8}
-              className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary mb-4 font-mono text-center text-lg tracking-widest"
-            />
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowJoin(false)}
-                className="px-4 py-2 text-text-secondary hover:text-text-primary transition rounded-lg"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={() => joinCode.trim() && joinServer.mutate(joinCode.trim())}
-                disabled={joinCode.trim().length !== 8 || joinServer.isPending}
-                className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition disabled:opacity-50 font-bold"
-              >
-                {t('server.joinButton')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Server context menu */}
-      {contextMenu && (
-        <ContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          onClose={closeContextMenu}
-          groups={[
-            {
-              items: [
-                {
-                  icon: Info,
-                  label: t('server.serverInfo'),
-                  onClick: () =>
-                    handleSelect(contextMenu.server.server.id, contextMenu.server.server.slug),
-                },
-                {
-                  icon: UserPlus,
-                  label: t('server.inviteMembers'),
-                  onClick: () =>
-                    handleSelect(contextMenu.server.server.id, contextMenu.server.server.slug),
-                },
-              ],
-            },
-            {
-              items: [
-                {
-                  icon: Volume2,
-                  label: (notificationPreference?.mutedServerIds ?? []).includes(
-                    contextMenu.server.server.id,
-                  )
-                    ? '取消静音服务器'
-                    : '静音服务器通知',
-                  onClick: () => {
-                    const targetId = contextMenu.server.server.id
-                    const current = notificationPreference?.mutedServerIds ?? []
-                    const isMuted = current.includes(targetId)
-                    const next = isMuted
-                      ? current.filter((id) => id !== targetId)
-                      : [...current, targetId]
-                    updateNotificationPreference.mutate({ mutedServerIds: next })
-                  },
-                },
-                {
-                  icon: copiedId ? Check : Copy,
-                  label: copiedId ? t('common.copied') : t('server.copyServerId'),
-                  onClick: () => {
-                    navigator.clipboard.writeText(contextMenu.server.server.id)
-                    setCopiedId(true)
-                    setTimeout(() => setCopiedId(false), 2000)
-                  },
-                },
-              ],
-            },
-            ...(user?.id !== contextMenu.server.server.ownerId
-              ? [
-                  {
-                    items: [
-                      {
-                        icon: LogOut,
-                        label: t('server.leaveServer'),
-                        danger: true,
-                        onClick: async () => {
-                          const name = contextMenu.server.server.name
-                          const ok = await useConfirmStore.getState().confirm({
-                            title: t('server.leaveServer'),
-                            message: t('server.leaveConfirm', { name }),
-                          })
-                          if (ok) {
-                            leaveServer.mutate(contextMenu.server.server.id)
-                          }
-                        },
-                      },
-                    ],
-                  },
-                ]
-              : []),
-          ]}
-        />
-      )}
-    </div>
+    </TooltipProvider>
   )
 }

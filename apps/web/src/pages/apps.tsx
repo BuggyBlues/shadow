@@ -1,6 +1,6 @@
+import { Spinner } from '@shadowob/ui'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams } from '@tanstack/react-router'
-import { Loader2 } from 'lucide-react'
 import { useLayoutEffect } from 'react'
 import { AppPage } from '../components/app/app-page'
 import { fetchApi } from '../lib/api'
@@ -34,7 +34,7 @@ export function AppPageRoute() {
   return isServerLoading ? (
     <div className="flex-1 flex items-center justify-center text-text-muted bg-bg-primary">
       <div className="inline-flex items-center gap-2 text-sm">
-        <Loader2 size={16} className="animate-spin opacity-80" />
+        <Spinner size="sm" />
         <span>正在加载应用...</span>
       </div>
     </div>

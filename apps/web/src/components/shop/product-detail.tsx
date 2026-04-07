@@ -1,3 +1,4 @@
+import { Badge, Button, Card } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import {
@@ -270,32 +271,14 @@ export function ProductDetail({
   return (
     <div className="flex-1 flex flex-col bg-[#F9FAFB] dark:bg-bg-primary overflow-hidden h-full relative z-30 font-sans">
       {/* ── Top Header ── */}
-      <div className="flex items-center justify-between p-4 bg-white/80 dark:bg-bg-primary/80 backdrop-blur-md border-b border-gray-200 dark:border-border-subtle shrink-0 sticky top-0 z-50">
-        <button
-          type="button"
-          onClick={onBack}
-          className="w-10 h-10 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-bg-modifier-hover rounded-full transition-all"
-        >
-          <ArrowLeft size={20} />
-        </button>
-        <span className="font-bold text-gray-900 dark:text-white truncate max-w-[200px]">
-          {product.name}
-        </span>
+      <div className="flex items-center justify-between p-4 bg-[rgba(255,255,255,0.75)] dark:bg-[rgba(255,255,255,0.03)] backdrop-blur-[32px] border-b border-border-subtle shrink-0 sticky top-0 z-50">
+        <Button variant="ghost" size="icon" icon={ArrowLeft} onClick={onBack} />
+        <span className="font-black text-text-primary truncate max-w-[200px]">{product.name}</span>
         <div className="flex gap-1 items-center">
-          <button
-            type="button"
-            onClick={handleToggleFavorite}
-            className="w-10 h-10 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-bg-modifier-hover rounded-full transition-all"
-          >
+          <Button variant="ghost" size="icon" onClick={handleToggleFavorite}>
             <Heart size={18} className={isFavorite ? 'fill-rose-500 text-rose-500' : ''} />
-          </button>
-          <button
-            type="button"
-            onClick={handleShare}
-            className="w-10 h-10 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-bg-modifier-hover rounded-full transition-all"
-          >
-            <Share size={18} />
-          </button>
+          </Button>
+          <Button variant="ghost" size="icon" icon={Share} onClick={handleShare} />
         </div>
       </div>
 
@@ -397,7 +380,7 @@ export function ProductDetail({
                   )}
                 </div>
 
-                <h1 className="text-gray-900 dark:text-white font-bold text-xl md:text-3xl leading-snug tracking-tight mb-3">
+                <h1 className="text-text-primary font-black text-xl md:text-3xl leading-snug tracking-tight mb-3">
                   {product.name}
                 </h1>
 
@@ -409,18 +392,15 @@ export function ProductDetail({
 
                 <div className="flex flex-wrap gap-2 mb-6">
                   {product.type === 'entitlement' && (
-                    <span className="px-3 py-1.5 rounded-lg bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 text-xs font-bold flex items-center gap-1.5 border border-orange-100 dark:border-orange-900/30">
+                    <Badge variant="warning" size="sm" className="flex items-center gap-1.5">
                       <Shield size={14} />
                       虚拟权益
-                    </span>
+                    </Badge>
                   )}
                   {product.tags?.map((tag: string) => (
-                    <span
-                      key={tag}
-                      className="px-3 py-1.5 rounded-lg bg-gray-50 dark:bg-bg-tertiary text-gray-600 dark:text-gray-300 text-xs font-bold border border-gray-100 dark:border-border-dim"
-                    >
+                    <Badge key={tag} variant="neutral" size="sm">
                       #{tag}
-                    </span>
+                    </Badge>
                   ))}
                 </div>
 
@@ -558,16 +538,16 @@ export function ProductDetail({
                   <button
                     type="button"
                     onClick={() => setSupportOpen(true)}
-                    className="flex flex-col items-center justify-center text-gray-500 hover:text-cyan-600 w-14 bg-gray-50 dark:bg-bg-tertiary rounded-xl border border-gray-100 dark:border-border-dim transition-colors"
+                    className="flex flex-col items-center justify-center text-text-muted hover:text-primary w-14 bg-[rgba(255,255,255,0.03)] border border-white/10 rounded-[16px] transition-colors"
                   >
                     <MessageSquare size={20} />
-                    <span className="text-[11px] mt-1 font-medium">客服</span>
+                    <span className="text-[11px] mt-1 font-black">客服</span>
                   </button>
-                  <button
-                    type="button"
+                  <Button
+                    variant="glass"
+                    className="flex-1 py-4"
                     onClick={handleAddToCart}
                     disabled={addToCart.isPending || stock === 0}
-                    className="flex-1 py-4 px-6 rounded-xl font-bold text-sm bg-cyan-50 dark:bg-cyan-900/20 text-cyan-600 dark:text-cyan-400 border border-cyan-100 dark:border-cyan-900/30 hover:bg-cyan-100 dark:hover:bg-cyan-900/40 disabled:opacity-50 transition-all active:scale-95"
                   >
                     {addedToCart ? (
                       <span className="flex items-center justify-center gap-2">
@@ -576,15 +556,15 @@ export function ProductDetail({
                     ) : (
                       '加入购物车'
                     )}
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="primary"
+                    className="flex-1 py-4"
                     onClick={handleBuyNow}
                     disabled={stock === 0}
-                    className="flex-1 py-4 px-6 rounded-xl font-bold text-sm bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/30 hover:shadow-cyan-500/50 disabled:opacity-50 transition-all hover:-translate-y-0.5 active:scale-95"
                   >
                     立即购买
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -692,52 +672,49 @@ export function ProductDetail({
       </div>
 
       {/* ── Bottom Fixed Action Bar (Mobile Only) ── */}
-      <div className="md:hidden absolute bottom-0 left-0 right-0 bg-white/90 dark:bg-bg-primary/95 backdrop-blur-xl border-t border-gray-200 dark:border-border-subtle p-3 pb-safe px-4 z-40 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)]">
+      <div className="md:hidden absolute bottom-0 left-0 right-0 bg-[rgba(255,255,255,0.75)] dark:bg-[rgba(255,255,255,0.03)] backdrop-blur-[32px] border-t border-border-subtle p-3 pb-safe px-4 z-40">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 pr-2">
             <button
               type="button"
               onClick={() => setSupportOpen(true)}
-              className="flex flex-col items-center justify-center text-gray-500 hover:text-cyan-600 w-10"
+              className="flex flex-col items-center justify-center text-text-muted hover:text-primary w-10"
             >
               <MessageSquare size={18} />
-              <span className="text-[10px] mt-1 font-medium">客服</span>
+              <span className="text-[10px] mt-1 font-black">客服</span>
             </button>
-            <div className="w-[1px] h-8 bg-gray-200 dark:bg-border-dim mx-1" />
+            <div className="w-[1px] h-8 bg-border-subtle mx-1" />
           </div>
 
-          <button
-            type="button"
+          <Button
+            variant="glass"
+            className="flex-1"
             onClick={handleAddToCart}
             disabled={addToCart.isPending || stock === 0}
-            className="flex-1 py-3 px-4 rounded-xl font-bold text-sm bg-cyan-50 dark:bg-cyan-900/20 text-cyan-600 dark:text-cyan-400 disabled:opacity-50 active:scale-[0.98] transition-transform"
           >
             {addedToCart ? '已加入' : '加入购物车'}
-          </button>
+          </Button>
 
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            className="flex-1"
             onClick={handleBuyNow}
             disabled={stock === 0}
-            className="flex-1 py-3 px-4 rounded-xl font-bold text-sm bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/30 disabled:opacity-50 active:scale-[0.98] transition-transform"
           >
             立即购买
-          </button>
+          </Button>
         </div>
       </div>
 
       {supportOpen && (
         <div className="absolute inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-end md:items-center justify-center p-0 md:p-4">
-          <div className="w-full md:max-w-lg bg-white dark:bg-bg-secondary rounded-t-3xl md:rounded-3xl p-5 border border-gray-100 dark:border-border-dim max-h-[80vh] overflow-y-auto">
+          <Card
+            variant="glass"
+            className="w-full md:max-w-lg !rounded-t-[24px] md:!rounded-[24px] !p-5 max-h-[80vh] overflow-y-auto"
+          >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-gray-900 dark:text-white">联系客服</h3>
-              <button
-                type="button"
-                onClick={() => setSupportOpen(false)}
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-bg-modifier-hover"
-              >
-                <X size={16} />
-              </button>
+              <h3 className="font-black text-text-primary">联系客服</h3>
+              <Button variant="ghost" size="icon" icon={X} onClick={() => setSupportOpen(false)} />
             </div>
 
             <textarea
@@ -781,17 +758,18 @@ export function ProductDetail({
               )}
             </div>
 
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              className="mt-5 w-full"
               onClick={() =>
                 contactSupport.mutate({ message: supportMessage.trim(), images: supportImages })
               }
               disabled={!supportMessage.trim() || contactSupport.isPending || uploadingCount > 0}
-              className="mt-5 w-full py-3 rounded-xl font-bold text-white bg-cyan-600 disabled:opacity-50"
+              loading={contactSupport.isPending}
             >
               {contactSupport.isPending ? '正在创建客服会话...' : '提交并进入聊天频道'}
-            </button>
-          </div>
+            </Button>
+          </Card>
         </div>
       )}
     </div>

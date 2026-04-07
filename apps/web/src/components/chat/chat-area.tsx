@@ -1,3 +1,4 @@
+import { Badge, Button, cn } from '@shadowob/ui'
 import {
   type InfiniteData,
   useInfiniteQuery,
@@ -688,8 +689,8 @@ export function ChatArea() {
 
   if (!activeChannelId) {
     return (
-      <div className="flex-1 flex items-center justify-center text-text-muted bg-bg-primary">
-        <Loader2 size={16} className="animate-spin opacity-60" />
+      <div className="flex-1 flex items-center justify-center text-muted-foreground bg-bg-primary">
+        <Loader2 size={16} className="animate-spin text-primary opacity-60" />
       </div>
     )
   }
@@ -713,14 +714,16 @@ export function ChatArea() {
           </div>
         )}
         {/* Channel header */}
-        <div className="desktop-drag-titlebar h-12 px-4 flex items-center gap-2 border-b-2 border-bg-tertiary shrink-0 z-10 bg-bg-primary">
+        <div className="desktop-drag-titlebar h-12 px-4 flex items-center gap-2 border-b border-border/10 shrink-0 z-10 bg-bg-primary/80 backdrop-blur-xl">
           {/* Mobile back button */}
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setMobileView('channels')}
-            className="md:hidden text-text-secondary hover:text-text-primary transition shrink-0 -ml-1 mr-1 p-1 hover:bg-bg-modifier-hover rounded-md"
+            className="md:hidden shrink-0 -ml-1 mr-1 h-8 w-8"
           >
             <ArrowLeft size={20} />
-          </button>
+          </Button>
           <Hash size={24} className="text-text-muted shrink-0" />
           <h3 className="font-bold text-text-primary text-[15px] truncate">
             {channel?.name ?? '...'}
@@ -736,13 +739,15 @@ export function ChatArea() {
           {/* Right side: members toggle + notification bell */}
           <div className="flex items-center gap-3 ml-auto shrink-0">
             <NotificationBell />
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => useUIStore.getState().toggleMobileMemberList()}
-              className="lg:hidden text-text-secondary hover:text-text-primary transition p-1.5 rounded-md hover:bg-bg-modifier-hover"
+              className="lg:hidden h-8 w-8"
               title={t('member.toggleList')}
             >
               <Users size={20} />
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -815,7 +820,11 @@ export function ChatArea() {
                     )}
                     {item.kind === 'system' ? (
                       <div className="flex items-center justify-center gap-2 px-4 py-1.5">
-                        <div className="flex items-center gap-1.5 text-xs text-text-muted">
+                        <Badge
+                          variant="neutral"
+                          size="md"
+                          className="bg-white/5 backdrop-blur-sm rounded-full border-white/10 gap-1.5 font-normal normal-case tracking-normal"
+                        >
                           {item.data.type === 'joined' ? (
                             <LogIn size={14} className="text-green-400" />
                           ) : (
@@ -834,7 +843,7 @@ export function ChatArea() {
                                 ? t('member.leftChannel')
                                 : t('member.leftServer')}
                           </span>
-                        </div>
+                        </Badge>
                       </div>
                     ) : (
                       <MessageBubble
@@ -869,18 +878,18 @@ export function ChatArea() {
 
         {/* Typing indicator */}
         {typingUsers.length > 0 && (
-          <div className="px-4 py-1 text-xs text-text-muted">
+          <div className="px-4 py-1 text-xs text-primary">
             <span className="inline-flex gap-0.5 mr-1">
               <span
-                className="w-1.5 h-1.5 bg-text-muted rounded-full animate-bounce"
+                className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce"
                 style={{ animationDelay: '0ms' }}
               />
               <span
-                className="w-1.5 h-1.5 bg-text-muted rounded-full animate-bounce"
+                className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce"
                 style={{ animationDelay: '150ms' }}
               />
               <span
-                className="w-1.5 h-1.5 bg-text-muted rounded-full animate-bounce"
+                className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce"
                 style={{ animationDelay: '300ms' }}
               />
             </span>
@@ -923,32 +932,28 @@ export function ChatArea() {
               })}
             </span>
             <div className="flex-1" />
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              size="sm"
               onClick={handleCopySelectedAsMarkdown}
               disabled={selectedMessageIds.size === 0}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-medium transition disabled:opacity-50"
+              icon={ClipboardCopy}
             >
-              <ClipboardCopy size={14} />
               {t('chat.copyAsMarkdown', '复制为 Markdown')}
-            </button>
-            <button
-              type="button"
-              onClick={handleExitSelectionMode}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-tertiary hover:bg-bg-modifier-active text-text-secondary rounded-lg text-sm font-medium transition"
-            >
-              <X size={14} />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleExitSelectionMode} icon={X}>
               {t('common.cancel')}
-            </button>
+            </Button>
           </div>
         ) : channel?.isArchived && messages.length > 0 ? (
-          <div className="flex items-center justify-center gap-3 px-4 py-3 bg-bg-tertiary border-t border-border-subtle">
-            <div className="flex items-center gap-2 text-text-muted">
+          <div className="flex items-center justify-center gap-3 px-4 py-3 bg-bg-deep border-t border-border/10">
+            <div className="flex items-center gap-2 text-muted-foreground">
               <Archive size={18} />
               <span>{t('channel.archivedNotice')}</span>
             </div>
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              size="sm"
               onClick={async () => {
                 const ok = await useConfirmStore.getState().confirm({
                   title: t('channel.unarchiveChannel'),
@@ -960,10 +965,9 @@ export function ChatArea() {
                   queryClient.invalidateQueries({ queryKey: ['channels'] })
                 }
               }}
-              className="px-3 py-1.5 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-medium transition"
             >
               {t('channel.unarchive')}
-            </button>
+            </Button>
           </div>
         ) : (
           <MessageInput
@@ -1016,14 +1020,14 @@ function EmptyChannelState({
 
   return (
     <>
-      <div className="flex flex-col items-center justify-center h-full text-text-muted px-4">
+      <div className="flex flex-col items-center justify-center h-full text-muted-foreground px-4">
         <Hash size={48} className="mb-4 opacity-30" />
-        <p className="text-lg font-bold text-text-primary mb-2">
+        <p className="text-lg font-bold text-primary mb-2">
           {t('chat.welcomeChannel', {
             channelName: channelName ?? t('chat.channelFallback'),
           })}
         </p>
-        <p className="text-sm mb-6">{t('chat.welcomeStart')}</p>
+        <p className="text-sm text-muted-foreground mb-6">{t('chat.welcomeStart')}</p>
         {isArchived ? (
           <div className="flex flex-col items-center gap-4">
             <div className="flex items-center gap-2 text-text-muted">
@@ -1031,39 +1035,37 @@ function EmptyChannelState({
               <span>{t('channel.archivedNotice')}</span>
             </div>
             {onUnarchive && (
-              <button
-                type="button"
-                onClick={onUnarchive}
-                className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-medium transition"
-              >
+              <Button variant="primary" size="sm" className="rounded-full" onClick={onUnarchive}>
                 {t('channel.unarchive')}
-              </button>
+              </Button>
             )}
           </div>
         ) : (
           <div className="flex items-center gap-3">
-            <button
-              type="button"
+            <Button
+              variant="accent"
+              size="sm"
+              className="rounded-full"
               onClick={() => {
                 setInviteInitialTab('members')
                 setShowInvitePanel(true)
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-[#5865F2] hover:bg-[#4752C4] text-white rounded-lg text-sm font-medium transition"
+              icon={UserPlus}
             >
-              <UserPlus size={16} />
               {t('channel.inviteMember')}
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="rounded-full"
               onClick={() => {
                 setInviteInitialTab('buddies')
                 setShowInvitePanel(true)
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-[#FF6B9D] hover:bg-[#FF4081] text-white rounded-lg text-sm font-medium transition"
+              icon={PawPrint}
             >
-              <PawPrint size={16} />
               {t('channel.addAgent')}
-            </button>
+            </Button>
           </div>
         )}
       </div>

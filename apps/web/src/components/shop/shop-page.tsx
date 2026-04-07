@@ -1,3 +1,4 @@
+import { Button, Card } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import {
@@ -20,7 +21,6 @@ import { ProductDetail } from './product-detail'
 import { ShopCart } from './shop-cart'
 import { ShopOrders } from './shop-orders'
 import { PriceDisplay } from './ui/currency'
-
 import { ProductCard } from './ui/product-card'
 
 /* ───────── Types ───────── */
@@ -158,19 +158,19 @@ export function ShopPage({ serverId, isAdmin, onClose }: ShopPageProps) {
       {/* ── Header ── */}
       <div className="desktop-drag-titlebar h-12 px-4 flex items-center bg-bg-secondary/50 backdrop-blur-sm border-b border-border-subtle shrink-0 gap-3 z-20 transition-colors">
         {onClose && (
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
+            icon={ArrowLeft}
             onClick={onClose}
-            className="p-2 -ml-2 text-gray-500 hover:text-gray-900 dark:text-text-muted dark:hover:text-text-primary hover:bg-gray-100 dark:hover:bg-bg-modifier-hover rounded-xl transition-all"
-          >
-            <ArrowLeft size={20} />
-          </button>
+            className="-ml-2"
+          />
         )}
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-full bg-cyan-600 flex items-center justify-center text-white shadow-sm">
             <ShoppingBag size={16} strokeWidth={2.5} />
           </div>
-          <h2 className="font-bold text-gray-900 dark:text-text-primary text-base truncate tracking-tight">
+          <h2 className="font-black text-text-primary text-base truncate tracking-tight">
             {shop?.name || (isShopLoading ? '加载中...' : '官方商城')}
           </h2>
         </div>
@@ -251,18 +251,18 @@ export function ShopPage({ serverId, isAdmin, onClose }: ShopPageProps) {
           </button>
 
           {isAdmin && (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
+              icon={Settings}
               onClick={() =>
                 navigate({
                   to: '/servers/$serverSlug/shop/admin',
                   params: { serverSlug: serverId },
                 })
               }
-              className="p-2.5 text-gray-500 hover:text-gray-900 dark:text-text-muted dark:hover:text-text-primary hover:bg-gray-100 dark:hover:bg-bg-modifier-hover rounded-xl transition-all duration-200 ml-1 border border-transparent hover:border-gray-200 dark:hover:border-border-subtle active:scale-95"
-            >
-              <Settings size={18} />
-            </button>
+              className="ml-1"
+            />
           )}
         </div>
       </div>
@@ -386,15 +386,9 @@ function OverlayContainer({
 }) {
   return (
     <div className="absolute inset-0 z-50 flex flex-col bg-white dark:bg-bg-primary animate-in slide-in-from-bottom-full duration-300">
-      <div className="h-14 px-4 flex items-center border-b border-gray-200 dark:border-border-subtle bg-white/80 dark:bg-bg-primary/80 backdrop-blur-md shrink-0">
-        <button
-          type="button"
-          onClick={onClose}
-          className="p-2 -ml-2 text-gray-500 hover:text-gray-900 dark:text-text-muted dark:hover:text-text-primary hover:bg-gray-100 dark:hover:bg-bg-modifier-hover rounded-xl transition-all"
-        >
-          <X size={20} />
-        </button>
-        <span className="font-bold text-gray-900 dark:text-text-primary ml-2">{title}</span>
+      <div className="h-14 px-4 flex items-center border-b border-border-subtle bg-[rgba(255,255,255,0.75)] dark:bg-[rgba(255,255,255,0.03)] backdrop-blur-[32px] shrink-0">
+        <Button variant="ghost" size="icon" icon={X} onClick={onClose} className="-ml-2" />
+        <span className="font-black text-text-primary ml-2">{title}</span>
       </div>
       <div className="flex-1 overflow-hidden">{children}</div>
     </div>
@@ -670,13 +664,11 @@ function ShopBrowse({
               ))}
             </div>
           ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-40 md:py-52 text-gray-400 dark:text-gray-500">
-              <div className="w-24 h-24 mb-6 rounded-full bg-white dark:bg-white/5 flex items-center justify-center shadow-sm border border-gray-100 dark:border-white/5">
+            <div className="flex flex-col items-center justify-center py-40 md:py-52 text-text-muted">
+              <div className="w-24 h-24 mb-6 rounded-full bg-primary/5 flex items-center justify-center">
                 <ShoppingBag size={48} strokeWidth={1.5} />
               </div>
-              <p className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-2">
-                未找到相关商品
-              </p>
+              <p className="text-xl font-black text-text-primary mb-2">未找到相关商品</p>
               <p className="text-sm">尝试更换搜索词或分类</p>
             </div>
           ) : (

@@ -1,2 +1,6 @@
 @import "tailwindcss";
 @import "./shared.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@source "../../../../packages/ui/src";

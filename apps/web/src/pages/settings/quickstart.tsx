@@ -1,3 +1,4 @@
+import { Button, cn } from '@shadowob/ui'
 import { useNavigate } from '@tanstack/react-router'
 import {
   BookOpen,
@@ -103,12 +104,10 @@ export function QuickstartSettings() {
     <div className="space-y-8">
       {/* Hero Section */}
       <div className="text-center py-8">
-        <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-bg-secondary border border-border-subtle mb-4">
+        <div className="inline-flex items-center justify-center w-20 h-20 rounded-[24px] bg-white/[0.03] backdrop-blur-[32px] border border-white/[0.08] mb-4">
           <img src="/Logo.svg" alt="Shadow" className="w-12 h-12 opacity-90" />
         </div>
-        <h1 className="text-2xl font-extrabold text-text-primary mb-2">
-          {t('common.welcomeTitle')}
-        </h1>
+        <h1 className="text-2xl font-black text-text-primary mb-2">{t('common.welcomeTitle')}</h1>
         <p className="text-text-secondary text-[15px] max-w-md mx-auto">
           {t('common.welcomeDesc')}
         </p>
@@ -116,7 +115,7 @@ export function QuickstartSettings() {
 
       {/* Quick Actions */}
       <section>
-        <h2 className="text-lg font-bold text-text-primary mb-4 flex items-center gap-2">
+        <h2 className="text-lg font-black text-text-primary mb-4 flex items-center gap-2">
           <Zap size={18} className="text-amber-400" />
           快速开始
         </h2>
@@ -125,7 +124,7 @@ export function QuickstartSettings() {
             <button
               key={idx}
               onClick={item.action}
-              className="group relative bg-bg-secondary hover:bg-bg-tertiary border border-border-subtle rounded-xl p-5 text-left transition-all hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5"
+              className="group relative bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] rounded-[20px] p-5 text-left transition-all duration-300 hover:border-primary/30 hover:shadow-[0_10px_30px_rgba(0,198,209,0.1)]"
             >
               <div
                 className={`inline-flex items-center justify-center w-10 h-10 rounded-lg ${item.bgColor} mb-3`}
@@ -147,15 +146,15 @@ export function QuickstartSettings() {
 
       {/* New User Guide */}
       <section>
-        <h2 className="text-lg font-bold text-text-primary mb-4 flex items-center gap-2">
+        <h2 className="text-lg font-black text-text-primary mb-4 flex items-center gap-2">
           <Sparkles size={18} className="text-primary" />
           新手指南
         </h2>
-        <div className="bg-bg-secondary rounded-xl border border-border-subtle overflow-hidden">
+        <div className="bg-white/[0.03] backdrop-blur-[32px] rounded-[24px] border border-white/[0.08] overflow-hidden">
           {guideSteps.map((step, idx) => (
             <div
               key={step.step}
-              className={`flex items-start gap-4 p-5 ${idx < guideSteps.length - 1 ? 'border-b border-border-subtle' : ''}`}
+              className={`flex items-start gap-4 p-5 ${idx < guideSteps.length - 1 ? 'border-b border-white/[0.06]' : ''}`}
             >
               <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-sm shrink-0">
                 {step.step}
@@ -170,7 +169,7 @@ export function QuickstartSettings() {
                   </div>
                   <button
                     onClick={step.action}
-                    className="shrink-0 px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold transition"
+                    className="shrink-0 px-3 py-1.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold transition"
                   >
                     {step.actionLabel}
                   </button>
@@ -183,11 +182,11 @@ export function QuickstartSettings() {
 
       {/* Buddy Guide */}
       <section>
-        <h2 className="text-lg font-bold text-text-primary mb-4 flex items-center gap-2">
+        <h2 className="text-lg font-black text-text-primary mb-4 flex items-center gap-2">
           <Bot size={18} className="text-cyan-400" />
           Buddy 入门
         </h2>
-        <div className="bg-bg-secondary rounded-xl border border-border-subtle p-5">
+        <div className="bg-white/[0.03] backdrop-blur-[32px] rounded-[24px] border border-white/[0.08] p-5">
           <div className="flex items-start gap-4 mb-4">
             <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-cyan-500/10 shrink-0">
               <Bot size={20} className="text-cyan-400" />
@@ -203,7 +202,10 @@ export function QuickstartSettings() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
             {buddySteps.map((step) => (
-              <div key={step.step} className="flex items-start gap-3 p-3 rounded-lg bg-bg-tertiary">
+              <div
+                key={step.step}
+                className="flex items-start gap-3 p-3 rounded-[14px] bg-white/[0.03]"
+              >
                 <div className="flex items-center justify-center w-6 h-6 rounded-full bg-cyan-500/10 text-cyan-400 font-bold text-xs shrink-0">
                   {step.step}
                 </div>
@@ -215,35 +217,41 @@ export function QuickstartSettings() {
             ))}
           </div>
 
-          <div className="flex items-center gap-3 mt-4 pt-4 border-t border-border-subtle">
-            <button
+          <div className="flex items-center gap-3 mt-4 pt-4 border-t border-white/[0.06]">
+            <Button
+              variant="primary"
+              size="sm"
               onClick={() => navigate({ to: '/settings/buddy' })}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary hover:bg-primary-hover text-white font-bold text-sm transition"
+              className="flex-1 normal-case tracking-normal"
             >
-              <Bot size={16} />
+              <Bot size={16} className="mr-1" />
               创建 Buddy
-            </button>
-            <a
-              href="/buddies"
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-bg-tertiary hover:bg-bg-modifier-hover text-text-primary font-bold text-sm transition"
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              asChild
+              className="flex-1 normal-case tracking-normal"
             >
-              <ExternalLink size={16} />
-              浏览集市
-            </a>
+              <a href="/buddies">
+                <ExternalLink size={16} />
+                浏览集市
+              </a>
+            </Button>
           </div>
         </div>
       </section>
 
       {/* Help Section */}
       <section>
-        <h2 className="text-lg font-bold text-text-primary mb-4 flex items-center gap-2">
+        <h2 className="text-lg font-black text-text-primary mb-4 flex items-center gap-2">
           <HelpCircle size={18} className="text-violet-400" />
           需要帮助？
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <a
             href="/product/index.html"
-            className="flex items-center gap-4 p-4 bg-bg-secondary hover:bg-bg-tertiary border border-border-subtle rounded-xl transition group"
+            className="flex items-center gap-4 p-4 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] rounded-[20px] transition-all duration-300 group"
           >
             <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-violet-500/10">
               <BookOpen size={20} className="text-violet-400" />
@@ -261,7 +269,7 @@ export function QuickstartSettings() {
           </a>
           <a
             href="/?forceHome=true"
-            className="flex items-center gap-4 p-4 bg-bg-secondary hover:bg-bg-tertiary border border-border-subtle rounded-xl transition group"
+            className="flex items-center gap-4 p-4 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] rounded-[20px] transition-all duration-300 group"
           >
             <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-amber-500/10">
               <Home size={20} className="text-amber-400" />

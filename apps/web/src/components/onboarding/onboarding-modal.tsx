@@ -1,3 +1,4 @@
+import { Button, Card, Dialog, DialogContent, Input } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import {
@@ -211,19 +212,19 @@ export function OnboardingModal({ open, onClose }: OnboardingModalProps) {
               <div key={s.id} className="flex flex-1 last:flex-none">
                 <div className="flex flex-col items-center">
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-colors ${
                       isCompleted
-                        ? 'bg-primary text-white'
+                        ? 'bg-primary text-[#050508]'
                         : isCurrent
                           ? 'bg-primary/20 text-primary border-2 border-primary'
-                          : 'bg-bg-tertiary text-text-muted'
+                          : 'bg-[rgba(255,255,255,0.03)] backdrop-blur-[32px] border border-white/10 text-text-muted'
                     }`}
                   >
                     {isCompleted ? <Check size={14} /> : idx + 1}
                   </div>
                   <span
-                    className={`text-[10px] mt-1 hidden md:block ${
-                      isCurrent ? 'text-primary font-medium' : 'text-text-muted'
+                    className={`text-[10px] mt-1 hidden md:block font-black uppercase tracking-widest ${
+                      isCurrent ? 'text-primary' : 'text-text-muted'
                     }`}
                   >
                     {t(s.labelKey, s.labelDefault)}
@@ -245,16 +246,16 @@ export function OnboardingModal({ open, onClose }: OnboardingModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-3xl flex flex-col max-h-[90vh] bg-bg-secondary rounded-2xl shadow-2xl overflow-hidden">
+    <Dialog isOpen={open} onClose={onClose}>
+      <DialogContent className="!rounded-[24px] !max-w-3xl !p-0 !max-h-[90vh] overflow-hidden">
         {/* Close button */}
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon"
+          icon={X}
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 text-text-muted hover:text-text-primary hover:bg-bg-modifier-hover rounded-lg transition z-10"
-        >
-          <X size={20} />
-        </button>
+          className="absolute top-4 right-4 z-10 !h-9 !w-9"
+        />
 
         {/* Timeline - PC only */}
         {!isMobile &&
@@ -314,12 +315,12 @@ export function OnboardingModal({ open, onClose }: OnboardingModalProps) {
             <div className="p-8">
               <div className="text-center mb-8">
                 <div className="w-24 h-24 mx-auto mb-6 relative">
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-cyan-400 via-blue-500 to-purple-500 animate-pulse opacity-75" />
-                  <div className="relative w-24 h-24 rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center shadow-lg shadow-cyan-500/25">
-                    <Server size={48} className="text-white" />
+                  <div className="absolute inset-0 rounded-[16px] bg-gradient-to-br from-[#00F3FF] via-primary to-[#7C4DFF] animate-pulse opacity-75" />
+                  <div className="relative w-24 h-24 rounded-[16px] bg-gradient-to-br from-[#00F3FF] to-primary flex items-center justify-center shadow-[0_10px_25px_rgba(0,243,255,0.3)]">
+                    <Server size={48} className="text-[#050508]" />
                   </div>
                 </div>
-                <h1 className="text-2xl font-bold text-text-primary mb-2">
+                <h1 className="text-2xl font-black uppercase tracking-tight text-text-primary mb-2">
                   {t('onboarding.welcome', '欢迎来到 Shadow！')}
                 </h1>
                 <p className="text-text-muted text-sm">
@@ -342,13 +343,17 @@ export function OnboardingModal({ open, onClose }: OnboardingModalProps) {
                     >
                       {features.map((feature, idx) => (
                         <div key={idx} className="w-full flex-shrink-0 px-4">
-                          <div className="bg-bg-tertiary rounded-xl p-6 text-center">
-                            <feature.icon size={32} className={`mx-auto mb-3 ${feature.color}`} />
-                            <h3 className="font-semibold text-text-primary mb-1">
-                              {t(feature.titleKey)}
-                            </h3>
-                            <p className="text-sm text-text-muted">{t(feature.descKey)}</p>
-                          </div>
+                          <Card variant="glass" className="!rounded-[24px]">
+                            <div className="p-6 text-center">
+                              <feature.icon size={32} className={`mx-auto mb-3 ${feature.color}`} />
+                              <h3 className="font-black text-text-primary mb-1">
+                                {t(feature.titleKey)}
+                              </h3>
+                              <p className="text-sm text-text-muted font-bold italic">
+                                {t(feature.descKey)}
+                              </p>
+                            </div>
+                          </Card>
                         </div>
                       ))}
                     </div>
@@ -372,37 +377,33 @@ export function OnboardingModal({ open, onClose }: OnboardingModalProps) {
               {!isMobile && (
                 <div className="grid grid-cols-2 gap-3 mb-8">
                   {features.map((feature, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-bg-tertiary rounded-xl p-4 text-center hover:bg-bg-modifier-hover transition"
-                    >
-                      <feature.icon size={24} className={`mx-auto mb-2 ${feature.color}`} />
-                      <h3 className="font-medium text-text-primary text-sm">
-                        {t(feature.titleKey)}
-                      </h3>
-                      <p className="text-xs text-text-muted mt-1">{t(feature.descKey)}</p>
-                    </div>
+                    <Card key={idx} variant="glass" hoverable className="!rounded-[24px]">
+                      <div className="p-4 text-center">
+                        <feature.icon size={24} className={`mx-auto mb-2 ${feature.color}`} />
+                        <h3 className="font-black text-text-primary text-sm">
+                          {t(feature.titleKey)}
+                        </h3>
+                        <p className="text-xs text-text-muted font-bold italic mt-1">
+                          {t(feature.descKey)}
+                        </p>
+                      </div>
+                    </Card>
                   ))}
                 </div>
               )}
 
               <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={handleSkip}
-                  className="flex-1 px-4 py-3 text-text-muted hover:text-text-primary hover:bg-bg-modifier-hover rounded-xl transition flex items-center justify-center gap-2"
-                >
-                  <SkipForward size={18} />
+                <Button variant="ghost" className="flex-1" icon={SkipForward} onClick={handleSkip}>
                   {t('common.skip', '跳过')}
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="primary"
+                  className="flex-1"
+                  iconRight={ArrowRight}
                   onClick={() => setStep('create-server')}
-                  className="flex-1 px-4 py-3 bg-primary text-white font-semibold rounded-xl hover:opacity-90 transition flex items-center justify-center gap-2"
                 >
                   {t('onboarding.getStarted', '开始使用')}
-                  <ArrowRight size={18} />
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -410,19 +411,19 @@ export function OnboardingModal({ open, onClose }: OnboardingModalProps) {
           {/* Create server step */}
           {step === 'create-server' && (
             <div className="p-8">
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon"
+                icon={ChevronLeft}
                 onClick={() => setStep('welcome')}
-                className="mb-4 p-2 text-text-muted hover:text-text-primary hover:bg-bg-modifier-hover rounded-lg transition"
-              >
-                <ChevronLeft size={20} />
-              </button>
+                className="mb-4"
+              />
 
               <div className="text-center mb-6">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center">
-                  <Plus size={32} className="text-white" />
+                <div className="w-16 h-16 mx-auto mb-4 rounded-[16px] bg-gradient-to-br from-success to-emerald-600 flex items-center justify-center shadow-[0_10px_25px_rgba(87,242,135,0.3)]">
+                  <Plus size={32} className="text-[#050508]" />
                 </div>
-                <h2 className="text-xl font-bold text-text-primary mb-2">
+                <h2 className="text-xl font-black uppercase tracking-tight text-text-primary mb-2">
                   {t('onboarding.createServer', '创建你的服务器')}
                 </h2>
                 <p className="text-text-muted text-sm">
@@ -431,40 +432,32 @@ export function OnboardingModal({ open, onClose }: OnboardingModalProps) {
               </div>
 
               <div className="mb-6">
-                <label className="block text-sm font-medium text-text-primary mb-2">
-                  {t('onboarding.serverName', '服务器名称')}
-                </label>
-                <input
-                  type="text"
+                <Input
+                  label={t('onboarding.serverName', '服务器名称')}
                   value={serverName}
                   onChange={(e) => setServerName(e.target.value)}
                   placeholder={t('onboarding.serverNamePlaceholder', '我的社区')}
-                  className="w-full px-4 py-3 bg-bg-tertiary border border-border-subtle rounded-xl text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
 
               <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setStep('join-server')}
-                  className="flex-1 px-4 py-3 text-text-muted hover:text-text-primary hover:bg-bg-modifier-hover rounded-xl transition"
-                >
+                <Button variant="ghost" className="flex-1" onClick={() => setStep('join-server')}>
                   {t('onboarding.joinInstead', '加入现有服务器')}
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="primary"
+                  className="flex-1"
                   onClick={() => createServer.mutate(serverName || '我的社区')}
-                  disabled={createServer.isPending}
-                  className="flex-1 px-4 py-3 bg-primary text-white font-semibold rounded-xl hover:opacity-90 transition disabled:opacity-50"
+                  loading={createServer.isPending}
                 >
                   {createServer.isPending
                     ? t('common.creating', '创建中...')
                     : t('onboarding.create', '创建服务器')}
-                </button>
+                </Button>
               </div>
 
               {createServer.isError && (
-                <p className="mt-3 text-sm text-red-400 text-center">
+                <p className="mt-3 text-sm text-danger text-center font-black">
                   {t('onboarding.createError', '创建失败，请重试')}
                 </p>
               )}
@@ -474,19 +467,19 @@ export function OnboardingModal({ open, onClose }: OnboardingModalProps) {
           {/* Join server step */}
           {step === 'join-server' && (
             <div className="p-8">
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon"
+                icon={ChevronLeft}
                 onClick={() => setStep('create-server')}
-                className="mb-4 p-2 text-text-muted hover:text-text-primary hover:bg-bg-modifier-hover rounded-lg transition"
-              >
-                <ChevronLeft size={20} />
-              </button>
+                className="mb-4"
+              />
 
               <div className="text-center mb-6">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-purple-400 to-violet-500 flex items-center justify-center">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-[16px] bg-gradient-to-br from-[#7C4DFF] to-[#6200EA] flex items-center justify-center shadow-[0_10px_25px_rgba(124,77,255,0.3)]">
                   <Search size={32} className="text-white" />
                 </div>
-                <h2 className="text-xl font-bold text-text-primary mb-2">
+                <h2 className="text-xl font-black uppercase tracking-tight text-text-primary mb-2">
                   {t('onboarding.joinServer', '加入服务器')}
                 </h2>
                 <p className="text-text-muted text-sm">
@@ -495,25 +488,24 @@ export function OnboardingModal({ open, onClose }: OnboardingModalProps) {
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-text-primary mb-2">
+                <label className="block text-sm font-black uppercase tracking-widest text-text-primary mb-2">
                   {t('onboarding.inviteCode', '邀请码')}
                 </label>
                 <div className="flex gap-2">
-                  <input
-                    type="text"
+                  <Input
                     value={inviteCode}
                     onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                     placeholder="XXXXXX"
-                    className="flex-1 px-4 py-3 bg-bg-tertiary border border-border-subtle rounded-xl text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary font-mono uppercase"
+                    className="flex-1 font-mono uppercase"
                   />
-                  <button
-                    type="button"
+                  <Button
+                    variant="primary"
                     onClick={() => inviteCode && joinServer.mutate(inviteCode)}
-                    disabled={!inviteCode || joinServer.isPending}
-                    className="px-4 py-3 bg-primary text-white font-semibold rounded-xl hover:opacity-90 transition disabled:opacity-50"
+                    loading={joinServer.isPending}
+                    disabled={!inviteCode}
                   >
                     {joinServer.isPending ? '...' : t('common.join', '加入')}
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -527,13 +519,13 @@ export function OnboardingModal({ open, onClose }: OnboardingModalProps) {
                       key={server.id}
                       type="button"
                       onClick={() => joinServer.mutate(server.id)}
-                      className="w-full flex items-center gap-3 p-3 bg-bg-tertiary hover:bg-bg-modifier-hover rounded-xl transition text-left"
+                      className="w-full flex items-center gap-3 p-3 bg-[rgba(255,255,255,0.03)] backdrop-blur-[32px] border border-white/10 hover:border-primary/30 rounded-[16px] transition text-left"
                     >
-                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white font-bold">
+                      <div className="w-10 h-10 rounded-[12px] bg-gradient-to-br from-[#00F3FF] to-primary flex items-center justify-center text-[#050508] font-black">
                         {server.name.charAt(0)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-text-primary truncate">{server.name}</p>
+                        <p className="font-black text-text-primary truncate">{server.name}</p>
                         <p className="text-xs text-text-muted">
                           {server.memberCount} {t('common.members', '成员')}
                         </p>
@@ -548,13 +540,9 @@ export function OnboardingModal({ open, onClose }: OnboardingModalProps) {
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={handleComplete}
-                className="w-full px-4 py-3 text-text-muted hover:text-text-primary hover:bg-bg-modifier-hover rounded-xl transition"
-              >
+              <Button variant="ghost" className="w-full" onClick={handleComplete}>
                 {t('onboarding.skipForNow', '暂时跳过')}
-              </button>
+              </Button>
             </div>
           )}
 
@@ -595,27 +583,28 @@ export function OnboardingModal({ open, onClose }: OnboardingModalProps) {
           {/* Complete step */}
           {step === 'complete' && (
             <div className="p-8 text-center">
-              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center">
-                <Check size={40} className="text-white" />
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-success to-emerald-600 flex items-center justify-center shadow-[0_10px_25px_rgba(87,242,135,0.3)]">
+                <Check size={40} className="text-[#050508]" />
               </div>
-              <h2 className="text-2xl font-bold text-text-primary mb-2">
+              <h2 className="text-2xl font-black uppercase tracking-tight text-text-primary mb-2">
                 {t('onboarding.allSet', '一切就绪！')}
               </h2>
-              <p className="text-text-muted mb-8">
+              <p className="text-text-muted font-bold italic mb-8">
                 {t('onboarding.allSetDesc', '你已准备好开始使用 Shadow')}
               </p>
-              <button
-                type="button"
+              <Button
+                variant="primary"
+                size="lg"
+                className="w-full"
                 onClick={handleNavigateToServer}
-                className="w-full px-4 py-3 bg-primary text-white font-semibold rounded-xl hover:opacity-90 transition"
               >
                 {t('onboarding.goToServer', '进入服务器')}
-              </button>
+              </Button>
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -686,10 +675,10 @@ function CreateBuddyStep({
   return (
     <div className="p-8">
       <div className="text-center mb-6">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
-          <Bot size={32} className="text-white" />
+        <div className="w-16 h-16 mx-auto mb-4 rounded-[16px] bg-gradient-to-br from-[#F8E71C] to-[#ffb300] flex items-center justify-center shadow-[0_10px_25px_rgba(248,231,28,0.35)]">
+          <Bot size={32} className="text-[#050508]" />
         </div>
-        <h2 className="text-xl font-bold text-text-primary mb-2">
+        <h2 className="text-xl font-black uppercase tracking-tight text-text-primary mb-2">
           {t('buddyOnboarding.createTitle', '创建你的 AI 搭子')}
         </h2>
         <p className="text-sm text-text-muted">
@@ -699,29 +688,22 @@ function CreateBuddyStep({
 
       <div className="space-y-4 mb-6">
         <div>
-          <label className="block text-sm font-medium text-text-primary mb-2">
-            {t('buddyOnboarding.buddyName', '搭子名称')}
-          </label>
-          <input
-            type="text"
+          <Input
+            label={t('buddyOnboarding.buddyName', '搭子名称')}
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="AI 搭子"
-            className="w-full px-4 py-3 bg-bg-tertiary border border-border-subtle rounded-xl text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary"
             maxLength={64}
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-text-primary mb-2">
-            {t('buddyOnboarding.buddyUsername', '用户名')}
-          </label>
-          <input
-            type="text"
+          <Input
+            label={t('buddyOnboarding.buddyUsername', '用户名')}
             value={username}
             onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''))}
             placeholder="buddy_xxx"
-            className="w-full px-4 py-3 bg-bg-tertiary border border-border-subtle rounded-xl text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary font-mono"
+            className="font-mono"
             maxLength={32}
           />
           <p className="text-xs text-text-muted mt-1">@{username || 'buddy_xxx'}</p>
@@ -729,37 +711,27 @@ function CreateBuddyStep({
       </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400">
+        <div className="mb-4 p-3 bg-danger/10 border border-danger/20 rounded-[16px] text-sm text-danger font-black backdrop-blur-sm">
           {error}
         </div>
       )}
 
       <div className="flex gap-3">
-        <button
-          type="button"
-          onClick={onSkip}
-          className="flex-1 py-3 text-text-muted hover:text-text-primary transition"
-        >
+        <Button variant="ghost" className="flex-1" onClick={onSkip}>
           {t('common.skipForNow', '暂时跳过')}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="primary"
+          className="flex-1"
           onClick={handleCreate}
-          disabled={!name.trim() || creating}
-          className="flex-1 py-3 bg-primary text-white font-semibold rounded-xl hover:opacity-90 transition disabled:opacity-50 flex items-center justify-center gap-2"
+          loading={creating}
+          disabled={!name.trim()}
+          icon={creating ? Loader2 : Plus}
         >
-          {creating ? (
-            <>
-              <Loader2 size={16} className="animate-spin" />
-              {t('common.creating', '创建中...')}
-            </>
-          ) : (
-            <>
-              <Plus size={16} />
-              {t('buddyOnboarding.createBuddy', '创建 Buddy')}
-            </>
-          )}
-        </button>
+          {creating
+            ? t('common.creating', '创建中...')
+            : t('buddyOnboarding.createBuddy', '创建 Buddy')}
+        </Button>
       </div>
     </div>
   )
@@ -796,7 +768,7 @@ function BuddyConfigStep({
   return (
     <div className="p-8 pt-4">
       <div className="text-center mb-6">
-        <h2 className="text-xl font-bold text-text-primary mb-1">
+        <h2 className="text-xl font-black uppercase tracking-tight text-text-primary mb-1">
           {t('buddyOnboarding.configTitle', '配置 Buddy 连接')}
         </h2>
         <p className="text-sm text-text-muted">
@@ -806,89 +778,79 @@ function BuddyConfigStep({
 
       {/* Token display */}
       <div className="mb-6">
-        <label className="block text-xs font-semibold uppercase text-text-muted mb-2 tracking-wider">
+        <label className="block text-xs font-black uppercase text-text-muted mb-2 tracking-widest">
           {t('buddyOnboarding.yourToken', '你的 Token')}
         </label>
         <div className="flex items-center gap-2">
-          <code className="flex-1 p-3 bg-bg-tertiary rounded-lg text-primary font-mono text-sm overflow-x-auto scrollbar-thin">
+          <code className="flex-1 p-3 bg-[rgba(255,255,255,0.03)] backdrop-blur-[32px] border border-white/10 rounded-[16px] text-primary font-mono text-sm overflow-x-auto scrollbar-thin">
             {token}
           </code>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
+            icon={copied ? Check : Copy}
             onClick={() => handleCopy(token)}
-            className="p-3 text-text-muted hover:text-primary bg-bg-tertiary rounded-lg transition shrink-0"
-          >
-            {copied ? <Check size={18} className="text-green-400" /> : <Copy size={18} />}
-          </button>
+            className={copied ? 'text-success' : ''}
+          />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-6">
         {/* Method 1: Download desktop */}
-        <div className="bg-bg-tertiary rounded-xl p-4">
-          <h3 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-2">
-            <span className="w-6 h-6 rounded bg-primary/20 text-primary flex items-center justify-center text-xs">
-              1
-            </span>
-            {t('buddyOnboarding.method1', '使用桌面端')}
-          </h3>
-          <a
-            href="https://github.com/buggyblues/shadow/releases"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block text-center p-3 bg-bg-secondary hover:bg-bg-modifier-hover rounded-lg transition mb-2"
-          >
-            <Download size={20} className="mx-auto mb-1 text-primary" />
-            <span className="text-xs font-medium text-text-primary">
-              {t('buddyOnboarding.downloadDesktopApp', '下载 Shadow 桌面端')}
-            </span>
-          </a>
-          <p className="text-xs text-text-muted text-center">
-            {t('buddyOnboarding.downloadDesktopHint', '安装后按向导配置')}
-          </p>
-        </div>
+        <Card variant="glass" className="!rounded-[24px]">
+          <div className="p-4">
+            <h3 className="text-sm font-black text-text-primary mb-3 flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-black">
+                1
+              </span>
+              {t('buddyOnboarding.method1', '使用桌面端')}
+            </h3>
+            <a
+              href="https://github.com/buggyblues/shadow/releases"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block text-center p-3 bg-[rgba(255,255,255,0.03)] border border-white/10 hover:border-primary/30 rounded-[16px] transition mb-2"
+            >
+              <Download size={20} className="mx-auto mb-1 text-primary" />
+              <span className="text-xs font-black text-text-primary">
+                {t('buddyOnboarding.downloadDesktopApp', '下载 Shadow 桌面端')}
+              </span>
+            </a>
+          </div>
+        </Card>
 
         {/* Method 2: Command */}
-        <div className="bg-bg-tertiary rounded-xl p-4">
-          <h3 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-2">
-            <span className="w-6 h-6 rounded bg-primary/20 text-primary flex items-center justify-center text-xs">
-              2
-            </span>
-            {t('buddyOnboarding.method2', '使用命令')}
-          </h3>
-          <div className="p-2 bg-bg-secondary rounded-lg mb-2 flex items-center gap-2">
-            <code className="flex-1 text-[10px] text-text-secondary font-mono truncate">
-              {bindCommand}
-            </code>
-            <button
-              type="button"
-              onClick={() => handleCopy(bindCommand)}
-              className="text-text-muted hover:text-primary transition shrink-0"
-            >
-              <Copy size={12} />
-            </button>
+        <Card variant="glass" className="!rounded-[24px]">
+          <div className="p-4">
+            <h3 className="text-sm font-black text-text-primary mb-3 flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-black">
+                2
+              </span>
+              {t('buddyOnboarding.method2', '使用命令')}
+            </h3>
+            <div className="p-2 bg-[rgba(255,255,255,0.03)] border border-white/10 rounded-[12px] mb-2 flex items-center gap-2">
+              <code className="flex-1 text-[10px] text-text-secondary font-mono truncate">
+                {bindCommand}
+              </code>
+              <button
+                type="button"
+                onClick={() => handleCopy(bindCommand)}
+                className="text-text-muted hover:text-primary transition shrink-0"
+              >
+                <Copy size={12} />
+              </button>
+            </div>
           </div>
-          <p className="text-xs text-text-muted text-center">
-            {t('buddyOnboarding.commandHint', '在 Shadow 桌面端中输入')}
-          </p>
-        </div>
+        </Card>
       </div>
 
       <div className="flex gap-3 mt-auto">
-        <button
-          type="button"
-          onClick={onSkip}
-          className="flex-1 py-3 text-text-muted hover:text-text-primary transition"
-        >
+        <Button variant="ghost" className="flex-1" onClick={onSkip}>
           {t('common.skipForNow', '稍后配置')}
-        </button>
-        <button
-          type="button"
-          onClick={onConfigured}
-          className="flex-1 py-3 bg-primary text-white font-semibold rounded-xl hover:opacity-90 transition"
-        >
+        </Button>
+        <Button variant="primary" className="flex-1" onClick={onConfigured}>
           {t('buddyOnboarding.configured', '我已配置完成')}
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -1007,17 +969,17 @@ function WaitingBuddyStep({
     <div className="p-8 text-center">
       {status === 'waiting' && (
         <>
-          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center">
-            <Loader2 size={32} className="text-white animate-spin" />
+          <div className="w-16 h-16 mx-auto mb-4 rounded-[16px] bg-gradient-to-br from-[#00F3FF] to-[#00c6d1] flex items-center justify-center shadow-[0_10px_25px_rgba(0,243,255,0.3)]">
+            <Loader2 size={32} className="text-[#050508] animate-spin" />
           </div>
-          <h2 className="text-xl font-bold text-text-primary mb-2">
+          <h2 className="text-xl font-black text-text-primary mb-2">
             {t('buddyOnboarding.waiting', '等待 Buddy 上线...')}
           </h2>
           <p className="text-sm text-text-muted mb-4">
             {t('buddyOnboarding.waitingDesc', '请在 Shadow 桌面端完成配置')}
           </p>
-          <div className="text-3xl font-bold text-primary mb-4">{countdown}s</div>
-          <div className="w-full bg-bg-tertiary rounded-full h-2 mb-4">
+          <div className="text-3xl font-black text-primary mb-4">{countdown}s</div>
+          <div className="w-full bg-[rgba(255,255,255,0.03)] border border-white/10 rounded-full h-2 mb-4">
             <div
               className="bg-primary h-2 rounded-full transition-all duration-1000"
               style={{ width: `${((30 - countdown) / 30) * 100}%` }}
@@ -1028,10 +990,10 @@ function WaitingBuddyStep({
 
       {status === 'adding' && (
         <>
-          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center">
-            <Loader2 size={32} className="text-white animate-spin" />
+          <div className="w-16 h-16 mx-auto mb-4 rounded-[16px] bg-gradient-to-br from-success to-emerald-600 flex items-center justify-center shadow-[0_10px_25px_rgba(16,185,129,0.3)]">
+            <Loader2 size={32} className="text-[#050508] animate-spin" />
           </div>
-          <h2 className="text-xl font-bold text-text-primary mb-2">
+          <h2 className="text-xl font-black text-text-primary mb-2">
             {t('buddyOnboarding.adding', '正在添加 Buddy 到服务器...')}
           </h2>
         </>
@@ -1039,10 +1001,10 @@ function WaitingBuddyStep({
 
       {status === 'sending' && (
         <>
-          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-purple-400 to-violet-500 flex items-center justify-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-[16px] bg-gradient-to-br from-[#7C4DFF] to-[#6200EA] flex items-center justify-center shadow-[0_10px_25px_rgba(124,77,255,0.3)]">
             <MessageCircle size={32} className="text-white" />
           </div>
-          <h2 className="text-xl font-bold text-text-primary mb-2">
+          <h2 className="text-xl font-black text-text-primary mb-2">
             {t('buddyOnboarding.sending', '发送欢迎消息...')}
           </h2>
         </>
@@ -1050,10 +1012,10 @@ function WaitingBuddyStep({
 
       {status === 'done' && (
         <>
-          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center">
-            <Check size={32} className="text-white" />
+          <div className="w-16 h-16 mx-auto mb-4 rounded-[16px] bg-gradient-to-br from-success to-emerald-600 flex items-center justify-center shadow-[0_10px_25px_rgba(16,185,129,0.3)]">
+            <Check size={32} className="text-[#050508]" />
           </div>
-          <h2 className="text-xl font-bold text-text-primary mb-2">
+          <h2 className="text-xl font-black text-text-primary mb-2">
             {t('buddyOnboarding.ready', 'Buddy 已就绪！')}
           </h2>
         </>
@@ -1061,10 +1023,10 @@ function WaitingBuddyStep({
 
       {status === 'timeout' && (
         <>
-          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
-            <Server size={32} className="text-white" />
+          <div className="w-16 h-16 mx-auto mb-4 rounded-[16px] bg-gradient-to-br from-[#F8E71C] to-[#ffb300] flex items-center justify-center shadow-[0_10px_25px_rgba(248,231,28,0.3)]">
+            <Server size={32} className="text-[#050508]" />
           </div>
-          <h2 className="text-xl font-bold text-text-primary mb-2">
+          <h2 className="text-xl font-black text-text-primary mb-2">
             {t('buddyOnboarding.timeout', '等待超时')}
           </h2>
           <p className="text-sm text-text-muted mb-4">

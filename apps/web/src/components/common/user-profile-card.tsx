@@ -1,3 +1,4 @@
+import { Badge, Button, Card } from '@shadowob/ui'
 import { useNavigate } from '@tanstack/react-router'
 import { QrCode, X } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
@@ -58,8 +59,9 @@ export function UserProfileCard({
   }
 
   return (
-    <div
-      className={`bg-bg-tertiary border border-border-dim rounded-xl shadow-2xl w-64 overflow-hidden ${className}`}
+    <Card
+      variant="glass"
+      className={`w-64 overflow-hidden rounded-xl ${className}`}
       onClick={(e) => e.stopPropagation()}
     >
       {/* Banner */}
@@ -92,9 +94,9 @@ export function UserProfileCard({
             {user.displayName}
           </button>
           {user.isBot && (
-            <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-medium shrink-0">
+            <Badge variant="primary" size="xs">
               {t('common.bot')}
-            </span>
+            </Badge>
           )}
         </div>
         <p className="text-sm text-text-muted">@{user.username}</p>
@@ -102,15 +104,9 @@ export function UserProfileCard({
         {/* Role badge */}
         {role && role !== 'member' && (
           <div className="mt-2">
-            <span
-              className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                role === 'owner'
-                  ? 'bg-yellow-500/20 text-yellow-400'
-                  : 'bg-blue-500/20 text-blue-400'
-              }`}
-            >
+            <Badge variant={role === 'owner' ? 'warning' : 'info'} size="sm">
               {t(`member.${role}`)}
-            </span>
+            </Badge>
           </div>
         )}
 
@@ -168,14 +164,15 @@ export function UserProfileCard({
 
         {/* Business Card Button - Show for both users and bots */}
         <div className="mt-3 pt-3 border-t border-border-subtle">
-          <button
-            type="button"
+          <Button
+            variant="glass"
+            size="sm"
             onClick={() => setShowQrCard(true)}
-            className="flex items-center justify-center gap-2 w-full px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg transition text-sm font-medium"
+            icon={QrCode}
+            className="w-full"
           >
-            <QrCode className="w-4 h-4" />
             {t('profile.viewBusinessCard', '查看名片')}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -187,7 +184,7 @@ export function UserProfileCard({
           onKeyDown={(e) => e.key === 'Escape' && setShowQrCard(false)}
         >
           <div
-            className="bg-bg-secondary rounded-2xl p-8 w-[320px] flex flex-col items-center relative shadow-2xl"
+            className="bg-bg-primary/95 backdrop-blur-xl rounded-2xl p-8 w-[320px] flex flex-col items-center relative shadow-xl border border-border/10"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={() => {}}
           >
@@ -224,6 +221,6 @@ export function UserProfileCard({
           </div>
         </div>
       )}
-    </div>
+    </Card>
   )
 }

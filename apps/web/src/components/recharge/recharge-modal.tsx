@@ -1,7 +1,8 @@
+import { Button, Card, Dialog, DialogContent, DialogHeader, DialogTitle } from '@shadowob/ui'
 import { Elements } from '@stripe/react-stripe-js'
 import { loadStripe } from '@stripe/stripe-js'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, X } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../../lib/api'
@@ -95,69 +96,51 @@ export function RechargeModal() {
   if (!isOpen) return null
 
   return (
-    <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999]"
-      role="dialog"
-      aria-modal="true"
-      onClick={closeModal}
-      onKeyDown={(e) => e.key === 'Escape' && closeModal()}
-    >
-      <div
-        className="bg-bg-secondary rounded-2xl w-full max-w-md mx-4 border border-border-subtle animate-scale-in shadow-2xl overflow-hidden"
-        role="document"
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.stopPropagation()}
-      >
+    <Dialog isOpen={isOpen} onClose={closeModal}>
+      <DialogContent className="!rounded-[24px] !max-w-md">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
+        <DialogHeader className="flex flex-row items-center justify-between">
           {step === 'pay' && (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
+              icon={ArrowLeft}
               onClick={() => setStep('select')}
-              className="text-text-muted hover:text-text-primary transition"
-            >
-              <ArrowLeft size={20} />
-            </button>
+              className="!h-8 !w-8"
+            />
           )}
-          <h2 className="text-lg font-bold text-text-primary flex-1 text-center">
-            {t('recharge.title')}
-          </h2>
-          {step !== 'success' && (
-            <button
-              type="button"
-              onClick={closeModal}
-              className="text-text-muted hover:text-text-primary transition"
-            >
-              <X size={20} />
-            </button>
-          )}
-          {step === 'success' && <div className="w-5" />}
-        </div>
+          <DialogTitle className="flex-1 text-center">{t('recharge.title')}</DialogTitle>
+          {step === 'success' && <div className="w-8" />}
+        </DialogHeader>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="space-y-4">
           {/* Balance display */}
           {step === 'select' && wallet && (
-            <div className="flex items-center justify-between mb-4 p-3 bg-bg-tertiary rounded-xl">
-              <span className="text-sm text-text-muted">{t('recharge.balance')}</span>
-              <span className="text-lg font-bold text-text-primary">
-                {wallet.balance.toLocaleString()} 🦐
-              </span>
-            </div>
+            <Card variant="glass" className="!rounded-[20px]">
+              <div className="flex items-center justify-between p-4">
+                <span className="text-sm text-text-muted font-bold">{t('recharge.balance')}</span>
+                <span className="text-lg font-black text-text-primary">
+                  {wallet.balance.toLocaleString()} 🦐
+                </span>
+              </div>
+            </Card>
           )}
 
           {/* Step: Tier Selection */}
           {step === 'select' && (
             <>
               <TierSelector />
-              <button
-                type="button"
+              <Button
+                variant="primary"
+                size="lg"
+                className="w-full"
                 disabled={!isCustomValid || loading}
+                loading={loading}
                 onClick={handleContinueToPayment}
-                className="w-full mt-6 py-3 rounded-xl font-bold text-white bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 {loading ? t('recharge.processing') : t('recharge.payNow')}
-              </button>
+              </Button>
             </>
           )}
 
@@ -186,7 +169,7 @@ export function RechargeModal() {
 
         {/* Footer: legal + contact */}
         {step !== 'success' && (
-          <div className="px-6 pb-4 text-xs text-text-muted text-center">
+          <div className="text-xs text-text-muted text-center font-bold italic opacity-60">
             <p>
               {t('recharge.contact')}{' '}
               <a href="mailto:yeejonexyq@gmail.com" className="text-primary hover:underline">
@@ -195,7 +178,7 @@ export function RechargeModal() {
             </p>
           </div>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

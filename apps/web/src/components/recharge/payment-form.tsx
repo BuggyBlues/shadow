@@ -1,3 +1,4 @@
+import { Button } from '@shadowob/ui'
 import {
   ExpressCheckoutElement,
   PaymentElement,
@@ -111,7 +112,9 @@ export function PaymentForm() {
       />
 
       {errorMessage && (
-        <div className="text-sm text-danger bg-danger/10 rounded-lg p-3">{errorMessage}</div>
+        <div className="text-sm text-danger bg-danger/10 rounded-[16px] p-3 font-bold backdrop-blur-sm border border-danger/20">
+          {errorMessage}
+        </div>
       )}
 
       {/* Legal disclaimer */}
@@ -139,15 +142,18 @@ export function PaymentForm() {
         <p>{t('recharge.noRefund')}</p>
       </div>
 
-      <button
+      <Button
+        variant="primary"
+        size="lg"
+        className="w-full"
         type="submit"
         disabled={!stripe || !elements || loading}
-        className="w-full py-3 rounded-xl font-bold text-white bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+        loading={loading}
       >
         {loading
           ? t('recharge.processing')
           : `${t('recharge.payNow')} — ${shrimpCoins.toLocaleString()} 🦐`}
-      </button>
+      </Button>
     </form>
   )
 }

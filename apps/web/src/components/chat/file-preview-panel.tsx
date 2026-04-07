@@ -424,7 +424,7 @@ function ExcelTable({ url }: { url: string }) {
     )
   if (error)
     return (
-      <div className="flex-1 flex items-center justify-center text-red-400 text-sm">
+      <div className="flex-1 flex items-center justify-center text-danger text-sm">
         {t('chat.previewError', { error })}
       </div>
     )
@@ -526,7 +526,7 @@ function ZipListing({ url }: { url: string }) {
     )
   if (error)
     return (
-      <div className="flex-1 flex items-center justify-center text-red-400 text-sm">
+      <div className="flex-1 flex items-center justify-center text-danger text-sm">
         {t('chat.previewError', { error })}
       </div>
     )
@@ -872,7 +872,7 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
 
     if (error) {
       return (
-        <div className="flex-1 flex items-center justify-center text-red-400 text-sm">
+        <div className="flex-1 flex items-center justify-center text-danger text-sm">
           {t('chat.previewError', { error })}
         </div>
       )

@@ -117,7 +117,7 @@ export function ContextMenu({ x, y, groups, onClose, minWidth = 180 }: ContextMe
       {/* Menu */}
       <div
         ref={menuRef}
-        className="fixed z-[101] bg-bg-tertiary/95 backdrop-blur-md border border-border-dim/60 rounded-xl shadow-2xl py-1"
+        className="fixed z-[101] bg-bg-primary/95 backdrop-blur-xl rounded-[16px] border border-border/10 shadow-xl py-1"
         style={{ left: position.x, top: position.y, minWidth: `${minWidth}px` }}
       >
         {groups.map((group, gi) => (
@@ -210,7 +210,7 @@ export function ContextMenuWrapper({
       />
       <div
         ref={menuRef}
-        className="fixed z-[101] bg-bg-tertiary/95 backdrop-blur-md border border-border-dim/60 rounded-xl shadow-2xl py-1 min-w-[160px]"
+        className="fixed z-[101] bg-bg-primary/95 backdrop-blur-xl rounded-[16px] border border-border/10 shadow-xl py-1 min-w-[160px]"
         style={{ left: position.x, top: position.y }}
       >
         {children}

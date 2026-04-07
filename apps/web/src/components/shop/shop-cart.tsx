@@ -1,3 +1,4 @@
+import { Button, Card } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Minus, Plus, ShieldCheck, ShoppingBag, ShoppingCart, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
@@ -115,32 +116,32 @@ export function ShopCart({ serverId, onCheckout }: ShopCartProps) {
 
   if (cartItems.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[#F9FAFB] dark:bg-bg-primary h-full">
-        <div className="w-32 h-32 mb-6 rounded-full bg-cyan-50 dark:bg-cyan-900/10 flex items-center justify-center shadow-inner relative">
-          <ShoppingCart size={48} className="text-cyan-300 dark:text-cyan-800" strokeWidth={1.5} />
-          <div className="absolute w-8 h-8 rounded-full bg-white dark:bg-bg-secondary flex items-center justify-center bottom-2 right-2 shadow-md">
-            <span className="text-gray-400">0</span>
+      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-bg-primary h-full">
+        <div className="w-32 h-32 mb-6 rounded-full bg-primary/5 flex items-center justify-center relative">
+          <ShoppingCart size={48} className="text-primary/30" strokeWidth={1.5} />
+          <div className="absolute w-8 h-8 rounded-full bg-[rgba(255,255,255,0.03)] backdrop-blur-[32px] border border-white/10 flex items-center justify-center bottom-2 right-2">
+            <span className="text-text-muted font-black">0</span>
           </div>
         </div>
-        <h3 className="text-lg font-bold text-gray-900 dark:text-text-primary mb-2">
+        <h3 className="text-lg font-black uppercase tracking-tight text-text-primary mb-2">
           购物车空空如也
         </h3>
-        <p className="text-sm text-gray-500 dark:text-text-muted mb-8">去挑选一些心仪的商品吧</p>
+        <p className="text-sm text-text-muted font-bold italic mb-8">去挑选一些心仪的商品吧</p>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#F9FAFB] dark:bg-bg-primary font-sans relative">
+    <div className="flex flex-col h-full bg-bg-primary font-sans relative">
       {/* ── Security Banner ── */}
-      <div className="flex items-center justify-center gap-1.5 py-2 bg-green-50 dark:bg-green-900/10 text-green-700 dark:text-green-500 text-[10px] sm:text-xs">
+      <div className="flex items-center justify-center gap-1.5 py-2 bg-success/5 text-success text-[10px] sm:text-xs font-black uppercase tracking-widest">
         <ShieldCheck size={14} />
         官方担保交易，支付安全无忧
       </div>
 
       {/* ── List Header ── */}
-      <div className="px-5 py-3.5 flex items-center justify-between border-b border-gray-100 dark:border-border-subtle bg-white dark:bg-bg-secondary sticky top-0 z-10 shadow-sm">
-        <label className="flex items-center gap-2 text-sm font-bold text-gray-700 dark:text-text-secondary cursor-pointer group">
+      <div className="px-5 py-3.5 flex items-center justify-between border-b border-border-subtle bg-[rgba(255,255,255,0.75)] dark:bg-[rgba(255,255,255,0.03)] backdrop-blur-[32px] sticky top-0 z-10">
+        <label className="flex items-center gap-2 text-sm font-black text-text-secondary cursor-pointer group">
           <div
             className={`w-5 h-5 rounded-md flex items-center justify-center transition-all ${
               selectedIds.size === cartItems.length
@@ -160,7 +161,7 @@ export function ShopCart({ serverId, onCheckout }: ShopCartProps) {
           />
           全选全部
         </label>
-        <span className="text-xs font-medium px-2 py-1 bg-gray-100 dark:bg-bg-tertiary rounded-full text-gray-500 dark:text-text-muted">
+        <span className="text-xs font-black px-2 py-1 bg-primary/5 border border-primary/20 rounded-full text-text-muted uppercase tracking-widest">
           共 {cartItems.length} 件
         </span>
       </div>
@@ -170,135 +171,137 @@ export function ShopCart({ serverId, onCheckout }: ShopCartProps) {
         {cartItems.map((item) => {
           const isSelected = selectedIds.has(item.id)
           return (
-            <div
+            <Card
               key={item.id}
-              className={`flex items-start gap-4 p-4 bg-white dark:bg-bg-secondary rounded-2xl transition-all duration-300 border ${
-                isSelected
-                  ? 'border-cyan-200 dark:border-cyan-800 shadow-md shadow-cyan-900/5'
-                  : 'border-transparent shadow-sm hover:shadow-md'
+              variant="glass"
+              className={`!rounded-[24px] transition-all duration-300 ${
+                isSelected ? '!border-primary/30 shadow-[0_10px_25px_rgba(0,243,255,0.1)]' : ''
               }`}
             >
-              {/* Checkbox */}
-              <label className="mt-5 cursor-pointer relative pb-10">
-                <div
-                  className={`w-5 h-5 rounded-md flex items-center justify-center transition-all ${
-                    isSelected
-                      ? 'bg-cyan-500 border-cyan-500 shadow-sm'
-                      : 'border-2 border-gray-300 dark:border-border-dim hover:border-cyan-400'
-                  }`}
-                >
-                  {isSelected && <div className="w-2.5 h-2.5 bg-white rounded-sm" />}
-                </div>
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={() => toggleSelect(item.id)}
-                  className="hidden"
-                />
-              </label>
-
-              {/* Image */}
-              <div className="w-20 h-20 bg-gray-50 dark:bg-bg-tertiary rounded-xl overflow-hidden shrink-0 border border-gray-100 dark:border-border-dim relative">
-                {item.imageUrl ? (
-                  <img src={item.imageUrl} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <ShoppingBag
-                      size={24}
-                      className="text-gray-300 dark:text-text-muted opacity-30"
-                    />
+              <div className="flex items-start gap-4 p-4">
+                {/* Checkbox */}
+                <label className="mt-5 cursor-pointer relative pb-10">
+                  <div
+                    className={`w-5 h-5 rounded-md flex items-center justify-center transition-all ${
+                      isSelected
+                        ? 'bg-cyan-500 border-cyan-500 shadow-sm'
+                        : 'border-2 border-gray-300 dark:border-border-dim hover:border-cyan-400'
+                    }`}
+                  >
+                    {isSelected && <div className="w-2.5 h-2.5 bg-white rounded-sm" />}
                   </div>
-                )}
-              </div>
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleSelect(item.id)}
+                    className="hidden"
+                  />
+                </label>
 
-              {/* Info & Operations */}
-              <div className="flex-1 min-w-0 flex flex-col justify-between h-full pt-0.5">
-                <div>
-                  <div className="flex items-start justify-between gap-2">
-                    <h4 className="text-gray-900 dark:text-text-primary text-sm font-bold line-clamp-2 leading-snug">
-                      {item.product?.name || '商品已下架'}
-                    </h4>
-                    <button
-                      type="button"
-                      onClick={() => removeItem.mutate(item.id)}
-                      className="text-gray-400 hover:text-rose-500 transition-colors p-1 bg-gray-50 hover:bg-rose-50 dark:bg-bg-tertiary dark:hover:bg-rose-900/20 rounded-lg shrink-0"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-
-                  {item.sku && item.sku.specValues.length > 0 && (
-                    <div className="inline-flex mt-1.5 px-2 py-0.5 bg-gray-100 dark:bg-bg-tertiary rounded text-[11px] text-gray-500 dark:text-text-muted font-medium">
-                      {item.sku.specValues.join(' / ')}
+                {/* Image */}
+                <div className="w-20 h-20 bg-bg-tertiary rounded-[16px] overflow-hidden shrink-0 border border-white/10 relative">
+                  {item.imageUrl ? (
+                    <img src={item.imageUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <ShoppingBag
+                        size={24}
+                        className="text-gray-300 dark:text-text-muted opacity-30"
+                      />
                     </div>
                   )}
                 </div>
 
-                <div className="flex items-center justify-between mt-3">
-                  <span className="text-rose-500 dark:text-rose-400 text-base font-black flex items-baseline gap-0.5">
-                    <PriceDisplay amount={item.unitPrice} />
-                  </span>
+                {/* Info & Operations */}
+                <div className="flex-1 min-w-0 flex flex-col justify-between h-full pt-0.5">
+                  <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="text-text-primary text-sm font-black line-clamp-2 leading-snug">
+                        {item.product?.name || '商品已下架'}
+                      </h4>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        icon={Trash2}
+                        onClick={() => removeItem.mutate(item.id)}
+                        className="!h-7 !w-7 text-text-muted hover:text-danger shrink-0"
+                      />
+                    </div>
 
-                  {/* Quantity Control */}
-                  <div className="flex items-center bg-gray-50 dark:bg-bg-tertiary rounded-lg p-0.5 border border-gray-100 dark:border-border-subtle">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        updateQty.mutate({
-                          productId: item.productId,
-                          skuId: item.skuId ?? undefined,
-                          quantity: Math.max(1, item.quantity - 1),
-                        })
-                      }
-                      className="w-7 h-7 flex items-center justify-center rounded-md bg-white dark:bg-bg-secondary text-gray-600 dark:text-text-muted shadow-sm hover:shadow hover:text-cyan-600 active:scale-95 transition-all"
-                    >
-                      <Minus size={12} strokeWidth={3} />
-                    </button>
-                    <span className="text-gray-900 dark:text-text-primary text-xs font-bold w-7 text-center">
-                      {item.quantity}
+                    {item.sku && item.sku.specValues.length > 0 && (
+                      <div className="inline-flex mt-1.5 px-2 py-0.5 bg-bg-tertiary border border-white/10 rounded-full text-[11px] text-text-muted font-black">
+                        {item.sku.specValues.join(' / ')}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between mt-3">
+                    <span className="text-rose-500 dark:text-rose-400 text-base font-black flex items-baseline gap-0.5">
+                      <PriceDisplay amount={item.unitPrice} />
                     </span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        updateQty.mutate({
-                          productId: item.productId,
-                          skuId: item.skuId ?? undefined,
-                          quantity: Math.min(99, item.quantity + 1),
-                        })
-                      }
-                      className="w-7 h-7 flex items-center justify-center rounded-md bg-white dark:bg-bg-secondary text-gray-600 dark:text-text-muted shadow-sm hover:shadow hover:text-cyan-600 active:scale-95 transition-all"
-                    >
-                      <Plus size={12} strokeWidth={3} />
-                    </button>
+
+                    {/* Quantity Control */}
+                    <div className="flex items-center bg-[rgba(255,255,255,0.03)] backdrop-blur-[32px] rounded-[12px] p-0.5 border border-white/10">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateQty.mutate({
+                            productId: item.productId,
+                            skuId: item.skuId ?? undefined,
+                            quantity: Math.max(1, item.quantity - 1),
+                          })
+                        }
+                        className="w-7 h-7 flex items-center justify-center rounded-[8px] bg-[rgba(255,255,255,0.05)] text-text-muted hover:text-primary active:scale-95 transition-all"
+                      >
+                        <Minus size={12} strokeWidth={3} />
+                      </button>
+                      <span className="text-text-primary text-xs font-black w-7 text-center">
+                        {item.quantity}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateQty.mutate({
+                            productId: item.productId,
+                            skuId: item.skuId ?? undefined,
+                            quantity: Math.min(99, item.quantity + 1),
+                          })
+                        }
+                        className="w-7 h-7 flex items-center justify-center rounded-[8px] bg-[rgba(255,255,255,0.05)] text-text-muted hover:text-primary active:scale-95 transition-all"
+                      >
+                        <Plus size={12} strokeWidth={3} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            </Card>
           )
         })}
       </div>
 
       {/* ── Bottom Checkout Bar ── */}
-      <div className="shrink-0 p-4 border-t border-gray-100 dark:border-border-subtle bg-white/90 dark:bg-bg-secondary/90 backdrop-blur-xl flex items-center gap-4 z-20 pb-safe shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)]">
+      <div className="shrink-0 p-4 border-t border-border-subtle bg-[rgba(255,255,255,0.75)] dark:bg-[rgba(255,255,255,0.03)] backdrop-blur-[32px] flex items-center gap-4 z-20 pb-safe">
         <div className="flex-1 flex flex-col justify-center">
-          <div className="text-xs text-gray-500 dark:text-text-muted font-medium mb-0.5">
+          <div className="text-xs text-text-muted font-black uppercase tracking-widest mb-0.5">
             已选 {selectedItems.length} 件
           </div>
           <div className="flex items-baseline gap-1">
-            <span className="text-sm font-bold text-gray-900 dark:text-white">合计:</span>
+            <span className="text-sm font-black text-text-primary">合计:</span>
             <span className="text-rose-500 dark:text-rose-400 font-black text-xl flex items-baseline gap-0.5 tracking-tight">
               <PriceDisplay amount={totalAmount} size={24} />
             </span>
           </div>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="primary"
+          size="lg"
           onClick={handleCheckout}
-          disabled={selectedItems.length === 0 || placeOrder.isPending}
-          className="px-8 py-3.5 bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-cyan-500/30 hover:shadow-cyan-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none"
+          loading={placeOrder.isPending}
+          disabled={selectedItems.length === 0}
         >
           {placeOrder.isPending ? '处理中...' : `去结算 (${selectedItems.length})`}
-        </button>
+        </Button>
       </div>
     </div>
   )

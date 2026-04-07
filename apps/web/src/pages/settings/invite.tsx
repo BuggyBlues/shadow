@@ -1,3 +1,4 @@
+import { Button, cn, Input } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, Copy, Link2, Plus, Trash2, UserPlus, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -101,7 +102,7 @@ export function InviteSettings() {
 
   return (
     <>
-      <div className="bg-gradient-to-r from-primary/15 to-emerald-500/15 border border-primary/20 rounded-xl p-4 mb-6">
+      <div className="bg-gradient-to-r from-primary/15 to-emerald-500/15 border border-primary/20 rounded-[20px] p-4 mb-6">
         <p className="text-sm font-bold text-text-primary">
           {referralSummary?.campaignText ?? '邀请好友完成注册登录，你和好友均可获得 500 虾币'}
         </p>
@@ -113,22 +114,33 @@ export function InviteSettings() {
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-text-primary">{t('settings.inviteTitle')}</h2>
+          <h2 className="text-2xl font-black text-text-primary">{t('settings.inviteTitle')}</h2>
           <p className="text-sm text-text-muted mt-1">{t('settings.inviteDesc')}</p>
         </div>
-        <button
+        <Button
+          variant="primary"
+          size="sm"
           onClick={() => setShowCreateForm(!showCreateForm)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition font-bold text-sm"
+          className="normal-case tracking-normal"
         >
-          {showCreateForm ? <X size={16} /> : <Plus size={16} />}
-          {showCreateForm ? t('common.cancel') : t('settings.inviteCreate')}
-        </button>
+          {showCreateForm ? (
+            <>
+              <X size={16} className="mr-1" />
+              {t('common.cancel')}
+            </>
+          ) : (
+            <>
+              <Plus size={16} className="mr-1" />
+              {t('settings.inviteCreate')}
+            </>
+          )}
+        </Button>
       </div>
 
       {showCreateForm && (
-        <div className="bg-bg-secondary rounded-xl p-4 mb-6 border border-border-subtle">
+        <div className="bg-white/[0.03] backdrop-blur-[32px] rounded-[20px] p-4 mb-6 border border-white/[0.08]">
           <div className="flex gap-3">
-            <input
+            <Input
               type="text"
               value={note}
               onChange={(e) => setNote(e.target.value)}
@@ -139,15 +151,17 @@ export function InviteSettings() {
                 }
               }}
               placeholder={t('settings.inviteNotePlaceholder')}
-              className="flex-1 bg-bg-tertiary text-text-primary rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary transition text-sm"
+              className="flex-1 rounded-[14px] px-4 py-2.5 text-sm h-10"
             />
-            <button
+            <Button
+              variant="primary"
+              size="sm"
               onClick={() => createMutation.mutate()}
               disabled={createMutation.isPending}
-              className="px-4 py-2.5 bg-primary hover:bg-primary-hover text-white rounded-lg transition font-bold text-sm disabled:opacity-50"
+              className="normal-case tracking-normal"
             >
               {createMutation.isPending ? t('common.loading') : t('settings.inviteGenerate')}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -155,7 +169,7 @@ export function InviteSettings() {
       {isLoading ? (
         <div className="text-center text-text-muted py-12">{t('common.loading')}</div>
       ) : codes.length === 0 ? (
-        <div className="text-center text-text-muted py-12 bg-bg-secondary rounded-xl border border-border-subtle">
+        <div className="text-center text-text-muted py-12 bg-white/[0.03] backdrop-blur-[32px] rounded-[24px] border border-white/[0.08]">
           <Link2 size={40} className="mx-auto mb-3 opacity-40" />
           <p className="text-sm">{t('settings.inviteEmpty')}</p>
         </div>
@@ -168,9 +182,10 @@ export function InviteSettings() {
             return (
               <div
                 key={code.id}
-                className={`bg-bg-secondary rounded-xl p-4 border transition ${
-                  isActive ? 'border-border-subtle' : 'border-border-subtle opacity-60'
-                }`}
+                className={cn(
+                  'bg-white/[0.03] backdrop-blur-[32px] rounded-[20px] p-4 border transition-all',
+                  isActive ? 'border-white/[0.08]' : 'border-white/[0.04] opacity-60',
+                )}
               >
                 <div className="flex items-center gap-3">
                   <div className="flex-1 min-w-0">

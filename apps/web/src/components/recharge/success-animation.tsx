@@ -1,3 +1,4 @@
+import { Button } from '@shadowob/ui'
 import { useQueryClient } from '@tanstack/react-query'
 import { animate, motion } from 'framer-motion'
 import { useEffect, useRef } from 'react'
@@ -42,7 +43,7 @@ export function SuccessAnimation() {
         initial={{ scale: 0, rotate: -180 }}
         animate={{ scale: 1, rotate: 0 }}
         transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-        className="w-24 h-24 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg"
+        className="w-24 h-24 rounded-full bg-gradient-to-br from-[#F8E71C] to-[#ffb300] flex items-center justify-center shadow-[0_10px_25px_rgba(248,231,28,0.35)]"
       >
         <span className="text-4xl">🦐</span>
       </motion.div>
@@ -53,8 +54,10 @@ export function SuccessAnimation() {
         transition={{ delay: 0.3 }}
         className="text-center"
       >
-        <h3 className="text-2xl font-bold text-text-primary">{t('recharge.success')}</h3>
-        <p className="text-text-muted mt-1">
+        <h3 className="text-2xl font-black uppercase tracking-tight text-text-primary">
+          {t('recharge.success')}
+        </h3>
+        <p className="text-text-muted font-bold italic mt-1">
           {t('recharge.successDesc', { amount: shrimpCoins.toLocaleString() })}
         </p>
       </motion.div>
@@ -64,24 +67,19 @@ export function SuccessAnimation() {
         initial={{ opacity: 0, scale: 0.5 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.5, type: 'spring' }}
-        className="bg-primary/10 rounded-2xl px-8 py-4"
+        className="bg-primary/10 rounded-[24px] px-8 py-4 backdrop-blur-sm border border-primary/20"
       >
-        <span ref={counterRef} className="text-4xl font-bold text-primary tabular-nums">
+        <span ref={counterRef} className="text-4xl font-black text-primary tabular-nums">
           +0
         </span>
         <span className="text-lg text-primary ml-2">🦐</span>
       </motion.div>
 
-      <motion.button
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1.2 }}
-        type="button"
-        onClick={closeModal}
-        className="mt-4 px-8 py-3 rounded-xl font-bold text-white bg-primary hover:bg-primary-hover transition-all"
-      >
-        {t('recharge.done')}
-      </motion.button>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2 }}>
+        <Button variant="primary" size="lg" onClick={closeModal}>
+          {t('recharge.done')}
+        </Button>
+      </motion.div>
     </div>
   )
 }

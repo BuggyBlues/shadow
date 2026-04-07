@@ -28,17 +28,17 @@ export function OnlineRank({ totalSeconds }: { totalSeconds: number }) {
   return (
     <span className="inline-flex items-center gap-0.5">
       {Array.from({ length: suns }, (_, i) => (
-        <span key={`sun-${i}`} className="text-amber-400 text-xs" title="太阳">
+        <span key={`sun-${i}`} className="text-warning text-xs" title="太阳">
           ☀️
         </span>
       ))}
       {Array.from({ length: moons }, (_, i) => (
-        <span key={`moon-${i}`} className="text-yellow-300 text-xs" title="月亮">
+        <span key={`moon-${i}`} className="text-warning/70 text-xs" title="月亮">
           🌙
         </span>
       ))}
       {Array.from({ length: stars }, (_, i) => (
-        <span key={`star-${i}`} className="text-yellow-400 text-xs" title="星星">
+        <span key={`star-${i}`} className="text-warning/80 text-xs" title="星星">
           ⭐
         </span>
       ))}

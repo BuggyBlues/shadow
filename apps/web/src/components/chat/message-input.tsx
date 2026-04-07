@@ -1,3 +1,4 @@
+import { Button, cn } from '@shadowob/ui'
 import { type InfiniteData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FileText, FolderOpen, Image as ImageIcon, Plus, Send, Smile, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -563,17 +564,18 @@ export function MessageInput({
       {mentionQuery !== null && filteredMembers.length > 0 && (
         <div
           ref={mentionListRef}
-          className="absolute bottom-full left-4 right-4 mb-1 bg-bg-tertiary border border-border-dim rounded-lg shadow-xl py-1 max-h-[240px] overflow-y-auto z-50"
+          className="absolute bottom-full left-4 right-4 mb-1 bg-bg-primary/95 backdrop-blur-xl border border-border/10 rounded-[12px] shadow-xl py-1 max-h-[240px] overflow-y-auto z-50"
         >
           {filteredMembers.map((member, i) => (
             <button
               key={member.id}
               type="button"
-              className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition ${
+              className={cn(
+                'flex items-center gap-2 w-full px-3 py-2 text-sm transition',
                 i === mentionIndex
-                  ? 'bg-primary/20 text-text-primary'
-                  : 'text-text-secondary hover:bg-bg-modifier-hover'
-              }`}
+                  ? 'bg-primary/10 text-text-primary'
+                  : 'text-text-secondary hover:bg-primary/10',
+              )}
               onMouseEnter={() => setMentionIndex(i)}
               onMouseDown={(e) => {
                 e.preventDefault() // prevent textarea blur
@@ -601,24 +603,28 @@ export function MessageInput({
       )}
       {/* Reply indicator */}
       {replyToId && (
-        <div className="flex items-center justify-between bg-bg-secondary rounded-t-lg px-4 py-2 text-xs text-text-secondary border-b border-black/10">
+        <div className="flex items-center justify-between bg-primary/5 rounded-t-[20px] px-4 py-2 text-xs text-text-secondary border-l-2 border-primary">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-text-muted">{t('chat.replyingTo')}</span>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="xs"
+            className="h-6 w-6 p-0 rounded-full"
             onClick={onClearReply}
-            className="text-text-muted hover:text-text-primary transition p-1 hover:bg-bg-modifier-hover rounded-full"
           >
             <X size={14} />
-          </button>
+          </Button>
         </div>
       )}
 
       {/* Pending file previews */}
       {pendingFiles.length > 0 && (
         <div
-          className={`flex flex-wrap gap-2 bg-bg-secondary ${replyToId ? '' : 'rounded-t-lg'} border-b border-black/10 px-4 py-3`}
+          className={cn(
+            'flex flex-wrap gap-2 bg-bg-secondary/80 rounded-[16px] border-b border-border/10 px-4 py-3',
+            replyToId ? '' : 'rounded-t-[20px]',
+          )}
         >
           {pendingFiles.map((pf, i) => (
             <div key={getPendingFileKey(pf)} className="relative group/file">
@@ -626,12 +632,12 @@ export function MessageInput({
                 <button
                   type="button"
                   onClick={() => setViewingImage(pf)}
-                  className="w-20 h-20 rounded-lg overflow-hidden border border-border-dim hover:border-primary transition cursor-pointer"
+                  className="w-20 h-20 rounded-lg overflow-hidden border border-border/10 hover:border-primary/30 transition cursor-pointer"
                 >
                   <img src={pf.preview} alt="" className="w-full h-full object-cover" />
                 </button>
               ) : (
-                <div className="w-20 h-20 rounded-lg border border-border-dim bg-bg-tertiary flex flex-col items-center justify-center gap-1">
+                <div className="w-20 h-20 rounded-lg border border-border/10 bg-bg-secondary/80 flex flex-col items-center justify-center gap-1">
                   <FileText size={20} className="text-text-muted" />
                   <span className="text-[9px] text-text-muted truncate max-w-[72px] px-1">
                     {pf.workspaceName ?? pf.file.name}
@@ -639,35 +645,38 @@ export function MessageInput({
                 </div>
               )}
               {pf.workspaceUrl && (
-                <span className="absolute bottom-0.5 left-0.5 text-[8px] bg-[#5865F2]/80 text-white px-1 py-0.5 rounded">
+                <span className="absolute bottom-0.5 left-0.5 text-[8px] bg-primary/80 text-white px-1 py-0.5 rounded">
                   工作区
                 </span>
               )}
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="xs"
+                className="absolute -top-1.5 -right-1.5 h-5 w-5 p-0 rounded-full bg-danger text-white opacity-0 group-hover/file:opacity-100"
                 onClick={() => removeFile(i)}
-                className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-danger rounded-full flex items-center justify-center text-white opacity-0 group-hover/file:opacity-100 transition"
               >
                 <X size={10} />
-              </button>
+              </Button>
             </div>
           ))}
         </div>
       )}
 
       <div
-        className={`flex items-center gap-1 bg-[#383a40] ${
-          replyToId || pendingFiles.length > 0 ? 'rounded-b-lg' : 'rounded-lg'
-        } px-3 py-1.5 shadow-sm`}
+        className={cn(
+          'flex items-center gap-1 bg-bg-primary/80 backdrop-blur-xl border border-border/10 px-3 py-1.5 shadow-sm transition-all focus-within:ring-1 focus-within:ring-primary/30 focus-within:border-primary/20',
+          replyToId || pendingFiles.length > 0 ? 'rounded-b-[20px]' : 'rounded-[20px]',
+        )}
       >
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 shrink-0 self-end mb-[3px]"
           onClick={() => fileInputRef.current?.click()}
-          className="text-text-secondary hover:text-text-primary transition p-1.5 rounded-full hover:bg-bg-modifier-hover shrink-0 self-end mb-[3px]"
           title={t('chat.uploadFile')}
         >
           <Plus size={20} />
-        </button>
+        </Button>
 
         <textarea
           ref={textareaRef}
@@ -682,35 +691,38 @@ export function MessageInput({
           className="flex-1 bg-transparent text-text-primary placeholder:text-text-muted outline-none resize-none text-[15px] leading-[22px] max-h-[50vh] min-h-[22px] py-[7px]"
         />
 
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 shrink-0 self-end mb-[3px]"
           onClick={() => fileInputRef.current?.click()}
-          className="text-text-secondary hover:text-text-primary transition p-1.5 rounded-full hover:bg-bg-modifier-hover shrink-0 self-end mb-[3px]"
           title={t('chat.uploadImage')}
         >
           <ImageIcon size={20} />
-        </button>
+        </Button>
 
         {activeServerId && (
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 shrink-0 self-end mb-[3px]"
             onClick={() => setShowWorkspacePicker(true)}
-            className="text-text-secondary hover:text-text-primary transition p-1.5 rounded-full hover:bg-bg-modifier-hover shrink-0 self-end mb-[3px]"
             title="从工作区选择文件"
           >
             <FolderOpen size={20} />
-          </button>
+          </Button>
         )}
 
         <div className="relative shrink-0 self-end mb-[3px]">
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className="text-text-secondary hover:text-text-primary transition p-1.5 rounded-full hover:bg-bg-modifier-hover"
             title={t('chat.addEmoji')}
           >
             <Smile size={20} />
-          </button>
+          </Button>
           {showEmojiPicker && (
             <EmojiPicker
               onSelect={(emoji) => {
@@ -723,14 +735,14 @@ export function MessageInput({
           )}
         </div>
 
-        <button
-          type="button"
+        <Button
+          size="icon"
+          className="h-9 w-9 rounded-full bg-primary hover:bg-primary/80 shrink-0 self-end mb-[3px] disabled:opacity-30"
           onClick={handleSend}
           disabled={(!content.trim() && pendingFiles.length === 0) || uploading}
-          className="text-text-muted hover:text-primary transition p-1.5 rounded-full hover:bg-bg-modifier-hover shrink-0 self-end mb-[3px] disabled:opacity-30 disabled:hover:bg-transparent"
         >
           <Send size={20} />
-        </button>
+        </Button>
       </div>
 
       <input

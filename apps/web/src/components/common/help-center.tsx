@@ -1,3 +1,4 @@
+import { Button } from '@shadowob/ui'
 import { BookOpen, ExternalLink, HelpCircle, MessageCircle, X } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -46,20 +47,16 @@ export function HelpCenterButton({ variant = 'button' }: HelpCenterProps) {
   if (variant === 'panel' && open) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-        <div className="w-full max-w-md bg-bg-secondary rounded-2xl shadow-2xl overflow-hidden">
+        <div className="w-full max-w-md bg-bg-primary/95 backdrop-blur-xl rounded-[16px] border border-border/10 shadow-xl overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border-subtle">
             <div className="flex items-center gap-2">
               <HelpCircle size={20} className="text-primary" />
               <h2 className="font-semibold text-text-primary">{t('help.title', '帮助中心')}</h2>
             </div>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-modifier-hover rounded-lg transition"
-            >
+            <Button variant="ghost" size="icon" onClick={() => setOpen(false)}>
               <X size={18} />
-            </button>
+            </Button>
           </div>
 
           {/* Content */}
@@ -109,14 +106,14 @@ export function HelpCenterButton({ variant = 'button' }: HelpCenterProps) {
 
   return (
     <>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={() => setOpen(true)}
-        className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-modifier-hover rounded-lg transition"
         title={t('help.title', '帮助中心')}
       >
         <HelpCircle size={20} />
-      </button>
+      </Button>
       {open && variant === 'panel' && <HelpCenterButton variant="panel" />}
     </>
   )
@@ -139,7 +136,7 @@ export function HelpTooltip({ content, children }: HelpTooltipProps) {
     >
       {children}
       {show && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-bg-secondary border border-border-subtle rounded-lg shadow-lg text-sm text-text-primary whitespace-nowrap z-50">
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-bg-primary/95 backdrop-blur-xl border border-border/10 rounded-[12px] shadow-xl text-sm text-text-primary whitespace-nowrap z-50">
           {content}
           <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-bg-secondary" />
         </div>

@@ -1,3 +1,4 @@
+import { Button, Card } from '@shadowob/ui'
 import { useQuery } from '@tanstack/react-query'
 import { useParams } from '@tanstack/react-router'
 import { ChevronLeft, LayoutDashboard } from 'lucide-react'
@@ -82,14 +83,10 @@ export function BuddyDashboardPage() {
       <div className="max-w-5xl mx-auto px-4 py-6 md:px-6 md:py-8">
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
-          <button
-            type="button"
-            onClick={() => window.history.back()}
-            className="inline-flex items-center gap-2 text-text-muted hover:text-text-primary transition font-bold"
-          >
+          <Button variant="ghost" size="sm" onClick={() => window.history.back()}>
             <ChevronLeft className="w-5 h-5" />
             {t('common.back', 'Back')}
-          </button>
+          </Button>
         </div>
 
         {/* Page Title */}
@@ -134,30 +131,37 @@ export function BuddyDashboardPage() {
 
           {/* Rental Stats */}
           {dashboard.rentalStats && (
-            <div className="bg-bg-secondary rounded-xl p-6 border border-border-subtle">
+            <Card variant="glass" className="p-6">
               <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider mb-4">
                 {t('buddyDashboard.rentalStats', 'Rental Statistics')}
               </h3>
 
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-text-muted">{t('buddyDashboard.totalRentals', 'Total Rentals')}</span>
+                  <span className="text-text-muted">
+                    {t('buddyDashboard.totalRentals', 'Total Rentals')}
+                  </span>
                   <span className="text-text-primary font-bold">
                     {dashboard.rentalStats.totalRentals}
                   </span>
                 </div>
 
                 <div className="flex justify-between items-center">
-                  <span className="text-text-muted">{t('buddyDashboard.totalIncome', 'Total Income')}</span>
+                  <span className="text-text-muted">
+                    {t('buddyDashboard.totalIncome', 'Total Income')}
+                  </span>
                   <span className="text-text-primary font-bold">
                     {dashboard.rentalStats.totalIncome.toLocaleString()} 虾币
                   </span>
                 </div>
 
                 <div className="flex justify-between items-center">
-                  <span className="text-text-muted">{t('buddyDashboard.avgDuration', 'Avg Duration')}</span>
+                  <span className="text-text-muted">
+                    {t('buddyDashboard.avgDuration', 'Avg Duration')}
+                  </span>
                   <span className="text-text-primary font-bold">
-                    {dashboard.rentalStats.averageDuration.toFixed(1)} {t('buddyDashboard.days', 'days')}
+                    {dashboard.rentalStats.averageDuration.toFixed(1)}{' '}
+                    {t('buddyDashboard.days', 'days')}
                   </span>
                 </div>
 
@@ -179,7 +183,7 @@ export function BuddyDashboardPage() {
                   </div>
                 )}
               </div>
-            </div>
+            </Card>
           )}
         </div>
       </div>
