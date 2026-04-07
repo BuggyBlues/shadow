@@ -1,3 +1,17 @@
+import {
+  Button,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+  cn,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+} from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocation, useNavigate } from '@tanstack/react-router'
 import {
@@ -540,31 +554,30 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
     if (items.length === 0) return null
     const isCollapsed = !!collapsedGroups[label]
     return (
-      <div className="mb-4">
+      <Collapsible open={!isCollapsed} onOpenChange={() => toggleGroup(label)} className="mb-1">
         <div className="flex items-center justify-between pr-2">
-          <button
-            onClick={() => toggleGroup(label)}
-            className="flex items-center gap-1 px-4 py-1.5 text-[12px] font-bold tracking-wide uppercase text-text-secondary hover:text-text-primary flex-1 transition"
-          >
+          <CollapsibleTrigger className="flex items-center gap-1 px-4 py-1.5 text-[11px] font-bold tracking-widest uppercase text-muted-foreground hover:text-foreground flex-1 transition-colors">
             {isCollapsed ? (
               <ChevronRight size={12} className="shrink-0" />
             ) : (
               <ChevronDown size={12} className="shrink-0" />
             )}
             <span className="truncate">{label}</span>
-          </button>
+          </CollapsibleTrigger>
         </div>
-        {!isCollapsed &&
-          items.map((ch) => {
+        <CollapsibleContent>
+          {items.map((ch) => {
             const Icon = channelIcons[ch.type]
             const isActive = activeChannelId === ch.id
             const isEditing = editingChannel?.id === ch.id
+            const unreadCount = scopedUnread?.channelUnread?.[ch.id] ?? 0
+            const isUnread = !isActive && unreadCount > 0
             return isEditing ? (
               <div
                 key={ch.id}
-                className="flex items-center gap-1.5 px-2 mx-2 py-1 bg-bg-modifier-hover rounded"
+                className="flex items-center gap-1.5 px-2 mx-2 py-1 bg-primary/10 rounded-lg border border-primary/20"
               >
-                <Icon size={18} className="shrink-0 opacity-80" />
+                <Icon size={16} className="shrink-0 text-muted-foreground" />
                 <input
                   type="text"
                   value={editChannelName}
@@ -578,7 +591,7 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
                   }}
                   // biome-ignore lint/a11y/noAutofocus: needed for inline edit UX
                   autoFocus
-                  className="flex-1 bg-bg-tertiary text-text-primary rounded px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-primary"
+                  className="flex-1 bg-black/20 text-foreground rounded-md px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-primary backdrop-blur-sm border border-white/5"
                 />
                 <button
                   type="button"
@@ -587,14 +600,14 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
                       updateChannel.mutate({ channelId: ch.id, name: editChannelName.trim() })
                     }
                   }}
-                  className="text-green-400 hover:text-green-300"
+                  className="text-emerald-400 hover:text-emerald-300 transition-colors"
                 >
                   <Check size={14} />
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditingChannel(null)}
-                  className="text-text-muted hover:text-text-primary"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <X size={14} />
                 </button>
@@ -614,56 +627,69 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
                   handleSelectChannel(ch.id)
                 }}
                 onContextMenu={(e) => handleContextMenu(e, ch)}
-                className={`group flex items-center gap-1.5 px-2 py-[6px] mx-2 mb-[2px] rounded-md text-[15px] font-medium w-[calc(100%-16px)] text-left transition ${
+                className={cn(
+                  'group flex items-center gap-1.5 px-2 py-[6px] mx-2 mb-[2px] rounded-lg text-sm font-medium w-[calc(100%-16px)] text-left transition-all duration-200',
                   isActive
-                    ? 'bg-bg-modifier-active text-text-primary'
-                    : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
-                }`}
+                    ? 'bg-primary/15 text-primary shadow-[0_0_12px_rgba(0,243,255,0.08)]'
+                    : 'text-muted-foreground hover:bg-primary/10 hover:text-foreground',
+                  isUnread && 'font-semibold text-foreground',
+                )}
               >
                 <Icon
-                  size={18}
-                  className={`shrink-0 ${isActive ? 'opacity-80 text-text-primary' : 'opacity-60 group-hover:text-text-primary'}`}
+                  size={16}
+                  className={cn(
+                    'shrink-0 transition-colors',
+                    isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground',
+                  )}
                 />
-                <span className={`truncate ${ch.isArchived ? 'text-text-muted' : ''}`}>
+                <span className={cn('truncate', ch.isArchived && 'text-muted-foreground italic')}>
                   {ch.name}
                 </span>
-                {ch.isArchived && <Archive size={12} className="text-text-muted shrink-0" />}
-                {ch.isPrivate && <Lock size={12} className="text-text-muted shrink-0" />}
+                {ch.isArchived && (
+                  <Archive size={12} className="text-muted-foreground/60 shrink-0" />
+                )}
+                {ch.isPrivate && <Lock size={12} className="text-muted-foreground/60 shrink-0" />}
                 {ch.isMember === false && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/15 text-primary shrink-0">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-semibold shrink-0 border border-primary/20">
                     加入
                   </span>
                 )}
-                {!isActive && (scopedUnread?.channelUnread?.[ch.id] ?? 0) > 0 && (
-                  <span className="ml-auto w-2 h-2 rounded-full bg-danger shrink-0" />
+                {isUnread && (
+                  <span className="ml-auto w-2 h-2 rounded-full bg-primary shadow-[0_0_6px_rgba(0,243,255,0.6)] shrink-0" />
                 )}
               </button>
             )
           })}
-      </div>
+        </CollapsibleContent>
+      </Collapsible>
     )
   }
 
   return (
-    <div className="w-full md:w-60 bg-bg-secondary flex flex-col shrink-0 h-full">
-      {/* Server name header */}
-      <div className="h-12 px-4 flex items-center justify-between border-b-2 border-bg-tertiary bg-bg-secondary shadow-sm z-10 transition hover:bg-bg-modifier-hover cursor-pointer">
+    <div className="w-full md:w-60 bg-bg-primary/80 backdrop-blur-xl flex flex-col shrink-0 h-full border-r border-border/10">
+      {/* Server name header — glassmorphic bar */}
+      <div className="h-12 px-4 flex items-center justify-between border-b border-white/5 bg-white/[0.03] backdrop-blur-md shadow-[0_1px_8px_rgba(0,0,0,0.1)] z-10 transition-colors hover:bg-white/[0.06] cursor-pointer">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {/* Mobile menu button to open server sidebar */}
           <button
             onClick={openMobileServerSidebar}
-            className="md:hidden text-text-muted hover:text-text-primary transition shrink-0"
+            className="md:hidden text-muted-foreground hover:text-foreground transition-colors shrink-0"
           >
             <Menu size={20} />
           </button>
-          <h2 className="font-bold text-text-primary truncate">{server?.name ?? '...'}</h2>
+          <h2 className="font-bold text-foreground truncate tracking-tight">
+            {server?.name ?? '...'}
+          </h2>
           {serverUnreadCount > 0 && (
-            <span className="w-2 h-2 rounded-full bg-danger shrink-0" title="该服务器有未读通知" />
+            <span
+              className="w-2 h-2 rounded-full bg-primary shadow-[0_0_6px_rgba(0,243,255,0.6)] shrink-0"
+              title="该服务器有未读通知"
+            />
           )}
         </div>
         <button
           onClick={openServerEdit}
-          className="text-text-muted hover:text-text-primary transition"
+          className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-lg hover:bg-white/5"
           title={t('channel.serverSettings')}
         >
           <Settings size={16} />
@@ -672,7 +698,7 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
 
       {/* Channel list */}
       <div
-        className="flex-1 overflow-y-auto pt-2"
+        className="flex-1 overflow-y-auto pt-2 scrollbar-thin"
         onContextMenu={(e) => {
           // Only trigger if clicking on the blank area (not on a channel item)
           if ((e.target as HTMLElement).closest('[data-channel-item]')) return
@@ -680,107 +706,89 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
           setBlankContextMenu({ x: e.clientX, y: e.clientY })
         }}
       >
-        {/* Server Home button */}
-        <button
-          type="button"
-          onClick={() => {
-            navigate({
-              to: '/servers/$serverSlug',
-              params: { serverSlug: server?.slug ?? serverSlug },
-            })
-            requestMarkScopeRead({ serverId: server?.id ?? serverSlug })
-            setMobileView('chat')
-          }}
-          className={`group flex items-center gap-1.5 px-2 py-[6px] mx-2 mb-2 rounded-md text-[15px] font-medium w-[calc(100%-16px)] text-left transition ${
-            isHomeActive
-              ? 'bg-bg-modifier-active text-text-primary'
-              : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
-          }`}
-        >
-          <Home
-            size={18}
-            className={`shrink-0 ${isHomeActive ? 'opacity-80 text-text-primary' : 'opacity-60 group-hover:text-text-primary'}`}
-          />
-          <span className="truncate">{t('server.home')}</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            navigate({
-              to: '/servers/$serverSlug/shop',
-              params: { serverSlug: server?.slug ?? serverSlug },
-            })
-            requestMarkScopeRead({ serverId: server?.id ?? serverSlug })
-            setMobileView('chat')
-          }}
-          className={`group flex items-center gap-1.5 px-2 py-[6px] mx-2 mb-2 rounded-md text-[15px] font-medium w-[calc(100%-16px)] text-left transition ${
-            isInShop
-              ? 'bg-bg-modifier-active text-text-primary'
-              : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
-          }`}
-        >
-          <ShoppingBag
-            size={18}
-            className={`shrink-0 ${isInShop ? 'opacity-80 text-text-primary' : 'opacity-60 group-hover:text-text-primary'}`}
-          />
-          <span className="truncate">{t('serverHome.shop', '店铺')}</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            navigate({
-              to: '/servers/$serverSlug/workspace',
-              params: { serverSlug: server?.slug ?? serverSlug },
-            })
-            requestMarkScopeRead({ serverId: server?.id ?? serverSlug })
-            setMobileView('chat')
-          }}
-          className={`group flex items-center gap-1.5 px-2 py-[6px] mx-2 mb-2 rounded-md text-[15px] font-medium w-[calc(100%-16px)] text-left transition ${
-            isInWorkspace
-              ? 'bg-bg-modifier-active text-text-primary'
-              : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
-          }`}
-        >
-          <FolderClosed
-            size={18}
-            className={`shrink-0 ${
-              isInWorkspace
-                ? 'opacity-80 text-text-primary'
-                : 'opacity-60 group-hover:text-text-primary'
-            }`}
-          />
-          <span className="truncate">{t('serverHome.workspace', '工作区')}</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            navigate({
-              to: '/servers/$serverSlug/apps',
-              params: { serverSlug: server?.slug ?? serverSlug },
-            })
-            requestMarkScopeRead({ serverId: server?.id ?? serverSlug })
-            setMobileView('chat')
-          }}
-          className={`group flex items-center gap-1.5 px-2 py-[6px] mx-2 mb-2 rounded-md text-[15px] font-medium w-[calc(100%-16px)] text-left transition ${
-            isInApps
-              ? 'bg-bg-modifier-active text-text-primary'
-              : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
-          }`}
-        >
-          <AppWindow
-            size={18}
-            className={`shrink-0 ${
-              isInApps ? 'opacity-80 text-text-primary' : 'opacity-60 group-hover:text-text-primary'
-            }`}
-          />
-          <span className="truncate">应用</span>
-        </button>
-        <div className="h-px bg-divider mx-4 mb-2" />
+        {/* Navigation links */}
+        {[
+          {
+            test: isHomeActive,
+            icon: Home,
+            label: t('server.home'),
+            onClick: () => {
+              navigate({
+                to: '/servers/$serverSlug',
+                params: { serverSlug: server?.slug ?? serverSlug },
+              })
+              requestMarkScopeRead({ serverId: server?.id ?? serverSlug })
+              setMobileView('chat')
+            },
+          },
+          {
+            test: isInShop,
+            icon: ShoppingBag,
+            label: t('serverHome.shop', '店铺'),
+            onClick: () => {
+              navigate({
+                to: '/servers/$serverSlug/shop',
+                params: { serverSlug: server?.slug ?? serverSlug },
+              })
+              requestMarkScopeRead({ serverId: server?.id ?? serverSlug })
+              setMobileView('chat')
+            },
+          },
+          {
+            test: isInWorkspace,
+            icon: FolderClosed,
+            label: t('serverHome.workspace', '工作区'),
+            onClick: () => {
+              navigate({
+                to: '/servers/$serverSlug/workspace',
+                params: { serverSlug: server?.slug ?? serverSlug },
+              })
+              requestMarkScopeRead({ serverId: server?.id ?? serverSlug })
+              setMobileView('chat')
+            },
+          },
+          {
+            test: isInApps,
+            icon: AppWindow,
+            label: '应用',
+            onClick: () => {
+              navigate({
+                to: '/servers/$serverSlug/apps',
+                params: { serverSlug: server?.slug ?? serverSlug },
+              })
+              requestMarkScopeRead({ serverId: server?.id ?? serverSlug })
+              setMobileView('chat')
+            },
+          },
+        ].map(({ test: isActiveNav, icon: NavIcon, label, onClick }) => (
+          <button
+            key={label}
+            type="button"
+            onClick={onClick}
+            className={cn(
+              'group flex items-center gap-1.5 px-2 py-[6px] mx-2 mb-[2px] rounded-lg text-sm font-medium w-[calc(100%-16px)] text-left transition-all duration-200',
+              isActiveNav
+                ? 'bg-primary/15 text-primary shadow-[0_0_12px_rgba(0,243,255,0.08)]'
+                : 'text-muted-foreground hover:bg-primary/10 hover:text-foreground',
+            )}
+          >
+            <NavIcon
+              size={16}
+              className={cn(
+                'shrink-0 transition-colors',
+                isActiveNav ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground',
+              )}
+            />
+            <span className="truncate">{label}</span>
+          </button>
+        ))}
+
+        <div className="h-px bg-white/5 mx-4 my-2" />
 
         {/* Channel filter and sort bar */}
         {server?.id && (
           <div className="flex items-center justify-between px-4 py-1.5 mb-1">
-            <span className="text-[11px] font-bold tracking-wide uppercase text-text-secondary">
+            <span className="text-[11px] font-bold tracking-widest uppercase text-muted-foreground">
               {t('channel.channels', { defaultValue: '频道' })}
             </span>
             <div className="flex items-center gap-0.5">
@@ -792,14 +800,15 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
                 showArchived={showArchived}
                 onShowArchivedChange={setShowArchived}
               />
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="xs"
                 onClick={() => setShowCreate(true)}
-                className="text-text-muted hover:text-text-secondary transition p-1 rounded hover:bg-bg-modifier-hover"
                 title={t('channel.createChannel')}
+                className="h-6 w-6 p-0 rounded-md"
               >
                 <Plus size={14} />
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -809,35 +818,35 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
         {renderChannelGroup(t('channel.voice'), voiceChannels)}
 
         {channels.length === 0 && (
-          <p className="text-text-muted text-sm px-4 py-2">{t('channel.noChannels')}</p>
+          <p className="text-muted-foreground text-sm px-4 py-2">{t('channel.noChannels')}</p>
         )}
       </div>
 
       {/* Add channel button */}
-      <div className="p-2 border-t border-border-subtle">
-        <button
+      <div className="p-2 border-t border-white/5">
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 px-3 py-2 w-full rounded-md text-sm text-text-muted hover:bg-bg-primary/30 hover:text-text-secondary transition"
+          className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground rounded-lg h-9 px-3 text-sm font-medium normal-case tracking-normal"
         >
           <Plus size={16} />
           {t('channel.createChannel')}
-        </button>
+        </Button>
       </div>
 
       {/* Create channel dialog */}
-      {showCreate && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setShowCreate(false)
-          }}
-        >
-          <div className="bg-bg-secondary rounded-xl p-6 w-96">
-            <h2 className="text-xl font-bold text-text-primary mb-4">
-              {t('channel.createChannel')}
-            </h2>
-            <input
-              type="text"
+      <Dialog isOpen={showCreate} onClose={() => setShowCreate(false)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('channel.createChannel')}</DialogTitle>
+            <DialogDescription>
+              {t('channel.channels', { defaultValue: '创建一个新频道' })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <Input
+              label={t('channel.channelName')}
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => {
@@ -857,358 +866,355 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
                 }
               }}
               placeholder={t('channel.channelName')}
-              className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary mb-3"
+              className="!rounded-xl !py-3"
             />
-            <div className="flex gap-2 mb-4">
+            <div className="flex gap-2">
               {(['text', 'voice', 'announcement'] as const).map((chType) => (
-                <button
+                <Button
                   key={chType}
+                  variant={newType === chType ? 'primary' : 'glass'}
+                  size="xs"
                   onClick={() => setNewType(chType)}
-                  className={`px-3 py-1.5 rounded-lg text-sm transition ${
-                    newType === chType
-                      ? 'bg-primary text-white'
-                      : 'bg-bg-tertiary text-text-muted hover:text-text-secondary'
-                  }`}
+                  className="normal-case tracking-normal font-semibold"
                 >
                   {chType === 'text'
                     ? t('channel.typeText')
                     : chType === 'voice'
                       ? t('channel.typeVoice')
                       : t('channel.typeAnnouncement')}
-                </button>
+                </Button>
               ))}
             </div>
-            <label className="flex items-center justify-between mb-4 bg-bg-tertiary rounded-lg px-3 py-2">
-              <span className="text-sm text-text-primary">私有频道（仅受邀加入）</span>
+            <label className="flex items-center justify-between bg-white/5 rounded-xl px-4 py-3 border border-white/5">
+              <span className="text-sm text-foreground">私有频道（仅受邀加入）</span>
               <button
                 type="button"
                 onClick={() => setNewIsPrivate(!newIsPrivate)}
-                className={`relative w-11 h-6 rounded-full transition-colors ${
-                  newIsPrivate ? 'bg-primary' : 'bg-bg-primary'
-                }`}
+                className={cn(
+                  'relative w-11 h-6 rounded-full transition-colors',
+                  newIsPrivate ? 'bg-primary' : 'bg-white/10',
+                )}
               >
                 <span
-                  className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
-                    newIsPrivate ? 'translate-x-5' : ''
-                  }`}
+                  className={cn(
+                    'absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow-sm',
+                    newIsPrivate && 'translate-x-5',
+                  )}
                 />
               </button>
             </label>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowCreate(false)}
-                className="px-4 py-2 text-text-secondary hover:text-text-primary transition"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={() => {
-                  if (!newName.trim()) return
-                  createChannel.mutate({
-                    name: newName.trim(),
-                    type: newType,
-                    isPrivate: newIsPrivate,
-                  })
-                }}
-                disabled={!newName.trim() || createChannel.isPending}
-                className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition disabled:opacity-50"
-              >
-                {t('common.create')}
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setShowCreate(false)}
+              className="normal-case tracking-normal font-semibold"
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                if (!newName.trim()) return
+                createChannel.mutate({
+                  name: newName.trim(),
+                  type: newType,
+                  isPrivate: newIsPrivate,
+                })
+              }}
+              disabled={!newName.trim() || createChannel.isPending}
+              loading={createChannel.isPending}
+              className="normal-case tracking-normal font-semibold"
+            >
+              {t('common.create')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Server edit dialog */}
-      {showServerEdit && (
-        <div
-          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setShowServerEdit(false)
-          }}
-        >
-          <div className="bg-bg-secondary rounded-xl p-6 w-[520px] max-h-[90vh] overflow-y-auto border border-border-subtle">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-xl font-bold text-text-primary">{t('channel.serverSettings')}</h2>
-              <button
-                onClick={discardChanges}
-                disabled={updateServer.isPending}
-                className="text-text-muted hover:text-text-primary transition disabled:opacity-50"
-              >
-                <X size={18} />
-              </button>
-            </div>
+      <Dialog isOpen={showServerEdit} onClose={() => setShowServerEdit(false)}>
+        <DialogContent className="max-w-[520px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t('channel.serverSettings')}</DialogTitle>
+          </DialogHeader>
 
-            {/* Tab Navigation */}
-            <div className="flex gap-1 mb-6 bg-bg-tertiary rounded-lg p-1">
-              <button
-                onClick={() => setServerEditTab('basic')}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition ${
-                  serverEditTab === 'basic'
-                    ? 'bg-bg-secondary text-text-primary shadow-sm'
-                    : 'text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                <ImageIcon size={16} />
-                基础设置
-              </button>
-              <button
-                onClick={() => setServerEditTab('advanced')}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition ${
-                  serverEditTab === 'advanced'
-                    ? 'bg-bg-secondary text-text-primary shadow-sm'
-                    : 'text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                <Settings size={16} />
-                进阶设置
-              </button>
-            </div>
+          {/* Tab Navigation */}
+          <div className="flex gap-1 bg-white/5 rounded-xl p-1 border border-white/5">
+            <button
+              onClick={() => setServerEditTab('basic')}
+              className={cn(
+                'flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all',
+                serverEditTab === 'basic'
+                  ? 'bg-primary/15 text-primary shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <ImageIcon size={16} />
+              基础设置
+            </button>
+            <button
+              onClick={() => setServerEditTab('advanced')}
+              className={cn(
+                'flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all',
+                serverEditTab === 'advanced'
+                  ? 'bg-primary/15 text-primary shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <Settings size={16} />
+              进阶设置
+            </button>
+          </div>
 
-            {/* Basic Settings Tab */}
-            {serverEditTab === 'basic' && (
-              <div className="space-y-5">
-                {/* Hero Section - Banner + Icon */}
-                <div className="relative">
-                  {/* Banner upload - show draft state */}
-                  <div className="relative h-32 bg-gradient-to-br from-primary/30 to-primary/5 rounded-xl overflow-hidden group/banner">
-                    {serverFormDraft.bannerUrl && (
+          {/* Basic Settings Tab */}
+          {serverEditTab === 'basic' && (
+            <div className="space-y-5">
+              {/* Hero Section - Banner + Icon */}
+              <div className="relative">
+                {/* Banner upload - show draft state */}
+                <div className="relative h-32 bg-gradient-to-br from-primary/20 to-primary/5 rounded-xl overflow-hidden group/banner border border-white/5">
+                  {serverFormDraft.bannerUrl && (
+                    <img
+                      src={serverFormDraft.bannerUrl}
+                      alt=""
+                      className="w-full h-full object-cover absolute inset-0"
+                    />
+                  )}
+                  <label className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/banner:opacity-100 transition cursor-pointer">
+                    <span className="text-white text-sm font-medium flex items-center gap-2">
+                      {bannerUploading ? (
+                        <span className="animate-pulse">{t('common.loading')}</span>
+                      ) : (
+                        <>
+                          <ImageIcon size={16} />
+                          {serverFormDraft.bannerUrl ? '更换横幅' : '添加横幅'}
+                        </>
+                      )}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleBannerUpload}
+                      className="hidden"
+                      disabled={bannerUploading}
+                    />
+                  </label>
+                </div>
+
+                {/* Server icon upload */}
+                <div className="absolute -bottom-6 left-6">
+                  <div className="relative w-20 h-20 rounded-2xl overflow-hidden bg-white/5 border-4 border-[rgba(20,20,30,0.85)] shadow-lg group/icon">
+                    {serverFormDraft.iconUrl ? (
                       <img
-                        src={serverFormDraft.bannerUrl}
+                        src={serverFormDraft.iconUrl}
                         alt=""
-                        className="w-full h-full object-cover absolute inset-0"
+                        className="w-full h-full object-cover"
                       />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-muted-foreground">
+                        {serverFormDraft.name?.[0]?.toUpperCase() ?? '?'}
+                      </div>
                     )}
-                    <label className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/banner:opacity-100 transition cursor-pointer">
-                      <span className="text-white text-sm font-medium flex items-center gap-2">
-                        {bannerUploading ? (
-                          <span className="animate-pulse">{t('common.loading')}</span>
-                        ) : (
-                          <>
-                            <ImageIcon size={16} />
-                            {serverFormDraft.bannerUrl ? '更换横幅' : '添加横幅'}
-                          </>
-                        )}
+                    <label className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover/icon:opacity-100 transition cursor-pointer">
+                      <span className="text-white text-xs font-medium">
+                        {iconUploading ? '...' : <ImageIcon size={14} />}
                       </span>
                       <input
                         type="file"
                         accept="image/*"
-                        onChange={handleBannerUpload}
+                        onChange={handleIconUpload}
                         className="hidden"
-                        disabled={bannerUploading}
+                        disabled={iconUploading}
                       />
                     </label>
                   </div>
-
-                  {/* Server icon upload - positioned to overlap with banner - show draft state */}
-                  <div className="absolute -bottom-6 left-6">
-                    <div className="relative w-20 h-20 rounded-2xl overflow-hidden bg-bg-tertiary border-4 border-bg-secondary shadow-lg group/icon">
-                      {serverFormDraft.iconUrl ? (
-                        <img
-                          src={serverFormDraft.iconUrl}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-text-muted">
-                          {serverFormDraft.name?.[0]?.toUpperCase() ?? '?'}
-                        </div>
-                      )}
-                      <label className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover/icon:opacity-100 transition cursor-pointer">
-                        <span className="text-white text-xs font-medium">
-                          {iconUploading ? '...' : <ImageIcon size={14} />}
-                        </span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleIconUpload}
-                          className="hidden"
-                          disabled={iconUploading}
-                        />
-                      </label>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Server name - with extra top margin for icon overlap */}
-                <div className="mt-8">
-                  <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
-                    {t('channel.editServerName')}
-                  </label>
-                  <input
-                    type="text"
-                    value={serverFormDraft.name}
-                    onChange={(e) => updateDraftField('name', e.target.value)}
-                    placeholder="输入服务器名称"
-                    className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-
-                {/* Server description */}
-                <div>
-                  <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
-                    {t('channel.editServerDescription')}
-                  </label>
-                  <textarea
-                    value={serverFormDraft.description}
-                    onChange={(e) => updateDraftField('description', e.target.value)}
-                    rows={3}
-                    placeholder={t('channel.descriptionPlaceholder')}
-                    className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary resize-none"
-                  />
-                </div>
-
-                {/* Public toggle */}
-                <div className="bg-bg-tertiary rounded-lg p-4">
-                  <label className="flex items-center justify-between cursor-pointer">
-                    <div>
-                      <span className="text-sm font-semibold text-text-primary">
-                        {t('channel.publicServer')}
-                      </span>
-                      <p className="text-xs text-text-muted mt-0.5">
-                        {t('channel.publicServerDesc')}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => updateDraftField('isPublic', !serverFormDraft.isPublic)}
-                      className={`relative w-11 h-6 rounded-full transition-colors ${
-                        serverFormDraft.isPublic ? 'bg-primary' : 'bg-bg-primary'
-                      }`}
-                    >
-                      <span
-                        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
-                          serverFormDraft.isPublic ? 'translate-x-5' : ''
-                        }`}
-                      />
-                    </button>
-                  </label>
                 </div>
               </div>
-            )}
 
-            {/* Advanced Settings Tab */}
-            {serverEditTab === 'advanced' && (
-              <div className="space-y-5">
-                {/* Server slug */}
-                <div>
-                  <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
-                    {t('channel.serverSlug')}
-                  </label>
-                  <input
-                    type="text"
-                    value={serverFormDraft.slug}
-                    onChange={(e) => updateDraftField('slug', e.target.value)}
-                    placeholder={t('channel.slugPlaceholder')}
-                    className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary font-mono text-sm"
-                  />
-                  <p className="text-xs text-text-muted mt-1">{t('channel.slugDesc')}</p>
-                </div>
-
-                {/* Homepage HTML */}
-                <div>
-                  <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
-                    {t('channel.homepageHtml')}
-                  </label>
-                  <textarea
-                    value={serverFormDraft.homepageHtml}
-                    onChange={(e) => updateDraftField('homepageHtml', e.target.value)}
-                    rows={8}
-                    placeholder={t('channel.homepageHtmlPlaceholder')}
-                    className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary resize-y font-mono text-xs"
-                  />
-                  <p className="text-xs text-text-muted mt-1">{t('channel.homepageHtmlDesc')}</p>
-                </div>
-
-                {/* Invite Link */}
-                {server?.inviteCode && (
-                  <div className="bg-bg-tertiary rounded-lg p-4">
-                    <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
-                      {t('channel.inviteLink')}
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <code className="flex-1 bg-bg-primary text-text-primary rounded-lg px-4 py-3 font-mono text-xs truncate">
-                        {`${window.location.origin}/app/invite/${server.inviteCode}`}
-                      </code>
-                      <button
-                        onClick={copyInviteCode}
-                        className="px-3 py-3 bg-bg-primary rounded-lg text-text-muted hover:text-text-primary transition"
-                        title={t('channel.copyInviteCode')}
-                      >
-                        {copiedInvite ? (
-                          <Check size={16} className="text-green-400" />
-                        ) : (
-                          <Copy size={16} />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Server ID */}
-                <div className="bg-bg-tertiary rounded-lg p-4">
-                  <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
-                    服务器 ID
-                  </label>
-                  <code className="text-text-muted text-xs font-mono">{server?.id}</code>
-                </div>
+              {/* Server name */}
+              <div className="mt-8">
+                <Input
+                  label={t('channel.editServerName')}
+                  value={serverFormDraft.name}
+                  onChange={(e) => updateDraftField('name', e.target.value)}
+                  placeholder="输入服务器名称"
+                  className="!rounded-xl !py-3"
+                />
               </div>
-            )}
 
-            {/* Action Buttons */}
-            <div className="flex justify-between gap-3 mt-6 pt-4 border-t border-border-subtle">
+              {/* Server description */}
               <div>
-                {_currentUser?.id === server?.ownerId && (
+                <label className="block text-[11px] font-black uppercase text-muted-foreground tracking-[0.2em] ml-1 mb-2">
+                  {t('channel.editServerDescription')}
+                </label>
+                <textarea
+                  value={serverFormDraft.description}
+                  onChange={(e) => updateDraftField('description', e.target.value)}
+                  rows={3}
+                  placeholder={t('channel.descriptionPlaceholder')}
+                  className="w-full bg-black/20 text-foreground rounded-xl px-4 py-3 outline-none border-2 border-white/10 focus:border-primary focus:shadow-[0_0_0_5px_rgba(0,198,209,0.1)] transition-all resize-none text-sm"
+                />
+              </div>
+
+              {/* Public toggle */}
+              <div className="bg-white/5 rounded-xl p-4 border border-white/5">
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div>
+                    <span className="text-sm font-semibold text-foreground">
+                      {t('channel.publicServer')}
+                    </span>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {t('channel.publicServerDesc')}
+                    </p>
+                  </div>
                   <button
                     type="button"
-                    onClick={async () => {
-                      const ok = await useConfirmStore.getState().confirm({
-                        title: t('channel.deleteServer'),
-                        message: t('channel.deleteServerConfirm'),
-                      })
-                      if (ok) {
-                        deleteServer.mutate()
-                      }
-                    }}
-                    disabled={deleteServer.isPending}
-                    className="flex items-center gap-2 px-4 py-2 text-red-400 hover:bg-red-500/10 transition rounded-lg disabled:opacity-50"
+                    onClick={() => updateDraftField('isPublic', !serverFormDraft.isPublic)}
+                    className={cn(
+                      'relative w-11 h-6 rounded-full transition-colors',
+                      serverFormDraft.isPublic ? 'bg-primary' : 'bg-white/10',
+                    )}
                   >
-                    <Trash2 size={14} />
-                    {t('channel.deleteServer')}
+                    <span
+                      className={cn(
+                        'absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow-sm',
+                        serverFormDraft.isPublic && 'translate-x-5',
+                      )}
+                    />
                   </button>
-                )}
-              </div>
-              <div className="flex items-center gap-3">
-                {/* Unsaved changes indicator */}
-                {hasDraftChanges() && !updateServer.isPending && (
-                  <span className="text-xs text-amber-400">有未保存的更改</span>
-                )}
-                {updateServer.isPending && (
-                  <span className="text-xs text-text-muted animate-pulse">保存中...</span>
-                )}
-                <button
-                  onClick={discardChanges}
-                  disabled={updateServer.isPending}
-                  className="px-4 py-2 text-text-secondary hover:text-text-primary transition rounded-lg disabled:opacity-50"
-                >
-                  {t('common.cancel')}
-                </button>
-                <button
-                  onClick={saveServerChanges}
-                  disabled={
-                    !serverFormDraft.name.trim() || updateServer.isPending || !hasDraftChanges()
-                  }
-                  className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition disabled:opacity-50 font-bold"
-                >
-                  <Save size={14} />
-                  {updateServer.isPending ? t('common.saving') : t('common.save')}
-                </button>
+                </label>
               </div>
             </div>
+          )}
+
+          {/* Advanced Settings Tab */}
+          {serverEditTab === 'advanced' && (
+            <div className="space-y-5">
+              {/* Server slug */}
+              <div>
+                <Input
+                  label={t('channel.serverSlug')}
+                  value={serverFormDraft.slug}
+                  onChange={(e) => updateDraftField('slug', e.target.value)}
+                  placeholder={t('channel.slugPlaceholder')}
+                  className="!rounded-xl !py-3 font-mono text-sm"
+                />
+                <p className="text-xs text-muted-foreground mt-1 ml-1">{t('channel.slugDesc')}</p>
+              </div>
+
+              {/* Homepage HTML */}
+              <div>
+                <label className="block text-[11px] font-black uppercase text-muted-foreground tracking-[0.2em] ml-1 mb-2">
+                  {t('channel.homepageHtml')}
+                </label>
+                <textarea
+                  value={serverFormDraft.homepageHtml}
+                  onChange={(e) => updateDraftField('homepageHtml', e.target.value)}
+                  rows={8}
+                  placeholder={t('channel.homepageHtmlPlaceholder')}
+                  className="w-full bg-black/20 text-foreground rounded-xl px-4 py-3 outline-none border-2 border-white/10 focus:border-primary focus:shadow-[0_0_0_5px_rgba(0,198,209,0.1)] transition-all resize-y font-mono text-xs"
+                />
+                <p className="text-xs text-muted-foreground mt-1 ml-1">
+                  {t('channel.homepageHtmlDesc')}
+                </p>
+              </div>
+
+              {/* Invite Link */}
+              {server?.inviteCode && (
+                <div className="bg-white/5 rounded-xl p-4 border border-white/5">
+                  <label className="block text-[11px] font-black uppercase text-muted-foreground tracking-[0.2em] ml-1 mb-2">
+                    {t('channel.inviteLink')}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 bg-black/20 text-foreground rounded-xl px-4 py-3 font-mono text-xs truncate border border-white/5">
+                      {`${window.location.origin}/app/invite/${server.inviteCode}`}
+                    </code>
+                    <Button
+                      variant="glass"
+                      size="xs"
+                      onClick={copyInviteCode}
+                      title={t('channel.copyInviteCode')}
+                      className="h-10 w-10 p-0"
+                    >
+                      {copiedInvite ? (
+                        <Check size={16} className="text-emerald-400" />
+                      ) : (
+                        <Copy size={16} />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Server ID */}
+              <div className="bg-white/5 rounded-xl p-4 border border-white/5">
+                <label className="block text-[11px] font-black uppercase text-muted-foreground tracking-[0.2em] ml-1 mb-2">
+                  服务器 ID
+                </label>
+                <code className="text-muted-foreground text-xs font-mono">{server?.id}</code>
+              </div>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex justify-between gap-3 pt-4 border-t border-white/5">
+            <div>
+              {_currentUser?.id === server?.ownerId && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={async () => {
+                    const ok = await useConfirmStore.getState().confirm({
+                      title: t('channel.deleteServer'),
+                      message: t('channel.deleteServerConfirm'),
+                    })
+                    if (ok) {
+                      deleteServer.mutate()
+                    }
+                  }}
+                  disabled={deleteServer.isPending}
+                  className="text-danger hover:bg-danger/10 normal-case tracking-normal font-semibold"
+                >
+                  <Trash2 size={14} />
+                  {t('channel.deleteServer')}
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              {/* Unsaved changes indicator */}
+              {hasDraftChanges() && !updateServer.isPending && (
+                <span className="text-xs text-amber-400">有未保存的更改</span>
+              )}
+              {updateServer.isPending && (
+                <span className="text-xs text-muted-foreground animate-pulse">保存中...</span>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={discardChanges}
+                disabled={updateServer.isPending}
+                className="normal-case tracking-normal font-semibold"
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={saveServerChanges}
+                disabled={
+                  !serverFormDraft.name.trim() || updateServer.isPending || !hasDraftChanges()
+                }
+                loading={updateServer.isPending}
+                icon={Save}
+                className="normal-case tracking-normal font-semibold"
+              >
+                {updateServer.isPending ? t('common.saving') : t('common.save')}
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       {/* Channel context menu */}
       {contextMenu && (
@@ -1420,4 +1426,3 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
     </div>
   )
 }
-

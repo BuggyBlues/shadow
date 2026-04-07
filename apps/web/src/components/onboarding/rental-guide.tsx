@@ -1,3 +1,4 @@
+import { Button, Card } from '@shadowob/ui'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { ArrowRight, Check, Cpu, Info, Monitor, Zap } from 'lucide-react'
 import { useState } from 'react'
@@ -94,62 +95,60 @@ export function RentalGuide({ onRentSuccess, onBack }: RentalGuideProps) {
               const tierBg = TIER_CONFIG[listing.deviceTier]?.bg || 'bg-bg-tertiary'
 
               return (
-                <div
+                <Card
                   key={listing.id}
-                  className="bg-bg-tertiary rounded-xl p-5 border border-border-primary hover:border-primary/50 transition-colors flex flex-col group relative overflow-hidden"
+                  variant="glass"
+                  hoverable
+                  className="!rounded-[24px] flex flex-col group relative overflow-hidden"
                 >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className={`p-3 rounded-lg ${tierBg} ${tierColor}`}>
-                      <TierIcon size={24} />
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xl font-bold text-text-primary">
-                        ¥{listing.hourlyRate}
-                        <span className="text-xs text-text-muted font-normal">/h</span>
+                  <div className="p-5 flex flex-col flex-1">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className={`p-3 rounded-[16px] ${tierBg} ${tierColor}`}>
+                        <TierIcon size={24} />
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xl font-black text-text-primary">
+                          ¥{listing.hourlyRate}
+                          <span className="text-xs text-text-muted font-bold">/h</span>
+                        </div>
                       </div>
                     </div>
+
+                    <h3
+                      className="font-black text-text-primary mb-1 line-clamp-1"
+                      title={listing.title}
+                    >
+                      {listing.title}
+                    </h3>
+
+                    <div className="text-xs text-text-muted font-bold mb-6 space-y-1">
+                      <p>{listing.deviceInfo.model || 'Unknown Model'}</p>
+                      <p>{listing.osType === 'macos' ? 'macOS' : 'Windows'}</p>
+                    </div>
+
+                    <Button
+                      variant="primary"
+                      size="md"
+                      className="mt-auto w-full"
+                      onClick={() => handleRent(listing.id)}
+                      disabled={rentingId === listing.id}
+                      loading={rentingId === listing.id}
+                      iconRight={rentingId === listing.id ? undefined : ArrowRight}
+                    >
+                      {t('onboarding.rental.rentButton')}
+                    </Button>
                   </div>
-
-                  <h3
-                    className="font-semibold text-text-primary mb-1 line-clamp-1"
-                    title={listing.title}
-                  >
-                    {listing.title}
-                  </h3>
-
-                  <div className="text-xs text-text-muted mb-6 space-y-1">
-                    <p>{listing.deviceInfo.model || 'Unknown Model'}</p>
-                    <p>{listing.osType === 'macos' ? 'macOS' : 'Windows'}</p>
-                  </div>
-
-                  <button
-                    onClick={() => handleRent(listing.id)}
-                    disabled={rentingId === listing.id}
-                    className="mt-auto w-full py-2.5 bg-primary hover:bg-primary/90 text-white rounded-lg font-medium transition-all active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
-                  >
-                    {rentingId === listing.id ? (
-                      <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                    ) : (
-                      <>
-                        {t('onboarding.rental.rentButton')}
-                        <ArrowRight size={16} />
-                      </>
-                    )}
-                  </button>
-                </div>
+                </Card>
               )
             })}
           </div>
         )}
       </div>
 
-      <div className="border-t border-border-primary pt-4 mt-auto flex justify-center">
-        <button
-          onClick={onBack}
-          className="text-text-muted hover:text-text-primary text-sm transition-colors py-2 px-4"
-        >
+      <div className="border-t border-border-subtle pt-4 mt-auto flex justify-center">
+        <Button variant="ghost" onClick={onBack}>
           {t('common.cancel', '取消')}
-        </button>
+        </Button>
       </div>
     </div>
   )

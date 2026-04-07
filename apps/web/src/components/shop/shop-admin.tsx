@@ -1,3 +1,4 @@
+import { Badge, Button, Card, Input } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
@@ -73,33 +74,24 @@ export function ShopAdmin({ serverId, onBack }: ShopAdminProps) {
   return (
     <div className="flex-1 flex flex-col bg-[#F9FAFB] dark:bg-bg-primary overflow-hidden h-full font-sans">
       {/* ── Header ── */}
-      <div className="h-14 px-5 flex items-center bg-white/80 dark:bg-bg-primary/80 backdrop-blur-md border-b border-gray-200 dark:border-border-subtle shrink-0 gap-3 z-20 transition-colors">
-        <button
-          type="button"
-          onClick={onBack}
-          className="p-2 -ml-2 text-gray-500 hover:text-gray-900 dark:text-text-muted dark:hover:text-text-primary hover:bg-gray-100 dark:hover:bg-bg-modifier-hover rounded-xl transition-all"
-        >
-          <ArrowLeft size={20} />
-        </button>
-        <h2 className="font-bold text-gray-900 dark:text-text-primary text-base">店铺管理</h2>
+      <div className="h-14 px-5 flex items-center bg-[rgba(255,255,255,0.75)] dark:bg-[rgba(255,255,255,0.03)] backdrop-blur-[32px] border-b border-border-subtle shrink-0 gap-3 z-20 transition-colors">
+        <Button variant="ghost" size="icon" icon={ArrowLeft} onClick={onBack} className="-ml-2" />
+        <h2 className="font-black text-text-primary text-base">店铺管理</h2>
       </div>
 
       {/* ── Section Tabs ── */}
-      <div className="flex bg-white dark:bg-bg-secondary px-3 py-2 sticky top-0 z-10 shadow-sm border-b border-gray-100 dark:border-border-subtle gap-1 overflow-x-auto no-scrollbar">
+      <div className="flex bg-[rgba(255,255,255,0.03)] backdrop-blur-md px-3 py-2 sticky top-0 z-10 shadow-sm border-b border-border-subtle gap-1 overflow-x-auto no-scrollbar">
         {sections.map((s) => (
-          <button
+          <Button
             key={s.key}
-            type="button"
+            variant={section === s.key ? 'primary' : 'ghost'}
+            size="sm"
             onClick={() => setSection(s.key)}
-            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl whitespace-nowrap transition-all ${
-              section === s.key
-                ? 'bg-cyan-50 dark:bg-cyan-900/20 text-cyan-600 dark:text-cyan-400'
-                : 'text-gray-500 dark:text-text-muted hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-bg-modifier-hover'
-            }`}
+            className="whitespace-nowrap"
           >
             {s.icon}
             {s.label}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -177,24 +169,19 @@ function ProductManager({ serverId }: { serverId: string }) {
         <div className="relative flex-1 group">
           <Search
             size={16}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-cyan-600 transition-colors"
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-primary transition-colors"
           />
           <input
             type="text"
             placeholder="搜索已有商品..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 bg-white dark:bg-bg-secondary text-gray-900 dark:text-text-primary text-sm rounded-2xl border border-gray-200 dark:border-border-dim focus:outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 placeholder:text-gray-400 transition-all font-medium shadow-sm"
+            className="w-full pl-10 pr-4 py-3 bg-[rgba(255,255,255,0.03)] border border-white/10 text-text-primary text-sm rounded-[20px] focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 placeholder:text-text-muted transition-all font-black shadow-sm"
           />
         </div>
-        <button
-          type="button"
-          onClick={() => setIsCreating(true)}
-          className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-sm font-bold rounded-2xl shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all"
-        >
-          <Plus size={18} strokeWidth={2.5} />
+        <Button variant="primary" icon={Plus} onClick={() => setIsCreating(true)}>
           添加商品
-        </button>
+        </Button>
       </div>
 
       {/* Product list */}
@@ -209,9 +196,10 @@ function ProductManager({ serverId }: { serverId: string }) {
       ) : (
         <div className="grid gap-3">
           {filtered.map((product) => (
-            <div
+            <Card
               key={product.id}
-              className="flex items-center gap-4 p-4 bg-white dark:bg-bg-secondary rounded-2xl border border-gray-100 dark:border-border-dim hover:border-cyan-200 dark:hover:border-cyan-800 transition-all group shadow-sm hover:shadow-md"
+              variant="glass"
+              className="!rounded-[24px] flex items-center gap-4 !p-4 group"
             >
               {/* Thumbnail */}
               <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-50 dark:bg-bg-tertiary shrink-0 border border-gray-100 dark:border-border-dim border">
@@ -236,9 +224,9 @@ function ProductManager({ serverId }: { serverId: string }) {
                   </span>
                   <StatusBadge status={product.status} />
                   {product.type === 'entitlement' && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 font-bold border border-orange-100 dark:border-orange-900/30">
+                    <Badge variant="warning" size="xs">
                       权益
-                    </span>
+                    </Badge>
                   )}
                 </div>
                 <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-text-muted font-medium">
@@ -256,16 +244,21 @@ function ProductManager({ serverId }: { serverId: string }) {
 
               {/* Actions */}
               <div className="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  icon={Edit3}
                   onClick={() => setEditingProduct(product)}
-                  className="p-2.5 text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 rounded-xl transition-all"
                   title="编辑商品"
-                >
-                  <Edit3 size={18} />
-                </button>
-                <button
-                  type="button"
+                  aria-label="编辑商品"
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  icon={Trash2}
+                  className="hover:!text-danger"
+                  title="删除此商品"
+                  aria-label="删除此商品"
                   onClick={async () => {
                     const ok = await useConfirmStore.getState().confirm({
                       title: '删除商品',
@@ -275,13 +268,9 @@ function ProductManager({ serverId }: { serverId: string }) {
                     })
                     if (ok) deleteMutation.mutate(product.id)
                   }}
-                  className="p-2.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all"
-                  title="删除此商品"
-                >
-                  <Trash2 size={18} />
-                </button>
+                />
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}
@@ -291,28 +280,16 @@ function ProductManager({ serverId }: { serverId: string }) {
 
 /* ─── Status Badge ─── */
 function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { color: string; label: string }> = {
-    active: {
-      color:
-        'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-900/30',
-      label: '已上架',
-    },
-    draft: {
-      color:
-        'bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-border-dim',
-      label: '草稿',
-    },
-    archived: {
-      color:
-        'bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-900/20 dark:text-rose-400 dark:border-rose-900/30',
-      label: '已下架',
-    },
+  const map: Record<string, { variant: 'success' | 'neutral' | 'danger'; label: string }> = {
+    active: { variant: 'success', label: '已上架' },
+    draft: { variant: 'neutral', label: '草稿' },
+    archived: { variant: 'danger', label: '已下架' },
   }
   const info = map[status] || map.draft!
   return (
-    <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold border ${info.color}`}>
+    <Badge variant={info.variant} size="xs">
       {info.label}
-    </span>
+    </Badge>
   )
 }
 
@@ -525,32 +502,26 @@ function ProductForm({ serverId, product, onCancel, onSaved }: ProductFormProps)
   return (
     <div className="p-4 md:p-8 max-w-3xl mx-auto space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Form header */}
-      <div className="flex items-center justify-between bg-white dark:bg-bg-secondary p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-border-subtle sticky top-2 z-20">
+      <div className="flex items-center justify-between bg-[rgba(255,255,255,0.75)] dark:bg-[rgba(255,255,255,0.03)] backdrop-blur-[32px] p-4 rounded-[24px] border border-white/10 sticky top-2 z-20">
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="p-2 text-gray-500 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 dark:text-text-muted dark:bg-bg-tertiary dark:hover:bg-bg-modifier-hover rounded-xl transition-all"
-          >
-            <ArrowLeft size={18} />
-          </button>
-          <h3 className="text-gray-900 dark:text-text-primary font-bold text-lg">
+          <Button variant="ghost" size="icon" icon={ArrowLeft} onClick={onCancel} />
+          <h3 className="text-text-primary font-black text-lg">
             {isEditing ? '编辑商品规则' : '上架新商品'}
           </h3>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="primary"
+          icon={Save}
           onClick={() => saveMutation.mutate()}
           disabled={saveMutation.isPending || !name.trim()}
-          className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-cyan-500/30 transition-all active:scale-[0.98] disabled:opacity-50"
+          loading={saveMutation.isPending}
         >
-          <Save size={16} />
           {saveMutation.isPending ? '正在保存...' : '保存更改'}
-        </button>
+        </Button>
       </div>
 
       {saveMutation.isError && (
-        <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-600 text-sm flex items-center gap-2 font-medium">
+        <div className="p-4 bg-danger/10 border border-danger/20 rounded-[16px] text-danger text-sm flex items-center gap-2 font-black">
           <XCircle size={18} />
           保存失败：{(saveMutation.error as Error).message}
         </div>
@@ -1014,7 +985,10 @@ function CategoryManager({ serverId }: { serverId: string }) {
   return (
     <div className="p-4 md:p-6 space-y-6">
       {/* ── Add New Area ── */}
-      <div className="bg-white dark:bg-bg-secondary p-5 rounded-2xl border border-gray-100 dark:border-border-subtle shadow-sm flex flex-col md:flex-row items-end md:items-center gap-4">
+      <Card
+        variant="glass"
+        className="!rounded-[24px] !p-5 flex flex-col md:flex-row items-end md:items-center gap-4"
+      >
         <div className="flex-1 w-full relative">
           <span className="text-[10px] font-bold text-gray-500 uppercase block mb-1.5">
             分类展示名
@@ -1039,19 +1013,20 @@ function CategoryManager({ serverId }: { serverId: string }) {
             className="w-full p-2.5 bg-gray-50 dark:bg-bg-tertiary text-gray-900 dark:text-white text-sm rounded-xl border border-gray-200 dark:border-border-dim focus:outline-none focus:border-cyan-500 transition-all font-mono"
           />
         </div>
-        <button
-          type="button"
+        <Button
+          variant="primary"
+          icon={FolderPlus}
           onClick={() => createMutation.mutate()}
           disabled={!name.trim() || createMutation.isPending}
-          className="w-full md:w-auto mt-2 md:mt-0 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-cyan-500/30 transition-all disabled:opacity-50"
+          loading={createMutation.isPending}
+          className="w-full md:w-auto mt-2 md:mt-0"
         >
-          <FolderPlus size={16} />
           新建类目
-        </button>
-      </div>
+        </Button>
+      </Card>
 
       {/* ── List Area ── */}
-      <div className="bg-white dark:bg-bg-secondary rounded-2xl border border-gray-100 dark:border-border-subtle shadow-sm overflow-hidden">
+      <Card variant="glass" className="!rounded-[24px] !p-0 overflow-hidden">
         {categories.length === 0 ? (
           <div className="py-20 text-center text-gray-400">
             <Layers size={32} className="mx-auto mb-3 opacity-20" />
@@ -1127,7 +1102,7 @@ function CategoryManager({ serverId }: { serverId: string }) {
             })}
           </div>
         )}
-      </div>
+      </Card>
     </div>
   )
 }
@@ -1192,20 +1167,20 @@ function OrderManager({ serverId }: { serverId: string }) {
   return (
     <div className="p-4 md:p-6 space-y-4">
       <div className="flex gap-2">
-        <button
-          type="button"
-          className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${filterMode === 'all' ? 'bg-gray-900 text-white shadow-md dark:bg-white dark:text-gray-900' : 'bg-white text-gray-600 dark:bg-bg-secondary border border-gray-200 dark:border-border-dim'}`}
+        <Button
+          variant={filterMode === 'all' ? 'primary' : 'ghost'}
+          size="sm"
           onClick={() => setFilterMode('all')}
         >
           全部订单
-        </button>
-        <button
-          type="button"
-          className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${filterMode === 'pending' ? 'bg-cyan-500 text-white shadow-md' : 'bg-white text-gray-600 dark:bg-bg-secondary border border-gray-200 dark:border-border-dim'}`}
+        </Button>
+        <Button
+          variant={filterMode === 'pending' ? 'primary' : 'ghost'}
+          size="sm"
           onClick={() => setFilterMode('pending')}
         >
           待发货处理
-        </button>
+        </Button>
       </div>
 
       <div className="space-y-4 pt-2">
@@ -1218,10 +1193,7 @@ function OrderManager({ serverId }: { serverId: string }) {
           </div>
         ) : (
           orders.map((order) => (
-            <div
-              key={order.id}
-              className="bg-white dark:bg-bg-secondary rounded-2xl border border-gray-100 dark:border-border-subtle shadow-sm p-4 hover:shadow-md transition-shadow"
-            >
+            <Card key={order.id} variant="glass" className="!rounded-[24px] !p-4">
               <div className="flex items-start justify-between border-b border-gray-100 dark:border-border-dim pb-4 mb-4">
                 <div>
                   <div className="text-xs font-bold text-gray-500 mb-1">
@@ -1289,9 +1261,10 @@ function OrderManager({ serverId }: { serverId: string }) {
                     className="w-full p-2 text-xs rounded-lg border border-gray-200 dark:border-border-dim bg-gray-50 dark:bg-bg-tertiary"
                   />
                   {nextActions(order.status).map((action) => (
-                    <button
+                    <Button
                       key={action.to}
-                      type="button"
+                      variant="primary"
+                      size="sm"
                       onClick={() =>
                         transitionMutation.mutate({
                           orderId: order.id,
@@ -1301,14 +1274,14 @@ function OrderManager({ serverId }: { serverId: string }) {
                         })
                       }
                       disabled={transitionMutation.isPending}
-                      className="px-4 py-2 text-xs font-bold rounded-lg bg-cyan-50 text-cyan-600 border border-cyan-200 hover:bg-cyan-100 dark:bg-cyan-900/20 dark:text-cyan-400 dark:border-cyan-900/40 disabled:opacity-50"
+                      loading={transitionMutation.isPending}
                     >
                       {action.label}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               )}
-            </div>
+            </Card>
           ))
         )}
       </div>
@@ -1380,8 +1353,11 @@ function ShopSettings({ serverId }: { serverId: string }) {
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto space-y-6">
-      <div className="bg-white dark:bg-bg-secondary rounded-3xl p-6 border border-gray-100 dark:border-border-subtle shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <h4 className="text-xl font-black text-gray-900 dark:text-white mb-6">店铺基础视觉设置</h4>
+      <Card
+        variant="glass"
+        className="!rounded-[24px] !p-6 animate-in fade-in slide-in-from-bottom-4 duration-500"
+      >
+        <h4 className="text-xl font-black text-text-primary mb-6">店铺基础视觉设置</h4>
 
         <div className="space-y-6">
           <FormField label="店铺主标题">
@@ -1475,17 +1451,19 @@ function ShopSettings({ serverId }: { serverId: string }) {
               </span>
             )}
           </div>
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="lg"
+            icon={Settings}
             onClick={() => updateMutation.mutate()}
             disabled={updateMutation.isPending}
-            className="w-full md:w-auto flex items-center justify-center gap-2 px-8 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm font-bold rounded-xl hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-gray-900/20 dark:hover:shadow-white/20 transition-all disabled:opacity-50"
+            loading={updateMutation.isPending}
+            className="w-full md:w-auto"
           >
-            <Settings size={18} />
             {updateMutation.isPending ? '保存中...' : '保存最新设置'}
-          </button>
+          </Button>
         </div>
-      </div>
+      </Card>
     </div>
   )
 }
@@ -1494,13 +1472,13 @@ function ShopSettings({ serverId }: { serverId: string }) {
 
 function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white dark:bg-bg-secondary rounded-3xl border border-gray-100 dark:border-border-subtle p-5 md:p-6 shadow-sm">
-      <h4 className="text-gray-900 dark:text-white text-sm font-black mb-5 tracking-wide flex items-center gap-2">
-        <span className="w-1.5 h-4 bg-cyan-500 rounded-full block"></span>
+    <Card variant="glass" className="!rounded-[24px] !p-5 md:!p-6">
+      <h4 className="text-text-primary text-sm font-black mb-5 tracking-widest uppercase flex items-center gap-2">
+        <span className="w-1.5 h-4 bg-primary rounded-full block"></span>
         {title}
       </h4>
       {children}
-    </div>
+    </Card>
   )
 }
 

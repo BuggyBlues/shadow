@@ -1,3 +1,4 @@
+import { Button, cn } from '@shadowob/ui'
 import { type InfiniteData, useQueryClient } from '@tanstack/react-query'
 import { format, formatDistanceToNow, type Locale } from 'date-fns'
 import { enUS, ja, ko, zhCN, zhTW } from 'date-fns/locale'
@@ -71,7 +72,7 @@ export interface Message {
   sendStatus?: 'sending' | 'failed'
 }
 
-export type { Author, ReactionGroup, Attachment }
+export type { Attachment, Author, ReactionGroup }
 
 interface MessagesPage {
   messages: Message[]
@@ -164,16 +165,17 @@ function CodeBlockWithCopy({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="relative group">
+    <div className="relative group bg-bg-deep rounded-xl border border-border/10">
       <pre>{children}</pre>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="xs"
         onClick={handleCopyCode}
-        className="absolute top-2 right-2 p-1.5 rounded-md bg-bg-secondary/80 hover:bg-bg-secondary text-text-muted hover:text-text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+        className="absolute top-2 right-2 !p-1.5 !h-auto !w-auto !rounded-md !font-normal !normal-case !tracking-normal opacity-0 group-hover:opacity-100"
         title="Copy code"
       >
         {copied ? <Check size={14} /> : <Copy size={14} />}
-      </button>
+      </Button>
     </div>
   )
 }
@@ -443,7 +445,7 @@ export function MessageBubble({
     <div
       ref={messageRef}
       id={`msg-${message.id}`}
-      className={`group relative flex gap-4 px-4 py-1.5 message-row ${isDmOwn ? 'flex-row-reverse' : ''} ${highlight ? 'bg-primary/10 animate-pulse' : 'mt-[2px]'} ${isSelected ? 'bg-primary/10' : ''} ${selectionMode ? 'cursor-pointer' : ''}`}
+      className={`group relative flex gap-4 px-4 py-1.5 message-row hover:bg-white/[0.02] ${isDmOwn ? 'flex-row-reverse' : ''} ${highlight ? 'bg-primary/10 animate-pulse' : 'mt-[2px]'} ${isSelected ? 'bg-primary/10' : ''} ${selectionMode ? 'cursor-pointer' : ''}`}
       onMouseEnter={activateHover}
       onMouseLeave={deactivateHover}
       onClick={selectionMode ? () => onToggleSelect?.(message.id) : undefined}
@@ -502,7 +504,7 @@ export function MessageBubble({
               const el = document.getElementById(`msg-${replyToMessage.id}`)
               el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
             }}
-            className={`flex items-center gap-1.5 mb-1 text-xs text-text-muted hover:text-text-secondary transition ${isDmOwn ? 'ml-auto flex-row-reverse' : ''}`}
+            className={`flex items-center gap-1.5 mb-1 text-xs text-text-muted hover:text-text-secondary transition bg-primary/5 border-l-2 border-primary rounded-r-lg px-2 py-1 ${isDmOwn ? 'ml-auto flex-row-reverse' : ''}`}
           >
             <Reply size={12} className="shrink-0" />
             <span className="font-medium">
@@ -522,8 +524,8 @@ export function MessageBubble({
             {author?.displayName ?? author?.username ?? t('common.unknownUser')}
           </span>
           {author?.isBot && (
-            <span className="text-[10px] bg-[#5865F2] text-white px-1.5 py-0.5 rounded-[3px] font-semibold flex items-center gap-1">
-              <Check size={8} className="text-white" />
+            <span className="text-[10px] bg-primary/10 text-primary rounded-full px-2 py-0.5 font-semibold flex items-center gap-1">
+              <Check size={8} />
               {t('common.bot')}
             </span>
           )}
@@ -568,20 +570,21 @@ export function MessageBubble({
               <span>·</span>
               <span>Enter {t('common.save')}</span>
               <div className="flex-1" />
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setIsEditing(false)}
-                className="p-1 text-text-muted hover:text-text-primary transition"
+                className="!p-1 !h-auto !w-auto !font-normal !normal-case !tracking-normal"
               >
                 <X size={14} />
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                size="sm"
                 onClick={handleSaveEdit}
-                className="p-1 text-primary hover:text-primary-hover transition"
+                className="!p-1 !h-auto !w-auto !font-normal !normal-case !tracking-normal"
               >
                 <Check size={14} />
-              </button>
+              </Button>
             </div>
           </div>
         ) : (
@@ -619,6 +622,20 @@ export function MessageBubble({
                   p: ({ children }) => <p>{renderMentions(children)}</p>,
                   li: ({ children }) => <li>{renderMentions(children)}</li>,
                   td: ({ children }) => <td>{renderMentions(children)}</td>,
+                  code: ({ className, children, ...props }) => {
+                    if (className) {
+                      return (
+                        <code className={className} {...props}>
+                          {children}
+                        </code>
+                      )
+                    }
+                    return (
+                      <code className="bg-white/10 rounded px-1.5" {...props}>
+                        {children}
+                      </code>
+                    )
+                  },
                   pre: ({ children }) => <CodeBlockWithCopy>{children}</CodeBlockWithCopy>,
                 }}
               >
@@ -679,19 +696,21 @@ export function MessageBubble({
         {message.reactions && message.reactions.length > 0 && (
           <div className={`flex flex-wrap gap-1 mt-1.5 ${isDmOwn ? 'justify-end' : ''}`}>
             {message.reactions.map((r) => (
-              <button
-                type="button"
+              <Button
+                variant="glass"
+                size="sm"
                 key={r.emoji}
                 onClick={() => onReact?.(message.id, r.emoji)}
-                className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border transition ${
+                className={cn(
+                  '!rounded-full !h-7 !px-2 !font-normal !normal-case !tracking-normal !text-xs hover:!translate-y-0 !border',
                   (r.userIds ?? []).includes(currentUserId)
-                    ? 'bg-primary/20 border-primary/50 text-primary'
-                    : 'bg-bg-tertiary border-border-subtle text-text-muted hover:border-border-dim'
-                }`}
+                    ? '!bg-primary/20 !border-primary/30 !text-primary'
+                    : '',
+                )}
               >
                 <span>{r.emoji}</span>
                 <span>{r.count}</span>
-              </button>
+              </Button>
             ))}
           </div>
         )}
@@ -788,89 +807,97 @@ export function MessageBubble({
               : { top: rect.top - 6, right: window.innerWidth - rect.right + 16 }
             return (
               <div
-                className="fixed flex items-center bg-bg-tertiary border border-border-dim rounded-lg shadow-lg z-[70]"
+                className="fixed flex items-center bg-bg-primary/90 backdrop-blur-md rounded-[12px] border border-border/10 shadow-lg z-[70]"
                 style={posStyle}
                 onMouseEnter={activateHover}
                 onMouseLeave={deactivateHover}
               >
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="xs"
                   onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  className="p-1.5 text-text-muted hover:text-text-primary transition"
+                  className="!p-1.5 !h-auto !w-auto !rounded-lg !font-normal !normal-case !tracking-normal"
                   title={t('chat.addEmoji')}
                 >
                   <Smile size={16} />
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="xs"
                   onClick={() => onReply?.(message.id)}
-                  className="p-1.5 text-text-muted hover:text-text-primary transition"
+                  className="!p-1.5 !h-auto !w-auto !rounded-lg !font-normal !normal-case !tracking-normal"
                   title={t('chat.reply')}
                 >
                   <Reply size={16} />
-                </button>
+                </Button>
                 <div className="relative">
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="xs"
                     onClick={() => setShowMoreMenu(!showMoreMenu)}
-                    className="p-1.5 text-text-muted hover:text-text-primary transition"
+                    className="!p-1.5 !h-auto !w-auto !rounded-lg !font-normal !normal-case !tracking-normal"
                     title={t('chat.more')}
                   >
                     <MoreHorizontal size={16} />
-                  </button>
+                  </Button>
                   {/* More dropdown menu */}
                   {showMoreMenu && (
-                    <div className="absolute top-full right-0 mt-1 bg-bg-tertiary border border-border-dim rounded-lg shadow-xl py-1 min-w-[160px] z-50">
+                    <div className="absolute top-full right-0 mt-1 bg-bg-primary/95 backdrop-blur-xl rounded-[16px] border border-border/10 shadow-xl py-1 min-w-[160px] z-50">
                       {isOwn && (
-                        <button
-                          type="button"
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={handleEdit}
-                          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+                          className="!w-full !justify-start !rounded-none !font-normal !normal-case !tracking-normal !px-3 !py-2 !text-sm !h-auto text-text-secondary hover:text-text-primary"
                         >
                           <Pencil size={14} />
                           {t('chat.editMessage')}
-                        </button>
+                        </Button>
                       )}
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={handleCopy}
-                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+                        className="!w-full !justify-start !rounded-none !font-normal !normal-case !tracking-normal !px-3 !py-2 !text-sm !h-auto text-text-secondary hover:text-text-primary"
                       >
                         <Copy size={14} />
                         {copied ? t('common.copied') : t('chat.copyMessage')}
-                      </button>
-                      <button
-                        type="button"
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={handleShareLink}
-                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+                        className="!w-full !justify-start !rounded-none !font-normal !normal-case !tracking-normal !px-3 !py-2 !text-sm !h-auto text-text-secondary hover:text-text-primary"
                       >
                         <ExternalLink size={14} />
                         {t('chat.shareLink')}
-                      </button>
+                      </Button>
                       {onEnterSelectionMode && (
-                        <button
-                          type="button"
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => {
                             setShowMoreMenu(false)
                             onEnterSelectionMode(message.id)
                           }}
-                          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+                          className="!w-full !justify-start !rounded-none !font-normal !normal-case !tracking-normal !px-3 !py-2 !text-sm !h-auto text-text-secondary hover:text-text-primary"
                         >
                           <CheckSquare size={14} />
                           {t('chat.selectMessages', '多选消息')}
-                        </button>
+                        </Button>
                       )}
                       {canDelete && (
                         <>
                           <div className="h-px bg-border-subtle my-1" />
-                          <button
-                            type="button"
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={handleDelete}
-                            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition"
+                            className="!w-full !justify-start !rounded-none !font-normal !normal-case !tracking-normal !px-3 !py-2 !text-sm !h-auto text-red-400 hover:!bg-red-500/10"
                           >
                             <Trash2 size={14} />
                             {t('chat.deleteMessage')}
-                          </button>
+                          </Button>
                         </>
                       )}
                     </div>
@@ -893,7 +920,7 @@ export function MessageBubble({
               : { top: rect.top - 34, right: window.innerWidth - rect.right + 16 }
             return (
               <div
-                className="fixed flex items-center gap-1 bg-bg-tertiary border border-border-dim rounded-lg shadow-lg p-1 z-[70]"
+                className="fixed flex items-center gap-1 bg-bg-primary/90 backdrop-blur-md rounded-[12px] border border-border/10 shadow-lg p-1 z-[70]"
                 style={emojiPosStyle}
                 onMouseEnter={activateHover}
                 onMouseLeave={() => {
@@ -906,30 +933,32 @@ export function MessageBubble({
                 }}
               >
                 {quickEmojis.map((emoji) => (
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="xs"
                     key={emoji}
                     onClick={() => {
                       onReact?.(message.id, emoji)
                       setShowEmojiPicker(false)
                     }}
-                    className="w-8 h-8 rounded hover:bg-bg-modifier-active flex items-center justify-center text-lg transition"
+                    className="!w-8 !h-8 !rounded !px-0 !font-normal !normal-case !tracking-normal text-lg"
                   >
                     {emoji}
-                  </button>
+                  </Button>
                 ))}
                 <div className="w-px h-6 bg-border-dim mx-0.5" />
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="xs"
                   onClick={() => {
                     setShowEmojiPicker(false)
                     setShowFullPicker(true)
                   }}
-                  className="w-8 h-8 rounded hover:bg-bg-modifier-active flex items-center justify-center text-sm text-text-muted transition"
+                  className="!w-8 !h-8 !rounded !px-0 !font-normal !normal-case !tracking-normal text-sm"
                   title={t('chat.addEmoji')}
                 >
                   +
-                </button>
+                </Button>
               </div>
             )
           })(),
@@ -1038,24 +1067,26 @@ export function MessageBubble({
               }}
             />
             <div
-              className="fixed z-[61] bg-bg-tertiary border border-border-dim rounded-lg shadow-xl py-1 min-w-[160px]"
+              className="fixed z-[61] bg-bg-primary/95 backdrop-blur-xl rounded-[16px] border border-border/10 shadow-xl py-1 min-w-[160px]"
               style={{ left: avatarContextMenu.x, top: avatarContextMenu.y }}
             >
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => {
                   setAvatarContextMenu(null)
                   handleAvatarClick()
                 }}
-                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+                className="!w-full !justify-start !rounded-none !font-normal !normal-case !tracking-normal !px-3 !py-2 !text-sm !h-auto text-text-secondary hover:text-text-primary"
               >
                 {t('member.viewProfile')}
-              </button>
+              </Button>
               {canKick && author?.id !== currentUser?.id && authorMember?.role !== 'owner' && (
                 <>
                   <div className="h-px bg-border-subtle my-1" />
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={async () => {
                       const name = author?.displayName ?? author?.username
                       const confirmKey = author?.isBot
@@ -1077,10 +1108,10 @@ export function MessageBubble({
                       }
                       setAvatarContextMenu(null)
                     }}
-                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition"
+                    className="!w-full !justify-start !rounded-none !font-normal !normal-case !tracking-normal !px-3 !py-2 !text-sm !h-auto text-red-400 hover:!bg-red-500/10"
                   >
                     {author?.isBot ? t('member.removeBot') : t('member.kickMember')}
-                  </button>
+                  </Button>
                 </>
               )}
             </div>
@@ -1279,24 +1310,26 @@ function MentionSpan({ mention, label }: { mention: string; label?: string }) {
               }}
             />
             <div
-              className="fixed z-[61] bg-bg-tertiary border border-border-dim rounded-lg shadow-xl py-1 min-w-[160px]"
+              className="fixed z-[61] bg-bg-primary/95 backdrop-blur-xl rounded-[16px] border border-border/10 shadow-xl py-1 min-w-[160px]"
               style={{ left: ctxMenu.x, top: ctxMenu.y }}
             >
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => {
                   setCtxMenu(null)
                   handleClick()
                 }}
-                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+                className="!w-full !justify-start !rounded-none !font-normal !normal-case !tracking-normal !px-3 !py-2 !text-sm !h-auto text-text-secondary hover:text-text-primary"
               >
                 {t('member.viewProfile')}
-              </button>
+              </Button>
               {canKick && user?.id !== currentUser?.id && member?.role !== 'owner' && (
                 <>
                   <div className="h-px bg-border-subtle my-1" />
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={async () => {
                       const name = user?.displayName ?? user?.username
                       const confirmKey = user?.isBot
@@ -1318,10 +1351,10 @@ function MentionSpan({ mention, label }: { mention: string; label?: string }) {
                       }
                       setCtxMenu(null)
                     }}
-                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition"
+                    className="!w-full !justify-start !rounded-none !font-normal !normal-case !tracking-normal !px-3 !py-2 !text-sm !h-auto text-red-400 hover:!bg-red-500/10"
                   >
                     {user?.isBot ? t('member.removeBot') : t('member.kickMember')}
-                  </button>
+                  </Button>
                 </>
               )}
             </div>

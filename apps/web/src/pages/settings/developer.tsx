@@ -1,3 +1,4 @@
+import { Button, cn, Input } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { TFunction } from 'i18next'
 import { AlertTriangle, Copy, Eye, EyeOff, Pencil, Plus, RotateCw, Trash2 } from 'lucide-react'
@@ -136,26 +137,28 @@ export function DeveloperSettings() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-text-primary">
+          <h2 className="text-xl font-black text-text-primary">
             {t('oauth.developerTitle', '开发者设置')}
           </h2>
           <p className="text-sm text-text-muted mt-1">
             {t('oauth.developerDesc', '管理你的 OAuth 应用，接入 Shadow 开放平台')}
           </p>
         </div>
-        <button
+        <Button
+          variant="primary"
+          size="sm"
           type="button"
           onClick={() => setShowCreateForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition text-sm font-medium"
+          className="normal-case tracking-normal"
         >
           <Plus size={16} />
           {t('oauth.createApp', '创建应用')}
-        </button>
+        </Button>
       </div>
 
       {/* Secret display banner */}
       {newSecret && (
-        <div className="bg-warning/10 border border-warning/30 rounded-xl p-4">
+        <div className="bg-warning/10 border border-warning/30 rounded-[20px] p-4">
           <div className="flex items-start gap-3">
             <AlertTriangle className="text-warning shrink-0 mt-0.5" size={20} />
             <div className="flex-1 min-w-0">
@@ -218,7 +221,7 @@ export function DeveloperSettings() {
           {apps.map((app) => (
             <div
               key={app.id}
-              className="bg-bg-secondary rounded-xl p-4 border border-border-subtle"
+              className="bg-white/[0.03] backdrop-blur-[32px] rounded-[24px] p-4 border border-white/[0.08]"
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
@@ -309,26 +312,30 @@ export function DeveloperSettings() {
 
               {/* Delete confirmation */}
               {deleteConfirmId === app.id && (
-                <div className="mt-3 p-3 bg-danger/10 rounded-lg border border-danger/20">
+                <div className="mt-3 p-3 bg-danger/10 rounded-[16px] border border-danger/20">
                   <p className="text-sm text-danger font-medium">
                     {t('oauth.deleteConfirmMsg', '确定要删除此应用吗？此操作不可恢复。')}
                   </p>
                   <div className="flex gap-2 mt-2">
-                    <button
+                    <Button
+                      variant="danger"
+                      size="sm"
                       type="button"
                       onClick={() => deleteMutation.mutate(app.id)}
-                      className="px-3 py-1.5 bg-danger text-white rounded-lg text-xs font-medium hover:bg-danger/90 transition"
                       disabled={deleteMutation.isPending}
+                      className="normal-case tracking-normal text-xs"
                     >
                       {t('oauth.confirmDelete', '确认删除')}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       type="button"
                       onClick={() => setDeleteConfirmId(null)}
-                      className="px-3 py-1.5 bg-bg-primary text-text-secondary rounded-lg text-xs font-medium hover:bg-bg-modifier-hover transition"
+                      className="normal-case tracking-normal text-xs"
                     >
                       {t('common.cancel', '取消')}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -386,12 +393,12 @@ function LogoUploader({
         </button>
         {showUrlInput && (
           <div className="flex-1">
-            <input
+            <Input
               type="url"
               value={value}
               onChange={(e) => onChange(e.target.value)}
               placeholder="https://your-app.com/icon.png"
-              className="w-full px-3 py-2 bg-bg-primary border border-border-subtle rounded-lg text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="rounded-[12px] px-3 py-2 text-sm"
             />
             <p className="text-xs text-text-muted mt-1">
               {t('oauth.iconUrlHint', '可选，输入图标的 URL 地址')}
@@ -441,83 +448,87 @@ function CreateAppForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-bg-secondary rounded-xl p-5 border border-border-subtle space-y-4"
+      className="bg-white/[0.03] backdrop-blur-[32px] rounded-[24px] p-5 border border-white/[0.08] space-y-4"
     >
-      <h3 className="font-semibold text-text-primary">{t('oauth.createNew', '创建新应用')}</h3>
+      <h3 className="font-black text-text-primary">{t('oauth.createNew', '创建新应用')}</h3>
 
       <div>
-        <label className="block text-sm font-medium text-text-secondary mb-1">
-          {t('oauth.appName', '应用名称')} <span className="text-danger">*</span>
+        <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.15em] ml-1 mb-2">
+          {t('oauth.appName', '应用名称')} *
         </label>
-        <input
+        <Input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="My App"
-          className="w-full px-3 py-2 bg-bg-primary border border-border-subtle rounded-lg text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="rounded-[16px] px-4 py-3"
           maxLength={128}
           required
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-text-secondary mb-1">
+        <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.15em] ml-1 mb-2">
           {t('oauth.appDesc', '应用描述')}
         </label>
-        <input
+        <Input
           type="text"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder={t('oauth.descPlaceholder', '简要描述你的应用')}
-          className="w-full px-3 py-2 bg-bg-primary border border-border-subtle rounded-lg text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="rounded-[16px] px-4 py-3"
           maxLength={1024}
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-text-secondary mb-1">
-          {t('oauth.redirectUri', 'Redirect URI')} <span className="text-danger">*</span>
+        <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.15em] ml-1 mb-2">
+          {t('oauth.redirectUri', 'Redirect URI')} *
         </label>
-        <input
+        <Input
           type="url"
           value={redirectUri}
           onChange={(e) => setRedirectUri(e.target.value)}
           placeholder="https://your-app.com/callback"
-          className="w-full px-3 py-2 bg-bg-primary border border-border-subtle rounded-lg text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="rounded-[16px] px-4 py-3"
           required
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-text-secondary mb-1">
+        <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.15em] ml-1 mb-2">
           {t('oauth.homepageUrl', 'Homepage URL')}
         </label>
-        <input
+        <Input
           type="url"
           value={homepageUrl}
           onChange={(e) => setHomepageUrl(e.target.value)}
           placeholder="https://your-app.com"
-          className="w-full px-3 py-2 bg-bg-primary border border-border-subtle rounded-lg text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="rounded-[16px] px-4 py-3"
         />
       </div>
 
       <LogoUploader value={logoUrl} onChange={setLogoUrl} name={name} t={t} />
 
       <div className="flex gap-2 justify-end">
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary bg-bg-primary rounded-lg transition"
+          className="normal-case tracking-normal"
         >
           {t('common.cancel', '取消')}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="primary"
+          size="sm"
           type="submit"
           disabled={isPending || !name.trim() || !redirectUri.trim()}
-          className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 transition disabled:opacity-50"
+          className="normal-case tracking-normal"
         >
           {isPending ? t('oauth.creating', '创建中...') : t('oauth.createApp', '创建应用')}
-        </button>
+        </Button>
       </div>
     </form>
   )
@@ -563,90 +574,94 @@ function EditAppForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="mt-3 p-3 bg-bg-primary/50 rounded-lg border border-border-subtle space-y-3"
+      className="mt-3 p-3 bg-white/[0.02] rounded-[16px] border border-white/[0.06] space-y-3"
     >
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-text-muted mb-1">
+          <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.15em] mb-1">
             {t('oauth.appName', '应用名称')}
           </label>
-          <input
+          <Input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-2 py-1.5 bg-bg-primary border border-border-subtle rounded-lg text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="rounded-[12px] px-3 py-2 text-xs h-8"
             maxLength={128}
             required
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-text-muted mb-1">
+          <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.15em] mb-1">
             {t('oauth.appDesc', '应用描述')}
           </label>
-          <input
+          <Input
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full px-2 py-1.5 bg-bg-primary border border-border-subtle rounded-lg text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="rounded-[12px] px-3 py-2 text-xs h-8"
             maxLength={1024}
           />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-text-muted mb-1">
+          <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.15em] mb-1">
             {t('oauth.redirectUri', 'Redirect URI')}
           </label>
-          <input
+          <Input
             type="url"
             value={redirectUri}
             onChange={(e) => setRedirectUri(e.target.value)}
-            className="w-full px-2 py-1.5 bg-bg-primary border border-border-subtle rounded-lg text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="rounded-[12px] px-3 py-2 text-xs h-8"
             required
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-text-muted mb-1">
+          <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.15em] mb-1">
             {t('oauth.homepageUrl', 'Homepage URL')}
           </label>
-          <input
+          <Input
             type="url"
             value={homepageUrl}
             onChange={(e) => setHomepageUrl(e.target.value)}
-            className="w-full px-2 py-1.5 bg-bg-primary border border-border-subtle rounded-lg text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="rounded-[12px] px-3 py-2 text-xs h-8"
           />
         </div>
       </div>
       <div>
-        <label className="block text-xs font-medium text-text-muted mb-1">
+        <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.15em] mb-1">
           {t('oauth.appIconUrl', '应用图标 URL')}
         </label>
         <div className="flex items-center gap-2">
           <AppLogo url={logoUrl.trim() || null} name={name || 'A'} size="w-8 h-8" />
-          <input
+          <Input
             type="url"
             value={logoUrl}
             onChange={(e) => setLogoUrl(e.target.value)}
             placeholder="https://your-app.com/icon.png"
-            className="flex-1 px-2 py-1.5 bg-bg-primary border border-border-subtle rounded-lg text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="rounded-[12px] px-3 py-2 text-xs h-8"
           />
         </div>
       </div>
       <div className="flex gap-2 justify-end">
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
           type="button"
           onClick={onCancel}
-          className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary bg-bg-primary rounded-lg transition"
+          className="normal-case tracking-normal text-xs"
         >
           {t('common.cancel', '取消')}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="primary"
+          size="sm"
           type="submit"
           disabled={isPending || !name.trim() || !redirectUri.trim()}
-          className="px-3 py-1.5 text-xs font-medium text-white bg-primary rounded-lg hover:bg-primary/90 transition disabled:opacity-50"
+          className="normal-case tracking-normal text-xs"
         >
           {isPending ? t('common.saving', '保存中...') : t('common.save', '保存')}
-        </button>
+        </Button>
       </div>
     </form>
   )

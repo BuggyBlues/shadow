@@ -1,3 +1,4 @@
+import { Badge, Card } from '@shadowob/ui'
 import { useTranslation } from 'react-i18next'
 import { type RechargeTier, useRechargeStore } from '../../stores/recharge.store'
 
@@ -23,63 +24,69 @@ export function TierSelector() {
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-text-muted font-medium">{t('recharge.selectTier')}</p>
+      <p className="text-sm text-text-muted font-black uppercase tracking-widest">
+        {t('recharge.selectTier')}
+      </p>
 
       <div className="grid grid-cols-3 gap-3">
         {TIERS.map((tier) => (
-          <button
+          <Card
             key={tier.key}
-            type="button"
+            variant="glass"
+            active={selectedTier === tier.key}
+            hoverable
+            className="!rounded-[24px] relative cursor-pointer"
             onClick={() => setTier(tier.key)}
-            className={`relative flex flex-col items-center gap-1 p-4 rounded-xl border-2 transition-all ${
-              selectedTier === tier.key
-                ? 'border-primary bg-primary/10 shadow-md'
-                : 'border-border-subtle hover:border-primary/50 bg-bg-tertiary'
-            }`}
           >
-            {tier.badge && (
-              <span className="absolute -top-2 -right-2 text-xs bg-orange-500 text-white px-1.5 py-0.5 rounded-full font-bold">
-                {tier.badge}
+            <div className="flex flex-col items-center gap-1 p-4">
+              {tier.badge && (
+                <div className="absolute -top-2 -right-2">
+                  <Badge variant="warning" size="xs">
+                    {tier.badge}
+                  </Badge>
+                </div>
+              )}
+              <span className="text-lg font-black text-text-primary">
+                {tier.coins.toLocaleString()}
               </span>
-            )}
-            <span className="text-lg font-bold text-text-primary">
-              {tier.coins.toLocaleString()}
-            </span>
-            <span className="text-xs text-text-muted">{t(tier.labelKey)}</span>
-            <span className="text-sm font-semibold text-primary">{formatUsd(tier.usdCents)}</span>
-          </button>
+              <span className="text-xs text-text-muted font-bold">{t(tier.labelKey)}</span>
+              <span className="text-sm font-black text-primary">{formatUsd(tier.usdCents)}</span>
+            </div>
+          </Card>
         ))}
       </div>
 
       {/* Custom amount */}
-      <button
-        type="button"
+      <Card
+        variant="glass"
+        active={selectedTier === 'custom'}
+        hoverable
+        className="!rounded-[24px] cursor-pointer"
         onClick={() => setTier('custom')}
-        className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
-          selectedTier === 'custom'
-            ? 'border-primary bg-primary/10'
-            : 'border-border-subtle hover:border-primary/50 bg-bg-tertiary'
-        }`}
       >
-        <span className="text-sm font-medium text-text-primary">{t('recharge.custom')}</span>
-        {selectedTier === 'custom' && (
-          <input
-            type="number"
-            min={100}
-            step={100}
-            value={customAmount || ''}
-            onChange={(e) => setCustomAmount(Math.max(0, Number.parseInt(e.target.value, 10) || 0))}
-            onClick={(e) => e.stopPropagation()}
-            placeholder={t('recharge.customPlaceholder')}
-            className="flex-1 bg-bg-primary border border-border-subtle rounded-lg px-3 py-1.5 text-sm text-text-primary placeholder-text-muted outline-none focus:border-primary"
-          />
-        )}
-        {selectedTier === 'custom' && customAmount >= 100 && (
-          <span className="text-sm font-semibold text-primary whitespace-nowrap">
-            {formatUsd(customAmount)}
-          </span>
-        )}
-      </button>
+        <div className="flex items-center gap-3 p-3">
+          <span className="text-sm font-black text-text-primary">{t('recharge.custom')}</span>
+          {selectedTier === 'custom' && (
+            <input
+              type="number"
+              min={100}
+              step={100}
+              value={customAmount || ''}
+              onChange={(e) =>
+                setCustomAmount(Math.max(0, Number.parseInt(e.target.value, 10) || 0))
+              }
+              onClick={(e) => e.stopPropagation()}
+              placeholder={t('recharge.customPlaceholder')}
+              className="flex-1 bg-white/50 dark:bg-[rgba(0,0,0,0.3)] backdrop-blur-sm border-2 border-border-subtle rounded-[16px] px-4 py-2 text-sm text-text-primary font-bold placeholder-text-muted/30 outline-none focus:border-primary focus:shadow-[0_0_0_5px_rgba(0,198,209,0.15)] transition-all"
+            />
+          )}
+          {selectedTier === 'custom' && customAmount >= 100 && (
+            <span className="text-sm font-black text-primary whitespace-nowrap">
+              {formatUsd(customAmount)}
+            </span>
+          )}
+        </div>
+      </Card>
     </div>
   )
 }

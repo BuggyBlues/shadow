@@ -72,15 +72,19 @@ interface CostEstimate {
 const DEVICE_TIER_INFO: Record<string, { labelKey: string; color: string; icon: string }> = {
   high_end: {
     labelKey: 'marketplace.deviceHighEnd',
-    color: 'text-amber-600 bg-amber-50',
+    color: 'text-accent-strong bg-accent-strong/10',
     icon: '🔥',
   },
   mid_range: {
     labelKey: 'marketplace.deviceMidRange',
-    color: 'text-blue-600 bg-blue-50',
+    color: 'text-primary bg-primary/10',
     icon: '⚡',
   },
-  low_end: { labelKey: 'marketplace.deviceLowEnd', color: 'text-gray-600 bg-gray-50', icon: '💡' },
+  low_end: {
+    labelKey: 'marketplace.deviceLowEnd',
+    color: 'text-text-secondary bg-bg-tertiary',
+    icon: '💡',
+  },
 }
 
 const OS_INFO: Record<string, string> = {
@@ -202,8 +206,8 @@ export function MarketplaceDetailPage() {
 
   if (isLoading || !listing) {
     return (
-      <div className="min-h-screen bg-[#f2f7fc] flex items-center justify-center">
-        <div className="animate-pulse text-gray-400 text-lg font-bold">
+      <div className="min-h-screen bg-bg-deep flex items-center justify-center">
+        <div className="animate-pulse text-text-muted text-lg font-bold">
           {t('common.loading', '加载中...')}
         </div>
       </div>
@@ -215,14 +219,14 @@ export function MarketplaceDetailPage() {
 
   return (
     <div
-      className="min-h-screen bg-[#f2f7fc] text-gray-800"
+      className="min-h-screen bg-bg-deep text-text-primary"
       style={{ fontFamily: "'Nunito', 'ZCOOL KuaiLe', sans-serif" }}
     >
       <div className="max-w-5xl mx-auto px-6 py-8">
         {/* Back */}
         <a
           href="/buddies"
-          className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-800 transition-colors font-bold mb-6"
+          className="inline-flex items-center gap-2 text-text-muted hover:text-text-primary transition-colors font-bold mb-6"
         >
           <ChevronLeft className="w-5 h-5" />
           {t('marketplace.backToMarket', '返回集市')}
@@ -232,7 +236,7 @@ export function MarketplaceDetailPage() {
           {/* Left: Listing Detail */}
           <div className="lg:col-span-2 space-y-6">
             {/* Header Card */}
-            <div className="bg-white/80 backdrop-blur rounded-2xl border-2 border-white/90 shadow-lg p-8">
+            <div className="bg-glass-bg backdrop-blur rounded-2xl border border-glass-border shadow-soft p-8">
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <h1
@@ -241,7 +245,7 @@ export function MarketplaceDetailPage() {
                   >
                     {listing.title}
                   </h1>
-                  <div className="flex items-center gap-3 text-sm text-gray-500 font-bold">
+                  <div className="flex items-center gap-3 text-sm text-text-muted font-bold">
                     <span
                       className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${tier.color}`}
                     >
@@ -261,15 +265,15 @@ export function MarketplaceDetailPage() {
 
               {/* Description */}
               {listing.description && (
-                <p className="text-gray-600 font-medium leading-relaxed mb-6">
+                <p className="text-text-secondary font-medium leading-relaxed mb-6">
                   {listing.description}
                 </p>
               )}
 
               {/* Online rank */}
               {listing.totalOnlineSeconds > 0 && (
-                <div className="flex items-center gap-3 mb-6 bg-amber-50 rounded-xl p-3">
-                  <span className="text-sm font-bold text-gray-600">
+                <div className="flex items-center gap-3 mb-6 bg-accent-strong/10 rounded-xl p-3">
+                  <span className="text-sm font-bold text-text-secondary">
                     累计在线 {formatDuration(listing.totalOnlineSeconds)}
                   </span>
                   <OnlineRank totalSeconds={listing.totalOnlineSeconds} />
@@ -279,14 +283,14 @@ export function MarketplaceDetailPage() {
               {/* Skills */}
               {listing.skills.length > 0 && (
                 <div className="mb-6">
-                  <h3 className="text-sm font-bold text-gray-500 mb-2">
+                  <h3 className="text-sm font-bold text-text-muted mb-2">
                     {t('marketplace.skills', '技能标签')}
                   </h3>
                   <div className="flex flex-wrap gap-2">
                     {listing.skills.map((skill) => (
                       <span
                         key={skill}
-                        className="bg-cyan-50 text-cyan-700 text-sm font-bold px-3 py-1 rounded-full"
+                        className="bg-primary/10 text-primary text-sm font-bold px-3 py-1 rounded-full"
                       >
                         {skill}
                       </span>
@@ -298,32 +302,32 @@ export function MarketplaceDetailPage() {
               {/* Device Info */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 {listing.deviceInfo.model && (
-                  <div className="bg-gray-50 rounded-xl p-3">
-                    <div className="text-xs font-bold text-gray-400 mb-1 flex items-center gap-1">
+                  <div className="bg-bg-secondary rounded-xl p-3">
+                    <div className="text-xs font-bold text-text-muted mb-1 flex items-center gap-1">
                       <Monitor className="w-3.5 h-3.5" /> {t('marketplace.model', '型号')}
                     </div>
                     <div className="text-sm font-bold">{listing.deviceInfo.model}</div>
                   </div>
                 )}
                 {listing.deviceInfo.cpu && (
-                  <div className="bg-gray-50 rounded-xl p-3">
-                    <div className="text-xs font-bold text-gray-400 mb-1 flex items-center gap-1">
+                  <div className="bg-bg-secondary rounded-xl p-3">
+                    <div className="text-xs font-bold text-text-muted mb-1 flex items-center gap-1">
                       <Cpu className="w-3.5 h-3.5" /> CPU
                     </div>
                     <div className="text-sm font-bold">{listing.deviceInfo.cpu}</div>
                   </div>
                 )}
                 {listing.deviceInfo.ram && (
-                  <div className="bg-gray-50 rounded-xl p-3">
-                    <div className="text-xs font-bold text-gray-400 mb-1 flex items-center gap-1">
+                  <div className="bg-bg-secondary rounded-xl p-3">
+                    <div className="text-xs font-bold text-text-muted mb-1 flex items-center gap-1">
                       <MemoryStick className="w-3.5 h-3.5" /> RAM
                     </div>
                     <div className="text-sm font-bold">{listing.deviceInfo.ram}</div>
                   </div>
                 )}
                 {listing.deviceInfo.storage && (
-                  <div className="bg-gray-50 rounded-xl p-3">
-                    <div className="text-xs font-bold text-gray-400 mb-1 flex items-center gap-1">
+                  <div className="bg-bg-secondary rounded-xl p-3">
+                    <div className="text-xs font-bold text-text-muted mb-1 flex items-center gap-1">
                       <HardDrive className="w-3.5 h-3.5" /> {t('marketplace.storage', '存储')}
                     </div>
                     <div className="text-sm font-bold">{listing.deviceInfo.storage}</div>
@@ -334,14 +338,14 @@ export function MarketplaceDetailPage() {
               {/* Software Tools */}
               {listing.softwareTools.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-bold text-gray-500 mb-2">
+                  <h3 className="text-sm font-bold text-text-muted mb-2">
                     {t('marketplace.softwareTools', '已安装工具')}
                   </h3>
                   <div className="flex flex-wrap gap-2">
                     {listing.softwareTools.map((tool) => (
                       <span
                         key={tool}
-                        className="bg-gray-100 text-gray-600 text-xs font-bold px-2.5 py-1 rounded-full"
+                        className="bg-bg-tertiary text-text-secondary text-xs font-bold px-2.5 py-1 rounded-full"
                       >
                         {tool}
                       </span>
@@ -352,12 +356,12 @@ export function MarketplaceDetailPage() {
 
               {/* Availability Window */}
               {(listing.availableFrom || listing.availableUntil) && (
-                <div className="bg-emerald-50/50 rounded-xl p-4">
-                  <h3 className="text-sm font-bold text-gray-500 mb-2 flex items-center gap-1.5">
-                    <Clock className="w-4 h-4 text-emerald-500" />
+                <div className="bg-success/5 rounded-xl p-4">
+                  <h3 className="text-sm font-bold text-text-muted mb-2 flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-success" />
                     {t('marketplace.availability', '可用时间')}
                   </h3>
-                  <div className="flex gap-4 text-sm font-medium text-gray-600">
+                  <div className="flex gap-4 text-sm font-medium text-text-secondary">
                     {listing.availableFrom && (
                       <span>
                         {t('marketplace.availableFrom', '开始时间')}:{' '}
@@ -377,12 +381,12 @@ export function MarketplaceDetailPage() {
 
             {/* Guidelines */}
             {listing.guidelines && (
-              <div className="bg-white/80 backdrop-blur rounded-2xl border-2 border-white/90 shadow-lg p-8">
+              <div className="bg-glass-bg backdrop-blur rounded-2xl border border-glass-border shadow-soft p-8">
                 <h2 className="text-lg font-bold mb-3 flex items-center gap-2">
-                  <Shield className="w-5 h-5 text-amber-500" />
+                  <Shield className="w-5 h-5 text-warning" />
                   {t('marketplace.usageGuidelines', '使用准则')}
                 </h2>
-                <div className="text-gray-600 font-medium leading-relaxed whitespace-pre-wrap">
+                <div className="text-text-secondary font-medium leading-relaxed whitespace-pre-wrap">
                   {listing.guidelines}
                 </div>
               </div>
@@ -392,7 +396,7 @@ export function MarketplaceDetailPage() {
           {/* Right: Pricing & Action */}
           <div className="space-y-6">
             {/* Pricing Card */}
-            <div className="bg-white/80 backdrop-blur rounded-2xl border-2 border-white/90 shadow-lg p-6 sticky top-6">
+            <div className="bg-glass-bg backdrop-blur rounded-2xl border border-glass-border shadow-soft p-6 sticky top-6">
               <h2
                 style={{ fontFamily: "'ZCOOL KuaiLe', cursive" }}
                 className="text-xl font-bold mb-4"
@@ -405,19 +409,19 @@ export function MarketplaceDetailPage() {
                 {listing.pricingVersion === 2 ? (
                   <>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-gray-500 flex items-center gap-1.5">
+                      <span className="text-sm font-medium text-text-muted flex items-center gap-1.5">
                         <Clock className="w-4 h-4" />{' '}
                         {t('marketplace.baseDailyRate', '基础每日费用')}
                       </span>
-                      <span className="text-lg font-bold text-amber-600">
+                      <span className="text-lg font-bold text-accent-strong">
                         {listing.baseDailyRate ?? 0} 🦐/d
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-gray-500">
+                      <span className="text-sm font-medium text-text-muted">
                         {t('marketplace.messageFee', '每条消息费用')}
                       </span>
-                      <span className="font-bold text-amber-600">
+                      <span className="font-bold text-accent-strong">
                         {listing.messageFee ?? 0} 🦐/msg
                       </span>
                     </div>
@@ -425,44 +429,48 @@ export function MarketplaceDetailPage() {
                 ) : (
                   <>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-gray-500 flex items-center gap-1.5">
+                      <span className="text-sm font-medium text-text-muted flex items-center gap-1.5">
                         <Clock className="w-4 h-4" /> {t('marketplace.hourlyRate', '时租')}
                       </span>
-                      <span className="text-lg font-bold text-amber-600">
+                      <span className="text-lg font-bold text-accent-strong">
                         {listing.hourlyRate} 🦐/h
                       </span>
                     </div>
                     {listing.dailyRate > 0 && (
                       <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-500">
+                        <span className="text-sm font-medium text-text-muted">
                           {t('marketplace.dailyRate', '日租')}
                         </span>
-                        <span className="font-bold text-amber-600">{listing.dailyRate} 🦐/d</span>
+                        <span className="font-bold text-accent-strong">
+                          {listing.dailyRate} 🦐/d
+                        </span>
                       </div>
                     )}
                     {listing.monthlyRate > 0 && (
                       <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-500">
+                        <span className="text-sm font-medium text-text-muted">
                           {t('marketplace.monthlyRate', '月租')}
                         </span>
-                        <span className="font-bold text-amber-600">{listing.monthlyRate} 🦐/m</span>
+                        <span className="font-bold text-accent-strong">
+                          {listing.monthlyRate} 🦐/m
+                        </span>
                       </div>
                     )}
                   </>
                 )}
                 {listing.depositAmount > 0 && (
-                  <div className="flex justify-between items-center pt-2 border-t border-gray-100">
-                    <span className="text-sm font-medium text-gray-500 flex items-center gap-1.5">
+                  <div className="flex justify-between items-center pt-2 border-t border-divider">
+                    <span className="text-sm font-medium text-text-muted flex items-center gap-1.5">
                       <Shield className="w-4 h-4" /> {t('marketplace.deposit', '押金')}
                     </span>
-                    <span className="font-bold text-rose-600">{listing.depositAmount} 🦐</span>
+                    <span className="font-bold text-danger">{listing.depositAmount} 🦐</span>
                   </div>
                 )}
               </div>
 
               {/* Duration Selector */}
               <div className="mb-4">
-                <label className="text-sm font-bold text-gray-500 mb-2 block">
+                <label className="text-sm font-bold text-text-muted mb-2 block">
                   {t('marketplace.rentalDuration', '租赁时长（小时）')}
                   <input
                     type="number"
@@ -470,7 +478,7 @@ export function MarketplaceDetailPage() {
                     max={8760}
                     value={durationHours}
                     onChange={(e) => setDurationHours(Math.max(1, Number(e.target.value)))}
-                    className="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 font-bold text-center focus:outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                    className="w-full px-4 py-2.5 rounded-xl border-2 border-border-dim bg-bg-secondary font-bold text-center text-text-primary focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
                 </label>
                 <div className="flex gap-2 mt-2">
@@ -481,8 +489,8 @@ export function MarketplaceDetailPage() {
                       onClick={() => setDurationHours(h)}
                       className={`flex-1 py-1 text-xs font-bold rounded-lg border transition-all ${
                         durationHours === h
-                          ? 'bg-cyan-50 border-cyan-300 text-cyan-700'
-                          : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                          ? 'bg-primary/10 border-primary text-primary'
+                          : 'border-border-dim text-text-muted hover:border-border-dim'
                       }`}
                     >
                       {h === 1 ? '1h' : h === 24 ? '1d' : h === 168 ? '1w' : '1m'}
@@ -490,7 +498,7 @@ export function MarketplaceDetailPage() {
                   ))}
                 </div>
                 {isOverLimit && maxAvailableHours !== null && (
-                  <div className="mt-2 bg-amber-50 rounded-lg p-3 text-xs text-amber-700 font-medium">
+                  <div className="mt-2 bg-warning/10 rounded-lg p-3 text-xs text-warning font-medium">
                     <Clock className="w-3.5 h-3.5 inline mr-1" />
                     {t(
                       'marketplace.availabilityWarning',
@@ -506,17 +514,17 @@ export function MarketplaceDetailPage() {
 
               {/* Cost Estimate */}
               {estimate && (
-                <div className="bg-gray-50 rounded-xl p-4 mb-6 space-y-2">
+                <div className="bg-bg-secondary rounded-xl p-4 mb-6 space-y-2">
                   {estimate.pricingVersion === 2 ? (
                     <>
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">
+                        <span className="text-text-muted">
                           {t('marketplace.dailyBaseCost', '基础日费')}
                         </span>
                         <span className="font-bold">{estimate.dailyBaseCost ?? 0} 🦐</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">
+                        <span className="text-text-muted">
                           {t('marketplace.estimatedMessageCost', '预估消息费')}
                         </span>
                         <span className="font-bold">{estimate.estimatedMessageCost ?? 0} 🦐</span>
@@ -525,13 +533,13 @@ export function MarketplaceDetailPage() {
                   ) : (
                     <>
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">
+                        <span className="text-text-muted">
                           {t('marketplace.rentalCost', '租赁费用')}
                         </span>
                         <span className="font-bold">{estimate.rentalCost} 🦐</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">
+                        <span className="text-text-muted">
                           {t('marketplace.electricityCost', '电费')}
                         </span>
                         <span className="font-bold">{estimate.electricityCost} 🦐</span>
@@ -539,16 +547,18 @@ export function MarketplaceDetailPage() {
                     </>
                   )}
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">
+                    <span className="text-text-muted">
                       {t('marketplace.platformFee', '平台手续费 (5%)')}
                     </span>
                     <span className="font-bold">{estimate.platformFee} 🦐</span>
                   </div>
-                  <div className="flex justify-between text-sm pt-2 border-t border-gray-200 font-bold">
+                  <div className="flex justify-between text-sm pt-2 border-t border-divider font-bold">
                     <span>{t('marketplace.totalEstimate', '预估总费用')}</span>
-                    <span className="text-amber-600 text-base">{estimate.totalEstimate} 🦐</span>
+                    <span className="text-accent-strong text-base">
+                      {estimate.totalEstimate} 🦐
+                    </span>
                   </div>
-                  <p className="text-xs text-gray-400 mt-1">{estimate.note}</p>
+                  <p className="text-xs text-text-muted mt-1">{estimate.note}</p>
                 </div>
               )}
 
@@ -565,14 +575,14 @@ export function MarketplaceDetailPage() {
                       }
                     }}
                     disabled={delistMutation.isPending}
-                    className="w-full py-3 rounded-xl bg-gradient-to-r from-red-400 to-red-500 text-white font-bold text-base hover:from-red-500 hover:to-red-600 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60"
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-danger to-danger text-white font-bold text-base hover:brightness-110 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60"
                     style={{ fontFamily: "'ZCOOL KuaiLe', cursive" }}
                   >
                     {delistMutation.isPending
                       ? t('common.loading', '处理中...')
                       : t('marketplace.delistClaw', '下架 Claw')}
                   </button>
-                  <p className="text-xs text-gray-400 text-center mt-3 font-medium">
+                  <p className="text-xs text-text-muted text-center mt-3 font-medium">
                     {t('marketplace.delistHint', '下架后此 Claw 将不再展示在集市中')}
                   </p>
                 </>
@@ -581,12 +591,12 @@ export function MarketplaceDetailPage() {
                   <button
                     type="button"
                     disabled
-                    className="w-full py-3 rounded-xl bg-gray-200 text-gray-400 font-bold text-base cursor-not-allowed"
+                    className="w-full py-3 rounded-xl bg-bg-tertiary text-text-muted font-bold text-base cursor-not-allowed"
                     style={{ fontFamily: "'ZCOOL KuaiLe', cursive" }}
                   >
                     {t('marketplace.alreadyRentedButton', '已被租赁')}
                   </button>
-                  <p className="text-xs text-amber-500 text-center mt-3 font-medium">
+                  <p className="text-xs text-warning text-center mt-3 font-medium">
                     {t(
                       'marketplace.alreadyRentedHint',
                       '该 Claw 当前正在被其他用户使用，暂时无法租赁。请稍后再来看看吧~',
@@ -598,12 +608,12 @@ export function MarketplaceDetailPage() {
                   <button
                     type="button"
                     onClick={() => setShowContract(true)}
-                    className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-gray-900 font-bold text-base hover:from-amber-500 hover:to-amber-600 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0"
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-accent to-accent-strong text-bg-deep font-bold text-base hover:brightness-110 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0"
                     style={{ fontFamily: "'ZCOOL KuaiLe', cursive" }}
                   >
                     {t('marketplace.rentNow', '立即租赁')}
                   </button>
-                  <p className="text-xs text-gray-400 text-center mt-3 font-medium">
+                  <p className="text-xs text-text-muted text-center mt-3 font-medium">
                     {t('marketplace.rentDisclaimer', '租赁前请仔细阅读使用规约和平台条款')}
                   </p>
                 </>
@@ -754,10 +764,10 @@ export function MarketplaceDetailPage() {
                 {listing.depositAmount > 0 && (
                   <div className="flex items-center justify-between pb-2">
                     <span className="font-bold text-amber-950/80 flex items-center gap-1.5 text-xs">
-                      <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-danger" />
                       {t('marketplace.contractDeposit', '违约保证金')}
                     </span>
-                    <span className="font-mono font-bold text-xs text-rose-700">
+                    <span className="font-mono font-bold text-xs text-danger">
                       {listing.depositAmount} 🦐
                     </span>
                   </div>
@@ -802,7 +812,7 @@ export function MarketplaceDetailPage() {
                   type="checkbox"
                   checked={agreedToTerms}
                   onChange={(e) => setAgreedToTerms(e.target.checked)}
-                  className="mt-0.5 w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-300"
+                  className="mt-0.5 w-4 h-4 rounded border-border-dim text-accent focus:ring-accent/30"
                 />
                 <span className="text-xs text-amber-900/80 font-medium leading-relaxed">
                   {t(
@@ -838,8 +848,8 @@ export function MarketplaceDetailPage() {
                       onClick={() => signMutation.mutate()}
                       className={`w-full max-w-[180px] py-2.5 px-5 rounded-full font-bold text-base shadow-xl transition-all transform ${
                         agreedToTerms
-                          ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white hover:-translate-y-1 hover:scale-105 active:scale-95 ring-4 ring-amber-100'
-                          : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                          ? 'bg-gradient-to-r from-accent to-accent-strong hover:brightness-110 text-bg-deep hover:-translate-y-1 hover:scale-105 active:scale-95 ring-4 ring-accent/20'
+                          : 'bg-bg-tertiary text-text-muted cursor-not-allowed'
                       }`}
                       style={{ fontFamily: "'ZCOOL KuaiLe', cursive" }}
                     >
@@ -868,7 +878,7 @@ export function MarketplaceDetailPage() {
                   <button
                     type="button"
                     onClick={() => setShowContract(false)}
-                    className="text-sm text-gray-500 hover:text-gray-700 font-bold"
+                    className="text-sm text-text-muted hover:text-text-primary font-bold"
                   >
                     {t('common.cancel', '取消')}
                   </button>

@@ -1,3 +1,4 @@
+import { Button, cn } from '@shadowob/ui'
 import { useQuery } from '@tanstack/react-query'
 import { Outlet, useNavigate } from '@tanstack/react-router'
 import { Menu } from 'lucide-react'
@@ -74,26 +75,46 @@ export function AppLayout() {
   }, [])
 
   return (
-    <div className="flex h-dvh w-screen overflow-hidden bg-bg-tertiary">
-      {/* Server sidebar — always visible on md+, overlay on mobile */}
-      <div className="hidden md:flex">
+    <div className="relative flex h-dvh w-screen overflow-hidden bg-bg-deep">
+      {/* ── Neon Frost atmosphere orbs ── */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+        <div className="absolute top-[-150px] right-[10%] w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px] animate-float opacity-20" />
+        <div
+          className="absolute bottom-[-100px] left-[5%] w-[600px] h-[600px] bg-[#ff2a55]/8 rounded-full blur-[120px] animate-float opacity-15"
+          style={{ animationDelay: '-8s' }}
+        />
+      </div>
+
+      {/* ── Server sidebar — always visible on md+, overlay on mobile ── */}
+      <div className="relative z-10 hidden md:flex">
         <ServerSidebar />
       </div>
 
-      {/* Mobile server sidebar overlay */}
+      {/* ── Mobile server sidebar overlay (glassmorphic) ── */}
       {mobileServerSidebarOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden">
-          <div className="absolute inset-0 bg-black/60" onClick={closeMobileServerSidebar} />
-          <div className="relative z-10 animate-slide-in-left">
+          <div
+            className="absolute inset-0 bg-bg-deep/80 backdrop-blur-md"
+            onClick={closeMobileServerSidebar}
+          />
+          <div
+            className={cn(
+              'relative z-10 animate-slide-in-left',
+              'rounded-r-[24px] border-r border-white/[0.06]',
+              'bg-bg-deep/80 backdrop-blur-[32px]',
+              'shadow-[0_0_40px_rgba(0,243,255,0.06)]',
+            )}
+          >
             <ServerSidebar onNavigate={closeMobileServerSidebar} />
           </div>
         </div>
       )}
 
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+      {/* ── Main content area ── */}
+      <div className="relative z-10 flex flex-1 flex-col min-w-0 overflow-hidden">
         {isLoadingMe && !me ? (
-          <div className="desktop-loading-state flex-1 bg-bg-primary">
-            <div className="inline-flex items-center gap-2 text-sm animate-pulse">
+          <div className="desktop-loading-state flex-1 bg-bg-deep/60 backdrop-blur-[32px]">
+            <div className="inline-flex items-center gap-2 text-sm text-white/50 animate-pulse">
               {t('common.loading')}
             </div>
           </div>
@@ -102,15 +123,23 @@ export function AppLayout() {
         )}
       </div>
 
-      {/* Mobile hamburger button to open server sidebar */}
+      {/* ── Mobile FAB to open server sidebar ── */}
       {!mobileServerSidebarOpen && (
-        <button
-          type="button"
+        <Button
+          size="icon"
           onClick={openMobileServerSidebar}
-          className="fixed bottom-20 left-4 z-40 md:hidden flex items-center justify-center w-10 h-10 bg-primary/80 backdrop-blur rounded-full shadow-lg text-white"
+          className={cn(
+            'fixed bottom-20 left-4 z-40 md:hidden',
+            'h-11 w-11 rounded-full',
+            'bg-[#00F3FF]/20 backdrop-blur-[32px]',
+            'border border-[#00F3FF]/20',
+            'text-[#00F3FF] shadow-[0_0_20px_rgba(0,243,255,0.25)]',
+            'hover:bg-[#00F3FF]/30 hover:shadow-[0_0_28px_rgba(0,243,255,0.35)]',
+            'transition-all duration-300',
+          )}
         >
           <Menu size={18} />
-        </button>
+        </Button>
       )}
 
       <ConfirmDialog />

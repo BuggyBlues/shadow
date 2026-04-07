@@ -1,3 +1,4 @@
+import { Button, Card } from '@shadowob/ui'
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
 import { type ElementType, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -85,17 +86,18 @@ export function NewcomerGuide({ onHaveBuddy, onNoBuddy }: NewcomerGuideProps) {
               style={{ transform: `translateX(-${currentSlide * 100}%)` }}
             >
               {slides.map((slide, idx) => (
-                <div key={slide.id} className="w-full flex-shrink-0 px-4">
-                  <div className="bg-bg-primary/80 backdrop-blur-sm rounded-3xl p-8 mb-6 flex flex-col items-center shadow-lg border border-border-primary/30 min-h-[420px] justify-center transition-all duration-300 hover:shadow-xl hover:scale-[1.01]">
+                <div key={idx} className="w-full flex-shrink-0 px-4">
+                  <Card
+                    variant="glass"
+                    className="!rounded-[24px] p-8 mb-6 flex flex-col items-center min-h-[420px] justify-center"
+                  >
                     <div className="w-48 h-48 mb-6 drop-shadow-md mx-auto transform transition-transform duration-500 hover:scale-105">
                       <slide.icon />
                     </div>
-                    <h2
-                      className={`text-2xl md:text-3xl font-extrabold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-text-primary to-text-secondary`}
-                    >
+                    <h2 className="text-2xl md:text-3xl font-black uppercase tracking-tight mb-4 bg-clip-text text-transparent bg-gradient-to-r from-text-primary to-text-secondary">
                       {t(`onboarding.newcomer.${slide.id}.title`)}
                     </h2>
-                    <p className="text-text-muted text-base md:text-lg leading-relaxed mb-6 max-w-xs mx-auto">
+                    <p className="text-text-muted text-base md:text-lg leading-relaxed mb-6 max-w-xs mx-auto font-bold italic">
                       {t(`onboarding.newcomer.${slide.id}.desc`)}
                     </p>
 
@@ -104,13 +106,13 @@ export function NewcomerGuide({ onHaveBuddy, onNoBuddy }: NewcomerGuideProps) {
                       {slide.tags.map((tag, tagIdx) => (
                         <span
                           key={tagIdx}
-                          className={`text-xs px-3 py-1 rounded-full bg-bg-secondary border border-border-primary/50 text-text-secondary`}
+                          className="text-xs px-3 py-1 rounded-full bg-primary/5 border border-primary/20 text-text-secondary font-bold"
                         >
                           #{tag}
                         </span>
                       ))}
                     </div>
-                  </div>
+                  </Card>
                 </div>
               ))}
             </div>
@@ -120,10 +122,8 @@ export function NewcomerGuide({ onHaveBuddy, onNoBuddy }: NewcomerGuideProps) {
           <button
             onClick={prevSlide}
             disabled={currentSlide === 0}
-            className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 md:-translate-x-6 p-2 rounded-full bg-bg-card shadow-md border border-border-primary text-text-secondary transition-all ${
-              currentSlide === 0
-                ? 'opacity-0 pointer-events-none'
-                : 'opacity-100 hover:bg-bg-secondary hover:text-text-primary'
+            className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 md:-translate-x-6 p-2 rounded-full bg-[rgba(255,255,255,0.75)] dark:bg-[rgba(255,255,255,0.03)] backdrop-blur-[32px] shadow-md border border-white dark:border-[rgba(255,255,255,0.08)] text-text-secondary transition-all ${
+              currentSlide === 0 ? 'opacity-0 pointer-events-none' : 'opacity-100 hover:scale-110'
             }`}
           >
             <ChevronLeft size={24} />
@@ -132,10 +132,10 @@ export function NewcomerGuide({ onHaveBuddy, onNoBuddy }: NewcomerGuideProps) {
           <button
             onClick={nextSlide}
             disabled={currentSlide === slides.length - 1}
-            className={`absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 md:translate-x-6 p-2 rounded-full bg-bg-card shadow-md border border-border-primary text-text-secondary transition-all ${
+            className={`absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 md:translate-x-6 p-2 rounded-full bg-[rgba(255,255,255,0.75)] dark:bg-[rgba(255,255,255,0.03)] backdrop-blur-[32px] shadow-md border border-white dark:border-[rgba(255,255,255,0.08)] text-text-secondary transition-all ${
               currentSlide === slides.length - 1
                 ? 'opacity-0 pointer-events-none'
-                : 'opacity-100 hover:bg-bg-secondary hover:text-text-primary'
+                : 'opacity-100 hover:scale-110'
             }`}
           >
             <ChevronRight size={24} />
@@ -159,20 +159,19 @@ export function NewcomerGuide({ onHaveBuddy, onNoBuddy }: NewcomerGuideProps) {
 
         {/* Action Buttons */}
         <div className="flex flex-col gap-3 w-full max-w-md mx-auto z-10 px-4">
-          <button
+          <Button
+            variant="secondary"
+            size="lg"
+            className="w-full text-lg"
             onClick={onHaveBuddy}
-            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white font-bold py-3.5 px-6 rounded-xl shadow-lg shadow-orange-500/20 active:scale-[0.98] transition-all duration-200 text-lg"
+            iconRight={ArrowRight}
           >
-            <span>{t('onboarding.newcomer.btnHaveClaw', '立即加入')}</span>
-            <ArrowRight size={20} />
-          </button>
+            {t('onboarding.newcomer.btnHaveClaw', '立即加入')}
+          </Button>
 
-          <button
-            onClick={onNoBuddy}
-            className="w-full text-text-muted hover:text-text-primary py-3 px-6 rounded-xl hover:bg-bg-tertiary transition-colors text-sm font-medium"
-          >
+          <Button variant="ghost" size="md" className="w-full" onClick={onNoBuddy}>
             {t('onboarding.newcomer.btnNoClaw', '先逛逛，稍后加入')}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

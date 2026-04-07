@@ -1,3 +1,4 @@
+import { Button, cn, Input } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Save } from 'lucide-react'
 import { useState } from 'react'
@@ -58,10 +59,10 @@ export function ProfileSettings() {
 
   return (
     <>
-      <h2 className="text-2xl font-bold text-text-primary mb-6">{t('settings.profileTitle')}</h2>
+      <h2 className="text-2xl font-black text-text-primary mb-6">{t('settings.profileTitle')}</h2>
 
       {/* Preview card */}
-      <div className="bg-bg-secondary rounded-xl p-6 mb-8 border border-border-subtle">
+      <div className="bg-white/[0.03] backdrop-blur-[32px] rounded-[24px] p-6 mb-8 border border-white/[0.08]">
         <div className="flex items-center gap-4">
           <UserAvatar
             userId={user.id}
@@ -73,38 +74,39 @@ export function ProfileSettings() {
             <h3 className="text-lg font-bold text-text-primary">{displayName || user.username}</h3>
             <p className="text-sm text-text-muted">@{user.username}</p>
             <p className="text-xs text-text-muted mt-1">{user.email}</p>
-            <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-bg-tertiary border border-border-subtle">
+            <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/[0.05] border border-white/[0.08]">
               <span className="text-xs text-text-muted">虾币</span>
               <PriceDisplay amount={wallet?.balance ?? 0} size={13} className="ml-0.5" />
             </div>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={openRecharge}
-              className="mt-2 ml-2 inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold text-white bg-primary hover:bg-primary-hover transition"
+              className="mt-2 ml-2 text-primary hover:bg-primary/10 normal-case tracking-normal font-bold"
             >
               {t('recharge.rechargeNow')}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
 
       {/* Display name */}
       <div className="mb-6">
-        <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
+        <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.2em] ml-1 mb-2">
           {t('settings.displayNameLabel')}
         </label>
-        <input
+        <Input
           type="text"
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
-          className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
           placeholder={user.username}
+          className="rounded-[16px] px-4 py-3"
         />
       </div>
 
       {/* Avatar picker */}
       <div className="mb-8">
-        <label className="block text-[12px] font-bold uppercase text-text-secondary mb-3 tracking-wide">
+        <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.2em] ml-1 mb-3">
           {t('settings.avatarLabel')}
         </label>
         <AvatarEditor
@@ -115,7 +117,7 @@ export function ProfileSettings() {
 
       {/* Language */}
       <div className="mb-8">
-        <label className="block text-xs font-bold uppercase text-text-secondary mb-3">
+        <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.2em] ml-1 mb-3">
           {t('settings.languageLabel')}
         </label>
         <LanguageSwitcher />
@@ -123,16 +125,18 @@ export function ProfileSettings() {
 
       {/* Save */}
       <div className="flex items-center gap-4">
-        <button
+        <Button
+          variant="primary"
           onClick={() => updateProfileMutation.mutate()}
           disabled={updateProfileMutation.isPending}
-          className="flex items-center gap-2 px-6 py-2.5 bg-primary hover:bg-primary-hover text-white font-bold rounded-lg transition disabled:opacity-50"
         >
           <Save size={16} />
           {updateProfileMutation.isPending ? t('common.saving') : t('common.saveChanges')}
-        </button>
+        </Button>
         {message && (
-          <span className={`text-sm ${saveSuccess ? 'text-green-400' : 'text-red-400'}`}>
+          <span
+            className={cn('text-sm font-bold', saveSuccess ? 'text-green-400' : 'text-red-400')}
+          >
             {message}
           </span>
         )}

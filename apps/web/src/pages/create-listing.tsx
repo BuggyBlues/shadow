@@ -1,3 +1,4 @@
+import { Button, Card } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import {
@@ -214,14 +215,14 @@ export function CreateListingPage() {
 
   return (
     <div
-      className="min-h-screen overflow-y-auto bg-[#f2f7fc] text-gray-800"
+      className="min-h-screen overflow-y-auto bg-bg-primary text-text-primary"
       style={{ fontFamily: "'Nunito', 'ZCOOL KuaiLe', sans-serif" }}
     >
       <div className="max-w-3xl mx-auto px-6 py-8 pb-24">
         {/* Header */}
         <Link
           to="/marketplace/my-rentals"
-          className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-800 transition-colors font-bold mb-6"
+          className="inline-flex items-center gap-2 text-text-muted hover:text-text-primary transition-colors font-bold mb-6"
         >
           <ChevronLeft className="w-5 h-5" />
           {t('marketplace.backToRentals', '返回我的租赁')}
@@ -235,7 +236,7 @@ export function CreateListingPage() {
 
         <form onSubmit={(e) => handleSubmit(e, 'active')} className="space-y-8">
           {/* Basic Info */}
-          <section className="bg-white/80 backdrop-blur rounded-2xl border-2 border-white/90 shadow-lg p-8">
+          <Card variant="glass" className="p-8">
             <h2
               style={{ fontFamily: "'ZCOOL KuaiLe', cursive" }}
               className="text-lg font-bold mb-4"
@@ -245,13 +246,13 @@ export function CreateListingPage() {
             <div className="space-y-4">
               {/* Agent / Claw selector */}
               <label className="block">
-                <span className="text-sm font-bold text-gray-500 block mb-1">
+                <span className="text-sm font-bold text-text-muted block mb-1">
                   {t('marketplace.selectClaw', '选择 Claw')}
                 </span>
                 <select
                   value={form.agentId}
                   onChange={(e) => update('agentId', e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 font-medium focus:outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100 bg-white"
+                  className="w-full px-4 py-2.5 rounded-xl border-2 border-border-subtle font-medium focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 bg-bg-secondary"
                 >
                   <option value="">{t('marketplace.noClawSelected', '-- 不绑定 Claw --')}</option>
                   {agents.map((agent) => {
@@ -269,7 +270,7 @@ export function CreateListingPage() {
                   })}
                 </select>
                 {agents.length === 0 && (
-                  <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                  <p className="text-xs text-text-muted mt-1 flex items-center gap-1">
                     <Lock className="w-3 h-3" />
                     {t('marketplace.noClawHint', '你还没有 Claw，请先在 Buddy 管理页面创建')}
                   </p>
@@ -277,7 +278,7 @@ export function CreateListingPage() {
               </label>
 
               <label className="block">
-                <span className="text-sm font-bold text-gray-500 block mb-1">
+                <span className="text-sm font-bold text-text-muted block mb-1">
                   {t('marketplace.listingTitle', '标题')} *
                 </span>
                 <input
@@ -290,11 +291,11 @@ export function CreateListingPage() {
                     'marketplace.titlePlaceholder',
                     '例：高配 Mac Studio 全栈开发环境',
                   )}
-                  className="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 font-medium focus:outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                  className="w-full px-4 py-2.5 rounded-xl border-2 border-border-subtle font-medium focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
               </label>
               <label className="block">
-                <span className="text-sm font-bold text-gray-500 block mb-1">
+                <span className="text-sm font-bold text-text-muted block mb-1">
                   {t('marketplace.listingDesc', '描述')}
                 </span>
                 <textarea
@@ -303,11 +304,11 @@ export function CreateListingPage() {
                   maxLength={2000}
                   rows={4}
                   placeholder={t('marketplace.descPlaceholder', '介绍你的 Claw 可以做什么...')}
-                  className="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 font-medium focus:outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100 resize-none"
+                  className="w-full px-4 py-2.5 rounded-xl border-2 border-border-subtle font-medium focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none"
                 />
               </label>
               <label className="block">
-                <span className="text-sm font-bold text-gray-500 block mb-1">
+                <span className="text-sm font-bold text-text-muted block mb-1">
                   {t('marketplace.skillTags', '技能标签')}
                 </span>
                 <input
@@ -318,11 +319,11 @@ export function CreateListingPage() {
                     'marketplace.skillsPlaceholder',
                     'Web 开发, Python, DevOps (逗号分隔)',
                   )}
-                  className="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 font-medium focus:outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                  className="w-full px-4 py-2.5 rounded-xl border-2 border-border-subtle font-medium focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
               </label>
               <label className="block">
-                <span className="text-sm font-bold text-gray-500 block mb-1">
+                <span className="text-sm font-bold text-text-muted block mb-1">
                   {t('marketplace.usageGuidelines', '使用准则')}
                 </span>
                 <textarea
@@ -331,14 +332,14 @@ export function CreateListingPage() {
                   rows={3}
                   maxLength={5000}
                   placeholder={t('marketplace.guidelinesPlaceholder', '对使用方的要求和限制...')}
-                  className="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 font-medium focus:outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100 resize-none"
+                  className="w-full px-4 py-2.5 rounded-xl border-2 border-border-subtle font-medium focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none"
                 />
               </label>
             </div>
-          </section>
+          </Card>
 
           {/* Device Info */}
-          <section className="bg-white/80 backdrop-blur rounded-2xl border-2 border-white/90 shadow-lg p-8">
+          <Card variant="glass" className="p-8">
             <h2
               style={{ fontFamily: "'ZCOOL KuaiLe', cursive" }}
               className="text-lg font-bold mb-4"
@@ -349,13 +350,13 @@ export function CreateListingPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block">
-                    <span className="text-sm font-bold text-gray-500 block mb-1">
+                    <span className="text-sm font-bold text-text-muted block mb-1">
                       {t('marketplace.deviceTier', '设备档次')}
                     </span>
                     <select
                       value={form.deviceTier}
                       onChange={(e) => update('deviceTier', e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 font-medium focus:outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100 bg-white"
+                      className="w-full px-4 py-2.5 rounded-xl border-2 border-border-subtle font-medium focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 bg-bg-secondary"
                     >
                       <option value="high_end">🔥 {t('marketplace.deviceHighEnd')}</option>
                       <option value="mid_range">⚡ {t('marketplace.deviceMidRange')}</option>
@@ -365,13 +366,13 @@ export function CreateListingPage() {
                 </div>
                 <div>
                   <label className="block">
-                    <span className="text-sm font-bold text-gray-500 block mb-1">
+                    <span className="text-sm font-bold text-text-muted block mb-1">
                       {t('marketplace.osType', '操作系统')}
                     </span>
                     <select
                       value={form.osType}
                       onChange={(e) => update('osType', e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 font-medium focus:outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100 bg-white"
+                      className="w-full px-4 py-2.5 rounded-xl border-2 border-border-subtle font-medium focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 bg-bg-secondary"
                     >
                       <option value="macos">macOS</option>
                       <option value="windows">Windows</option>
@@ -382,7 +383,7 @@ export function CreateListingPage() {
               </div>
               <div>
                 <label className="block">
-                  <span className="text-sm font-bold text-gray-500 block mb-1">
+                  <span className="text-sm font-bold text-text-muted block mb-1">
                     {t('marketplace.softwareTools', '已安装工具')}
                   </span>
                   <input
@@ -390,7 +391,7 @@ export function CreateListingPage() {
                     value={form.softwareTools}
                     onChange={(e) => update('softwareTools', e.target.value)}
                     placeholder="VS Code, Docker, Node.js, Python (逗号分隔)"
-                    className="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 font-medium focus:outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                    className="w-full px-4 py-2.5 rounded-xl border-2 border-border-subtle font-medium focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
                 </label>
               </div>
@@ -399,7 +400,7 @@ export function CreateListingPage() {
               <button
                 type="button"
                 onClick={() => setShowDeviceDetail(!showDeviceDetail)}
-                className="flex items-center gap-2 text-sm font-bold text-gray-400 hover:text-gray-600 transition-colors"
+                className="flex items-center gap-2 text-sm font-bold text-text-muted hover:text-text-secondary transition-colors"
               >
                 <ChevronDown
                   className={`w-4 h-4 transition-transform ${showDeviceDetail ? 'rotate-180' : ''}`}
@@ -412,7 +413,7 @@ export function CreateListingPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block">
-                        <span className="text-sm font-bold text-gray-400 block mb-1 flex items-center gap-1">
+                        <span className="text-sm font-bold text-text-muted block mb-1 flex items-center gap-1">
                           <Monitor className="w-3.5 h-3.5" /> {t('marketplace.model', '型号')}
                         </span>
                         <input
@@ -420,13 +421,13 @@ export function CreateListingPage() {
                           value={form.deviceModel}
                           onChange={(e) => update('deviceModel', e.target.value)}
                           placeholder="Mac Studio M2 Ultra"
-                          className="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 font-medium focus:outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                          className="w-full px-4 py-2.5 rounded-xl border-2 border-border-subtle font-medium focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                         />
                       </label>
                     </div>
                     <div>
                       <label className="block">
-                        <span className="text-sm font-bold text-gray-400 block mb-1 flex items-center gap-1">
+                        <span className="text-sm font-bold text-text-muted block mb-1 flex items-center gap-1">
                           <Cpu className="w-3.5 h-3.5" /> CPU
                         </span>
                         <input
@@ -434,7 +435,7 @@ export function CreateListingPage() {
                           value={form.deviceCpu}
                           onChange={(e) => update('deviceCpu', e.target.value)}
                           placeholder="M2 Ultra 24-core"
-                          className="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 font-medium focus:outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                          className="w-full px-4 py-2.5 rounded-xl border-2 border-border-subtle font-medium focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                         />
                       </label>
                     </div>
@@ -442,7 +443,7 @@ export function CreateListingPage() {
                   <div className="grid grid-cols-3 gap-4">
                     <div>
                       <label className="block">
-                        <span className="text-sm font-bold text-gray-400 block mb-1 flex items-center gap-1">
+                        <span className="text-sm font-bold text-text-muted block mb-1 flex items-center gap-1">
                           <MemoryStick className="w-3.5 h-3.5" /> RAM
                         </span>
                         <input
@@ -450,13 +451,13 @@ export function CreateListingPage() {
                           value={form.deviceRam}
                           onChange={(e) => update('deviceRam', e.target.value)}
                           placeholder="192GB"
-                          className="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 font-medium focus:outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                          className="w-full px-4 py-2.5 rounded-xl border-2 border-border-subtle font-medium focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                         />
                       </label>
                     </div>
                     <div>
                       <label className="block">
-                        <span className="text-sm font-bold text-gray-400 block mb-1 flex items-center gap-1">
+                        <span className="text-sm font-bold text-text-muted block mb-1 flex items-center gap-1">
                           <HardDrive className="w-3.5 h-3.5" /> {t('marketplace.storage', '存储')}
                         </span>
                         <input
@@ -464,19 +465,19 @@ export function CreateListingPage() {
                           value={form.deviceStorage}
                           onChange={(e) => update('deviceStorage', e.target.value)}
                           placeholder="2TB SSD"
-                          className="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 font-medium focus:outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                          className="w-full px-4 py-2.5 rounded-xl border-2 border-border-subtle font-medium focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                         />
                       </label>
                     </div>
                     <div>
                       <label className="block">
-                        <span className="text-sm font-bold text-gray-400 block mb-1">GPU</span>
+                        <span className="text-sm font-bold text-text-muted block mb-1">GPU</span>
                         <input
                           type="text"
                           value={form.deviceGpu}
                           onChange={(e) => update('deviceGpu', e.target.value)}
                           placeholder="76-core GPU"
-                          className="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 font-medium focus:outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                          className="w-full px-4 py-2.5 rounded-xl border-2 border-border-subtle font-medium focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                         />
                       </label>
                     </div>
@@ -484,10 +485,10 @@ export function CreateListingPage() {
                 </div>
               )}
             </div>
-          </section>
+          </Card>
 
           {/* Pricing */}
-          <section className="bg-white/80 backdrop-blur rounded-2xl border-2 border-white/90 shadow-lg p-8">
+          <Card variant="glass" className="p-8">
             <h2
               style={{ fontFamily: "'ZCOOL KuaiLe', cursive" }}
               className="text-lg font-bold mb-4"
@@ -498,7 +499,7 @@ export function CreateListingPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block">
-                    <span className="text-sm font-bold text-gray-500 block mb-1">
+                    <span className="text-sm font-bold text-text-muted block mb-1">
                       {t('marketplace.baseDailyRate', '基础每日费用')} (🦐/d) *
                     </span>
                     <input
@@ -507,16 +508,16 @@ export function CreateListingPage() {
                       min={1}
                       value={form.baseDailyRate}
                       onChange={(e) => update('baseDailyRate', Number(e.target.value))}
-                      className="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 font-bold text-center focus:outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                      className="w-full px-4 py-2.5 rounded-xl border-2 border-border-subtle font-bold text-center focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                   </label>
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="text-xs text-text-muted mt-1">
                     {t('marketplace.baseDailyRateHint', '不管是否使用，每天自动收取')}
                   </p>
                 </div>
                 <div>
                   <label className="block">
-                    <span className="text-sm font-bold text-gray-500 block mb-1">
+                    <span className="text-sm font-bold text-text-muted block mb-1">
                       {t('marketplace.messageFee', '每条消息费用')} (🦐/msg) *
                     </span>
                     <input
@@ -525,17 +526,17 @@ export function CreateListingPage() {
                       min={0}
                       value={form.messageFee}
                       onChange={(e) => update('messageFee', Number(e.target.value))}
-                      className="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 font-bold text-center focus:outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                      className="w-full px-4 py-2.5 rounded-xl border-2 border-border-subtle font-bold text-center focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                   </label>
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="text-xs text-text-muted mt-1">
                     {t('marketplace.messageFeeHint', '用户每发送一条消息收取的费用')}
                   </p>
                 </div>
               </div>
               <div>
                 <label className="block">
-                  <span className="text-sm font-bold text-gray-500 block mb-1">
+                  <span className="text-sm font-bold text-text-muted block mb-1">
                     {t('marketplace.deposit', '押金')} (🦐)
                   </span>
                   <input
@@ -543,7 +544,7 @@ export function CreateListingPage() {
                     min={0}
                     value={form.depositAmount}
                     onChange={(e) => update('depositAmount', Number(e.target.value))}
-                    className="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 font-bold text-center focus:outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                    className="w-full px-4 py-2.5 rounded-xl border-2 border-border-subtle font-bold text-center focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
                 </label>
               </div>
@@ -552,9 +553,9 @@ export function CreateListingPage() {
                   type="checkbox"
                   checked={form.tokenFeePassthrough}
                   onChange={(e) => update('tokenFeePassthrough', e.target.checked)}
-                  className="w-5 h-5 rounded border-gray-300 text-amber-500 focus:ring-amber-300"
+                  className="w-5 h-5 rounded border-border-subtle text-primary focus:ring-primary/30"
                 />
-                <span className="text-sm font-bold text-gray-600">
+                <span className="text-sm font-bold text-text-secondary">
                   {t('marketplace.tokenPassthrough', 'Token 费用由使用方承担')}
                 </span>
               </label>
@@ -567,10 +568,10 @@ export function CreateListingPage() {
                 )}
               </div>
             </div>
-          </section>
+          </Card>
 
           {/* Availability */}
-          <section className="bg-white/80 backdrop-blur rounded-2xl border-2 border-white/90 shadow-lg p-8">
+          <Card variant="glass" className="p-8">
             <h2
               style={{ fontFamily: "'ZCOOL KuaiLe', cursive" }}
               className="text-lg font-bold mb-4"
@@ -580,60 +581,60 @@ export function CreateListingPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block">
-                  <span className="text-sm font-bold text-gray-500 block mb-1">
+                  <span className="text-sm font-bold text-text-muted block mb-1">
                     {t('marketplace.availableFrom', '开始时间')}
                   </span>
                   <input
                     type="datetime-local"
                     value={form.availableFrom}
                     onChange={(e) => update('availableFrom', e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 font-medium focus:outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                    className="w-full px-4 py-2.5 rounded-xl border-2 border-border-subtle font-medium focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
                 </label>
               </div>
               <div>
                 <label className="block">
-                  <span className="text-sm font-bold text-gray-500 block mb-1">
+                  <span className="text-sm font-bold text-text-muted block mb-1">
                     {t('marketplace.availableUntil', '结束时间')}
                   </span>
                   <input
                     type="datetime-local"
                     value={form.availableUntil}
                     onChange={(e) => update('availableUntil', e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 font-medium focus:outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                    className="w-full px-4 py-2.5 rounded-xl border-2 border-border-subtle font-medium focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
                 </label>
               </div>
             </div>
-            <p className="text-xs text-gray-400 mt-2 font-medium">
+            <p className="text-xs text-text-muted mt-2 font-medium">
               {t('marketplace.availabilityNote', '留空表示不限制可用时间范围')}
             </p>
-          </section>
+          </Card>
 
           {/* Submit */}
           <div className="flex gap-4 justify-end pb-12">
-            <button
-              type="button"
+            <Button
+              variant="glass"
+              size="lg"
               onClick={(e) => handleSubmit(e as unknown as React.FormEvent, 'draft')}
               disabled={mutation.isPending || !form.title.trim()}
-              className="px-6 py-3 rounded-xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 transition-colors disabled:opacity-50"
             >
-              <Save className="w-4 h-4 inline mr-1.5" />
+              <Save className="w-4 h-4" />
               {t('marketplace.saveDraft', '保存草稿')}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="primary"
+              size="lg"
               type="submit"
               disabled={mutation.isPending || !form.title.trim()}
-              className="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-gray-900 font-bold hover:from-amber-500 hover:to-amber-600 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-50"
-              style={{ fontFamily: "'ZCOOL KuaiLe', cursive" }}
             >
-              <Plus className="w-4 h-4 inline mr-1.5" />
+              <Plus className="w-4 h-4" />
               {mutation.isPending
                 ? t('common.loading', '处理中...')
                 : isEdit
                   ? t('marketplace.updateListing', '更新挂单')
                   : t('marketplace.publishListing', '发布挂单')}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

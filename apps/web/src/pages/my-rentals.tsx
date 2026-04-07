@@ -71,17 +71,29 @@ interface MyListing {
 const STATUS_STYLES: Record<string, { labelKey: string; bg: string; text: string }> = {
   pending: { labelKey: 'marketplace.statusPending', bg: 'bg-yellow-50', text: 'text-yellow-700' },
   active: { labelKey: 'marketplace.statusActive', bg: 'bg-green-50', text: 'text-green-700' },
-  completed: { labelKey: 'marketplace.statusCompleted', bg: 'bg-gray-50', text: 'text-gray-600' },
-  cancelled: { labelKey: 'marketplace.statusCancelled', bg: 'bg-gray-50', text: 'text-gray-500' },
+  completed: {
+    labelKey: 'marketplace.statusCompleted',
+    bg: 'bg-bg-secondary',
+    text: 'text-text-secondary',
+  },
+  cancelled: {
+    labelKey: 'marketplace.statusCancelled',
+    bg: 'bg-bg-secondary',
+    text: 'text-text-muted',
+  },
   violated: { labelKey: 'marketplace.statusViolated', bg: 'bg-red-50', text: 'text-red-700' },
   disputed: { labelKey: 'marketplace.statusDisputed', bg: 'bg-orange-50', text: 'text-orange-700' },
 }
 
 const LISTING_STATUS: Record<string, { labelKey: string; bg: string; text: string }> = {
-  draft: { labelKey: 'marketplace.listingDraft', bg: 'bg-gray-50', text: 'text-gray-500' },
+  draft: { labelKey: 'marketplace.listingDraft', bg: 'bg-bg-secondary', text: 'text-text-muted' },
   active: { labelKey: 'marketplace.listingActive', bg: 'bg-green-50', text: 'text-green-700' },
   paused: { labelKey: 'marketplace.listingPaused', bg: 'bg-yellow-50', text: 'text-yellow-700' },
-  expired: { labelKey: 'marketplace.listingExpired', bg: 'bg-gray-50', text: 'text-gray-500' },
+  expired: {
+    labelKey: 'marketplace.listingExpired',
+    bg: 'bg-bg-secondary',
+    text: 'text-text-muted',
+  },
   closed: { labelKey: 'marketplace.listingClosed', bg: 'bg-red-50', text: 'text-red-600' },
 }
 
@@ -202,7 +214,7 @@ export function MyRentalsPage() {
 
   return (
     <div
-      className="min-h-screen bg-[#f2f7fc] text-gray-800"
+      className="min-h-screen bg-bg-deep text-text-primary"
       style={{ fontFamily: "'Nunito', 'ZCOOL KuaiLe', sans-serif" }}
     >
       <div className="max-w-5xl mx-auto px-6 py-8">
@@ -211,7 +223,7 @@ export function MyRentalsPage() {
           <div>
             <a
               href="/buddies"
-              className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-800 transition-colors font-bold mb-2"
+              className="inline-flex items-center gap-2 text-text-muted hover:text-text-primary transition-colors font-bold mb-2"
             >
               <ChevronLeft className="w-5 h-5" />
               {t('marketplace.backToMarket', '返回集市')}
@@ -222,7 +234,7 @@ export function MyRentalsPage() {
           </div>
           <Link
             to="/marketplace/create"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-gray-900 font-bold hover:from-amber-500 hover:to-amber-600 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-text-primary font-bold hover:from-amber-500 hover:to-amber-600 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
             style={{ fontFamily: "'ZCOOL KuaiLe', cursive" }}
           >
             <Plus className="w-4 h-4" />
@@ -237,8 +249,8 @@ export function MyRentalsPage() {
             onClick={() => setRentalsTab('renting')}
             className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${
               rentalsTab === 'renting'
-                ? 'bg-white shadow-lg text-cyan-700 border-2 border-cyan-200'
-                : 'bg-white/50 text-gray-500 border-2 border-transparent hover:bg-white/70'
+                ? 'bg-bg-secondary shadow-lg text-primary border-2 border-primary/30'
+                : 'bg-bg-secondary/50 text-text-muted border-2 border-transparent hover:bg-bg-secondary/70'
             }`}
           >
             {t('marketplace.renting', '我的租入')}
@@ -248,8 +260,8 @@ export function MyRentalsPage() {
             onClick={() => setRentalsTab('renting-out')}
             className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${
               rentalsTab === 'renting-out'
-                ? 'bg-white shadow-lg text-amber-700 border-2 border-amber-200'
-                : 'bg-white/50 text-gray-500 border-2 border-transparent hover:bg-white/70'
+                ? 'bg-bg-secondary shadow-lg text-primary border-2 border-primary/30'
+                : 'bg-bg-secondary/50 text-text-muted border-2 border-transparent hover:bg-bg-secondary/70'
             }`}
           >
             {t('marketplace.rentingOut', '我的出租')}
@@ -264,8 +276,8 @@ export function MyRentalsPage() {
               onClick={() => setRentalsSubTab('contracts')}
               className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${
                 rentalsSubTab === 'contracts'
-                  ? 'bg-amber-100 text-amber-800'
-                  : 'text-gray-500 hover:bg-gray-100'
+                  ? 'bg-primary/15 text-primary'
+                  : 'text-text-muted hover:bg-bg-secondary'
               }`}
             >
               {t('marketplace.outContracts', '租赁合同')}
@@ -275,8 +287,8 @@ export function MyRentalsPage() {
               onClick={() => setRentalsSubTab('listings')}
               className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${
                 rentalsSubTab === 'listings'
-                  ? 'bg-amber-100 text-amber-800'
-                  : 'text-gray-500 hover:bg-gray-100'
+                  ? 'bg-primary/15 text-primary'
+                  : 'text-text-muted hover:bg-bg-secondary'
               }`}
             >
               {t('marketplace.myListings', '我的挂单')}
@@ -291,13 +303,13 @@ export function MyRentalsPage() {
               [0, 1, 2].map((n) => (
                 <div
                   key={`skel-${n}`}
-                  className="bg-white/60 rounded-2xl border-2 border-white/90 p-6 animate-pulse h-28"
+                  className="bg-bg-secondary/60 rounded-2xl border-2 border-border/20 p-6 animate-pulse h-28"
                 />
               ))
             ) : !contracts?.length ? (
               <div className="text-center py-16">
                 <div className="text-5xl mb-4">📋</div>
-                <p className="text-gray-400 font-bold">
+                <p className="text-text-muted font-bold">
                   {t('marketplace.noContracts', '暂无租赁合同')}
                 </p>
               </div>
@@ -309,7 +321,7 @@ export function MyRentalsPage() {
                 return (
                   <div
                     key={c.id}
-                    className="bg-white/80 backdrop-blur rounded-2xl border-2 border-white/90 shadow-md hover:shadow-lg transition-all p-6"
+                    className="bg-bg-secondary/80 backdrop-blur rounded-2xl border-2 border-border/20 shadow-md hover:shadow-lg transition-all p-6"
                   >
                     <Link to={`/marketplace/contracts/${c.id}`} className="block">
                       <div className="flex items-start justify-between">
@@ -320,12 +332,14 @@ export function MyRentalsPage() {
                             >
                               {t(st.labelKey)}
                             </span>
-                            <span className="text-xs text-gray-400 font-mono">#{c.contractNo}</span>
+                            <span className="text-xs text-text-muted font-mono">
+                              #{c.contractNo}
+                            </span>
                           </div>
                           <h3 className="font-bold text-lg">
                             {c.listing?.title || t('marketplace.unknownListing', '未知挂单')}
                           </h3>
-                          <div className="flex items-center gap-4 text-sm text-gray-500 font-medium mt-1">
+                          <div className="flex items-center gap-4 text-sm text-text-muted font-medium mt-1">
                             <span className="flex items-center gap-1">
                               <Clock className="w-3.5 h-3.5" />
                               {c.startsAt && c.expiresAt
@@ -341,7 +355,7 @@ export function MyRentalsPage() {
                         </div>
                         <div className="text-right">
                           <div className="text-lg font-bold text-amber-600">{c.totalCost} 🦐</div>
-                          <div className="text-xs text-gray-400 font-medium">
+                          <div className="text-xs text-text-muted font-medium">
                             {new Date(c.createdAt).toLocaleDateString()}
                           </div>
                         </div>
@@ -349,12 +363,12 @@ export function MyRentalsPage() {
                     </Link>
                     {/* Countdown + Use button for active tenant contracts */}
                     {isActive && (
-                      <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+                      <div className="flex items-center justify-between mt-4 pt-4 border-t border-border/10">
                         <div>
                           {c.expiresAt ? (
                             <RentalCountdown expiresAt={c.expiresAt} />
                           ) : (
-                            <span className="text-xs text-gray-400 font-medium">
+                            <span className="text-xs text-text-muted font-medium">
                               {t('marketplace.unlimitedUsage', '不限时使用')}
                             </span>
                           )}
@@ -426,7 +440,7 @@ function ListingsSection({
         {[0, 1, 2].map((n) => (
           <div
             key={`lskel-${n}`}
-            className="bg-white/60 rounded-2xl border-2 border-white/90 p-6 animate-pulse h-24"
+            className="bg-bg-secondary/60 rounded-2xl border-2 border-border/20 p-6 animate-pulse h-24"
           />
         ))}
       </div>
@@ -437,7 +451,7 @@ function ListingsSection({
     return (
       <div className="text-center py-16">
         <div className="text-5xl mb-4">📦</div>
-        <p className="text-gray-400 font-bold">
+        <p className="text-text-muted font-bold">
           {t('marketplace.noListings', '还没有挂单，快去创建一个吧')}
         </p>
       </div>
@@ -466,7 +480,7 @@ function ListingsSection({
           <button
             type="button"
             onClick={() => setShowOffline(!showOffline)}
-            className="flex items-center gap-2 text-sm font-bold text-gray-400 hover:text-gray-600 transition-colors w-full"
+            className="flex items-center gap-2 text-sm font-bold text-text-muted hover:text-text-secondary transition-colors w-full"
           >
             <ChevronDown
               className={`w-4 h-4 transition-transform ${showOffline ? 'rotate-180' : ''}`}
@@ -519,8 +533,8 @@ function ListingCard({
   } else if (!l.isListed && l.listingStatus === 'active') {
     statusBadge = {
       label: t('marketplace.listingUnlisted', '已下架'),
-      bg: 'bg-gray-50',
-      text: 'text-gray-500',
+      bg: 'bg-bg-secondary',
+      text: 'text-text-muted',
     }
   } else {
     const ls = LISTING_STATUS[l.listingStatus] ?? LISTING_STATUS.draft!
@@ -528,7 +542,7 @@ function ListingCard({
   }
 
   return (
-    <div className="bg-white/80 backdrop-blur rounded-2xl border-2 border-white/90 shadow-md p-6">
+    <div className="bg-bg-secondary/80 backdrop-blur rounded-2xl border-2 border-border/20 shadow-md p-6">
       <div className="flex items-center justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-1">
@@ -540,20 +554,20 @@ function ListingCard({
             {/* Online status indicator */}
             <span className="flex items-center gap-1.5 text-xs">
               <span
-                className={`w-2 h-2 rounded-full ${online ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`}
+                className={`w-2 h-2 rounded-full ${online ? 'bg-green-500 animate-pulse' : 'bg-text-muted/30'}`}
               />
-              <span className={online ? 'text-green-600 font-bold' : 'text-gray-400'}>
+              <span className={online ? 'text-green-600 font-bold' : 'text-text-muted'}>
                 {online ? t('marketplace.online', '在线') : t('marketplace.offline', '离线')}
               </span>
             </span>
             {l.agent?.totalOnlineSeconds ? (
-              <span className="text-xs text-gray-400 flex items-center gap-1">
+              <span className="text-xs text-text-muted flex items-center gap-1">
                 <Clock className="w-3 h-3" />
                 {t('marketplace.totalOnline', '累计')}{' '}
                 {formatOnlineDuration(l.agent.totalOnlineSeconds, t)}
               </span>
             ) : null}
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-text-muted">
               {(() => {
                 const d = DEVICE_TIERS[l.deviceTier]
                 return d ? `${d.icon} ${t(d.labelKey)}` : ''
@@ -561,7 +575,7 @@ function ListingCard({
             </span>
           </div>
           <h3 className="font-bold text-lg">{l.title}</h3>
-          <div className="flex items-center gap-4 text-sm text-gray-500 mt-1">
+          <div className="flex items-center gap-4 text-sm text-text-muted mt-1">
             <span>
               {l.pricingVersion === 2 ? `${l.baseDailyRate ?? 0} 🦐/d` : `${l.hourlyRate} 🦐/h`}
             </span>
@@ -625,7 +639,7 @@ function ListingCard({
           )}
           <Link
             to={`/marketplace/edit/${l.id}`}
-            className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+            className="p-2 rounded-lg text-text-muted hover:bg-bg-secondary transition-colors"
             title={t('marketplace.edit', '编辑')}
           >
             <Edit className="w-4 h-4" />

@@ -1,3 +1,4 @@
+import { Button } from '@shadowob/ui'
 import { Dices, Upload } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -52,7 +53,7 @@ export function AvatarEditor({ value, onChange }: AvatarEditorProps) {
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-4">
         {/* Current Avatar Display */}
-        <div className="w-20 h-20 rounded-[12px] border-4 border-[#1e1f22] bg-bg-secondary overflow-hidden flex items-center justify-center shrink-0">
+        <div className="w-20 h-20 rounded-[12px] border-4 border-border-subtle bg-bg-secondary overflow-hidden flex items-center justify-center shrink-0">
           {value ? (
             <img src={value} alt="Avatar" className="w-full h-full object-cover" />
           ) : (
@@ -67,7 +68,7 @@ export function AvatarEditor({ value, onChange }: AvatarEditorProps) {
               onClick={() => setTab('preset')}
               className={`px-4 py-1.5 rounded-[5px] text-[13px] font-bold transition flex items-center gap-1 ${
                 tab === 'preset'
-                  ? 'bg-bg-primary text-[#f2f3f5] shadow-sm'
+                  ? 'bg-bg-primary text-text-primary shadow-sm'
                   : 'text-text-muted hover:text-text-primary hover:bg-bg-secondary'
               }`}
             >
@@ -79,7 +80,7 @@ export function AvatarEditor({ value, onChange }: AvatarEditorProps) {
               onClick={() => setTab('upload')}
               className={`px-4 py-1.5 rounded-[5px] text-[13px] font-bold transition flex items-center gap-1 ${
                 tab === 'upload'
-                  ? 'bg-bg-primary text-[#f2f3f5] shadow-sm'
+                  ? 'bg-bg-primary text-text-primary shadow-sm'
                   : 'text-text-muted hover:text-text-primary hover:bg-bg-secondary'
               }`}
             >
@@ -92,7 +93,7 @@ export function AvatarEditor({ value, onChange }: AvatarEditorProps) {
       </div>
 
       {tab === 'preset' && (
-        <div className="bg-bg-secondary border border-[#1e1f22] rounded-[8px] p-4 flex items-center justify-between">
+        <div className="bg-bg-secondary border border-border-subtle rounded-[8px] p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-[48px] h-[48px] rounded-[10px] bg-bg-tertiary border-[2px] border-transparent overflow-hidden">
               <img
@@ -102,23 +103,19 @@ export function AvatarEditor({ value, onChange }: AvatarEditorProps) {
               />
             </div>
             <div>
-              <h4 className="text-[14px] font-bold text-[#f2f3f5]">{t('agentMgmt.diceCat')}</h4>
+              <h4 className="text-[14px] font-bold text-text-primary">{t('agentMgmt.diceCat')}</h4>
               <p className="text-[12px] text-text-muted">{t('agentMgmt.diceCatDesc')}</p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={handleRollDice}
-            className="flex items-center gap-2 px-4 py-1.5 bg-[#5865F2] hover:bg-[#4752C4] text-white text-[14px] font-bold rounded-[3px] transition"
-          >
+          <Button variant="accent" size="sm" onClick={handleRollDice}>
             {t('agentMgmt.generateBtn')}
-          </button>
+          </Button>
         </div>
       )}
 
       {tab === 'upload' && (
-        <div className="bg-bg-tertiary border-2 border-dashed border-[#383a40] hover:border-[#5865F2] rounded-[8px] p-4 flex flex-col items-center justify-center gap-1 transition-colors relative cursor-pointer group">
-          <div className="w-10 h-10 rounded-full bg-bg-secondary group-hover:bg-[#5865F2] flex items-center justify-center transition-colors">
+        <div className="bg-bg-tertiary border-2 border-dashed border-border-subtle hover:border-primary rounded-[8px] p-4 flex flex-col items-center justify-center gap-1 transition-colors relative cursor-pointer group">
+          <div className="w-10 h-10 rounded-full bg-bg-secondary group-hover:bg-primary flex items-center justify-center transition-colors">
             <Upload size={20} className="text-text-primary group-hover:text-white" />
           </div>
           <p className="text-[14px] text-text-primary font-bold mt-2">

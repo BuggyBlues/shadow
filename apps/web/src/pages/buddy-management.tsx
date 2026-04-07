@@ -1,3 +1,16 @@
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  cn,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+} from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import {
@@ -71,43 +84,32 @@ function AgentListingBadge({ agent }: { agent: Agent }) {
   const { t } = useTranslation()
   if (agent.isRented) {
     return (
-      <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-500 font-bold shrink-0">
+      <Badge variant="warning" size="xs" className="shrink-0">
         🔒 {t('agentMgmt.rented')}
-      </span>
+      </Badge>
     )
   }
   if (agent.isListed) {
     return (
-      <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-500 font-bold shrink-0">
+      <Badge variant="success" size="xs" className="shrink-0">
         📋 {t('agentMgmt.listed')}
-      </span>
+      </Badge>
     )
   }
   if (agent.listingInfo) {
-    const statusMap: Record<string, { label: string; className: string }> = {
-      draft: {
-        label: t('agentMgmt.listingDraft'),
-        className: 'bg-gray-500/20 text-gray-400',
-      },
-      paused: {
-        label: t('agentMgmt.listingPaused'),
-        className: 'bg-yellow-500/20 text-yellow-500',
-      },
-      expired: {
-        label: t('agentMgmt.listingExpired'),
-        className: 'bg-gray-500/20 text-gray-400',
-      },
-      closed: {
-        label: t('agentMgmt.listingClosed'),
-        className: 'bg-red-500/20 text-red-400',
-      },
-    }
+    const statusMap: Record<string, { label: string; variant: 'neutral' | 'warning' | 'danger' }> =
+      {
+        draft: { label: t('agentMgmt.listingDraft'), variant: 'neutral' },
+        paused: { label: t('agentMgmt.listingPaused'), variant: 'warning' },
+        expired: { label: t('agentMgmt.listingExpired'), variant: 'neutral' },
+        closed: { label: t('agentMgmt.listingClosed'), variant: 'danger' },
+      }
     const info = statusMap[agent.listingInfo.listingStatus]
     if (info) {
       return (
-        <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0 ${info.className}`}>
+        <Badge variant={info.variant} size="xs" className="shrink-0">
           {info.label}
-        </span>
+        </Badge>
       )
     }
   }
@@ -116,13 +118,13 @@ function AgentListingBadge({ agent }: { agent: Agent }) {
 
 /** Returns the status dot color class for an agent based on heartbeat-based online detection */
 function getAgentOnlineDotClass(agent: Agent): string {
-  if (agent.status === 'error') return 'bg-[#da373c]'
-  if (agent.status === 'stopped') return 'bg-[#80848e]'
+  if (agent.status === 'error') return 'bg-danger'
+  if (agent.status === 'stopped') return 'bg-text-muted/50'
   // running — check heartbeat
   if (agent.lastHeartbeat && Date.now() - new Date(agent.lastHeartbeat).getTime() < 90000) {
-    return 'bg-green-500'
+    return 'bg-success'
   }
-  return 'bg-[#80848e]' // running but heartbeat stale → show as offline
+  return 'bg-text-muted/50' // running but heartbeat stale → show as offline
 }
 
 /** Formats total online seconds into a human-readable duration string */
@@ -263,44 +265,44 @@ export function BuddyManagementPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row bg-bg-primary overflow-hidden">
+    <div className="flex-1 flex flex-col md:flex-row bg-bg-deep overflow-hidden">
       {/* Mobile header */}
-      <div className="md:hidden flex items-center gap-2 px-4 py-3 bg-bg-secondary border-b border-border-subtle shrink-0">
+      <div className="md:hidden flex items-center gap-2 px-4 py-3 bg-bg-deep/80 backdrop-blur-xl border-b border-white/5 shrink-0">
         {selectedAgent ? (
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => {
               setSelectedAgent(null)
               setGeneratedToken(null)
             }}
-            className="flex items-center gap-2 text-text-muted hover:text-text-primary transition text-sm font-medium"
           >
             <ArrowLeft size={16} />
             {t('agentMgmt.title')}
-          </button>
+          </Button>
         ) : (
           <>
-            <button
-              onClick={() => navigate({ to: '/' })}
-              className="flex items-center gap-2 text-text-muted hover:text-text-primary transition text-sm font-medium"
-            >
+            <Button variant="ghost" size="sm" onClick={() => navigate({ to: '/' })}>
               <ArrowLeft size={16} />
               {t('common.back')}
-            </button>
+            </Button>
             <span className="flex-1" />
-            <button
+            <Button
+              variant="primary"
+              size="sm"
+              className="rounded-full"
               onClick={() => setShowCreate(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-[#23a559] bg-[#23a559]/10 hover:bg-[#23a559]/20 transition"
             >
               <Plus size={14} />
               {t('agentMgmt.newAgent')}
-            </button>
+            </Button>
           </>
         )}
       </div>
 
       {/* Mobile agent list (when no agent selected) */}
       {!selectedAgent && (
-        <div className="md:hidden flex-1 overflow-y-auto px-3 py-2 space-y-[2px]">
+        <div className="md:hidden flex-1 overflow-y-auto px-3 py-2 space-y-1">
           {agents.map((agent) => (
             <button
               key={agent.id}
@@ -308,7 +310,7 @@ export function BuddyManagementPage() {
                 setSelectedAgent(agent)
                 setGeneratedToken(null)
               }}
-              className="flex items-center gap-3 w-full px-3 py-2 rounded-md text-[15px] font-medium text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary transition"
+              className="flex items-center gap-3 w-full px-4 py-3 rounded-[16px] text-[15px] font-medium text-text-secondary hover:bg-primary/10 hover:text-text-primary transition"
             >
               <UserAvatar
                 userId={agent.botUser?.id ?? agent.userId}
@@ -327,22 +329,19 @@ export function BuddyManagementPage() {
       )}
 
       {/* Desktop Sidebar */}
-      <div className="w-60 bg-bg-secondary hidden md:flex flex-col shrink-0">
-        <div className="p-4 border-b-2 border-bg-tertiary">
-          <button
-            onClick={() => navigate({ to: '/' })}
-            className="flex items-center gap-2 text-text-secondary hover:text-text-primary transition text-[15px] font-medium"
-          >
+      <div className="w-60 bg-bg-deep/50 backdrop-blur-xl border-r border-white/5 hidden md:flex flex-col shrink-0">
+        <div className="p-4 border-b border-white/5">
+          <Button variant="ghost" size="sm" onClick={() => navigate({ to: '/' })}>
             <ArrowLeft size={16} />
             {t('common.back')}
-          </button>
+          </Button>
         </div>
-        <div className="px-5 py-3 text-[12px] font-bold uppercase text-text-secondary tracking-wide mt-2">
+        <div className="px-5 py-3 text-[11px] font-black uppercase text-text-muted tracking-[0.2em] mt-2">
           {t('agentMgmt.title')}
         </div>
 
         {/* Agent list */}
-        <div className="flex-1 overflow-y-auto px-3 space-y-[2px]">
+        <div className="flex-1 overflow-y-auto px-3 space-y-1">
           {agents.map((agent) => (
             <button
               key={agent.id}
@@ -351,11 +350,12 @@ export function BuddyManagementPage() {
                 setGeneratedToken(null)
               }}
               onContextMenu={(e) => handleAgentContextMenu(e, agent)}
-              className={`flex items-center gap-3 w-full px-3 py-2 rounded-md text-[15px] font-medium transition ${
+              className={cn(
+                'flex items-center gap-3 w-full px-3 py-2.5 rounded-[16px] text-[15px] font-medium transition',
                 selectedAgent?.id === agent.id
-                  ? 'bg-bg-modifier-active text-text-primary'
-                  : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
-              }`}
+                  ? 'bg-primary/15 text-text-primary'
+                  : 'text-text-secondary hover:bg-primary/10 hover:text-text-primary',
+              )}
             >
               <UserAvatar
                 userId={agent.botUser?.id ?? agent.userId}
@@ -372,13 +372,15 @@ export function BuddyManagementPage() {
           ))}
 
           {/* New Agent button */}
-          <button
+          <Button
+            variant="primary"
+            size="sm"
+            className="w-full rounded-full mt-3 mb-2"
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 w-full px-3 py-2 rounded-md text-[15px] font-medium text-[#23a559] hover:bg-[#23a559]/10 transition mt-2 mb-2"
           >
-            <Plus size={16} />
+            <Plus size={14} />
             {t('agentMgmt.newAgent')}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -388,9 +390,10 @@ export function BuddyManagementPage() {
           {/* Global message */}
           {message && (
             <div
-              className={`mb-4 px-4 py-2 rounded-lg text-sm ${
-                message.success ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
-              }`}
+              className={cn(
+                'mb-4 px-4 py-2 rounded-full text-sm font-bold',
+                message.success ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger',
+              )}
             >
               {message.text}
             </div>
@@ -454,40 +457,32 @@ export function BuddyManagementPage() {
       )}
 
       {/* Delete confirmation dialog */}
-      {deleteConfirmId && (
-        <div
-          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
-          onClick={() => setDeleteConfirmId(null)}
-        >
-          <div
-            className="bg-bg-secondary rounded-xl p-6 w-full max-w-96 mx-4 border border-border-subtle"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="text-xl font-bold text-text-primary mb-2">{t('common.confirm')}</h2>
-            <p className="text-text-muted text-sm mb-6">{t('agentMgmt.deleteConfirm')}</p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setDeleteConfirmId(null)}
-                className="px-4 py-2 text-text-secondary hover:text-text-primary transition rounded-lg"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={() => deleteMutation.mutate(deleteConfirmId)}
-                disabled={deleteMutation.isPending}
-                className="px-4 py-2 bg-danger text-white rounded-lg hover:bg-red-600 transition font-bold disabled:opacity-50"
-              >
-                {t('common.delete')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Dialog isOpen={!!deleteConfirmId} onClose={() => setDeleteConfirmId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('common.confirm')}</DialogTitle>
+          </DialogHeader>
+          <p className="text-text-muted text-sm font-bold italic">{t('agentMgmt.deleteConfirm')}</p>
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => setDeleteConfirmId(null)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => deleteConfirmId && deleteMutation.mutate(deleteConfirmId)}
+              disabled={deleteMutation.isPending}
+            >
+              {t('common.delete')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Agent context menu */}
       {contextMenu && (
         <div
-          className="fixed z-50 bg-bg-tertiary border border-border-dim rounded-lg shadow-xl py-1 min-w-[160px]"
+          className="fixed z-50 bg-bg-deep/90 backdrop-blur-xl border border-white/10 rounded-[16px] shadow-xl py-2 min-w-[180px]"
           style={{ top: contextMenu.y, left: contextMenu.x }}
         >
           <button
@@ -497,7 +492,8 @@ export function BuddyManagementPage() {
               setSelectedAgent(contextMenu.agent)
               setContextMenu(null)
             }}
-            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+            className="flex items-center gap-2 w-full px-4 py-2 text-sm text-text-secondary hover:bg-primary/10 hover:text-text-primary transition rounded-lg mx-1"
+            style={{ width: 'calc(100% - 8px)' }}
           >
             <Key size={14} />
             {t('agentMgmt.generateToken')}
@@ -508,7 +504,8 @@ export function BuddyManagementPage() {
               toggleMutation.mutate(contextMenu.agent)
               setContextMenu(null)
             }}
-            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+            className="flex items-center gap-2 w-full px-4 py-2 text-sm text-text-secondary hover:bg-primary/10 hover:text-text-primary transition rounded-lg mx-1"
+            style={{ width: 'calc(100% - 8px)' }}
           >
             {contextMenu.agent.status === 'running' ? (
               <XCircle size={14} />
@@ -526,19 +523,21 @@ export function BuddyManagementPage() {
               setShowEdit(true)
               setContextMenu(null)
             }}
-            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary transition"
+            className="flex items-center gap-2 w-full px-4 py-2 text-sm text-text-secondary hover:bg-primary/10 hover:text-text-primary transition rounded-lg mx-1"
+            style={{ width: 'calc(100% - 8px)' }}
           >
             <Edit2 size={14} />
             {t('common.edit')}
           </button>
-          <div className="h-px bg-border-subtle my-1" />
+          <div className="h-px bg-white/5 my-1 mx-3" />
           <button
             type="button"
             onClick={() => {
               setDeleteConfirmId(contextMenu.agent.id)
               setContextMenu(null)
             }}
-            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition"
+            className="flex items-center gap-2 w-full px-4 py-2 text-sm text-danger hover:bg-danger/10 transition rounded-lg mx-1"
+            style={{ width: 'calc(100% - 8px)' }}
           >
             <Trash2 size={14} />
             {t('common.delete')}
@@ -584,198 +583,195 @@ function AgentDetail({
   return (
     <>
       {/* Agent header */}
-      <div className="bg-bg-secondary rounded-xl p-6 mb-6 border border-border-subtle">
-        <div className="flex items-center gap-4">
-          <UserAvatar
-            userId={agent.botUser?.id ?? agent.userId}
-            avatarUrl={agent.botUser?.avatarUrl}
-            displayName={name}
-            size="xl"
-          />
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <h3 className="text-lg font-bold text-text-primary">{name}</h3>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/20 text-primary">
-                {t('common.bot')}
-              </span>
+      <Card variant="glass" className="rounded-[24px] mb-6">
+        <CardContent className="p-6">
+          <div className="flex items-center gap-4">
+            <UserAvatar
+              userId={agent.botUser?.id ?? agent.userId}
+              avatarUrl={agent.botUser?.avatarUrl}
+              displayName={name}
+              size="xl"
+            />
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-black text-text-primary">{name}</h3>
+                <Badge variant="primary" size="xs">
+                  {t('common.bot')}
+                </Badge>
+              </div>
+              {agent.botUser?.username && (
+                <p className="text-sm text-text-muted font-bold italic">
+                  @{agent.botUser.username}
+                </p>
+              )}
+              {desc && <p className="text-sm text-text-secondary mt-1">{desc}</p>}
             </div>
-            {agent.botUser?.username && (
-              <p className="text-sm text-text-muted">@{agent.botUser.username}</p>
-            )}
-            {desc && <p className="text-sm text-text-secondary mt-1">{desc}</p>}
+            <div className="flex gap-2">
+              <Button variant="ghost" size="icon" onClick={onEdit} title={t('common.edit')}>
+                <Edit2 size={18} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onDelete}
+                className="hover:text-danger hover:bg-danger/10"
+                title={t('common.delete')}
+              >
+                <Trash2 size={18} />
+              </Button>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={onEdit}
-              className="p-2 text-text-muted hover:text-primary transition rounded-lg hover:bg-primary/10"
-              title={t('common.edit')}
-            >
-              <Edit2 size={18} />
-            </button>
-            <button
-              onClick={onDelete}
-              className="p-2 text-text-muted hover:text-danger transition rounded-lg hover:bg-danger/10"
-              title={t('common.delete')}
-            >
-              <Trash2 size={18} />
-            </button>
-          </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Status & info */}
-      <div className="bg-bg-secondary rounded-xl p-6 mb-6 border border-border-subtle grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-[10px] font-bold uppercase text-text-muted mb-1">
-            {t('agentMgmt.status')}
-          </label>
-          <div className="flex items-center gap-2">
-            {(() => {
-              if (agent.status === 'error') {
+      <Card variant="glass" className="rounded-[24px] mb-6">
+        <CardContent className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.2em] mb-1">
+              {t('agentMgmt.status')}
+            </label>
+            <div className="flex items-center gap-2">
+              {(() => {
+                if (agent.status === 'error') {
+                  return (
+                    <Badge variant="danger" size="sm">
+                      <XCircle size={12} className="mr-1" />
+                      {t('agentMgmt.statusError')}
+                    </Badge>
+                  )
+                }
+                if (agent.status === 'stopped') {
+                  return (
+                    <Badge variant="neutral" size="sm">
+                      <span className="w-2 h-2 rounded-full bg-text-muted mr-1" />
+                      {t('agentMgmt.statusStopped')}
+                    </Badge>
+                  )
+                }
+                const isOnline =
+                  agent.lastHeartbeat &&
+                  Date.now() - new Date(agent.lastHeartbeat).getTime() < 90000
                 return (
-                  <div className="flex items-center gap-2 text-red-400">
-                    <XCircle size={14} />
-                    <span className="text-sm font-medium">{t('agentMgmt.statusError')}</span>
-                  </div>
-                )
-              }
-              if (agent.status === 'stopped') {
-                return (
-                  <div className="flex items-center gap-2 text-zinc-400">
-                    <span className="w-3 h-3 rounded-full bg-gray-500" />
-                    <span className="text-sm font-medium">{t('agentMgmt.statusStopped')}</span>
-                  </div>
-                )
-              }
-              // running — use heartbeat to determine online/offline
-              const isOnline =
-                agent.lastHeartbeat && Date.now() - new Date(agent.lastHeartbeat).getTime() < 90000
-              return (
-                <div
-                  className={`flex items-center gap-2 ${isOnline ? 'text-green-400' : 'text-zinc-400'}`}
-                >
-                  <span
-                    className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-500' : 'bg-[#80848e]'}`}
-                  />
-                  <span className="text-sm font-medium">
+                  <Badge variant={isOnline ? 'success' : 'neutral'} size="sm">
+                    <span
+                      className={cn(
+                        'w-2 h-2 rounded-full mr-1',
+                        isOnline ? 'bg-success' : 'bg-text-muted',
+                      )}
+                    />
                     {isOnline ? t('member.online') : t('member.offline')}
-                  </span>
-                </div>
-              )
-            })()}
+                  </Badge>
+                )
+              })()}
+            </div>
           </div>
-        </div>
-        <div>
-          <label className="block text-[10px] font-bold uppercase text-text-muted mb-1">
-            {t('agentMgmt.enableDisable')}
-          </label>
-          <button
-            type="button"
-            onClick={() => onToggle(agent)}
-            disabled={togglePending}
-            className={`relative w-11 h-6 rounded-full transition-colors ${
-              agent.status === 'running' ? 'bg-green-500' : 'bg-zinc-600'
-            } ${togglePending ? 'opacity-50' : ''}`}
-          >
-            <span
-              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
-                agent.status === 'running' ? 'translate-x-5' : ''
-              }`}
-            />
-          </button>
-        </div>
-        <div>
-          <label className="block text-[10px] font-bold uppercase text-text-muted mb-1">
-            {t('agentMgmt.owner')}
-          </label>
-          <div className="flex items-center gap-2">
-            {agent.owner && (
-              <UserAvatar
-                userId={agent.owner.id}
-                avatarUrl={agent.owner.avatarUrl}
-                displayName={agent.owner.displayName ?? agent.owner.username}
-                size="xs"
+          <div>
+            <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.2em] mb-1">
+              {t('agentMgmt.enableDisable')}
+            </label>
+            <button
+              type="button"
+              onClick={() => onToggle(agent)}
+              disabled={togglePending}
+              className={cn(
+                'relative w-11 h-6 rounded-full transition-colors',
+                agent.status === 'running' ? 'bg-success' : 'bg-text-muted/30',
+                togglePending && 'opacity-50',
+              )}
+            >
+              <span
+                className={cn(
+                  'absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow-sm',
+                  agent.status === 'running' && 'translate-x-5',
+                )}
               />
-            )}
-            <p className="text-sm text-text-primary">
-              {agent.owner?.displayName ?? agent.owner?.username ?? '—'}
+            </button>
+          </div>
+          <div>
+            <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.2em] mb-1">
+              {t('agentMgmt.owner')}
+            </label>
+            <div className="flex items-center gap-2">
+              {agent.owner && (
+                <UserAvatar
+                  userId={agent.owner.id}
+                  avatarUrl={agent.owner.avatarUrl}
+                  displayName={agent.owner.displayName ?? agent.owner.username}
+                  size="xs"
+                />
+              )}
+              <p className="text-sm text-text-primary font-bold">
+                {agent.owner?.displayName ?? agent.owner?.username ?? '—'}
+              </p>
+            </div>
+          </div>
+          <div>
+            <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.2em] mb-1">
+              {t('agentMgmt.createdAt')}
+            </label>
+            <p className="text-sm text-text-primary font-bold">
+              {new Date(agent.createdAt).toLocaleString()}
             </p>
           </div>
-        </div>
-        <div>
-          <label className="block text-[10px] font-bold uppercase text-text-muted mb-1">
-            {t('agentMgmt.createdAt')}
-          </label>
-          <p className="text-sm text-text-primary">{new Date(agent.createdAt).toLocaleString()}</p>
-        </div>
-        <div>
-          <label className="block text-[10px] font-bold uppercase text-text-muted mb-1">
-            {t('agentMgmt.totalOnlineTime')}
-          </label>
-          <p className="text-sm text-text-primary">
-            {formatOnlineDuration(
-              agent.totalOnlineSeconds ?? 0,
-              t as (key: string, defaultValue?: string) => string,
-            )}
-          </p>
-        </div>
-        <div>
-          <label className="block text-[10px] font-bold uppercase text-text-muted mb-1">
-            {t('agentMgmt.connection')}
-          </label>
-          {(() => {
-            if (!agent.lastHeartbeat) {
+          <div>
+            <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.2em] mb-1">
+              {t('agentMgmt.totalOnlineTime')}
+            </label>
+            <p className="text-sm text-text-primary font-bold">
+              {formatOnlineDuration(
+                agent.totalOnlineSeconds ?? 0,
+                t as (key: string, defaultValue?: string) => string,
+              )}
+            </p>
+          </div>
+          <div>
+            <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.2em] mb-1">
+              {t('agentMgmt.connection')}
+            </label>
+            {(() => {
+              if (!agent.lastHeartbeat) {
+                return (
+                  <Badge variant="neutral" size="sm">
+                    {t('agentMgmt.neverConnected')}
+                  </Badge>
+                )
+              }
+              const lastBeat = new Date(agent.lastHeartbeat).getTime()
+              const now = Date.now()
+              const diffSec = Math.floor((now - lastBeat) / 1000)
+              const isOnline = diffSec < 90
+              const isWarning = diffSec >= 90 && diffSec < 300
               return (
-                <div className="flex items-center gap-2 text-text-muted">
-                  <span className="w-2 h-2 rounded-full bg-zinc-500" />
-                  <span className="text-sm">{t('agentMgmt.neverConnected')}</span>
-                </div>
-              )
-            }
-            const lastBeat = new Date(agent.lastHeartbeat).getTime()
-            const now = Date.now()
-            const diffSec = Math.floor((now - lastBeat) / 1000)
-            const isOnline = diffSec < 90
-            const isWarning = diffSec >= 90 && diffSec < 300
-            return (
-              <div className="flex items-center gap-2">
-                <span
-                  className={`w-2 h-2 rounded-full ${
-                    isOnline ? 'bg-green-400' : isWarning ? 'bg-yellow-400' : 'bg-red-400'
-                  }`}
-                />
-                <span
-                  className={`text-sm ${
-                    isOnline ? 'text-green-400' : isWarning ? 'text-yellow-400' : 'text-red-400'
-                  }`}
-                >
+                <Badge variant={isOnline ? 'success' : isWarning ? 'warning' : 'danger'} size="sm">
+                  <span
+                    className={cn(
+                      'w-2 h-2 rounded-full mr-1',
+                      isOnline ? 'bg-success' : isWarning ? 'bg-warning' : 'bg-danger',
+                    )}
+                  />
                   {isOnline
                     ? t('agentMgmt.connected')
                     : `${t('agentMgmt.lastSeen')} ${new Date(agent.lastHeartbeat).toLocaleString()}`}
-                </span>
-              </div>
-            )
-          })()}
-        </div>
-        <div>
-          <label className="block text-[10px] font-bold uppercase text-text-muted mb-1">
-            {t('agentMgmt.rentalStatus')}
-          </label>
-          <div className="flex items-center gap-2">
-            {agent.isRented ? (
-              <>
-                <span className="w-2 h-2 rounded-full bg-amber-400" />
-                <span className="text-sm text-amber-400 font-medium">{t('agentMgmt.rented')}</span>
-              </>
-            ) : agent.isListed ? (
-              <>
-                <span className="w-2 h-2 rounded-full bg-green-400" />
-                <span className="text-sm text-green-400 font-medium">{t('agentMgmt.listed')}</span>
-              </>
-            ) : agent.listingInfo ? (
-              <>
-                <span className="w-2 h-2 rounded-full bg-yellow-400" />
-                <span className="text-sm text-yellow-400 font-medium">
+                </Badge>
+              )
+            })()}
+          </div>
+          <div>
+            <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.2em] mb-1">
+              {t('agentMgmt.rentalStatus')}
+            </label>
+            <div className="flex items-center gap-2">
+              {agent.isRented ? (
+                <Badge variant="warning" size="sm">
+                  {t('agentMgmt.rented')}
+                </Badge>
+              ) : agent.isListed ? (
+                <Badge variant="success" size="sm">
+                  {t('agentMgmt.listed')}
+                </Badge>
+              ) : agent.listingInfo ? (
+                <Badge variant="warning" size="sm">
                   {agent.listingInfo.listingStatus === 'draft'
                     ? t('agentMgmt.listingDraft')
                     : agent.listingInfo.listingStatus === 'paused'
@@ -783,68 +779,68 @@ function AgentDetail({
                       : agent.listingInfo.listingStatus === 'expired'
                         ? t('agentMgmt.listingExpired')
                         : t('agentMgmt.listingClosed')}
-                </span>
-              </>
-            ) : (
-              <>
-                <span className="w-2 h-2 rounded-full bg-zinc-500" />
-                <span className="text-sm text-text-muted">{t('agentMgmt.notListed')}</span>
-              </>
-            )}
+                </Badge>
+              ) : (
+                <Badge variant="neutral" size="sm">
+                  {t('agentMgmt.notListed')}
+                </Badge>
+              )}
+            </div>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Token section */}
-      <div className="bg-bg-secondary rounded-xl p-6 mb-6 border border-border-subtle">
-        <div className="flex items-center gap-2 mb-2">
-          <Key size={16} className="text-primary" />
-          <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">
-            {t('agentMgmt.tokenTitle')}
-          </h3>
-        </div>
-        <p className="text-sm text-text-muted mb-4">{t('agentMgmt.tokenDesc')}</p>
+      <Card variant="glass" className="rounded-[24px] mb-6">
+        <CardContent className="p-6">
+          <div className="flex items-center gap-2 mb-2">
+            <Key size={16} className="text-primary" />
+            <h3 className="text-sm font-black text-text-primary uppercase tracking-[0.15em]">
+              {t('agentMgmt.tokenTitle')}
+            </h3>
+          </div>
+          <p className="text-sm text-text-muted font-bold italic mb-4">
+            {t('agentMgmt.tokenDesc')}
+          </p>
 
-        {(() => {
-          const displayToken =
-            generatedToken ?? (agent.config?.lastToken as string | undefined) ?? null
-          if (displayToken) {
-            return (
-              <div className="space-y-3">
-                <div className="bg-bg-tertiary rounded-lg p-3 break-all font-mono text-xs text-text-secondary border border-border-subtle">
-                  {displayToken}
-                </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => onCopyToken(displayToken)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition ${
-                      tokenCopied
-                        ? 'bg-green-500/20 text-green-400'
-                        : 'bg-primary hover:bg-primary-hover text-white'
-                    }`}
-                  >
-                    <ClipboardCopy size={14} />
-                    {tokenCopied ? t('common.copied') : t('common.copy')}
-                  </button>
-                  <button
-                    onClick={() => tokenMutation.mutate(agent.id)}
-                    disabled={tokenMutation.isPending}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition bg-bg-tertiary text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary disabled:opacity-50"
-                  >
-                    <Key size={14} />
-                    {tokenMutation.isPending
-                      ? t('agentMgmt.generating')
-                      : t('agentMgmt.regenerateToken')}
-                  </button>
-                </div>
+          {(() => {
+            const displayToken =
+              generatedToken ?? (agent.config?.lastToken as string | undefined) ?? null
+            if (displayToken) {
+              return (
+                <div className="space-y-3">
+                  <div className="bg-bg-deep/50 backdrop-blur-sm rounded-[16px] p-3 break-all font-mono text-xs text-text-secondary border border-white/5">
+                    {displayToken}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant={tokenCopied ? 'outline' : 'primary'}
+                      size="sm"
+                      onClick={() => onCopyToken(displayToken)}
+                    >
+                      <ClipboardCopy size={14} />
+                      {tokenCopied ? t('common.copied') : t('common.copy')}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => tokenMutation.mutate(agent.id)}
+                      disabled={tokenMutation.isPending}
+                    >
+                      <Key size={14} />
+                      {tokenMutation.isPending
+                        ? t('agentMgmt.generating')
+                        : t('agentMgmt.regenerateToken')}
+                    </Button>
+                  </div>
 
-                {/* YAML example */}
-                <div className="mt-4">
-                  <label className="block text-[10px] font-bold uppercase text-text-muted mb-2">
-                    {t('agentMgmt.configExample')}
-                  </label>
-                  <pre className="bg-bg-tertiary rounded-lg p-4 text-xs text-text-secondary border border-border-subtle overflow-x-auto">
-                    {`{
+                  {/* YAML example */}
+                  <div className="mt-4">
+                    <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.2em] mb-2">
+                      {t('agentMgmt.configExample')}
+                    </label>
+                    <pre className="bg-bg-deep/50 backdrop-blur-sm rounded-[16px] p-4 text-xs text-text-secondary border border-white/5 overflow-x-auto">
+                      {`{
   "channels": {
     "shadowob": {
       "token": "${displayToken}...",
@@ -852,23 +848,25 @@ function AgentDetail({
     }
   }
 }`}
-                  </pre>
+                    </pre>
+                  </div>
                 </div>
-              </div>
+              )
+            }
+            return (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => tokenMutation.mutate(agent.id)}
+                disabled={tokenMutation.isPending}
+              >
+                <Key size={14} />
+                {tokenMutation.isPending ? t('agentMgmt.generating') : t('agentMgmt.generateToken')}
+              </Button>
             )
-          }
-          return (
-            <button
-              onClick={() => tokenMutation.mutate(agent.id)}
-              disabled={tokenMutation.isPending}
-              className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-bold transition disabled:opacity-50"
-            >
-              <Key size={14} />
-              {tokenMutation.isPending ? t('agentMgmt.generating') : t('agentMgmt.generateToken')}
-            </button>
-          )
-        })()}
-      </div>
+          })()}
+        </CardContent>
+      </Card>
 
       {/* OpenClaw Setup Guide */}
       <OpenClawSetupGuide
@@ -901,14 +899,18 @@ function CopyBlock({
   }
   return (
     <div className="relative group">
-      {label && <p className="text-[10px] font-bold uppercase text-text-muted mb-1">{label}</p>}
-      <pre className="bg-bg-tertiary rounded-lg p-3 pr-10 font-mono text-xs text-text-secondary border border-border-subtle overflow-x-auto whitespace-pre-wrap break-all">
+      {label && (
+        <p className="text-[11px] font-black uppercase text-text-muted tracking-[0.2em] mb-1">
+          {label}
+        </p>
+      )}
+      <pre className="bg-bg-deep/50 backdrop-blur-sm rounded-[16px] p-3 pr-10 font-mono text-xs text-text-secondary border border-white/5 overflow-x-auto whitespace-pre-wrap break-all">
         {content}
       </pre>
       <button
         type="button"
         onClick={handleCopy}
-        className="absolute top-1.5 right-1.5 p-1.5 rounded-md bg-bg-secondary/80 text-text-muted hover:text-text-primary hover:bg-bg-secondary transition opacity-0 group-hover:opacity-100"
+        className="absolute top-1.5 right-1.5 p-1.5 rounded-full bg-white/5 text-text-muted hover:text-text-primary hover:bg-white/10 transition opacity-0 group-hover:opacity-100"
         title={t('common.copy')}
       >
         {copied ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
@@ -955,186 +957,199 @@ function OpenClawSetupGuide({
 
   if (!hasToken) {
     return (
-      <div className="bg-bg-secondary rounded-xl p-6 mb-6 border border-border-subtle">
-        <div className="flex items-center gap-2 mb-3">
-          <BookOpen size={16} className="text-primary" />
-          <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">
-            {t('agentMgmt.openclawGuideTitle')}
-          </h3>
-        </div>
-        <p className="text-sm text-text-muted mb-4">{t('agentMgmt.setupTokenWarning')}</p>
-        <button
-          type="button"
-          onClick={onGenerateToken}
-          disabled={generatingToken}
-          className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-bold transition disabled:opacity-50"
-        >
-          <Key size={14} />
-          {generatingToken ? t('agentMgmt.generating') : t('agentMgmt.generateToken')}
-        </button>
-      </div>
+      <Card variant="glass" className="rounded-[24px] mb-6">
+        <CardContent className="p-6">
+          <div className="flex items-center gap-2 mb-3">
+            <BookOpen size={16} className="text-primary" />
+            <h3 className="text-sm font-black text-text-primary uppercase tracking-[0.15em]">
+              {t('agentMgmt.openclawGuideTitle')}
+            </h3>
+          </div>
+          <p className="text-sm text-text-muted font-bold italic mb-4">
+            {t('agentMgmt.setupTokenWarning')}
+          </p>
+          <Button variant="primary" size="sm" onClick={onGenerateToken} disabled={generatingToken}>
+            <Key size={14} />
+            {generatingToken ? t('agentMgmt.generating') : t('agentMgmt.generateToken')}
+          </Button>
+        </CardContent>
+      </Card>
     )
   }
 
   return (
-    <div className="bg-bg-secondary rounded-xl p-6 mb-6 border border-border-subtle">
-      <div className="flex items-center gap-2 mb-3">
-        <BookOpen size={16} className="text-primary" />
-        <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">
-          {t('agentMgmt.openclawGuideTitle')}
-        </h3>
-      </div>
-      <p className="text-sm text-text-muted mb-4">{t('agentMgmt.openclawGuideDesc')}</p>
-
-      {/* Tab selector */}
-      <div className="flex gap-1 mb-4 bg-bg-tertiary rounded-lg p-1">
-        <button
-          type="button"
-          onClick={() => setActiveTab('manual')}
-          className={`flex items-center gap-1.5 flex-1 px-3 py-2 rounded-md text-xs font-bold transition ${
-            activeTab === 'manual'
-              ? 'bg-bg-secondary text-text-primary shadow-sm'
-              : 'text-text-muted hover:text-text-secondary'
-          }`}
-        >
-          <Terminal size={12} />
-          {t('agentMgmt.setupManual')}
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('chat')}
-          className={`flex items-center gap-1.5 flex-1 px-3 py-2 rounded-md text-xs font-bold transition ${
-            activeTab === 'chat'
-              ? 'bg-bg-secondary text-text-primary shadow-sm'
-              : 'text-text-muted hover:text-text-secondary'
-          }`}
-        >
-          <MessageSquare size={12} />
-          {t('agentMgmt.setupChat')}
-        </button>
-      </div>
-
-      {activeTab === 'manual' ? (
-        <>
-          {/* Quick bash one-liner */}
-          <div className="mb-4">
-            <p className="text-xs font-bold text-text-secondary mb-2">
-              {t('agentMgmt.setupBashTitle')}
-            </p>
-            <CopyBlock content={bashCommand} t={t} />
-            {!token && (
-              <p className="text-[10px] text-yellow-400 mt-1.5 ml-1">
-                ⚠ {t('agentMgmt.setupTokenWarning')}
-              </p>
-            )}
-          </div>
-
-          <div className="h-px bg-border-subtle my-4" />
-
-          {/* Step-by-step */}
-          <p className="text-xs font-bold text-text-muted uppercase tracking-wider mb-3">
-            {t('agentMgmt.setupStepByStep')}
-          </p>
-
-          {/* Step 1: Install */}
-          <div className="mb-3">
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">
-                1
-              </span>
-              <span className="text-sm font-bold text-text-primary">
-                {t('docs.openclawStep1Title')}
-              </span>
-            </div>
-            <div className="ml-7">
-              <CopyBlock content="openclaw plugins install @shadowob/openclaw-shadowob" t={t} />
-            </div>
-          </div>
-
-          {/* Step 2: Config Token */}
-          <div className="mb-3">
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">
-                2
-              </span>
-              <span className="text-sm font-bold text-text-primary">
-                {t('agentMgmt.setupConfigToken')}
-              </span>
-            </div>
-            <div className="ml-7">
-              <CopyBlock content={`openclaw config set channels.shadowob.token "${token}"`} t={t} />
-            </div>
-          </div>
-
-          {/* Step 3: Config Server URL */}
-          <div className="mb-3">
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">
-                3
-              </span>
-              <span className="text-sm font-bold text-text-primary">
-                {t('agentMgmt.setupConfigServer')}
-              </span>
-            </div>
-            <div className="ml-7">
-              <CopyBlock
-                content={`openclaw config set channels.shadowob.serverUrl "${serverUrl}"`}
-                t={t}
-              />
-            </div>
-          </div>
-
-          {/* Step 4: Run */}
-          <div className="mb-3">
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">
-                4
-              </span>
-              <span className="text-sm font-bold text-text-primary">
-                {t('agentMgmt.openclawRunTitle')}
-              </span>
-            </div>
-            <div className="ml-7">
-              <CopyBlock content="openclaw gateway restart" t={t} />
-            </div>
-          </div>
-        </>
-      ) : (
-        <>
-          {/* AI chat prompt */}
-          <p className="text-xs text-text-muted mb-3">{t('agentMgmt.setupChatDesc')}</p>
-          <CopyBlock content={aiPrompt} t={t} />
-        </>
-      )}
-
-      {/* Capabilities */}
-      <div className="mt-4 pt-4 border-t border-border-subtle">
-        <p className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">
-          {t('docs.openclawCapabilities')}
-        </p>
-        <div className="grid grid-cols-2 gap-2">
-          {['messaging', 'threads', 'reactions', 'media', 'mentions', 'editDelete'].map((cap) => (
-            <div key={cap} className="flex items-center gap-1.5 text-xs text-text-secondary">
-              <span className="text-green-400">✓</span>
-              {t(`docs.openclawCap_${cap}`)}
-            </div>
-          ))}
+    <Card variant="glass" className="rounded-[24px] mb-6">
+      <CardContent className="p-6">
+        <div className="flex items-center gap-2 mb-3">
+          <BookOpen size={16} className="text-primary" />
+          <h3 className="text-sm font-black text-text-primary uppercase tracking-[0.15em]">
+            {t('agentMgmt.openclawGuideTitle')}
+          </h3>
         </div>
-      </div>
+        <p className="text-sm text-text-muted font-bold italic mb-4">
+          {t('agentMgmt.openclawGuideDesc')}
+        </p>
 
-      {/* Link to full docs */}
-      <div className="mt-4 pt-3 border-t border-border-subtle">
-        <a
-          href="/product/index.html"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs text-primary hover:text-primary-hover font-bold flex items-center gap-1 transition"
-        >
-          <BookOpen size={12} />
-          {t('agentMgmt.openclawFullDocs')}
-        </a>
-      </div>
-    </div>
+        {/* Tab selector — pill-shaped */}
+        <div className="flex gap-1 mb-4 bg-bg-deep/50 backdrop-blur-sm rounded-full p-1 border border-white/5">
+          <button
+            type="button"
+            onClick={() => setActiveTab('manual')}
+            className={cn(
+              'flex items-center gap-1.5 flex-1 px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider transition',
+              activeTab === 'manual'
+                ? 'bg-primary/15 text-primary shadow-sm'
+                : 'text-text-muted hover:text-text-secondary',
+            )}
+          >
+            <Terminal size={12} />
+            {t('agentMgmt.setupManual')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('chat')}
+            className={cn(
+              'flex items-center gap-1.5 flex-1 px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider transition',
+              activeTab === 'chat'
+                ? 'bg-primary/15 text-primary shadow-sm'
+                : 'text-text-muted hover:text-text-secondary',
+            )}
+          >
+            <MessageSquare size={12} />
+            {t('agentMgmt.setupChat')}
+          </button>
+        </div>
+
+        {activeTab === 'manual' ? (
+          <>
+            {/* Quick bash one-liner */}
+            <div className="mb-4">
+              <p className="text-xs font-black text-text-secondary mb-2 uppercase tracking-wider">
+                {t('agentMgmt.setupBashTitle')}
+              </p>
+              <CopyBlock content={bashCommand} t={t} />
+              {!token && (
+                <p className="text-[10px] text-warning mt-1.5 ml-1 font-bold">
+                  ⚠ {t('agentMgmt.setupTokenWarning')}
+                </p>
+              )}
+            </div>
+
+            <div className="h-px bg-white/5 my-4" />
+
+            {/* Step-by-step */}
+            <p className="text-[11px] font-black text-text-muted uppercase tracking-[0.2em] mb-3">
+              {t('agentMgmt.setupStepByStep')}
+            </p>
+
+            {/* Step 1: Install */}
+            <div className="mb-3">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-black flex items-center justify-center">
+                  1
+                </span>
+                <span className="text-sm font-black text-text-primary">
+                  {t('docs.openclawStep1Title')}
+                </span>
+              </div>
+              <div className="ml-7">
+                <CopyBlock content="openclaw plugins install @shadowob/openclaw-shadowob" t={t} />
+              </div>
+            </div>
+
+            {/* Step 2: Config Token */}
+            <div className="mb-3">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-black flex items-center justify-center">
+                  2
+                </span>
+                <span className="text-sm font-black text-text-primary">
+                  {t('agentMgmt.setupConfigToken')}
+                </span>
+              </div>
+              <div className="ml-7">
+                <CopyBlock
+                  content={`openclaw config set channels.shadowob.token "${token}"`}
+                  t={t}
+                />
+              </div>
+            </div>
+
+            {/* Step 3: Config Server URL */}
+            <div className="mb-3">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-black flex items-center justify-center">
+                  3
+                </span>
+                <span className="text-sm font-black text-text-primary">
+                  {t('agentMgmt.setupConfigServer')}
+                </span>
+              </div>
+              <div className="ml-7">
+                <CopyBlock
+                  content={`openclaw config set channels.shadowob.serverUrl "${serverUrl}"`}
+                  t={t}
+                />
+              </div>
+            </div>
+
+            {/* Step 4: Run */}
+            <div className="mb-3">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-black flex items-center justify-center">
+                  4
+                </span>
+                <span className="text-sm font-black text-text-primary">
+                  {t('agentMgmt.openclawRunTitle')}
+                </span>
+              </div>
+              <div className="ml-7">
+                <CopyBlock content="openclaw gateway restart" t={t} />
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* AI chat prompt */}
+            <p className="text-xs text-text-muted font-bold italic mb-3">
+              {t('agentMgmt.setupChatDesc')}
+            </p>
+            <CopyBlock content={aiPrompt} t={t} />
+          </>
+        )}
+
+        {/* Capabilities */}
+        <div className="mt-4 pt-4 border-t border-white/5">
+          <p className="text-[11px] font-black text-text-muted uppercase tracking-[0.2em] mb-2">
+            {t('docs.openclawCapabilities')}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {['messaging', 'threads', 'reactions', 'media', 'mentions', 'editDelete'].map((cap) => (
+              <div
+                key={cap}
+                className="flex items-center gap-1.5 text-xs text-text-secondary font-bold"
+              >
+                <span className="text-success">✓</span>
+                {t(`docs.openclawCap_${cap}`)}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Link to full docs */}
+        <div className="mt-4 pt-3 border-t border-white/5">
+          <a
+            href="/product/index.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-primary hover:text-primary-hover font-black flex items-center gap-1 transition uppercase tracking-wider"
+          >
+            <BookOpen size={12} />
+            {t('agentMgmt.openclawFullDocs')}
+          </a>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -1154,28 +1169,25 @@ function EmptyState({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-text-muted">{t('common.loading')}</div>
+        <div className="text-text-muted font-bold italic">{t('common.loading')}</div>
       </div>
     )
   }
 
   return (
     <div className="flex flex-col items-center justify-center h-64 text-center">
-      <img src="/Logo.svg" alt="Buddy" className="w-12 h-12 mb-4 opacity-50" />
-      <h2 className="text-xl font-bold text-text-primary mb-2">
+      <img src="/Logo.svg" alt="Buddy" className="w-16 h-16 mb-4 opacity-30" />
+      <h2 className="text-xl font-black text-text-primary mb-2">
         {agents.length === 0 ? t('agentMgmt.noAgents') : t('agentMgmt.title')}
       </h2>
-      <p className="text-text-muted mb-6 max-w-md">
+      <p className="text-text-muted font-bold italic mb-6 max-w-md">
         {agents.length === 0 ? t('agentMgmt.noAgentsDesc') : t('agentMgmt.subtitle')}
       </p>
       {agents.length === 0 && (
-        <button
-          onClick={onCreateClick}
-          className="flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary-hover text-white rounded-xl font-bold transition"
-        >
+        <Button variant="primary" size="lg" className="rounded-full" onClick={onCreateClick}>
           <Plus size={18} />
           {t('agentMgmt.newAgent')}
-        </button>
+        </Button>
       )}
     </div>
   )
@@ -1230,72 +1242,69 @@ function CreateAgentDialog({
   })
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-bg-secondary rounded-xl p-6 w-full max-w-[480px] mx-4 max-h-[80vh] overflow-y-auto border border-border-subtle">
-        <h2 className="text-xl font-bold text-text-primary mb-6">{t('agentMgmt.createTitle')}</h2>
+    <Dialog isOpen onClose={onClose}>
+      <DialogContent maxWidth="max-w-[480px]">
+        <DialogHeader>
+          <DialogTitle>{t('agentMgmt.createTitle')}</DialogTitle>
+        </DialogHeader>
 
         {/* Name */}
-        <div className="mb-4">
-          <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
+        <div className="space-y-2">
+          <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.2em] ml-1">
             {t('agentMgmt.nameLabel')}
           </label>
-          <input
-            type="text"
+          <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={t('agentMgmt.namePlaceholder')}
-            className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
             maxLength={64}
           />
         </div>
 
         {/* Username */}
-        <div className="mb-4">
-          <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
+        <div className="space-y-2">
+          <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.2em] ml-1">
             {t('agentMgmt.usernameLabel')}
           </label>
-          <input
-            type="text"
+          <Input
             value={username}
             onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''))}
             placeholder={t('agentMgmt.usernamePlaceholder')}
-            className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
             maxLength={32}
           />
         </div>
 
         {/* Description */}
-        <div className="mb-4">
-          <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
+        <div className="space-y-2">
+          <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.2em] ml-1">
             {t('agentMgmt.descLabel')}
           </label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder={t('agentMgmt.descPlaceholder')}
-            className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition resize-none"
+            className="w-full bg-white dark:bg-[rgba(0,0,0,0.3)] border-2 border-[#F1F5F9] dark:border-[rgba(255,255,255,0.1)] text-text-primary rounded-[20px] px-6 py-4 text-base font-bold outline-none transition-all placeholder:text-text-muted/30 focus:border-primary-strong dark:focus:border-primary focus:shadow-[0_0_0_5px_rgba(0,198,209,0.15)] dark:focus:shadow-[0_0_0_5px_rgba(0,198,209,0.1)] resize-none"
             rows={3}
             maxLength={500}
           />
         </div>
 
         {/* Avatar picker */}
-        <div className="mb-6">
-          <label className="block text-xs font-bold uppercase text-text-secondary mb-3">
+        <div>
+          <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.2em] ml-1 mb-3">
             {t('agentMgmt.avatarLabel')}
           </label>
           <AvatarEditor value={selectedAvatar ?? undefined} onChange={setSelectedAvatar} />
         </div>
 
         {/* Actions */}
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-text-secondary hover:text-text-primary transition rounded-lg"
-          >
+        <DialogFooter>
+          <Button variant="ghost" size="sm" onClick={onClose}>
             {t('common.cancel')}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
             onClick={() =>
               name.trim() &&
               username.trim() &&
@@ -1307,14 +1316,12 @@ function CreateAgentDialog({
               })
             }
             disabled={!name.trim() || !username.trim() || createMutation.isPending}
-            className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-primary-hover text-white font-bold rounded-lg transition disabled:opacity-50"
           >
-            <img src="/Logo.svg" alt="Buddy" className="w-4 h-4" />
             {createMutation.isPending ? t('agentMgmt.creating') : t('common.create')}
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -1350,53 +1357,52 @@ function EditAgentDialog({
   })
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-bg-secondary rounded-xl p-6 w-full max-w-[480px] mx-4 max-h-[80vh] overflow-y-auto border border-border-subtle">
-        <h2 className="text-xl font-bold text-text-primary mb-6">{t('agentMgmt.editTitle')}</h2>
+    <Dialog isOpen onClose={onClose}>
+      <DialogContent maxWidth="max-w-[480px]">
+        <DialogHeader>
+          <DialogTitle>{t('agentMgmt.editTitle')}</DialogTitle>
+        </DialogHeader>
 
-        <div className="mb-4">
-          <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
+        <div className="space-y-2">
+          <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.2em] ml-1">
             {t('agentMgmt.nameLabel')}
           </label>
-          <input
-            type="text"
+          <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={t('agentMgmt.namePlaceholder')}
-            className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
             maxLength={64}
           />
         </div>
 
-        <div className="mb-4">
-          <label className="block text-xs font-bold uppercase text-text-secondary mb-2">
+        <div className="space-y-2">
+          <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.2em] ml-1">
             {t('agentMgmt.descLabel')}
           </label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder={t('agentMgmt.descPlaceholder')}
-            className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition resize-none"
+            className="w-full bg-white dark:bg-[rgba(0,0,0,0.3)] border-2 border-[#F1F5F9] dark:border-[rgba(255,255,255,0.1)] text-text-primary rounded-[20px] px-6 py-4 text-base font-bold outline-none transition-all placeholder:text-text-muted/30 focus:border-primary-strong dark:focus:border-primary focus:shadow-[0_0_0_5px_rgba(0,198,209,0.15)] dark:focus:shadow-[0_0_0_5px_rgba(0,198,209,0.1)] resize-none"
             rows={3}
             maxLength={500}
           />
         </div>
 
-        <div className="mb-6">
-          <label className="block text-xs font-bold uppercase text-text-secondary mb-3">
+        <div>
+          <label className="block text-[11px] font-black uppercase text-text-muted tracking-[0.2em] ml-1 mb-3">
             {t('agentMgmt.avatarLabel')}
           </label>
           <AvatarEditor value={selectedAvatar ?? undefined} onChange={setSelectedAvatar} />
         </div>
 
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-text-secondary hover:text-text-primary transition rounded-lg"
-          >
+        <DialogFooter>
+          <Button variant="ghost" size="sm" onClick={onClose}>
             {t('common.cancel')}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
             onClick={() =>
               name.trim() &&
               updateMutation.mutate({
@@ -1406,13 +1412,12 @@ function EditAgentDialog({
               })
             }
             disabled={!name.trim() || updateMutation.isPending}
-            className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-primary-hover text-white font-bold rounded-lg transition disabled:opacity-50"
           >
             {updateMutation.isPending ? t('common.saving') : t('common.save')}
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -1521,22 +1526,27 @@ export function BuddyManagementContent() {
     <>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-text-primary">{t('agentMgmt.title')}</h2>
-        <button
+        <h2 className="text-2xl font-black text-text-primary uppercase tracking-tight">
+          {t('agentMgmt.title')}
+        </h2>
+        <Button
+          variant="primary"
+          size="sm"
+          className="rounded-full"
           onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition font-bold text-sm"
         >
-          <Plus size={16} />
+          <Plus size={14} />
           {t('agentMgmt.newAgent')}
-        </button>
+        </Button>
       </div>
 
       {/* Message */}
       {message && (
         <div
-          className={`mb-4 px-4 py-2 rounded-lg text-sm ${
-            message.success ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
-          }`}
+          className={cn(
+            'mb-4 px-4 py-2 rounded-full text-sm font-bold',
+            message.success ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger',
+          )}
         >
           {message.text}
         </div>
@@ -1544,12 +1554,18 @@ export function BuddyManagementContent() {
 
       {/* Agent list */}
       {isLoading ? (
-        <div className="text-center text-text-muted py-8">{t('common.loading')}</div>
-      ) : agents.length === 0 ? (
-        <div className="text-center text-text-muted py-12 bg-bg-secondary rounded-xl border border-border-subtle">
-          <img src="/Logo.svg" alt="Buddy" className="w-12 h-12 mx-auto mb-3 opacity-50" />
-          <p className="text-sm">{t('agentMgmt.noAgentsDesc')}</p>
+        <div className="text-center text-text-muted font-bold italic py-8">
+          {t('common.loading')}
         </div>
+      ) : agents.length === 0 ? (
+        <Card variant="glass" className="rounded-[24px] text-center py-12">
+          <CardContent>
+            <img src="/Logo.svg" alt="Buddy" className="w-16 h-16 mx-auto mb-3 opacity-30" />
+            <p className="text-sm text-text-muted font-bold italic">
+              {t('agentMgmt.noAgentsDesc')}
+            </p>
+          </CardContent>
+        </Card>
       ) : (
         <div className="space-y-2 mb-6">
           {agents.map((agent) => {
@@ -1562,11 +1578,12 @@ export function BuddyManagementContent() {
                   setSelectedAgent(isSelected ? null : agent)
                   setGeneratedToken(null)
                 }}
-                className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-left transition border ${
+                className={cn(
+                  'flex items-center gap-3 w-full px-4 py-3 rounded-[16px] text-left transition border',
                   isSelected
-                    ? 'bg-bg-modifier-active border-primary/30 text-text-primary'
-                    : 'bg-bg-secondary border-border-subtle text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
-                }`}
+                    ? 'bg-primary/15 border-primary/30 text-text-primary'
+                    : 'bg-white/3 border-white/5 text-text-secondary hover:bg-primary/10 hover:text-text-primary',
+                )}
               >
                 <UserAvatar
                   userId={agent.botUser?.id ?? agent.userId}
@@ -1574,9 +1591,9 @@ export function BuddyManagementContent() {
                   displayName={agent.botUser?.displayName ?? undefined}
                   size="sm"
                 />
-                <span className="truncate flex-1">{name}</span>
+                <span className="truncate flex-1 font-bold">{name}</span>
                 {(agent.totalOnlineSeconds ?? 0) > 0 && (
-                  <span className="text-[10px] text-text-muted shrink-0">
+                  <span className="text-[10px] text-text-muted shrink-0 font-bold">
                     {formatOnlineDuration(
                       agent.totalOnlineSeconds,
                       t as (key: string, defaultValue?: string) => string,
@@ -1643,35 +1660,27 @@ export function BuddyManagementContent() {
       )}
 
       {/* Delete confirmation */}
-      {deleteConfirmId && (
-        <div
-          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
-          onClick={() => setDeleteConfirmId(null)}
-        >
-          <div
-            className="bg-bg-secondary rounded-xl p-6 w-full max-w-96 mx-4 border border-border-subtle"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="text-xl font-bold text-text-primary mb-2">{t('common.confirm')}</h2>
-            <p className="text-text-muted text-sm mb-6">{t('agentMgmt.deleteConfirm')}</p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setDeleteConfirmId(null)}
-                className="px-4 py-2 text-text-secondary hover:text-text-primary transition rounded-lg"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={() => deleteMutation.mutate(deleteConfirmId)}
-                disabled={deleteMutation.isPending}
-                className="px-4 py-2 bg-danger text-white rounded-lg hover:bg-red-600 transition font-bold disabled:opacity-50"
-              >
-                {t('common.delete')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Dialog isOpen={!!deleteConfirmId} onClose={() => setDeleteConfirmId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('common.confirm')}</DialogTitle>
+          </DialogHeader>
+          <p className="text-text-muted text-sm font-bold italic">{t('agentMgmt.deleteConfirm')}</p>
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => setDeleteConfirmId(null)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => deleteConfirmId && deleteMutation.mutate(deleteConfirmId)}
+              disabled={deleteMutation.isPending}
+            >
+              {t('common.delete')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

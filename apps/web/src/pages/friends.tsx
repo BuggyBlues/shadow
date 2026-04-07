@@ -1,3 +1,4 @@
+import { Badge, Button, Input } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Check, Clock, MessageCircle, Search, Trash2, UserPlus, Users, X } from 'lucide-react'
@@ -136,7 +137,7 @@ export function FriendsContent({ onStartChat }: { onStartChat?: (userId: string)
   })
 
   const statusColor: Record<string, string> = {
-    online: 'bg-[#23a559]',
+    online: 'bg-success',
     idle: 'bg-amber-500',
     dnd: 'bg-danger',
     offline: 'bg-text-muted',
@@ -145,45 +146,39 @@ export function FriendsContent({ onStartChat }: { onStartChat?: (userId: string)
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {/* Header tabs */}
-      <div className="flex items-center gap-4 px-4 md:px-6 py-3 border-b border-border-subtle bg-bg-primary shrink-0">
+      <div className="flex items-center gap-4 px-4 md:px-6 py-3 border-b border-border-subtle bg-[rgba(255,255,255,0.75)] dark:bg-[rgba(255,255,255,0.03)] backdrop-blur-[32px] shrink-0">
         <Users size={20} className="text-text-muted" />
         <h2 className="text-base font-bold text-text-primary mr-4">{t('friends.title', '好友')}</h2>
         <div className="flex items-center gap-1">
-          <button
+          <Button
+            variant={activeTab === 'all' ? 'glass' : 'ghost'}
+            size="sm"
             onClick={() => setActiveTab('all')}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
-              activeTab === 'all'
-                ? 'bg-bg-modifier-active text-text-primary'
-                : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
-            }`}
           >
             {t('friends.tabAll', '全部好友')}
-          </button>
-          <button
-            onClick={() => setActiveTab('pending')}
-            className={`relative px-3 py-1.5 rounded-md text-sm font-medium transition ${
-              activeTab === 'pending'
-                ? 'bg-bg-modifier-active text-text-primary'
-                : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
-            }`}
-          >
-            {t('friends.tabPending', '待处理')}
+          </Button>
+          <div className="relative">
+            <Button
+              variant={activeTab === 'pending' ? 'glass' : 'ghost'}
+              size="sm"
+              onClick={() => setActiveTab('pending')}
+            >
+              {t('friends.tabPending', '待处理')}
+            </Button>
             {pendingReceived.length > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-danger text-white text-[10px] font-bold flex items-center justify-center">
+              <Badge variant="danger" size="xs" className="absolute -top-1 -right-1">
                 {pendingReceived.length}
-              </span>
+              </Badge>
             )}
-          </button>
-          <button
+          </div>
+          <Button
+            variant={activeTab === 'add' ? 'primary' : 'ghost'}
+            size="sm"
             onClick={() => setActiveTab('add')}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
-              activeTab === 'add'
-                ? 'bg-[#23a559] text-white'
-                : 'text-[#23a559] bg-transparent hover:bg-[#23a559]/10'
-            }`}
+            className={activeTab !== 'add' ? 'text-success' : ''}
           >
             {t('friends.tabAdd', '添加好友')}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -193,17 +188,13 @@ export function FriendsContent({ onStartChat }: { onStartChat?: (userId: string)
         {activeTab === 'all' && (
           <div className="p-4 md:px-6">
             {/* Search */}
-            <div className="relative mb-4">
-              <Search
-                size={16}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
-              />
-              <input
-                type="text"
+            <div className="mb-4">
+              <Input
+                icon={Search}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={t('friends.searchPlaceholder', '搜索好友')}
-                className="w-full bg-bg-tertiary text-text-primary rounded-md pl-9 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+                className="!rounded-full !py-2"
               />
             </div>
 
@@ -290,7 +281,7 @@ export function FriendsContent({ onStartChat }: { onStartChat?: (userId: string)
                                 'error',
                               )
                             }}
-                            className="w-9 h-9 rounded-full bg-bg-secondary flex items-center justify-center text-text-muted cursor-not-allowed opacity-50"
+                            className="w-9 h-9 rounded-full bg-bg-secondary/50 backdrop-blur-sm flex items-center justify-center text-text-muted cursor-not-allowed opacity-50"
                             title={t(
                               'friends.chatDisabledTooltip',
                               '该 Claw 已挂单或出租，无法私聊',
@@ -431,8 +422,7 @@ export function FriendsContent({ onStartChat }: { onStartChat?: (userId: string)
 
             <div className="flex gap-2">
               <div className="flex-1 relative">
-                <input
-                  type="text"
+                <Input
                   value={addUsername}
                   onChange={(e) => setAddUsername(e.target.value)}
                   onKeyDown={(e) => {
@@ -447,17 +437,17 @@ export function FriendsContent({ onStartChat }: { onStartChat?: (userId: string)
                     }
                   }}
                   placeholder={t('friends.usernamePlaceholder', '你可以通过用户名来添加好友。')}
-                  className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary text-sm"
                   autoFocus
                 />
               </div>
-              <button
+              <Button
+                variant="primary"
                 onClick={() => addUsername.trim() && sendRequest.mutate(addUsername.trim())}
                 disabled={!addUsername.trim() || sendRequest.isPending}
-                className="px-5 py-3 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-bold transition disabled:opacity-50 shrink-0"
+                loading={sendRequest.isPending}
               >
                 {t('friends.sendRequest', '发送好友请求')}
-              </button>
+              </Button>
             </div>
 
             {sendRequest.isError && (
@@ -465,7 +455,7 @@ export function FriendsContent({ onStartChat }: { onStartChat?: (userId: string)
             )}
 
             {sendRequest.isSuccess && (
-              <p className="text-[#23a559] text-sm mt-3">
+              <p className="text-success text-sm mt-3">
                 {t(
                   'friends.requestSentSuccess',
                   '好友请求已成功发送！等待对方确认后即可开始聊天。',

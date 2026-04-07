@@ -1,3 +1,4 @@
+import { Button, cn } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
@@ -159,30 +160,38 @@ export function TaskSettings() {
 
   return (
     <>
-      <h2 className="text-2xl font-bold text-text-primary mb-2">任务中心</h2>
+      <h2 className="text-2xl font-black text-text-primary mb-2">任务中心</h2>
       <p className="text-text-muted text-sm mb-6">完成任务赚取虾币，支持一次性任务与活动任务。</p>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-        <div className="bg-bg-secondary rounded-xl border border-border-subtle p-4">
-          <p className="text-[11px] text-text-muted uppercase font-bold">任务总数</p>
+        <div className="bg-white/[0.03] backdrop-blur-[32px] rounded-[20px] border border-white/[0.08] p-4">
+          <p className="text-[11px] text-text-muted uppercase font-black tracking-[0.15em]">
+            任务总数
+          </p>
           <p className="text-lg font-extrabold text-text-primary">
             {data?.summary.totalTasks ?? 0}
           </p>
         </div>
-        <div className="bg-bg-secondary rounded-xl border border-border-subtle p-4">
-          <p className="text-[11px] text-text-muted uppercase font-bold">可领取</p>
+        <div className="bg-white/[0.03] backdrop-blur-[32px] rounded-[20px] border border-white/[0.08] p-4">
+          <p className="text-[11px] text-text-muted uppercase font-black tracking-[0.15em]">
+            可领取
+          </p>
           <p className="text-lg font-extrabold text-emerald-400">
             {data?.summary.claimableTasks ?? 0}
           </p>
         </div>
-        <div className="bg-bg-secondary rounded-xl border border-border-subtle p-4">
-          <p className="text-[11px] text-text-muted uppercase font-bold">已完成</p>
+        <div className="bg-white/[0.03] backdrop-blur-[32px] rounded-[20px] border border-white/[0.08] p-4">
+          <p className="text-[11px] text-text-muted uppercase font-black tracking-[0.15em]">
+            已完成
+          </p>
           <p className="text-lg font-extrabold text-primary">{data?.summary.completedTasks ?? 0}</p>
         </div>
       </div>
 
-      <div className="bg-bg-secondary rounded-xl border border-border-subtle p-5 mb-6">
-        <p className="text-xs text-text-muted uppercase font-bold mb-1">当前虾币</p>
+      <div className="bg-white/[0.03] backdrop-blur-[32px] rounded-[20px] border border-white/[0.08] p-5 mb-6">
+        <p className="text-[11px] text-text-muted uppercase font-black tracking-[0.15em] mb-1">
+          当前虾币
+        </p>
         <div className="flex items-center gap-2">
           <PriceDisplay amount={data?.wallet.balance ?? 0} size={20} />
         </div>
@@ -195,7 +204,7 @@ export function TaskSettings() {
           {data?.tasks.map((task) => (
             <div
               key={task.key}
-              className="bg-bg-secondary rounded-xl border border-border-subtle p-4"
+              className="bg-white/[0.03] backdrop-blur-[32px] rounded-[20px] border border-white/[0.08] p-4"
             >
               <div className="flex items-center gap-3">
                 <div className="flex-1">
@@ -222,14 +231,16 @@ export function TaskSettings() {
                     </button>
                   )
                 ) : task.claimable ? (
-                  <button
+                  <Button
+                    variant="primary"
+                    size="sm"
                     type="button"
                     onClick={() => claimMutation.mutate(task.key)}
                     disabled={claimMutation.isPending}
-                    className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-bold disabled:opacity-50"
+                    className="normal-case tracking-normal"
                   >
                     领取
-                  </button>
+                  </Button>
                 ) : task.completed ? (
                   <span className="text-xs px-2 py-1 rounded bg-green-500/15 text-green-400">
                     已领取
@@ -263,9 +274,11 @@ export function TaskSettings() {
               </div>
 
               {expandedTask === task.key && taskGuides[task.key] && (
-                <div className="mt-3 pt-3 border-t border-border-subtle animate-in slide-in-from-top-2 duration-200">
-                  <div className="bg-bg-tertiary rounded-lg p-3">
-                    <p className="text-xs font-bold text-text-muted uppercase mb-2">教程步骤</p>
+                <div className="mt-3 pt-3 border-t border-white/[0.06] animate-in slide-in-from-top-2 duration-200">
+                  <div className="bg-white/[0.03] rounded-[14px] p-3">
+                    <p className="text-[11px] font-black text-text-muted uppercase tracking-[0.15em] mb-2">
+                      教程步骤
+                    </p>
                     <p className="text-xs text-text-secondary whitespace-pre-wrap leading-relaxed">
                       {taskGuides[task.key]}
                     </p>
@@ -277,14 +290,14 @@ export function TaskSettings() {
         </div>
       )}
 
-      <div className="mt-6 bg-bg-secondary rounded-xl border border-border-subtle p-5">
-        <h3 className="text-sm font-bold text-text-primary mb-3">奖励记录</h3>
+      <div className="mt-6 bg-white/[0.03] backdrop-blur-[32px] rounded-[24px] border border-white/[0.08] p-5">
+        <h3 className="text-sm font-black text-text-primary mb-3">奖励记录</h3>
         {rewardLogs && rewardLogs.length > 0 ? (
           <div className="space-y-2">
             {rewardLogs.map((log) => (
               <div
                 key={log.id}
-                className="flex items-center justify-between rounded-lg bg-bg-tertiary px-3 py-2"
+                className="flex items-center justify-between rounded-[12px] bg-white/[0.03] px-3 py-2"
               >
                 <div className="min-w-0">
                   <p className="text-xs text-text-primary truncate">{log.note || log.rewardKey}</p>

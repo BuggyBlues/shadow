@@ -1,3 +1,4 @@
+import { Badge } from '@shadowob/ui'
 import { useNavigate } from '@tanstack/react-router'
 import { Check } from 'lucide-react'
 import { useCallback, useRef, useState } from 'react'
@@ -149,7 +150,7 @@ export function BuddyListItem({
         onClick={handleClick}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        className={`flex items-center gap-3 px-2 py-1.5 w-full rounded-md hover:bg-bg-modifier-hover transition group text-left ${className}`}
+        className={`flex items-center gap-3 px-2 py-1.5 w-full rounded-md hover:bg-white/5 hover:backdrop-blur-sm transition group text-left ${className}`}
       >
         {/* Avatar with status dot */}
         <div className="relative shrink-0">
@@ -174,13 +175,22 @@ export function BuddyListItem({
               {displayName}
             </span>
             {buddy.isBot && showBotBadge && (
-              <span className="text-[10px] bg-[#5865F2] text-white px-1.5 py-0.5 rounded-[3px] font-semibold flex items-center gap-1 shrink-0">
-                <Check size={8} className="text-white" />
+              <Badge variant="info" size="xs">
+                <Check size={8} className="mr-0.5" />
                 Buddy
-              </span>
+              </Badge>
             )}
           </div>
-          {roleBadge && <span className={`text-[10px] ${roleBadge.color}`}>{roleBadge.label}</span>}
+          {roleBadge && (
+            <Badge
+              variant={
+                buddy.role === 'owner' ? 'warning' : buddy.role === 'admin' ? 'info' : 'neutral'
+              }
+              size="xs"
+            >
+              {roleBadge.label}
+            </Badge>
+          )}
           {buddy.isBot &&
             showOnlineRank &&
             buddy.totalOnlineSeconds != null &&

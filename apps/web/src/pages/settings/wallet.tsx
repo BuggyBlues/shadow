@@ -1,3 +1,4 @@
+import { Button, cn } from '@shadowob/ui'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowDownLeft, ArrowUpRight, CreditCard, Filter, RefreshCw, Wallet } from 'lucide-react'
 import { useState } from 'react'
@@ -97,11 +98,11 @@ export function WalletSettings() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-xl font-bold text-text-primary">{t('wallet.title')}</h2>
+        <h2 className="text-xl font-black text-text-primary">{t('wallet.title')}</h2>
       </div>
 
       {/* Balance Card */}
-      <div className="bg-gradient-to-br from-primary/20 via-primary/10 to-transparent rounded-2xl p-6 border border-primary/20">
+      <div className="bg-gradient-to-br from-primary/20 via-primary/10 to-transparent rounded-[24px] p-6 border border-primary/20">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-text-muted mb-1">{t('wallet.balance')}</p>
@@ -117,22 +118,24 @@ export function WalletSettings() {
               </p>
             )}
           </div>
-          <button
+          <Button
+            variant="primary"
+            size="md"
             type="button"
             onClick={openModal}
-            className="px-5 py-2.5 rounded-xl font-bold text-white bg-primary hover:bg-primary-hover transition-all shadow-md shadow-primary/25"
+            className="normal-case tracking-normal shadow-lg shadow-primary/25"
           >
             {t('wallet.rechargeBtn')}
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Transaction History */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-text-primary">{t('wallet.transactionHistory')}</h3>
+          <h3 className="text-lg font-black text-text-primary">{t('wallet.transactionHistory')}</h3>
           {/* Filter tabs */}
-          <div className="flex items-center gap-1 bg-bg-tertiary rounded-lg p-1">
+          <div className="flex items-center gap-1 bg-white/[0.03] rounded-full p-1">
             {(['all', 'income', 'expense'] as FilterType[]).map((f) => (
               <button
                 key={f}
@@ -141,11 +144,12 @@ export function WalletSettings() {
                   setFilter(f)
                   setOffset(0)
                 }}
-                className={`px-3 py-1 rounded-md text-xs font-semibold transition ${
+                className={cn(
+                  'px-3 py-1 rounded-full text-xs font-bold transition-all',
                   filter === f
-                    ? 'bg-bg-secondary text-text-primary shadow-sm'
-                    : 'text-text-muted hover:text-text-primary'
-                }`}
+                    ? 'bg-primary/15 text-primary shadow-sm'
+                    : 'text-text-muted hover:text-text-primary',
+                )}
               >
                 {f === 'all' && <Filter size={12} className="inline mr-1" />}
                 {f === 'income' && <ArrowDownLeft size={12} className="inline mr-1" />}
@@ -176,7 +180,7 @@ export function WalletSettings() {
               return (
                 <div
                   key={tx.id}
-                  className="flex items-center gap-3 p-3 rounded-xl bg-bg-secondary/50 hover:bg-bg-secondary transition"
+                  className="flex items-center gap-3 p-3 rounded-[16px] bg-white/[0.02] hover:bg-white/[0.04] transition-all"
                 >
                   {/* Icon */}
                   <div
@@ -223,25 +227,29 @@ export function WalletSettings() {
         {/* Pagination */}
         {totalCount > PAGE_SIZE && (
           <div className="flex items-center justify-center gap-3 mt-4">
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               type="button"
               disabled={offset === 0}
               onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
-              className="px-4 py-2 rounded-lg text-sm font-semibold bg-bg-secondary text-text-primary hover:bg-bg-tertiary disabled:opacity-30 disabled:cursor-not-allowed transition"
+              className="normal-case tracking-normal"
             >
               ← {t('recharge.back')}
-            </button>
+            </Button>
             <span className="text-xs text-text-muted">
               {offset + 1}–{Math.min(offset + PAGE_SIZE, totalCount)} / {totalCount}
             </span>
             {hasMore && (
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 type="button"
                 onClick={() => setOffset(offset + PAGE_SIZE)}
-                className="px-4 py-2 rounded-lg text-sm font-semibold bg-bg-secondary text-text-primary hover:bg-bg-tertiary transition"
+                className="normal-case tracking-normal"
               >
                 {t('wallet.loadMore')} →
-              </button>
+              </Button>
             )}
           </div>
         )}

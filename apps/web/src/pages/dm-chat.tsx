@@ -1,3 +1,4 @@
+import { Button, cn } from '@shadowob/ui'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from '@tanstack/react-router'
 import { ArrowLeft, Loader2, Paperclip, Reply, Send, Smile, X } from 'lucide-react'
@@ -329,13 +330,15 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
   return (
     <div className="flex-1 flex flex-col bg-bg-primary min-h-0">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border-subtle bg-bg-primary shrink-0 shadow-sm">
-        <button
+      <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border/10 bg-bg-primary/80 backdrop-blur-xl shrink-0 shadow-sm">
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={() => onBack?.()}
-          className="md:hidden w-8 h-8 rounded-full hover:bg-bg-modifier-hover flex items-center justify-center text-text-secondary"
+          className="md:hidden h-8 w-8"
         >
           <ArrowLeft size={18} />
-        </button>
+        </Button>
         <span className="text-text-muted text-lg font-medium">@</span>
         <div className="relative">
           <UserAvatar
@@ -364,7 +367,7 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
       <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-4 py-4">
         {isFetchingNextPage && (
           <div className="flex justify-center py-3">
-            <Loader2 size={20} className="animate-spin text-text-muted" />
+            <Loader2 size={20} className="animate-spin text-primary" />
           </div>
         )}
 
@@ -377,7 +380,7 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
               displayName={otherUser.displayName ?? otherUser.username}
               size="xl"
             />
-            <h2 className="text-xl font-bold text-text-primary mt-3">
+            <h2 className="text-xl font-bold text-primary mt-3">
               {otherUser.displayName ?? otherUser.username}
             </h2>
             <p className="text-text-muted text-sm mt-1">{otherUser.username}</p>
@@ -393,7 +396,7 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
 
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-16">
-            <Loader2 size={32} className="animate-spin text-text-muted" />
+            <Loader2 size={32} className="animate-spin text-primary" />
           </div>
         ) : allMessages.length === 0 ? (
           <div className="text-center py-8 text-text-muted text-sm">
@@ -455,7 +458,7 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
       {/* Typing indicator */}
       {typingUsers.length > 0 && (
         <div className="px-4 py-1 text-[12px] text-text-muted">
-          <span className="font-medium">{typingUsers.join(', ')}</span>{' '}
+          <span className="font-medium text-primary">{typingUsers.join(', ')}</span>{' '}
           {t('chat.typing', '正在输入...')}
         </div>
       )}
@@ -514,7 +517,7 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
               (() => {
                 const replyMsg = allMessages.find((m) => m.id === replyToId)
                 return (
-                  <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-bg-secondary border border-border-subtle rounded-lg text-xs">
+                  <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-primary/5 border-l-2 border-primary rounded-lg text-xs">
                     <Reply size={14} className="text-primary shrink-0" />
                     <span className="text-text-muted">{t('chat.replyingTo', '回复')}</span>
                     <span className="font-medium text-text-primary truncate">
@@ -541,7 +544,7 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
                 {pendingFiles.map((file, i) => (
                   <div
                     key={i}
-                    className="relative group bg-bg-secondary border border-border-subtle rounded-lg p-2 flex items-center gap-2 text-xs text-text-secondary"
+                    className="relative group bg-bg-secondary/80 rounded-[16px] p-2 flex items-center gap-2 text-xs text-text-secondary"
                   >
                     {file.type.startsWith('image/') ? (
                       <img
@@ -555,12 +558,14 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
                       </div>
                     )}
                     <span className="max-w-[120px] truncate">{file.name}</span>
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => setPendingFiles((prev) => prev.filter((_, j) => j !== i))}
-                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-danger text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                      className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-danger text-white opacity-0 group-hover:opacity-100"
                     >
                       <X size={12} />
-                    </button>
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -577,13 +582,15 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
                 }
               }}
             />
-            <div className="flex items-end gap-2 bg-bg-secondary rounded-lg border border-border-subtle">
-              <button
+            <div className="flex items-end gap-2 bg-bg-primary/80 backdrop-blur-xl rounded-[20px] border border-border/10 focus-within:ring-1 focus-within:ring-primary/30">
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-8 h-8 ml-2 mb-2 rounded hover:bg-bg-modifier-hover flex items-center justify-center text-text-muted hover:text-text-primary transition shrink-0"
+                className="h-8 w-8 ml-2 mb-2"
               >
                 <Paperclip size={18} />
-              </button>
+              </Button>
               <textarea
                 ref={inputRef}
                 value={messageText}
@@ -616,12 +623,14 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
               />
               <div className="flex items-center gap-1 px-2 pb-2">
                 <div className="relative">
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     onClick={() => setShowEmoji(!showEmoji)}
-                    className="w-8 h-8 rounded hover:bg-bg-modifier-hover flex items-center justify-center text-text-muted hover:text-text-primary transition"
+                    className="h-8 w-8"
                   >
                     <Smile size={18} />
-                  </button>
+                  </Button>
                   {showEmoji && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setShowEmoji(false)} />
@@ -638,13 +647,14 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
                     </>
                   )}
                 </div>
-                <button
+                <Button
+                  size="icon"
                   onClick={handleSend}
                   disabled={!messageText.trim() && pendingFiles.length === 0}
-                  className="w-8 h-8 rounded hover:bg-primary/10 flex items-center justify-center text-primary disabled:text-text-muted disabled:hover:bg-transparent transition"
+                  className="h-8 w-8 rounded-full bg-primary hover:bg-primary/80"
                 >
                   <Send size={18} />
-                </button>
+                </Button>
               </div>
             </div>
           </>

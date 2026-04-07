@@ -5,42 +5,64 @@
  */
 
 @theme {
-  --color-primary: #00c8d6;
+  --font-sans: "Nunito", "Noto Sans SC", sans-serif;
+  --font-mono: "Inter", monospace;
+
+  --color-primary: #00f3ff;
+  --color-primary-strong: #00c6d1;
   --color-primary-hover: #00a3b0;
   --color-accent: #f8e71c;
+  --color-accent-strong: #ffb300;
   --color-accent-hover: #e0d018;
-  --color-success: #57f287;
-  --color-warning: #fee75c;
-  --color-danger: #ed4245;
-  --color-bg-primary: #313338;
-  --color-bg-secondary: #2b2d31;
-  --color-bg-tertiary: #1e1f22;
-  --color-text-primary: #f2f3f5;
-  --color-text-secondary: #b5bac1;
-  --color-text-muted: #949ba4;
+  --color-success: #00e676;
+  --color-warning: #ff9100;
+  --color-danger: #ff2a55;
+
+  /* Neon Frost Dark Theme (Default) */
+  --color-bg-deep: #050508;
+  --color-bg-primary: #0a0a0f;
+  --color-bg-secondary: #12121a;
+  --color-bg-tertiary: #1a1a24;
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #a1a1aa;
+  --color-text-muted: #94a3b8;
   --color-bg-modifier-hover: rgba(255, 255, 255, 0.04);
   --color-bg-modifier-active: rgba(255, 255, 255, 0.08);
-  --color-border-subtle: rgba(255, 255, 255, 0.05);
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
   --color-border-dim: rgba(255, 255, 255, 0.1);
-  --color-divider: #404249;
+  --color-divider: #272733;
+
+  /* Glassmorphism */
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --shadow-soft: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
+  --shadow-cyan: 0 10px 25px rgba(0, 243, 255, 0.4);
+
+  /* Physics */
+  --bezier-bouncy: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* ─── Light Theme ─── */
 :root.light {
+  --color-bg-deep: #f8fafc;
   --color-bg-primary: #ffffff;
-  --color-bg-secondary: #f2f3f5;
-  --color-bg-tertiary: #e3e5e8;
-  --color-text-primary: #060607;
-  --color-text-secondary: #4e5058;
-  --color-text-muted: #80848e;
-  --color-primary: #009da8;
+  --color-bg-secondary: #f8fafc;
+  --color-bg-tertiary: #e2e8f0;
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #334155;
+  --color-text-muted: #64748b;
+  --color-primary: #00c6d1;
+  --color-primary-strong: #0891b2;
   --color-primary-hover: #007d86;
   --color-danger: #da373c;
   --color-bg-modifier-hover: rgba(0, 0, 0, 0.04);
   --color-bg-modifier-active: rgba(0, 0, 0, 0.06);
   --color-border-subtle: rgba(0, 0, 0, 0.06);
   --color-border-dim: rgba(0, 0, 0, 0.1);
-  --color-divider: #e0e1e5;
+  --color-divider: #e2e8f0;
+  --glass-bg: rgba(255, 255, 255, 0.75);
+  --glass-border: rgba(255, 255, 255, 1);
+  --shadow-soft: 0 10px 40px -10px rgba(0, 0, 0, 0.1);
 }
 
 /* ─── Light Theme Utility Overrides ─── */
@@ -90,10 +112,11 @@
 }
 
 body {
-  font-family: "Nunito", "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
-  background-color: var(--color-bg-primary);
+  font-family: "Nunito", "Noto Sans SC", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  background-color: var(--color-bg-deep, var(--color-bg-primary));
   color: var(--color-text-primary);
   min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
 }
 
 #root {
@@ -417,4 +440,39 @@ select.form-input {
 }
 textarea.form-input {
   resize: vertical;
+}
+
+/* ─── Neon Frost Utilities ─── */
+.bouncy {
+  transition: all 0.5s var(--bezier-bouncy, cubic-bezier(0.34, 1.56, 0.64, 1));
+  cursor: pointer;
+}
+.bouncy:hover {
+  transform: translateY(-4px) scale(1.02);
+}
+.bouncy:active {
+  transform: translateY(0) scale(0.96);
+}
+
+.glass-surface {
+  background-color: var(--glass-bg);
+  backdrop-filter: blur(32px);
+  border: 1px solid var(--glass-border);
+}
+
+/* Background Orb Animation */
+@keyframes float {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1) rotate(0deg);
+  }
+  33% {
+    transform: translate(40px, 60px) scale(1.05) rotate(5deg);
+  }
+  66% {
+    transform: translate(-30px, 20px) scale(0.95) rotate(-5deg);
+  }
+}
+.animate-float {
+  animation: float 25s infinite ease-in-out;
 }

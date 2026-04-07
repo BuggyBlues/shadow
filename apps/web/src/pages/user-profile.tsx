@@ -1,3 +1,4 @@
+import { Badge, Button, Card } from '@shadowob/ui'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from '@tanstack/react-router'
 import { ChevronLeft, LayoutDashboard, QrCode, X } from 'lucide-react'
@@ -76,17 +77,13 @@ export function UserProfilePage() {
       <div className="flex-1 overflow-y-auto bg-bg-primary">
         <div className="max-w-3xl mx-auto px-6 py-8">
           {/* Back */}
-          <button
-            type="button"
-            onClick={() => window.history.back()}
-            className="inline-flex items-center gap-2 text-text-muted hover:text-text-primary transition font-bold mb-6"
-          >
+          <Button variant="ghost" size="sm" onClick={() => window.history.back()} className="mb-6">
             <ChevronLeft className="w-5 h-5" />
             {t('common.back', '返回')}
-          </button>
+          </Button>
 
           {/* Profile Card */}
-          <div className="bg-bg-secondary rounded-2xl border border-border-subtle overflow-hidden">
+          <Card variant="glass" className="overflow-hidden">
             {/* Banner */}
             <div className="h-32 bg-gradient-to-r from-primary/40 to-primary/20" />
 
@@ -110,23 +107,20 @@ export function UserProfilePage() {
             <div className="px-8 pt-4 pb-8">
               <div className="flex items-center gap-2 mb-1">
                 <h1 className="text-2xl font-bold text-text-primary">{profile.displayName}</h1>
-                {profile.isBot && (
-                  <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded font-medium">
-                    Buddy
-                  </span>
-                )}
+                {profile.isBot && <Badge variant="primary">Buddy</Badge>}
               </div>
               <p className="text-text-muted">@{profile.username}</p>
 
               {currentUser?.id === profile.id && (
-                <button
-                  type="button"
+                <Button
+                  variant="primary"
+                  size="sm"
                   onClick={() => setShowQrCard(true)}
-                  className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition text-sm font-medium"
+                  className="mt-3"
                 >
                   <QrCode className="w-4 h-4" />
                   {t('profile.myQrCard', '我的名片')}
-                </button>
+                </Button>
               )}
 
               {/* Status */}
@@ -230,9 +224,9 @@ export function UserProfilePage() {
                             <span className="text-sm font-medium text-text-primary truncate group-hover:text-primary transition">
                               {agent.botUser?.displayName ?? agent.botUser?.username ?? 'Buddy'}
                             </span>
-                            <span className="text-[10px] bg-[#5865F2] text-white px-1.5 py-0.5 rounded-[3px] font-semibold shrink-0">
+                            <Badge variant="primary" size="xs">
                               Buddy
-                            </span>
+                            </Badge>
                           </div>
                           {agent.totalOnlineSeconds > 0 && (
                             <div className="flex items-center gap-2 mt-0.5">
@@ -260,7 +254,7 @@ export function UserProfilePage() {
               {/* Comment Section */}
               <ProfileCommentSection profileUserId={profile.id} />
             </div>
-          </div>
+          </Card>
         </div>
       </div>
 
@@ -271,10 +265,10 @@ export function UserProfilePage() {
           onClick={() => setShowQrCard(false)}
           onKeyDown={(e) => e.key === 'Escape' && setShowQrCard(false)}
         >
-          <div
-            className="bg-bg-secondary rounded-2xl p-8 w-[320px] flex flex-col items-center relative shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={() => {}}
+          <Card
+            variant="glass"
+            className="p-8 w-[320px] flex flex-col items-center relative"
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
           >
             <button
               type="button"
@@ -306,7 +300,7 @@ export function UserProfilePage() {
             <p className="text-xs text-text-muted mt-4">
               {t('profile.scanToAdd', '扫一扫，加好友')}
             </p>
-          </div>
+          </Card>
         </div>
       )}
     </>
