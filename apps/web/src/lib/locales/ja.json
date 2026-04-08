@@ -1645,5 +1645,15 @@
     "liveSync": "ライブ同期中",
     "buddyCreated": "Buddy が作成",
     "humanUploaded": "手動アップロード"
+  },
+  "widget": {
+    "pickerTitle": "ウィジェットを追加",
+    "searchWidgets": "ウィジェットを検索...",
+    "tagAll": "すべて",
+    "noResults": "ウィジェットが見つかりません",
+    "editCanvas": "編集",
+    "doneEditing": "完了",
+    "addWidget": "追加",
+    "layers": "レイヤー"
   }
 }

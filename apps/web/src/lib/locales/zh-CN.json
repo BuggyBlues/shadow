@@ -1645,5 +1645,15 @@
     "liveSync": "实时同步中",
     "buddyCreated": "Buddy 产出",
     "humanUploaded": "人工上传"
+  },
+  "widget": {
+    "pickerTitle": "添加小组件",
+    "searchWidgets": "搜索小组件...",
+    "tagAll": "全部",
+    "noResults": "没有找到小组件",
+    "editCanvas": "编辑",
+    "doneEditing": "完成",
+    "addWidget": "添加",
+    "layers": "图层"
   }
 }

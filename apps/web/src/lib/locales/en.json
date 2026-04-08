@@ -1645,5 +1645,15 @@
     "liveSync": "Live syncing",
     "buddyCreated": "By Buddy",
     "humanUploaded": "Uploaded"
+  },
+  "widget": {
+    "pickerTitle": "Add Widget",
+    "searchWidgets": "Search widgets...",
+    "tagAll": "All",
+    "noResults": "No widgets found",
+    "editCanvas": "Edit",
+    "doneEditing": "Done",
+    "addWidget": "Add",
+    "layers": "Layers"
   }
 }

@@ -1645,5 +1645,15 @@
     "liveSync": "실시간 동기화 중",
     "buddyCreated": "버디 제작",
     "humanUploaded": "수동 업로드"
+  },
+  "widget": {
+    "pickerTitle": "위젯 추가",
+    "searchWidgets": "위젯 검색...",
+    "tagAll": "전체",
+    "noResults": "위젯을 찾을 수 없습니다",
+    "editCanvas": "편집",
+    "doneEditing": "완료",
+    "addWidget": "추가",
+    "layers": "레이어"
   }
 }
