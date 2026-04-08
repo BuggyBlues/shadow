@@ -104,6 +104,8 @@ export interface WidgetInstance {
   grantedPermissions: WidgetPermission[]
   /** Visibility */
   visible: boolean
+  /** Whether the widget is locked (cannot be moved/resized) */
+  locked?: boolean
   /** For iframe/remote widgets — the resolved source URL */
   sourceUrl?: string
 }

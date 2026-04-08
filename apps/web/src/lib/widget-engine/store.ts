@@ -6,6 +6,8 @@
  * ───────────────────────────────────────────────────────────────────────────── */
 
 import { create } from 'zustand'
+import type { SnapGuide } from './snap'
+import { computeSnap, SNAP_GRID_SIZE } from './snap'
 import type {
   CanvasLayout,
   CanvasViewport,
@@ -13,6 +15,13 @@ import type {
   WidgetManifest,
   WidgetRect,
 } from './types'
+
+interface GhostBox {
+  x: number
+  y: number
+  w: number
+  h: number
+}
 
 interface WidgetEngineState {
   /* ── Canvas ── */
@@ -30,13 +39,20 @@ interface WidgetEngineState {
   removeWidget: (instanceId: string) => void
   updateWidget: (instanceId: string, patch: Partial<WidgetInstance>) => void
   moveWidget: (instanceId: string, rect: Partial<WidgetRect>) => void
+  resizeWidget: (instanceId: string, w: number, h: number) => void
   bringToFront: (instanceId: string) => void
   sendToBack: (instanceId: string) => void
   setBackgroundWidget: (instanceId: string | null) => void
+  cloneWidget: (instanceId: string) => void
+  lockWidget: (instanceId: string) => void
 
   /* ── Selection ── */
   selectedWidgetId: string | null
   selectWidget: (instanceId: string | null) => void
+
+  /* ── Focus mode (double-click → deep interaction) ── */
+  focusedWidgetId: string | null
+  setFocusedWidget: (instanceId: string | null) => void
 
   /* ── Editing mode ── */
   isEditing: boolean
@@ -45,6 +61,20 @@ interface WidgetEngineState {
   /* ── Widget Picker ── */
   pickerOpen: boolean
   setPickerOpen: (v: boolean) => void
+
+  /* ── Snap guides (visual feedback during drag) ── */
+  snapGuides: SnapGuide[]
+  setSnapGuides: (guides: SnapGuide[]) => void
+
+  /* ── Ghost box (drop preview during drag) ── */
+  ghostBox: GhostBox | null
+  setGhostBox: (box: GhostBox | null) => void
+
+  /* ── Quick Dial (right-click radial menu) ── */
+  quickDialOpen: boolean
+  quickDialPosition: { x: number; y: number }
+  openQuickDial: (x: number, y: number) => void
+  closeQuickDial: () => void
 
   /* ── Registry (manifest catalog) ── */
   registry: WidgetManifest[]
@@ -104,6 +134,7 @@ export const useWidgetEngine = create<WidgetEngineState>((set, get) => ({
           s.layout.backgroundWidgetId === instanceId ? null : s.layout.backgroundWidgetId,
       },
       selectedWidgetId: s.selectedWidgetId === instanceId ? null : s.selectedWidgetId,
+      focusedWidgetId: s.focusedWidgetId === instanceId ? null : s.focusedWidgetId,
     })),
 
   updateWidget: (instanceId, patch) =>
@@ -118,29 +149,48 @@ export const useWidgetEngine = create<WidgetEngineState>((set, get) => ({
 
   moveWidget: (instanceId, rect) =>
     set((s) => {
-      const snap = s.layout.gridSnap
-      const applySnap = (v: number) => (snap > 0 ? Math.round(v / snap) * snap : v)
+      const widget = s.layout.widgets.find((w) => w.instanceId === instanceId)
+      if (!widget) return {}
+
+      // Build proposed rect
+      const proposed: WidgetRect = {
+        ...widget.rect,
+        ...(rect.x != null ? { x: rect.x } : {}),
+        ...(rect.y != null ? { y: rect.y } : {}),
+        ...(rect.w != null ? { w: Math.max(0, rect.w) } : {}),
+        ...(rect.h != null ? { h: Math.max(0, rect.h) } : {}),
+        ...(rect.z != null ? { z: rect.z } : {}),
+      }
+
+      // Compute snap against other widgets
+      const others = s.layout.widgets.filter((w) => w.instanceId !== instanceId).map((w) => w.rect)
+      const snapResult = computeSnap(proposed, others, 0, 0, SNAP_GRID_SIZE)
+
       return {
         layout: {
           ...s.layout,
           widgets: s.layout.widgets.map((w) =>
             w.instanceId === instanceId
-              ? {
-                  ...w,
-                  rect: {
-                    ...w.rect,
-                    ...(rect.x != null ? { x: applySnap(rect.x) } : {}),
-                    ...(rect.y != null ? { y: applySnap(rect.y) } : {}),
-                    ...(rect.w != null ? { w: Math.max(0, rect.w) } : {}),
-                    ...(rect.h != null ? { h: Math.max(0, rect.h) } : {}),
-                    ...(rect.z != null ? { z: rect.z } : {}),
-                  },
-                }
+              ? { ...w, rect: { ...proposed, x: snapResult.x, y: snapResult.y } }
               : w,
           ),
         },
+        snapGuides: snapResult.guides,
+        ghostBox: { x: snapResult.x, y: snapResult.y, w: proposed.w, h: proposed.h },
       }
     }),
+
+  resizeWidget: (instanceId, w, h) =>
+    set((s) => ({
+      layout: {
+        ...s.layout,
+        widgets: s.layout.widgets.map((wi) =>
+          wi.instanceId === instanceId
+            ? { ...wi, rect: { ...wi.rect, w: Math.max(80, w), h: Math.max(60, h) } }
+            : wi,
+        ),
+      },
+    })),
 
   bringToFront: (instanceId) =>
     set((s) => {
@@ -173,17 +223,67 @@ export const useWidgetEngine = create<WidgetEngineState>((set, get) => ({
       layout: { ...s.layout, backgroundWidgetId: instanceId },
     })),
 
+  cloneWidget: (instanceId) => {
+    const s = get()
+    const original = s.layout.widgets.find((w) => w.instanceId === instanceId)
+    if (!original) return
+    const clone: WidgetInstance = {
+      ...original,
+      instanceId: `wi_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      rect: { ...original.rect, x: original.rect.x + 40, y: original.rect.y + 40 },
+    }
+    set((prev) => ({
+      layout: { ...prev.layout, widgets: [...prev.layout.widgets, clone] },
+      selectedWidgetId: clone.instanceId,
+    }))
+  },
+
+  lockWidget: (instanceId) =>
+    set((s) => ({
+      layout: {
+        ...s.layout,
+        widgets: s.layout.widgets.map((w) =>
+          w.instanceId === instanceId ? { ...w, locked: !w.locked } : w,
+        ),
+      },
+    })),
+
   /* ── Selection ── */
   selectedWidgetId: null,
   selectWidget: (instanceId) => set({ selectedWidgetId: instanceId }),
 
+  /* ── Focus mode ── */
+  focusedWidgetId: null,
+  setFocusedWidget: (instanceId) => set({ focusedWidgetId: instanceId }),
+
   /* ── Editing ── */
   isEditing: false,
-  setEditing: (v) => set({ isEditing: v, selectedWidgetId: v ? get().selectedWidgetId : null }),
+  setEditing: (v) =>
+    set({
+      isEditing: v,
+      selectedWidgetId: v ? get().selectedWidgetId : null,
+      focusedWidgetId: null,
+      snapGuides: [],
+      ghostBox: null,
+    }),
 
   /* ── Picker ── */
   pickerOpen: false,
   setPickerOpen: (v) => set({ pickerOpen: v }),
+
+  /* ── Snap guides ── */
+  snapGuides: [],
+  setSnapGuides: (guides) => set({ snapGuides: guides }),
+
+  /* ── Ghost box ── */
+  ghostBox: null,
+  setGhostBox: (box) => set({ ghostBox: box }),
+
+  /* ── Quick Dial ── */
+  quickDialOpen: false,
+  quickDialPosition: { x: 0, y: 0 },
+  openQuickDial: (x, y) => set({ quickDialOpen: true, quickDialPosition: { x, y } }),
+  closeQuickDial: () => set({ quickDialOpen: false }),
 
   /* ── Registry ── */
   registry: [],

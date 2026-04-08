@@ -31,6 +31,7 @@ import { useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BUILTIN_WIDGETS, useWidgetEngine, type WidgetInstance } from '../../../lib/widget-engine'
 import { InfiniteCanvas } from './InfiniteCanvas'
+import { QuickDial } from './QuickDial'
 import { WidgetIframe } from './WidgetIframe'
 import { WidgetPicker } from './WidgetPicker'
 import { WidgetShell } from './WidgetShell'
@@ -149,6 +150,7 @@ export function WidgetCanvas({
     addWidget,
     registerWidget,
     registry,
+    focusedWidgetId,
   } = useWidgetEngine()
 
   // Register built-in widgets on mount
@@ -197,40 +199,48 @@ export function WidgetCanvas({
         {sortedWidgets.map((instance) => {
           const manifest = getManifest(instance.widgetId)
           const builtinContent = renderWidget(instance.widgetId)
+          const isFocused = focusedWidgetId === instance.instanceId
           return (
-            <WidgetShell key={instance.instanceId} instance={instance} manifest={manifest}>
-              {builtinContent ?? (
-                <WidgetIframe
-                  instance={instance}
-                  onNavigate={(url) => {
-                    try {
-                      const parsed = new URL(url, window.location.origin)
-                      if (parsed.origin === window.location.origin) {
-                        void navigate({ to: parsed.pathname + parsed.search + parsed.hash })
-                      } else {
+            <div
+              key={instance.instanceId}
+              className={cn(isFocused && 'relative z-[100] animate-spring-in')}
+            >
+              <WidgetShell instance={instance} manifest={manifest}>
+                {builtinContent ?? (
+                  <WidgetIframe
+                    instance={instance}
+                    onNavigate={(url) => {
+                      try {
+                        const parsed = new URL(url, window.location.origin)
+                        if (parsed.origin === window.location.origin) {
+                          void navigate({ to: parsed.pathname + parsed.search + parsed.hash })
+                        } else {
+                          window.open(url, '_blank', 'noopener,noreferrer')
+                        }
+                      } catch {
                         window.open(url, '_blank', 'noopener,noreferrer')
                       }
-                    } catch {
-                      window.open(url, '_blank', 'noopener,noreferrer')
-                    }
-                  }}
-                />
-              )}
-            </WidgetShell>
+                    }}
+                  />
+                )}
+              </WidgetShell>
+            </div>
           )
         })}
       </InfiniteCanvas>
 
-      {/* ── Floating toolbar (top-right) ── */}
+      {/* ── Floating toolbar (top-right) — System-switch buttons with gradient edge ── */}
       <div className="absolute top-3 right-3 flex items-center gap-1.5 z-50">
         <Button
           variant={isEditing ? 'primary' : 'ghost'}
           size="sm"
           onClick={() => setEditing(!isEditing)}
           className={cn(
-            'rounded-2xl text-[11px] font-black gap-1.5 backdrop-blur-2xl',
+            'rounded-2xl text-[11px] font-black gap-1.5 backdrop-blur-2xl transition-all duration-300',
             !isEditing &&
-              'bg-bg-deep/60 border border-white/[0.06] text-text-muted hover:text-text-primary',
+              'bg-bg-deep/60 border border-white/[0.06] text-text-muted hover:text-text-primary hover:border-primary/30 hover:shadow-[0_0_16px_-4px_rgba(0,243,255,0.15)]',
+            isEditing &&
+              'shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_0_20px_-4px_rgba(0,243,255,0.2)] active:scale-95',
           )}
         >
           <Pencil size={12} />
@@ -241,7 +251,7 @@ export function WidgetCanvas({
             variant="ghost"
             size="sm"
             onClick={() => setPickerOpen(true)}
-            className="rounded-2xl text-[11px] font-black gap-1.5 bg-bg-deep/60 border border-white/[0.06] text-text-muted hover:text-text-primary backdrop-blur-2xl"
+            className="rounded-2xl text-[11px] font-black gap-1.5 bg-bg-deep/60 border border-white/[0.06] text-text-muted hover:text-text-primary backdrop-blur-2xl hover:border-accent/30 hover:shadow-[0_0_16px_-4px_rgba(0,243,255,0.15)] active:scale-95 transition-all duration-300"
           >
             <Plus size={12} />
             {t('widget.addWidget', '添加')}
@@ -259,6 +269,9 @@ export function WidgetCanvas({
 
       {/* ── Widget Picker ── */}
       {pickerOpen && <WidgetPicker onClose={() => setPickerOpen(false)} onAdd={handleAddWidget} />}
+
+      {/* ── Quick Dial radial menu (right-click) ── */}
+      <QuickDial onAddWidget={() => setPickerOpen(true)} />
     </div>
   )
 }

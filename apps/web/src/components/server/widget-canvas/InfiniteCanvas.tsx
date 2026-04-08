@@ -1,15 +1,21 @@
 /* ─────────────────────────────────────────────────────────────────────────────
- *  Shadow OS — Infinite Canvas (v2 — Depth / Ambience)
+ *  Shadow OS — Infinite Canvas (v3 — Cyber Workbench)
  *
- *  A pannable, zoomable infinite canvas with layered depth:
- *   Layer 0  — Ambient background (blurred gradient orbs, follows theme)
- *   Layer 1  — Widget layer (transform group)
- *   Layer 2  — HUD (controls, edit mode indicator, always screen-space)
+ *  Layers:
+ *   L0 — Ambient depth (parallax gradient orbs)
+ *   L1 — 24×24 elastic grid (edit mode only, radial-gradient dots)
+ *   L2 — Snap guide lines (cyan, 1px, only during drag)
+ *   L3 — Ghost box (drop preview during drag)
+ *   L4 — Widget transform group
+ *   L5 — Focus mode backdrop (blur + dim when widget focused)
+ *   L6 — HUD (viewport controls, always screen-space)
  *
- *  Interactions:
- *   - Trackpad scroll → pan,  ctrl/meta + scroll → zoom
- *   - Middle-click drag → pan,  Space + left-click drag → pan
- *   - Edit-mode grid (subtle, only when editing)
+ *  Input:
+ *   - Scroll → pan, Ctrl/Meta + scroll → zoom
+ *   - Middle-click / Space+click → pan
+ *   - Right-click on canvas blank → Quick Dial radial menu
+ *   - V → select mode, Space → pan, Cmd+D → clone, Cmd+G → group
+ *   - Delete/Backspace → remove selected
  * ───────────────────────────────────────────────────────────────────────────── */
 
 import { cn } from '@shadowob/ui'
@@ -22,7 +28,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import { useWidgetEngine } from '../../../lib/widget-engine'
+import { SNAP_GRID_SIZE, useWidgetEngine } from '../../../lib/widget-engine'
 
 interface InfiniteCanvasProps {
   children: React.ReactNode
@@ -30,34 +36,71 @@ interface InfiniteCanvasProps {
 }
 
 export function InfiniteCanvas({ children, className }: InfiniteCanvasProps) {
-  const { viewport, pan, zoom, resetViewport, isEditing } = useWidgetEngine()
+  const {
+    viewport,
+    pan,
+    zoom,
+    resetViewport,
+    isEditing,
+    snapGuides,
+    ghostBox,
+    focusedWidgetId,
+    setFocusedWidget,
+    selectedWidgetId,
+    cloneWidget,
+    removeWidget,
+    openQuickDial,
+  } = useWidgetEngine()
   const canvasRef = useRef<HTMLDivElement>(null)
   const [isPanning, setIsPanning] = useState(false)
   const [spaceHeld, setSpaceHeld] = useState(false)
   const lastPointer = useRef({ x: 0, y: 0 })
 
-  /* ── Space key for pan mode ── */
+  /* ── Keyboard shortcuts ── */
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (
-        e.code === 'Space' &&
-        !e.repeat &&
-        !(e.target as HTMLElement).closest('input, textarea')
-      ) {
+      const target = e.target as HTMLElement
+      if (target.closest('input, textarea, [contenteditable]')) return
+
+      // Space → pan mode
+      if (e.code === 'Space' && !e.repeat) {
         e.preventDefault()
         setSpaceHeld(true)
+        return
+      }
+
+      // Escape → exit focus mode
+      if (e.key === 'Escape' && focusedWidgetId) {
+        setFocusedWidget(null)
+        return
+      }
+
+      // Cmd/Ctrl+D → clone selected
+      if ((e.metaKey || e.ctrlKey) && e.key === 'd' && selectedWidgetId) {
+        e.preventDefault()
+        cloneWidget(selectedWidgetId)
+        return
+      }
+
+      // Delete/Backspace → remove selected
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedWidgetId) {
+        e.preventDefault()
+        removeWidget(selectedWidgetId)
+        return
       }
     }
+
     const onKeyUp = (e: KeyboardEvent) => {
       if (e.code === 'Space') setSpaceHeld(false)
     }
+
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
     }
-  }, [])
+  }, [focusedWidgetId, selectedWidgetId, setFocusedWidget, cloneWidget, removeWidget])
 
   /* ── Wheel zoom / pan ── */
   const onWheel = useCallback(
@@ -102,8 +145,18 @@ export function InfiniteCanvas({ children, className }: InfiniteCanvasProps) {
     setIsPanning(false)
   }, [])
 
-  /* ── Edit-mode grid ── */
-  const gridSize = 40 * viewport.zoom
+  /* ── Right-click → Quick Dial ── */
+  const onContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      if (!isEditing) return
+      e.preventDefault()
+      openQuickDial(e.clientX, e.clientY)
+    },
+    [isEditing, openQuickDial],
+  )
+
+  /* ── Grid (24×24 elastic) ── */
+  const gridSize = SNAP_GRID_SIZE * viewport.zoom
   const gridOffsetX = ((viewport.panX % gridSize) + gridSize) % gridSize
   const gridOffsetY = ((viewport.panY % gridSize) + gridSize) % gridSize
 
@@ -120,10 +173,10 @@ export function InfiniteCanvas({ children, className }: InfiniteCanvasProps) {
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onContextMenu={onContextMenu}
     >
-      {/* ── Layer 0: Ambient background ── */}
+      {/* ── L0: Ambient background ── */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {/* Parallax orbs — move at half the pan speed for depth */}
         <div
           className="absolute inset-[-200px]"
           style={{
@@ -137,20 +190,70 @@ export function InfiniteCanvas({ children, className }: InfiniteCanvasProps) {
         </div>
       </div>
 
-      {/* ── Edit grid (only visible in edit mode) ── */}
+      {/* ── L1: Elastic grid (edit mode only, 24px) ── */}
       {isEditing && (
         <div
-          className="absolute inset-0 pointer-events-none opacity-[0.08] transition-opacity duration-500"
+          className="absolute inset-0 pointer-events-none opacity-[0.06] transition-opacity duration-500"
           style={{
             backgroundImage:
-              'radial-gradient(circle, var(--color-text-muted) 1px, transparent 1px)',
+              'radial-gradient(circle, var(--color-text-muted) 0.5px, transparent 0.5px)',
             backgroundSize: `${gridSize}px ${gridSize}px`,
             backgroundPosition: `${gridOffsetX}px ${gridOffsetY}px`,
           }}
         />
       )}
 
-      {/* ── Layer 1: Widget transform group ── */}
+      {/* ── L2: Snap guide lines (cyan, during drag) ── */}
+      {snapGuides.length > 0 && (
+        <svg className="absolute inset-0 w-full h-full pointer-events-none z-40">
+          {snapGuides.map((g, i) => {
+            const { panX, panY, zoom: z } = viewport
+            if (g.axis === 'x') {
+              const sx = g.position * z + panX
+              return (
+                <line
+                  key={`sg-${i}`}
+                  x1={sx}
+                  y1={0}
+                  x2={sx}
+                  y2="100%"
+                  stroke="rgba(0,243,255,0.5)"
+                  strokeWidth={1}
+                  strokeDasharray="4 3"
+                />
+              )
+            }
+            const sy = g.position * z + panY
+            return (
+              <line
+                key={`sg-${i}`}
+                x1={0}
+                y1={sy}
+                x2="100%"
+                y2={sy}
+                stroke="rgba(0,243,255,0.5)"
+                strokeWidth={1}
+                strokeDasharray="4 3"
+              />
+            )
+          })}
+        </svg>
+      )}
+
+      {/* ── L3: Ghost box (drop preview) ── */}
+      {ghostBox && (
+        <div
+          className="absolute pointer-events-none z-40 border-2 border-dashed border-primary/40 rounded-2xl bg-primary/[0.04]"
+          style={{
+            left: ghostBox.x * viewport.zoom + viewport.panX,
+            top: ghostBox.y * viewport.zoom + viewport.panY,
+            width: ghostBox.w * viewport.zoom,
+            height: ghostBox.h * viewport.zoom,
+          }}
+        />
+      )}
+
+      {/* ── L4: Widget transform group ── */}
       <div
         className="absolute origin-top-left"
         style={{
@@ -161,7 +264,18 @@ export function InfiniteCanvas({ children, className }: InfiniteCanvasProps) {
         {children}
       </div>
 
-      {/* ── Layer 2: HUD — viewport controls ── */}
+      {/* ── L5: Focus mode backdrop (blurs everything except focused widget) ── */}
+      {focusedWidgetId && (
+        <div
+          className="absolute inset-0 bg-bg-deep/60 backdrop-blur-sm z-30 animate-in fade-in duration-300"
+          onClick={() => setFocusedWidget(null)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setFocusedWidget(null)
+          }}
+        />
+      )}
+
+      {/* ── L6: HUD — viewport controls ── */}
       <div className="absolute bottom-3 right-3 flex items-center gap-0.5 bg-bg-primary/60 backdrop-blur-2xl rounded-2xl border border-white/[0.06] px-1 py-0.5 shadow-xl z-50">
         <button
           type="button"

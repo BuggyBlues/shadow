@@ -1,4 +1,5 @@
 export { InfiniteCanvas } from './InfiniteCanvas'
+export { QuickDial } from './QuickDial'
 export { WidgetCanvas } from './WidgetCanvas'
 export { WidgetIframe } from './WidgetIframe'
 export { WidgetPicker } from './WidgetPicker'

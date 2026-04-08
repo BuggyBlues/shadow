@@ -538,6 +538,43 @@ textarea.form-input {
   animation: spring-in 0.5s var(--bezier-bouncy) both;
 }
 
+/* Breathing glow (widget selection ring) */
+@keyframes breathe {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(0, 243, 255, 0.5),
+      0 0 8px -2px rgba(0, 243, 255, 0.2);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(0, 243, 255, 0.8),
+      0 0 16px -2px rgba(0, 243, 255, 0.35);
+  }
+}
+
+/* Materialization (widget add onto canvas) */
+@keyframes materialize {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+    filter: blur(4px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.03);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+.animate-materialize {
+  animation: materialize 0.4s var(--bezier-bouncy) both;
+}
+
 /* Blob button (press animation) */
 .blob-button {
   transition: all 0.5s var(--bezier-bouncy);
