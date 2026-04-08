@@ -720,74 +720,79 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
           setBlankContextMenu({ x: e.clientX, y: e.clientY })
         }}
       >
-        {/* Navigation Row - Home, Shop, Workspace */}
-        <div className="px-3 mb-4 flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => {
-              navigate({
-                to: '/servers/$serverSlug',
-                params: { serverSlug: server?.slug ?? serverSlug },
-              })
-              requestMarkScopeRead({ serverId: server?.id ?? serverSlug })
-              setMobileView('chat')
-            }}
-            className={`group flex-1 flex flex-col items-center gap-1.5 py-2.5 rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] ${
-              isHomeActive
-                ? 'bg-primary/10 text-primary ring-1 ring-primary/20'
-                : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
-            }`}
-          >
-            <Home size={16} strokeWidth={isHomeActive ? 3 : 2.5} />
-            <span className="text-[11px] font-black uppercase tracking-widest leading-none">
-              {t('server.home')}
-            </span>
-          </button>
+        {/* Navigation Row - Home, Shop, Workspace — Core Hub Tabs */}
+        <div className="px-3 mb-2">
+          <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-bg-secondary/50 backdrop-blur-sm ring-1 ring-border-subtle">
+            <button
+              type="button"
+              onClick={() => {
+                navigate({
+                  to: '/servers/$serverSlug',
+                  params: { serverSlug: server?.slug ?? serverSlug },
+                })
+                requestMarkScopeRead({ serverId: server?.id ?? serverSlug })
+                setMobileView('chat')
+              }}
+              className={`group flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] ${
+                isHomeActive
+                  ? 'bg-primary/15 text-primary ring-1 ring-primary/30 shadow-lg shadow-primary/10'
+                  : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
+              }`}
+            >
+              <Home size={18} strokeWidth={isHomeActive ? 3 : 2.5} />
+              <span className="text-[11px] font-black uppercase tracking-widest leading-none">
+                {t('server.home')}
+              </span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              navigate({
-                to: '/servers/$serverSlug/shop',
-                params: { serverSlug: server?.slug ?? serverSlug },
-              })
-              requestMarkScopeRead({ serverId: server?.id ?? serverSlug })
-              setMobileView('chat')
-            }}
-            className={`group flex-1 flex flex-col items-center gap-1.5 py-2.5 rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] ${
-              isInShop
-                ? 'bg-accent/10 text-accent ring-1 ring-accent/20'
-                : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
-            }`}
-          >
-            <ShoppingBag size={16} strokeWidth={isInShop ? 3 : 2.5} />
-            <span className="text-[11px] font-black uppercase tracking-widest leading-none">
-              {t('serverHome.shop', 'Store')}
-            </span>
-          </button>
+            <button
+              type="button"
+              onClick={() => {
+                navigate({
+                  to: '/servers/$serverSlug/shop',
+                  params: { serverSlug: server?.slug ?? serverSlug },
+                })
+                requestMarkScopeRead({ serverId: server?.id ?? serverSlug })
+                setMobileView('chat')
+              }}
+              className={`group flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] ${
+                isInShop
+                  ? 'bg-accent/15 text-accent ring-1 ring-accent/30 shadow-lg shadow-accent/10'
+                  : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
+              }`}
+            >
+              <ShoppingBag size={18} strokeWidth={isInShop ? 3 : 2.5} />
+              <span className="text-[11px] font-black uppercase tracking-widest leading-none">
+                {t('serverHome.shop', 'Store')}
+              </span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              navigate({
-                to: '/servers/$serverSlug/workspace',
-                params: { serverSlug: server?.slug ?? serverSlug },
-              })
-              requestMarkScopeRead({ serverId: server?.id ?? serverSlug })
-              setMobileView('chat')
-            }}
-            className={`group flex-1 flex flex-col items-center gap-1.5 py-2.5 rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] ${
-              isInWorkspace
-                ? 'bg-primary/10 text-primary ring-1 ring-primary/20'
-                : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
-            }`}
-          >
-            <FolderClosed size={16} strokeWidth={isInWorkspace ? 3 : 2.5} />
-            <span className="text-[11px] font-black uppercase tracking-widest leading-none">
-              {t('serverHome.workspace', 'Work')}
-            </span>
-          </button>
+            <button
+              type="button"
+              onClick={() => {
+                navigate({
+                  to: '/servers/$serverSlug/workspace',
+                  params: { serverSlug: server?.slug ?? serverSlug },
+                })
+                requestMarkScopeRead({ serverId: server?.id ?? serverSlug })
+                setMobileView('chat')
+              }}
+              className={`group flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] ${
+                isInWorkspace
+                  ? 'bg-primary/15 text-primary ring-1 ring-primary/30 shadow-lg shadow-primary/10'
+                  : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
+              }`}
+            >
+              <FolderClosed size={18} strokeWidth={isInWorkspace ? 3 : 2.5} />
+              <span className="text-[11px] font-black uppercase tracking-widest leading-none">
+                {t('serverHome.workspace', 'Work')}
+              </span>
+            </button>
+          </div>
         </div>
+
+        {/* Separator between hub tabs and channels */}
+        <div className="mx-5 mb-3 h-px bg-border-subtle/60" />
 
         {/* Channel filter and sort bar */}
         {server?.id && (

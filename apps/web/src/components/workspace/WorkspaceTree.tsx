@@ -4,6 +4,7 @@ import {
   ChevronRight,
   FolderClosed,
   GripVertical,
+  PawPrint,
   Plus,
   RefreshCw,
 } from 'lucide-react'
@@ -562,6 +563,22 @@ function TreeRow({
       ) : (
         <>
           <span className="flex-1 min-w-0 truncate">{node.name}</span>
+          {/* 🐾 Buddy provenance badge */}
+          {node.flags?.createdByBuddy && (
+            <span
+              className="flex items-center gap-0.5 ml-1 shrink-0 text-accent"
+              title={`Buddy: ${typeof node.flags.createdByBuddy === 'string' ? node.flags.createdByBuddy : 'Buddy'}`}
+            >
+              <PawPrint size={10} />
+            </span>
+          )}
+          {/* Live sync indicator */}
+          {node.flags?.liveSync && (
+            <span
+              className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0 ml-1 animate-pulse"
+              title="实时同步中"
+            />
+          )}
           {node.kind === 'file' && node.sizeBytes != null && (
             <span className="text-[11px] text-text-muted ml-1.5 shrink-0 opacity-0 group-hover:opacity-70 transition-opacity">
               {formatFileSize(node.sizeBytes)}

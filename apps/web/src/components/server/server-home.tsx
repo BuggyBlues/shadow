@@ -1,6 +1,18 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, Check, Copy, ExternalLink, Home, Settings } from 'lucide-react'
+import {
+  Check,
+  Copy,
+  ExternalLink,
+  FileText,
+  Hash,
+  Megaphone,
+  MessageSquare,
+  PawPrint,
+  ShoppingBag,
+  Sparkles,
+  TrendingUp,
+} from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../../lib/api'
@@ -39,7 +51,7 @@ function generateDefaultHtml(server: ServerDetail, t: (key: string) => string): 
       desc: t('serverHome.chatDesc'),
       color: '#06b6d4',
     },
-    { icon: '🤖', title: t('serverHome.aiTitle'), desc: t('serverHome.aiDesc'), color: '#f59e0b' },
+    { icon: '🐾', title: t('serverHome.aiTitle'), desc: t('serverHome.aiDesc'), color: '#f59e0b' },
     {
       icon: '📢',
       title: t('serverHome.announceTitle'),
@@ -328,6 +340,422 @@ interface HomepageApp {
   iconUrl: string | null
 }
 
+interface ChannelInfo {
+  id: string
+  name: string
+  type: string
+  lastMessageAt?: string | null
+}
+
+interface BuddyMember {
+  userId: string
+  user?: {
+    id: string
+    username: string
+    displayName: string | null
+    avatarUrl: string | null
+    isBot: boolean
+    status: string
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Widget Components                                                         */
+/* -------------------------------------------------------------------------- */
+
+function WidgetCard({
+  children,
+  className,
+  glowColor,
+  onClick,
+}: {
+  children: React.ReactNode
+  className?: string
+  glowColor?: string
+  onClick?: () => void
+}) {
+  return (
+    <div
+      onClick={onClick}
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key === 'Enter') onClick()
+            }
+          : undefined
+      }
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      className={`relative bg-[var(--glass-bg)] backdrop-blur-2xl border border-[var(--glass-border)] border-t-white/10 rounded-[28px] p-5 shadow-[var(--shadow-soft)] transition-all duration-500 hover:translate-y-[-4px] hover:shadow-lg ${onClick ? 'cursor-pointer' : ''} ${className ?? ''}`}
+      style={glowColor ? { boxShadow: `0 8px 32px ${glowColor}20` } : undefined}
+    >
+      {children}
+    </div>
+  )
+}
+
+/** Activity Feed Widget — shows latest Buddy actions and channel events */
+function ActivityWidget({
+  channels,
+  serverSlug,
+  buddyMembers,
+}: {
+  channels: ChannelInfo[]
+  serverSlug: string
+  buddyMembers: BuddyMember[]
+}) {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const recentChannels = [...channels]
+    .filter((ch) => ch.lastMessageAt)
+    .sort((a, b) => (b.lastMessageAt ?? '').localeCompare(a.lastMessageAt ?? ''))
+    .slice(0, 5)
+
+  const activeBuddies = buddyMembers.filter((m) => m.user?.status === 'online')
+
+  return (
+    <WidgetCard className="col-span-2 md:col-span-1">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-8 h-8 rounded-xl bg-primary/15 flex items-center justify-center">
+          <TrendingUp size={16} className="text-primary" />
+        </div>
+        <h3 className="font-black text-text-primary text-sm">
+          {t('serverHome.widgetActivity', '最新动态')}
+        </h3>
+      </div>
+      <div className="space-y-2">
+        {activeBuddies.length > 0 && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-accent/5 border border-accent/10">
+            <PawPrint size={14} className="text-accent shrink-0" />
+            <span className="text-xs text-text-secondary truncate">
+              <span className="font-bold text-accent">
+                {activeBuddies[0]?.user?.displayName ?? activeBuddies[0]?.user?.username}
+              </span>{' '}
+              {activeBuddies.length > 1
+                ? t('serverHome.buddiesOnline', {
+                    count: activeBuddies.length,
+                    defaultValue: `等 ${activeBuddies.length} 个 Buddy 在线`,
+                  })
+                : t('serverHome.buddyOnline', '正在活跃中...')}
+            </span>
+          </div>
+        )}
+        {recentChannels.map((ch) => (
+          <button
+            type="button"
+            key={ch.id}
+            onClick={() =>
+              navigate({
+                to: '/servers/$serverSlug/channels/$channelId',
+                params: { serverSlug, channelId: ch.id },
+              })
+            }
+            className="flex items-center gap-2 px-3 py-2 rounded-2xl hover:bg-bg-modifier-hover transition-all w-full text-left group"
+          >
+            <Hash
+              size={14}
+              className="text-text-muted shrink-0 group-hover:text-primary transition-colors"
+            />
+            <span className="text-xs text-text-secondary group-hover:text-text-primary truncate font-bold">
+              {ch.name}
+            </span>
+            <span className="text-[10px] text-text-muted ml-auto shrink-0">
+              {ch.lastMessageAt
+                ? new Date(ch.lastMessageAt).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : ''}
+            </span>
+          </button>
+        ))}
+        {recentChannels.length === 0 && (
+          <p className="text-xs text-text-muted py-2 px-3">
+            {t('serverHome.noActivity', '暂无动态')}
+          </p>
+        )}
+      </div>
+    </WidgetCard>
+  )
+}
+
+/** Buddy Roster Widget — shows active Buddy residents */
+function BuddyWidget({ buddyMembers }: { buddyMembers: BuddyMember[] }) {
+  const { t } = useTranslation()
+  const activeBuddies = buddyMembers.filter((m) => m.user?.isBot)
+
+  return (
+    <WidgetCard glowColor="var(--color-accent)">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-8 h-8 rounded-xl bg-accent/15 flex items-center justify-center">
+          <PawPrint size={16} className="text-accent" />
+        </div>
+        <h3 className="font-black text-text-primary text-sm">
+          {t('serverHome.widgetBuddies', '🐾 常驻 Buddy')}
+        </h3>
+        <span className="text-[10px] font-bold text-text-muted ml-auto bg-bg-tertiary px-2 py-0.5 rounded-full">
+          {activeBuddies.length}
+        </span>
+      </div>
+      {activeBuddies.length > 0 ? (
+        <div className="space-y-2">
+          {activeBuddies.slice(0, 4).map((m) => (
+            <div
+              key={m.userId}
+              className="flex items-center gap-2.5 px-2 py-1.5 rounded-2xl hover:bg-bg-modifier-hover transition-all"
+            >
+              <div className="relative">
+                {m.user?.avatarUrl ? (
+                  <img
+                    src={m.user.avatarUrl}
+                    alt=""
+                    className="w-8 h-8 rounded-full object-cover ring-2 ring-accent/20"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-accent/15 flex items-center justify-center ring-2 ring-accent/20">
+                    <PawPrint size={14} className="text-accent" />
+                  </div>
+                )}
+                <div
+                  className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-bg-primary ${m.user?.status === 'online' ? 'bg-success' : 'bg-text-muted'}`}
+                />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold text-text-primary truncate">
+                  {m.user?.displayName ?? m.user?.username}
+                </div>
+                <div className="text-[10px] text-text-muted">
+                  {m.user?.status === 'online'
+                    ? t('serverHome.buddyActive', '活跃中')
+                    : t('serverHome.buddyIdle', '休息中')}
+                </div>
+              </div>
+            </div>
+          ))}
+          {activeBuddies.length > 4 && (
+            <p className="text-[10px] text-text-muted text-center">
+              +{activeBuddies.length - 4} {t('serverHome.moreBuddies', '更多 Buddy')}
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="text-center py-4">
+          <PawPrint size={28} className="text-text-muted/30 mx-auto mb-2" />
+          <p className="text-xs text-text-muted">
+            {t('serverHome.noBuddies', '还没有 Buddy 入驻')}
+          </p>
+        </div>
+      )}
+    </WidgetCard>
+  )
+}
+
+/** Quick Actions Widget — shortcut buttons */
+function QuickActionsWidget({ serverSlug }: { serverSlug: string }) {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+
+  const actions = [
+    {
+      icon: MessageSquare,
+      label: t('serverHome.actionChat', '开始聊天'),
+      color: 'primary',
+      onClick: () => navigate({ to: '/servers/$serverSlug', params: { serverSlug } }),
+    },
+    {
+      icon: ShoppingBag,
+      label: t('serverHome.actionStore', '逛逛商店'),
+      color: 'accent',
+      onClick: () => navigate({ to: '/servers/$serverSlug/shop', params: { serverSlug } }),
+    },
+    {
+      icon: FileText,
+      label: t('serverHome.actionWork', '工作区'),
+      color: 'primary',
+      onClick: () => navigate({ to: '/servers/$serverSlug/workspace', params: { serverSlug } }),
+    },
+  ]
+
+  return (
+    <WidgetCard>
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-8 h-8 rounded-xl bg-primary/15 flex items-center justify-center">
+          <Sparkles size={16} className="text-primary" />
+        </div>
+        <h3 className="font-black text-text-primary text-sm">
+          {t('serverHome.widgetQuickActions', '快捷操作')}
+        </h3>
+      </div>
+      <div className="space-y-2">
+        {actions.map((action) => (
+          <button
+            type="button"
+            key={action.label}
+            onClick={action.onClick}
+            className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-2xl text-xs font-bold transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] ${
+              action.color === 'accent'
+                ? 'bg-accent/10 text-accent hover:bg-accent/15'
+                : 'bg-primary/10 text-primary hover:bg-primary/15'
+            }`}
+          >
+            <action.icon size={16} />
+            {action.label}
+          </button>
+        ))}
+      </div>
+    </WidgetCard>
+  )
+}
+
+/** Channel Overview Widget — shows channel stats */
+function ChannelOverviewWidget({
+  channels,
+  serverSlug,
+}: {
+  channels: ChannelInfo[]
+  serverSlug: string
+}) {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const textCount = channels.filter((ch) => ch.type === 'text').length
+  const voiceCount = channels.filter((ch) => ch.type === 'voice').length
+  const announceCount = channels.filter((ch) => ch.type === 'announcement').length
+
+  return (
+    <WidgetCard
+      glowColor="var(--color-primary)"
+      onClick={() => {
+        const firstChannel = channels[0]
+        if (firstChannel) {
+          navigate({
+            to: '/servers/$serverSlug/channels/$channelId',
+            params: { serverSlug, channelId: firstChannel.id },
+          })
+        }
+      }}
+    >
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-8 h-8 rounded-xl bg-primary/15 flex items-center justify-center">
+          <Hash size={16} className="text-primary" />
+        </div>
+        <h3 className="font-black text-text-primary text-sm">
+          {t('serverHome.widgetChannels', '频道概览')}
+        </h3>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div className="text-center">
+          <div className="text-2xl font-black text-primary">{textCount}</div>
+          <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
+            {t('serverHome.textChannels', '文字')}
+          </div>
+        </div>
+        <div className="text-center">
+          <div className="text-2xl font-black text-accent">{voiceCount}</div>
+          <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
+            {t('serverHome.voiceChannels', '语音')}
+          </div>
+        </div>
+        <div className="text-center">
+          <div className="text-2xl font-black text-info">{announceCount}</div>
+          <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
+            {t('serverHome.announceChannels', '公告')}
+          </div>
+        </div>
+      </div>
+    </WidgetCard>
+  )
+}
+
+/** Server Info Hero Banner — shows server identity */
+function ServerHeroBanner({
+  server,
+  onCopyLink,
+  copied,
+}: {
+  server: ServerDetail
+  onCopyLink: () => void
+  copied: boolean
+}) {
+  const { t } = useTranslation()
+  const initial = server.name.charAt(0).toUpperCase()
+
+  return (
+    <div className="col-span-2 relative overflow-hidden rounded-[32px] bg-gradient-to-br from-primary/10 via-bg-secondary to-accent/10 border border-[var(--glass-border)] p-6">
+      {/* Decorative orbs */}
+      <div className="absolute -top-20 -right-20 w-48 h-48 rounded-full bg-primary/10 blur-[80px] pointer-events-none" />
+      <div className="absolute -bottom-16 -left-16 w-40 h-40 rounded-full bg-accent/10 blur-[60px] pointer-events-none" />
+      <div className="relative flex items-center gap-4">
+        {server.iconUrl ? (
+          <img
+            src={server.iconUrl}
+            alt=""
+            className="w-16 h-16 rounded-2xl object-cover ring-2 ring-white/10 shadow-lg"
+          />
+        ) : (
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary-strong flex items-center justify-center text-bg-deep font-black text-2xl ring-2 ring-white/10 shadow-lg">
+            {initial}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl font-black text-text-primary truncate">{server.name}</h1>
+          {server.description && (
+            <p className="text-sm text-text-secondary mt-1 line-clamp-2">{server.description}</p>
+          )}
+          <div className="flex items-center gap-3 mt-2">
+            {server.isPublic && (
+              <span className="text-[10px] font-black uppercase tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                {t('serverHome.publicBadge')}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={onCopyLink}
+              className="text-[10px] font-bold text-text-muted hover:text-primary transition flex items-center gap-1"
+            >
+              {copied ? <Check size={10} className="text-success" /> : <Copy size={10} />}
+              {t('serverHome.copyLink', '复制链接')}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Native React widget dashboard — renders when no custom HTML is set */
+function WidgetDashboard({
+  server,
+  channels,
+  buddyMembers,
+  copied,
+  onCopyLink,
+}: {
+  server: ServerDetail
+  channels: ChannelInfo[]
+  buddyMembers: BuddyMember[]
+  copied: boolean
+  onCopyLink: () => void
+}) {
+  const serverSlug = server.slug || server.id
+
+  return (
+    <div className="flex-1 overflow-auto scrollbar-hidden">
+      <div className="max-w-[960px] mx-auto px-4 md:px-8 py-6 space-y-4">
+        {/* Hero Banner */}
+        <ServerHeroBanner server={server} onCopyLink={onCopyLink} copied={copied} />
+
+        {/* Widget grid */}
+        <div className="grid grid-cols-2 gap-4">
+          <ActivityWidget channels={channels} serverSlug={serverSlug} buddyMembers={buddyMembers} />
+          <BuddyWidget buddyMembers={buddyMembers} />
+          <QuickActionsWidget serverSlug={serverSlug} />
+          <ChannelOverviewWidget channels={channels} serverSlug={serverSlug} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function ServerHome({ serverId: propServerId, standalone }: ServerHomeProps = {}) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -342,14 +770,20 @@ export function ServerHome({ serverId: propServerId, standalone }: ServerHomePro
   })
 
   // Fetch channels for navigation
-  const { data: channels } = useQuery({
+  const { data: channels = [] } = useQuery({
     queryKey: ['channels', effectiveServerId],
-    queryFn: () =>
-      fetchApi<Array<{ id: string; name: string; type: string }>>(
-        `/api/servers/${effectiveServerId}/channels`,
-      ),
+    queryFn: () => fetchApi<ChannelInfo[]>(`/api/servers/${effectiveServerId}/channels`),
     enabled: !!effectiveServerId,
   })
+
+  // Fetch members to show Buddy roster in widget dashboard
+  const { data: members = [] } = useQuery({
+    queryKey: ['members', effectiveServerId],
+    queryFn: () => fetchApi<BuddyMember[]>(`/api/servers/${effectiveServerId}/members`),
+    enabled: !!effectiveServerId,
+  })
+
+  const buddyMembers = members.filter((m) => m.user?.isBot)
 
   // Check for homepage app
   const { data: homepageApp } = useQuery({
@@ -410,15 +844,16 @@ export function ServerHome({ serverId: propServerId, standalone }: ServerHomePro
     )
   }
 
-  // Use custom HTML if set, otherwise generate default with i18n
-  const rawHtml = server.homepageHtml || generateDefaultHtml(server, t)
-
   // If a homepage app exists, resolve its URL for the iframe
   const homepageAppUrl = homepageApp
     ? homepageApp.sourceType === 'url'
       ? homepageApp.sourceUrl
       : `/api/media/files/${homepageApp.sourceUrl}`
     : null
+
+  // Determine rendering mode: custom HTML, homepage app, or native widget dashboard
+  const hasCustomContent = !!server.homepageHtml || !!homepageAppUrl
+  const useWidgetDashboard = !hasCustomContent
 
   // Inject link interceptor script to prevent app-in-app navigation
   const linkInterceptorScript = `<script>
@@ -431,9 +866,6 @@ document.addEventListener('click', function(e) {
   window.parent.postMessage({ type: 'server-home:navigate', url: a.href }, '*');
 }, true);
 </script>`
-  const htmlContent = rawHtml.includes('</body>')
-    ? rawHtml.replace('</body>', `${linkInterceptorScript}</body>`)
-    : rawHtml + linkInterceptorScript
 
   const handleCopyLink = async () => {
     const slug = server.slug || server.id
@@ -498,25 +930,40 @@ document.addEventListener('click', function(e) {
           )}
         </div>
       </div>
-      {/* HTML content in sandboxed iframe */}
-      <div className="flex-1 overflow-auto">
-        {homepageAppUrl ? (
-          <iframe
-            src={homepageAppUrl}
-            title={`${homepageApp?.name ?? server.name} homepage`}
-            className="w-full h-full border-0"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
-            allow="fullscreen; clipboard-write"
-          />
-        ) : (
-          <iframe
-            srcDoc={htmlContent}
-            title={`${server.name} homepage`}
-            className="w-full h-full border-0"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
-          />
-        )}
-      </div>
+      {/* Content: Widget Dashboard or custom HTML iframe */}
+      {useWidgetDashboard ? (
+        <WidgetDashboard
+          server={server}
+          channels={channels}
+          buddyMembers={buddyMembers}
+          copied={copied}
+          onCopyLink={handleCopyLink}
+        />
+      ) : (
+        <div className="flex-1 overflow-auto">
+          {homepageAppUrl ? (
+            <iframe
+              src={homepageAppUrl}
+              title={`${homepageApp?.name ?? server.name} homepage`}
+              className="w-full h-full border-0"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+              allow="fullscreen; clipboard-write"
+            />
+          ) : (
+            <iframe
+              srcDoc={(() => {
+                const rawHtml = server.homepageHtml ?? generateDefaultHtml(server, t)
+                return rawHtml.includes('</body>')
+                  ? rawHtml.replace('</body>', `${linkInterceptorScript}</body>`)
+                  : rawHtml + linkInterceptorScript
+              })()}
+              title={`${server.name} homepage`}
+              className="w-full h-full border-0"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+            />
+          )}
+        </div>
+      )}
     </div>
   )
 }

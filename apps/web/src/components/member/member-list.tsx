@@ -200,6 +200,35 @@ export function MemberList() {
   const onlineMembers = members.filter((m) => m.user?.status !== 'offline')
   const offlineMembers = members.filter((m) => m.user?.status === 'offline')
 
+  // Pre-compute buddy metadata maps for all groups
+  const botOwnerByUserId = new Map<string, string>()
+  const buddyMetaByUserId = new Map<
+    string,
+    {
+      ownerName?: string
+      ownerId?: string
+      ownerAvatarUrl?: string | null
+      description?: string
+      totalOnlineSeconds?: number
+    }
+  >()
+  for (const a of buddyAgents) {
+    const botUserId = a.botUser?.id
+    if (botUserId) botOwnerByUserId.set(botUserId, a.ownerId)
+    if (botUserId) {
+      const ownerName = a.owner?.displayName ?? a.owner?.username ?? undefined
+      const description =
+        typeof a.config?.description === 'string' ? a.config.description : undefined
+      buddyMetaByUserId.set(botUserId, {
+        ownerName,
+        ownerId: a.ownerId,
+        ownerAvatarUrl: a.owner?.avatarUrl ?? null,
+        description,
+        totalOnlineSeconds: a.totalOnlineSeconds,
+      })
+    }
+  }
+
   const renderMemberGroup = (label: string, items: Member[], opts?: { flat?: boolean }) => {
     if (items.length === 0) return null
     const isFlat = opts?.flat ?? false
@@ -209,34 +238,6 @@ export function MemberList() {
           {label} — {items.length}
         </h4>
         {(() => {
-          const botOwnerByUserId = new Map<string, string>()
-          const buddyMetaByUserId = new Map<
-            string,
-            {
-              ownerName?: string
-              ownerId?: string
-              ownerAvatarUrl?: string | null
-              description?: string
-              totalOnlineSeconds?: number
-            }
-          >()
-          for (const a of buddyAgents) {
-            const botUserId = a.botUser?.id
-            if (botUserId) botOwnerByUserId.set(botUserId, a.ownerId)
-            if (botUserId) {
-              const ownerName = a.owner?.displayName ?? a.owner?.username ?? undefined
-              const description =
-                typeof a.config?.description === 'string' ? a.config.description : undefined
-              buddyMetaByUserId.set(botUserId, {
-                ownerName,
-                ownerId: a.ownerId,
-                ownerAvatarUrl: a.owner?.avatarUrl ?? null,
-                description,
-                totalOnlineSeconds: a.totalOnlineSeconds,
-              })
-            }
-          }
-
           const membersByUserId = new Map(items.map((m) => [m.userId, m]))
           const ownerChildren = new Map<string, Member[]>()
           const orphanBots: Member[] = []
@@ -303,6 +304,13 @@ export function MemberList() {
     )
   }
 
+  // Split members into Buddy and Human groups
+  const buddyOnline = onlineMembers.filter((m) => m.user?.isBot)
+  const buddyOffline = offlineMembers.filter((m) => m.user?.isBot)
+  const humanOnline = onlineMembers.filter((m) => !m.user?.isBot)
+  const humanOffline = offlineMembers.filter((m) => !m.user?.isBot)
+  const allBuddies = [...buddyOnline, ...buddyOffline]
+
   const memberContent = (
     <>
       {/* Action buttons - hidden when channel is archived */}
@@ -334,8 +342,40 @@ export function MemberList() {
           </button>
         </div>
       )}
-      {renderMemberGroup(t('member.groupOnline'), onlineMembers)}
-      {renderMemberGroup(t('member.groupOffline'), offlineMembers, { flat: true })}
+
+      {/* 🐾 Buddy Residents — always at top, separated from humans */}
+      {allBuddies.length > 0 && (
+        <div className="mb-4">
+          <h4 className="text-[11px] font-black uppercase tracking-[0.2em] px-4 mb-2 flex items-center gap-1.5 text-accent">
+            <PawPrint size={11} />
+            {t('member.groupBuddies', '常驻 Buddy')} — {allBuddies.length}
+          </h4>
+          <div className="mx-2 rounded-2xl bg-accent/5 border border-accent/10 p-1 space-y-0.5">
+            {allBuddies.map((member) => {
+              const buddyMeta = buddyMetaByUserId.get(member.userId)
+              const buddyItem = memberToBuddyItem(member, buddyMeta)
+              if (!buddyItem) return null
+              return (
+                <div key={member.id} onContextMenu={(e) => handleContextMenu(e, member)}>
+                  <BuddyListItem
+                    buddy={buddyItem}
+                    showHoverCard={true}
+                    clickable={true}
+                    showBotBadge={true}
+                    showRoleBadge={false}
+                    showOnlineRank={true}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Human members — online */}
+      {renderMemberGroup(t('member.groupOnline'), humanOnline)}
+      {/* Human members — offline */}
+      {renderMemberGroup(t('member.groupOffline'), humanOffline, { flat: true })}
       {members.length === 0 && (
         <p className="text-text-muted text-sm px-4 py-2">{t('member.noMembers')}</p>
       )}

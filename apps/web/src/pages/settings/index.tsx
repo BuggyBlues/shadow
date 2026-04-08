@@ -2,16 +2,16 @@ import { cn } from '@shadowob/ui'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import {
   Bell,
-  Bot,
   Code2,
   Link2,
   LogOut,
   MessageCircle,
   Monitor,
   Paintbrush,
+  PawPrint,
   Shield,
   Target,
-  User,
+  type User,
   Wallet,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -66,7 +66,7 @@ const NAV_SECTIONS: NavSection[] = [
     labelKey: 'settings.sectionBasic',
     labelFallback: '基本',
     items: [
-      { id: 'buddy', icon: Bot, labelKey: 'settings.tabBuddy', labelFallback: 'Buddy' },
+      { id: 'buddy', icon: PawPrint, labelKey: 'settings.tabBuddy', labelFallback: 'Buddy' },
       { id: 'dm', icon: MessageCircle, labelKey: 'settings.tabDM', labelFallback: '私信' },
     ],
   },

@@ -331,7 +331,7 @@
     "reply": "回复",
     "more": "更多",
     "replyingTo": "回复消息中...",
-    "inputPlaceholder": "在 #{{channelName}} 中发送消息",
+    "inputPlaceholder": "输入 / 唤起指令，或 @ 呼唤 Buddy · #{{channelName}}",
     "uploadFile": "上传文件",
     "uploadImage": "上传图片",
     "channelFallback": "频道",
@@ -421,7 +421,8 @@
     "goCreate": "去创建",
     "noInvitable": "暂无其他服务器成员可邀请",
     "selectedBuddies": "已选择 {{count}} 个 Buddy",
-    "addToServer": "添加到服务器"
+    "addToServer": "添加到服务器",
+    "groupBuddies": "常驻 Buddy"
   },
   "features": {
     "pageTitle": "所有你需要的协作功能",
@@ -884,7 +885,7 @@
     "chatTitle": "频道",
     "chatDesc": "加入讨论，分享你的想法",
     "aiTitle": "AI 伙伴",
-    "aiDesc": "与智能 AI 助手一起协作",
+    "aiDesc": "与你的 Buddy 一起协作探索",
     "announceTitle": "最新动态",
     "announceDesc": "及时获取最新公告信息",
     "customizeTitle": "个性化",
@@ -892,7 +893,26 @@
     "exploreChannels": "浏览频道",
     "startChatting": "开始聊天",
     "openNewWindow": "在新窗口打开",
-    "backToServer": "返回服务器"
+    "backToServer": "返回服务器",
+    "widgetActivity": "最新动态",
+    "widgetBuddies": "🐾 常驻 Buddy",
+    "widgetQuickActions": "快捷操作",
+    "widgetChannels": "频道概览",
+    "buddiesOnline": "等 {{count}} 个 Buddy 在线",
+    "buddyOnline": "正在活跃中...",
+    "buddyActive": "活跃中",
+    "buddyIdle": "休息中",
+    "moreBuddies": "更多 Buddy",
+    "noBuddies": "还没有 Buddy 入驻",
+    "noActivity": "暂无动态",
+    "copyLink": "复制链接",
+    "actionChat": "开始聊天",
+    "actionStore": "逛逛商店",
+    "actionWork": "工作区",
+    "textChannels": "文字",
+    "voiceChannels": "语音",
+    "announceChannels": "公告",
+    "buddyTyping": "🐾 {{name}} 正在构思回复..."
   },
   "contract": {
     "contractTitle": "Buddy 聘用合同",
@@ -1612,5 +1632,18 @@
     "transactionNote": "备注",
     "balanceAfter": "余额",
     "rechargeBtn": "去充值"
+  },
+  "shop": {
+    "tabGameplay": "🎲 玩法扩展包",
+    "tabBuddies": "🐾 结识新 Buddy",
+    "tabResources": "📚 高级资料库",
+    "tabAll": "全部",
+    "emptyRecommend": "✨ 立即解锁新玩法或引入热门 Buddy"
+  },
+  "workspace": {
+    "createdBy": "🐾 创作者",
+    "liveSync": "实时同步中",
+    "buddyCreated": "Buddy 产出",
+    "humanUploaded": "人工上传"
   }
 }

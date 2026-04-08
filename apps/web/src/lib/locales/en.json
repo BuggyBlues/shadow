@@ -331,7 +331,7 @@
     "reply": "Reply",
     "more": "More",
     "replyingTo": "Replying to message...",
-    "inputPlaceholder": "Message #{{channelName}}",
+    "inputPlaceholder": "Type / for commands, @ to summon a Buddy · #{{channelName}}",
     "uploadFile": "Upload File",
     "uploadImage": "Upload Image",
     "channelFallback": "channel",
@@ -421,7 +421,8 @@
     "goCreate": "Go create",
     "noInvitable": "No other server members to invite",
     "selectedBuddies": "{{count}} Buddies selected",
-    "addToServer": "Add to Server"
+    "addToServer": "Add to Server",
+    "groupBuddies": "Resident Buddies"
   },
   "features": {
     "pageTitle": "All the Collaboration Features You Need",
@@ -884,7 +885,7 @@
     "chatTitle": "Channels",
     "chatDesc": "Join conversations and share your thoughts",
     "aiTitle": "AI Buddies",
-    "aiDesc": "Collaborate with intelligent AI assistants",
+    "aiDesc": "Collaborate and explore with your Buddies",
     "announceTitle": "Latest Updates",
     "announceDesc": "Stay in the loop with announcements",
     "customizeTitle": "Customize",
@@ -892,7 +893,26 @@
     "exploreChannels": "Explore Channels",
     "startChatting": "Start Chatting",
     "openNewWindow": "Open in new window",
-    "backToServer": "Back to server"
+    "backToServer": "Back to server",
+    "widgetActivity": "Recent Activity",
+    "widgetBuddies": "🐾 Resident Buddies",
+    "widgetQuickActions": "Quick Actions",
+    "widgetChannels": "Channel Overview",
+    "buddiesOnline": "{{count}} Buddies online",
+    "buddyOnline": "Active now...",
+    "buddyActive": "Active",
+    "buddyIdle": "Resting",
+    "moreBuddies": "more Buddies",
+    "noBuddies": "No Buddies yet",
+    "noActivity": "No recent activity",
+    "copyLink": "Copy link",
+    "actionChat": "Start chatting",
+    "actionStore": "Browse store",
+    "actionWork": "Workspace",
+    "textChannels": "Text",
+    "voiceChannels": "Voice",
+    "announceChannels": "Announce",
+    "buddyTyping": "🐾 {{name}} is composing a reply..."
   },
   "contract": {
     "contractTitle": "Buddy Employment Contract",
@@ -1612,5 +1632,18 @@
     "transactionNote": "Note",
     "balanceAfter": "Balance",
     "rechargeBtn": "Recharge"
+  },
+  "shop": {
+    "tabGameplay": "🎲 Gameplay Packs",
+    "tabBuddies": "🐾 Meet New Buddies",
+    "tabResources": "📚 Premium Resources",
+    "tabAll": "All",
+    "emptyRecommend": "✨ Unlock new gameplay or import trending Buddies"
+  },
+  "workspace": {
+    "createdBy": "🐾 Created by",
+    "liveSync": "Live syncing",
+    "buddyCreated": "By Buddy",
+    "humanUploaded": "Uploaded"
   }
 }

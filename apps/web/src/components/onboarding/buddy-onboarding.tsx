@@ -1,7 +1,16 @@
 import { Button, Card, Dialog, DialogContent } from '@shadowob/ui'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Bot, ChevronRight, Download, Plus, Rocket, Smartphone, Terminal, X } from 'lucide-react'
+import {
+  ChevronRight,
+  Download,
+  PawPrint,
+  Plus,
+  Rocket,
+  Smartphone,
+  Terminal,
+  X,
+} from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../../lib/api'
@@ -50,7 +59,7 @@ export function BuddyOnboarding({ serverId, onClose }: BuddyOnboardingProps) {
               <div className="w-20 h-20 mx-auto mb-6 relative">
                 <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-warning via-warning to-danger animate-pulse opacity-75" />
                 <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-warning to-warning flex items-center justify-center shadow-lg shadow-warning/25">
-                  <Bot size={40} className="text-bg-deep" />
+                  <PawPrint size={40} className="text-bg-deep" />
                 </div>
               </div>
               <h2 className="text-2xl font-black uppercase tracking-tight text-text-primary mb-2">

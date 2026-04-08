@@ -1,14 +1,18 @@
-import { Badge, Button, Card, cn, EmptyState, Input } from '@shadowob/ui'
+import { Button, Card, cn, EmptyState, Input } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import {
   ArrowLeft,
+  BookOpen,
   ClipboardList,
+  Dice5,
   Heart,
+  PawPrint,
   Search,
   Settings,
   ShoppingBag,
   ShoppingCart,
+  Sparkles,
   Wallet,
   X,
 } from 'lucide-react'
@@ -435,6 +439,14 @@ function ShopBrowse({
 
   const [favoriteOnly, setFavoriteOnly] = useState(false)
   const [favoriteIds, setFavoriteIds] = useState<string[]>([])
+  const [sceneTab, setSceneTab] = useState<string>('all')
+
+  const sceneTabs = [
+    { key: 'all', label: '全部', icon: Sparkles },
+    { key: 'gameplay', label: '玩法扩展包', icon: Dice5, emoji: '🎲' },
+    { key: 'buddies', label: '结识新 Buddy', icon: PawPrint, emoji: '🐾' },
+    { key: 'resources', label: '高级资料库', icon: BookOpen, emoji: '📚' },
+  ] as const
 
   useEffect(() => {
     const readFavorites = () => {
@@ -464,7 +476,28 @@ function ShopBrowse({
 
   // Filter + sort
   const filtered = useMemo(() => {
+    // Scene-based tag mapping
+    const sceneTagMap: Record<string, string[]> = {
+      gameplay: ['gameplay', 'game', 'extension', 'pack', '玩法', '扩展', '游戏'],
+      buddies: ['buddy', 'bot', 'assistant', 'ai', 'companion', 'Buddy', '助手'],
+      resources: ['resource', 'knowledge', 'library', 'data', '资料', '知识库', '文档'],
+    }
+
     let result = products
+    // Scene tab filter
+    if (sceneTab !== 'all' && sceneTagMap[sceneTab]) {
+      const tags = sceneTagMap[sceneTab]
+      result = result.filter(
+        (p) =>
+          p.tags?.some((t) => tags.some((st) => t.toLowerCase().includes(st))) ||
+          p.name
+            .toLowerCase()
+            .split('')
+            .some((_, __, arr) => tags.some((st) => arr.join('').includes(st))) ||
+          tags.some((st) => p.name.toLowerCase().includes(st)) ||
+          tags.some((st) => p.summary?.toLowerCase().includes(st)),
+      )
+    }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       result = result.filter(
@@ -492,7 +525,7 @@ function ShopBrowse({
       default:
         return result
     }
-  }, [products, searchQuery, sortBy, favoriteOnly, favoriteIds])
+  }, [products, searchQuery, sortBy, favoriteOnly, favoriteIds, sceneTab])
 
   const topCategories = categories.slice(0, 8)
 
@@ -538,6 +571,28 @@ function ShopBrowse({
 
       {/* ── Container for Filters & Grid (PC Friendly Layout) ── */}
       <div className="max-w-[1400px] mx-auto w-full">
+        {/* ── Scene-based Tabs ── */}
+        <div className="px-4 md:px-8 pt-5 pb-3 flex items-center gap-2 overflow-x-auto scrollbar-hidden">
+          {sceneTabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setSceneTab(tab.key)}
+              className={cn(
+                'whitespace-nowrap flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-black transition-all duration-300',
+                'hover:scale-[1.02] active:scale-[0.98]',
+                sceneTab === tab.key
+                  ? 'bg-primary/15 text-primary ring-1 ring-primary/30 shadow-lg shadow-primary/10'
+                  : 'bg-bg-secondary/60 text-text-secondary ring-1 ring-border-subtle hover:bg-bg-modifier-hover hover:text-text-primary',
+              )}
+            >
+              {'emoji' in tab && <span className="text-base">{tab.emoji}</span>}
+              {!('emoji' in tab) && <tab.icon size={16} />}
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         {/* ── Discovery Bar ── */}
         <div className="bg-bg-primary/90 backdrop-blur-xl pt-5 pb-4 px-4 md:px-8 border-b border-border-subtle sticky top-0 z-10 md:static">
           <div className="flex flex-col md:flex-row md:items-center gap-4 mb-4">
@@ -661,11 +716,24 @@ function ShopBrowse({
               ))}
             </div>
           ) : filtered.length === 0 ? (
-            <EmptyState
-              icon={ShoppingBag}
-              title="未找到相关商品"
-              description="尝试更换搜索词或分类"
-            />
+            <div className="flex flex-col items-center justify-center py-16 gap-4">
+              <EmptyState
+                icon={sceneTab === 'buddies' ? PawPrint : ShoppingBag}
+                title="未找到相关商品"
+                description={
+                  sceneTab !== 'all' ? '✨ 立即解锁新玩法或引入热门 Buddy' : '尝试更换搜索词或分类'
+                }
+              />
+              {sceneTab !== 'all' && (
+                <Button
+                  variant="outline"
+                  onClick={() => setSceneTab('all')}
+                  className="rounded-full"
+                >
+                  查看全部商品
+                </Button>
+              )}
+            </div>
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
               {filtered.map((product) => (

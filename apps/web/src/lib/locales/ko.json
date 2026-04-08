@@ -341,7 +341,7 @@
     "reply": "답장",
     "more": "더보기",
     "replyingTo": "답장 작성 중...",
-    "inputPlaceholder": "#{{channelName}}에 메시지 보내기",
+    "inputPlaceholder": "/ 명령어 입력, @ 버디 호출 · #{{channelName}}",
     "uploadFile": "파일 업로드",
     "uploadImage": "이미지 업로드",
     "channelFallback": "채널",
@@ -431,7 +431,8 @@
     "goCreate": "만들기",
     "noInvitable": "초대할 수 있는 다른 서버 멤버가 없습니다",
     "selectedBuddies": "{{count}}명의 Buddy 선택됨",
-    "addToServer": "서버에 추가"
+    "addToServer": "서버에 추가",
+    "groupBuddies": "상주 버디"
   },
   "features": {
     "pageTitle": "필요한 모든 협업 기능",
@@ -894,7 +895,7 @@
     "chatTitle": "채널",
     "chatDesc": "대화에 참여하고 생각을 공유하세요",
     "aiTitle": "AI 버디",
-    "aiDesc": "지능형 AI 어시스턴트와 함께 협업",
+    "aiDesc": "버디와 함께 협업하고 탐험하세요",
     "announceTitle": "최신 소식",
     "announceDesc": "최신 공지사항을 확인하세요",
     "customizeTitle": "커스터마이즈",
@@ -902,7 +903,26 @@
     "exploreChannels": "채널 탐색",
     "startChatting": "채팅 시작",
     "openNewWindow": "새 창에서 열기",
-    "backToServer": "서버로 돌아가기"
+    "backToServer": "서버로 돌아가기",
+    "widgetActivity": "최근 활동",
+    "widgetBuddies": "🐾 상주 버디",
+    "widgetQuickActions": "빠른 작업",
+    "widgetChannels": "채널 개요",
+    "buddiesOnline": "{{count}}개의 버디 온라인",
+    "buddyOnline": "활동 중...",
+    "buddyActive": "활동 중",
+    "buddyIdle": "휴식 중",
+    "moreBuddies": "더 많은 버디",
+    "noBuddies": "아직 버디가 없습니다",
+    "noActivity": "최근 활동 없음",
+    "copyLink": "링크 복사",
+    "actionChat": "채팅 시작",
+    "actionStore": "스토어 둘러보기",
+    "actionWork": "워크스페이스",
+    "textChannels": "텍스트",
+    "voiceChannels": "음성",
+    "announceChannels": "공지",
+    "buddyTyping": "🐾 {{name}}이(가) 답변을 고민 중..."
   },
   "contract": {
     "contractTitle": "Buddy 고용 계약",
@@ -1612,5 +1632,18 @@
     "transactionNote": "메모",
     "balanceAfter": "잔액",
     "rechargeBtn": "충전하기"
+  },
+  "shop": {
+    "tabGameplay": "🎲 게임플레이 팩",
+    "tabBuddies": "🐾 새로운 버디 만나기",
+    "tabResources": "📚 프리미엄 리소스",
+    "tabAll": "전체",
+    "emptyRecommend": "✨ 새로운 게임플레이를 해금하거나 인기 버디를 도입하세요"
+  },
+  "workspace": {
+    "createdBy": "🐾 제작자",
+    "liveSync": "실시간 동기화 중",
+    "buddyCreated": "버디 제작",
+    "humanUploaded": "수동 업로드"
   }
 }

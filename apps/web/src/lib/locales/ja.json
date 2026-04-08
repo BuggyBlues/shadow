@@ -341,7 +341,7 @@
     "reply": "返信",
     "more": "その他",
     "replyingTo": "返信中...",
-    "inputPlaceholder": "#{{channelName}} にメッセージを送信",
+    "inputPlaceholder": "/ でコマンド、@ で Buddy を呼び出す · #{{channelName}}",
     "uploadFile": "ファイルをアップロード",
     "uploadImage": "画像をアップロード",
     "channelFallback": "チャンネル",
@@ -431,7 +431,8 @@
     "goCreate": "作成する",
     "noInvitable": "招待できる他のサーバーメンバーがいません",
     "selectedBuddies": "{{count}} 人の Buddy を選択",
-    "addToServer": "サーバーに追加"
+    "addToServer": "サーバーに追加",
+    "groupBuddies": "常駐 Buddy"
   },
   "features": {
     "pageTitle": "必要なコラボ機能がすべて揃っています",
@@ -894,7 +895,7 @@
     "chatTitle": "チャンネル",
     "chatDesc": "会話に参加して、考えを共有しよう",
     "aiTitle": "AIバディ",
-    "aiDesc": "インテリジェントなAIアシスタントと協力",
+    "aiDesc": "Buddyと一緒にコラボして探索しよう",
     "announceTitle": "最新情報",
     "announceDesc": "最新のお知らせをチェック",
     "customizeTitle": "カスタマイズ",
@@ -902,7 +903,26 @@
     "exploreChannels": "チャンネルを見る",
     "startChatting": "チャットを始める",
     "openNewWindow": "新しいウィンドウで開く",
-    "backToServer": "サーバーに戻る"
+    "backToServer": "サーバーに戻る",
+    "widgetActivity": "最新アクティビティ",
+    "widgetBuddies": "🐾 常駐 Buddy",
+    "widgetQuickActions": "クイックアクション",
+    "widgetChannels": "チャンネル概要",
+    "buddiesOnline": "{{count}} 体の Buddy がオンライン",
+    "buddyOnline": "アクティブ中...",
+    "buddyActive": "アクティブ",
+    "buddyIdle": "休憩中",
+    "moreBuddies": "他の Buddy",
+    "noBuddies": "まだ Buddy がいません",
+    "noActivity": "最近のアクティビティはありません",
+    "copyLink": "リンクをコピー",
+    "actionChat": "チャットを始める",
+    "actionStore": "ストアを見る",
+    "actionWork": "ワークスペース",
+    "textChannels": "テキスト",
+    "voiceChannels": "ボイス",
+    "announceChannels": "お知らせ",
+    "buddyTyping": "🐾 {{name}} が返信を考え中..."
   },
   "contract": {
     "contractTitle": "Buddy 雇用契約",
@@ -1612,5 +1632,18 @@
     "transactionNote": "メモ",
     "balanceAfter": "残高",
     "rechargeBtn": "チャージする"
+  },
+  "shop": {
+    "tabGameplay": "🎲 ゲームプレイパック",
+    "tabBuddies": "🐾 新しい Buddy に出会う",
+    "tabResources": "📚 プレミアムリソース",
+    "tabAll": "すべて",
+    "emptyRecommend": "✨ 新しいゲームプレイを解放するか、人気の Buddy を導入しましょう"
+  },
+  "workspace": {
+    "createdBy": "🐾 作成者",
+    "liveSync": "ライブ同期中",
+    "buddyCreated": "Buddy が作成",
+    "humanUploaded": "手動アップロード"
   }
 }
