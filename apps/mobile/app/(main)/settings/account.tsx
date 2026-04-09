@@ -1,6 +1,6 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
-import { useState } from 'react'
 import { SettingsHeader } from '../../../src/components/common/settings-header'
 import { fetchApi } from '../../../src/lib/api'
 import { useAuthStore } from '../../../src/stores/auth.store'
@@ -176,9 +176,7 @@ export default function AccountSettingsScreen() {
                 placeholderTextColor={colors.textMuted}
                 secureTextEntry
                 value={passwordForm.confirmPassword}
-                onChangeText={(text) =>
-                  setPasswordForm({ ...passwordForm, confirmPassword: text })
-                }
+                onChangeText={(text) => setPasswordForm({ ...passwordForm, confirmPassword: text })}
                 editable={!passwordLoading}
               />
 

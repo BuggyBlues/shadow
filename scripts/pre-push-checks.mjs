@@ -41,7 +41,9 @@ function checkTestOnlyDirectives() {
       // .only() left in tests will skip other tests
       if (/\.(only|skip)\s*\(/.test(content)) {
         const matches = content.match(/\.(only|skip)\s*\(/g)
-        errors.push(`${relPath}: contains ${matches.length} .only()/.skip() directive(s) — remove before committing`)
+        errors.push(
+          `${relPath}: contains ${matches.length} .only()/.skip() directive(s) — remove before committing`,
+        )
       }
     }
   }
@@ -110,7 +112,14 @@ function findFiles(dir, pattern) {
 // 4. Sync skills from project root to openclaw plugin
 function syncSkills() {
   const skillsSrc = path.join(ROOT, 'skills', 'shadowob-cli', 'SKILL.md')
-  const skillsDest = path.join(ROOT, 'packages', 'openclaw-shadowob', 'skills', 'shadowob', 'SKILL.md')
+  const skillsDest = path.join(
+    ROOT,
+    'packages',
+    'openclaw-shadowob',
+    'skills',
+    'shadowob',
+    'SKILL.md',
+  )
 
   if (!fs.existsSync(skillsSrc)) return // No root skills to sync
 
@@ -129,7 +138,9 @@ function syncSkills() {
     } catch {
       // If git add fails (e.g. not in git repo), just warn
     }
-    warnings.push(`Synced skills/shadowob-cli/SKILL.md → packages/openclaw-shadowob/skills/shadowob/SKILL.md`)
+    warnings.push(
+      `Synced skills/shadowob-cli/SKILL.md → packages/openclaw-shadowob/skills/shadowob/SKILL.md`,
+    )
   }
 }
 

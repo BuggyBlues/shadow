@@ -66,10 +66,14 @@ function run(cmd, options = {}) {
  */
 function isContainerRunning(service) {
   // Check custom container first (for direct docker run)
-  const customContainer = service === 'postgres' ? POSTGRES_CONFIG.container : MINIO_CONFIG.container
+  const customContainer =
+    service === 'postgres' ? POSTGRES_CONFIG.container : MINIO_CONFIG.container
   if (customContainer) {
     try {
-      const result = execSync(`docker ps --filter "name=${customContainer}" --filter "status=running" -q`, { encoding: 'utf8' })
+      const result = execSync(
+        `docker ps --filter "name=${customContainer}" --filter "status=running" -q`,
+        { encoding: 'utf8' },
+      )
       return result.trim().length > 0
     } catch {
       return false
@@ -80,7 +84,7 @@ function isContainerRunning(service) {
   try {
     const result = execSync(
       `docker compose -f ${COMPOSE_FILE} ps --services --filter "status=running"`,
-      { encoding: 'utf8', cwd: ROOT }
+      { encoding: 'utf8', cwd: ROOT },
     )
     return result.trim().split('\n').includes(service)
   } catch {
@@ -92,7 +96,8 @@ function isContainerRunning(service) {
  * Get the actual container name for a service
  */
 function getContainerName(service) {
-  const customContainer = service === 'postgres' ? POSTGRES_CONFIG.container : MINIO_CONFIG.container
+  const customContainer =
+    service === 'postgres' ? POSTGRES_CONFIG.container : MINIO_CONFIG.container
   if (customContainer) {
     return customContainer
   }
@@ -117,7 +122,9 @@ function exportPostgres(dist) {
     console.error('\x1b[31m✖ Postgres container is not running\x1b[0m')
     console.log('  Start it with: docker compose up -d postgres')
     console.log('  Or for direct docker run:')
-    console.log('  POSTGRES_CONTAINER=name node scripts/docker.mjs export postgres --dist ./backups')
+    console.log(
+      '  POSTGRES_CONTAINER=name node scripts/docker.mjs export postgres --dist ./backups',
+    )
     process.exit(1)
   }
 
@@ -161,7 +168,9 @@ function exportMinio(dist) {
     console.error('\x1b[31m✖ MinIO container is not running\x1b[0m')
     console.log('  Start it with: docker compose up -d minio')
     console.log('  Or for direct docker run:')
-    console.log('  MINIO_CONTAINER=name MINIO_PORT=9000 node scripts/docker.mjs export minio --dist ./backups')
+    console.log(
+      '  MINIO_CONTAINER=name MINIO_PORT=9000 node scripts/docker.mjs export minio --dist ./backups',
+    )
     process.exit(1)
   }
 
@@ -172,7 +181,9 @@ function exportMinio(dist) {
     console.error('\x1b[31m✖ mc (MinIO Client) is not installed\x1b[0m')
     console.log('  Install it with:')
     console.log('    macOS: brew install minio/stable/mc')
-    console.log('    Linux: curl -sL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc && chmod +x /usr/local/bin/mc')
+    console.log(
+      '    Linux: curl -sL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc && chmod +x /usr/local/bin/mc',
+    )
     process.exit(1)
   }
 
@@ -198,7 +209,7 @@ function exportMinio(dist) {
       .trim()
       .split('\n')
       .filter(Boolean)
-      .map(line => {
+      .map((line) => {
         const parsed = JSON.parse(line)
         return parsed.key?.replace('/', '') || parsed.bucket?.name
       })
@@ -209,7 +220,7 @@ function exportMinio(dist) {
       .trim()
       .split('\n')
       .filter(Boolean)
-      .map(line => line.split(/\s+/).pop()?.replace('/', ''))
+      .map((line) => line.split(/\s+/).pop()?.replace('/', ''))
       .filter(Boolean)
   }
 
@@ -232,13 +243,16 @@ function exportMinio(dist) {
 
   // Export policies
   try {
-    const policiesOutput = run(`mc admin policy ls ${alias} --json`, { silent: true, allowFail: true })
+    const policiesOutput = run(`mc admin policy ls ${alias} --json`, {
+      silent: true,
+      allowFail: true,
+    })
     if (policiesOutput) {
       const policies = policiesOutput
         .trim()
         .split('\n')
         .filter(Boolean)
-        .map(line => {
+        .map((line) => {
           try {
             const parsed = JSON.parse(line)
             return parsed.policy || parsed.name
@@ -250,7 +264,10 @@ function exportMinio(dist) {
 
       for (const policy of policies) {
         try {
-          const policyInfo = run(`mc admin policy info ${alias} ${policy} --json`, { silent: true, allowFail: true })
+          const policyInfo = run(`mc admin policy info ${alias} ${policy} --json`, {
+            silent: true,
+            allowFail: true,
+          })
           if (policyInfo) {
             const policyFile = path.join(policiesDir, `${policy}.json`)
             fs.writeFileSync(policyFile, policyInfo)
@@ -274,7 +291,7 @@ function exportMinio(dist) {
         .trim()
         .split('\n')
         .filter(Boolean)
-        .map(line => {
+        .map((line) => {
           try {
             return JSON.parse(line)
           } catch {
@@ -296,13 +313,16 @@ function exportMinio(dist) {
   // Export service accounts
   console.log(`\x1b[36m▸ Exporting service accounts...\x1b[0m`)
   try {
-    const svcAccountsOutput = run(`mc admin user svcacct ls ${alias} --json`, { silent: true, allowFail: true })
+    const svcAccountsOutput = run(`mc admin user svcacct ls ${alias} --json`, {
+      silent: true,
+      allowFail: true,
+    })
     if (svcAccountsOutput) {
       const accounts = svcAccountsOutput
         .trim()
         .split('\n')
         .filter(Boolean)
-        .map(line => {
+        .map((line) => {
           try {
             return JSON.parse(line)
           } catch {
@@ -419,7 +439,9 @@ function importMinio(dist) {
     console.error('\x1b[31m✖ mc (MinIO Client) is not installed\x1b[0m')
     console.log('  Install it with:')
     console.log('    macOS: brew install minio/stable/mc')
-    console.log('    Linux: curl -sL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc && chmod +x /usr/local/bin/mc')
+    console.log(
+      '    Linux: curl -sL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc && chmod +x /usr/local/bin/mc',
+    )
     process.exit(1)
   }
 
@@ -434,9 +456,10 @@ function importMinio(dist) {
 
   // Import data
   if (fs.existsSync(dataDir)) {
-    const buckets = fs.readdirSync(dataDir, { withFileTypes: true })
-      .filter(d => d.isDirectory())
-      .map(d => d.name)
+    const buckets = fs
+      .readdirSync(dataDir, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name)
 
     console.log(`\x1b[36m▸ Importing minio data...\x1b[0m`)
 
@@ -458,8 +481,7 @@ function importMinio(dist) {
 
   // Import policies
   if (fs.existsSync(policiesDir)) {
-    const policyFiles = fs.readdirSync(policiesDir)
-      .filter(f => f.endsWith('.json'))
+    const policyFiles = fs.readdirSync(policiesDir).filter((f) => f.endsWith('.json'))
 
     console.log(`\x1b[36m▸ Importing IAM policies...\x1b[0m`)
 
@@ -470,7 +492,10 @@ function importMinio(dist) {
 
       try {
         // Create or update policy
-        run(`mc admin policy create ${alias} ${policyName} ${policyPath}`, { silent: true, allowFail: true })
+        run(`mc admin policy create ${alias} ${policyName} ${policyPath}`, {
+          silent: true,
+          allowFail: true,
+        })
         run(`mc admin policy attach ${alias} ${policyName}`, { silent: true, allowFail: true })
       } catch {
         // Policy might already exist

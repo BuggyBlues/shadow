@@ -24,15 +24,14 @@ import { execSync } from 'node:child_process'
 console.log('Generating device-framed showcase images...\n')
 
 try {
-  execSync(
-    'npx playwright test -c playwright.showcase.config.ts',
-    {
-      stdio: 'inherit',
-      cwd: new URL('../../apps/desktop', import.meta.url).pathname,
-    },
-  )
+  execSync('npx playwright test -c playwright.showcase.config.ts', {
+    stdio: 'inherit',
+    cwd: new URL('../../apps/desktop', import.meta.url).pathname,
+  })
   console.log('\nShowcase images saved to docs/readme/showcase/')
 } catch (error) {
-  console.error('\nShowcase generation failed. Make sure raw screenshots exist in docs/e2e/screenshots/')
+  console.error(
+    '\nShowcase generation failed. Make sure raw screenshots exist in docs/e2e/screenshots/',
+  )
   process.exit(1)
 }

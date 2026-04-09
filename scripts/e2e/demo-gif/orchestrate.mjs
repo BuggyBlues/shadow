@@ -35,17 +35,9 @@ function run(label, command, cwd) {
 }
 
 // Step 1: Capture demo-flow frames via Playwright
-run(
-  'Capturing demo flow frames',
-  'npx playwright test -c playwright.demo.config.ts',
-  desktopDir,
-)
+run('Capturing demo flow frames', 'npx playwright test -c playwright.demo.config.ts', desktopDir)
 
 // Step 2: Annotate + assemble GIF
-run(
-  'Rendering annotated GIF',
-  `node ${path.resolve(__dirname, 'render.mjs')}`,
-  repoRoot,
-)
+run('Rendering annotated GIF', `node ${path.resolve(__dirname, 'render.mjs')}`, repoRoot)
 
 console.log('\n✓ Demo GIF pipeline complete.\n')

@@ -318,7 +318,8 @@ export function MemberList() {
             style={{
               background: 'linear-gradient(135deg, #F8E71C, #ffb300)',
               border: '1px solid rgba(255,255,255,0.5)',
-              boxShadow: '0 10px 25px rgba(248, 231, 28, 0.35), inset 0 2px 4px rgba(255, 255, 255, 0.7)',
+              boxShadow:
+                '0 10px 25px rgba(248, 231, 28, 0.35), inset 0 2px 4px rgba(255, 255, 255, 0.7)',
               backdropFilter: 'blur(12px)',
             }}
             title={t('channel.addAgent')}

@@ -209,10 +209,7 @@ function App() {
             icon={Type}
           />
           <div className="grid gap-8 text-left">
-            <Card
-              variant="glass"
-              className="p-12 space-y-16"
-            >
+            <Card variant="glass" className="p-12 space-y-16">
               <div className="space-y-8">
                 <Label className="text-primary-strong dark:text-primary font-black opacity-100 uppercase tracking-widest text-xs">
                   Heading Hierarchy
@@ -274,10 +271,7 @@ function App() {
                     CJK Typography (Noto Sans SC)
                   </Label>
                   <div className="space-y-4">
-                    <Typography
-                      variant="h3"
-                      className="mb-0 text-text-primary font-extrabold"
-                    >
+                    <Typography variant="h3" className="mb-0 text-text-primary font-extrabold">
                       极致的“霓虹冰感”美学
                     </Typography>
                     <Typography
@@ -358,10 +352,7 @@ function App() {
           />
 
           <div className="grid lg:grid-cols-2 gap-12 text-left">
-            <Card
-              variant="glass"
-              className="p-10 space-y-10"
-            >
+            <Card variant="glass" className="p-10 space-y-10">
               <ListHeader label="Button States" count={7} />
               <div className="flex flex-wrap gap-6">
                 <Button>Primary</Button>
@@ -383,10 +374,7 @@ function App() {
               </div>
             </Card>
 
-            <Card
-              variant="glass"
-              className="p-10 space-y-10"
-            >
+            <Card variant="glass" className="p-10 space-y-10">
               <ListHeader label="Form Controls" />
               <div className="space-y-6">
                 <Input label="Username Handle" icon={Mail} placeholder="@shadow_dev" />
@@ -433,10 +421,7 @@ function App() {
               <Typography variant="h3" className="mb-0 text-text-primary font-extrabold">
                 Modal Systems
               </Typography>
-              <Typography
-                variant="body"
-                className="text-text-muted font-bold leading-relaxed"
-              >
+              <Typography variant="body" className="text-text-muted font-bold leading-relaxed">
                 Glassmorphic dialogs, slide-over sheets, and destructive confirmation flows.
               </Typography>
               <div className="flex flex-col gap-4">
@@ -653,10 +638,7 @@ function App() {
             </div>
 
             <div className="p-8 border-t border-border-subtle">
-              <Input
-                icon={Plus}
-                placeholder="Message #playground..."
-              />
+              <Input icon={Plus} placeholder="Message #playground..." />
             </div>
           </Card>
         </section>

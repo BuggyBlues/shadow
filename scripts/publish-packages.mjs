@@ -230,7 +230,10 @@ async function main() {
   }
 
   // 6. Bump versions
-  const baselineVersion = selected.map((pkg) => pkg.version).sort(compareSemver).at(-1)
+  const baselineVersion = selected
+    .map((pkg) => pkg.version)
+    .sort(compareSemver)
+    .at(-1)
   const targetVersion = bumpSemver(baselineVersion, bumpType)
 
   log(`Bumping versions (${bumpType}) with unified target ${targetVersion}…`)

@@ -92,7 +92,7 @@ const _scenes = [
     id: 'create-server',
     source: '00-create-server.png',
     label: { en: 'Name your community', zh: '为你的社区命名' },
-    zoom: { cx: 0.50, cy: 0.47, scale: 2.2 },
+    zoom: { cx: 0.5, cy: 0.47, scale: 2.2 },
     duration: config.frameDuration,
   },
   {
@@ -107,7 +107,7 @@ const _scenes = [
     id: 'create-channel',
     source: '02-create-channel.png',
     label: { en: 'Create a channel', zh: '创建频道' },
-    zoom: { cx: 0.50, cy: 0.47, scale: 2.2 },
+    zoom: { cx: 0.5, cy: 0.47, scale: 2.2 },
     duration: config.frameDuration,
   },
 
@@ -131,8 +131,8 @@ const _scenes = [
     id: 'channel-typing',
     source: '04-channel-typing.png',
     label: { en: 'Type your first message', zh: '发送第一条消息' },
-    highlight: { x: 0.50, y: 0.90, r: 0.06 },
-    zoom: { cx: 0.50, cy: 0.85, scale: 2.0 },
+    highlight: { x: 0.5, y: 0.9, r: 0.06 },
+    zoom: { cx: 0.5, cy: 0.85, scale: 2.0 },
     duration: config.frameDuration,
   },
   {
@@ -163,8 +163,8 @@ const _scenes = [
     id: 'dm-typing',
     source: '07-dm-typing.png',
     label: { en: 'Direct messages', zh: '私信' },
-    highlight: { x: 0.50, y: 0.85, r: 0.06 },
-    zoom: { cx: 0.50, cy: 0.82, scale: 2.0 },
+    highlight: { x: 0.5, y: 0.85, r: 0.06 },
+    zoom: { cx: 0.5, cy: 0.82, scale: 2.0 },
     duration: config.frameDuration,
   },
   {

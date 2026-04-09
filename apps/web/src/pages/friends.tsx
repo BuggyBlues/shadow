@@ -1,14 +1,6 @@
 import { Badge, Button, cn, Input, Popover, PopoverContent, PopoverTrigger } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  Bell,
-  Check,
-  Clock,
-  MessageCircle,
-  Search,
-  UserPlus,
-  X,
-} from 'lucide-react'
+import { Bell, Check, Clock, MessageCircle, Search, UserPlus, X } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { UserAvatar } from '../components/common/avatar'
@@ -268,9 +260,7 @@ export function UnifiedContactSidebar({
                       <UserAvatar
                         userId={ch.otherUser?.id ?? ''}
                         avatarUrl={ch.otherUser?.avatarUrl ?? null}
-                        displayName={
-                          ch.otherUser?.displayName ?? ch.otherUser?.username ?? '?'
-                        }
+                        displayName={ch.otherUser?.displayName ?? ch.otherUser?.username ?? '?'}
                         size="sm"
                       />
                       <span
@@ -285,9 +275,7 @@ export function UnifiedContactSidebar({
                         <span
                           className={cn(
                             'font-bold text-sm truncate',
-                            activeDmChannelId === ch.id
-                              ? 'text-primary'
-                              : 'text-text-primary',
+                            activeDmChannelId === ch.id ? 'text-primary' : 'text-text-primary',
                           )}
                         >
                           {ch.otherUser?.displayName ?? ch.otherUser?.username}

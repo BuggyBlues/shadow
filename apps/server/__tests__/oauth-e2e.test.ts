@@ -457,7 +457,7 @@ describe('OAuth Open Platform — Extended Scopes', () => {
   let platformClientId: string
   let platformClientSecret: string
   let oauthAccessToken: string
-let _oauthRefreshToken: string
+  let _oauthRefreshToken: string
 
   // Obtain an access token with all scopes
   it('creates an OAuth app with all scopes', async () => {

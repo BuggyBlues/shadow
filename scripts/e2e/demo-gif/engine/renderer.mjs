@@ -15,9 +15,15 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
-
-import { easeInOutCubic, crossfade, zoomAtT, zoomCrop, highlightSvg, labelBadgeSvg } from './effects.mjs'
-import { checkFfmpeg, assembleGif } from './assembler.mjs'
+import { assembleGif, checkFfmpeg } from './assembler.mjs'
+import {
+  crossfade,
+  easeInOutCubic,
+  highlightSvg,
+  labelBadgeSvg,
+  zoomAtT,
+  zoomCrop,
+} from './effects.mjs'
 
 // ── Frame writer ────────────────────────────────────────
 
@@ -46,7 +52,11 @@ async function annotateFrame(sharp, buf, scene, W, H, style) {
   const overlays = []
   if (scene.highlight) {
     const color = style.accentColor ?? '#00f3ff'
-    overlays.push({ input: Buffer.from(highlightSvg(scene.highlight, W, H, color)), top: 0, left: 0 })
+    overlays.push({
+      input: Buffer.from(highlightSvg(scene.highlight, W, H, color)),
+      top: 0,
+      left: 0,
+    })
   }
   if (scene.label) {
     overlays.push({ input: Buffer.from(labelBadgeSvg(scene.label, W, H, style)), top: 0, left: 0 })
@@ -200,6 +210,8 @@ export async function renderGif(opts) {
 
     const stats = await fs.stat(outPath)
     const mb = (stats.size / 1024 / 1024).toFixed(2)
-    console.log(`  ✓ ${path.relative(paths.showcaseDir, outPath) || path.basename(outPath)} (${mb} MB)\n`)
+    console.log(
+      `  ✓ ${path.relative(paths.showcaseDir, outPath) || path.basename(outPath)} (${mb} MB)\n`,
+    )
   }
 }

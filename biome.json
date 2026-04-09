@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.5/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.4.8/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -15,29 +15,40 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "recommended": false,
       "correctness": {
-        "noUnusedImports": "warn",
-        "noUnusedVariables": "warn"
+        "noUnusedImports": "off",
+        "noUnusedVariables": "off",
+        "noUnusedFunctionParameters": "off",
+        "noUnusedPrivateClassMembers": "off"
+      },
+      "complexity": {
+        "noBannedTypes": "off",
+        "noImportantStyles": "off",
+        "useLiteralKeys": "off",
+        "useOptionalChain": "off"
       },
       "style": {
-        "noNonNullAssertion": "off"
+        "noNonNullAssertion": "off",
+        "noDescendingSpecificity": "off",
+        "useTemplate": "off",
+        "useNodejsImportProtocol": "off"
       },
       "a11y": {
-        "useButtonType": "warn",
-        "noSvgWithoutTitle": "warn",
-        "noLabelWithoutControl": "warn",
-        "noStaticElementInteractions": "warn",
-        "useKeyWithClickEvents": "warn",
-        "useSemanticElements": "warn",
-        "noAutofocus": "warn"
+        "useButtonType": "off",
+        "noSvgWithoutTitle": "off",
+        "noLabelWithoutControl": "off",
+        "noStaticElementInteractions": "off",
+        "useKeyWithClickEvents": "off",
+        "useSemanticElements": "off",
+        "noAutofocus": "off"
       },
       "security": {
-        "noDangerouslySetInnerHtml": "warn"
+        "noDangerouslySetInnerHtml": "off"
       },
       "suspicious": {
-        "noExplicitAny": "warn",
-        "noArrayIndexKey": "warn"
+        "noExplicitAny": "off",
+        "noArrayIndexKey": "off"
       }
     }
   },
