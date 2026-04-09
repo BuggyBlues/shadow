@@ -459,6 +459,9 @@ export function createShopHandler(container: AppContainer) {
         })
       }
 
+      // channel is definitely defined here (either found or just created)
+      const ch = channel!
+
       // Keep channel private-ish: buyer + owner/admin + configured buddy
       const members = await serverDao.getMembers(serverId)
       const server = await serverDao.findById(serverId)
@@ -485,21 +488,21 @@ export function createShopHandler(container: AppContainer) {
       for (const m of members) {
         if (!allow.has(m.userId)) {
           try {
-            await channelMemberDao.remove(channel.id, m.userId)
+            await channelMemberDao.remove(ch.id, m.userId)
           } catch {
             // ignore if already removed / missing table
           }
         }
       }
       for (const uid of allowOrder) {
-        await channelMemberDao.add(channel.id, uid)
+        await channelMemberDao.add(ch.id, uid)
       }
 
       try {
         const io = container.resolve('io')
         for (const uid of allowOrder) {
-          io.to(`channel:${channel.id}`).emit('channel:member-added', {
-            channelId: channel.id,
+          io.to(`channel:${ch.id}`).emit('channel:member-added', {
+            channelId: ch.id,
             userId: uid,
           })
         }
@@ -531,7 +534,7 @@ export function createShopHandler(container: AppContainer) {
         size: 0,
       }))
 
-      await messageService.send(channel.id, user.userId, {
+      await messageService.send(ch.id, user.userId, {
         content,
         attachments: attachments.length > 0 ? attachments : undefined,
       })
@@ -543,8 +546,8 @@ export function createShopHandler(container: AppContainer) {
       return c.json(
         {
           ok: true,
-          channelId: channel.id,
-          channelName: channel.name,
+          channelId: ch.id,
+          channelName: ch.name,
           ownerUserId: ownerId,
           buddyUserId: buddyId,
           buddyStatus,

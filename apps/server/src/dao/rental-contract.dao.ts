@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull, lt, or, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, lt, or, sql } from 'drizzle-orm'
 import type { Database } from '../db'
 import { clawListings, rentalContracts, rentalUsageRecords, rentalViolations } from '../db/schema'
 import { agents } from '../db/schema/agents'

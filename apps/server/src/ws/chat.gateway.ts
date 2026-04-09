@@ -238,7 +238,7 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
           // Relay to bot using shared helper
           try {
             await relayDmToBot(io, container, data.dmChannelId, userId, otherUserId, {
-              id: message.id,
+              id: message.id!,
               content: message.content ?? data.content,
               author: message.author,
               createdAt: message.createdAt,

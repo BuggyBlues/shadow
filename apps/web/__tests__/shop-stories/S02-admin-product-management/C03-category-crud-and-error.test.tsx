@@ -54,7 +54,7 @@ describe('S02/C03 category crud and error', () => {
     })
 
     const deleteBtns = screen.getAllByRole('button')
-    const target = deleteBtns.find((b) => b.className.includes('hover:text-rose-600'))
+    const target = deleteBtns.find((b) => b.className.includes('hover:text-danger'))
     if (target) await userEvent.click(target)
 
     await waitFor(() => {

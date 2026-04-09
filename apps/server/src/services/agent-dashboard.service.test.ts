@@ -1,6 +1,7 @@
-import { describe, expect, it, vi } from 'vitest'
-import type { AgentDao } from '../dao/agent.dao'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Mocked } from 'vitest'
 import type { AgentDashboardDao } from '../dao/agent-dashboard.dao'
+import type { AgentDao } from '../dao/agent.dao'
 import type { ClawListingDao } from '../dao/claw-listing.dao'
 import type { RentalContractDao } from '../dao/rental-contract.dao'
 import type { UserDao } from '../dao/user.dao'
@@ -12,11 +13,11 @@ const mockLogger = {
   error: vi.fn(),
   warn: vi.fn(),
   debug: vi.fn(),
-} as any
+}
 
 describe('AgentDashboardService', () => {
-  // Mock DAOs
-  const mockAgentDashboardDao = {
+  // Mock DAOs using vi.fn() with proper typing
+  const mockAgentDashboardDao: Mocked<AgentDashboardDao> = {
     findDailyStats: vi.fn(),
     findHourlyStats: vi.fn(),
     getTotalMessages: vi.fn(),
@@ -28,24 +29,24 @@ describe('AgentDashboardService', () => {
     upsertDailyStats: vi.fn(),
     createEvent: vi.fn(),
     deleteOldEvents: vi.fn(),
-  } as unknown as AgentDashboardDao
+  } as Mocked<AgentDashboardDao>
 
-  const mockAgentDao = {
+  const mockAgentDao: Mocked<AgentDao> = {
     findById: vi.fn(),
     findByUserId: vi.fn(),
-  } as unknown as AgentDao
+  } as Mocked<AgentDao>
 
-  const mockRentalContractDao = {
+  const mockRentalContractDao: Mocked<RentalContractDao> = {
     findByListingIds: vi.fn(),
-  } as unknown as RentalContractDao
+  } as Mocked<RentalContractDao>
 
-  const mockClawListingDao = {
+  const mockClawListingDao: Mocked<ClawListingDao> = {
     findByAgentId: vi.fn(),
-  } as unknown as ClawListingDao
+  } as Mocked<ClawListingDao>
 
-  const mockUserDao = {
+  const mockUserDao: Mocked<UserDao> = {
     findById: vi.fn(),
-  } as unknown as UserDao
+  } as Mocked<UserDao>
 
   const service = new AgentDashboardService({
     agentDashboardDao: mockAgentDashboardDao,
@@ -66,35 +67,35 @@ describe('AgentDashboardService', () => {
       const userId = 'user-123'
 
       // Mock agent
-      mockAgentDao.findById.mockResolvedValue({
+      vi.mocked(mockAgentDao.findById).mockResolvedValue({
         id: agentId,
         ownerId: userId,
         totalOnlineSeconds: 3600,
-      })
+      } as any)
 
       // Mock stats
-      mockAgentDashboardDao.findDailyStats.mockResolvedValue([
+      vi.mocked(mockAgentDashboardDao.findDailyStats).mockResolvedValue([
         { date: '2025-03-26', messageCount: 10 },
         { date: '2025-03-27', messageCount: 5 },
-      ])
-      mockAgentDashboardDao.findHourlyStats.mockResolvedValue([
+      ] as any)
+      vi.mocked(mockAgentDashboardDao.findHourlyStats).mockResolvedValue([
         { hourOfDay: 9, messageCount: 5 },
         { hourOfDay: 14, messageCount: 10 },
-      ])
-      mockAgentDashboardDao.getTotalMessages.mockResolvedValue(100)
-      mockAgentDashboardDao.getActiveDaysCount.mockResolvedValue(15)
-      mockAgentDashboardDao.calculateStreaks.mockResolvedValue({ current: 5, longest: 10 })
-      mockAgentDashboardDao.findRecentEvents.mockResolvedValue([
+      ] as any)
+      vi.mocked(mockAgentDashboardDao.getTotalMessages).mockResolvedValue(100)
+      vi.mocked(mockAgentDashboardDao.getActiveDaysCount).mockResolvedValue(15)
+      vi.mocked(mockAgentDashboardDao.calculateStreaks).mockResolvedValue({ current: 5, longest: 10 })
+      vi.mocked(mockAgentDashboardDao.findRecentEvents).mockResolvedValue([
         {
           id: 'event-1',
           eventType: 'message',
           eventData: { preview: 'Hello' },
           createdAt: new Date(),
         },
-      ])
+      ] as any)
 
       // Mock rental stats
-      mockClawListingDao.findByAgentId.mockResolvedValue([])
+      vi.mocked(mockClawListingDao.findByAgentId).mockResolvedValue([])
 
       const result = await service.getDashboard(agentId, userId)
 
@@ -112,7 +113,7 @@ describe('AgentDashboardService', () => {
     })
 
     it('should throw 404 if agent not found', async () => {
-      mockAgentDao.findById.mockResolvedValue(null)
+      vi.mocked(mockAgentDao.findById).mockResolvedValue(null)
 
       await expect(service.getDashboard('agent-123', 'user-123')).rejects.toMatchObject({
         status: 404,
@@ -121,10 +122,10 @@ describe('AgentDashboardService', () => {
     })
 
     it('should throw 403 if user is not owner or tenant', async () => {
-      mockAgentDao.findById.mockResolvedValue({
+      vi.mocked(mockAgentDao.findById).mockResolvedValue({
         id: 'agent-123',
         ownerId: 'owner-123',
-      })
+      } as any)
 
       await expect(service.getDashboard('agent-123', 'other-user')).rejects.toMatchObject({
         status: 403,
@@ -154,7 +155,7 @@ describe('AgentDashboardService', () => {
       expect(mockAgentDashboardDao.upsertDailyStats).toHaveBeenCalledWith(
         agentId,
         expect.any(String),
-        { onlineSeconds: seconds },
+        { onlineSeconds: seconds }
       )
     })
   })

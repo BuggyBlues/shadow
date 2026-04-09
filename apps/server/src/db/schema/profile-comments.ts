@@ -1,4 +1,4 @@
-import { index, pgTable, text, timestamp, unique, uuid, varchar } from 'drizzle-orm/pg-core'
+import { index, pgTable, text, timestamp, unique, uuid, varchar, type AnyPgColumn } from 'drizzle-orm/pg-core'
 import { users } from './users'
 
 export const profileComments = pgTable(
@@ -12,7 +12,7 @@ export const profileComments = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     content: text('content').notNull(),
-    parentId: uuid('parent_id').references((): typeof profileComments => profileComments, {
+    parentId: uuid('parent_id').references((): AnyPgColumn => profileComments.id, {
       onDelete: 'cascade',
     }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

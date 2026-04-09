@@ -94,8 +94,7 @@ async function cleanupTestData(origin: string, token: string) {
 
 test.describe
   .serial('OAuth Developer Settings — UI', () => {
-    test.setTimeout(300_000) // 5 minutes — OAuth flow involves many API calls and UI transitions
-    test.skip('creates, inspects, and deletes an OAuth app from developer settings', async ({
+    test('creates, inspects, and deletes an OAuth app from developer settings', async ({
       browser,
     }) => {
       await ensureScreenshotDir()
@@ -164,31 +163,25 @@ test.describe
 
       // Verify no broken <img> in the app card — the first-letter fallback should show instead
       const appCardCheck = page
-        .locator('div.bg-bg-secondary')
+        .locator('div.rounded-3xl')
         .filter({ hasText: 'E2E Test OAuth App' })
         .first()
       // No <img> should exist inside the card logo area (we skipped logo, so it should render a text avatar)
       await expect(appCardCheck.locator('img').first()).not.toBeVisible()
-      // Note: First-letter avatar visibility is hard to assert reliably across Chromium versions;
-      // the img absence check above already validates the fallback path is taken.
+      // The first-letter avatar "E" should be visible
+      await expect(appCardCheck.getByText('E').first()).toBeVisible()
 
-      // Verify Client ID is visible (may take a moment for the full card to render)
-      // Note: In some Chromium versions, the card may render with slightly different timing;
-      // we verify the card exists and move on rather than block on this specific element.
+      // Verify Client ID is visible (masked: first 6 chars + dots, so "shadow" without "_")
       const clientIdEl = page
         .locator('code')
-        .filter({ hasText: /^shadow_/ })
+        .filter({ hasText: /^shadow/ })
         .first()
-      try {
-        await expect(clientIdEl).toBeVisible({ timeout: 5_000 })
-      } catch {
-        // Best-effort check — the card was already verified above
-      }
+      await expect(clientIdEl).toBeVisible()
       await screenshot(page, '23-oauth-app-card.png')
 
       // --- Edit the app: add a logo URL ---
       const appCardForEdit = page
-        .locator('div.bg-bg-secondary')
+        .locator('div.rounded-3xl')
         .filter({ hasText: 'E2E Test OAuth App' })
         .first()
       const editBtn = appCardForEdit.locator('button[title="编辑应用"]')
@@ -223,7 +216,7 @@ test.describe
 
       // After edit, the app card should now show an <img> with the logo
       const appCardAfterEdit = page
-        .locator('div.bg-bg-secondary')
+        .locator('div.rounded-3xl')
         .filter({ hasText: 'E2E Test OAuth App' })
         .first()
       await expect(appCardAfterEdit.locator('img').first()).toBeVisible({ timeout: 10_000 })
@@ -231,7 +224,7 @@ test.describe
 
       // --- Reset secret ---
       const appCardForReset = page
-        .locator('div.bg-bg-secondary')
+        .locator('div.rounded-3xl')
         .filter({ hasText: 'E2E Test OAuth App' })
         .first()
       const resetBtn = appCardForReset.locator('button[title="重置 Secret"]')
@@ -243,7 +236,7 @@ test.describe
       // --- Delete the app ---
       // Find the card that contains "E2E Test OAuth App" and click its delete button
       const appCard = page
-        .locator('div.bg-bg-secondary')
+        .locator('div.rounded-3xl')
         .filter({ hasText: 'E2E Test OAuth App' })
         .first()
       const deleteBtn = appCard.locator('button[title="删除应用"]')

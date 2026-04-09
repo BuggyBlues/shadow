@@ -53,7 +53,7 @@ export class AgentDashboardDao {
       const result = await this.db
         .update(agentDailyStats)
         .set(updates)
-        .where(eq(agentDailyStats.id, existing[0].id))
+        .where(eq(agentDailyStats.id, existing[0]!.id))
         .returning()
       return result[0]
     }
@@ -133,7 +133,7 @@ export class AgentDashboardDao {
       const result = await this.db
         .update(agentHourlyStats)
         .set(updates)
-        .where(eq(agentHourlyStats.id, existing[0].id))
+        .where(eq(agentHourlyStats.id, existing[0]!.id))
         .returning()
       return result[0]
     }
@@ -204,7 +204,7 @@ export class AgentDashboardDao {
     today.setHours(0, 0, 0, 0)
 
     // Check if today or yesterday has activity for current streak
-    const mostRecent = new Date(stats[0].date)
+    const mostRecent = new Date(stats[0]!.date)
     mostRecent.setHours(0, 0, 0, 0)
     const daysSinceLastActivity = Math.floor(
       (today.getTime() - mostRecent.getTime()) / (1000 * 60 * 60 * 24),

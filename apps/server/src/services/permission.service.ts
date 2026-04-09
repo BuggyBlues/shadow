@@ -15,7 +15,7 @@ export class PermissionService {
     const member = await this.requireMember(serverId, userId)
     const hierarchy: Record<string, number> = { member: 0, admin: 1, owner: 2 }
 
-    if (hierarchy[member.role] < hierarchy[minRole]) {
+    if ((hierarchy[member.role] ?? 0) < (hierarchy[minRole] ?? 0)) {
       throw Object.assign(new Error(`Requires ${minRole} role or higher`), { status: 403 })
     }
 

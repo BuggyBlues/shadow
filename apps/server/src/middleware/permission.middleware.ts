@@ -30,7 +30,7 @@ export function requireRole(requiredRole: RequiredRole) {
       return c.json({ error: 'Not a member of this server' }, 403)
     }
 
-    const userRole = member[0].role as RequiredRole
+    const userRole = member[0]!.role as RequiredRole
     if (ROLE_HIERARCHY[userRole] < ROLE_HIERARCHY[requiredRole]) {
       return c.json({ error: `Requires ${requiredRole} role or higher` }, 403)
     }

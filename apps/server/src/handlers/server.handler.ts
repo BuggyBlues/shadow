@@ -122,7 +122,7 @@ export function createServerHandler(container: AppContainer) {
           isBot: fullUser?.isBot ?? false,
         }
         if (channels.length > 0) {
-          const firstChannel = channels[0]
+          const firstChannel = channels[0]!
           io.to(`channel:${firstChannel.id}`).emit('member:joined', {
             ...payload,
             channelId: firstChannel.id,
@@ -288,6 +288,7 @@ export function createServerHandler(container: AppContainer) {
     const id = c.req.param('id')
     const user = c.get('user')
     const server = await serverService.regenerateInvite(id, user.userId)
+    if (!server) return c.json({ error: 'Server not found' }, 404)
     return c.json({ inviteCode: server.inviteCode })
   })
 

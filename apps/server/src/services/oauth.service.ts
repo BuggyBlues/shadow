@@ -549,7 +549,7 @@ export class OAuthService {
     })
 
     // Update agent with buddy fields
-    await oauthAppDao.updateBuddyAgent(agent.id, { oauthAppId: appId, buddyUserId: botUser.id })
+    await oauthAppDao.updateBuddyAgent(agent.id!, { oauthAppId: appId, buddyUserId: botUser.id })
 
     return {
       id: agent.id,
