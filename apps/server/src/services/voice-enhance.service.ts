@@ -437,7 +437,12 @@ Respond in JSON format:
       await this.enhance({
         transcript: 'Hello world',
         language: 'en',
-        options: { enableFillerRemoval: false },
+        options: {
+          enableSelfCorrection: true,
+          enableListFormatting: true,
+          enableFillerRemoval: false,
+          enableToneAdjustment: false,
+        },
       })
       return { status: 'ok', message: 'Service is healthy' }
     } catch (error) {

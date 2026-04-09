@@ -1,5 +1,9 @@
 import type { Logger } from 'pino'
 import type { AgentDao } from '../dao/agent.dao'
+import type { AgentDashboardDao } from '../dao/agent-dashboard.dao'
+import type { RentalContractDao } from '../dao/rental-contract.dao'
+import type { ClawListingDao } from '../dao/claw-listing.dao'
+import type { UserDao } from '../dao/user.dao'
 
 // Dashboard constants
 const DASHBOARD_CONSTANTS = {
@@ -21,9 +25,6 @@ function calculateActivityLevel(count: number): 0 | 1 | 2 | 3 | 4 {
   if (count >= 1) return 1
   return 0
 }
-
-import type { AgentDashboardDao } from '../dao/agent-dashboard.dao'
-import type { RentalContractDao } from '../dao/rental-contract.dao'
 
 export interface DashboardStats {
   totalMessages: number
@@ -178,7 +179,7 @@ export class AgentDashboardService {
    * Record a message sent by the agent
    */
   async recordMessage(agentId: string): Promise<void> {
-    const today = new Date().toISOString().split('T')[0]
+    const today = new Date().toISOString().split('T')[0]!
     const hour = new Date().getHours()
 
     await Promise.all([
@@ -191,7 +192,7 @@ export class AgentDashboardService {
    * Record online time for the agent
    */
   async recordOnlineTime(agentId: string, seconds: number): Promise<void> {
-    const today = new Date().toISOString().split('T')[0]
+    const today = new Date().toISOString().split('T')[0]!
     await this.deps.agentDashboardDao.upsertDailyStats(agentId, today, { onlineSeconds: seconds })
   }
 

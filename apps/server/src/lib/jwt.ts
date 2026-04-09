@@ -14,16 +14,16 @@ export interface JwtPayload {
 }
 
 export function signAccessToken(payload: JwtPayload): string {
-  return sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN })
+  return sign(payload, JWT_SECRET as jwt.Secret, { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions)
 }
 
 export function signRefreshToken(payload: JwtPayload): string {
-  return sign(payload, JWT_SECRET, { expiresIn: JWT_REFRESH_EXPIRES_IN })
+  return sign(payload, JWT_SECRET as jwt.Secret, { expiresIn: JWT_REFRESH_EXPIRES_IN } as jwt.SignOptions)
 }
 
 /** Sign a long-lived token for an Agent (bot user) */
 export function signAgentToken(payload: JwtPayload): string {
-  return sign(payload, JWT_SECRET, { expiresIn: JWT_AGENT_EXPIRES_IN })
+  return sign(payload, JWT_SECRET as jwt.Secret, { expiresIn: JWT_AGENT_EXPIRES_IN } as jwt.SignOptions)
 }
 
 export function verifyToken(token: string): JwtPayload {

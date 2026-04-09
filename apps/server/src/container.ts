@@ -111,9 +111,6 @@ export interface Cradle {
   rentalUsageDao: RentalUsageDao
   rentalViolationDao: RentalViolationDao
 
-  // Dashboard DAOs
-  agentDashboardDao: AgentDashboardDao
-
   // Profile Comment DAOs
   profileCommentDao: ProfileCommentDao
 

@@ -35,7 +35,7 @@ describe('S01/C07 category delete 500 error toast', () => {
     await userEvent.click(await screen.findByRole('button', { name: '分类管理' }))
     const btn = screen
       .getAllByRole('button')
-      .find((b) => b.className.includes('hover:text-rose-600'))
+      .find((b) => b.className.includes('hover:text-danger'))
     if (!btn) throw new Error('delete button missing')
     await userEvent.click(btn)
     await waitFor(() => expect(showToastMock).toHaveBeenCalledWith('删除分类失败(500)', 'error'))

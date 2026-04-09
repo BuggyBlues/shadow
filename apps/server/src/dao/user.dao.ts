@@ -56,6 +56,7 @@ export class UserDao {
     data: Partial<{
       displayName: string
       avatarUrl: string | null
+      passwordHash: string
     }>,
   ) {
     const result = await this.db

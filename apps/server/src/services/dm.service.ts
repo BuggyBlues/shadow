@@ -173,7 +173,7 @@ export class DmService {
       for (const att of attachmentInputs) {
         const rows = await this.deps.db
           .insert(dmAttachments)
-          .values({ dmMessageId: result[0].id, ...att })
+          .values({ dmMessageId: result[0]!.id, ...att })
           .returning()
         if (rows[0]) messageAttachments.push(rows[0])
       }

@@ -142,9 +142,9 @@ export function createDmHandler(container: AppContainer) {
       try {
         const channel = await dmService.getChannelById(id)
         if (channel) {
-          const otherUserId = channel.userAId === user.userId ? channel.userBId : channel.userAId
+          const otherUserId = (channel.userAId === user.userId ? channel.userBId : channel.userAId)!
           await relayDmToBot(io, container, id, user.userId, otherUserId, {
-            id: message.id,
+            id: message.id!,
             content: message.content ?? content,
             author: message.author,
             createdAt: message.createdAt,

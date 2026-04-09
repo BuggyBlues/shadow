@@ -11,6 +11,8 @@ import type {
   UpdateThreadInput,
 } from '../validators/message.schema'
 
+import type { Logger } from 'pino'
+
 export class MessageService {
   constructor(
     private deps: {
@@ -19,6 +21,7 @@ export class MessageService {
       channelDao: ChannelDao
       agentDao: AgentDao
       agentDashboardDao: AgentDashboardDao
+      logger: Logger
     },
   ) {}
 

@@ -372,7 +372,7 @@ export function createChannelHandler(container: AppContainer) {
     const io = container.resolve('io')
     const id = c.req.param('id')
     const userId = c.get('user').userId
-    const body = await c.req.json<{ reason?: string }>().catch(() => ({}))
+    const body = await c.req.json<{ reason?: string }>().catch(() => ({}) as { reason?: string })
     const channel = await channelService.archive(id, userId, body.reason)
 
     // Broadcast channel update to all users in the channel
