@@ -178,9 +178,11 @@ test.describe
         .locator('code')
         .filter({ hasText: /^shadow_/ })
         .first()
-      await expect(clientIdEl).toBeVisible({ timeout: 10_000 }).catch(() => {
+      try {
+        await expect(clientIdEl).toBeVisible({ timeout: 5_000 })
+      } catch {
         // Best-effort check — the card was already verified above
-      })
+      }
       await screenshot(page, '23-oauth-app-card.png')
 
       // --- Edit the app: add a logo URL ---
