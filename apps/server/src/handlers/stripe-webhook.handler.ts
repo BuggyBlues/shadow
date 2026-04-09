@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import type { AppContainer } from '../container'
 import { STRIPE_WEBHOOK_SECRET, stripe } from '../lib/stripe'
+import { logger } from '../lib/logger'
 
 /**
  * Stripe Webhook Handler.
@@ -12,11 +13,13 @@ export function createStripeWebhookHandler(container: AppContainer) {
 
   h.post('/', async (c) => {
     if (!stripe) {
+      logger.error('[Stripe Webhook] Payment service unavailable — STRIPE_SECRET_KEY not set')
       return c.json({ error: 'Payment service unavailable' }, 503)
     }
 
     const signature = c.req.header('stripe-signature')
     if (!signature) {
+      logger.warn('[Stripe Webhook] Missing stripe-signature header')
       return c.json({ error: 'Missing Stripe signature' }, 400)
     }
 
@@ -28,7 +31,7 @@ export function createStripeWebhookHandler(container: AppContainer) {
       event = stripe.webhooks.constructEvent(rawBody, signature, STRIPE_WEBHOOK_SECRET)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
-      console.error(`[Stripe Webhook] Signature verification failed: ${message}`)
+      logger.error({ err }, `[Stripe Webhook] Signature verification failed: ${message}`)
       return c.json({ error: 'Invalid signature' }, 400)
     }
 
@@ -42,9 +45,9 @@ export function createStripeWebhookHandler(container: AppContainer) {
         },
       )
     } catch (err) {
-      console.error('[Stripe Webhook] Error processing event:', err)
-      // Return 200 to prevent Stripe from retrying — we've logged the error
-      return c.json({ received: true, error: 'Processing error' }, 200)
+      logger.error({ err }, '[Stripe Webhook] Error processing event')
+      // Return 500 so Stripe retries the webhook delivery automatically
+      return c.json({ error: 'Processing error, will retry' }, 500)
     }
 
     return c.json({ received: true })
