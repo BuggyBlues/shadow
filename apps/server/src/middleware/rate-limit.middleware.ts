@@ -1,6 +1,6 @@
 import type { Context, MiddlewareHandler } from 'hono'
+import { createClient, type RedisClientType } from 'redis'
 import { logger } from '../lib/logger'
-import { getRedisClient } from './redis'
 
 export interface RateLimitOptions {
   /** Max requests per window */
@@ -23,19 +23,47 @@ const defaultOnLimit = (c: Context): Response => {
   return c.json({ error: 'Too Many Requests', message: 'Rate limit exceeded. Try again later.' }, 429)
 }
 
+// Lazy, shared Redis client — created once, reused across requests
+let redisClient: RedisClientType | null = null
+let redisConnecting: Promise<RedisClientType | null> | null = null
+
+async function getRateLimitRedis(): Promise<RedisClientType | null> {
+  if (redisClient) return redisClient
+  if (redisConnecting) return redisConnecting
+
+  const redisUrl = process.env.REDIS_URL
+  if (!redisUrl) return null
+
+  redisConnecting = (async () => {
+    try {
+      const client = createClient({ url: redisUrl })
+      client.on('error', (err) => logger.error({ err }, 'Rate limiter Redis error'))
+      await client.connect()
+      redisClient = client
+      return client
+    } catch (err) {
+      logger.error({ err }, 'Rate limiter: Redis connection failed')
+      return null
+    } finally {
+      redisConnecting = null
+    }
+  })()
+
+  return redisConnecting
+}
+
 /**
  * Rate limiting middleware backed by Redis.
- * Uses sliding window counter algorithm.
+ * Uses sliding window counter algorithm via sorted sets.
  * Falls back to no-op if Redis is unavailable.
  */
 export function rateLimit(options: RateLimitOptions): MiddlewareHandler {
   const { max, windowSec, prefix = 'rl', keyFn = defaultKey, onLimit = defaultOnLimit } = options
 
   return async (c, next) => {
-    const redis = await getRedisClient()
+    const redis = await getRateLimitRedis()
     if (!redis) {
       // Redis unavailable — skip rate limiting (don't block traffic)
-      logger.warn('Rate limiter: Redis unavailable, skipping')
       return next()
     }
 
