@@ -1,6 +1,6 @@
 export const LIMITS = {
-  /** Max message content length */
-  MESSAGE_CONTENT_MAX: 4000,
+  /** Max message content length (16KB — enough for detailed agent responses) */
+  MESSAGE_CONTENT_MAX: 16000,
   /** Max username length */
   USERNAME_MAX: 32,
   /** Min username length */
