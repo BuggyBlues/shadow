@@ -168,8 +168,10 @@ test.describe
         .first()
       // No <img> should exist inside the card logo area (we skipped logo, so it should render a text avatar)
       await expect(appCardCheck.locator('img').first()).not.toBeVisible()
-      // The first-letter avatar "E" should be visible
-      await expect(appCardCheck.getByText('E').first()).toBeVisible()
+      // The first-letter avatar should be visible (AppLogo renders a div with bg-primary/10)
+      const avatarEl = appCardCheck.locator('div.bg-primary\\/10').first()
+      await expect(avatarEl).toBeVisible()
+      await expect(avatarEl).toHaveText('E')
 
       // Verify Client ID is visible
       const clientIdEl = page
