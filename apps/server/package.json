@@ -28,6 +28,7 @@
     "dotenv": "^17.3.1",
     "drizzle-orm": "^0.44.2",
     "hono": "^4.12.8",
+    "hono-rate-limiter": "^0.5.3",
     "jsonwebtoken": "^9.0.2",
     "jszip": "^3.10.1",
     "mime-types": "^3.0.1",
