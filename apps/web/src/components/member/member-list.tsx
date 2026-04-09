@@ -369,12 +369,15 @@ export function MemberList() {
       )}
 
       {/* Invite Panel */}
-      {showInvitePanel && activeServerId && (
+      {activeServerId && (
         <InvitePanel
           serverId={activeServerId}
           channelId={activeChannelId}
           initialTab={inviteInitialTab}
-          onClose={() => setShowInvitePanel(false)}
+          open={showInvitePanel}
+          onOpenChange={(val) => {
+            if (!val) setShowInvitePanel(false)
+          }}
         />
       )}
 

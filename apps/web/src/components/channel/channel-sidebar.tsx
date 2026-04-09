@@ -129,7 +129,7 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
     channel: Channel
   } | null>(null)
   const [showInvitePanel, setShowInvitePanel] = useState(false)
-  const [inviteInitialTab, setInviteInitialTab] = useState<'members' | 'buddies'>('members')
+  const [inviteInitialTab, setInviteInitialTab] = useState<'members' | 'buddies'>('buddies')
   const [inviteTargetChannel, setInviteTargetChannel] = useState<Channel | null>(null)
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null)
   const [editChannelName, setEditChannelName] = useState('')
@@ -874,9 +874,12 @@ export function ChannelSidebar({ serverSlug }: { serverSlug: string }) {
           channelId={inviteTargetChannel?.id}
           channelName={inviteTargetChannel?.name}
           initialTab={inviteInitialTab}
-          onClose={() => {
-            setShowInvitePanel(false)
-            setInviteTargetChannel(null)
+          open={showInvitePanel}
+          onOpenChange={(val) => {
+            if (!val) {
+              setShowInvitePanel(false)
+              setInviteTargetChannel(null)
+            }
           }}
         />
       )}

@@ -1,9 +1,10 @@
-import { Button, Input } from '@shadowob/ui'
+import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, Input } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Check, Copy, PawPrint, Search, UserPlus, X } from 'lucide-react'
+import { Check, Copy, PawPrint, Search, UserPlus } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { UserAvatar } from '../avatar'
 import { fetchApi } from '../../../lib/api'
 
 // Types
@@ -40,49 +41,14 @@ interface BuddyAgent {
   }
 }
 
-interface Member {
-  id: string
-  userId: string
-  user?: {
-    id: string
-    username: string
-    displayName: string | null
-    avatarUrl: string | null
-    isBot: boolean
-  } | null
-}
-
 // Props
 export interface InvitePanelProps {
   serverId: string
   channelId?: string | null
   channelName?: string
   initialTab?: 'members' | 'buddies'
-  onClose: () => void
-}
-
-// User Avatar Component
-function UserAvatar({
-  avatarUrl,
-  name,
-  size = 'md',
-}: {
-  avatarUrl: string | null
-  name: string
-  size?: 'sm' | 'md'
-}) {
-  const sizeClasses = size === 'sm' ? 'w-6 h-6 text-[11px]' : 'w-8 h-8 text-xs'
-  return (
-    <div
-      className={`${sizeClasses} rounded-full bg-bg-tertiary/50 overflow-hidden flex items-center justify-center text-text-primary font-bold shrink-0`}
-    >
-      {avatarUrl ? (
-        <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-      ) : (
-        name.charAt(0).toUpperCase()
-      )}
-    </div>
-  )
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 // Main Component
@@ -90,8 +56,9 @@ export function InvitePanel({
   serverId,
   channelId,
   channelName,
-  initialTab = 'members',
-  onClose,
+  initialTab = 'buddies',
+  open = true,
+  onOpenChange,
 }: InvitePanelProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -105,29 +72,36 @@ export function InvitePanel({
   const [addingBuddies, setAddingBuddies] = useState(false)
   const [addingSingleId, setAddingSingleId] = useState<string | null>(null)
 
+  const handleClose = () => {
+    if (onOpenChange) {
+      onOpenChange(false)
+    }
+  }
+
   // Queries
   const { data: server } = useQuery({
     queryKey: ['server', serverId],
     queryFn: () =>
       fetchApi<{ id: string; inviteCode: string; slug: string }>(`/api/servers/${serverId}`),
-    enabled: !!serverId,
+    enabled: !!serverId && open,
   })
 
   const { data: serverMembers = [] } = useQuery({
     queryKey: ['server-members', serverId],
     queryFn: () => fetchApi<ServerMember[]>(`/api/servers/${serverId}/members`),
-    enabled: !!serverId,
+    enabled: !!serverId && open,
   })
 
   const { data: myBuddies = [] } = useQuery({
     queryKey: ['my-buddies-for-invite'],
     queryFn: () => fetchApi<BuddyAgent[]>('/api/agents'),
+    enabled: open,
   })
 
   const { data: channelMembers = [] } = useQuery({
     queryKey: ['channel-members', channelId],
     queryFn: () => fetchApi<Array<{ user: { id: string } }>>(`/api/channels/${channelId}/members`),
-    enabled: !!channelId,
+    enabled: !!channelId && open,
   })
 
   // Mutations
@@ -224,7 +198,7 @@ export function InvitePanel({
         queryClient.invalidateQueries({ queryKey: ['channel-members', channelId] })
       }
       setSelectedBuddyIds(new Set())
-      onClose()
+      handleClose()
     } catch {
       /* error handled silently */
     } finally {
@@ -253,7 +227,7 @@ export function InvitePanel({
       if (channelId) {
         queryClient.invalidateQueries({ queryKey: ['channel-members', channelId] })
       }
-      onClose()
+      handleClose()
     } catch {
       /* error handled silently */
     } finally {
@@ -271,7 +245,7 @@ export function InvitePanel({
       })
       queryClient.invalidateQueries({ queryKey: ['members', serverId, channelId] })
       queryClient.invalidateQueries({ queryKey: ['channel-members', channelId] })
-      onClose()
+      handleClose()
     } catch {
       /* error handled silently */
     } finally {
@@ -281,52 +255,50 @@ export function InvitePanel({
 
   const handleGoToBuddySettings = () => {
     navigate({ to: '/settings', search: { tab: 'buddy' } })
-    onClose()
+    handleClose()
   }
 
   const buddyCount = filteredMyBuddies.length + filteredServerBots.length
 
+  const handleOpenChange = (val: boolean) => {
+    if (!val) handleClose()
+  }
+
   return (
-    <div
-      className="fixed inset-0 bg-bg-deep/60 flex items-center justify-center z-50"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
-      <div className="bg-bg-primary/95 backdrop-blur-xl rounded-[40px] border border-border-subtle shadow-[0_32px_120px_rgba(0,0,0,0.5)] p-6 w-[520px] max-h-[80vh] overflow-hidden flex flex-col">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-[520px] !max-h-[85vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-text-primary">
+        <DialogHeader>
+          <DialogTitle className="text-xl">
             {activeTab === 'members' ? t('channel.inviteMember') : t('channel.addAgent')}
-          </h2>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X size={18} />
-          </Button>
-        </div>
+          </DialogTitle>
+        </DialogHeader>
 
         {/* Invite Link */}
-        <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-text-secondary mb-2">
-          {t('channel.inviteLink')}
-        </label>
-        <div className="flex items-center gap-2 mb-4">
-          <code className="flex-1 bg-bg-tertiary/50 text-text-primary rounded-xl px-4 py-3 font-mono text-xs truncate">
-            {server?.inviteCode
-              ? `${window.location.origin}/app/invite/${server.inviteCode}`
-              : '...'}
-          </code>
-          <Button
-            variant="glass"
-            size="sm"
-            onClick={copyInviteCode}
-            disabled={!server?.inviteCode}
-            title={t('common.copy')}
-          >
-            {copiedInvite ? <Check size={16} className="text-success" /> : <Copy size={16} />}
-          </Button>
+        <div className="space-y-2">
+          <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-text-secondary">
+            {t('channel.inviteLink')}
+          </label>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 bg-bg-tertiary/50 text-text-primary rounded-xl px-4 py-3 font-mono text-xs truncate">
+              {server?.inviteCode
+                ? `${window.location.origin}/app/invite/${server.inviteCode}`
+                : '...'}
+            </code>
+            <Button
+              variant="glass"
+              size="sm"
+              onClick={copyInviteCode}
+              disabled={!server?.inviteCode}
+              title={t('common.copy')}
+            >
+              {copiedInvite ? <Check size={16} className="text-success" /> : <Copy size={16} />}
+            </Button>
+          </div>
         </div>
 
-        {/* Tab Switcher */}
-        <div className="flex items-center gap-1 mb-3 bg-bg-tertiary/50 rounded-xl p-1">
+        {/* Tab Switcher - compact pill style */}
+        <div className="flex items-center gap-1 bg-bg-tertiary/50 rounded-xl p-1">
           <button
             type="button"
             onClick={() => setActiveTab('members')}
@@ -354,7 +326,7 @@ export function InvitePanel({
         </div>
 
         {/* Description */}
-        <div className="text-xs text-text-muted mb-2">
+        <div className="text-xs text-text-muted">
           {activeTab === 'members'
             ? channelId
               ? t('member.inviteToChannelDesc', { channel: channelName ?? '' })
@@ -366,7 +338,7 @@ export function InvitePanel({
 
         {/* Search (only for buddies tab) */}
         {activeTab === 'buddies' && (
-          <div className="mb-3">
+          <div>
             <Input
               type="text"
               value={search}
@@ -379,7 +351,7 @@ export function InvitePanel({
         )}
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto space-y-1 pr-1">
+        <div className="flex-1 overflow-y-auto space-y-1 pr-1 min-h-0">
           {activeTab === 'members' ? (
             // Members Tab
             candidates.length === 0 ? (
@@ -395,7 +367,12 @@ export function InvitePanel({
                     key={u.id}
                     className="flex items-center gap-3 px-3 py-2 rounded-lg bg-bg-tertiary/50 border border-border-subtle"
                   >
-                    <UserAvatar avatarUrl={u.avatarUrl} name={u.displayName || u.username} />
+                    <UserAvatar
+                      userId={u.id}
+                      avatarUrl={u.avatarUrl}
+                      displayName={u.displayName || u.username}
+                      size="sm"
+                    />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm text-text-primary truncate">
                         {u.displayName || u.username}
@@ -435,7 +412,12 @@ export function InvitePanel({
                         key={u.id}
                         className="flex items-start gap-3 px-3 py-2 rounded-lg bg-bg-tertiary/50 border border-border-subtle mb-1"
                       >
-                        <UserAvatar avatarUrl={u.avatarUrl} name={name} />
+                        <UserAvatar
+                          userId={u.id}
+                          avatarUrl={u.avatarUrl}
+                          displayName={name}
+                          size="sm"
+                        />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
                             <p className="text-sm text-text-primary truncate">{name}</p>
@@ -484,7 +466,6 @@ export function InvitePanel({
                         : null
                     const ownerName = buddy.owner?.displayName ?? buddy.owner?.username ?? null
                     const isSelected = selectedBuddyIds.has(buddy.id)
-                    const isAdding = addingSingleId === buddy.id
 
                     return (
                       <button
@@ -508,7 +489,12 @@ export function InvitePanel({
                           {isSelected && <Check size={12} className="text-white" />}
                         </div>
                         {/* Avatar */}
-                        <UserAvatar avatarUrl={u.avatarUrl} name={name} />
+                        <UserAvatar
+                          userId={u.id}
+                          avatarUrl={u.avatarUrl}
+                          displayName={name}
+                          size="sm"
+                        />
                         {/* Info */}
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
@@ -571,7 +557,7 @@ export function InvitePanel({
               {t('member.selectedBuddies', { count: selectedBuddyIds.size })}
             </span>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={onClose}>
+              <Button variant="ghost" size="sm" onClick={handleClose}>
                 {t('common.cancel')}
               </Button>
               <Button
@@ -587,7 +573,7 @@ export function InvitePanel({
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
