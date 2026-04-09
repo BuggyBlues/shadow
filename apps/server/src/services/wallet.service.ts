@@ -1,12 +1,23 @@
+import { eq } from 'drizzle-orm'
+import type { Database } from '../db'
+import { wallets, walletTransactions } from '../db/schema'
 import type { WalletDao } from '../dao/wallet.dao'
 
 /**
  * WalletService — manages virtual currency (虾币 / Shrimp Coins).
  * Handles balance queries, top-up, debit/credit, and transaction history.
  * Decoupled from orders — called by OrderService for payment.
+ *
+ * All balance mutations are wrapped in database transactions to ensure
+ * atomicity between the balance update and the transaction record.
  */
 export class WalletService {
-  constructor(private deps: { walletDao: WalletDao }) {}
+  constructor(
+    private deps: {
+      walletDao: WalletDao
+      db: Database
+    },
+  ) {}
 
   async getOrCreateWallet(userId: string) {
     return this.deps.walletDao.getOrCreate(userId)
@@ -19,14 +30,18 @@ export class WalletService {
   async topUp(userId: string, amount: number, note?: string) {
     const wallet = await this.deps.walletDao.getOrCreate(userId)
     const newBalance = wallet.balance + amount
-    await this.deps.walletDao.credit(wallet.id, amount)
-    await this.deps.walletDao.addTransaction({
-      walletId: wallet.id,
-      type: 'topup',
-      amount,
-      balanceAfter: newBalance,
-      note: note ?? '充值虾币',
+
+    await this.deps.db.transaction(async (tx) => {
+      await tx.update(wallets).set({ balance: newBalance, updatedAt: new Date() }).where(eq(wallets.id, wallet.id))
+      await tx.insert(walletTransactions).values({
+        walletId: wallet.id,
+        type: 'topup',
+        amount,
+        balanceAfter: newBalance,
+        note: note ?? '充值虾币',
+      })
     })
+
     return this.deps.walletDao.findByUserId(userId)
   }
 
@@ -56,16 +71,20 @@ export class WalletService {
       throw Object.assign(new Error('Insufficient balance'), { status: 400 })
     }
     const newBalance = wallet.balance - amount
-    await this.deps.walletDao.debit(wallet.id, amount)
-    await this.deps.walletDao.addTransaction({
-      walletId: wallet.id,
-      type: 'purchase',
-      amount: -amount,
-      balanceAfter: newBalance,
-      referenceId,
-      referenceType,
-      note,
+
+    await this.deps.db.transaction(async (tx) => {
+      await tx.update(wallets).set({ balance: newBalance, updatedAt: new Date() }).where(eq(wallets.id, wallet.id))
+      await tx.insert(walletTransactions).values({
+        walletId: wallet.id,
+        type: 'purchase',
+        amount: -amount,
+        balanceAfter: newBalance,
+        referenceId,
+        referenceType,
+        note,
+      })
     })
+
     return newBalance
   }
 
@@ -81,16 +100,20 @@ export class WalletService {
   ) {
     const wallet = await this.deps.walletDao.getOrCreate(userId)
     const newBalance = wallet.balance + amount
-    await this.deps.walletDao.credit(wallet.id, amount)
-    await this.deps.walletDao.addTransaction({
-      walletId: wallet.id,
-      type: 'refund',
-      amount,
-      balanceAfter: newBalance,
-      referenceId,
-      referenceType,
-      note,
+
+    await this.deps.db.transaction(async (tx) => {
+      await tx.update(wallets).set({ balance: newBalance, updatedAt: new Date() }).where(eq(wallets.id, wallet.id))
+      await tx.insert(walletTransactions).values({
+        walletId: wallet.id,
+        type: 'refund',
+        amount,
+        balanceAfter: newBalance,
+        referenceId,
+        referenceType,
+        note,
+      })
     })
+
     return newBalance
   }
 
@@ -106,16 +129,20 @@ export class WalletService {
   ) {
     const wallet = await this.deps.walletDao.getOrCreate(userId)
     const newBalance = wallet.balance + amount
-    await this.deps.walletDao.credit(wallet.id, amount)
-    await this.deps.walletDao.addTransaction({
-      walletId: wallet.id,
-      type: 'settlement',
-      amount,
-      balanceAfter: newBalance,
-      referenceId,
-      referenceType,
-      note,
+
+    await this.deps.db.transaction(async (tx) => {
+      await tx.update(wallets).set({ balance: newBalance, updatedAt: new Date() }).where(eq(wallets.id, wallet.id))
+      await tx.insert(walletTransactions).values({
+        walletId: wallet.id,
+        type: 'settlement',
+        amount,
+        balanceAfter: newBalance,
+        referenceId,
+        referenceType,
+        note,
+      })
     })
+
     return newBalance
   }
 }
