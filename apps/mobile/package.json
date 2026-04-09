@@ -48,7 +48,7 @@
     "expo-speech-recognition": "^3.1.2",
     "expo-splash-screen": "~55.0.16",
     "expo-status-bar": "~3.0.9",
-    "expo-web-browser": "~15.0.10",
+    "expo-web-browser": "~55.0.13",
     "i18next": "^25.8.14",
     "jszip": "^3.10.1",
     "lucide-react-native": "^0.577.0",
