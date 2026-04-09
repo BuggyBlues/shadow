@@ -256,6 +256,8 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
           } catch (err) {
             logger.warn({ err, userId, dmChannelId }, 'Rental message recording failed — non-critical')
           }
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : 'Failed to send DM'
           socket.emit('error', { message: msg })
         }
       },
