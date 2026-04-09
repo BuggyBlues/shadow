@@ -19,12 +19,20 @@ function extractExportedNames(filePath) {
   // Match: export { X, Y, Z } from '...'
   const reExportMatches = content.matchAll(/export\s*\{([^}]+)\}\s*from/g)
   for (const m of reExportMatches) {
-    const items = m[1].split(',').map((s) => s.trim().split(/\s+as\s+/).pop().trim())
+    const items = m[1].split(',').map((s) =>
+      s
+        .trim()
+        .split(/\s+as\s+/)
+        .pop()
+        .trim(),
+    )
     names.push(...items.filter(Boolean))
   }
 
   // Match: export const X = ...
-  const constMatches = content.matchAll(/export\s+(?:const|let|var|function|class|type|interface|enum)\s+(\w+)/g)
+  const constMatches = content.matchAll(
+    /export\s+(?:const|let|var|function|class|type|interface|enum)\s+(\w+)/g,
+  )
   for (const m of constMatches) {
     names.push(m[1])
   }
@@ -56,7 +64,9 @@ function main() {
     for (const d of duplicates) {
       console.warn(`  - ${d}`)
     }
-    console.warn('  This is expected if SDK re-exports from shared. Verify they refer to the same source.')
+    console.warn(
+      '  This is expected if SDK re-exports from shared. Verify they refer to the same source.',
+    )
   }
 
   console.log(`✔ Shared exports: ${sharedExports.length}, SDK exports: ${sdkExports.length}`)

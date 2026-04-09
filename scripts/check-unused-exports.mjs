@@ -12,10 +12,7 @@ import path from 'node:path'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 
-const SOURCE_DIRS = [
-  'packages/shared/src',
-  'packages/sdk/src',
-]
+const SOURCE_DIRS = ['packages/shared/src', 'packages/sdk/src']
 
 const CONSUMER_DIRS = [
   'apps/server/src',
@@ -50,15 +47,11 @@ function extractExports(filePath) {
   const names = []
 
   // export const/let/var/function/class Name
-  const declMatches = content.matchAll(
-    /export\s+(?:const|let|var|function|class|enum)\s+(\w+)/g,
-  )
+  const declMatches = content.matchAll(/export\s+(?:const|let|var|function|class|enum)\s+(\w+)/g)
   for (const m of declMatches) names.push(m[1])
 
   // export type/interface Name
-  const typeMatches = content.matchAll(
-    /export\s+(?:type|interface)\s+(\w+)/g,
-  )
+  const typeMatches = content.matchAll(/export\s+(?:type|interface)\s+(\w+)/g)
   for (const m of typeMatches) names.push(m[1])
 
   return names
@@ -107,9 +100,13 @@ function main() {
   if (unused.length > 0) {
     console.log(`\x1b[33m⚠ Potentially unused exports (${unused.length}):\x1b[0m`)
     for (const [name, data] of unused) {
-      console.log(`  ${name} — ${data.source} (${data.usages} reference${data.usages === 1 ? '' : 's'})`)
+      console.log(
+        `  ${name} — ${data.source} (${data.usages} reference${data.usages === 1 ? '' : 's'})`,
+      )
     }
-    console.log('\n  Note: This is a heuristic check. Some exports may be used dynamically or in tests.')
+    console.log(
+      '\n  Note: This is a heuristic check. Some exports may be used dynamically or in tests.',
+    )
   } else {
     console.log('✔ No obviously unused exports detected')
   }

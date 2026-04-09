@@ -77,7 +77,8 @@ export function createAuthHandler(container: AppContainer) {
       const user = c.get('user')
       const input = c.req.valid('json')
       // Extract IP and User-Agent for logging
-      const ipAddress = c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? c.req.header('x-real-ip')
+      const ipAddress =
+        c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? c.req.header('x-real-ip')
       const userAgent = c.req.header('user-agent')
       await authService.changePassword(user.userId, input, { ipAddress, userAgent })
       return c.json({ success: true })

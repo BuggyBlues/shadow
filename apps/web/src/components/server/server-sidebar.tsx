@@ -118,7 +118,7 @@ function ServerItem({
                 ? 'rounded-full ring-[3px] ring-primary ring-offset-2 ring-offset-bg-deep shadow-[0_0_24px_rgba(0,243,255,0.4)] scale-105'
                 : 'rounded-full ring-0 hover:ring-[3px] hover:ring-primary/50 hover:shadow-[0_0_16px_rgba(0,243,255,0.15)] opacity-80 hover:opacity-100',
             )}
-            >
+          >
             {server.iconUrl ? (
               <Avatar className="w-[56px] h-[56px] rounded-[inherit]">
                 <AvatarImage src={server.iconUrl} alt={server.name} className="object-cover" />
@@ -140,9 +140,13 @@ function ServerItem({
               >
                 {server.name.charAt(0).toUpperCase()}
               </div>
-            )}          </button>
+            )}{' '}
+          </button>
         </TooltipTrigger>
-        <TooltipContent side="right" className="z-[100] font-bold px-3 py-1.5 text-[14px] bg-bg-secondary/90 backdrop-blur-xl border border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.4)] rounded-2xl ml-4">
+        <TooltipContent
+          side="right"
+          className="z-[100] font-bold px-3 py-1.5 text-[14px] bg-bg-secondary/90 backdrop-blur-xl border border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.4)] rounded-2xl ml-4"
+        >
           {server.name}
         </TooltipContent>
       </Tooltip>
@@ -331,9 +335,7 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div
-        className="w-[88px] glass-panel !overflow-visible flex flex-col items-center py-4 shrink-0 h-full z-50"
-      >
+      <div className="w-[88px] glass-panel !overflow-visible flex flex-col items-center py-4 shrink-0 h-full z-50">
         {/* User avatar → settings/profile */}
         <Tooltip>
           <TooltipTrigger asChild>
@@ -354,7 +356,12 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
               </Avatar>
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="right" className="z-[100] font-bold px-3 py-1.5 text-[14px] bg-bg-secondary/90 backdrop-blur-xl border border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.4)] rounded-2xl ml-4">{user?.displayName || user?.username}</TooltipContent>
+          <TooltipContent
+            side="right"
+            className="z-[100] font-bold px-3 py-1.5 text-[14px] bg-bg-secondary/90 backdrop-blur-xl border border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.4)] rounded-2xl ml-4"
+          >
+            {user?.displayName || user?.username}
+          </TooltipContent>
         </Tooltip>
 
         <div className="w-8 h-0.5 bg-border/20 rounded-full my-1 shrink-0" />
@@ -389,7 +396,12 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
                 <Plus size={24} />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="right" className="z-[100] font-bold px-3 py-1.5 text-[14px] bg-bg-secondary/90 backdrop-blur-xl border border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.4)] rounded-2xl ml-4">{t('server.createServer')}</TooltipContent>
+            <TooltipContent
+              side="right"
+              className="z-[100] font-bold px-3 py-1.5 text-[14px] bg-bg-secondary/90 backdrop-blur-xl border border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.4)] rounded-2xl ml-4"
+            >
+              {t('server.createServer')}
+            </TooltipContent>
           </Tooltip>
 
           {/* Join server */}
@@ -404,7 +416,12 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
                 <UserPlus size={20} />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="right" className="z-[100] font-bold px-3 py-1.5 text-[14px] bg-bg-secondary/90 backdrop-blur-xl border border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.4)] rounded-2xl ml-4">{t('server.joinServer')}</TooltipContent>
+            <TooltipContent
+              side="right"
+              className="z-[100] font-bold px-3 py-1.5 text-[14px] bg-bg-secondary/90 backdrop-blur-xl border border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.4)] rounded-2xl ml-4"
+            >
+              {t('server.joinServer')}
+            </TooltipContent>
           </Tooltip>
 
           {/* Discover servers */}
@@ -419,7 +436,12 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
                 <Compass size={24} className="opacity-90" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="right" className="z-[100] font-bold px-3 py-1.5 text-[14px] bg-bg-secondary/90 backdrop-blur-xl border border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.4)] rounded-2xl ml-4">{t('server.discover')}</TooltipContent>
+            <TooltipContent
+              side="right"
+              className="z-[100] font-bold px-3 py-1.5 text-[14px] bg-bg-secondary/90 backdrop-blur-xl border border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.4)] rounded-2xl ml-4"
+            >
+              {t('server.discover')}
+            </TooltipContent>
           </Tooltip>
 
           {/* OpenClaw — desktop only */}
@@ -508,7 +530,12 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
                   </svg>
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="right" className="z-[100] font-bold px-3 py-1.5 text-[14px] bg-bg-secondary/90 backdrop-blur-xl border border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.4)] rounded-2xl ml-4">OpenClaw</TooltipContent>
+              <TooltipContent
+                side="right"
+                className="z-[100] font-bold px-3 py-1.5 text-[14px] bg-bg-secondary/90 backdrop-blur-xl border border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.4)] rounded-2xl ml-4"
+              >
+                OpenClaw
+              </TooltipContent>
             </Tooltip>
           )}
         </div>
@@ -689,26 +716,26 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
               },
               ...(user?.id !== contextMenu.server.server.ownerId
                 ? [
-                  {
-                    items: [
-                      {
-                        icon: LogOut,
-                        label: t('server.leaveServer'),
-                        danger: true,
-                        onClick: async () => {
-                          const name = contextMenu.server.server.name
-                          const ok = await useConfirmStore.getState().confirm({
-                            title: t('server.leaveServer'),
-                            message: t('server.leaveConfirm', { name }),
-                          })
-                          if (ok) {
-                            leaveServer.mutate(contextMenu.server.server.id)
-                          }
+                    {
+                      items: [
+                        {
+                          icon: LogOut,
+                          label: t('server.leaveServer'),
+                          danger: true,
+                          onClick: async () => {
+                            const name = contextMenu.server.server.name
+                            const ok = await useConfirmStore.getState().confirm({
+                              title: t('server.leaveServer'),
+                              message: t('server.leaveConfirm', { name }),
+                            })
+                            if (ok) {
+                              leaveServer.mutate(contextMenu.server.server.id)
+                            }
+                          },
                         },
-                      },
-                    ],
-                  },
-                ]
+                      ],
+                    },
+                  ]
                 : []),
             ]}
           />

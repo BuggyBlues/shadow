@@ -300,7 +300,10 @@ function patchBrokenModules(nodeModulesDir) {
   const lruCachePath = join(nodeModulesDir, 'lru-cache', 'index.js')
   if (existsSync(lruCachePath)) {
     const lruSrc = readFileSync(lruCachePath, 'utf-8')
-    if (lruSrc.includes('module.exports = LRUCache') && !lruSrc.includes('module.exports.LRUCache')) {
+    if (
+      lruSrc.includes('module.exports = LRUCache') &&
+      !lruSrc.includes('module.exports.LRUCache')
+    ) {
       writeFileSync(
         lruCachePath,
         `${lruSrc.trimEnd()}\nmodule.exports.LRUCache = LRUCache;\n`,

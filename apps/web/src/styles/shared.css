@@ -141,8 +141,8 @@
 }
 :root.light .input-valley {
   background: #ffffff;
-  border: 2px solid #F1F5F9;
-  box-shadow: inset 0 2px 6px rgba(0,0,0,0.02);
+  border: 2px solid #f1f5f9;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.02);
 }
 .input-valley:focus-within {
   box-shadow:
@@ -160,7 +160,9 @@
   background: rgba(18, 18, 26, 0.6);
   backdrop-filter: blur(32px);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.1), 0 10px 40px -10px rgba(0, 0, 0, 0.5);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.1),
+    0 10px 40px -10px rgba(0, 0, 0, 0.5);
   border-radius: 24px;
   overflow: hidden;
 }
@@ -168,7 +170,9 @@
   background: rgba(255, 255, 255, 0.75);
   backdrop-filter: blur(32px);
   border: 1px solid rgba(255, 255, 255, 1);
-  box-shadow: 0 15px 45px rgba(0,0,0,0.04), inset 0 2px 12px rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 15px 45px rgba(0, 0, 0, 0.04),
+    inset 0 2px 12px rgba(255, 255, 255, 0.9);
   border-radius: 24px;
   overflow: hidden;
 }

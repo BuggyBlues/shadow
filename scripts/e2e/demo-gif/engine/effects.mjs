@@ -49,7 +49,9 @@ export async function crossfade(sharp, srcBuf, dstBuf, t, w, h) {
   for (let i = 0; i < len; i++) {
     out[i] = (srcRaw[i] * inv + dstRaw[i] * t + 0.5) | 0
   }
-  return sharp(out, { raw: { width: w, height: h, channels: 4 } }).png().toBuffer()
+  return sharp(out, { raw: { width: w, height: h, channels: 4 } })
+    .png()
+    .toBuffer()
 }
 
 // ── Zoom ────────────────────────────────────────────────

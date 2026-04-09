@@ -86,8 +86,8 @@ function bgSvg(w, h) {
   <rect width="${w}" height="${h}" fill="${bg}"/>
   ${dots}
   <defs><filter id="bl"><feGaussianBlur stdDeviation="55"/></filter></defs>
-  <circle cx="${w * 0.20}" cy="${h * 0.28}" r="${h * 0.26}" fill="${BRAND.cyan}" opacity="0.10" filter="url(#bl)"/>
-  <circle cx="${w * 0.80}" cy="${h * 0.52}" r="${h * 0.20}" fill="${BRAND.yellow}" opacity="0.08" filter="url(#bl)"/>
+  <circle cx="${w * 0.2}" cy="${h * 0.28}" r="${h * 0.26}" fill="${BRAND.cyan}" opacity="0.10" filter="url(#bl)"/>
+  <circle cx="${w * 0.8}" cy="${h * 0.52}" r="${h * 0.2}" fill="${BRAND.yellow}" opacity="0.08" filter="url(#bl)"/>
   <circle cx="${w * 0.42}" cy="${h * 0.78}" r="${h * 0.18}" fill="${BRAND.pink}" opacity="0.07" filter="url(#bl)"/>
 </svg>`
 }
@@ -95,7 +95,12 @@ function bgSvg(w, h) {
 async function getBg(sharp, w, h) {
   const key = `${w}x${h}`
   if (!_bgCache.has(key)) {
-    _bgCache.set(key, await sharp(Buffer.from(bgSvg(w, h))).png().toBuffer())
+    _bgCache.set(
+      key,
+      await sharp(Buffer.from(bgSvg(w, h)))
+        .png()
+        .toBuffer(),
+    )
   }
   return _bgCache.get(key)
 }
@@ -119,9 +124,9 @@ function haloSvg(cx, cy, r, w, h) {
 // ── Typography ──────────────────────────────────────────
 
 const STYLES = {
-  hero:    { size: 52, weight: 700, spacing: 3, lh: 66, fill: '#ffffff' },
+  hero: { size: 52, weight: 700, spacing: 3, lh: 66, fill: '#ffffff' },
   tagline: { size: 21, weight: 500, spacing: 0.3, lh: 34, fill: 'rgba(255,255,255,0.72)' },
-  act:     { size: 40, weight: 700, spacing: 8, lh: 52, fill: 'url(#actGrad)' },
+  act: { size: 40, weight: 700, spacing: 8, lh: 52, fill: 'url(#actGrad)' },
   closing: { size: 21, weight: 600, spacing: 0.4, lh: 36, fill: 'rgba(255,255,255,0.82)' },
 }
 
@@ -154,17 +159,20 @@ function titleTextSvg(scene, W, H, charCount, lang) {
     fillAttr = 'fill="url(#actGrad)"'
   }
 
-  const texts = visibleLines.map((line, i) => {
-    if (!line && !showCursor) return ''
-    const y = Math.round(baseY + i * st.lh)
-    let display = scene.style === 'act' ? line.toUpperCase() : line
-    if (showCursor && i === visibleLines.findLastIndex((l) => l.length > 0)) {
-      display += ' |'
-    }
-    return `<text x="${W / 2}" y="${y}" text-anchor="middle" ${fillAttr}
+  const texts = visibleLines
+    .map((line, i) => {
+      if (!line && !showCursor) return ''
+      const y = Math.round(baseY + i * st.lh)
+      let display = scene.style === 'act' ? line.toUpperCase() : line
+      if (showCursor && i === visibleLines.findLastIndex((l) => l.length > 0)) {
+        display += ' |'
+      }
+      return `<text x="${W / 2}" y="${y}" text-anchor="middle" ${fillAttr}
       font-size="${st.size}" font-weight="${st.weight}" letter-spacing="${st.spacing}"
       font-family="${font(lang)}">${esc(display)}</text>`
-  }).filter(Boolean).join('\n  ')
+    })
+    .filter(Boolean)
+    .join('\n  ')
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
   <defs>${defs}</defs>
@@ -201,11 +209,15 @@ async function renderTitleFrame(sharp, scene, W, H, charCount = Infinity, lang =
 
     layers.unshift({
       input: Buffer.from(haloSvg(W / 2, logoCy, logoSize * 0.85, W, H)),
-      top: 0, left: 0,
+      top: 0,
+      left: 0,
     })
     layers.push({
-      input: Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">${logoSvg(W / 2, logoCy, logoSize)}</svg>`),
-      top: 0, left: 0,
+      input: Buffer.from(
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">${logoSvg(W / 2, logoCy, logoSize)}</svg>`,
+      ),
+      top: 0,
+      left: 0,
     })
   }
 
@@ -217,8 +229,11 @@ async function renderTitleFrame(sharp, scene, W, H, charCount = Infinity, lang =
     const bottomY = baseY + totalH + 16
     const logoSize = 28
     layers.push({
-      input: Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">${logoSvg(W / 2, bottomY + logoSize / 2, logoSize)}</svg>`),
-      top: 0, left: 0,
+      input: Buffer.from(
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">${logoSvg(W / 2, bottomY + logoSize / 2, logoSize)}</svg>`,
+      ),
+      top: 0,
+      left: 0,
     })
   }
 

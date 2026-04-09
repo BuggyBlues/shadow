@@ -6,16 +6,16 @@
  *   import { renderGif, effects, assembleGif } from './engine/index.mjs'
  */
 
-export { renderGif } from './renderer.mjs'
 export { assembleGif, checkFfmpeg } from './assembler.mjs'
 export {
-  easeInOutCubic,
-  lerp,
-  esc,
   crossfade,
-  zoomRect,
-  zoomCrop,
-  zoomAtT,
+  easeInOutCubic,
+  esc,
   highlightSvg,
   labelBadgeSvg,
+  lerp,
+  zoomAtT,
+  zoomCrop,
+  zoomRect,
 } from './effects.mjs'
+export { renderGif } from './renderer.mjs'

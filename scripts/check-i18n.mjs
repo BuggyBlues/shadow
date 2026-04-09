@@ -48,7 +48,9 @@ function checkLocaleParity() {
   const refData = JSON.parse(fs.readFileSync(refPath, 'utf8'))
   const refKeys = new Set(flattenKeys(refData))
 
-  const localeFiles = fs.readdirSync(LOCALES_DIR).filter((f) => f.endsWith('.json') && f !== 'zh-CN.json')
+  const localeFiles = fs
+    .readdirSync(LOCALES_DIR)
+    .filter((f) => f.endsWith('.json') && f !== 'zh-CN.json')
 
   for (const file of localeFiles) {
     const lang = file.replace('.json', '')
@@ -91,13 +93,13 @@ const CJK_RE = /[\u4e00-\u9fff\u3400-\u4dbf]/
 
 // Directories/files to skip
 const SKIP_PATTERNS = [
-  '/locales/',         // locale JSON files
-  '/lib/i18n.',        // i18n config
-  '/__tests__/',       // test files
-  '/test/',            // test files
-  '.test.',            // test files
-  '.spec.',            // spec files
-  '/e2e/',             // e2e tests
+  '/locales/', // locale JSON files
+  '/lib/i18n.', // i18n config
+  '/__tests__/', // test files
+  '/test/', // test files
+  '.test.', // test files
+  '.spec.', // spec files
+  '/e2e/', // e2e tests
 ]
 
 function shouldSkip(filePath) {
@@ -133,7 +135,12 @@ function checkHardcodedStrings() {
       const lineNum = i + 1
 
       // Skip import/comment lines
-      if (line.trimStart().startsWith('import ') || line.trimStart().startsWith('//') || line.trimStart().startsWith('*') || line.trimStart().startsWith('/*')) {
+      if (
+        line.trimStart().startsWith('import ') ||
+        line.trimStart().startsWith('//') ||
+        line.trimStart().startsWith('*') ||
+        line.trimStart().startsWith('/*')
+      ) {
         continue
       }
 
@@ -144,15 +151,21 @@ function checkHardcodedStrings() {
         const text = match[1].trim()
         // Skip if it's inside a t() call or template literal
         if (line.includes(`t('`) || line.includes('t("') || line.includes('t(`')) continue
-        warnings.push(`${relativePath}:${lineNum} Hardcoded Chinese in JSX: "${text.substring(0, 40)}"`)
+        warnings.push(
+          `${relativePath}:${lineNum} Hardcoded Chinese in JSX: "${text.substring(0, 40)}"`,
+        )
       }
 
       // Look for hardcoded Chinese in string literals used as props (title="中文", placeholder="中文" etc.)
-      const propMatches = line.matchAll(/(title|placeholder|label|alt|aria-label)="([^"]*[\u4e00-\u9fff\u3400-\u4dbf][^"]*)"/g)
+      const propMatches = line.matchAll(
+        /(title|placeholder|label|alt|aria-label)="([^"]*[\u4e00-\u9fff\u3400-\u4dbf][^"]*)"/g,
+      )
       for (const match of propMatches) {
         const prop = match[1]
         const text = match[2]
-        warnings.push(`${relativePath}:${lineNum} Hardcoded Chinese in ${prop}="${text.substring(0, 30)}"`)
+        warnings.push(
+          `${relativePath}:${lineNum} Hardcoded Chinese in ${prop}="${text.substring(0, 30)}"`,
+        )
       }
     }
   }

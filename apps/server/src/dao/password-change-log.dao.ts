@@ -49,9 +49,7 @@ export class PasswordChangeLogDao {
   }
 
   async count() {
-    const result = await this.db
-      .select({ count: sql<number>`count(*)` })
-      .from(passwordChangeLogs)
+    const result = await this.db.select({ count: sql<number>`count(*)` }).from(passwordChangeLogs)
     return Number(result[0]?.count ?? 0)
   }
 

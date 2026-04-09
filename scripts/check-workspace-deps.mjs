@@ -11,7 +11,19 @@ import path from 'node:path'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 
-const WORKSPACE_DIRS = ['apps/server', 'apps/web', 'apps/admin', 'apps/desktop', 'apps/mobile', 'packages/sdk', 'packages/sdk-python', 'packages/shared', 'packages/openclaw-shadowob', 'packages/ui', 'packages/oauth']
+const WORKSPACE_DIRS = [
+  'apps/server',
+  'apps/web',
+  'apps/admin',
+  'apps/desktop',
+  'apps/mobile',
+  'packages/sdk',
+  'packages/sdk-python',
+  'packages/shared',
+  'packages/openclaw-shadowob',
+  'packages/ui',
+  'packages/oauth',
+]
 
 function getWorkspacePackages() {
   const packages = new Map()
@@ -45,9 +57,7 @@ function main() {
 
       // Check that workspace protocol is used
       if (!version.startsWith('workspace:')) {
-        errors.push(
-          `${name} (${dir}): ${dep}@${version} should use "workspace:*" protocol`,
-        )
+        errors.push(`${name} (${dir}): ${dep}@${version} should use "workspace:*" protocol`)
       }
     }
   }

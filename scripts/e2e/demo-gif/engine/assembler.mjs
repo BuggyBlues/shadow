@@ -38,9 +38,7 @@ export async function assembleGif(framesDir, outputPath, frames, opts = {}) {
   const bayerScale = opts.bayerScale ?? 2
 
   // Build ffmpeg concat demuxer input
-  const lines = frames.map(
-    (f) => `file '${f.name}'\nduration ${(f.duration / 1000).toFixed(3)}`,
-  )
+  const lines = frames.map((f) => `file '${f.name}'\nduration ${(f.duration / 1000).toFixed(3)}`)
   lines.push(`file '${frames.at(-1).name}'`)
   await fs.writeFile(path.join(framesDir, 'concat.txt'), lines.join('\n'), 'utf8')
 
