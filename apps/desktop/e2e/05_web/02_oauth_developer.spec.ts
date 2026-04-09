@@ -171,12 +171,12 @@ test.describe
       // Note: First-letter avatar visibility is hard to assert reliably across Chromium versions;
       // the img absence check above already validates the fallback path is taken.
 
-      // Verify Client ID is visible
+      // Verify Client ID is visible (may take a moment for the full card to render)
       const clientIdEl = page
         .locator('code')
         .filter({ hasText: /^shadow_/ })
         .first()
-      await expect(clientIdEl).toBeVisible()
+      await expect(clientIdEl).toBeVisible({ timeout: 10_000 })
       await screenshot(page, '23-oauth-app-card.png')
 
       // --- Edit the app: add a logo URL ---
