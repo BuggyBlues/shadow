@@ -3,6 +3,7 @@ import { Hono } from 'hono'
 import type { Server as SocketIOServer } from 'socket.io'
 import { z } from 'zod'
 import type { AppContainer } from '../container'
+import { LIMITS } from '@shadowob/shared'
 import { logger } from '../lib/logger'
 import { authMiddleware } from '../middleware/auth.middleware'
 
@@ -106,7 +107,7 @@ export function createDmHandler(container: AppContainer) {
     zValidator(
       'json',
       z.object({
-        content: z.string().min(1).max(4000),
+        content: z.string().min(1).max(LIMITS.MESSAGE_CONTENT_MAX),
         replyToId: z.string().uuid().optional(),
         attachments: z
           .array(
@@ -142,9 +143,9 @@ export function createDmHandler(container: AppContainer) {
       try {
         const channel = await dmService.getChannelById(id)
         if (channel) {
-          const otherUserId = (channel.userAId === user.userId ? channel.userBId : channel.userAId)!
+          const otherUserId = channel.userAId === user.userId ? channel.userBId : channel.userAId
           await relayDmToBot(io, container, id, user.userId, otherUserId, {
-            id: message.id!,
+            id: message.id,
             content: message.content ?? content,
             author: message.author,
             createdAt: message.createdAt,
@@ -171,7 +172,7 @@ export function createDmHandler(container: AppContainer) {
   // PATCH /api/dm/channels/:channelId/messages/:messageId — edit a DM message
   dmHandler.patch(
     '/channels/:channelId/messages/:messageId',
-    zValidator('json', z.object({ content: z.string().min(1).max(4000) })),
+    zValidator('json', z.object({ content: z.string().min(1).max(LIMITS.MESSAGE_CONTENT_MAX) })),
     async (c) => {
       const dmService = container.resolve('dmService')
       const channelId = c.req.param('channelId')

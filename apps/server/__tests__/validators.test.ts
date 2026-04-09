@@ -108,8 +108,13 @@ describe('Message Validators', () => {
     })
 
     it('should reject content exceeding max length', () => {
-      const result = sendMessageSchema.safeParse({ content: 'a'.repeat(4001) })
+      const result = sendMessageSchema.safeParse({ content: 'a'.repeat(16001) })
       expect(result.success).toBe(false)
+    })
+
+    it('should accept content at exactly max length', () => {
+      const result = sendMessageSchema.safeParse({ content: 'a'.repeat(16000) })
+      expect(result.success).toBe(true)
     })
 
     it('should accept optional threadId as UUID', () => {

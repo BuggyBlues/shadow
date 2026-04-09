@@ -266,6 +266,117 @@ describe('MessageService', () => {
       expect(result).toEqual([{ emoji: '👍', count: 2, userIds: ['u1', 'u2'] }])
     })
   })
+
+  describe('long content handling', () => {
+    it('should send message with content at the new 16KB limit', async () => {
+      const longContent = 'A'.repeat(16000)
+      const mockMessage = {
+        id: 'msg-long',
+        content: longContent,
+        channelId: 'ch1',
+        authorId: 'u1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        isEdited: false,
+        isPinned: false,
+      }
+      const messageDao = createMockMessageDao({
+        create: vi.fn().mockResolvedValue(mockMessage),
+      })
+      const userDao = createMockUserDao({
+        findById: vi.fn().mockResolvedValue({
+          id: 'u1',
+          username: 'testuser',
+          displayName: 'Test',
+          isBot: false,
+        }),
+      })
+      const service = new MessageService({
+        messageDao: messageDao as any,
+        userDao: userDao as any,
+        channelDao: { updateLastMessageAt: vi.fn() } as any,
+        agentDao: {} as any,
+        agentDashboardDao: {} as any,
+      })
+
+      const result = await service.send('ch1', 'u1', { content: longContent })
+      expect(result.content).toBe(longContent)
+      expect(result.content.length).toBe(16000)
+    })
+
+    it('should send message with 8KB agent response', async () => {
+      const agentContent = 'This is a detailed agent response. '.repeat(200) // ~7200 chars
+      const mockMessage = {
+        id: 'msg-agent',
+        content: agentContent,
+        channelId: 'ch1',
+        authorId: 'bot-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        isEdited: false,
+        isPinned: false,
+      }
+      const messageDao = createMockMessageDao({
+        create: vi.fn().mockResolvedValue(mockMessage),
+      })
+      const userDao = createMockUserDao({
+        findById: vi.fn().mockResolvedValue({
+          id: 'bot-1',
+          username: 'testbot',
+          displayName: 'Test Bot',
+          isBot: true,
+        }),
+      })
+      const service = new MessageService({
+        messageDao: messageDao as any,
+        userDao: userDao as any,
+        channelDao: { updateLastMessageAt: vi.fn() } as any,
+        agentDao: { findByUserId: vi.fn().mockResolvedValue(null) } as any,
+        agentDashboardDao: {
+          incrementMessageCount: vi.fn(),
+          incrementHourlyMessage: vi.fn(),
+          createEvent: vi.fn(),
+        } as any,
+      })
+
+      const result = await service.send('ch1', 'bot-1', { content: agentContent })
+      expect(result.content).toBe(agentContent)
+      expect(result.content.length).toBe(agentContent.length)
+    })
+
+    it('should update message with long content', async () => {
+      const longContent = 'B'.repeat(12000)
+      const existingMessage = {
+        id: 'msg1',
+        content: 'short',
+        channelId: 'ch1',
+        authorId: 'u1',
+      }
+      const updatedMessage = { ...existingMessage, content: longContent, isEdited: true }
+      const messageDao = createMockMessageDao({
+        findById: vi.fn().mockResolvedValue(existingMessage),
+        update: vi.fn().mockResolvedValue(updatedMessage),
+      })
+      const userDao = createMockUserDao({
+        findById: vi.fn().mockResolvedValue({
+          id: 'u1',
+          username: 'testuser',
+          displayName: 'Test',
+          isBot: false,
+        }),
+      })
+      const service = new MessageService({
+        messageDao: messageDao as any,
+        userDao: userDao as any,
+        channelDao: {} as any,
+        agentDao: {} as any,
+        agentDashboardDao: {} as any,
+      })
+
+      const result = await service.update('msg1', 'u1', { content: longContent })
+      expect(result.content).toBe(longContent)
+    })
+  })
 })
 
 describe('NotificationService', () => {

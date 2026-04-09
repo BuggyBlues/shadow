@@ -39,7 +39,7 @@ describe('SERVER_EVENTS', () => {
 
 describe('LIMITS', () => {
   it('should define message limits', () => {
-    expect(LIMITS.MESSAGE_CONTENT_MAX).toBe(4000)
+    expect(LIMITS.MESSAGE_CONTENT_MAX).toBe(16000)
     expect(LIMITS.MESSAGES_PER_PAGE).toBe(50)
   })
 
