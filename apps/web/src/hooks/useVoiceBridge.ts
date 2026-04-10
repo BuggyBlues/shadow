@@ -37,7 +37,7 @@ export function useVoiceBridge() {
   // ── Socket.IO signaling events (single source of listeners) ──────
   useSocketEvent(
     'voice:user-joined',
-    (data: { userId: string; username: string; displayName: string }) => {
+    (data: { userId: string; username: string; displayName: string; agoraUid?: number }) => {
       const state = useVoiceStore.getState()
       state.updateMembers([
         ...state.members,
@@ -51,6 +51,10 @@ export function useVoiceBridge() {
           volume: 0,
         },
       ])
+      // Register agoraUid → userId mapping for volume indicator
+      if (data.agoraUid && data.agoraUid !== 0) {
+        store.registerUidMapping(data.agoraUid, data.userId)
+      }
     },
   )
 
@@ -80,11 +84,37 @@ export function useVoiceBridge() {
     )
   })
 
+  // ── Internal: disconnect from Agora (no Socket.IO) ───────────────
+  const disconnectAgora = useCallback(async () => {
+    try {
+      localAudioRef.current?.close()
+      localAudioRef.current = null
+      screenVideoRef.current?.close()
+      screenVideoRef.current = null
+      screenAudioRef.current?.close()
+      screenAudioRef.current = null
+      await agoraClientRef.current?.leave()
+      agoraClientRef.current?.removeAllListeners()
+      agoraClientRef.current = null
+    } catch {
+      // Non-critical
+    }
+    agoraChannelIdRef.current = null
+  }, [])
+
   // ── Internal: connect to Agora (no Socket.IO) ────────────────────
   const connectAgora = useCallback(
     async (channelId: string, channelName: string) => {
       try {
         store.setError(null)
+
+        // ⚠️ Disconnect existing client before creating a new one.
+        // Prevents leaking the old client when switching channels.
+        // The cleanup effect also calls disconnectAgora, but that races
+        // with this async function — doing it here first is safest.
+        if (agoraClientRef.current) {
+          await disconnectAgora()
+        }
 
         // Fetch Agora token
         const tokenInfo: {
@@ -113,7 +143,7 @@ export function useVoiceBridge() {
           if (mediaType === 'audio') {
             remoteUser.audioTrack?.play()
           }
-          // Register uid mapping for volume indicator
+          // Register uid mapping for volume indicator — store as number, not string
           store.registerUidMapping(Number(remoteUser.uid), remoteUser.uid.toString())
         })
 
@@ -160,26 +190,8 @@ export function useVoiceBridge() {
         }
       }
     },
-    [store],
+    [store, disconnectAgora],
   )
-
-  // ── Internal: disconnect from Agora (no Socket.IO) ───────────────
-  const disconnectAgora = useCallback(async () => {
-    try {
-      localAudioRef.current?.close()
-      localAudioRef.current = null
-      screenVideoRef.current?.close()
-      screenVideoRef.current = null
-      screenAudioRef.current?.close()
-      screenAudioRef.current = null
-      await agoraClientRef.current?.leave()
-      agoraClientRef.current?.removeAllListeners()
-      agoraClientRef.current = null
-    } catch {
-      // Non-critical
-    }
-    agoraChannelIdRef.current = null
-  }, [])
 
   // ── Auto-connect/disconnect Agora when store activeChannelId changes
   useEffect(() => {
@@ -206,15 +218,21 @@ export function useVoiceBridge() {
   }, [disconnectAgora, store])
 
   // ── Mute (controls actual Agora track + syncs via Socket.IO) ────
-  const toggleMute = useCallback(() => {
+  const toggleMute = useCallback(async () => {
     const track = localAudioRef.current
     if (!track) return
     // Use setEnable() — the proper Agora API for toggling track state.
     // Directly setting .enabled does not trigger internal Agora events
     // and can cause the remote side to not receive audio.
     const isCurrentlyEnabled = track.enabled
-    track.setEnable(!isCurrentlyEnabled)
-    store.setMuted(isCurrentlyEnabled)
+    try {
+      await track.setEnable(!isCurrentlyEnabled)
+      store.setMuted(isCurrentlyEnabled)
+    } catch (err) {
+      // If setEnable fails, don't update store state
+      const message = err instanceof Error ? err.message : 'Failed to toggle mute'
+      store.setError(message)
+    }
   }, [store])
 
   // ── Screen Share (Agora screen tracks + Socket.IO sync) ─────────
@@ -222,61 +240,79 @@ export function useVoiceBridge() {
     const client = agoraClientRef.current
     if (!client) return
 
-    if (screenVideoRef.current) {
-      // Stop screen sharing
-      await client.unpublish(screenVideoRef.current)
-      screenVideoRef.current.stop()
-      screenVideoRef.current.close()
-      screenVideoRef.current = null
+    try {
+      if (screenVideoRef.current) {
+        // Stop screen sharing
+        await client.unpublish(screenVideoRef.current)
+        screenVideoRef.current.stop()
+        screenVideoRef.current.close()
+        screenVideoRef.current = null
 
-      if (screenAudioRef.current) {
-        await client.unpublish(screenAudioRef.current)
-        screenAudioRef.current.stop()
-        screenAudioRef.current.close()
-        screenAudioRef.current = null
-      }
+        if (screenAudioRef.current) {
+          await client.unpublish(screenAudioRef.current)
+          screenAudioRef.current.stop()
+          screenAudioRef.current.close()
+          screenAudioRef.current = null
+        }
 
-      store.setScreenSharing(false)
-    } else {
-      // Start screen sharing
-      const screenTrack = await AgoraRTC.createScreenVideoTrack(
-        { encoderConfig: '1080p', optimizationMode: 'detail' },
-        'auto',
-      )
-
-      if (Array.isArray(screenTrack)) {
-        const [videoTrack, audioTrack] = screenTrack
-        await client.publish([videoTrack, audioTrack])
-        screenVideoRef.current = videoTrack
-        screenAudioRef.current = audioTrack
+        store.setScreenSharing(false)
       } else {
-        await client.publish(screenTrack)
-        screenVideoRef.current = screenTrack
-      }
+        // Start screen sharing
+        const screenTrack = await AgoraRTC.createScreenVideoTrack(
+          { encoderConfig: '1080p', optimizationMode: 'detail' },
+          'auto',
+        )
 
-      store.setScreenSharing(true)
+        if (Array.isArray(screenTrack)) {
+          const [videoTrack, audioTrack] = screenTrack
+          await client.publish([videoTrack, audioTrack])
+          screenVideoRef.current = videoTrack
+          screenAudioRef.current = audioTrack
+        } else {
+          await client.publish(screenTrack)
+          screenVideoRef.current = screenTrack
+        }
 
-      // Handle browser-native stop button
-      const videoTrack = Array.isArray(screenTrack) ? screenTrack[0] : screenTrack
-      const stopHandler = () => {
-        // Re-enter to stop
-        void (async () => {
-          if (screenVideoRef.current && agoraClientRef.current) {
-            await agoraClientRef.current.unpublish(screenVideoRef.current)
-            screenVideoRef.current.stop()
-            screenVideoRef.current.close()
-            screenVideoRef.current = null
-            if (screenAudioRef.current) {
-              await agoraClientRef.current.unpublish(screenAudioRef.current)
-              screenAudioRef.current.stop()
-              screenAudioRef.current.close()
+        store.setScreenSharing(true)
+
+        // Handle browser-native stop button
+        const videoTrack = Array.isArray(screenTrack) ? screenTrack[0] : screenTrack
+        const stopHandler = () => {
+          // Re-enter to stop
+          void (async () => {
+            try {
+              if (screenVideoRef.current && agoraClientRef.current) {
+                await agoraClientRef.current.unpublish(screenVideoRef.current)
+                screenVideoRef.current.stop()
+                screenVideoRef.current.close()
+                screenVideoRef.current = null
+                if (screenAudioRef.current) {
+                  await agoraClientRef.current.unpublish(screenAudioRef.current)
+                  screenAudioRef.current.stop()
+                  screenAudioRef.current.close()
+                  screenAudioRef.current = null
+                }
+                store.setScreenSharing(false)
+              }
+            } catch (err) {
+              const message = err instanceof Error ? err.message : 'Failed to stop screen share'
+              store.setError(message)
+              // Force reset refs on error to avoid stale state
+              screenVideoRef.current = null
               screenAudioRef.current = null
+              store.setScreenSharing(false)
             }
-            store.setScreenSharing(false)
-          }
-        })()
+          })()
+        }
+        videoTrack.on('track-ended', stopHandler)
       }
-      videoTrack.on('track-ended', stopHandler)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to toggle screen share'
+      store.setError(message)
+      // Force reset refs on error
+      screenVideoRef.current = null
+      screenAudioRef.current = null
+      store.setScreenSharing(false)
     }
   }, [store])
 
