@@ -92,10 +92,12 @@ export function SettingsPage() {
     })
   }
 
+  const activeNavItem = NAV_ITEMS.find((n) => n.id === activeTab)
+
   if (!user) return null
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+    <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative gap-3">
       {/* Gradient background orbs */}
       <div className="pointer-events-none absolute inset-0 -z-0 overflow-hidden">
         <div className="absolute -top-[150px] left-[5%] w-[600px] h-[600px] rounded-full bg-[radial-gradient(circle,var(--color-primary)_0%,transparent_70%)] opacity-[0.08] blur-[120px] animate-[float_25s_ease-in-out_infinite]" />
@@ -132,12 +134,12 @@ export function SettingsPage() {
       </div>
 
       {/* Desktop Sidebar — Glassmorphism */}
-      <aside className="w-[240px] shrink-0 hidden md:flex flex-col bg-[var(--glass-bg)] backdrop-blur-2xl border-r border-[var(--glass-border)] overflow-hidden relative z-10">
+      <aside className="w-[240px] shrink-0 hidden md:flex flex-col glass-panel relative z-10">
         {/* Account info header — click opens settings modal */}
         <button
           type="button"
           onClick={() => setSettingsModalOpen(true)}
-          className="flex items-center gap-3 px-4 py-3 mx-3 mt-1 mb-1 rounded-2xl transition-all duration-200 group cursor-pointer hover:bg-bg-tertiary/50"
+          className="flex items-center gap-3 px-4 py-3 mx-2 mt-2 mb-1 rounded-2xl transition-all duration-200 group cursor-pointer hover:bg-bg-tertiary/50"
         >
           <UserAvatar
             userId={user.id}
@@ -223,19 +225,35 @@ export function SettingsPage() {
       {/* Content Area */}
       <main className="flex-1 min-w-0 h-full overflow-hidden flex flex-col relative z-10">
         {activeTab !== 'dm' && (
-          <div className="flex-1 overflow-y-auto">
-            <div className="max-w-3xl mx-auto p-4 md:p-8">
-              {activeTab === 'invite' && <InviteSettings />}
-              {activeTab === 'tasks' && <TaskSettings />}
-              {activeTab === 'wallet' && <WalletSettings />}
-              {activeTab === 'buddy' && <BuddyManagementContent />}
+          <div className="flex-1 glass-panel h-full overflow-hidden flex flex-col">
+            {/* Unified Header */}
+            <div className="glass-header gap-3">
+              <div className="w-8 h-8 rounded-full bg-bg-tertiary/50 flex items-center justify-center text-primary shrink-0 shadow-inner">
+                {activeNavItem ? (
+                  <activeNavItem.icon size={16} strokeWidth={2.5} />
+                ) : (
+                  <Settings size={16} strokeWidth={2.5} />
+                )}
+              </div>
+              <h3 className="font-black text-text-primary text-[15px] truncate uppercase tracking-tight">
+                {activeNavItem ? t(activeNavItem.labelKey, activeNavItem.labelFallback) : '...'}
+              </h3>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              <div className="max-w-4xl mx-auto p-4 md:p-8">
+                {activeTab === 'invite' && <InviteSettings />}
+                {activeTab === 'tasks' && <TaskSettings />}
+                {activeTab === 'wallet' && <WalletSettings />}
+                {activeTab === 'buddy' && <BuddyManagementContent />}
+              </div>
             </div>
           </div>
         )}
 
         {/* DM - unified contact sidebar + chat */}
         {activeTab === 'dm' && (
-          <div className="flex-1 flex min-h-0 overflow-hidden">
+          <div className="flex-1 glass-panel h-full overflow-hidden flex min-h-0">
             {/* Left sidebar: unified contacts */}
             <div
               className={cn(

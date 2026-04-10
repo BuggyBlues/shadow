@@ -140,13 +140,13 @@ function CodeBlockWithCopy({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="relative group bg-bg-deep rounded-xl border border-border-subtle">
-      <pre>{children}</pre>
+    <div className="relative group">
+      <pre className="!m-0">{children}</pre>
       <Button
         variant="ghost"
         size="xs"
         onClick={handleCopyCode}
-        className="absolute top-2 right-2 !p-1.5 !h-auto !w-auto !rounded-md !font-normal !normal-case !tracking-normal opacity-0 group-hover:opacity-100"
+        className="absolute top-2 right-2 !p-1.5 !h-auto !w-auto !rounded-md !font-normal !normal-case !tracking-normal opacity-0 group-hover:opacity-100 bg-bg-secondary/50 backdrop-blur-sm border border-white/10 text-text-muted hover:text-text-primary"
         title="Copy code"
       >
         {copied ? <Check size={14} /> : <Copy size={14} />}
@@ -674,19 +674,19 @@ function MessageBubbleInner({
           <div className={`flex flex-wrap gap-1 mt-1.5 ${isDmOwn ? 'justify-end' : ''}`}>
             {message.reactions.map((r) => (
               <Button
-                variant="glass"
+                variant="ghost"
                 size="sm"
                 key={r.emoji}
                 onClick={() => onReact?.(message.id, r.emoji)}
                 className={cn(
-                  '!rounded-full !h-7 !px-2 !font-normal !normal-case !tracking-normal !text-xs hover:!translate-y-0 !border',
+                  '!rounded-[10px] !h-[26px] !px-2 !font-normal !normal-case !tracking-normal !text-xs hover:!translate-y-0 transition-colors',
                   (r.userIds ?? []).includes(currentUserId)
-                    ? '!bg-primary/20 !border-primary/30 !text-primary'
-                    : '',
+                    ? 'bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20'
+                    : 'bg-white/5 dark:bg-[#1A1D24]/50 border border-black/5 dark:border-white/5 text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/10',
                 )}
               >
-                <span>{r.emoji}</span>
-                <span>{r.count}</span>
+                <span className="mr-1">{r.emoji}</span>
+                <span className="font-medium opacity-80">{r.count}</span>
               </Button>
             ))}
           </div>
@@ -760,12 +760,8 @@ function MessageBubbleInner({
       {showActions && (
         <div
           ref={actionsRef}
-          className="absolute flex items-center bg-bg-primary/90 backdrop-blur-md rounded-2xl border border-border-subtle shadow-lg z-[10]"
-          style={
-            isDmOwn
-              ? { top: '-6px', left: '16px' }
-              : { top: '-6px', right: '16px' }
-          }
+          className="absolute flex items-center bg-white/90 dark:bg-[#1A1D24]/90 backdrop-blur-xl rounded-[14px] border border-black/5 dark:border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.4)] p-0.5 z-40 transition-all"
+          style={isDmOwn ? { top: '-16px', left: '16px' } : { top: '-16px', right: '16px' }}
           onMouseEnter={activateHover}
           onMouseLeave={deactivateHover}
         >
@@ -773,41 +769,41 @@ function MessageBubbleInner({
             variant="ghost"
             size="xs"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className="!p-1.5 !h-auto !w-auto !rounded-lg !font-normal !normal-case !tracking-normal"
+            className="!w-8 !h-8 !p-0 !rounded-[10px] !font-normal !normal-case !tracking-normal text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
             title={t('chat.addEmoji')}
           >
-            <Smile size={16} />
+            <Smile size={18} strokeWidth={2} />
           </Button>
           <Button
             variant="ghost"
             size="xs"
             onClick={() => onReply?.(message.id)}
-            className="!p-1.5 !h-auto !w-auto !rounded-lg !font-normal !normal-case !tracking-normal"
+            className="!w-8 !h-8 !p-0 !rounded-[10px] !font-normal !normal-case !tracking-normal text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
             title={t('chat.reply')}
           >
-            <Reply size={16} />
+            <Reply size={18} strokeWidth={2} />
           </Button>
           <div className="relative">
             <Button
               variant="ghost"
               size="xs"
               onClick={() => setShowMoreMenu(!showMoreMenu)}
-              className="!p-1.5 !h-auto !w-auto !rounded-lg !font-normal !normal-case !tracking-normal"
+              className={`!w-8 !h-8 !p-0 !rounded-[10px] !font-normal !normal-case !tracking-normal transition-colors ${showMoreMenu ? 'bg-black/5 dark:bg-white/10 text-text-primary' : 'text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/10'}`}
               title={t('chat.more')}
             >
-              <MoreHorizontal size={16} />
+              <MoreHorizontal size={18} strokeWidth={2} />
             </Button>
             {/* More dropdown menu */}
             {showMoreMenu && (
-              <div className="absolute top-full right-0 mt-1 bg-bg-primary/95 backdrop-blur-xl rounded-[24px] border border-border-subtle shadow-[0_16px_64px_rgba(0,0,0,0.4)] py-1.5 min-w-[160px] z-50">
+              <div className="absolute top-[calc(100%+4px)] right-0 bg-white/95 dark:bg-[#1A1D24]/95 backdrop-blur-2xl rounded-[16px] border border-black/5 dark:border-white/10 shadow-[0_12px_48px_rgba(0,0,0,0.12)] dark:shadow-[0_12px_48px_rgba(0,0,0,0.5)] py-2 min-w-[180px] z-50 flex flex-col gap-0.5 px-1.5 animate-in fade-in zoom-in-95 duration-100 origin-top-right">
                 {isOwn && (
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={handleEdit}
-                    className="!w-full !justify-start !rounded-none !font-normal !normal-case !tracking-normal !px-3 !py-2 !text-sm !h-auto text-text-secondary hover:text-text-primary"
+                    className="!w-full !justify-start !rounded-[10px] !font-medium !normal-case !tracking-normal !px-3 !py-2.5 !text-[14px] !h-auto text-text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
                   >
-                    <Pencil size={14} />
+                    <Pencil size={16} strokeWidth={2} className="mr-1.5 opacity-70" />
                     {t('chat.editMessage')}
                   </Button>
                 )}
@@ -815,18 +811,18 @@ function MessageBubbleInner({
                   variant="ghost"
                   size="sm"
                   onClick={handleCopy}
-                  className="!w-full !justify-start !rounded-none !font-normal !normal-case !tracking-normal !px-3 !py-2 !text-sm !h-auto text-text-secondary hover:text-text-primary"
+                  className="!w-full !justify-start !rounded-[10px] !font-medium !normal-case !tracking-normal !px-3 !py-2.5 !text-[14px] !h-auto text-text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
                 >
-                  <Copy size={14} />
+                  <Copy size={16} strokeWidth={2} className="mr-1.5 opacity-70" />
                   {copied ? t('common.copied') : t('chat.copyMessage')}
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={handleShareLink}
-                  className="!w-full !justify-start !rounded-none !font-normal !normal-case !tracking-normal !px-3 !py-2 !text-sm !h-auto text-text-secondary hover:text-text-primary"
+                  className="!w-full !justify-start !rounded-[10px] !font-medium !normal-case !tracking-normal !px-3 !py-2.5 !text-[14px] !h-auto text-text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
                 >
-                  <ExternalLink size={14} />
+                  <ExternalLink size={16} strokeWidth={2} className="mr-1.5 opacity-70" />
                   {t('chat.shareLink')}
                 </Button>
                 {onEnterSelectionMode && (
@@ -837,22 +833,26 @@ function MessageBubbleInner({
                       setShowMoreMenu(false)
                       onEnterSelectionMode(message.id)
                     }}
-                    className="!w-full !justify-start !rounded-none !font-normal !normal-case !tracking-normal !px-3 !py-2 !text-sm !h-auto text-text-secondary hover:text-text-primary"
+                    className="!w-full !justify-start !rounded-[10px] !font-medium !normal-case !tracking-normal !px-3 !py-2.5 !text-[14px] !h-auto text-text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
                   >
-                    <CheckSquare size={14} />
+                    <CheckSquare size={16} strokeWidth={2} className="mr-1.5 opacity-70" />
                     {t('chat.selectMessages', '多选消息')}
                   </Button>
                 )}
                 {canDelete && (
                   <>
-                    <div className="h-px bg-border-subtle my-1" />
+                    <div className="h-px bg-black/5 dark:bg-white/10 mx-2 my-1" />
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={handleDelete}
-                      className="!w-full !justify-start !rounded-none !font-normal !normal-case !tracking-normal !px-3 !py-2 !text-sm !h-auto text-danger hover:!bg-danger/10"
+                      className="!w-full !justify-start !rounded-[10px] !font-medium !normal-case !tracking-normal !px-3 !py-2.5 !text-[14px] !h-auto text-danger hover:!bg-danger/10 hover:text-danger transition-colors group"
                     >
-                      <Trash2 size={14} />
+                      <Trash2
+                        size={16}
+                        strokeWidth={2}
+                        className="mr-1.5 opacity-80 group-hover:opacity-100"
+                      />
                       {t('chat.deleteMessage')}
                     </Button>
                   </>
@@ -866,12 +866,8 @@ function MessageBubbleInner({
       {/* Quick emoji picker — positioned absolutely within message row */}
       {showEmojiPicker && (
         <div
-          className="absolute flex items-center gap-1 bg-bg-primary/90 backdrop-blur-md rounded-2xl border border-border-subtle shadow-lg p-1 z-[10]"
-          style={
-            isDmOwn
-              ? { top: '-34px', left: '16px' }
-              : { top: '-34px', right: '16px' }
-          }
+          className="absolute flex items-center bg-white/90 dark:bg-[#1A1D24]/90 backdrop-blur-xl rounded-[14px] border border-black/5 dark:border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.4)] p-0.5 z-40 transition-all"
+          style={isDmOwn ? { top: '-44px', left: '16px' } : { top: '-44px', right: '16px' }}
           onMouseEnter={activateHover}
           onMouseLeave={() => {
             hoverTimeoutRef.current = setTimeout(() => {
@@ -889,12 +885,12 @@ function MessageBubbleInner({
                 onReact?.(message.id, emoji)
                 setShowEmojiPicker(false)
               }}
-              className="!w-8 !h-8 !rounded !px-0 !font-normal !normal-case !tracking-normal text-lg"
+              className="!w-8 !h-8 !rounded-[10px] !px-0 !font-normal !normal-case !tracking-normal text-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
             >
               {emoji}
             </Button>
           ))}
-          <div className="w-px h-6 bg-border-dim mx-0.5" />
+          <div className="w-px h-5 bg-black/5 dark:bg-white/10 mx-0.5 shrink-0" />
           <Button
             variant="ghost"
             size="xs"
@@ -902,7 +898,7 @@ function MessageBubbleInner({
               setShowEmojiPicker(false)
               setShowFullPicker(true)
             }}
-            className="!w-8 !h-8 !rounded !px-0 !font-normal !normal-case !tracking-normal text-sm"
+            className="!w-8 !h-8 !rounded-[10px] !px-0 !font-normal !normal-case !tracking-normal text-sm text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
             title={t('chat.addEmoji')}
           >
             +
@@ -1300,7 +1296,7 @@ function MentionSpan({ mention, label }: { mention: string; label?: string }) {
               }}
             />
             <div
-              className="fixed z-[61] bg-bg-primary/95 backdrop-blur-xl rounded-[24px] border border-border-subtle shadow-[0_16px_64px_rgba(0,0,0,0.4)] py-1.5 min-w-[160px]"
+              className="fixed z-[61] bg-white/95 dark:bg-[#1A1D24]/95 backdrop-blur-2xl rounded-[16px] border border-black/5 dark:border-white/10 shadow-[0_12px_48px_rgba(0,0,0,0.12)] dark:shadow-[0_12px_48px_rgba(0,0,0,0.5)] py-2 min-w-[180px] animate-in fade-in zoom-in-95 duration-100 flex flex-col gap-0.5 px-1.5"
               style={{ left: ctxMenu.x, top: ctxMenu.y }}
             >
               <Button
@@ -1310,13 +1306,13 @@ function MentionSpan({ mention, label }: { mention: string; label?: string }) {
                   setCtxMenu(null)
                   handleClick()
                 }}
-                className="!w-full !justify-start !rounded-none !font-normal !normal-case !tracking-normal !px-3 !py-2 !text-sm !h-auto text-text-secondary hover:text-text-primary"
+                className="!w-full !justify-start !rounded-[10px] !font-medium !normal-case !tracking-normal !px-3 !py-2.5 !text-[14px] !h-auto text-text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
               >
                 {t('member.viewProfile')}
               </Button>
               {canKick && user?.id !== currentUser?.id && member?.role !== 'owner' && (
                 <>
-                  <div className="h-px bg-border-subtle my-1" />
+                  <div className="h-px bg-black/5 dark:bg-white/10 mx-2 my-1 shrink-0" />
                   <Button
                     variant="ghost"
                     size="sm"
@@ -1341,7 +1337,7 @@ function MentionSpan({ mention, label }: { mention: string; label?: string }) {
                       }
                       setCtxMenu(null)
                     }}
-                    className="!w-full !justify-start !rounded-none !font-normal !normal-case !tracking-normal !px-3 !py-2 !text-sm !h-auto text-danger hover:!bg-danger/10"
+                    className="!w-full !justify-start !rounded-[10px] !font-medium !normal-case !tracking-normal !px-3 !py-2.5 !text-[14px] !h-auto text-danger hover:!bg-danger/10 hover:text-danger transition-colors group"
                   >
                     {user?.isBot ? t('member.removeBot') : t('member.kickMember')}
                   </Button>

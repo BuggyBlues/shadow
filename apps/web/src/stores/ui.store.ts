@@ -14,6 +14,10 @@ interface UIState {
   filePreviewOpen: boolean
   /** Theme mode: dark, light, or system */
   theme: ThemeMode
+  /** Custom background image URL */
+  backgroundImage: string | null
+  /** Whether background movement on mouse move is enabled */
+  enableBackgroundMovement: boolean
   /** Pending action for cross-component task triggers (e.g. 'create-server', 'create-buddy') */
   pendingAction: string | null
 
@@ -24,6 +28,8 @@ interface UIState {
   closeMobileMemberList: () => void
   setFilePreviewOpen: (open: boolean) => void
   setTheme: (theme: ThemeMode) => void
+  setBackgroundImage: (url: string | null) => void
+  setEnableBackgroundMovement: (enabled: boolean) => void
   setPendingAction: (action: string | null) => void
 }
 
@@ -41,7 +47,21 @@ function applyTheme(theme: ThemeMode) {
   localStorage.setItem('shadow-theme', theme)
 }
 
+/** Apply custom background image to document root and persist to localStorage */
+function applyBackgroundImage(url: string | null) {
+  const root = document.documentElement
+  if (url) {
+    root.style.setProperty('--app-bg-image', `url("${url}")`)
+    localStorage.setItem('shadow-bg-image', url)
+  } else {
+    root.style.removeProperty('--app-bg-image')
+    localStorage.removeItem('shadow-bg-image')
+  }
+}
+
 const savedTheme = (localStorage.getItem('shadow-theme') as ThemeMode) || 'dark'
+const savedBgImage = localStorage.getItem('shadow-bg-image') || '/backgrounds/starry-night.png'
+const savedBgMovement = localStorage.getItem('shadow-bg-movement') !== 'false'
 
 export const useUIStore = create<UIState>((set) => ({
   mobileView: 'servers',
@@ -49,6 +69,8 @@ export const useUIStore = create<UIState>((set) => ({
   mobileMemberListOpen: false,
   filePreviewOpen: false,
   theme: savedTheme,
+  backgroundImage: savedBgImage,
+  enableBackgroundMovement: savedBgMovement,
   pendingAction: null,
 
   setMobileView: (view) => set({ mobileView: view, mobileMemberListOpen: false }),
@@ -61,11 +83,20 @@ export const useUIStore = create<UIState>((set) => ({
     applyTheme(theme)
     set({ theme })
   },
+  setBackgroundImage: (url) => {
+    applyBackgroundImage(url)
+    set({ backgroundImage: url })
+  },
+  setEnableBackgroundMovement: (enabled) => {
+    localStorage.setItem('shadow-bg-movement', String(enabled))
+    set({ enableBackgroundMovement: enabled })
+  },
   setPendingAction: (action) => set({ pendingAction: action }),
 }))
 
 // Apply theme on load
 applyTheme(savedTheme)
+applyBackgroundImage(savedBgImage)
 
 // Listen for system theme changes when in "system" mode
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {

@@ -88,7 +88,7 @@ export function ImageContextMenu({
       />
       <div
         ref={menuRef}
-        className="fixed z-[81] bg-bg-primary/95 backdrop-blur-xl border border-border-subtle rounded-[24px] shadow-[0_16px_64px_rgba(0,0,0,0.4)] py-1.5 min-w-[180px]"
+        className="fixed z-[81] bg-white/95 dark:bg-[#1A1D24]/95 backdrop-blur-2xl rounded-[16px] border border-black/5 dark:border-white/10 shadow-[0_12px_48px_rgba(0,0,0,0.12)] dark:shadow-[0_12px_48px_rgba(0,0,0,0.5)] py-2 min-w-[180px] animate-in fade-in zoom-in-95 duration-100 flex flex-col gap-0.5 px-1.5"
         style={{ left: position.x, top: position.y }}
       >
         {items.map((item) => (
@@ -96,16 +96,16 @@ export function ImageContextMenu({
             key={item.label}
             type="button"
             onClick={item.onClick}
-            className="flex items-center gap-2.5 w-full px-3 py-1.5 text-[13px] text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary transition-colors"
+            className="flex items-center gap-2.5 w-full px-3 py-2.5 text-[14px] font-medium transition-colors rounded-[10px] text-text-primary hover:bg-black/5 dark:hover:bg-white/10"
           >
-            <item.icon size={15} className="shrink-0" />
-            <span className="flex-1 text-left">{item.label}</span>
+            <item.icon size={16} strokeWidth={2} className="shrink-0 opacity-70" />
+            <span className="flex-1 text-left leading-none">{item.label}</span>
           </button>
         ))}
 
         {showInfo && (
           <>
-            <div className="h-px bg-border-subtle mx-2 my-1" />
+            <div className="h-px bg-black/5 dark:bg-white/10 mx-2 my-1 shrink-0" />
             <div className="px-3 py-2 space-y-1">
               <div className="flex items-center gap-2 mb-1.5">
                 <Image size={14} className="text-text-muted shrink-0" />
