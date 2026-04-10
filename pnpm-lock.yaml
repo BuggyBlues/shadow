@@ -581,8 +581,8 @@ importers:
         specifier: ^3.13.23
         version: 3.13.23(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       agora-rtc-sdk-ng:
-        specifier: 4.23.0
-        version: 4.23.0
+        specifier: 4.24.3
+        version: 4.24.3
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -942,14 +942,17 @@ packages:
     peerDependencies:
       zod: ^3.25.0 || ^4.0.0
 
-  '@agora-js/media@4.23.0':
-    resolution: {integrity: sha512-rV0CGP5nhvd7XrzpCqN7Fud+W//c/+f0dMe7wPB+DS/ckeTVxSdg96cTfEJS9poeTdDUvfhHyi0iECLPfUjkKA==}
+  '@agora-js/media@4.24.3':
+    resolution: {integrity: sha512-aC471uaWWGSXnruoaJggi9Ltbp3ldYxMyIi61jOew960zVsHaw78YhTDVv27XX1NvPRqEPLyfyMGEX4av0xOKA==}
 
-  '@agora-js/report@4.23.0':
-    resolution: {integrity: sha512-ti2HZc8ITRgbmukHRa+ZlH4ecCByHdQpPVT6v3vIn+ihvqrxs3A871iLe1jbjbeGNuOwqcaznSoRXOVsREeq2A==}
+  '@agora-js/protocol@4.24.3':
+    resolution: {integrity: sha512-GWAV+J9wv53u5T/k4KAjsxQ9Y+n73bWc3dSBe7OHjWcSZQikcWRJoOtygQiZKWmpYV/ZW5LQ0R12jHI7GAG0cQ==}
 
-  '@agora-js/shared@4.23.0':
-    resolution: {integrity: sha512-gfcEJu/+vPvMKYcjyWqmQKo4d0r0yggl9AhktsTWjg6mhScv4Lt3B8JdGGXvlIP6R+horRHjxsqPCdCVs1N4/w==}
+  '@agora-js/report@4.24.3':
+    resolution: {integrity: sha512-A2Q13JbRlSYkEF0W6eMCJmnzmHSBzaWZORNnsS23GElwACSxoa2KTMcDp0MQhlsI9Ht6277ZuVSCdkT48A6Pwg==}
+
+  '@agora-js/shared@4.24.3':
+    resolution: {integrity: sha512-PyKelGEuV/g4fTjDjANpBqPZMaY0NFdd0W4UcGtJ2rayVU+YAeztLvu4tpDbm14U4BG5dmz/N+VHckxFPgoIjQ==}
 
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
@@ -5861,6 +5864,9 @@ packages:
   '@types/node@25.5.2':
     resolution: {integrity: sha512-tO4ZIRKNC+MDWV4qKVZe3Ql/woTnmHDr5JD8UI5hn2pwBrHEwOEMZK7WlNb5RKB6EoJ02gwmQS9OrjuFnZYdpg==}
 
+  '@types/pako@2.0.4':
+    resolution: {integrity: sha512-VWDCbrLeVXJM9fihYodcLiIv0ku+AlOa/TQ1SvYOaBuyrSKgEcro95LJyIsJ4vSo6BXIxOKxiJAat04CmST9Fw==}
+
   '@types/qs@6.15.0':
     resolution: {integrity: sha512-JawvT8iBVWpzTrz3EGw9BTQFg3BQNmwERdKE22vlTxawwtbyUSlMppvZYKLZzB5zgACXdXxbD3m1bXaMqP/9ow==}
 
@@ -6161,8 +6167,8 @@ packages:
     resolution: {integrity: sha512-RtOIvi4PqV1ok3rdnopMZeVwiUqZgG9Pp56kqxJc5cU/+ljRBzs1Al+IThD5ahm528dGsdY1TyP1bJdqmgBCbQ==}
     deprecated: The package has been deprecated. Please use 'agora-token' instead, sorry for the inconvenience caused.
 
-  agora-rtc-sdk-ng@4.23.0:
-    resolution: {integrity: sha512-/DVTowwsU0PpwTT/xXOa9UAB3qlVpLty2Cxsn+B0mEKHbXTd4P4cgeLaSCbxQFqDhYQAqpwyClxC5ABYBal5yA==}
+  agora-rtc-sdk-ng@4.24.3:
+    resolution: {integrity: sha512-DEz0+/jgsajZgWFG/uHijoMeheqr7YWUJ5AyubiqKt5vC1TF0/3v51vVl2aqupY+YkmJOg0q64B4AJcdpj/TBQ==}
 
   agora-rte-extension@1.2.4:
     resolution: {integrity: sha512-0ovZz1lbe30QraG1cU+ji7EnQ8aUu+Hf3F+a8xPml3wPOyUQEK6CTdxV9kMecr9t+fIDrGeW7wgJTsM1DQE7Nw==}
@@ -13353,24 +13359,35 @@ snapshots:
     dependencies:
       zod: 4.3.6
 
-  '@agora-js/media@4.23.0':
+  '@agora-js/media@4.24.3':
     dependencies:
-      '@agora-js/report': 4.23.0
-      '@agora-js/shared': 4.23.0
+      '@agora-js/report': 4.24.3
+      '@agora-js/shared': 4.24.3
       agora-rte-extension: 1.2.4
       axios: 1.13.6
       webrtc-adapter: 8.2.0
     transitivePeerDependencies:
       - debug
 
-  '@agora-js/report@4.23.0':
+  '@agora-js/protocol@4.24.3':
     dependencies:
-      '@agora-js/shared': 4.23.0
+      '@agora-js/media': 4.24.3
+      '@agora-js/report': 4.24.3
+      '@agora-js/shared': 4.24.3
+      '@bufbuild/protobuf': 2.11.0
+      '@types/pako': 2.0.4
+      pako: 2.1.0
+    transitivePeerDependencies:
+      - debug
+
+  '@agora-js/report@4.24.3':
+    dependencies:
+      '@agora-js/shared': 4.24.3
       axios: 1.13.6
     transitivePeerDependencies:
       - debug
 
-  '@agora-js/shared@4.23.0':
+  '@agora-js/shared@4.24.3':
     dependencies:
       axios: 1.13.6
       ua-parser-js: 0.7.41
@@ -19363,6 +19380,8 @@ snapshots:
     dependencies:
       undici-types: 7.18.2
 
+  '@types/pako@2.0.4': {}
+
   '@types/qs@6.15.0': {}
 
   '@types/range-parser@1.2.7': {}
@@ -19775,11 +19794,12 @@ snapshots:
       crc-32: 1.2.0
       cuint: 0.2.2
 
-  agora-rtc-sdk-ng@4.23.0:
+  agora-rtc-sdk-ng@4.24.3:
     dependencies:
-      '@agora-js/media': 4.23.0
-      '@agora-js/report': 4.23.0
-      '@agora-js/shared': 4.23.0
+      '@agora-js/media': 4.24.3
+      '@agora-js/protocol': 4.24.3
+      '@agora-js/report': 4.24.3
+      '@agora-js/shared': 4.24.3
       agora-rte-extension: 1.2.4
       axios: 1.13.6
       formdata-polyfill: 4.0.10
