@@ -143,8 +143,9 @@ export function useVoiceBridge() {
           if (mediaType === 'audio') {
             remoteUser.audioTrack?.play()
           }
-          // Register uid mapping for volume indicator — store as number, not string
-          store.registerUidMapping(Number(remoteUser.uid), remoteUser.uid.toString())
+          // Note: uid→userId mapping is registered in voice:user-joined handler,
+          // which receives the actual userId. We can't register it here because
+          // remoteUser.uid is a number, not a userId.
         })
 
         client.on('user-unpublished', async (remoteUser, mediaType) => {

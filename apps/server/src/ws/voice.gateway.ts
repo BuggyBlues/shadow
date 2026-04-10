@@ -34,6 +34,7 @@ interface VoiceChannelState {
     muted: boolean
     screenSharing: boolean
     joinedAt: string
+    agoraUid: number
   }>
 }
 
@@ -106,6 +107,7 @@ export function setupVoiceGateway(io: SocketIOServer, container: AppContainer): 
               muted: false,
               screenSharing: false,
               joinedAt: new Date().toISOString(),
+              agoraUid: Number(agoraUid) || 0,
             })
 
             // Broadcast to other members
@@ -113,7 +115,7 @@ export function setupVoiceGateway(io: SocketIOServer, container: AppContainer): 
               userId,
               username,
               displayName,
-              agoraUid: agoraUid ?? 0,
+              agoraUid: Number(agoraUid) || 0,
             })
           }
 

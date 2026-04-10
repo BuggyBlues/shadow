@@ -50,15 +50,36 @@ export const useVoiceStore = create<VoiceChannelState>((set, get) => ({
       socket.emit(
         'voice:join',
         { channelId, agoraUid },
-        (res: { ok: boolean; state?: { members: VoiceChannelMember[] }; error?: string }) => {
+        (res: {
+          ok: boolean
+          state?: { members: VoiceChannelMember[] & { agoraUid?: number }[] }
+          error?: string
+        }) => {
           if (res.ok && res.state) {
+            const membersWithVolume = res.state.members.map((m) => ({
+              userId: m.userId,
+              username: m.username,
+              displayName: m.displayName,
+              muted: m.muted,
+              screenSharing: m.screenSharing,
+              joinedAt: m.joinedAt,
+              volume: 0,
+            }))
+            // Build uid→userId map from existing members' agoraUid
+            const uidMap = new Map<number, string>()
+            uidMap.set(agoraUid, 'local')
+            for (const m of res.state.members) {
+              if (m.agoraUid && m.agoraUid !== 0) {
+                uidMap.set(m.agoraUid, m.userId)
+              }
+            }
             set({
               activeChannelId: channelId,
               activeChannelName: channelName,
-              members: res.state.members.map((m) => ({ ...m, volume: 0 })),
+              members: membersWithVolume,
               agoraUid,
               error: null,
-              uidToUserId: new Map([[agoraUid, 'local']]),
+              uidToUserId: uidMap,
             })
             resolve()
           } else {
