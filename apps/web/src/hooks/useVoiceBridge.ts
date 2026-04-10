@@ -150,6 +150,8 @@ export function useVoiceBridge() {
         AgoraRTC.setLogLevel(1) // 1 = INFO, WARNING, ERROR
 
         // ⚠️ CRITICAL: Register remote user event handlers BEFORE join.
+        // uid→userId mapping is provided by voice:user-joined (Socket.IO),
+        // which receives the real userId + agoraUid from the server.
         client.on('user-published', async (remoteUser, mediaType) => {
           await client.subscribe(remoteUser, mediaType)
           if (mediaType === 'audio') {
@@ -157,12 +159,9 @@ export function useVoiceBridge() {
           }
           if (mediaType === 'video') {
             // Remote user is screen sharing — track it for viewer
-            if (remoteUser.videoTrack) {
-              setScreenSharerId(remoteUser.uid.toString())
-              setScreenShareTrack(remoteUser.videoTrack)
-            }
+            setScreenSharerId(remoteUser.uid.toString())
+            setScreenShareTrack(remoteUser.videoTrack)
           }
-          // uid→userId mapping is registered in voice:user-joined handler
         })
 
         client.on('user-unpublished', async (remoteUser, mediaType) => {
@@ -207,12 +206,15 @@ export function useVoiceBridge() {
         }
 
         // Volume indicator for speaking ring animation
+        // Fires every 2 seconds with volume levels for all users in the channel.
+        // uid→userId mapping is provided by voice:user-joined (Socket.IO) which
+        // receives the real userId + agoraUid from the server.
         client.enableAudioVolumeIndicator()
         client.on('volume-indicator', (volumes) => {
           for (const v of volumes) {
-            if (v.uid !== 0 && v.uid !== tokenInfo.uid) {
-              store.updateVolume(Number(v.uid), v.level)
-            }
+            if (v.uid === 0 || v.uid === tokenInfo.uid) continue
+            const uidNum = Number(v.uid)
+            store.updateVolume(uidNum, v.level)
           }
         })
 

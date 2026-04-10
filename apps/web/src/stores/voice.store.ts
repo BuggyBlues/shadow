@@ -23,7 +23,7 @@ interface VoiceChannelState {
   /** Whether local user has mic access and can speak (false = listen-only mode) */
   canSpeak: boolean
 
-  /** Map of uid → userId for volume indicator lookup */
+  /** Map of agoraUid → userId for volume indicator lookup */
   uidToUserId: Map<number, string>
 
   joinChannel: (channelId: string, channelName: string, agoraUid?: number) => Promise<void>
@@ -83,7 +83,7 @@ export const useVoiceStore = create<VoiceChannelState>((set, get) => ({
               members: membersWithVolume,
               agoraUid,
               error: null,
-              canSpeak: true, // Reset on join; bridge will update if mic fails
+              canSpeak: true,
               uidToUserId: uidMap,
             })
             resolve()
