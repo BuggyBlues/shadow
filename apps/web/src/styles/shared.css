@@ -44,25 +44,25 @@
 
 /* ─── Light Theme ─── */
 :root.light {
-  --color-bg-deep: #f8fafc;
+  --color-bg-deep: #f1f5f9;
   --color-bg-primary: #ffffff;
   --color-bg-secondary: #f8fafc;
-  --color-bg-tertiary: #e2e8f0;
+  --color-bg-tertiary: #f1f5f9;
   --color-text-primary: #0f172a;
   --color-text-secondary: #334155;
   --color-text-muted: #64748b;
-  --color-primary: #00c6d1;
-  --color-primary-strong: #0891b2;
-  --color-primary-hover: #007d86;
-  --color-danger: #da373c;
-  --color-bg-modifier-hover: rgba(0, 0, 0, 0.04);
-  --color-bg-modifier-active: rgba(0, 0, 0, 0.06);
-  --color-border-subtle: rgba(0, 0, 0, 0.06);
-  --color-border-dim: rgba(0, 0, 0, 0.1);
+  --color-primary: #0891b2;
+  --color-primary-strong: #0e7490;
+  --color-primary-hover: #155e75;
+  --color-danger: #dc2626;
+  --color-bg-modifier-hover: rgba(0, 0, 0, 0.05);
+  --color-bg-modifier-active: rgba(0, 0, 0, 0.08);
+  --color-border-subtle: rgba(0, 0, 0, 0.08);
+  --color-border-dim: rgba(0, 0, 0, 0.12);
   --color-divider: #e2e8f0;
-  --glass-bg: rgba(255, 255, 255, 0.75);
-  --glass-border: rgba(255, 255, 255, 1);
-  --shadow-soft: 0 10px 40px -10px rgba(0, 0, 0, 0.1);
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(0, 0, 0, 0.05);
+  --shadow-soft: 0 10px 40px -10px rgba(0, 0, 0, 0.08);
 }
 
 /* ─── Light Theme Utility Overrides ─── */
@@ -157,18 +157,18 @@
 
 /* Glass panel — reusable for sidebars and content areas */
 .glass-panel {
-  background: rgba(18, 18, 26, 0.6);
-  backdrop-filter: blur(32px);
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(48px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.1),
-    0 10px 40px -10px rgba(0, 0, 0, 0.5);
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
+    0 12px 48px -12px rgba(0, 0, 0, 0.5);
   border-radius: 24px;
   overflow: hidden;
 }
 :root.light .glass-panel {
   background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(32px);
+  backdrop-filter: blur(48px);
   border: 1px solid rgba(255, 255, 255, 1);
   box-shadow:
     0 15px 45px rgba(0, 0, 0, 0.04),
@@ -179,30 +179,48 @@
 
 /* Glass card — aggressive rounding with top-edge reflection */
 .glass-card {
-  background: var(--glass-bg);
-  backdrop-filter: blur(32px);
+  background: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(48px);
   border-radius: 40px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow:
-    0 10px 40px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+    0 10px 40px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
 }
 :root.light .glass-card {
+  background: rgba(255, 255, 255, 0.6);
   border: 1px solid rgba(255, 255, 255, 1);
   box-shadow:
-    0 15px 45px rgba(0, 0, 0, 0.04),
-    inset 0 2px 12px rgba(255, 255, 255, 0.9);
+    0 15px 45px rgba(0, 0, 0, 0.05),
+    inset 0 2px 12px rgba(255, 255, 255, 0.8);
+}
+
+/* Glass header — for panel top bars */
+.glass-header {
+  height: 3.5rem;
+  background: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  padding: 0 1.5rem;
+  flex-shrink: 0;
+}
+:root.light .glass-header {
+  background: rgba(255, 255, 255, 0.4);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 /* Glass surface — for inline containers (quotes, etc.) */
 .glass-surface {
-  background: var(--glass-bg);
-  backdrop-filter: blur(32px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(48px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 :root.light .glass-surface {
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 /* Vibrant shadow — cyan glow for primary CTAs */
@@ -228,6 +246,13 @@ body {
   -webkit-font-smoothing: antialiased;
   line-height: 1.5;
   letter-spacing: 0.01em;
+}
+
+:root[style*="--app-bg-image"] body {
+  background-image: var(--app-bg-image);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
 }
 
 #root {
@@ -271,88 +296,152 @@ body {
 
 /* Markdown message styling */
 .msg-markdown p {
-  margin: 0.125rem 0;
+  margin: 0.25rem 0;
 }
 .msg-markdown h1,
 .msg-markdown h2,
 .msg-markdown h3 {
-  margin-top: 0.5rem;
-  margin-bottom: 0.25rem;
-  font-weight: 700;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  font-weight: 900;
   color: var(--color-text-primary);
+  letter-spacing: -0.02em;
 }
 .msg-markdown h1 {
-  font-size: 1.25rem;
+  font-size: 1.5rem;
 }
 .msg-markdown h2 {
-  font-size: 1.1rem;
+  font-size: 1.25rem;
 }
 .msg-markdown h3 {
-  font-size: 1rem;
+  font-size: 1.1rem;
 }
 .msg-markdown code {
-  background: var(--color-bg-tertiary);
+  background: rgba(255, 255, 255, 0.06);
   color: var(--color-primary);
-  padding: 0.1rem 0.35rem;
-  border-radius: 0.25rem;
-  font-size: 0.8rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 6px;
+  font-size: 0.85em;
+  font-family: var(--font-mono);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
+:root.light .msg-markdown code {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.05);
+}
+
 .msg-markdown pre {
-  background: var(--color-bg-tertiary);
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
-  padding: 0.75rem 1rem;
-  margin: 0.5rem 0;
+  padding: 1rem;
+  margin: 0.75rem 0;
   overflow-x: auto;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.2);
 }
+:root.light .msg-markdown pre {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
 .msg-markdown pre code {
   background: transparent;
   padding: 0;
+  border: none;
   color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  white-space: pre;
+  word-wrap: normal;
 }
 .msg-markdown a {
   color: var(--color-primary);
-  text-decoration: underline;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(0, 243, 255, 0.3);
+  transition: all 0.2s ease;
 }
 .msg-markdown a:hover {
-  opacity: 0.8;
+  border-bottom-color: var(--color-primary);
+  opacity: 1;
 }
 .msg-markdown blockquote {
   border-left: 4px solid var(--color-primary);
-  padding: 0.5rem 0.75rem;
-  margin: 0.375rem 0;
+  padding: 0.75rem 1rem;
+  margin: 0.75rem 0;
   color: var(--color-text-muted);
-  background: var(--glass-bg);
-  border-radius: 0 16px 16px 0;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px 16px 16px 4px;
 }
 .msg-markdown ul,
 .msg-markdown ol {
-  padding-left: 1.25rem;
-  margin: 0.25rem 0;
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
 }
 .msg-markdown li {
-  margin: 0.1rem 0;
+  margin: 0.25rem 0;
 }
+
+/* Enhanced Table Styling */
 .msg-markdown table {
-  border-collapse: collapse;
-  margin: 0.5rem 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  margin: 1rem 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.02);
 }
+:root.light .msg-markdown table {
+  border-color: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.01);
+}
+
+.msg-markdown th {
+  background: rgba(255, 255, 255, 0.05);
+  font-weight: 800;
+  text-align: left;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+}
+:root.light .msg-markdown th {
+  background: rgba(0, 0, 0, 0.03);
+}
+
 .msg-markdown th,
 .msg-markdown td {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 0.25rem 0.5rem;
-  font-size: 0.8rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
 }
-.msg-markdown th {
-  background: var(--color-bg-tertiary);
+:root.light .msg-markdown th,
+:root.light .msg-markdown td {
+  border-color: rgba(0, 0, 0, 0.06);
 }
+
+.msg-markdown th:last-child,
+.msg-markdown td:last-child {
+  border-right: none;
+}
+.msg-markdown tr:last-child td {
+  border-bottom: none;
+}
+.msg-markdown tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
 .msg-markdown img {
   max-width: 100%;
-  border-radius: 0.5rem;
+  border-radius: 12px;
+  margin: 0.5rem 0;
 }
 .msg-markdown hr {
-  border-color: rgba(255, 255, 255, 0.1);
-  margin: 0.5rem 0;
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin: 1.5rem 0;
 }
 
 /* ─── Animation Utilities ─── */
@@ -620,7 +709,7 @@ textarea.form-input {
 /* Standardized app header */
 .app-header {
   height: 3.5rem;
-  background: rgba(10, 10, 15, 0.4);
+  background: rgba(10, 15, 30, 0.3);
   backdrop-filter: blur(16px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   position: sticky;
@@ -629,7 +718,7 @@ textarea.form-input {
   flex-shrink: 0;
 }
 :root.light .app-header {
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(230, 245, 255, 0.5);
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 

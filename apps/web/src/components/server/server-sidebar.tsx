@@ -342,17 +342,17 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
         </div>
 
         {/* Action buttons — fixed at bottom */}
-        <div className="flex flex-col items-center gap-2 pt-2 shrink-0">
-          <div className="w-8 h-0.5 bg-border/20 rounded-full" />
+        <div className="flex flex-col items-center gap-2 pt-2 pb-4 shrink-0">
+          <div className="w-8 h-0.5 bg-border/10 rounded-full mb-1" />
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant="glass"
+                variant="ghost"
                 size="icon"
-                className="w-[56px] h-[56px] rounded-full bouncy"
+                className="w-[48px] h-[48px] rounded-2xl bg-white/5 hover:bg-white/10 text-text-muted hover:text-primary transition-all bouncy"
                 onClick={() => setShowCreate(!showCreate)}
               >
-                <Plus size={24} />
+                <Plus size={22} />
               </Button>
             </TooltipTrigger>
             <TooltipPortal>
@@ -369,9 +369,9 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant="glass"
+                variant="ghost"
                 size="icon"
-                className="w-[56px] h-[56px] rounded-full bouncy"
+                className="w-[48px] h-[48px] rounded-2xl bg-white/5 hover:bg-white/10 text-text-muted hover:text-primary transition-all bouncy"
                 onClick={() => setShowJoin(!showJoin)}
               >
                 <UserPlus size={20} />
@@ -391,12 +391,12 @@ export function ServerSidebar({ onNavigate }: { onNavigate?: () => void } = {}) 
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant="glass"
+                variant="ghost"
                 size="icon"
-                className="w-[56px] h-[56px] rounded-full bouncy"
+                className="w-[48px] h-[48px] rounded-2xl bg-white/5 hover:bg-white/10 text-text-muted hover:text-primary transition-all bouncy"
                 onClick={() => navigate({ to: '/discover' })}
               >
-                <Compass size={24} className="opacity-90" />
+                <Compass size={22} className="opacity-80" />
               </Button>
             </TooltipTrigger>
             <TooltipPortal>

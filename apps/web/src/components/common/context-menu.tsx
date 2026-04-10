@@ -117,43 +117,50 @@ export function ContextMenu({ x, y, groups, onClose, minWidth = 180 }: ContextMe
       {/* Menu */}
       <div
         ref={menuRef}
-        className="fixed z-[101] bg-bg-primary/95 backdrop-blur-xl rounded-[24px] border border-border-subtle shadow-[0_16px_64px_rgba(0,0,0,0.4)] py-1"
+        className="fixed z-[101] bg-white/95 dark:bg-[#1A1D24]/95 backdrop-blur-2xl rounded-[16px] border border-black/5 dark:border-white/10 shadow-[0_12px_48px_rgba(0,0,0,0.12)] dark:shadow-[0_12px_48px_rgba(0,0,0,0.5)] py-2 animate-in fade-in zoom-in-95 duration-100"
         style={{ left: position.x, top: position.y, minWidth: `${minWidth}px` }}
       >
-        {groups.map((group, gi) => (
-          <div key={gi}>
-            {gi > 0 && <div className="h-px bg-border-subtle mx-2 my-1" />}
-            {group.title && (
-              <div className="px-3 pt-1.5 pb-0.5 text-[11px] font-bold uppercase tracking-widest text-text-muted/60 select-none">
-                {group.title}
-              </div>
-            )}
-            {group.items.map((item, ii) => (
-              <button
-                key={`${item.label}-${ii}`}
-                type="button"
-                disabled={item.disabled}
-                onClick={() => handleItemClick(item)}
-                className={`flex items-center gap-2 w-full px-2.5 py-[5px] text-[12px] transition-all duration-100 rounded-md mx-1 ${
-                  item.disabled
-                    ? 'text-text-muted/40 cursor-not-allowed'
-                    : item.danger
-                      ? 'text-danger hover:bg-danger/10 hover:text-danger'
-                      : 'text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary'
-                }`}
-                style={{ width: 'calc(100% - 8px)' }}
-              >
-                {item.icon && <item.icon size={14} className="shrink-0" />}
-                <span className="flex-1 text-left">{item.label}</span>
-                {item.shortcut && (
-                  <span className="text-[11px] text-text-muted/50 font-mono ml-4 shrink-0">
-                    {item.shortcut}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        ))}
+        <div className="flex flex-col gap-0.5 px-1.5">
+          {groups.map((group, gi) => (
+            <div key={gi} className="contents">
+              {gi > 0 && <div className="h-px bg-black/5 dark:bg-white/10 mx-2 my-1 shrink-0" />}
+              {group.title && (
+                <div className="px-3 pt-1.5 pb-0.5 text-[11px] font-bold uppercase tracking-widest text-text-muted/60 select-none">
+                  {group.title}
+                </div>
+              )}
+              {group.items.map((item, ii) => (
+                <button
+                  key={`${item.label}-${ii}`}
+                  type="button"
+                  disabled={item.disabled}
+                  onClick={() => handleItemClick(item)}
+                  className={`flex items-center gap-2.5 w-full px-3 py-2.5 text-[14px] font-medium transition-colors rounded-[10px] ${
+                    item.disabled
+                      ? 'text-text-muted/40 cursor-not-allowed'
+                      : item.danger
+                        ? 'text-danger hover:bg-danger/10 hover:text-danger group'
+                        : 'text-text-primary hover:bg-black/5 dark:hover:bg-white/10'
+                  }`}
+                >
+                  {item.icon && (
+                    <item.icon
+                      size={16}
+                      strokeWidth={2}
+                      className={`shrink-0 ${item.danger ? 'opacity-80 group-hover:opacity-100' : 'opacity-70'}`}
+                    />
+                  )}
+                  <span className="flex-1 text-left leading-none">{item.label}</span>
+                  {item.shortcut && (
+                    <span className="text-[11px] text-text-muted/50 font-mono ml-4 shrink-0">
+                      {item.shortcut}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
     </>,
     document.body,
@@ -210,10 +217,10 @@ export function ContextMenuWrapper({
       />
       <div
         ref={menuRef}
-        className="fixed z-[101] bg-bg-primary/95 backdrop-blur-xl rounded-[24px] border border-border-subtle shadow-[0_16px_64px_rgba(0,0,0,0.4)] py-1 min-w-[160px]"
+        className="fixed z-[101] bg-white/95 dark:bg-[#1A1D24]/95 backdrop-blur-2xl rounded-[16px] border border-black/5 dark:border-white/10 shadow-[0_12px_48px_rgba(0,0,0,0.12)] dark:shadow-[0_12px_48px_rgba(0,0,0,0.5)] py-2 min-w-[180px] animate-in fade-in zoom-in-95 duration-100"
         style={{ left: position.x, top: position.y }}
       >
-        {children}
+        <div className="flex flex-col gap-0.5 px-1.5">{children}</div>
       </div>
     </>,
     document.body,

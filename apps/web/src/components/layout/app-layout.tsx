@@ -11,6 +11,7 @@ import { useUIStore } from '../../stores/ui.store'
 import { ConfirmDialog } from '../common/confirm-dialog'
 import { RechargeModal } from '../recharge/recharge-modal'
 import { ServerSidebar } from '../server/server-sidebar'
+import { DynamicBackground } from './dynamic-background'
 
 export function AppLayout() {
   const { t } = useTranslation()
@@ -57,15 +58,16 @@ export function AppLayout() {
   }, [])
 
   return (
-    <div className="relative flex h-dvh w-screen overflow-hidden bg-bg-deep p-3 gap-3">
+    <div className="relative flex h-dvh w-screen overflow-hidden bg-transparent p-3 gap-3">
+      <DynamicBackground />
       {/* ── Neon Frost atmosphere orbs ── */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
         <div
-          className="absolute top-[-150px] left-[5%] w-[600px] h-[600px] rounded-full blur-[120px] animate-float opacity-50"
+          className="absolute top-[-150px] left-[5%] w-[600px] h-[600px] rounded-full blur-[120px] animate-float opacity-30"
           style={{ background: 'radial-gradient(circle, #00F3FF 0%, transparent 70%)' }}
         />
         <div
-          className="absolute top-[25%] right-[-150px] w-[700px] h-[700px] rounded-full blur-[120px] animate-float opacity-50"
+          className="absolute top-[25%] right-[-150px] w-[700px] h-[700px] rounded-full blur-[120px] animate-float opacity-30"
           style={{
             background: 'radial-gradient(circle, #FF2A55 0%, transparent 70%)',
             animationDelay: '-7s',
