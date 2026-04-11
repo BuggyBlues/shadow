@@ -34,7 +34,9 @@
     "yes": "はい",
     "no": "いいえ",
     "search": "検索",
-    "noResults": "結果なし"
+    "noResults": "結果なし",
+    "avatarUploaded": "アバターがアップロードされました",
+    "uploadFailed": "アップロードに失敗しました"
   },
   "nav": {
     "features": "機能紹介",
@@ -375,7 +377,8 @@
     "isTyping": "が入力中...",
     "areTyping": "が入力中...",
     "copy": "コピー",
-    "edit": "編集"
+    "edit": "編集",
+    "copied": "コピーしました"
   },
   "member": {
     "title": "メンバー",
