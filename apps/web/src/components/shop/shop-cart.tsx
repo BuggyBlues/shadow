@@ -2,6 +2,7 @@ import { Button, Card } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Minus, Plus, ShieldCheck, ShoppingBag, ShoppingCart, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../../lib/api'
 import { showToast } from '../../lib/toast'
 import { PriceDisplay } from './ui/currency'
@@ -25,6 +26,7 @@ interface ShopCartProps {
 }
 
 export function ShopCart({ serverId, onCheckout }: ShopCartProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
@@ -47,7 +49,7 @@ export function ShopCart({ serverId, onCheckout }: ShopCartProps) {
         return next
       })
     },
-    onError: (err: Error) => showToast(err.message || '删除失败', 'error'),
+    onError: (err: Error) => showToast(err.message || t('shop.deleteFailed', '删除失败'), 'error'),
   })
 
   const updateQty = useMutation({
@@ -57,7 +59,7 @@ export function ShopCart({ serverId, onCheckout }: ShopCartProps) {
         body: JSON.stringify(data),
       }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['shop-cart', serverId] }),
-    onError: (err: Error) => showToast(err.message || '更新数量失败', 'error'),
+    onError: (err: Error) => showToast(err.message || t('shop.updateQuantityFailed', '更新数量失败'), 'error'),
   })
 
   const placeOrder = useMutation({
@@ -71,10 +73,10 @@ export function ShopCart({ serverId, onCheckout }: ShopCartProps) {
       queryClient.invalidateQueries({ queryKey: ['shop-orders', serverId] })
       queryClient.invalidateQueries({ queryKey: ['wallet'] })
       setSelectedIds(new Set())
-      showToast('下单成功！', 'success')
+      showToast(t('shop.orderSuccess', '下单成功！'), 'success')
       if (onCheckout) onCheckout(data.id)
     },
-    onError: (err: Error) => showToast(err.message || '下单失败，请检查余额或库存', 'error'),
+    onError: (err: Error) => showToast(err.message || t('shop.orderFailed', '下单失败，请检查余额或库存'), 'error'),
   })
 
   const selectedItems = useMemo(

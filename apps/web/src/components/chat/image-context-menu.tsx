@@ -1,5 +1,6 @@
 import { Download, FolderPlus, Image, Info, Link } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { showToast } from '../../lib/toast'
 import { useContextMenuPosition } from '../common/context-menu'
 
@@ -46,9 +47,11 @@ export function ImageContextMenu({
     onClose()
   }
 
+  const { t } = useTranslation()
+
   function handleCopyLink() {
     navigator.clipboard.writeText(attachment.url)
-    showToast('链接已复制', 'success')
+    showToast(t('chat.imageLinkCopied', '链接已复制'), 'success')
     onClose()
   }
 

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../../lib/api'
 import { showToast } from '../../lib/toast'
 import {
@@ -98,6 +99,7 @@ interface MutationDeps {
 }
 
 export function useWorkspaceMutations({ serverId, refetchTree, invalidateStats }: MutationDeps) {
+  const { t } = useTranslation()
   const {
     setRenamingNodeId,
     setActiveFileId,
@@ -188,7 +190,7 @@ export function useWorkspaceMutations({ serverId, refetchTree, invalidateStats }
     onSuccess: () => {
       refetchTree()
       invalidateStats()
-      showToast('文件已克隆', 'success')
+      showToast(t('workspace.fileCloned', '文件已克隆'), 'success')
     },
     onError: (err: Error) => showToast(err.message, 'error'),
   })
@@ -211,7 +213,7 @@ export function useWorkspaceMutations({ serverId, refetchTree, invalidateStats }
     },
     onSuccess: () => {
       refetchTree()
-      showToast('已移动', 'success')
+      showToast(t('workspace.moved', '已移动'), 'success')
     },
     onError: (err: Error) => showToast(err.message, 'error'),
   })
@@ -231,7 +233,7 @@ export function useWorkspaceMutations({ serverId, refetchTree, invalidateStats }
       refetchTree()
       invalidateStats()
       setClipboard(null)
-      showToast('粘贴完成', 'success')
+      showToast(t('workspace.pasteComplete', '粘贴完成'), 'success')
     },
     onError: (err: Error) => showToast(err.message, 'error'),
   })
@@ -257,9 +259,9 @@ export function useWorkspaceMutations({ serverId, refetchTree, invalidateStats }
         selectMultiple([newFile.id])
         setActiveFileId(newFile.id)
       }
-      showToast('文件已上传', 'success')
+      showToast(t('workspace.fileUploaded', '文件已上传'), 'success')
     },
-    onError: (err: Error) => showToast(err.message || '上传失败', 'error'),
+    onError: (err: Error) => showToast(err.message || t('workspace.uploadFailed', '上传失败'), 'error'),
   })
 
   const updateFileContent = useMutation({
@@ -317,9 +319,9 @@ export function useWorkspaceMutations({ serverId, refetchTree, invalidateStats }
       refetchTree()
       // Invalidate file content cache
       queryClient.invalidateQueries({ queryKey: ['workspace-file-content', variables.fileId] })
-      showToast('文件已保存', 'success')
+      showToast(t('workspace.fileSaved', '文件已保存'), 'success')
     },
-    onError: (err: Error) => showToast(err.message || '保存失败', 'error'),
+    onError: (err: Error) => showToast(err.message || t('workspace.saveFailed', '保存失败'), 'error'),
   })
 
   return {

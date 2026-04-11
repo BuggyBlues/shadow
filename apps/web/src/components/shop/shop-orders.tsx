@@ -12,6 +12,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../../lib/api'
 import { showToast } from '../../lib/toast'
 import { useShopStore } from '../../stores/shop.store'
@@ -109,6 +110,7 @@ interface ShopOrdersProps {
 }
 
 export function ShopOrders({ serverId }: ShopOrdersProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const lastOrderId = useShopStore((s) => s.lastOrderId)
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
@@ -149,9 +151,9 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shop-orders', serverId] })
       queryClient.invalidateQueries({ queryKey: ['wallet'] })
-      showToast('订单已取消', 'success')
+      showToast(t('shop.orderCancelled', '订单已取消'), 'success')
     },
-    onError: (err: Error) => showToast(err.message || '取消失败', 'error'),
+    onError: (err: Error) => showToast(err.message || t('shop.cancelFailed', '取消失败'), 'error'),
   })
 
   const submitReview = useMutation({
@@ -182,9 +184,9 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
         [vars.orderId]: [...(prev[vars.orderId] || []), review as OrderReview],
       }))
       queryClient.invalidateQueries({ queryKey: ['shop-orders', serverId] })
-      showToast('评价已提交，感谢您的反馈！', 'success')
+      showToast(t('shop.reviewSubmitted', '评价已提交，感谢您的反馈！'), 'success')
     },
-    onError: (err: Error) => showToast(err.message || '评价提交失败', 'error'),
+    onError: (err: Error) => showToast(err.message || t('shop.reviewSubmitFailed', '评价提交失败'), 'error'),
   })
 
   useEffect(() => {

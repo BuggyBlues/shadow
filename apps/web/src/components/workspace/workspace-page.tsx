@@ -97,7 +97,7 @@ export function WorkspacePage({
       nodeIds: ids,
       updatedAt: Date.now(),
     })
-    showToast(`已复制 ${ids.length} 项到剪贴板`, 'info')
+    showToast(t('workspace.copiedToClipboard', { count: ids.length }), 'info')
   }, [workspace, selectedIds, selectedNodeId, setClipboard])
 
   const handleCut = useCallback(() => {
@@ -110,7 +110,7 @@ export function WorkspacePage({
       nodeIds: ids,
       updatedAt: Date.now(),
     })
-    showToast(`已剪切 ${ids.length} 项到剪贴板`, 'info')
+    showToast(t('workspace.cutToClipboard', { count: ids.length }), 'info')
   }, [workspace, selectedIds, selectedNodeId, setClipboard])
 
   const handlePaste = useCallback(
@@ -323,16 +323,16 @@ export function WorkspacePage({
       const res = await fetch(`/api/servers/${serverId}/workspace/folders/${folderId}/download`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
-      if (!res.ok) throw new Error('下载失败')
+      if (!res.ok) throw new Error(t('workspace.downloadFailed', '下载失败'))
       const blob = await res.blob()
       const a = document.createElement('a')
       a.href = URL.createObjectURL(blob)
       a.download = `${node.name}.zip`
       a.click()
       URL.revokeObjectURL(a.href)
-      showToast('下载完成', 'success')
+      showToast(t('workspace.downloadComplete', '下载完成'), 'success')
     } catch (err: unknown) {
-      showToast((err as Error).message || '下载失败', 'error')
+      showToast((err as Error).message || t('workspace.downloadFailed', '下载失败'), 'error')
     }
   }
 
@@ -343,16 +343,16 @@ export function WorkspacePage({
       const res = await fetch(`/api/servers/${serverId}/workspace/download`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
-      if (!res.ok) throw new Error('下载失败')
+      if (!res.ok) throw new Error(t('workspace.downloadFailed', '下载失败'))
       const blob = await res.blob()
       const a = document.createElement('a')
       a.href = URL.createObjectURL(blob)
       a.download = `${workspace?.name ?? '工作区'}.zip`
       a.click()
       URL.revokeObjectURL(a.href)
-      showToast('下载完成', 'success')
+      showToast(t('workspace.downloadComplete', '下载完成'), 'success')
     } catch (err: unknown) {
-      showToast((err as Error).message || '下载失败', 'error')
+      showToast((err as Error).message || t('workspace.downloadFailed', '下载失败'), 'error')
     }
   }
 

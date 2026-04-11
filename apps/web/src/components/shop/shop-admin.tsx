@@ -23,6 +23,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../../lib/api'
 import { showToast } from '../../lib/toast'
 import { useConfirmStore } from '../common/confirm-dialog'
@@ -113,6 +114,7 @@ export function ShopAdmin({ serverId, onBack }: ShopAdminProps) {
    ╚═══════════════════════════════════════════╝ */
 
 function ProductManager({ serverId }: { serverId: string }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [isCreating, setIsCreating] = useState(false)
@@ -139,9 +141,9 @@ function ProductManager({ serverId }: { serverId: string }) {
       fetchApi(`/api/servers/${serverId}/shop/products/${productId}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shop-products', serverId] })
-      showToast('商品已删除', 'success')
+      showToast(t('shop.productDeleted', '商品已删除'), 'success')
     },
-    onError: (err: Error) => showToast(err.message || '删除商品失败', 'error'),
+    onError: (err: Error) => showToast(err.message || t('shop.deleteProductFailed', '删除商品失败'), 'error'),
   })
 
   if (isCreating || editingProduct) {
@@ -927,6 +929,7 @@ function ProductForm({ serverId, product, onCancel, onSaved }: ProductFormProps)
    ╚═══════════════════════════════════════════╝ */
 
 function CategoryManager({ serverId }: { serverId: string }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
@@ -951,9 +954,9 @@ function CategoryManager({ serverId }: { serverId: string }) {
       setName('')
       setSlug('')
       queryClient.invalidateQueries({ queryKey: ['shop-categories', serverId] })
-      showToast('分类创建成功', 'success')
+      showToast(t('shop.categoryCreated', '分类创建成功'), 'success')
     },
-    onError: (err: Error) => showToast(err.message || '创建分类失败', 'error'),
+    onError: (err: Error) => showToast(err.message || t('shop.createCategoryFailed', '创建分类失败'), 'error'),
   })
 
   const updateMutation = useMutation({
@@ -967,7 +970,7 @@ function CategoryManager({ serverId }: { serverId: string }) {
       setEditingId(null)
       queryClient.invalidateQueries({ queryKey: ['shop-categories', serverId] })
     },
-    onError: (err: Error) => showToast(err.message || '更新分类失败', 'error'),
+    onError: (err: Error) => showToast(err.message || t('shop.updateCategoryFailed', '更新分类失败'), 'error'),
   })
 
   const deleteMutation = useMutation({
@@ -975,9 +978,9 @@ function CategoryManager({ serverId }: { serverId: string }) {
       fetchApi(`/api/servers/${serverId}/shop/categories/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shop-categories', serverId] })
-      showToast('分类已删除', 'success')
+      showToast(t('shop.categoryDeleted', '分类已删除'), 'success')
     },
-    onError: (err: Error) => showToast(err.message || '删除分类失败', 'error'),
+    onError: (err: Error) => showToast(err.message || t('shop.deleteCategoryFailed', '删除分类失败'), 'error'),
   })
 
   return (
@@ -1110,6 +1113,7 @@ function CategoryManager({ serverId }: { serverId: string }) {
    ╚═══════════════════════════════════════════╝ */
 
 function OrderManager({ serverId }: { serverId: string }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [filterMode, setFilterMode] = useState<'all' | 'pending'>('all')
   const [trackingInputs, setTrackingInputs] = useState<Record<string, string>>({})
@@ -1134,9 +1138,9 @@ function OrderManager({ serverId }: { serverId: string }) {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-orders', serverId] })
-      showToast('订单状态已更新', 'success')
+      showToast(t('shop.orderStatusUpdated', '订单状态已更新'), 'success')
     },
-    onError: (err: Error) => showToast(err.message || '更新订单状态失败', 'error'),
+    onError: (err: Error) => showToast(err.message || t('shop.updateOrderStatusFailed', '更新订单状态失败'), 'error'),
   })
 
   const { data: orders = [] } = useQuery({
@@ -1288,6 +1292,7 @@ function OrderManager({ serverId }: { serverId: string }) {
    ╚═══════════════════════════════════════════╝ */
 
 function ShopSettings({ serverId }: { serverId: string }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { data: shop } = useQuery({
     queryKey: ['shop', serverId],
@@ -1340,9 +1345,9 @@ function ShopSettings({ serverId }: { serverId: string }) {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shop', serverId] })
-      showToast('店铺设置已保存', 'success')
+      showToast(t('shop.shopSettingsSaved', '店铺设置已保存'), 'success')
     },
-    onError: (err: Error) => showToast(err.message || '保存店铺设置失败', 'error'),
+    onError: (err: Error) => showToast(err.message || t('shop.saveShopSettingsFailed', '保存店铺设置失败'), 'error'),
   })
 
   return (
@@ -1513,6 +1518,7 @@ function ImageUploadInput({
   shape?: 'rect' | 'circle'
   previewUrl?: string
 }) {
+  const { t } = useTranslation()
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -1533,7 +1539,7 @@ function ImageUploadInput({
       }
     } catch (err) {
       console.error('Failed to upload image', err)
-      showToast((err as Error)?.message || '上传失败！', 'error')
+      showToast((err as Error)?.message || t('workspace.uploadFailed', '上传失败'), 'error')
     } finally {
       setIsUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''

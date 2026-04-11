@@ -2,6 +2,7 @@ import { Button, Card } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, CheckCircle2, Package, Wallet } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../../lib/api'
 import { showToast } from '../../lib/toast'
 import { useRechargeStore } from '../../stores/recharge.store'
@@ -18,6 +19,7 @@ interface OrderConfirmProps {
 }
 
 export function OrderConfirm({ serverId, productId, skuId, quantity, onBack }: OrderConfirmProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { setActiveProductId, setOverlay } = useShopStore()
   const openRecharge = useRechargeStore((s) => s.openModal)
@@ -54,7 +56,7 @@ export function OrderConfirm({ serverId, productId, skuId, quantity, onBack }: O
         setOverlay('orders')
       }, 2000)
     },
-    onError: (err: Error) => showToast(err.message || '支付失败，请检查余额或库存', 'error'),
+    onError: (err: Error) => showToast(err.message || t('shop.paymentFailed', '支付失败，请检查余额或库存'), 'error'),
   })
 
   if (!product) {
