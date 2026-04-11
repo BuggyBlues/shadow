@@ -1,11 +1,11 @@
 import { zValidator } from '@hono/zod-validator'
+import { LIMITS } from '@shadowob/shared'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { AppContainer } from '../container'
-import { LIMITS } from '@shadowob/shared'
+import { relayDmToBot } from '../lib/dm-relay'
 import { logger } from '../lib/logger'
 import { authMiddleware } from '../middleware/auth.middleware'
-import { relayDmToBot } from '../lib/dm-relay'
 
 export function createDmHandler(container: AppContainer) {
   const dmHandler = new Hono()
@@ -95,8 +95,8 @@ export function createDmHandler(container: AppContainer) {
         if (channel) {
           const otherUserId = channel.userAId === user.userId ? channel.userBId : channel.userAId
           await relayDmToBot(io, container, id, user.userId, otherUserId, {
-            id: message.id,
-            content: message.content ?? content,
+            id: message.id!,
+            content: message.content!,
             author: message.author,
             createdAt: message.createdAt,
             replyToId: message.replyToId,

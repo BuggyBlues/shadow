@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Mocked } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { NotificationDao } from '../dao/notification.dao'
 import { NotificationService } from './notification.service'
 
@@ -57,12 +57,15 @@ describe('NotificationService', () => {
   })
 
   describe('create', () => {
+    const now = new Date()
     it('skips notification when user strategy is none', async () => {
       mockNotificationDao.getPreference.mockResolvedValue({
         userId: 'user-1',
         strategy: 'none',
         mutedServerIds: [],
         mutedChannelIds: [],
+        createdAt: now,
+        updatedAt: now,
       })
 
       const result = await service.create({
@@ -82,6 +85,8 @@ describe('NotificationService', () => {
         strategy: 'mention_only',
         mutedServerIds: [],
         mutedChannelIds: [],
+        createdAt: now,
+        updatedAt: now,
       })
 
       const result = await service.create({
@@ -101,15 +106,20 @@ describe('NotificationService', () => {
         strategy: 'all',
         mutedServerIds: [],
         mutedChannelIds: [],
+        createdAt: now,
+        updatedAt: now,
       })
       mockNotificationDao.create.mockResolvedValue({
         id: 'notif-1',
         userId: 'user-1',
         type: 'dm',
+        title: 'Test',
+        body: 'Test body',
         referenceId: null,
         referenceType: null,
+        senderId: null,
         isRead: false,
-        createdAt: new Date(),
+        createdAt: now,
       })
 
       const result = await service.create({

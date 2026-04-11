@@ -1,12 +1,13 @@
-import { createClient } from 'redis'
+import { createClient, type RedisClientType } from 'redis'
 import { logger } from './logger'
 
 const REDIS_URL = process.env.REDIS_URL
 
-let client: ReturnType<typeof createClient> | null = null
+// Use unknown to work around dual @redis/client package resolution
+let client: unknown = null
 
-export async function getRedisClient() {
-  if (client) return client
+export async function getRedisClient(): Promise<RedisClientType | null> {
+  if (client) return client as RedisClientType
 
   if (!REDIS_URL) {
     logger.warn('REDIS_URL not set — Redis features disabled')
@@ -15,17 +16,21 @@ export async function getRedisClient() {
 
   client = createClient({ url: REDIS_URL })
 
-  client.on('error', (err) => logger.error({ err }, 'Redis client error'))
-  client.on('connect', () => logger.info('Redis connected'))
-  client.on('reconnecting', () => logger.info('Redis reconnecting'))
+  ;(client as ReturnType<typeof createClient>).on('error', (err) =>
+    logger.error({ err }, 'Redis client error'),
+  )
+  ;(client as ReturnType<typeof createClient>).on('connect', () => logger.info('Redis connected'))
+  ;(client as ReturnType<typeof createClient>).on('reconnecting', () =>
+    logger.info('Redis reconnecting'),
+  )
 
-  await client.connect()
-  return client
+  await (client as ReturnType<typeof createClient>).connect()
+  return client as RedisClientType
 }
 
 export async function closeRedisClient() {
   if (client) {
-    await client.quit()
+    await (client as ReturnType<typeof createClient>).quit()
     client = null
     logger.info('Redis connection closed')
   }

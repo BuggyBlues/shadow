@@ -1,9 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Mocked } from 'vitest'
-import type { UserDao } from '../dao/user.dao'
-import type { InviteCodeDao } from '../dao/invite-code.dao'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AgentDao } from '../dao/agent.dao'
+import type { InviteCodeDao } from '../dao/invite-code.dao'
 import type { PasswordChangeLogDao } from '../dao/password-change-log.dao'
+import type { UserDao } from '../dao/user.dao'
 import type { TaskCenterService } from '../services/task-center.service'
 import { AuthService } from './auth.service'
 
@@ -17,7 +17,9 @@ vi.mock('bcryptjs', () => ({
 vi.mock('../lib/jwt', () => ({
   signAccessToken: vi.fn().mockReturnValue('mock-access-token'),
   signRefreshToken: vi.fn().mockReturnValue('mock-refresh-token'),
-  verifyToken: vi.fn().mockReturnValue({ userId: 'user-1', email: 'test@test.com', username: 'testuser' }),
+  verifyToken: vi
+    .fn()
+    .mockReturnValue({ userId: 'user-1', email: 'test@test.com', username: 'testuser' }),
 }))
 
 // Mock id generator
@@ -31,10 +33,13 @@ describe('AuthService', () => {
     email: 'test@test.com',
     username: 'testuser',
     displayName: 'Test User',
+    avatarUrl: null,
     passwordHash: '$2a$12$mockhash',
     isAdmin: false,
     isBot: false,
     status: 'online' as const,
+    oauthAppId: null,
+    parentUserId: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   }
@@ -82,7 +87,7 @@ describe('AuthService', () => {
     mockUserDao.findByUsername.mockResolvedValue(null)
     mockUserDao.create.mockResolvedValue(mockUser)
     mockInviteCodeDao.findAvailable.mockResolvedValue(mockInviteCode)
-    mockTaskCenterService.grantWelcomeReward.mockResolvedValue(undefined)
+    mockTaskCenterService.grantWelcomeReward.mockResolvedValue(false)
 
     service = new AuthService({
       userDao: mockUserDao,
