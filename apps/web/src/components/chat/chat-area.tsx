@@ -1090,13 +1090,16 @@ function EmptyChannelState({
         )}
       </div>
 
-      {showInvitePanel && serverId && (
+      {serverId && (
         <InvitePanel
           serverId={serverId}
           channelId={channelId}
           channelName={channelName}
           initialTab={inviteInitialTab}
-          onClose={() => setShowInvitePanel(false)}
+          open={showInvitePanel}
+          onOpenChange={(val) => {
+            if (!val) setShowInvitePanel(false)
+          }}
         />
       )}
     </>
