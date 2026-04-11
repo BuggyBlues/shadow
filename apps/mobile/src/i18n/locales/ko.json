@@ -34,7 +34,9 @@
     "yes": "예",
     "no": "아니요",
     "search": "검색",
-    "noResults": "결과 없음"
+    "noResults": "결과 없음",
+    "avatarUploaded": "아바타가 업로드되었습니다",
+    "uploadFailed": "업로드 실패"
   },
   "nav": {
     "features": "기능 소개",
@@ -375,7 +377,8 @@
     "isTyping": "입력 중...",
     "areTyping": "입력 중...",
     "copy": "복사",
-    "edit": "편집"
+    "edit": "편집",
+    "copied": "복사됨"
   },
   "member": {
     "title": "멤버",
