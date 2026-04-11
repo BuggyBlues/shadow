@@ -26,7 +26,7 @@ describe('S03/C05 settings save idempotency retry', () => {
         })
       if (String(path).endsWith('/shop') && options?.method === 'PUT') {
         putCount += 1
-        if (putCount === 1) return Promise.reject(new Error('保存失败(500)'))
+        if (putCount === 1) return Promise.reject(new Error('shop.saveError(500)'))
         return Promise.resolve({ ok: true })
       }
       return Promise.resolve({})
@@ -37,8 +37,8 @@ describe('S03/C05 settings save idempotency retry', () => {
     await userEvent.click(save)
     await userEvent.click(save)
     await waitFor(() => {
-      expect(showToastMock).toHaveBeenCalledWith('保存失败(500)', 'error')
-      expect(showToastMock).toHaveBeenCalledWith('店铺设置已保存', 'success')
+      expect(showToastMock).toHaveBeenCalledWith('shop.saveError(500)', 'error')
+      expect(showToastMock).toHaveBeenCalledWith('shop.settingsSaved', 'success')
     })
   })
 })

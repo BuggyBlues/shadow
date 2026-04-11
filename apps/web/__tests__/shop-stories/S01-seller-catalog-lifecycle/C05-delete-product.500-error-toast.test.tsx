@@ -46,12 +46,14 @@ describe('S01/C05 delete product 500 error toast', () => {
         })
       }
       if (String(path).includes('/shop/products/p1') && options?.method === 'DELETE')
-        return Promise.reject(new Error('删除商品失败(500)'))
+        return Promise.reject(new Error('shop.deleteProductError(500)'))
       return Promise.resolve({})
     })
     renderWithQuery(<ShopAdmin serverId={serverId} onBack={() => {}} />)
     await screen.findByText('商品X')
     await userEvent.click(screen.getByTitle('删除此商品'))
-    await waitFor(() => expect(showToastMock).toHaveBeenCalledWith('删除商品失败(500)', 'error'))
+    await waitFor(() =>
+      expect(showToastMock).toHaveBeenCalledWith('shop.deleteProductError(500)', 'error'),
+    )
   })
 })

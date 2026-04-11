@@ -47,7 +47,7 @@ describe('S06/C04 review submit single item success', () => {
     await userEvent.click(screen.getByRole('button', { name: '我要评价' }))
     await userEvent.click(screen.getByRole('button', { name: '提交评价' }))
     await waitFor(() =>
-      expect(showToastMock).toHaveBeenCalledWith('评价已提交，感谢您的反馈！', 'success'),
+      expect(showToastMock).toHaveBeenCalledWith('shop.reviewSubmitted', 'success'),
     )
   })
 })

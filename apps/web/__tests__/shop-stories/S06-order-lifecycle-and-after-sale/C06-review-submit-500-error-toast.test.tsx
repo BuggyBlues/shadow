@@ -16,7 +16,7 @@ describe('S06/C06 review submit 500 error toast', () => {
   it('评价失败应提示错误', async () => {
     fetchApiMock.mockImplementation((path: string, options?: RequestInit) => {
       if (String(path).includes('/shop/orders/o1/review') && options?.method === 'POST')
-        return Promise.reject(new Error('评价失败(500)'))
+        return Promise.reject(new Error('shop.reviewError(500)'))
       if (String(path).includes('/shop/orders'))
         return Promise.resolve([
           {
@@ -46,6 +46,8 @@ describe('S06/C06 review submit 500 error toast', () => {
     await userEvent.click(await screen.findByText('#NO6001'))
     await userEvent.click(screen.getByRole('button', { name: '我要评价' }))
     await userEvent.click(screen.getByRole('button', { name: '提交评价' }))
-    await waitFor(() => expect(showToastMock).toHaveBeenCalledWith('评价失败(500)', 'error'))
+    await waitFor(() =>
+      expect(showToastMock).toHaveBeenCalledWith('shop.reviewError(500)', 'error'),
+    )
   })
 })

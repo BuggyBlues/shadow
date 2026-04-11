@@ -47,7 +47,7 @@ describe('S02/C02 delete product error toast', () => {
         })
       }
       if (String(path).includes('/shop/products/p1') && options?.method === 'DELETE') {
-        return Promise.reject(new Error('删除商品失败(500)'))
+        return Promise.reject(new Error('shop.deleteProductError(500)'))
       }
       if (
         String(path).includes('/shop/categories') &&
@@ -64,7 +64,7 @@ describe('S02/C02 delete product error toast', () => {
     await userEvent.click(deleteBtn)
 
     await waitFor(() => {
-      expect(showToastMock).toHaveBeenCalledWith('删除商品失败(500)', 'error')
+      expect(showToastMock).toHaveBeenCalledWith('shop.deleteProductError(500)', 'error')
     })
   })
 })

@@ -28,7 +28,7 @@ describe('S02/C02 upload product gallery 500 failure', () => {
       if (String(path).includes('/shop/products') && (!options?.method || options.method === 'GET'))
         return Promise.resolve({ products: [], total: 0 })
       if (String(path).includes('/api/media/upload') && options?.method === 'POST') {
-        return Promise.reject(new Error('上传失败(500)'))
+        return Promise.reject(new Error('shop.uploadError(500)'))
       }
       return Promise.resolve({})
     })
@@ -50,7 +50,7 @@ describe('S02/C02 upload product gallery 500 failure', () => {
     })
 
     await waitFor(() => {
-      expect(showToastMock).toHaveBeenCalledWith('上传失败(500)', 'error')
+      expect(showToastMock).toHaveBeenCalledWith('shop.uploadError(500)', 'error')
     })
   })
 })

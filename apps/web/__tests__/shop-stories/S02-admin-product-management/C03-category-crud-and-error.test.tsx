@@ -37,7 +37,7 @@ describe('S02/C03 category crud and error', () => {
         return Promise.resolve({ id: 'c2' })
       }
       if (String(path).includes('/shop/categories/c1') && options?.method === 'DELETE') {
-        return Promise.reject(new Error('删除分类失败(500)'))
+        return Promise.reject(new Error('shop.deleteCategoryError(500)'))
       }
       return Promise.resolve({})
     })
@@ -50,7 +50,7 @@ describe('S02/C03 category crud and error', () => {
     await userEvent.click(screen.getByRole('button', { name: '新建类目' }))
 
     await waitFor(() => {
-      expect(showToastMock).toHaveBeenCalledWith('分类创建成功', 'success')
+      expect(showToastMock).toHaveBeenCalledWith('shop.categoryCreated', 'success')
     })
 
     const deleteBtns = screen.getAllByRole('button')
@@ -58,7 +58,7 @@ describe('S02/C03 category crud and error', () => {
     if (target) await userEvent.click(target)
 
     await waitFor(() => {
-      expect(showToastMock).toHaveBeenCalledWith('删除分类失败(500)', 'error')
+      expect(showToastMock).toHaveBeenCalledWith('shop.deleteCategoryError(500)', 'error')
     })
   })
 })

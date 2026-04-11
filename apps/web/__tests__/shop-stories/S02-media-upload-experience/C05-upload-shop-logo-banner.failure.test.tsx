@@ -24,13 +24,15 @@ describe('S02/C05 upload shop logo banner failure', () => {
           bannerUrl: '',
         })
       if (String(path).includes('/api/media/upload') && options?.method === 'POST')
-        return Promise.reject(new Error('上传失败(500)'))
+        return Promise.reject(new Error('shop.uploadError(500)'))
       return Promise.resolve({})
     })
     renderWithQuery(<ShopAdmin serverId={serverId} onBack={() => {}} />)
     await userEvent.click(await screen.findByRole('button', { name: '店铺设置' }))
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
     await userEvent.upload(input, new File(['x'], 'a.png', { type: 'image/png' }))
-    await waitFor(() => expect(showToastMock).toHaveBeenCalledWith('上传失败(500)', 'error'))
+    await waitFor(() =>
+      expect(showToastMock).toHaveBeenCalledWith('shop.uploadError(500)', 'error'),
+    )
   })
 })

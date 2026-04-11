@@ -27,7 +27,7 @@ describe('S03/C04 settings save 500 error toast', () => {
         })
       }
       if (String(path).endsWith('/shop') && options?.method === 'PUT') {
-        return Promise.reject(new Error('保存失败(500)'))
+        return Promise.reject(new Error('shop.saveError(500)'))
       }
       if (String(path).includes('/shop/products') && (!options?.method || options.method === 'GET'))
         return Promise.resolve({ products: [], total: 0 })
@@ -49,7 +49,7 @@ describe('S03/C04 settings save 500 error toast', () => {
     await userEvent.click(screen.getByRole('button', { name: '保存最新设置' }))
 
     await waitFor(() => {
-      expect(showToastMock).toHaveBeenCalledWith('保存失败(500)', 'error')
+      expect(showToastMock).toHaveBeenCalledWith('shop.saveError(500)', 'error')
     })
   })
 })

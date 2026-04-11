@@ -1,23 +1,28 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Mocked } from 'vitest'
-import type { AgentDashboardDao } from '../dao/agent-dashboard.dao'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AgentDao } from '../dao/agent.dao'
+import type { AgentDashboardDao } from '../dao/agent-dashboard.dao'
 import type { ClawListingDao } from '../dao/claw-listing.dao'
 import type { RentalContractDao } from '../dao/rental-contract.dao'
 import type { UserDao } from '../dao/user.dao'
 import { AgentDashboardService } from './agent-dashboard.service'
 
-// Mock logger
+/** Cast to Mocked<T> via unknown to avoid missing-property errors for rarely-used methods */
+function mockDao<T extends object>(obj: Record<string, ReturnType<typeof vi.fn>>): Mocked<T> {
+  return obj as unknown as Mocked<T>
+}
+
+// Mock logger — cast to avoid missing BaseLogger properties
 const mockLogger = {
   info: vi.fn(),
   error: vi.fn(),
   warn: vi.fn(),
   debug: vi.fn(),
-}
+} as unknown as typeof import('../lib/logger').logger
 
 describe('AgentDashboardService', () => {
   // Mock DAOs using vi.fn() with proper typing
-  const mockAgentDashboardDao: Mocked<AgentDashboardDao> = {
+  const mockAgentDashboardDao = mockDao<AgentDashboardDao>({
     findDailyStats: vi.fn(),
     findHourlyStats: vi.fn(),
     getTotalMessages: vi.fn(),
@@ -29,24 +34,24 @@ describe('AgentDashboardService', () => {
     upsertDailyStats: vi.fn(),
     createEvent: vi.fn(),
     deleteOldEvents: vi.fn(),
-  } as Mocked<AgentDashboardDao>
+  })
 
-  const mockAgentDao: Mocked<AgentDao> = {
+  const mockAgentDao = mockDao<AgentDao>({
     findById: vi.fn(),
     findByUserId: vi.fn(),
-  } as Mocked<AgentDao>
+  })
 
-  const mockRentalContractDao: Mocked<RentalContractDao> = {
+  const mockRentalContractDao = mockDao<RentalContractDao>({
     findByListingIds: vi.fn(),
-  } as Mocked<RentalContractDao>
+  })
 
-  const mockClawListingDao: Mocked<ClawListingDao> = {
+  const mockClawListingDao = mockDao<ClawListingDao>({
     findByAgentId: vi.fn(),
-  } as Mocked<ClawListingDao>
+  })
 
-  const mockUserDao: Mocked<UserDao> = {
+  const mockUserDao = mockDao<UserDao>({
     findById: vi.fn(),
-  } as Mocked<UserDao>
+  })
 
   const service = new AgentDashboardService({
     agentDashboardDao: mockAgentDashboardDao,
@@ -84,7 +89,10 @@ describe('AgentDashboardService', () => {
       ] as any)
       vi.mocked(mockAgentDashboardDao.getTotalMessages).mockResolvedValue(100)
       vi.mocked(mockAgentDashboardDao.getActiveDaysCount).mockResolvedValue(15)
-      vi.mocked(mockAgentDashboardDao.calculateStreaks).mockResolvedValue({ current: 5, longest: 10 })
+      vi.mocked(mockAgentDashboardDao.calculateStreaks).mockResolvedValue({
+        current: 5,
+        longest: 10,
+      })
       vi.mocked(mockAgentDashboardDao.findRecentEvents).mockResolvedValue([
         {
           id: 'event-1',
@@ -155,7 +163,7 @@ describe('AgentDashboardService', () => {
       expect(mockAgentDashboardDao.upsertDailyStats).toHaveBeenCalledWith(
         agentId,
         expect.any(String),
-        { onlineSeconds: seconds }
+        { onlineSeconds: seconds },
       )
     })
   })

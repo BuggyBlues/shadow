@@ -36,12 +36,14 @@ describe('S04/C06 add to cart 500 error toast', () => {
           skus: [],
         })
       if (String(path).includes('/shop/cart') && options?.method === 'POST')
-        return Promise.reject(new Error('加入购物车失败(500)'))
+        return Promise.reject(new Error('shop.addToCartError(500)'))
       return Promise.resolve({})
     })
     renderWithQuery(<ProductDetail serverId={serverId} productId="p1" onBack={() => {}} />)
     const btns = await screen.findAllByRole('button', { name: '加入购物车' })
     await userEvent.click(btns[0])
-    await waitFor(() => expect(showToastMock).toHaveBeenCalledWith('加入购物车失败(500)', 'error'))
+    await waitFor(() =>
+      expect(showToastMock).toHaveBeenCalledWith('shop.addToCartError(500)', 'error'),
+    )
   })
 })

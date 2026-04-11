@@ -296,7 +296,7 @@ describe('Shop UI E2E (real interaction)', () => {
 
     fetchApiMock.mockImplementation((path: string, options?: RequestInit) => {
       if (String(path).includes('/shop/orders/o2/cancel') && options?.method === 'POST') {
-        return Promise.reject(new Error('订单状态不允许取消(400)'))
+        return Promise.reject(new Error('shop.cancelNotAllowed(400)'))
       }
       if (String(path).includes('/shop/orders')) return Promise.resolve(orders)
       return Promise.resolve({})
@@ -309,7 +309,7 @@ describe('Shop UI E2E (real interaction)', () => {
     await userEvent.click(screen.getByRole('button', { name: '取消订单' }))
 
     await waitFor(() => {
-      expect(showToastMock).toHaveBeenCalledWith('订单状态不允许取消(400)', 'error')
+      expect(showToastMock).toHaveBeenCalledWith('shop.cancelNotAllowed(400)', 'error')
     })
   })
 })
