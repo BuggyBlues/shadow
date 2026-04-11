@@ -1,7 +1,7 @@
 import { eq, sql } from 'drizzle-orm'
+import type { WalletDao } from '../dao/wallet.dao'
 import type { Database } from '../db'
 import { wallets, walletTransactions } from '../db/schema'
-import type { WalletDao } from '../dao/wallet.dao'
 
 /**
  * WalletService — manages virtual currency (虾币 / Shrimp Coins).
@@ -32,11 +32,12 @@ export class WalletService {
   async topUp(userId: string, amount: number, note?: string) {
     const wallet = await this.deps.walletDao.getOrCreate(userId)
 
-    const [{ balance: newBalance }] = await this.deps.db
+    const rows = await this.deps.db
       .update(wallets)
       .set({ balance: sql`${wallets.balance} + ${amount}`, updatedAt: new Date() })
       .where(eq(wallets.id, wallet.id))
       .returning({ balance: wallets.balance })
+    const newBalance = rows[0]!.balance
 
     await this.deps.db.insert(walletTransactions).values({
       walletId: wallet.id,
@@ -111,11 +112,12 @@ export class WalletService {
   ) {
     const wallet = await this.deps.walletDao.getOrCreate(userId)
 
-    const [{ balance: newBalance }] = await this.deps.db
+    const refundRows = await this.deps.db
       .update(wallets)
       .set({ balance: sql`${wallets.balance} + ${amount}`, updatedAt: new Date() })
       .where(eq(wallets.id, wallet.id))
       .returning({ balance: wallets.balance })
+    const newBalance = refundRows[0]!.balance
 
     await this.deps.db.insert(walletTransactions).values({
       walletId: wallet.id,
@@ -142,11 +144,12 @@ export class WalletService {
   ) {
     const wallet = await this.deps.walletDao.getOrCreate(userId)
 
-    const [{ balance: newBalance }] = await this.deps.db
+    const settleRows = await this.deps.db
       .update(wallets)
       .set({ balance: sql`${wallets.balance} + ${amount}`, updatedAt: new Date() })
       .where(eq(wallets.id, wallet.id))
       .returning({ balance: wallets.balance })
+    const newBalance = settleRows[0]!.balance
 
     await this.deps.db.insert(walletTransactions).values({
       walletId: wallet.id,

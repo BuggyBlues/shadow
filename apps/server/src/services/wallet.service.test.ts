@@ -1,9 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Mocked } from 'vitest'
-import { eq, sql } from 'drizzle-orm'
-import { wallets, walletTransactions } from '../db/schema'
-import type { Database } from '../db'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WalletDao } from '../dao/wallet.dao'
+import type { Database } from '../db'
+import { wallets } from '../db/schema'
 import { WalletService } from './wallet.service'
 
 describe('WalletService', () => {
@@ -21,8 +20,8 @@ describe('WalletService', () => {
     insert: vi.fn(),
   }
 
-  const mockDb: Mocked<Database> = {
-    transaction: vi.fn(async (fn) => fn(mockTx as unknown as ReturnType<typeof db.transaction extends (fn: infer F) => any ? F : never>)),
+  const mockDb = {
+    transaction: vi.fn(async (fn: (tx: typeof mockTx) => unknown) => fn(mockTx)),
   } as unknown as Mocked<Database>
 
   const mockWalletDao: Mocked<WalletDao> = {
@@ -78,9 +77,7 @@ describe('WalletService', () => {
       const result = await service.debit('user-1', 500, 'order-1', 'order', 'Purchase')
 
       expect(mockTx.update).toHaveBeenCalledWith(wallets)
-      expect(chain.where).toHaveBeenCalledWith(
-        expect.stringContaining('balance'),
-      )
+      expect(chain.where).toHaveBeenCalledWith(expect.stringContaining('balance'))
       expect(result).toBe(500)
     })
 
@@ -92,9 +89,9 @@ describe('WalletService', () => {
       }
       mockTx.update.mockReturnValue(chain)
 
-      await expect(
-        service.debit('user-1', 9999, 'order-1', 'order', 'Purchase'),
-      ).rejects.toThrow('Insufficient balance')
+      await expect(service.debit('user-1', 9999, 'order-1', 'order', 'Purchase')).rejects.toThrow(
+        'Insufficient balance',
+      )
     })
   })
 
@@ -146,11 +143,7 @@ describe('WalletService', () => {
     it('delegates to walletDao with pagination', async () => {
       await service.getTransactions('user-1', 20, 10)
       expect(mockWalletDao.getOrCreate).toHaveBeenCalledWith('user-1')
-      expect(mockWalletDao.getTransactions).toHaveBeenCalledWith(
-        mockWallet.id,
-        20,
-        10,
-      )
+      expect(mockWalletDao.getTransactions).toHaveBeenCalledWith(mockWallet.id, 20, 10)
     })
   })
 })

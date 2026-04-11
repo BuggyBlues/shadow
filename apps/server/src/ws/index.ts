@@ -31,7 +31,7 @@ export function setupWebSocket(io: SocketIOServer, container: AppContainer): voi
   // Initialize Redis for presence tracking
   getRedisClient()
     .then((redis) => {
-      setupPresenceGateway(io, container, redis)
+      setupPresenceGateway(io, container, redis as import('redis').RedisClientType | null)
     })
     .catch((err) => {
       logger.error({ err }, 'Failed to initialize Redis for presence — falling back to local-only')

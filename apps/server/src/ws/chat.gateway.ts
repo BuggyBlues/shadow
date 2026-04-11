@@ -23,7 +23,10 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
               return
             }
           } catch (err) {
-            logger.warn({ err, userId, channelId }, 'channel:join membership check failed — allowing join as fallback')
+            logger.warn(
+              { err, userId, channelId },
+              'channel:join membership check failed — allowing join as fallback',
+            )
           }
         }
 
@@ -117,7 +120,10 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
                 io.to(`user:${originalMessage.authorId}`).emit('notification:new', notification)
               }
             } catch (err) {
-              logger.warn({ err, userId, replyToId: data.replyToId }, 'Reply notification creation failed — non-critical')
+              logger.warn(
+                { err, userId, replyToId: data.replyToId },
+                'Reply notification creation failed — non-critical',
+              )
             }
           }
 
@@ -153,7 +159,10 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
               }
             }
           } catch (err) {
-            logger.warn({ err, userId, channelId: data.channelId }, 'Mention notification failed — non-critical')
+            logger.warn(
+              { err, userId, channelId: data.channelId },
+              'Mention notification failed — non-critical',
+            )
           }
         } catch (error) {
           const msg = error instanceof Error ? error.message : 'Failed to send message'
@@ -232,7 +241,10 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
             })
             io.to(`user:${otherUserId}`).emit('notification:new', notification)
           } catch (err) {
-            logger.warn({ err, userId, dmChannelId }, 'DM notification failed — non-critical')
+            logger.warn(
+              { err, userId, dmChannelId: data.dmChannelId },
+              'DM notification failed — non-critical',
+            )
           }
 
           // Relay to bot using shared helper
@@ -254,7 +266,10 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
             const rentalService = container.resolve('rentalService')
             await rentalService.recordRentalMessage(userId, otherUserId)
           } catch (err) {
-            logger.warn({ err, userId, dmChannelId }, 'Rental message recording failed — non-critical')
+            logger.warn(
+              { err, userId, dmChannelId: data.dmChannelId },
+              'Rental message recording failed — non-critical',
+            )
           }
         } catch (error) {
           const msg = error instanceof Error ? error.message : 'Failed to send DM'

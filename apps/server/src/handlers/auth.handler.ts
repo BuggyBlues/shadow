@@ -226,7 +226,7 @@ export function createAuthHandler(container: AppContainer) {
         const payload = verifyToken(body.token)
         if (payload.userId) {
           const io = container.resolve('io')
-          forceDisconnectUser(payload.userId, io, container)
+          forceDisconnectUser(payload.userId, io, container, null)
         }
       }
     } catch {
