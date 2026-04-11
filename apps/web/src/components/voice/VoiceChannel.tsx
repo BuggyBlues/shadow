@@ -36,6 +36,7 @@ export function VoiceChannel() {
     setMicrophoneDevice,
     screenSharerId,
     screenShareTrack,
+    localScreenTrack,
   } = useVoiceBridge()
 
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -49,12 +50,24 @@ export function VoiceChannel() {
 
   // Screen share viewer state
   const [viewerDismissed, setViewerDismissed] = useState(false)
-  const showScreenShareViewer = screenShareTrack && screenSharerName && !viewerDismissed
+  const [viewingLocalScreen, setViewingLocalScreen] = useState(false)
+  const remoteShareActive = !!screenShareTrack && !!screenSharerName && !viewerDismissed
+  // Show viewer if: remote share active OR local user is sharing and wants to preview
+  const showScreenShareViewer = remoteShareActive || (isScreenSharing && viewingLocalScreen)
+  const isViewingLocal = isScreenSharing && !remoteShareActive
 
   // Reset viewer dismissed state when sharer changes
   useEffect(() => {
     setViewerDismissed(false)
+    setViewingLocalScreen(false)
   }, [screenSharerId])
+
+  // Auto-enter local preview when starting screen share
+  useEffect(() => {
+    if (isScreenSharing) {
+      setViewingLocalScreen(true)
+    }
+  }, [isScreenSharing])
 
   if (!activeChannelId) return null
 
@@ -234,9 +247,17 @@ export function VoiceChannel() {
       {/* Screen share viewer */}
       {showScreenShareViewer && (
         <ScreenShareViewer
-          track={screenShareTrack}
-          sharerName={screenSharerName}
-          onClose={() => setViewerDismissed(true)}
+          remoteTrack={remoteShareActive ? screenShareTrack : null}
+          localTrack={localScreenTrack}
+          sharerName={isViewingLocal ? '你' : screenSharerName}
+          isLocal={isViewingLocal}
+          onClose={() => {
+            if (isViewingLocal) {
+              setViewingLocalScreen(false)
+            } else {
+              setViewerDismissed(true)
+            }
+          }}
         />
       )}
     </>

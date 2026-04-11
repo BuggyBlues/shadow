@@ -415,5 +415,7 @@ export function useVoiceBridge() {
     // Screen share state
     screenSharerId,
     screenShareTrack,
+    /** Local screen video track for self-preview */
+    localScreenTrack: screenVideoRef.current,
   }
 }
