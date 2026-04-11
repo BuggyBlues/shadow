@@ -143,9 +143,9 @@ export function ShopPage({ serverId, isAdmin, onClose, embedded = false }: ShopP
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shop-cart', serverId] })
-      showToast('已加入购物车', 'success')
+      showToast(t('shop.addedToCart', '已加入购物车'), 'success')
     },
-    onError: (err: Error) => showToast(err.message || '加入购物车失败', 'error'),
+    onError: (err: Error) => showToast(err.message || t('shop.addToCartFailed', '加入购物车失败'), 'error'),
   })
 
   // Product detail view

@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../../lib/api'
 import { showToast } from '../../lib/toast'
 import { OrderConfirm } from './order-confirm'
@@ -79,7 +80,7 @@ export function ProductDetail({
       setAddedToCart(true)
       setTimeout(() => setAddedToCart(false), 2000)
     },
-    onError: (err: Error) => showToast(err.message || '加入购物车失败', 'error'),
+    onError: (err: Error) => showToast(err.message || t('shop.addToCartFailed', '加入购物车失败'), 'error'),
   })
 
   const [selectedSkuId, setSelectedSkuId] = useState<string | null>(null)
@@ -125,6 +126,8 @@ export function ProductDetail({
     [media.length],
   )
 
+  const { t } = useTranslation()
+
   const contactSupport = useMutation({
     mutationFn: (payload: { message: string; images: string[] }) =>
       fetchApi<{
@@ -151,15 +154,15 @@ export function ProductDetail({
       })
       if (res.buddyUserId) {
         if (res.buddyReady) {
-          showToast('已自动拉入 Buddy 并就绪，请直接在频道沟通', 'success')
+          showToast(t('shop.buddyReadyInChannel', '已自动拉入 Buddy 并就绪，请直接在频道沟通'), 'success')
         } else {
-          showToast('已自动拉入 Buddy，正在等待 Buddy 就绪，请稍候', 'info')
+          showToast(t('shop.buddyWaitingReady', '已自动拉入 Buddy，正在等待 Buddy 就绪，请稍候'), 'info')
         }
       } else {
-        showToast('已联系店主和客服，请耐心等待回复', 'success')
+        showToast(t('shop.contactedSellerSupport', '已联系店主和客服，请耐心等待回复'), 'success')
       }
     },
-    onError: (err: Error) => showToast(err.message || '联系客服失败', 'error'),
+    onError: (err: Error) => showToast(err.message || t('shop.contactSupportFailed', '联系客服失败'), 'error'),
   })
 
   if (isLoading || !product) {
@@ -191,12 +194,12 @@ export function ProductDetail({
             items: [{ productId: product.id, skuId: selectedSkuId ?? undefined, quantity }],
           }),
         })
-        showToast('购买成功！', 'success')
+        showToast(t('shop.purchaseSuccess', '购买成功！'), 'success')
         queryClient.invalidateQueries({ queryKey: ['shop-orders', serverId] })
         queryClient.invalidateQueries({ queryKey: ['wallet'] })
         queryClient.invalidateQueries({ queryKey: ['shop-cart', serverId] })
       } catch (err) {
-        showToast((err as Error)?.message || '购买失败，请检查余额或库存', 'error')
+        showToast((err as Error)?.message || t('shop.purchaseFailed', '购买失败，请检查余额或库存'), 'error')
       }
       return
     }
@@ -225,7 +228,7 @@ export function ProductDetail({
     localStorage.setItem(`shop:favorites:${serverId}`, JSON.stringify(next))
     setIsFavorite(next.includes(product.id))
     window.dispatchEvent(new Event('shop:favorites-changed'))
-    showToast(next.includes(product.id) ? '已加入收藏' : '已取消收藏', 'success')
+    showToast(next.includes(product.id) ? t('shop.addedToFavorites', '已加入收藏') : t('shop.removedFromFavorites', '已取消收藏'), 'success')
   }
 
   const handleShare = async () => {
@@ -237,13 +240,13 @@ export function ProductDetail({
           text: product.summary || product.name,
           url: shareText.split(' - ')[1],
         })
-        showToast('分享已发起', 'success')
+        showToast(t('shop.shareInitiated', '分享已发起'), 'success')
         return
       }
       await navigator.clipboard.writeText(shareText)
-      showToast('分享链接已复制', 'success')
+      showToast(t('shop.shareLinkCopied', '分享链接已复制'), 'success')
     } catch {
-      showToast('暂时无法分享，请稍后重试', 'error')
+      showToast(t('shop.shareUnavailable', '暂时无法分享，请稍后重试'), 'error')
     }
   }
 
@@ -264,7 +267,7 @@ export function ProductDetail({
       )
       setSupportImages((prev) => [...prev, ...uploaded].slice(0, 6))
     } catch (err) {
-      showToast((err as Error).message || '上传图片失败', 'error')
+      showToast((err as Error).message || t('shop.uploadImageFailed', '上传图片失败'), 'error')
     } finally {
       setUploadingCount(0)
     }
