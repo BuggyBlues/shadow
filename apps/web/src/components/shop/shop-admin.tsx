@@ -141,9 +141,9 @@ function ProductManager({ serverId }: { serverId: string }) {
       fetchApi(`/api/servers/${serverId}/shop/products/${productId}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shop-products', serverId] })
-      showToast(t('shop.productDeleted', '商品已删除'), 'success')
+      showToast(t('shop.productDeleted'), 'success')
     },
-    onError: (err: Error) => showToast(err.message || t('shop.deleteProductFailed', '删除商品失败'), 'error'),
+    onError: (err: Error) => showToast(err.message || t('shop.deleteProductError'), 'error'),
   })
 
   if (isCreating || editingProduct) {
@@ -954,9 +954,9 @@ function CategoryManager({ serverId }: { serverId: string }) {
       setName('')
       setSlug('')
       queryClient.invalidateQueries({ queryKey: ['shop-categories', serverId] })
-      showToast(t('shop.categoryCreated', '分类创建成功'), 'success')
+      showToast(t('shop.categoryCreated'), 'success')
     },
-    onError: (err: Error) => showToast(err.message || t('shop.createCategoryFailed', '创建分类失败'), 'error'),
+    onError: (err: Error) => showToast(err.message || t('shop.createCategoryError'), 'error'),
   })
 
   const updateMutation = useMutation({
@@ -970,7 +970,7 @@ function CategoryManager({ serverId }: { serverId: string }) {
       setEditingId(null)
       queryClient.invalidateQueries({ queryKey: ['shop-categories', serverId] })
     },
-    onError: (err: Error) => showToast(err.message || t('shop.updateCategoryFailed', '更新分类失败'), 'error'),
+    onError: (err: Error) => showToast(err.message || t('shop.updateCategoryError'), 'error'),
   })
 
   const deleteMutation = useMutation({
@@ -978,9 +978,9 @@ function CategoryManager({ serverId }: { serverId: string }) {
       fetchApi(`/api/servers/${serverId}/shop/categories/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shop-categories', serverId] })
-      showToast(t('shop.categoryDeleted', '分类已删除'), 'success')
+      showToast(t('shop.categoryDeleted'), 'success')
     },
-    onError: (err: Error) => showToast(err.message || t('shop.deleteCategoryFailed', '删除分类失败'), 'error'),
+    onError: (err: Error) => showToast(err.message || t('shop.deleteCategoryError'), 'error'),
   })
 
   return (
