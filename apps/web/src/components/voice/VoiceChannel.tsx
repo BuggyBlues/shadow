@@ -1,4 +1,4 @@
-import { Mic, MicOff, Monitor, MonitorOff, PhoneOff, Settings, Volume2 } from 'lucide-react'
+import { Ear, Mic, MicOff, Monitor, MonitorOff, PhoneOff, Settings, Volume2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useVoiceBridge } from '@/hooks/useVoiceBridge'
 import { useVoiceStore } from '@/stores/voice.store'
@@ -94,7 +94,7 @@ export function VoiceChannel() {
                     : 'bg-bg-tertiary text-text-muted'
                 }`}
               >
-                {canSpeak ? '我' : '👂'}
+                {canSpeak ? '我' : <Ear className="h-4 w-4" />}
               </div>
               <div
                 className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-bg-secondary ${
