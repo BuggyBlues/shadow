@@ -331,3 +331,15 @@ main().catch((error) => {
   logger.fatal({ err: error }, 'Failed to start server')
   process.exit(1)
 })
+
+/* ──────────── Unhandled Exception / Rejection ──────────── */
+
+process.on('uncaughtException', (error) => {
+  logger.fatal({ err: error }, 'Uncaught exception — shutting down')
+  process.exit(1)
+})
+
+process.on('unhandledRejection', (reason) => {
+  logger.fatal({ err: reason }, 'Unhandled rejection — shutting down')
+  process.exit(1)
+})

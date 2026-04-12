@@ -27,8 +27,9 @@ import { createTaskCenterHandler } from './handlers/task-center.handler'
 import { createVoiceEnhanceHandler } from './handlers/voice-enhance.handler'
 import { createWorkspaceHandler } from './handlers/workspace.handler'
 import { logger } from './lib/logger'
-import { loggerMiddleware } from './middleware/logger.middleware'
 import { securityHeadersMiddleware } from './middleware/security-headers.middleware'
+import { requestIdMiddleware } from './middleware/request-id.middleware'
+import { readinessCheck } from './routes/health'
 
 export function createApp(container: AppContainer) {
   const app = new Hono()
@@ -71,11 +72,12 @@ export function createApp(container: AppContainer) {
     }),
   )
   app.use('*', securityHeadersMiddleware)
-  app.use('*', loggerMiddleware)
+  app.use('*', requestIdMiddleware) // replaces loggerMiddleware with request ID + level-aware logging
   app.use('*', bodyLimit({ maxSize: 50 * 1024 * 1024 })) // 50MB
 
-  // Health check
+  // Health checks
   app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }))
+  app.get('/health/ready', (c) => readinessCheck(c, container))
 
   // Public endpoint for homepage / Buddy Market (no auth required)
   app.get('/api/public/marketplace', async (c) => {
