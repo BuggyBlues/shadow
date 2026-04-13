@@ -102,6 +102,19 @@ export interface ConfigFile {
   content: string
 }
 
+export interface DeployTask {
+  id: number
+  namespace: string
+  templateSlug: string | null
+  version: number | null
+  status: string
+  config: unknown
+  agentCount: number | null
+  error: string | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 async function get<T>(path: string): Promise<T> {
@@ -225,6 +238,15 @@ export const api = {
 
   deploy: (config: unknown) => postRaw('/deploy', config),
 
+  deployTasks: {
+    get: (id: number | string) =>
+      get<{ task: DeployTask; url: string; active: boolean }>(
+        `/deploy-tasks/${encodeURIComponent(String(id))}`,
+      ),
+    streamUrl: (id: number | string) =>
+      `${BASE}/deploy-tasks/${encodeURIComponent(String(id))}/stream`,
+  },
+
   destroy: (options: { namespace?: string; stack?: string }) =>
     post<{ ok: boolean }>('/destroy', options),
 
@@ -292,7 +314,10 @@ export const api = {
           isSecret: boolean
           groupName: string
         }>
+        groups: string[]
       }>('/env'),
+    groups: () => get<{ groups: string[] }>('/env/groups'),
+    createGroup: (name: string) => post<{ ok: boolean; name: string }>('/env/groups', { name }),
     getByScope: (scope: string) =>
       get<{ envVars: Array<{ key: string; value: string; isSecret: boolean }> }>(
         `/env/${encodeURIComponent(scope)}`,

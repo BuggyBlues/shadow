@@ -6,6 +6,7 @@ import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:
 import { and, eq } from 'drizzle-orm'
 import type { CloudDatabase } from '../db/index.js'
 import { type EnvVar, envVars } from '../db/schema.js'
+import { normalizeGroupName, withLegacyEnvAliases } from '../utils/env-names.js'
 
 const ALGORITHM = 'aes-256-gcm'
 const KEY_LENGTH = 32
@@ -54,11 +55,7 @@ export class EnvVarDao {
   }
 
   findByScope(scope: string): Array<{ key: string; value: string; isSecret: boolean }> {
-    const rows = this.db
-      .select()
-      .from(envVars)
-      .where(eq(envVars.scope, scope))
-      .all()
+    const rows = this.db.select().from(envVars).where(eq(envVars.scope, scope)).all()
     return rows.map((r) => ({
       key: r.key,
       value: this.decrypt(r.encryptedValue, r.iv),
@@ -66,7 +63,13 @@ export class EnvVarDao {
     }))
   }
 
-  findAllMasked(): Array<{ scope: string; key: string; maskedValue: string; isSecret: boolean; groupName: string }> {
+  findAllMasked(): Array<{
+    scope: string
+    key: string
+    maskedValue: string
+    isSecret: boolean
+    groupName: string
+  }> {
     const rows = this.db.select().from(envVars).all()
     return rows.map((r) => {
       const val = this.decrypt(r.encryptedValue, r.iv)
@@ -74,15 +77,23 @@ export class EnvVarDao {
         scope: r.scope,
         key: r.key,
         maskedValue: r.isSecret
-          ? (val.length > 8 ? `${val.slice(0, 4)}${'•'.repeat(Math.min(val.length - 8, 20))}${val.slice(-4)}` : '••••••••')
+          ? val.length > 8
+            ? `${val.slice(0, 4)}${'•'.repeat(Math.min(val.length - 8, 20))}${val.slice(-4)}`
+            : '••••••••'
           : val,
         isSecret: r.isSecret ?? true,
-        groupName: r.groupName ?? 'default',
+        groupName: normalizeGroupName(r.groupName),
       }
     })
   }
 
-  upsert(scope: string, key: string, value: string, isSecret = true, groupName = 'default'): EnvVar {
+  upsert(
+    scope: string,
+    key: string,
+    value: string,
+    isSecret = true,
+    groupName = 'default',
+  ): EnvVar {
     const existing = this.db
       .select()
       .from(envVars)
@@ -94,7 +105,13 @@ export class EnvVarDao {
     if (existing) {
       return this.db
         .update(envVars)
-        .set({ encryptedValue: encrypted, iv, isSecret, groupName, updatedAt: new Date().toISOString() })
+        .set({
+          encryptedValue: encrypted,
+          iv,
+          isSecret,
+          groupName: normalizeGroupName(groupName),
+          updatedAt: new Date().toISOString(),
+        })
         .where(eq(envVars.id, existing.id))
         .returning()
         .get()
@@ -102,7 +119,14 @@ export class EnvVarDao {
 
     return this.db
       .insert(envVars)
-      .values({ scope, key, encryptedValue: encrypted, iv, isSecret, groupName })
+      .values({
+        scope,
+        key,
+        encryptedValue: encrypted,
+        iv,
+        isSecret,
+        groupName: normalizeGroupName(groupName),
+      })
       .returning()
       .get()
   }
@@ -129,7 +153,7 @@ export class EnvVarDao {
     const rows = this.db.select().from(envVars).all()
     const result: Record<string, string> = {}
     for (const r of rows) {
-      result[r.key] = this.decrypt(r.encryptedValue, r.iv)
+      Object.assign(result, withLegacyEnvAliases(r.key, this.decrypt(r.encryptedValue, r.iv)))
     }
     return result
   }
