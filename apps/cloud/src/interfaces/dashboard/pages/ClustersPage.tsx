@@ -41,7 +41,7 @@ interface NamespaceGroup {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function isDeploymentReady(dep: Deployment): boolean {
-  const [r, t] = dep.ready.split('/').map(Number)
+  const [r = 0, t = 0] = dep.ready.split('/').map(Number)
   return r === t && t > 0
 }
 
@@ -113,7 +113,7 @@ function DeploymentRow({ dep }: { dep: Deployment }) {
   const currentReplicas =
     replicas ??
     (() => {
-      const [r] = dep.ready.split('/').map(Number)
+      const [r = 0] = dep.ready.split('/').map(Number)
       return r
     })()
 

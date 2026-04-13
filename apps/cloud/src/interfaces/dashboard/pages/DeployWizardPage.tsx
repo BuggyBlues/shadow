@@ -446,7 +446,9 @@ function StepConfigure({
                   value={env.key}
                   onChange={(e) => {
                     const updated = [...extraVars]
-                    updated[i] = { ...updated[i], key: e.target.value }
+                    const current = updated[i]
+                    if (!current) return
+                    updated[i] = { ...current, key: e.target.value }
                     setExtraVars(updated)
                     if (e.target.value) updateVar(e.target.value, env.value)
                   }}
@@ -459,7 +461,9 @@ function StepConfigure({
                   value={env.value}
                   onChange={(e) => {
                     const updated = [...extraVars]
-                    updated[i] = { ...updated[i], value: e.target.value }
+                    const current = updated[i]
+                    if (!current) return
+                    updated[i] = { ...current, value: e.target.value }
                     setExtraVars(updated)
                     if (env.key) updateVar(env.key, e.target.value)
                   }}
@@ -471,7 +475,7 @@ function StepConfigure({
                   onClick={() => {
                     const removed = extraVars[i]
                     setExtraVars(extraVars.filter((_, j) => j !== i))
-                    if (removed.key) {
+                    if (removed?.key) {
                       const updated = { ...config.envVars }
                       delete updated[removed.key]
                       onChange({ ...config, envVars: updated })
@@ -520,8 +524,7 @@ function StepConfigure({
 
 // ── Step 3: Providers ─────────────────────────────────────────────────────────
 
-// @ts-expect-error WIP: StepProviders not yet wired into wizard flow
-function StepProviders({
+export function StepProviders({
   providers,
   onChange,
   onNext,
@@ -557,9 +560,15 @@ function StepProviders({
     onChange([...providers, provider])
   }
 
-  const updateProvider = (index: number, field: string, value: string) => {
+  const updateProvider = (
+    index: number,
+    field: keyof Pick<ProviderSettings, 'apiKey' | 'baseUrl'>,
+    value: string,
+  ) => {
     const updated = [...providers]
-    updated[index] = { ...updated[index], [field]: value }
+    const current = updated[index]
+    if (!current) return
+    updated[index] = { ...current, [field]: value }
     onChange(updated)
   }
 

@@ -40,13 +40,17 @@ export function createDeployHandler(ctx: HandlerContext): Hono {
     try {
       const dbEnvVars = ctx.envVarDao.findAllDecrypted()
       Object.assign(envOverrides, dbEnvVars)
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     // 2. Load saved secrets (decrypted, mapped to env var names) from DB
     try {
       const dbSecrets = ctx.secretDao.findAllDecrypted()
       Object.assign(envOverrides, dbSecrets)
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     // 3. Apply wizard-supplied env vars (override DB values; resolve __SAVED__ sentinel)
     const wizardEnvVars = config.envVars as Record<string, string> | undefined
@@ -85,6 +89,16 @@ export function createDeployHandler(ctx: HandlerContext): Hono {
           dryRun: templateConfig.dryRun as boolean | undefined,
           onOutput: (out: string) => {
             for (const line of out.split('\n').filter(Boolean)) {
+              // Skip Pulumi progress indicators (dots, "@ updating...")
+              const trimmed = line.trim()
+              if (
+                trimmed === '.' ||
+                trimmed === '..' ||
+                /^@\s+updating\.+/.test(trimmed) ||
+                /^\.\.+$/.test(trimmed)
+              ) {
+                continue
+              }
               void stream.writeSSE({ event: 'log', data: JSON.stringify(redactSecrets(line)) })
             }
           },
