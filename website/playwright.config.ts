@@ -2,8 +2,8 @@ import { defineConfig } from '@playwright/test'
 
 const WEBSITE_PORT = 3001
 const webServerCommand = process.env.CI
-  ? `pnpm build && pnpm preview -- --host 0.0.0.0 --port ${WEBSITE_PORT}`
-  : `pnpm dev -- --host 0.0.0.0 --port ${WEBSITE_PORT}`
+  ? `pnpm exec rspress build && pnpm exec rspress preview --host 0.0.0.0 --port ${WEBSITE_PORT}`
+  : `pnpm exec rspress dev --host 0.0.0.0 --port ${WEBSITE_PORT}`
 
 export default defineConfig({
   testDir: './e2e',
