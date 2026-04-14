@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useToast } from '../../hooks/use-toast'
 import { fetchApi } from '../../lib/api'
 import { showToast } from '../../lib/toast'
 import { useConfirmStore } from '../common/confirm-dialog'
@@ -395,9 +396,9 @@ function ProductForm({ serverId, product, onCancel, onSaved }: ProductFormProps)
     if (!isEditing || !product) return
     const source =
       editingProductDetail &&
-      typeof editingProductDetail === 'object' &&
-      'id' in editingProductDetail &&
-      (editingProductDetail as Product).id
+        typeof editingProductDetail === 'object' &&
+        'id' in editingProductDetail &&
+        (editingProductDetail as Product).id
         ? (editingProductDetail as Product)
         : product
     setName(source.name || '')
@@ -578,11 +579,10 @@ function ProductForm({ serverId, product, onCancel, onSaved }: ProductFormProps)
                     key={t}
                     type="button"
                     onClick={() => setType(t)}
-                    className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all border-2 ${
-                      type === t
+                    className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all border-2 ${type === t
                         ? 'border-primary bg-primary/10 text-primary'
                         : 'border-transparent bg-bg-tertiary text-text-muted hover:bg-bg-modifier-hover'
-                    }`}
+                      }`}
                   >
                     {t === 'physical' ? '实物商品' : '虚拟权益'}
                   </button>
@@ -603,11 +603,10 @@ function ProductForm({ serverId, product, onCancel, onSaved }: ProductFormProps)
                     key={s.value}
                     type="button"
                     onClick={() => setStatus(s.value)}
-                    className={`flex-1 flex flex-col items-center justify-center gap-1 py-2 text-xs font-bold rounded-xl transition-all ${
-                      status === s.value
+                    className={`flex-1 flex flex-col items-center justify-center gap-1 py-2 text-xs font-bold rounded-xl transition-all ${status === s.value
                         ? 'bg-bg-secondary text-white shadow-sm ring-1 ring-border-dim'
                         : 'text-text-muted hover:text-text-primary'
-                    }`}
+                      }`}
                   >
                     {s.icon}
                     {s.label}
@@ -1293,6 +1292,7 @@ function OrderManager({ serverId }: { serverId: string }) {
 
 function ShopSettings({ serverId }: { serverId: string }) {
   const { t } = useTranslation()
+  const toast = useToast()
   const queryClient = useQueryClient()
   const { data: shop } = useQuery({
     queryKey: ['shop', serverId],
@@ -1345,7 +1345,7 @@ function ShopSettings({ serverId }: { serverId: string }) {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shop', serverId] })
-      showToast(t('shop.shopSettingsSaved', '店铺设置已保存'), 'success')
+      toast('shop.settingsSaved', 'success')
     },
     onError: (err: Error) => showToast(err.message || t('shop.saveShopSettingsFailed', '保存店铺设置失败'), 'error'),
   })

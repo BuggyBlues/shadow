@@ -10,13 +10,13 @@ export default defineConfig({
   retries: 1,
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: 'http://localhost:3001',
     trace: 'on-first-retry',
   },
   outputDir: 'test-results',
   webServer: {
-    command: 'pnpm dev',
-    port: 5173,
+    command: 'pnpm dev -- --host 0.0.0.0 --port 3001',
+    port: 3001,
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
   },

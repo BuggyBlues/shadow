@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useToast } from '../../hooks/use-toast'
 import { fetchApi } from '../../lib/api'
 import { showToast } from '../../lib/toast'
 import { useShopStore } from '../../stores/shop.store'
@@ -111,6 +112,7 @@ interface ShopOrdersProps {
 
 export function ShopOrders({ serverId }: ShopOrdersProps) {
   const { t } = useTranslation()
+  const toast = useToast()
   const queryClient = useQueryClient()
   const lastOrderId = useShopStore((s) => s.lastOrderId)
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
@@ -151,7 +153,7 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shop-orders', serverId] })
       queryClient.invalidateQueries({ queryKey: ['wallet'] })
-      showToast(t('shop.orderCancelled', '订单已取消'), 'success')
+      toast('shop.orderCancelled', 'success')
     },
     onError: (err: Error) => showToast(err.message || t('shop.cancelFailed', '取消失败'), 'error'),
   })
@@ -184,7 +186,7 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
         [vars.orderId]: [...(prev[vars.orderId] || []), review as OrderReview],
       }))
       queryClient.invalidateQueries({ queryKey: ['shop-orders', serverId] })
-      showToast(t('shop.reviewSubmitted', '评价已提交，感谢您的反馈！'), 'success')
+      toast('shop.reviewSubmitted', 'success')
     },
     onError: (err: Error) => showToast(err.message || t('shop.reviewSubmitFailed', '评价提交失败'), 'error'),
   })
@@ -417,11 +419,10 @@ export function ShopOrders({ serverId }: ShopOrdersProps) {
                                 key={item.id}
                                 type="button"
                                 onClick={() => setReviewProductId(item.productId)}
-                                className={`px-3 py-1.5 text-xs font-black rounded-full transition-all border ${
-                                  (reviewProductId || order.items[0]?.productId) === item.productId
+                                className={`px-3 py-1.5 text-xs font-black rounded-full transition-all border ${(reviewProductId || order.items[0]?.productId) === item.productId
                                     ? 'border-primary bg-primary/10 text-primary'
                                     : 'border-border-subtle text-text-muted hover:border-primary/30'
-                                }`}
+                                  }`}
                               >
                                 {item.productName}
                               </button>
