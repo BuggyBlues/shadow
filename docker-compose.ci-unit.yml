@@ -1,0 +1,48 @@
+name: shadow-ci-unit
+
+x-ci-node: &ci-node
+  build:
+    context: .
+    dockerfile: Dockerfile.e2e
+    cache_from:
+      - type=gha
+    cache_to:
+      - type=gha,mode=max
+  working_dir: /workspace
+  init: true
+  environment:
+    CI: ${CI:-}
+    NODE_ENV: test
+
+services:
+  unit-tests:
+    <<: *ci-node
+    command: >-
+      bash -lc '
+        set -euo pipefail
+        pnpm ci:test:unit
+      '
+
+  cli-integration-tests:
+    <<: *ci-node
+    command: >-
+      bash -lc '
+        set -euo pipefail
+        pnpm ci:test:integration:cli
+      '
+
+  cloud-cli-integration-tests:
+    <<: *ci-node
+    command: >-
+      bash -lc '
+        set -euo pipefail
+        pnpm ci:test:integration:cloud-cli
+      '
+
+  website-e2e:
+    <<: *ci-node
+    command: >-
+      bash -lc '
+        set -euo pipefail
+        pnpm ci:test:e2e:website
+      '

@@ -44,7 +44,7 @@
 
 ## High-Level Overview
 
-Shadow is a monorepo comprising **3 deployable applications** and **5 shared packages**, backed by **PostgreSQL**, **Redis**, and **MinIO** (S3-compatible object storage). The platform offers:
+Shadow is a monorepo comprising multiple deployable applications and shared packages, backed by **PostgreSQL**, **Redis**, and **MinIO** (S3-compatible object storage). The platform offers:
 
 - **Servers & Channels** — Discord-style workspaces with text/voice/announcement channels
 - **Real-time Chat** — Socket.IO messaging with Markdown, reactions, threads, and file attachments
@@ -97,14 +97,20 @@ shadow/
 ├── apps/
 │   ├── server/          # Hono API server + Socket.IO (Node.js)
 │   ├── web/             # Main React SPA (user-facing)
-│   └── admin/           # Admin dashboard (React SPA)
+│   ├── admin/           # Admin dashboard (React SPA)
+│   ├── cloud/           # Cloud deploy CLI + dashboard
+│   ├── desktop/         # Electron desktop client + Playwright harness
+│   ├── mobile/          # Expo mobile client
+│   └── playground/      # Experiments and isolated demos
 ├── packages/
-│   ├── shared/          # Shared types, constants, and utilities
+│   ├── cli/             # Shadow command-line interface
+│   ├── oauth/           # OAuth helpers / shared auth contracts
+│   ├── openclaw-shadowob/ # OpenClaw integration package
 │   ├── sdk/             # Typed REST client + Socket.IO wrapper
+│   ├── sdk-python/      # Python SDK
+│   ├── shared/          # Shared types, constants, and utilities
 │   ├── ui/              # Reusable UI components (Radix UI + Tailwind)
-│   ├── oauth/           # OAuth SDK for third-party integrations
-│   ├── openclaw/        # OpenClaw channel plugin for AI agents
-│   └── agenthub/        # Agent hub (reserved)
+├── website/             # Public docs site (Rspress)
 ├── scripts/             # CI/build helper scripts
 ├── docs/                # Documentation
 ├── docker-compose.yml   # Full-stack container orchestration

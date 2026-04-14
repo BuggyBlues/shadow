@@ -13,8 +13,58 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  full-test-suite:
-    name: Full test suite (post-merge)
+  repo_checks:
+    name: Repo checks & typecheck (post-merge)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint (Biome)
+        run: pnpm lint
+
+      - name: i18n check
+        run: pnpm check:i18n
+
+      - name: Agent map check
+        run: pnpm check:agents
+
+      - name: SDK version check
+        run: pnpm check:sdk-versions
+
+      - name: Workspace dependency check
+        run: pnpm check:workspace-deps
+
+      - name: Export consistency check
+        run: pnpm check:exports
+
+      - name: Pre-push checks
+        run: pnpm check:pre-push
+
+      - name: Build shared packages (for typecheck)
+        run: pnpm build:packages
+
+      - name: Typecheck packages (strict)
+        run: pnpm --filter "./packages/*" --parallel typecheck
+
+      - name: Typecheck apps (report only)
+        continue-on-error: true
+        run: pnpm --filter "./apps/*" --parallel typecheck
+
+  unit_tests:
+    name: Unit tests (post-merge)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -23,15 +73,69 @@ jobs:
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Run full test suite in container
+      - name: Run unit test lane
         run: |
-          docker compose -f docker-compose.ci-tests.yml up --build --abort-on-container-exit --exit-code-from ci-tests ci-tests
+          docker compose -f docker-compose.ci-unit.yml up --build --abort-on-container-exit --exit-code-from unit-tests unit-tests
 
       - name: Cleanup Docker
         if: always()
-        run: docker compose -f docker-compose.ci-tests.yml down -v --remove-orphans
+        run: docker compose -f docker-compose.ci-unit.yml down -v --remove-orphans
 
-  build-validation:
+  cli_integration:
+    name: CLI integration tests (post-merge)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Run CLI integration lane
+        run: |
+          docker compose -f docker-compose.ci-unit.yml up --build --abort-on-container-exit --exit-code-from cli-integration-tests cli-integration-tests
+
+      - name: Cleanup Docker
+        if: always()
+        run: docker compose -f docker-compose.ci-unit.yml down -v --remove-orphans
+
+  cloud_cli_integration:
+    name: Cloud CLI integration tests (post-merge)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Run cloud CLI integration lane
+        run: |
+          docker compose -f docker-compose.ci-unit.yml up --build --abort-on-container-exit --exit-code-from cloud-cli-integration-tests cloud-cli-integration-tests
+
+      - name: Cleanup Docker
+        if: always()
+        run: docker compose -f docker-compose.ci-unit.yml down -v --remove-orphans
+
+  server_integration:
+    name: Server integration tests (post-merge)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Run server integration lane
+        run: |
+          docker compose -f docker-compose.ci-integration.yml up --build --abort-on-container-exit --exit-code-from server-integration-tests server-integration-tests
+
+      - name: Cleanup Docker
+        if: always()
+        run: docker compose -f docker-compose.ci-integration.yml down -v --remove-orphans
+
+  build_validation:
     name: Build all apps (post-merge)
     runs-on: ubuntu-latest
     steps:
@@ -49,9 +153,17 @@ jobs:
         if: always()
         run: docker compose -f docker-compose.ci-build.yml down -v --remove-orphans
 
-  e2e-regression:
-    name: E2E regression (post-merge)
+  desktop_e2e:
+    name: Desktop E2E (post-merge ${{ matrix.shard_id }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: 1/2
+            shard_id: 1-of-2
+          - shard: 2/2
+            shard_id: 2-of-2
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -60,9 +172,32 @@ jobs:
         uses: docker/setup-buildx-action@v4
 
       - name: Run E2E tests in container
+        env:
+          PLAYWRIGHT_SHARD: ${{ matrix.shard }}
+          JWT_SECRET: e2e-test-secret-not-for-production
+          ADMIN_EMAIL: admin@shadowob.app
+          ADMIN_PASSWORD: admin123456
         run: |
           docker compose -f docker-compose.e2e.yml up --build --abort-on-container-exit --exit-code-from e2e-runner e2e-runner
 
       - name: Cleanup Docker
         if: always()
         run: docker compose -f docker-compose.e2e.yml down -v --remove-orphans
+
+  website_e2e:
+    name: Website E2E (post-merge)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Run website E2E lane
+        run: |
+          docker compose -f docker-compose.ci-unit.yml up --build --abort-on-container-exit --exit-code-from website-e2e website-e2e
+
+      - name: Cleanup Docker
+        if: always()
+        run: docker compose -f docker-compose.ci-unit.yml down -v --remove-orphans

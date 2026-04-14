@@ -37,6 +37,7 @@ services:
       minio:
         condition: service_healthy
     environment:
+      CI: ${CI:-}
       DATABASE_URL: postgresql://shadow:shadow@postgres:5432/shadow
       REDIS_URL: redis://redis:6379
       MINIO_ENDPOINT: minio
@@ -56,36 +57,7 @@ services:
     command: >-
       bash -lc '
         set -euo pipefail
-
-        echo "=== Lint ==="
-        pnpm exec biome lint . --diagnostic-level=error
-
-        echo "=== Version consistency ==="
-        pnpm check:sdk-versions
-
-        echo "=== Workspace dependency check ==="
-        node scripts/check-workspace-deps.mjs
-
-        echo "=== Pre-push checks ==="
-        node scripts/pre-push-checks.mjs
-
-        echo "=== Build shared packages ==="
-        pnpm build:packages
-
-        echo "=== Typecheck (packages - strict) ==="
-        pnpm --filter "./packages/*" --parallel typecheck
-
-        echo "=== Typecheck (apps - report only) ==="
-        pnpm --filter "./apps/*" --parallel typecheck || echo "⚠ App typecheck errors exist — non-blocking for now"
-
-        echo "=== Database migration ==="
-        pnpm --filter @shadowob/server db:migrate
-
-        echo "=== Package tests ==="
-        pnpm -r --filter "@shadowob/*" exec vitest run --passWithNoTests
-
-        echo "=== Root tests ==="
-        pnpm exec vitest run --passWithNoTests
+        pnpm ci:test:all
       '
 
 volumes:

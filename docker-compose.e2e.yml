@@ -11,12 +11,14 @@ x-e2e-node: &e2e-node
   working_dir: /workspace
   init: true
   environment:
+    CI: ${CI:-}
     ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@shadowob.app}
     ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123456}
     E2E_ORIGIN: http://web:3000
     E2E_APP_BASE_URL: http://web:3000/app/
     E2E_SESSION_PATH: /workspace/docs/e2e/session.json
     E2E_SCREENSHOT_DIR: /workspace/docs/e2e/screenshots
+    PLAYWRIGHT_SHARD: ${PLAYWRIGHT_SHARD:-}
     PLAYWRIGHT_WEB_BASE_URL: http://web:3000/app/
     NO_PROXY: localhost,127.0.0.1,postgres,redis,minio,server,web
     no_proxy: localhost,127.0.0.1,postgres,redis,minio,server,web
@@ -88,8 +90,15 @@ services:
     depends_on:
       - web
     command: >-
-      sh -c "node scripts/e2e/seed-screenshot-env.mjs &&
-             pnpm --filter @shadowob/desktop exec playwright test -c playwright.web.config.ts"
+      bash -lc '
+        set -euo pipefail
+        node scripts/e2e/seed-screenshot-env.mjs
+        if [ -n "${PLAYWRIGHT_SHARD:-}" ]; then
+          pnpm --filter @shadowob/desktop exec playwright test -c playwright.web.config.ts --shard="${PLAYWRIGHT_SHARD}"
+        else
+          pnpm ci:test:e2e:desktop:web
+        fi
+      '
 
 volumes:
   pg_data:
