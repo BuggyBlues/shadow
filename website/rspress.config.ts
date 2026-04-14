@@ -29,6 +29,7 @@ export default defineConfig({
     },
   ],
   themeConfig: {
+    localeRedirect: 'only-default-lang',
     socialLinks: [
       { icon: 'github', mode: 'link', content: 'https://github.com/buggyblues/shadow' },
     ],

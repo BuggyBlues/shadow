@@ -13,7 +13,7 @@
     "rspress": "^1.38.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.52.0",
+    "@playwright/test": "^1.59.0",
     "@tailwindcss/postcss": "^4.2.2",
     "@types/node": "^22",
     "tailwindcss": "^4.2.2"

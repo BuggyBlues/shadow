@@ -28,5 +28,11 @@ services:
         echo "--- Building @shadowob/admin ---"
         pnpm --filter @shadowob/admin build
 
+        echo "--- Building @shadowob/cloud ---"
+        pnpm --filter @shadowob/cloud build
+
+        echo "--- Building @shadowob/website ---"
+        pnpm --filter @shadowob/website build
+
         echo "=== All builds passed ==="
       '

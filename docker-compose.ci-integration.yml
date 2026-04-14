@@ -1,0 +1,68 @@
+name: shadow-ci-integration
+
+x-ci-node: &ci-node
+  build:
+    context: .
+    dockerfile: Dockerfile.e2e
+    cache_from:
+      - type=gha
+    cache_to:
+      - type=gha,mode=max
+  working_dir: /workspace
+  init: true
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    minio:
+      condition: service_healthy
+  environment:
+    CI: ${CI:-}
+    DATABASE_URL: postgresql://shadow:shadow@postgres:5432/shadow
+    REDIS_URL: redis://redis:6379
+    MINIO_ENDPOINT: minio
+    MINIO_PORT: 9000
+    MINIO_USE_SSL: false
+    MINIO_ACCESS_KEY: minioadmin
+    MINIO_SECRET_KEY: minioadmin
+    MINIO_BUCKET: shadow
+    JWT_SECRET: ci-test-secret-do-not-use-in-prod
+    OAUTH_BASE_URL: http://localhost:3000
+    CORS_ORIGIN: http://localhost:3000
+    ADMIN_EMAIL: admin@shadowob.app
+    ADMIN_PASSWORD: admin123456
+    ADMIN_USERNAME: admin
+    NODE_ENV: test
+
+services:
+  postgres:
+    extends:
+      file: ./docker-compose.yml
+      service: postgres
+    ports: []
+
+  redis:
+    extends:
+      file: ./docker-compose.yml
+      service: redis
+    ports: []
+
+  minio:
+    extends:
+      file: ./docker-compose.yml
+      service: minio
+    ports: []
+
+  server-integration-tests:
+    <<: *ci-node
+    command: >-
+      bash -lc '
+        set -euo pipefail
+        pnpm ci:test:integration:server
+      '
+
+volumes:
+  pg_data:
+  redis_data:
+  minio_data:

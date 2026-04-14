@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Minus, Plus, ShieldCheck, ShoppingBag, ShoppingCart, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useToast } from '../../hooks/use-toast'
 import { fetchApi } from '../../lib/api'
 import { showToast } from '../../lib/toast'
 import { PriceDisplay } from './ui/currency'
@@ -27,6 +28,7 @@ interface ShopCartProps {
 
 export function ShopCart({ serverId, onCheckout }: ShopCartProps) {
   const { t } = useTranslation()
+  const toast = useToast()
   const queryClient = useQueryClient()
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
@@ -73,7 +75,7 @@ export function ShopCart({ serverId, onCheckout }: ShopCartProps) {
       queryClient.invalidateQueries({ queryKey: ['shop-orders', serverId] })
       queryClient.invalidateQueries({ queryKey: ['wallet'] })
       setSelectedIds(new Set())
-      showToast(t('shop.orderSuccess', '下单成功！'), 'success')
+      toast('shop.orderSuccess', 'success')
       if (onCheckout) onCheckout(data.id)
     },
     onError: (err: Error) => showToast(err.message || t('shop.orderFailed', '下单失败，请检查余额或库存'), 'error'),
@@ -145,11 +147,10 @@ export function ShopCart({ serverId, onCheckout }: ShopCartProps) {
       <div className="px-5 py-3.5 flex items-center justify-between border-b border-border-subtle bg-bg-tertiary/50 backdrop-blur-xl sticky top-0 z-10">
         <label className="flex items-center gap-2 text-sm font-black text-text-secondary cursor-pointer group">
           <div
-            className={`w-5 h-5 rounded-md flex items-center justify-center transition-all ${
-              selectedIds.size === cartItems.length
+            className={`w-5 h-5 rounded-md flex items-center justify-center transition-all ${selectedIds.size === cartItems.length
                 ? 'bg-primary border-primary shadow-sm'
                 : 'border-2 border-border-subtle group-hover:border-primary'
-            }`}
+              }`}
           >
             {selectedIds.size === cartItems.length && (
               <div className="w-2.5 h-2.5 bg-white rounded-sm" />
@@ -176,19 +177,17 @@ export function ShopCart({ serverId, onCheckout }: ShopCartProps) {
             <Card
               key={item.id}
               variant="glass"
-              className={`!rounded-[40px] transition-all duration-300 ${
-                isSelected ? '!border-primary/30 shadow-[0_10px_25px_rgba(0,243,255,0.1)]' : ''
-              }`}
+              className={`!rounded-[40px] transition-all duration-300 ${isSelected ? '!border-primary/30 shadow-[0_10px_25px_rgba(0,243,255,0.1)]' : ''
+                }`}
             >
               <div className="flex items-start gap-4 p-4">
                 {/* Checkbox */}
                 <label className="mt-5 cursor-pointer relative pb-10">
                   <div
-                    className={`w-5 h-5 rounded-md flex items-center justify-center transition-all ${
-                      isSelected
+                    className={`w-5 h-5 rounded-md flex items-center justify-center transition-all ${isSelected
                         ? 'bg-primary border-primary shadow-sm'
                         : 'border-2 border-border-subtle hover:border-primary'
-                    }`}
+                      }`}
                   >
                     {isSelected && <div className="w-2.5 h-2.5 bg-white rounded-sm" />}
                   </div>
