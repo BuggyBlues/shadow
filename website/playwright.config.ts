@@ -1,5 +1,10 @@
 import { defineConfig } from '@playwright/test'
 
+const WEBSITE_PORT = 3001
+const webServerCommand = process.env.CI
+  ? `pnpm build && pnpm preview -- --host 0.0.0.0 --port ${WEBSITE_PORT}`
+  : `pnpm dev -- --host 0.0.0.0 --port ${WEBSITE_PORT}`
+
 export default defineConfig({
   testDir: './e2e',
   timeout: 30_000,
@@ -10,14 +15,14 @@ export default defineConfig({
   retries: 1,
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
   use: {
-    baseURL: 'http://localhost:3001',
+    baseURL: `http://localhost:${WEBSITE_PORT}`,
     trace: 'on-first-retry',
   },
   outputDir: 'test-results',
   webServer: {
-    command: 'pnpm dev -- --host 0.0.0.0 --port 3001',
-    port: 3001,
+    command: webServerCommand,
+    port: WEBSITE_PORT,
     reuseExistingServer: !process.env.CI,
-    timeout: 60_000,
+    timeout: process.env.CI ? 180_000 : 60_000,
   },
 })
