@@ -19,7 +19,6 @@ export default defineConfig({
     globalComponents: [path.join(__dirname, 'components/CodeGroup.tsx')],
   },
   locales: [
-    localeRedirect: 'only-default-lang',
     {
       lang: 'en',
       label: 'English',
