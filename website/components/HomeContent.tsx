@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 
 interface Play {
   id: string
-  image: string // picsum.photos URL
+  image: string
   title: string
   titleEn: string
   desc: string
@@ -12,11 +12,12 @@ interface Play {
   category: string
   categoryEn: string
   starts: string
-  accentColor: string // for badge
+  accentColor: string
   hot?: boolean
 }
 
 const PLAYS: Play[] = [
+  /* 心理疗愈 */
   {
     id: 'retire-buddy',
     image: 'https://picsum.photos/seed/retire/600/360',
@@ -36,12 +37,11 @@ const PLAYS: Play[] = [
     title: '我财富自由了吗？',
     titleEn: 'Am I Free?',
     desc: '输入你的资产与支出，AI 为你计算财务自由距离，给出清晰的达成路线图。',
-    descEn: 'Input your assets and expenses—get your financial freedom score and roadmap.',
+    descEn: 'Input your assets and expenses — get your financial freedom score and roadmap.',
     category: '心理疗愈',
     categoryEn: 'Healing',
     starts: '18.2k',
     accentColor: '#f8e71c',
-    hot: true,
   },
   {
     id: 'brain-fix',
@@ -55,6 +55,58 @@ const PLAYS: Play[] = [
     starts: '15.9k',
     accentColor: '#a78bfa',
   },
+  /* 世界资讯 */
+  {
+    id: 'world-pulse',
+    image: 'https://picsum.photos/seed/globe/600/360',
+    title: '地球脉搏',
+    titleEn: 'World Pulse',
+    desc: '实时抓取全球重大事件，用三句话告诉你今天真正发生了什么，无废话。',
+    descEn: 'Real-time global events in 3 sentences. No filler, just signal.',
+    category: '世界资讯',
+    categoryEn: 'World News',
+    starts: '14.1k',
+    accentColor: '#38bdf8',
+  },
+  {
+    id: 'daily-brief',
+    image: 'https://picsum.photos/seed/newspaper/600/360',
+    title: '晨间简报',
+    titleEn: 'Morning Brief',
+    desc: '每天 7:00 推送一份定制早报：国际、科技、市场三大板块，读完只需 3 分钟。',
+    descEn: 'Custom morning digest at 7am — global news, tech, markets. 3-minute read.',
+    category: '世界资讯',
+    categoryEn: 'World News',
+    starts: '11.3k',
+    accentColor: '#fb923c',
+  },
+  /* 互动游戏 */
+  {
+    id: 'ai-werewolf',
+    image: 'https://picsum.photos/seed/wolf/600/360',
+    title: 'AI 狼人杀',
+    titleEn: 'AI Werewolf',
+    desc: 'AI 担任主持，随机分配身份，在聊天中展开推理与博弈，3 人即可开局。',
+    descEn: 'AI-hosted werewolf — roles assigned randomly, deduce, bluff, and vote. 3+ players.',
+    category: '互动游戏',
+    categoryEn: 'Games',
+    starts: '20.8k',
+    accentColor: '#f87171',
+    hot: true,
+  },
+  {
+    id: 'code-arena',
+    image: 'https://picsum.photos/seed/arena/600/360',
+    title: '代码擂台',
+    titleEn: 'Code Arena',
+    desc: '实时编程对战，AI 出题、计时、自动评测，挑战好友或匹配陌生对手。',
+    descEn: 'Real-time coding battles — AI generates problems, auto-judges, ranks you live.',
+    category: '互动游戏',
+    categoryEn: 'Games',
+    starts: '8.6k',
+    accentColor: '#fbbf24',
+  },
+  /* 黑客与画家 */
   {
     id: 'gitstory',
     image: 'https://picsum.photos/seed/code/600/360',
@@ -66,6 +118,7 @@ const PLAYS: Play[] = [
     categoryEn: 'Hacker & Painter',
     starts: '12.1k',
     accentColor: '#34d399',
+    hot: true,
   },
   {
     id: 'gstack',
@@ -79,6 +132,7 @@ const PLAYS: Play[] = [
     starts: '9.3k',
     accentColor: '#f97316',
   },
+  /* AI 陪伴 */
   {
     id: 'e-wife',
     image: 'https://picsum.photos/seed/companion/600/360',
@@ -93,11 +147,12 @@ const PLAYS: Play[] = [
   },
 ]
 
-/* Categories with metadata */
+/* ─── Category metadata (order: 心理疗愈 > 世界资讯 > 互动游戏 > 黑客与画家 > AI 陪伴) ─── */
+
 interface CategoryMeta {
   zh: string
   en: string
-  label: string // section-label text
+  label: string
   labelEn: string
 }
 
@@ -108,6 +163,13 @@ const CATEGORY_META: CategoryMeta[] = [
     label: '解压 · 疗愈 · 自我探索',
     labelEn: 'Calm · Heal · Explore Yourself',
   },
+  {
+    zh: '世界资讯',
+    en: 'World News',
+    label: '洞察 · 资讯 · 思考',
+    labelEn: 'Insight · News · Perspective',
+  },
+  { zh: '互动游戏', en: 'Games', label: '玩 · 竞技 · 拼团', labelEn: 'Play · Compete · Team Up' },
   {
     zh: '黑客与画家',
     en: 'Hacker & Painter',
@@ -120,62 +182,366 @@ const CATEGORY_META: CategoryMeta[] = [
     label: '陪伴 · 理解 · 共鸣',
     labelEn: 'Companion · Empathy · Connection',
   },
-  {
-    zh: '世界资讯',
-    en: 'World News',
-    label: '洞察 · 资讯 · 思考',
-    labelEn: 'Insight · News · Perspective',
-  },
-  { zh: '互动游戏', en: 'Games', label: '玩 · 竞技 · 拼团', labelEn: 'Play · Compete · Team Up' },
 ]
 
-/* ─── Hero: Typing animation ─── */
+/* ─── Topic collections (专题) ─── */
+
+interface Topic {
+  id: string
+  cover: string
+  titleZh: string
+  titleEn: string
+  descZh: string
+  descEn: string
+  count: number
+  accent: string
+}
+
+const TOPICS: Topic[] = [
+  {
+    id: 'workplace-relief',
+    cover: 'https://picsum.photos/seed/workplace/600/340',
+    titleZh: '职场减压合集',
+    titleEn: 'Workplace Relief',
+    descZh: '打工人下班必备的解压神器合集',
+    descEn: 'Wind-down essentials for after work',
+    count: 12,
+    accent: '#a78bfa',
+  },
+  {
+    id: 'hacker-pack',
+    cover: 'https://picsum.photos/seed/hacker/600/340',
+    titleZh: '程序员必玩',
+    titleEn: 'Hacker Pack',
+    descZh: '写代码的你，值得更好玩的工具',
+    descEn: 'The best plays built for developers',
+    count: 8,
+    accent: '#34d399',
+  },
+  {
+    id: 'night-radio',
+    cover: 'https://picsum.photos/seed/nightsky/600/340',
+    titleZh: '深夜电台',
+    titleEn: 'Night Radio',
+    descZh: '凌晨两点，聊聊那些不敢说的话',
+    descEn: "Late-night conversations you can't have elsewhere",
+    count: 6,
+    accent: '#f472b6',
+  },
+]
+
+/* ─── Hero: Typing slogan (2 lines, loops) ─── */
 
 function TypingSlogan({ isZh }: { isZh: boolean }) {
-  const zhPhrase = '你的 AI 专属社区，与你常在'
-  const enPhrase = 'Your AI Community, Always Here'
-  const phrase = isZh ? zhPhrase : enPhrase
+  const zhLines: [string, string] = ['你的 AI 专属社区，', '与你常在']
+  const enLines: [string, string] = ['Your AI Community,', 'Always Here']
+  const lines = isZh ? zhLines : enLines
+  const line1Len = lines[0].length
+  const totalLen = line1Len + lines[1].length
 
-  const [displayed, setDisplayed] = useState('')
-  const [done, setDone] = useState(false)
-  const idx = useRef(0)
+  const [charIdx, setCharIdx] = useState(0)
+  const [looping, setLooping] = useState(false)
+  const cancelRef = useRef(false)
 
   useEffect(() => {
-    idx.current = 0
-    setDisplayed('')
-    setDone(false)
-    const interval = setInterval(() => {
-      idx.current += 1
-      setDisplayed(phrase.slice(0, idx.current))
-      if (idx.current >= phrase.length) {
-        clearInterval(interval)
-        setDone(true)
+    cancelRef.current = false
+    setCharIdx(0)
+    setLooping(false)
+
+    let idx = 0
+    const type = () => {
+      if (cancelRef.current) return
+      idx++
+      setCharIdx(idx)
+      if (idx < totalLen) {
+        setTimeout(type, 55)
+      } else {
+        setLooping(true)
+        setTimeout(() => {
+          if (cancelRef.current) return
+          setLooping(false)
+          idx = 0
+          setCharIdx(0)
+          setTimeout(type, 300)
+        }, 2200)
       }
-    }, 55)
-    return () => clearInterval(interval)
-  }, [phrase])
+    }
+    setTimeout(type, 300)
+    return () => {
+      cancelRef.current = true
+    }
+  }, [isZh, totalLen])
+
+  const line1 = lines[0].slice(0, Math.min(charIdx, line1Len))
+  const line2 = charIdx > line1Len ? lines[1].slice(0, charIdx - line1Len) : ''
+  const showCursorOnLine1 = charIdx <= line1Len && !looping
+  const showCursorOnLine2 = charIdx > line1Len || looping
+  const cursorClass = looping ? 'hero-cursor hero-cursor-blink' : 'hero-cursor'
 
   return (
     <h1
       style={{
-        fontSize: 'clamp(36px, 5.5vw, 60px)',
+        fontSize: 'clamp(32px, 5vw, 58px)',
         fontWeight: 900,
         letterSpacing: '-0.03em',
-        lineHeight: 1.15,
+        lineHeight: 1.2,
         color: 'var(--rp-c-text-1)',
         marginBottom: '24px',
         fontFamily: '"Nunito", "Noto Sans SC", sans-serif',
       }}
     >
-      {displayed}
-      <span className={done ? 'hero-cursor hero-cursor-blink' : 'hero-cursor'} aria-hidden="true">
-        _
+      <span>
+        {line1}
+        {showCursorOnLine1 && (
+          <span className="hero-cursor" aria-hidden="true">
+            _
+          </span>
+        )}
+      </span>
+      <br />
+      <span>
+        {line2}
+        {showCursorOnLine2 && (
+          <span className={cursorClass} aria-hidden="true">
+            _
+          </span>
+        )}
       </span>
     </h1>
   )
 }
 
-/* ─── Play card ─── */
+/* ─── CSS 3D Dice ─── */
+
+// Pip grid positions [row, col] for faces 1-6
+const PIPS: Array<Array<[number, number]>> = [
+  [[1, 1]],
+  [
+    [0, 2],
+    [2, 0],
+  ],
+  [
+    [0, 2],
+    [1, 1],
+    [2, 0],
+  ],
+  [
+    [0, 0],
+    [0, 2],
+    [2, 0],
+    [2, 2],
+  ],
+  [
+    [0, 0],
+    [0, 2],
+    [1, 1],
+    [2, 0],
+    [2, 2],
+  ],
+  [
+    [0, 0],
+    [0, 2],
+    [1, 0],
+    [1, 2],
+    [2, 0],
+    [2, 2],
+  ],
+]
+
+// Face transforms for a 120px cube (half = 60px)
+const FACE_TRANSFORMS = [
+  'rotateY(0deg) translateZ(60px)', // front  = 1
+  'rotateY(90deg) translateZ(60px)', // right  = 2
+  'rotateX(90deg) translateZ(60px)', // top    = 3
+  'rotateX(-90deg) translateZ(60px)', // bottom = 4
+  'rotateY(-90deg) translateZ(60px)', // left   = 5
+  'rotateY(180deg) translateZ(60px)', // back   = 6
+]
+
+function DiceFace({ faceIdx }: { faceIdx: number }) {
+  const pips = PIPS[faceIdx]
+  const SIZE = 120
+  const PAD = 15
+  const CELL = 30
+  const PIP = 14
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        width: `${SIZE}px`,
+        height: `${SIZE}px`,
+        transform: FACE_TRANSFORMS[faceIdx],
+        background: 'rgba(8, 10, 22, 0.88)',
+        backdropFilter: 'blur(12px)',
+        border: '1.5px solid rgba(0, 243, 255, 0.32)',
+        borderRadius: '20px',
+        backfaceVisibility: 'hidden',
+        WebkitBackfaceVisibility: 'hidden',
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07)',
+      }}
+    >
+      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        {pips.map(([row, col], i) => (
+          <div
+            key={i}
+            style={{
+              position: 'absolute',
+              width: `${PIP}px`,
+              height: `${PIP}px`,
+              borderRadius: '50%',
+              background: 'var(--shadow-accent)',
+              boxShadow: '0 0 8px rgba(0,243,255,0.9)',
+              left: `${PAD + col * CELL + (CELL - PIP) / 2}px`,
+              top: `${PAD + row * CELL + (CELL - PIP) / 2}px`,
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function DiceSection({ isZh }: { isZh: boolean }) {
+  const [rolling, setRolling] = useState(false)
+  const [resultPlay, setResultPlay] = useState<Play | null>(null)
+  const rotRef = useRef({ x: -15, y: 25 })
+  const [diceRot, setDiceRot] = useState({ x: -15, y: 25 })
+
+  const rollDice = () => {
+    if (rolling) return
+    setRolling(true)
+    setResultPlay(null)
+
+    const spinsX = 1440 + Math.random() * 720
+    const spinsY = 1080 + Math.random() * 720
+    rotRef.current = { x: rotRef.current.x + spinsX, y: rotRef.current.y + spinsY }
+    setDiceRot({ ...rotRef.current })
+
+    setTimeout(() => {
+      const randomPlay = PLAYS[Math.floor(Math.random() * PLAYS.length)]
+      setResultPlay(randomPlay)
+      setRolling(false)
+    }, 2000)
+  }
+
+  return (
+    <section style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 24px 80px' }}>
+      <div
+        style={{
+          background:
+            'linear-gradient(135deg, rgba(0,243,255,0.04) 0%, rgba(248,231,28,0.04) 100%)',
+          border: '1px dashed rgba(0,198,209,0.3)',
+          borderRadius: '40px',
+          padding: '56px 48px',
+          textAlign: 'center',
+        }}
+      >
+        <span className="section-label">🎲 {isZh ? '随机探索' : 'Random Discovery'}</span>
+        <h2
+          style={{
+            fontSize: '26px',
+            fontWeight: 900,
+            color: 'var(--rp-c-text-1)',
+            marginBottom: '8px',
+            marginTop: '4px',
+            fontFamily: '"Nunito", "Noto Sans SC", sans-serif',
+          }}
+        >
+          {isZh ? '不知道玩什么？' : "Don't know what to play?"}
+        </h2>
+        <p
+          style={{
+            fontSize: '14px',
+            color: 'var(--shadow-text-muted)',
+            fontWeight: 600,
+            marginBottom: '40px',
+          }}
+        >
+          {isZh ? '点击骰子，落地之后随机一个玩法' : 'Click the dice and land on a random play'}
+        </p>
+
+        {/* 3D Dice */}
+        <div
+          style={{
+            perspective: '800px',
+            width: '120px',
+            height: '120px',
+            margin: '0 auto 40px',
+            cursor: rolling ? 'not-allowed' : 'pointer',
+          }}
+          onClick={rollDice}
+          onKeyDown={(e) => e.key === 'Enter' && rollDice()}
+          role="button"
+          tabIndex={0}
+          aria-label={isZh ? '投骰子' : 'Roll dice'}
+        >
+          <div
+            style={{
+              width: '120px',
+              height: '120px',
+              position: 'relative',
+              transformStyle: 'preserve-3d',
+              transform: `rotateX(${diceRot.x}deg) rotateY(${diceRot.y}deg)`,
+              transition: rolling
+                ? 'transform 2s cubic-bezier(0.22, 1, 0.36, 1)'
+                : 'transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            }}
+          >
+            {[0, 1, 2, 3, 4, 5].map((n) => (
+              <DiceFace key={n} faceIdx={n} />
+            ))}
+          </div>
+        </div>
+
+        {rolling && (
+          <p
+            style={{
+              fontSize: '14px',
+              color: 'var(--shadow-accent)',
+              fontWeight: 700,
+              marginBottom: '24px',
+            }}
+          >
+            {isZh ? '骰子滚动中…' : 'Rolling…'}
+          </p>
+        )}
+
+        {resultPlay && !rolling && (
+          <div style={{ maxWidth: '320px', margin: '0 auto' }}>
+            <PlayCard play={resultPlay} isZh={isZh} />
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={rollDice}
+              style={{
+                marginTop: '16px',
+                width: '100%',
+                justifyContent: 'center',
+                fontSize: '13px',
+              }}
+            >
+              {isZh ? '再来一次 🎲' : 'Roll Again 🎲'}
+            </button>
+          </div>
+        )}
+
+        {!resultPlay && !rolling && (
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={rollDice}
+            style={{ fontSize: '13px', padding: '12px 32px' }}
+          >
+            {isZh ? '投骰子！' : 'Roll the Dice!'}
+          </button>
+        )}
+      </div>
+    </section>
+  )
+}
+
+/* ─── Category badge + play card ─── */
 
 function CategoryBadge({ label, color }: { label: string; color: string }) {
   return (
@@ -216,7 +582,6 @@ function PlayCard({
       className="glass-card"
       style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
     >
-      {/* Cover image */}
       <div style={{ padding: '14px 14px 0', flexShrink: 0 }}>
         <img
           src={play.image}
@@ -232,8 +597,6 @@ function PlayCard({
           loading="lazy"
         />
       </div>
-
-      {/* Body */}
       <div style={{ padding: '18px 22px 22px', flex: 1, display: 'flex', flexDirection: 'column' }}>
         <CategoryBadge label={category} color={play.accentColor} />
         <h3
@@ -271,16 +634,14 @@ function PlayCard({
   )
 }
 
-/* ─── Featured carousel with dot indicators ─── */
+/* ─── Featured carousel (3 hot plays, 3 columns) ─── */
 
 function FeaturedCarousel({ isZh }: { isZh: boolean }) {
   const featured = PLAYS.filter((p) => p.hot)
   const [active, setActive] = useState(0)
-  const label = isZh ? '主推玩法' : 'Featured Plays'
 
   return (
     <section style={{ marginBottom: '56px' }}>
-      {/* Header */}
       <div style={{ marginBottom: '20px' }}>
         <span className="section-label">✨ {isZh ? '本周精选' : "This Week's Top"}</span>
         <h2
@@ -292,17 +653,12 @@ function FeaturedCarousel({ isZh }: { isZh: boolean }) {
             fontFamily: '"Nunito", "Noto Sans SC", sans-serif',
           }}
         >
-          {label}
+          {isZh ? '主推玩法' : 'Featured Plays'}
         </h2>
       </div>
 
-      {/* Slides */}
       <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: '20px',
-        }}
+        style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}
         className="home-featured-grid"
       >
         {featured.map((play, i) => (
@@ -324,15 +680,7 @@ function FeaturedCarousel({ isZh }: { isZh: boolean }) {
         ))}
       </div>
 
-      {/* Dot indicators */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'center',
-          gap: '8px',
-          marginTop: '20px',
-        }}
-      >
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '20px' }}>
         {featured.map((_, i) => (
           <button
             key={i}
@@ -356,23 +704,124 @@ function FeaturedCarousel({ isZh }: { isZh: boolean }) {
   )
 }
 
+/* ─── Topic card + Featured Topics section (专题) ─── */
+
+function TopicCard({ topic, isZh }: { topic: Topic; isZh: boolean }) {
+  const title = isZh ? topic.titleZh : topic.titleEn
+  const desc = isZh ? topic.descZh : topic.descEn
+
+  return (
+    <a href="#" style={{ textDecoration: 'none', display: 'block' }}>
+      <div
+        style={{
+          position: 'relative',
+          border: '1px solid var(--shadow-card-border)',
+          borderRadius: '28px',
+          overflow: 'hidden',
+          transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+          cursor: 'pointer',
+        }}
+        onMouseEnter={(e) => {
+          ;(e.currentTarget as HTMLElement).style.transform = 'translateY(-4px)'
+          ;(e.currentTarget as HTMLElement).style.boxShadow = '0 16px 40px rgba(0,0,0,0.3)'
+        }}
+        onMouseLeave={(e) => {
+          ;(e.currentTarget as HTMLElement).style.transform = 'translateY(0)'
+          ;(e.currentTarget as HTMLElement).style.boxShadow = 'none'
+        }}
+      >
+        <img
+          src={topic.cover}
+          alt={title}
+          style={{ width: '100%', height: '180px', objectFit: 'cover', display: 'block' }}
+          loading="lazy"
+        />
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            background:
+              'linear-gradient(to top, rgba(5,5,8,0.92) 0%, rgba(5,5,8,0.3) 60%, transparent 100%)',
+            padding: '36px 20px 20px',
+          }}
+        >
+          <div
+            style={{
+              fontSize: '11px',
+              fontWeight: 800,
+              color: topic.accent,
+              marginBottom: '6px',
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+            }}
+          >
+            {topic.count} {isZh ? '个玩法' : 'plays'}
+          </div>
+          <div
+            style={{
+              fontWeight: 900,
+              fontSize: '18px',
+              color: '#fff',
+              marginBottom: '4px',
+              fontFamily: '"Nunito", "Noto Sans SC", sans-serif',
+            }}
+          >
+            {title}
+          </div>
+          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>
+            {desc}
+          </div>
+        </div>
+      </div>
+    </a>
+  )
+}
+
+function FeaturedTopics({ isZh }: { isZh: boolean }) {
+  return (
+    <section style={{ marginBottom: '56px' }}>
+      <div style={{ marginBottom: '20px' }}>
+        <span className="section-label">
+          ✦ {isZh ? '精心策划的主题合集' : 'Curated Theme Collections'}
+        </span>
+        <h2
+          style={{
+            fontSize: '24px',
+            fontWeight: 900,
+            letterSpacing: '-0.02em',
+            color: 'var(--rp-c-text-1)',
+            fontFamily: '"Nunito", "Noto Sans SC", sans-serif',
+          }}
+        >
+          {isZh ? '专题' : 'Topics'}
+        </h2>
+      </div>
+      <div
+        style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}
+        className="home-topics-grid"
+      >
+        {TOPICS.map((topic) => (
+          <TopicCard key={topic.id} topic={topic} isZh={isZh} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
 /* ─── Category section ─── */
 
 function CategorySection({ meta, isZh }: { meta: CategoryMeta; isZh: boolean }) {
-  const plays = PLAYS.filter(
-    (p) => (isZh ? p.category : p.categoryEn) === (isZh ? meta.zh : meta.en),
-  )
+  const plays = PLAYS.filter((p) => (isZh ? p.category === meta.zh : p.categoryEn === meta.en))
   if (plays.length === 0) return null
 
   const title = isZh ? meta.zh : meta.en
   const subtitle = isZh ? meta.label : meta.labelEn
+  const slug = meta.en.toLowerCase().replace(/\s+/g, '-')
 
   return (
-    <section
-      style={{ marginBottom: '56px' }}
-      id={`cat-${meta.en.toLowerCase().replace(/\s+/g, '-')}`}
-    >
-      {/* Section header */}
+    <section style={{ marginBottom: '56px' }} id={`cat-${slug}`}>
       <div
         style={{
           display: 'flex',
@@ -396,7 +845,7 @@ function CategorySection({ meta, isZh }: { meta: CategoryMeta; isZh: boolean }) 
           </h2>
         </div>
         <a
-          href={`#cat-${meta.en.toLowerCase().replace(/\s+/g, '-')}`}
+          href={`#cat-${slug}`}
           style={{
             fontSize: '13px',
             fontWeight: 800,
@@ -407,8 +856,6 @@ function CategorySection({ meta, isZh }: { meta: CategoryMeta; isZh: boolean }) 
           {isZh ? '查看全部 →' : 'View All →'}
         </a>
       </div>
-
-      {/* Cards */}
       <div
         style={{
           display: 'grid',
@@ -421,42 +868,6 @@ function CategorySection({ meta, isZh }: { meta: CategoryMeta; isZh: boolean }) 
         ))}
       </div>
     </section>
-  )
-}
-
-/* ─── Shuffle card ─── */
-
-function ShuffleCard({ isZh, onShuffle }: { isZh: boolean; onShuffle: () => void }) {
-  return (
-    <div
-      style={{
-        background: 'linear-gradient(135deg, rgba(0,243,255,0.06), rgba(248,231,28,0.06))',
-        border: '2px dashed rgba(0,198,209,0.3)',
-        borderRadius: '24px',
-        padding: '28px',
-        textAlign: 'center',
-        marginBottom: '48px',
-      }}
-    >
-      <p
-        style={{
-          fontSize: '15px',
-          color: 'var(--shadow-text-muted)',
-          fontWeight: 700,
-          marginBottom: '16px',
-        }}
-      >
-        {isZh ? '🎲 不知道玩什么？' : "🎲 Don't know what to play?"}
-      </p>
-      <button
-        type="button"
-        className="btn-secondary"
-        onClick={onShuffle}
-        style={{ fontSize: '13px', padding: '10px 24px' }}
-      >
-        {isZh ? '碰碰运气，换一换 🎲' : 'Shuffle & Discover 🎲'}
-      </button>
-    </div>
   )
 }
 
@@ -486,7 +897,6 @@ function Leaderboard({ isZh }: { isZh: boolean }) {
       >
         {isZh ? '热门排行榜' : 'Top Charts'}
       </h2>
-
       <div
         className="glass-card"
         style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}
@@ -525,7 +935,6 @@ function Leaderboard({ isZh }: { isZh: boolean }) {
             >
               {i + 1}
             </div>
-
             <div style={{ flex: 1, minWidth: 0 }}>
               <div
                 style={{
@@ -541,17 +950,10 @@ function Leaderboard({ isZh }: { isZh: boolean }) {
               >
                 {isZh ? play.title : play.titleEn}
               </div>
-              <div
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  color: 'var(--shadow-text-muted)',
-                }}
-              >
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--shadow-text-muted)' }}>
                 {play.starts} {isZh ? '次启动' : 'launches'}
               </div>
             </div>
-
             {i === 0 && (
               <div
                 style={{
@@ -573,7 +975,6 @@ function Leaderboard({ isZh }: { isZh: boolean }) {
 
 function EditorPicks({ isZh }: { isZh: boolean }) {
   const picks = PLAYS.slice(0, 3)
-
   return (
     <div>
       <span className="section-label">✦ {isZh ? '编辑精选' : "Editor's Picks"}</span>
@@ -588,7 +989,6 @@ function EditorPicks({ isZh }: { isZh: boolean }) {
       >
         {isZh ? '精选玩法' : 'Hand-picked'}
       </h2>
-
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {picks.map((play) => (
           <div
@@ -658,18 +1058,12 @@ function EditorPicks({ isZh }: { isZh: boolean }) {
   )
 }
 
-/* ─── Developer CTA section ─── */
+/* ─── Developer CTA ─── */
 
 function DevCta({ isZh }: { isZh: boolean }) {
   const prefix = isZh ? '/zh' : ''
   return (
-    <section
-      style={{
-        maxWidth: '1400px',
-        margin: '0 auto',
-        padding: '0 24px 80px',
-      }}
-    >
+    <section style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 24px 80px' }}>
       <div
         style={{
           background:
@@ -729,14 +1123,6 @@ function DevCta({ isZh }: { isZh: boolean }) {
 
 export function HomeContent({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
   const isZh = lang === 'zh'
-  const [shufflePlay, setShufflePlay] = useState<string | null>(null)
-
-  const handleShuffle = () => {
-    const idx = Math.floor(Math.random() * PLAYS.length)
-    setShufflePlay(PLAYS[idx]?.id ?? null)
-    // Clear after 2s
-    setTimeout(() => setShufflePlay(null), 2000)
-  }
 
   return (
     <div className="shadow-page" style={{ minHeight: '100vh' }}>
@@ -751,7 +1137,24 @@ export function HomeContent({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
           margin: '0 auto',
         }}
       >
+        {/* Tagline above slogan */}
+        <p
+          style={{
+            fontSize: '13px',
+            fontWeight: 800,
+            letterSpacing: '0.18em',
+            textTransform: 'uppercase',
+            color: 'var(--shadow-accent)',
+            marginBottom: '18px',
+            opacity: 0.85,
+            fontFamily: '"Nunito", "Noto Sans SC", sans-serif',
+          }}
+        >
+          {isZh ? '一切玩法，任你创想' : 'Every Play, Yours to Imagine'}
+        </p>
+
         <TypingSlogan isZh={isZh} />
+
         <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
           <a href="/app" className="btn-primary" style={{ textDecoration: 'none' }}>
             {isZh ? '启动！' : 'Launch'}
@@ -772,40 +1175,26 @@ export function HomeContent({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
         }}
         className="home-main-grid"
       >
-        {/* Left: featured + category sections */}
+        {/* Left: featured + topics + category sections */}
         <main>
-          {/* Featured carousel */}
           <FeaturedCarousel isZh={isZh} />
-
-          {/* Shuffle card */}
-          <ShuffleCard isZh={isZh} onShuffle={handleShuffle} />
-
-          {/* Category sections */}
+          <FeaturedTopics isZh={isZh} />
           {CATEGORY_META.map((meta) => (
-            <div
-              key={meta.zh}
-              style={{
-                outline:
-                  shufflePlay && PLAYS.find((p) => p.id === shufflePlay && p.category === meta.zh)
-                    ? '2px solid var(--shadow-accent)'
-                    : 'none',
-                borderRadius: '8px',
-                transition: 'outline 0.3s',
-              }}
-            >
-              <CategorySection meta={meta} isZh={isZh} />
-            </div>
+            <CategorySection key={meta.zh} meta={meta} isZh={isZh} />
           ))}
         </main>
 
-        {/* Right: leaderboard + editor's picks (always visible) */}
+        {/* Right: leaderboard + editor's picks */}
         <aside style={{ position: 'sticky', top: '100px' }}>
           <Leaderboard isZh={isZh} />
           <EditorPicks isZh={isZh} />
         </aside>
       </div>
 
-      {/* ── Developer CTA ── */}
+      {/* ── Dice Section (second to last) ── */}
+      <DiceSection isZh={isZh} />
+
+      {/* ── Developer CTA (last) ── */}
       <DevCta isZh={isZh} />
     </div>
   )
