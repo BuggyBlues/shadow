@@ -1,10 +1,10 @@
+import { Button, Card, EmptyState } from '@shadowob/ui'
 import { useQuery } from '@tanstack/react-query'
 import { clsx } from 'clsx'
 import { Container, FileCode, Package } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Button, Card, EmptyState } from '@shadowob/ui'
-import { PageShell } from '@/components/PageShell'
 import { DashboardErrorState, DashboardLoadingState } from '@/components/DashboardState'
+import { PageShell } from '@/components/PageShell'
 import { StatCard } from '@/components/StatCard'
 import { StatsGrid } from '@/components/StatsGrid'
 import { api, type ImageInfo } from '@/lib/api'
@@ -32,11 +32,7 @@ export function ImagesPage() {
       }
     >
       {isLoading && <DashboardLoadingState rows={1} />}
-      {error && (
-        <DashboardErrorState
-          title={t('images.loadFailed')}
-        />
-      )}
+      {error && <DashboardErrorState title={t('images.loadFailed')} />}
 
       {data && data.length === 0 && (
         <EmptyState

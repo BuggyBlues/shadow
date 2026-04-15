@@ -1,17 +1,13 @@
+import { Badge, Button, Card, EmptyState, Search } from '@shadowob/ui'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { ChevronRight, Heart, Package, Rocket, Sparkles, Star, Users } from 'lucide-react'
 import { type ReactNode, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Badge, Button, Card, EmptyState, Search } from '@shadowob/ui'
 import { PageShell } from '@/components/PageShell'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useTypewriterPlaceholder } from '@/hooks/useTypewriterPlaceholder'
-import {
-  api,
-  type TemplateCatalogSummary,
-  type TemplateCategoryId,
-} from '@/lib/api'
+import { api, type TemplateCatalogSummary, type TemplateCategoryId } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/stores/app'
 
@@ -23,15 +19,39 @@ function getDifficultyLabel(
 }
 
 const CATEGORY_BANNER: Record<string, { bg: string; textColor: string }> = {
-  devops: { bg: 'bg-gradient-to-br from-blue-500/25 via-indigo-500/10 to-transparent', textColor: 'text-blue-500' },
-  security: { bg: 'bg-gradient-to-br from-red-500/25 via-orange-500/10 to-transparent', textColor: 'text-red-500' },
-  support: { bg: 'bg-gradient-to-br from-teal-500/25 via-cyan-500/10 to-transparent', textColor: 'text-teal-500' },
-  research: { bg: 'bg-gradient-to-br from-purple-500/25 via-pink-500/10 to-transparent', textColor: 'text-purple-500' },
-  monitoring: { bg: 'bg-gradient-to-br from-amber-500/25 via-yellow-500/10 to-transparent', textColor: 'text-amber-500' },
-  business: { bg: 'bg-gradient-to-br from-green-500/25 via-emerald-500/10 to-transparent', textColor: 'text-green-500' },
-  demo: { bg: 'bg-gradient-to-br from-fuchsia-500/25 via-violet-500/10 to-transparent', textColor: 'text-fuchsia-500' },
+  devops: {
+    bg: 'bg-gradient-to-br from-blue-500/25 via-indigo-500/10 to-transparent',
+    textColor: 'text-blue-500',
+  },
+  security: {
+    bg: 'bg-gradient-to-br from-red-500/25 via-orange-500/10 to-transparent',
+    textColor: 'text-red-500',
+  },
+  support: {
+    bg: 'bg-gradient-to-br from-teal-500/25 via-cyan-500/10 to-transparent',
+    textColor: 'text-teal-500',
+  },
+  research: {
+    bg: 'bg-gradient-to-br from-purple-500/25 via-pink-500/10 to-transparent',
+    textColor: 'text-purple-500',
+  },
+  monitoring: {
+    bg: 'bg-gradient-to-br from-amber-500/25 via-yellow-500/10 to-transparent',
+    textColor: 'text-amber-500',
+  },
+  business: {
+    bg: 'bg-gradient-to-br from-green-500/25 via-emerald-500/10 to-transparent',
+    textColor: 'text-green-500',
+  },
+  demo: {
+    bg: 'bg-gradient-to-br from-fuchsia-500/25 via-violet-500/10 to-transparent',
+    textColor: 'text-fuchsia-500',
+  },
 }
-const CATEGORY_BANNER_DEFAULT = { bg: 'bg-gradient-to-br from-primary/20 via-bg-secondary to-transparent', textColor: 'text-primary' }
+const CATEGORY_BANNER_DEFAULT = {
+  bg: 'bg-gradient-to-br from-primary/20 via-bg-secondary to-transparent',
+  textColor: 'text-primary',
+}
 
 function FilterPill({
   label,
@@ -78,7 +98,10 @@ function CardMetric({
   label: string
 }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-xl border border-border-subtle bg-bg-primary/60 px-2.5 py-1.5 text-[11px] font-semibold text-text-secondary" title={label}>
+    <span
+      className="inline-flex items-center gap-1.5 rounded-xl border border-border-subtle bg-bg-primary/60 px-2.5 py-1.5 text-[11px] font-semibold text-text-secondary"
+      title={label}
+    >
       {icon}
       <span>{value}</span>
     </span>
@@ -100,17 +123,31 @@ function StoreAppCard({
   const bannerWords = template.name.split('-').slice(0, 3)
 
   return (
-    <Card variant="surface" className="relative transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/[0.06] hover:border-border-primary/25">
+    <Card
+      variant="surface"
+      className="relative transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/[0.06] hover:border-border-primary/25"
+    >
       {/* Clickable banner */}
       <Link to="/store/$name" params={{ name: template.name }} className="block">
-        <div className={cn('relative h-36 overflow-hidden border-b border-border-subtle', bannerStyle.bg)}>
+        <div
+          className={cn(
+            'relative h-36 overflow-hidden border-b border-border-subtle',
+            bannerStyle.bg,
+          )}
+        >
           {/* Stacked uppercase words */}
           <div className="absolute inset-0 flex flex-col items-start justify-center gap-0.5 px-5 overflow-hidden">
             {bannerWords.map((word, i) => (
               <span
                 key={`${word}-${i}`}
-                className={cn('font-black tracking-tighter leading-none select-none', bannerStyle.textColor)}
-                style={{ fontSize: i === 0 ? '2.4rem' : i === 1 ? '1.6rem' : '1.05rem', opacity: 1 - i * 0.22 }}
+                className={cn(
+                  'font-black tracking-tighter leading-none select-none',
+                  bannerStyle.textColor,
+                )}
+                style={{
+                  fontSize: i === 0 ? '2.4rem' : i === 1 ? '1.6rem' : '1.05rem',
+                  opacity: 1 - i * 0.22,
+                }}
               >
                 {word.toUpperCase()}
               </span>
@@ -148,8 +185,12 @@ function StoreAppCard({
       {/* Body */}
       <div className="flex flex-col gap-3 p-4">
         <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant="neutral" size="sm">{categoryLabel}</Badge>
-          <Badge variant="neutral" size="sm">{getDifficultyLabel(template.difficulty, t)}</Badge>
+          <Badge variant="neutral" size="sm">
+            {categoryLabel}
+          </Badge>
+          <Badge variant="neutral" size="sm">
+            {getDifficultyLabel(template.difficulty, t)}
+          </Badge>
         </div>
 
         <Link
@@ -160,9 +201,7 @@ function StoreAppCard({
           {template.name}
         </Link>
 
-        <p className="line-clamp-2 text-[13px] leading-5 text-text-secondary">
-          {summary}
-        </p>
+        <p className="line-clamp-2 text-[13px] leading-5 text-text-secondary">{summary}</p>
 
         <div className="mt-auto flex flex-wrap items-center gap-2">
           <CardMetric
@@ -199,7 +238,9 @@ export function StorePage() {
   const { t, i18n } = useTranslation()
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<TemplateCategoryId | 'all'>('all')
-  const [selectedDifficulty, setSelectedDifficulty] = useState<TemplateCatalogSummary['difficulty'] | 'all'>('all')
+  const [selectedDifficulty, setSelectedDifficulty] = useState<
+    TemplateCatalogSummary['difficulty'] | 'all'
+  >('all')
   const debouncedSearch = useDebounce(search)
 
   const { data, isLoading } = useQuery({
@@ -207,7 +248,9 @@ export function StorePage() {
     queryFn: () => api.templates.catalog(i18n.language),
   })
 
-  const typewriterPlaceholder = useTypewriterPlaceholder(t('store.typewriterPhrases', { returnObjects: true }) as string[])
+  const typewriterPlaceholder = useTypewriterPlaceholder(
+    t('store.typewriterPhrases', { returnObjects: true }) as string[],
+  )
 
   const templates = data?.templates ?? []
   const categories = data?.categories ?? []
@@ -275,7 +318,8 @@ export function StorePage() {
     )
   }, [categoryLabels, debouncedSearch, selectedCategory, selectedDifficulty, templates])
 
-  const hasFilters = selectedCategory !== 'all' || selectedDifficulty !== 'all' || Boolean(search.trim())
+  const hasFilters =
+    selectedCategory !== 'all' || selectedDifficulty !== 'all' || Boolean(search.trim())
 
   return (
     <PageShell
@@ -283,11 +327,14 @@ export function StorePage() {
       title={t('store.title')}
       description={t('store.description')}
       headerContent={
-        <Search value={search} onChange={setSearch} placeholder={typewriterPlaceholder || t('store.searchPlaceholder')} />
+        <Search
+          value={search}
+          onChange={setSearch}
+          placeholder={typewriterPlaceholder || t('store.searchPlaceholder')}
+        />
       }
       bodyClassName="space-y-4"
     >
-
       {/* Filter strip — colocated with cards */}
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap gap-1.5">
@@ -316,11 +363,22 @@ export function StorePage() {
           <p className="text-sm text-text-muted">
             {t('store.matchingTemplates', { count: filtered.length })}
             {selectedDifficulty !== 'all' ? ` · ${getDifficultyLabel(selectedDifficulty, t)}` : ''}
-            {selectedCategory !== 'all' ? ` · ${categoryLabels[selectedCategory] ?? selectedCategory}` : ''}
+            {selectedCategory !== 'all'
+              ? ` · ${categoryLabels[selectedCategory] ?? selectedCategory}`
+              : ''}
             {debouncedSearch ? ` · ${t('store.matchingQuery', { query: debouncedSearch })}` : ''}
           </p>
           {hasFilters && (
-            <Button type="button" variant="secondary" size="sm" onClick={() => { setSearch(''); setSelectedCategory('all'); setSelectedDifficulty('all') }}>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setSearch('')
+                setSelectedCategory('all')
+                setSelectedDifficulty('all')
+              }}
+            >
               {t('store.clearFilters')}
             </Button>
           )}

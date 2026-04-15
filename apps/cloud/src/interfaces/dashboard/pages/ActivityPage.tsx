@@ -1,3 +1,4 @@
+import { Badge, Button, Card, EmptyState, NativeSelect, Search } from '@shadowob/ui'
 import { useQuery } from '@tanstack/react-query'
 import {
   Activity,
@@ -13,7 +14,6 @@ import {
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Badge, Button, Card, EmptyState, NativeSelect, Search } from '@shadowob/ui'
 import { PageShell } from '@/components/PageShell'
 import { useDebounce } from '@/hooks/useDebounce'
 import { api } from '@/lib/api'
@@ -23,20 +23,20 @@ import { type ActivityEntry, type ActivityType, useAppStore } from '@/stores/app
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const TYPE_ICON: Record<ActivityType, React.ReactNode> = {
-  deploy:   <Rocket size={12} />,
-  destroy:  <Trash2 size={12} />,
-  scale:    <BarChart3 size={12} />,
-  config:   <Shield size={12} />,
-  init:     <Box size={12} />,
+  deploy: <Rocket size={12} />,
+  destroy: <Trash2 size={12} />,
+  scale: <BarChart3 size={12} />,
+  config: <Shield size={12} />,
+  init: <Box size={12} />,
   settings: <Settings size={12} />,
 }
 
 const TYPE_VARIANT: Record<ActivityType, 'success' | 'danger' | 'info' | 'warning' | 'neutral'> = {
-  deploy:   'success',
-  destroy:  'danger',
-  scale:    'info',
-  config:   'warning',
-  init:     'neutral',
+  deploy: 'success',
+  destroy: 'danger',
+  scale: 'info',
+  config: 'warning',
+  init: 'neutral',
   settings: 'neutral',
 }
 
@@ -108,17 +108,23 @@ function StatsBar({ activities }: { activities: ActivityEntry[] }) {
         {activities.length} {t('activity.total')} {t('activity.activities')}
       </span>
       <span>|</span>
-      <span>{today} {t('activity.today')}</span>
+      <span>
+        {today} {t('activity.today')}
+      </span>
       {counts.deploy ? (
         <>
           <span>|</span>
-          <span className="text-green-500">{counts.deploy} {t('activity.deploys')}</span>
+          <span className="text-green-500">
+            {counts.deploy} {t('activity.deploys')}
+          </span>
         </>
       ) : null}
       {counts.destroy ? (
         <>
           <span>|</span>
-          <span className="text-red-500">{counts.destroy} {t('activity.destroys')}</span>
+          <span className="text-red-500">
+            {counts.destroy} {t('activity.destroys')}
+          </span>
         </>
       ) : null}
     </div>
