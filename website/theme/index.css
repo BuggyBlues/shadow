@@ -622,9 +622,52 @@ html.dark .glass-nav {
 :root {
   --rp-header-height: 80px;
 }
-/* Ensure the body's first scrollable section clears the pill */
-[class*="container_"] {
-  padding-top: 0;
+/* Do NOT remove rspress container padding — it's needed for nav clearance */
+
+/* ===== Neon Frost background orbs on ALL pages (fixed, full-viewport) ===== */
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -1;
+  animation: orbFloat 25s infinite ease-in-out;
+}
+body::before {
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(0, 243, 255, 0.4) 0%, transparent 70%);
+  top: -150px;
+  left: 5%;
+  filter: blur(100px);
+}
+body::after {
+  width: 700px;
+  height: 700px;
+  background: radial-gradient(circle, rgba(255, 42, 85, 0.25) 0%, transparent 70%);
+  top: 25%;
+  right: -150px;
+  filter: blur(120px);
+  animation-delay: -7s;
+}
+@keyframes orbFloat {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(40px, 60px) scale(1.05);
+  }
+  66% {
+    transform: translate(-30px, 20px) scale(0.97);
+  }
+}
+html.dark body::before {
+  opacity: 0.55;
+}
+html.dark body::after {
+  opacity: 0.45;
 }
 
 /* ===== Light-mode card baseline for shadow-page Tailwind cards ===== */
@@ -813,33 +856,38 @@ html.dark .rspress-doc hr {
 
 /* ===== Rspress nav — Neon Frost floating pill ===== */
 .rspress-nav {
-  /* Float away from viewport edges */
-  left: 12px;
-  right: 12px;
-  top: 8px;
-  width: auto;
+  /* True floating pill: constrain width + center in flow */
+  max-width: 1120px;
+  margin: 8px auto 0;
   border-radius: 24px;
-  background: rgba(248, 250, 252, 0.75);
+  /* Remove old sticky offset override — rspress sets top:0, our margin handles spacing */
+  background: rgba(248, 250, 252, 0.82);
   backdrop-filter: blur(32px);
   -webkit-backdrop-filter: blur(32px);
   border: 1px solid rgba(255, 255, 255, 0.9);
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.06),
     0 2px 8px rgba(0, 0, 0, 0.04);
+  /* Override rspress default border-bottom */
+  border-bottom: none !important;
 }
 html.dark .rspress-nav {
-  background: rgba(5, 5, 8, 0.78);
+  background: rgba(5, 5, 8, 0.85);
   border-color: rgba(255, 255, 255, 0.09);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
-/* Shrink pill on mobile — keeps hamburger usable */
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .rspress-nav {
-    left: 8px;
-    right: 8px;
-    top: 6px;
+    max-width: calc(100% - 16px);
     border-radius: 16px;
+    margin: 6px auto 0;
   }
+}
+
+/* Hide rspress built-in controls — we manage these ourselves */
+.rspress-nav-appearance,
+.translation {
+  display: none !important;
 }
 
 /* Logo font in Rspress nav */

@@ -9,6 +9,14 @@ export default defineConfig({
   root: 'docs',
   base: BASE,
   title: 'Shadow',
+  // Inject dark-mode default script (runs before paint to avoid flash)
+  head: [
+    [
+      'script',
+      {},
+      `(function(){try{var s=localStorage.getItem('rspress-theme-appearance');if(s==='light'){document.documentElement.classList.remove('dark');document.documentElement.style.colorScheme='light';}else{document.documentElement.classList.add('dark');document.documentElement.style.colorScheme='dark';if(!s)localStorage.setItem('rspress-theme-appearance','dark');}}catch(e){document.documentElement.classList.add('dark');}})();`,
+    ],
+  ],
   description:
     'Shadow — AI-native community platform with Buddy collaboration, P2P rental, and shared workspace',
   icon: '/Logo.svg',
