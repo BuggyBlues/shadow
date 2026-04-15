@@ -1,9 +1,9 @@
+import { Button, Card, EmptyState } from '@shadowob/ui'
 import { useQuery } from '@tanstack/react-query'
 import { Cpu, Server } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Button, Card, EmptyState } from '@shadowob/ui'
-import { PageShell } from '@/components/PageShell'
 import { DashboardErrorState, DashboardLoadingState } from '@/components/DashboardState'
+import { PageShell } from '@/components/PageShell'
 import { StatCard } from '@/components/StatCard'
 import { api, type RuntimeInfo } from '@/lib/api'
 
@@ -28,11 +28,7 @@ export function RuntimesPage() {
       }
     >
       {isLoading && <DashboardLoadingState rows={1} />}
-      {error && (
-        <DashboardErrorState
-          title={t('runtimes.loadFailed')}
-        />
-      )}
+      {error && <DashboardErrorState title={t('runtimes.loadFailed')} />}
 
       {data && data.length === 0 && (
         <EmptyState
@@ -67,7 +63,9 @@ export function RuntimesPage() {
                     </div>
                     <div className="flex items-center gap-2 text-xs">
                       <span className="text-text-muted">{t('runtimes.image')}:</span>
-                      <span className="font-mono text-text-secondary truncate">{rt.defaultImage}</span>
+                      <span className="font-mono text-text-secondary truncate">
+                        {rt.defaultImage}
+                      </span>
                     </div>
                   </div>
                 </div>
