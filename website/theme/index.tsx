@@ -84,8 +84,10 @@ function HomeCapsuleNav() {
               fontFamily: '"Nunito", "Noto Sans SC", sans-serif',
             }}
           >
-            虾豆
-            <span className="text-base text-cyan-600 ml-1 font-black">ShadowOwnBuddy</span>
+            {isZh ? '虾豆' : 'Shadow'}
+            <span className="text-base text-cyan-600 ml-1 font-black">
+              {isZh ? 'OwnBuddy' : 'OwnBuddy'}
+            </span>
           </span>
         </a>
 
@@ -128,7 +130,7 @@ function HomeCapsuleNav() {
 }
 
 /**
- * Full logo for doc-page rspress nav — shows complete "虾豆 ShadowOwnBuddy" text.
+ * Full logo for doc-page rspress nav — shows complete "虾豆 OwnBuddy" / "Shadow OwnBuddy" text.
  * navTitleMask (in sidebar) is hidden via CSS to avoid double-logo.
  */
 function DocNavTitle() {
@@ -149,8 +151,8 @@ function DocNavTitle() {
         className="text-xl font-bold whitespace-nowrap"
         style={{ color: 'var(--rp-c-text-1)', fontFamily: '"Nunito", "Noto Sans SC", sans-serif' }}
       >
-        虾豆
-        <span className="text-base text-cyan-600 ml-1 font-black">ShadowOwnBuddy</span>
+        {isZh ? '虾豆' : 'Shadow'}
+        <span className="text-base text-cyan-600 ml-1 font-black">OwnBuddy</span>
       </span>
     </a>
   )

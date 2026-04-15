@@ -149,31 +149,35 @@ body,
 
 /* Glass card — Neon Frost style */
 .glass-card {
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(32px);
-  -webkit-backdrop-filter: blur(32px);
-  border: 1px solid rgba(255, 255, 255, 0.95);
-  border-radius: 40px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(210, 218, 230, 0.7);
+  border-radius: 28px;
   box-shadow:
-    0 15px 45px rgba(0, 0, 0, 0.04),
-    inset 0 2px 12px rgba(255, 255, 255, 0.9);
-  transition: all 0.5s var(--bezier-bouncy);
+    0 2px 4px rgba(0, 0, 0, 0.04),
+    0 8px 24px rgba(0, 0, 0, 0.06);
+  transition: all 0.35s cubic-bezier(0.32, 0, 0.67, 0);
 }
 html.dark .glass-card {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  background: rgba(14, 16, 28, 0.62);
+  border-color: rgba(255, 255, 255, 0.07);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.3),
+    0 8px 28px rgba(0, 0, 0, 0.45);
 }
 .glass-card:hover {
-  transform: translateY(-6px) scale(1.02);
+  transform: translateY(-4px);
   box-shadow:
-    0 20px 50px rgba(0, 0, 0, 0.08),
-    inset 0 2px 12px rgba(255, 255, 255, 0.9);
-  border-color: rgba(0, 198, 209, 0.4);
+    0 4px 8px rgba(0, 0, 0, 0.06),
+    0 16px 36px rgba(0, 0, 0, 0.1);
+  border-color: rgba(0, 198, 209, 0.35);
 }
 html.dark .glass-card:hover {
-  box-shadow: 0 20px 50px rgba(0, 243, 255, 0.12);
-  border-color: rgba(0, 243, 255, 0.25);
+  box-shadow:
+    0 4px 8px rgba(0, 0, 0, 0.4),
+    0 16px 36px rgba(0, 243, 255, 0.08);
+  border-color: rgba(0, 243, 255, 0.18);
 }
 
 /* Collapsible details/summary in guide cards */

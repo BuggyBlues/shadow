@@ -260,8 +260,8 @@ export function PublicNav({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
           className="zcool text-2xl font-bold tracking-wider"
           style={{ color: 'var(--shadow-text)' }}
         >
-          虾豆
-          <span className="text-lg text-cyan-600 ml-1 font-sans font-black">ShadowOwnBuddy</span>
+          {lang === 'zh' ? '虾豆' : 'Shadow'}
+          <span className="text-lg text-cyan-600 ml-1 font-sans font-black">OwnBuddy</span>
         </span>
       </a>
       <div className="hidden md:flex gap-8 text-base font-bold">
@@ -301,7 +301,7 @@ export function PublicNav({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
 export function PublicFooter({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
   const base = getBase()
   const prefix = lang === 'zh' ? '/zh' : ''
-  const brandLegal = '虾豆 ShadowOwnBuddy © 2026'
+  const brandLegal = lang === 'zh' ? '虾豆 OwnBuddy © 2026' : 'Shadow OwnBuddy © 2026'
 
   const columns =
     lang === 'zh'

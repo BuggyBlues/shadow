@@ -233,8 +233,8 @@ const TOPICS: Topic[] = [
 /* ─── Hero: Typing slogan (2 lines, loops) ─── */
 
 function TypingSlogan({ isZh }: { isZh: boolean }) {
-  const zhLines: [string, string] = ['你的 AI 专属社区，', '与你常在']
-  const enLines: [string, string] = ['Your AI Community,', 'Always Here']
+  const zhLines: [string, string] = ['你的 AI 小王国，', '与你常在']
+  const enLines: [string, string] = ['Your AI Kingdom,', 'Always Here']
   const lines = isZh ? zhLines : enLines
   const line1Len = lines[0].length
   const totalLen = line1Len + lines[1].length
@@ -366,6 +366,21 @@ function DiceFace({ faceIdx }: { faceIdx: number }) {
   const CELL = 30
   const PIP = 14
 
+  // Face 2 (index 1) = heterochromia: top-right pip is yellow, bottom-left is cyan — matching the cat logo
+  const getPipStyle = (pipIdx: number) => {
+    if (faceIdx === 1) {
+      const isYellow = pipIdx === 0 // top-right = yellow eye (#f8e71c)
+      return {
+        background: isYellow ? '#f8e71c' : '#00f3ff',
+        boxShadow: isYellow ? '0 0 10px rgba(248,231,28,0.95)' : '0 0 10px rgba(0,243,255,0.95)',
+      }
+    }
+    return {
+      background: 'var(--shadow-accent)',
+      boxShadow: '0 0 8px rgba(0,243,255,0.9)',
+    }
+  }
+
   return (
     <div
       style={{
@@ -391,10 +406,9 @@ function DiceFace({ faceIdx }: { faceIdx: number }) {
               width: `${PIP}px`,
               height: `${PIP}px`,
               borderRadius: '50%',
-              background: 'var(--shadow-accent)',
-              boxShadow: '0 0 8px rgba(0,243,255,0.9)',
               left: `${PAD + col * CELL + (CELL - PIP) / 2}px`,
               top: `${PAD + row * CELL + (CELL - PIP) / 2}px`,
+              ...getPipStyle(i),
             }}
           />
         ))}
