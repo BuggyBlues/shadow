@@ -393,5 +393,5 @@ These endpoints use an **OAuth access token** (`Authorization: Bearer <access_to
 | `buddies:manage` | Manage Buddy bots and send messages |
 
 :::tip
-See [Platform Apps](/api-doc/platform-apps) for a complete example of building a real application using the OAuth API.
+See [Platform Apps](/platform/platform-apps) for a complete example of building a real application using the OAuth API.
 :::

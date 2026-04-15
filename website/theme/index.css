@@ -1,5 +1,5 @@
 /* ===== Google Fonts (must come before all other rules) ===== */
-@import url("https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Nunito:wght@400;700;900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Nunito:wght@500;700;800;900&family=Noto+Sans+SC:wght@500;700;900&display=swap");
 
 /* ===== TailwindCSS v4 (utilities only — no preflight to preserve Rspress styles) ===== */
 /* Use unlayered imports so utilities aren't outranked by Rspress' unlayered reset rules. */
@@ -16,43 +16,70 @@
 /* Safelist dynamic classes composed at runtime (e.g. `bg-gradient-to-r ${tier.color}`) */
 @source inline("from-amber-400 to-orange-500 from-blue-400 to-cyan-500 from-gray-400 to-gray-500");
 
-/* ===== Dark mode CSS variables ===== */
+/* ===== Neon Frost design tokens ===== */
 :root {
+  /* Brand: Cyber Cyan */
+  --rp-c-brand: #00c6d1;
+  --rp-c-brand-light: #00f3ff;
+  --rp-c-brand-dark: #009aa3;
+  --rp-c-brand-tint: rgba(0, 198, 209, 0.08);
+
+  /* Surface tokens */
   --shadow-bg: var(--rp-c-bg);
-  --shadow-dot: color-mix(in oklab, var(--rp-c-text-1) 10%, var(--rp-c-bg) 90%);
+  --shadow-dot: color-mix(in oklab, var(--rp-c-text-1) 8%, var(--rp-c-bg) 92%);
   --shadow-text: color-mix(in oklab, var(--rp-c-text-1) 96%, black 4%);
-  --shadow-text-muted: color-mix(in oklab, var(--rp-c-text-1) 78%, var(--rp-c-bg) 22%);
-  --shadow-text-dim: color-mix(in oklab, var(--rp-c-text-1) 62%, var(--rp-c-bg) 38%);
-  --shadow-card-bg: color-mix(in oklab, var(--rp-c-bg) 96%, var(--rp-c-brand-tint) 4%);
-  --shadow-card-border: color-mix(in oklab, var(--rp-c-text-1) 14%, var(--rp-c-bg) 86%);
-  --shadow-nav-bg: color-mix(in oklab, var(--rp-c-bg) 94%, var(--rp-c-brand-tint) 6%);
-  --shadow-section-from: color-mix(in oklab, var(--rp-c-bg-soft) 88%, var(--rp-c-brand-tint) 12%);
-  --shadow-section-to: color-mix(in oklab, var(--rp-c-bg-soft) 92%, var(--rp-c-brand-tint) 8%);
-  --shadow-accent: var(--rp-c-brand);
-  --shadow-accent-strong: color-mix(in oklab, var(--rp-c-brand) 82%, #00f3ff 18%);
+  --shadow-text-muted: color-mix(in oklab, var(--rp-c-text-1) 72%, var(--rp-c-bg) 28%);
+  --shadow-text-dim: color-mix(in oklab, var(--rp-c-text-1) 56%, var(--rp-c-bg) 44%);
+  --shadow-card-bg: rgba(255, 255, 255, 0.75);
+  --shadow-card-border: rgba(255, 255, 255, 0.9);
+  --shadow-nav-bg: rgba(255, 255, 255, 0.6);
+  --shadow-section-from: #f8fafc;
+  --shadow-section-to: #f1f5f9;
+  --shadow-accent: #00c6d1;
+  --shadow-accent-strong: #00f3ff;
   --shadow-accent-contrast: white;
-  --shadow-warm: color-mix(in oklab, #f8e71c 68%, #ffb300 32%);
-  --shadow-warm-strong: color-mix(in oklab, #f8e71c 54%, #ffb300 46%);
-  --shadow-button-text: #1a1a1c;
+  --shadow-warm: #f8e71c;
+  --shadow-warm-strong: #ffb300;
+  --shadow-button-text: #050508;
+  /* Physics easing */
+  --bezier-bouncy: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --bezier-smooth: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 html.dark {
-  --shadow-bg: var(--rp-c-bg);
-  --shadow-dot: color-mix(in oklab, var(--rp-c-text-1) 12%, var(--rp-c-bg) 88%);
-  --shadow-text: var(--rp-c-text-1);
-  --shadow-text-muted: color-mix(in oklab, var(--rp-c-text-1) 84%, var(--rp-c-bg) 16%);
-  --shadow-text-dim: color-mix(in oklab, var(--rp-c-text-1) 66%, var(--rp-c-bg) 34%);
-  --shadow-card-bg: color-mix(in oklab, var(--rp-c-bg) 90%, var(--rp-c-bg-soft) 10%);
-  --shadow-card-border: color-mix(in oklab, var(--rp-c-text-1) 16%, var(--rp-c-bg) 84%);
-  --shadow-nav-bg: color-mix(in oklab, var(--rp-c-bg) 90%, var(--rp-c-bg-soft) 10%);
-  --shadow-section-from: color-mix(in oklab, var(--rp-c-bg-soft) 90%, var(--rp-c-brand-tint) 10%);
-  --shadow-section-to: color-mix(in oklab, var(--rp-c-bg-soft) 94%, var(--rp-c-brand-tint) 6%);
-  --shadow-accent: color-mix(in oklab, var(--rp-c-brand-light) 80%, #00f3ff 20%);
-  --shadow-accent-strong: color-mix(in oklab, var(--rp-c-brand-light) 70%, #00f3ff 30%);
-  --shadow-accent-contrast: #0f1117;
-  --shadow-warm: color-mix(in oklab, #f8e71c 65%, #ffb300 35%);
-  --shadow-warm-strong: color-mix(in oklab, #f8e71c 52%, #ffb300 48%);
-  --shadow-button-text: #1a1a1c;
+  /* Brand stays cyan in dark mode */
+  --rp-c-brand: #00c6d1;
+  --rp-c-brand-light: #00f3ff;
+  --rp-c-brand-dark: #009aa3;
+  --rp-c-brand-tint: rgba(0, 243, 255, 0.06);
+
+  --shadow-bg: #050508;
+  --shadow-dot: rgba(255, 255, 255, 0.04);
+  --shadow-text: #f8fafc;
+  --shadow-text-muted: #94a3b8;
+  --shadow-text-dim: #64748b;
+  --shadow-card-bg: rgba(255, 255, 255, 0.03);
+  --shadow-card-border: rgba(255, 255, 255, 0.08);
+  --shadow-nav-bg: rgba(5, 5, 8, 0.6);
+  --shadow-section-from: #050508;
+  --shadow-section-to: #0a0a0f;
+  --shadow-accent: #00c6d1;
+  --shadow-accent-strong: #00f3ff;
+  --shadow-accent-contrast: #050508;
+  --shadow-warm: #f8e71c;
+  --shadow-warm-strong: #ffb300;
+  --shadow-button-text: #050508;
+  /* Override rspress page background to obsidian */
+  --rp-c-bg: #050508;
+  --rp-c-bg-soft: #0a0a0f;
+  --rp-c-bg-alt: #0d0d14;
+}
+
+/* ===== Neon Frost global font ===== */
+body,
+.rspress-doc,
+[class*="rspress"] {
+  font-family: "Nunito", "Noto Sans SC", sans-serif;
 }
 
 /* ZCOOL KuaiLe shorthand */
@@ -68,26 +95,33 @@ html.dark {
   border-bottom: 2px solid var(--shadow-card-border);
 }
 
-/* Glass card */
+/* Glass card — Neon Frost style */
 .glass-card {
   background: var(--shadow-card-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 3px solid var(--shadow-card-border);
-  border-radius: 36px;
-  box-shadow: 0 10px 28px color-mix(in oklab, var(--shadow-text) 10%, transparent);
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border: 1px solid var(--shadow-card-border);
+  border-top: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 40px;
+  box-shadow:
+    0 15px 45px rgba(0, 0, 0, 0.04),
+    inset 0 2px 12px rgba(255, 255, 255, 0.9);
+  transition: all 0.5s var(--bezier-bouncy);
 }
 html.dark .glass-card {
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.28);
+  border-top-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
 }
 .glass-card:hover {
-  transform: translateY(-10px);
-  box-shadow: 0 18px 42px color-mix(in oklab, var(--shadow-text) 14%, transparent);
-  border-color: var(--shadow-accent-strong);
+  transform: translateY(-6px) scale(1.02);
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.08),
+    inset 0 2px 12px rgba(255, 255, 255, 0.9);
+  border-color: rgba(0, 198, 209, 0.4);
 }
 html.dark .glass-card:hover {
-  box-shadow: 0 20px 50px rgba(0, 243, 255, 0.15);
+  box-shadow: 0 20px 50px rgba(0, 243, 255, 0.12);
+  border-color: rgba(0, 243, 255, 0.25);
 }
 
 /* Collapsible details/summary in guide cards */
@@ -101,45 +135,60 @@ html.dark .glass-card:hover {
   transform: rotate(90deg);
 }
 
-/* Primary CTA button */
+/* Primary CTA button — Neon Frost jelly-pill */
 .btn-primary {
   background: linear-gradient(135deg, var(--shadow-accent-strong), var(--shadow-accent));
-  box-shadow: 0 8px 24px color-mix(in oklab, var(--shadow-accent) 38%, transparent);
-  border: 3px solid color-mix(in oklab, var(--shadow-text) 88%, transparent);
+  box-shadow:
+    0 10px 25px rgba(0, 198, 209, 0.35),
+    inset 0 2px 4px rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 9999px;
   color: var(--shadow-button-text);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  backdrop-filter: blur(12px);
+  transition: all 0.5s var(--bezier-bouncy);
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   cursor: pointer;
 }
 .btn-primary:hover {
-  transform: translateY(-4px) scale(1.05);
-  box-shadow: 0 12px 28px color-mix(in oklab, var(--shadow-accent) 50%, transparent);
-  background: linear-gradient(
-    135deg,
-    color-mix(in oklab, var(--shadow-accent-strong) 84%, white 16%),
-    color-mix(in oklab, var(--shadow-accent) 88%, white 12%)
-  );
+  transform: translateY(-6px) scale(1.03);
+  box-shadow:
+    0 16px 32px rgba(0, 198, 209, 0.45),
+    inset 0 2px 4px rgba(255, 255, 255, 0.7);
+}
+.btn-primary:active {
+  transform: translateY(0) scale(0.96);
 }
 
-/* Secondary CTA button */
+/* Secondary CTA button — Vivid Yellow jelly-pill */
 .btn-secondary {
   background: linear-gradient(135deg, var(--shadow-warm), var(--shadow-warm-strong));
-  box-shadow: 0 8px 24px color-mix(in oklab, var(--shadow-warm-strong) 34%, transparent);
-  border: 3px solid color-mix(in oklab, var(--shadow-text) 88%, transparent);
+  box-shadow:
+    0 10px 25px rgba(248, 231, 28, 0.35),
+    inset 0 2px 4px rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 9999px;
   color: var(--shadow-button-text);
-  transition: all 0.2s;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  backdrop-filter: blur(12px);
+  transition: all 0.5s var(--bezier-bouncy);
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   cursor: pointer;
 }
 .btn-secondary:hover {
-  transform: translateY(-4px) scale(1.05);
-  box-shadow: 0 12px 28px color-mix(in oklab, var(--shadow-warm-strong) 48%, transparent);
+  transform: translateY(-6px) scale(1.03);
+  box-shadow:
+    0 16px 32px rgba(248, 231, 28, 0.45),
+    inset 0 2px 4px rgba(255, 255, 255, 0.7);
+}
+.btn-secondary:active {
+  transform: translateY(0) scale(0.96);
 }
 
 /* Hero blob */
@@ -689,12 +738,17 @@ html.dark .rspress-doc hr {
   border-color: rgba(55, 58, 68, 0.4);
 }
 
-/* ===== Rspress nav styling — glass morphism ===== */
+/* ===== Rspress nav — Neon Frost glassmorphism ===== */
 .rspress-nav {
   background: var(--shadow-nav-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-bottom: 2px solid var(--shadow-card-border);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border-bottom: 1px solid var(--shadow-card-border);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.04);
+}
+html.dark .rspress-nav {
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
 }
 
 /* Logo font in Rspress nav */
@@ -702,10 +756,18 @@ html.dark .rspress-doc hr {
   font-family: "ZCOOL KuaiLe", cursive, sans-serif;
 }
 
-/* Nav menu item styling */
+/* Nav menu items — Neon Frost */
 .rspress-nav-menu-item {
-  font-weight: 700;
+  font-family: "Nunito", "Noto Sans SC", sans-serif;
+  font-weight: 800;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   white-space: nowrap;
+  transition: color 0.2s;
+}
+.rspress-nav-menu-item:hover {
+  color: var(--shadow-accent);
 }
 
 /* Launch button in nav — hide on mobile hamburger */
@@ -758,4 +820,69 @@ html.dark .code-group-tabs {
   margin: 0;
   border-radius: 0;
   border: none;
+}
+
+/* ===== Sidebar width ===== */
+:root {
+  --rp-sidebar-width: 220px;
+}
+
+/* ===== Mermaid diagrams ===== */
+.mermaid-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--rp-c-divider, #e5e7eb);
+  background: var(--rp-c-bg-soft, #f8fafc);
+  transition:
+    background 0.2s,
+    border-color 0.2s;
+}
+.dark .mermaid-container {
+  background: #0f172a;
+  border-color: #1e293b;
+}
+
+/* Center the SVG and make it responsive */
+.mermaid-container svg {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  height: auto;
+  font-family: inherit;
+}
+
+/* Fix mermaid text color in dark mode */
+.dark .mermaid-container svg text,
+.dark .mermaid-container svg .label {
+  fill: #e2e8f0 !important;
+  color: #e2e8f0 !important;
+}
+
+/* Loading placeholder */
+.mermaid-placeholder {
+  height: 240px;
+  border-radius: 12px;
+  background: linear-gradient(
+    90deg,
+    var(--rp-c-bg-soft, #f1f5f9) 25%,
+    var(--rp-c-bg-mute, #e2e8f0) 50%,
+    var(--rp-c-bg-soft, #f1f5f9) 75%
+  );
+  background-size: 200% 100%;
+  animation: mermaid-shimmer 1.5s ease-in-out infinite;
+}
+.dark .mermaid-placeholder {
+  background: linear-gradient(90deg, #1e293b 25%, #0f172a 50%, #1e293b 75%);
+  background-size: 200% 100%;
+}
+@keyframes mermaid-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }

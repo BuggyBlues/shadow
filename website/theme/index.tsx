@@ -1,5 +1,6 @@
 import { useLocation, usePageData } from 'rspress/runtime'
 import Theme from 'rspress/theme'
+import { PublicFooter } from '../components/Layout'
 import './index.css'
 
 function CustomNavTitle() {
@@ -46,7 +47,19 @@ function LaunchButton() {
   )
 }
 
-const Layout = () => <Theme.Layout navTitle={<CustomNavTitle />} afterNavMenu={<LaunchButton />} />
+function GlobalFooter() {
+  const { pathname } = useLocation()
+  const isZh = pathname.includes('/zh')
+  return <PublicFooter lang={isZh ? 'zh' : 'en'} />
+}
+
+const Layout = () => (
+  <Theme.Layout
+    navTitle={<CustomNavTitle />}
+    afterNavMenu={<LaunchButton />}
+    bottom={<GlobalFooter />}
+  />
+)
 
 export default {
   ...Theme,

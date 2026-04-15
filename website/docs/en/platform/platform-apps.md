@@ -343,7 +343,7 @@ for (const agent of agents) {
 
 ## API Reference
 
-For complete endpoint documentation, see [OAuth API Reference](/api-doc/oauth).
+For complete endpoint documentation, see [OAuth API Reference](/platform/oauth).
 
 ## CLI Support
 
@@ -366,4 +366,4 @@ shadowob oauth consents --json
 shadowob oauth revoke <app-id>
 ```
 
-See [CLI Reference](/api-doc/cli) for all available commands.
+See [CLI Reference](/platform/cli) for all available commands.

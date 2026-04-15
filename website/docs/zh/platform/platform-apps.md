@@ -343,7 +343,7 @@ for (const agent of agents) {
 
 ## API 参考
 
-完整的端点文档请参阅 [OAuth API 参考](/zh/api-doc/oauth)。
+完整的端点文档请参阅 [OAuth API 参考](/zh/platform/oauth)。
 
 ## CLI 支持
 
@@ -366,4 +366,4 @@ shadowob oauth consents --json
 shadowob oauth revoke <app-id>
 ```
 
-详见 [CLI 参考](/zh/api-doc/cli) 了解所有可用命令。
+详见 [CLI 参考](/zh/platform/cli) 了解所有可用命令。
