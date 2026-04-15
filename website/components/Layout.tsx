@@ -125,7 +125,7 @@ function SearchButton({ lang }: { lang: 'zh' | 'en' }) {
         !document.querySelector('[class*="rspress-search"]') &&
         !document.querySelector('[class*="SearchPanel"]')
       ) {
-        window.location.href = `${base}${prefix}/api-doc/introduction`
+        window.location.href = `${base}${prefix}/platform/introduction`
       }
     }, 150)
   }
@@ -235,20 +235,14 @@ export function PublicNav({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
   const t =
     lang === 'zh'
       ? {
-          buddy: 'Buddy',
-          guide: '玩法',
-          product: '指南',
-          apiDocs: 'API',
-          download: '下载',
+          product: '产品',
+          platform: '开放平台',
           login: '登录',
           launch: '启动！',
         }
       : {
-          buddy: 'Buddy',
-          guide: 'Play',
-          product: 'Guide',
-          apiDocs: 'API',
-          download: 'Download',
+          product: 'Product',
+          platform: 'Platform',
           login: 'Login',
           launch: 'Launch',
         }
@@ -272,39 +266,18 @@ export function PublicNav({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
       </a>
       <div className="hidden md:flex gap-8 text-base font-bold">
         <a
-          href={`${base}${prefix}/buddy`}
-          className="hover:text-cyan-600 transition border-b-2 border-transparent hover:border-cyan-500 py-1"
-          style={{ textDecoration: 'none', color: 'var(--shadow-text-muted)' }}
-        >
-          {t.buddy}
-        </a>
-        <a
-          href={`${base}${prefix}/play/`}
-          className="hover:text-cyan-600 transition border-b-2 border-transparent hover:border-cyan-500 py-1"
-          style={{ textDecoration: 'none', color: 'var(--shadow-text-muted)' }}
-        >
-          {t.guide}
-        </a>
-        <a
-          href={`${base}${prefix}/guide`}
+          href={`${base}${prefix}/product/`}
           className="hover:text-cyan-600 transition border-b-2 border-transparent hover:border-cyan-500 py-1"
           style={{ textDecoration: 'none', color: 'var(--shadow-text-muted)' }}
         >
           {t.product}
         </a>
         <a
-          href={`${base}${prefix}/api-doc/introduction`}
+          href={`${base}${prefix}/platform/introduction`}
           className="hover:text-cyan-600 transition border-b-2 border-transparent hover:border-cyan-500 py-1"
           style={{ textDecoration: 'none', color: 'var(--shadow-text-muted)' }}
         >
-          {t.apiDocs}
-        </a>
-        <a
-          href={`${base}${prefix}/download`}
-          className="hover:text-cyan-600 transition border-b-2 border-transparent hover:border-cyan-500 py-1"
-          style={{ textDecoration: 'none', color: 'var(--shadow-text-muted)' }}
-        >
-          {t.download}
+          {t.platform}
         </a>
       </div>
       <div className="flex items-center gap-2">
@@ -337,22 +310,19 @@ export function PublicFooter({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
           {
             title: '产品',
             links: [
-              { text: '频道', href: `${base}${prefix}/guide/channels` },
-              { text: 'AI 搭子', href: `${base}${prefix}/guide/ai-assistants` },
-              { text: 'Buddy 集市', href: `${base}${prefix}/buddy` },
-              { text: '社区', href: `${base}${prefix}/guide/communities` },
-              { text: '工作区', href: `${base}${prefix}/guide/workspace` },
-              { text: '店铺', href: `${base}${prefix}/guide/shop` },
-              { text: '桌面端', href: `${base}${prefix}/download` },
+              { text: '频道', href: `${base}${prefix}/product/channels` },
+              { text: 'AI 搭子', href: `${base}${prefix}/product/ai-assistants` },
+              { text: '社区', href: `${base}${prefix}/product/communities` },
+              { text: '工作区', href: `${base}${prefix}/product/workspace` },
+              { text: '店铺', href: `${base}${prefix}/product/shop` },
+              { text: '桌面端下载', href: `${base}${prefix}/product/download` },
             ],
           },
           {
             title: '资源',
             links: [
-              { text: '玩法', href: `${base}${prefix}/play/` },
-              { text: '博客', href: `${base}${prefix}/blog/` },
-              { text: '指南', href: `${base}${prefix}/guide` },
-              { text: 'API 文档', href: `${base}${prefix}/api-doc/introduction` },
+              { text: '产品文档', href: `${base}${prefix}/product/` },
+              { text: 'API 文档', href: `${base}${prefix}/platform/introduction` },
               { text: '定价', href: `${base}${prefix}/pricing` },
             ],
           },
@@ -382,22 +352,19 @@ export function PublicFooter({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
           {
             title: 'Product',
             links: [
-              { text: 'Channels', href: `${base}${prefix}/guide/channels` },
-              { text: 'AI Buddies', href: `${base}${prefix}/guide/ai-assistants` },
-              { text: 'Buddy Market', href: `${base}${prefix}/buddy` },
-              { text: 'Communities', href: `${base}${prefix}/guide/communities` },
-              { text: 'Workspace', href: `${base}${prefix}/guide/workspace` },
-              { text: 'Shop', href: `${base}${prefix}/guide/shop` },
-              { text: 'Desktop', href: `${base}${prefix}/download` },
+              { text: 'Channels', href: `${base}${prefix}/product/channels` },
+              { text: 'AI Buddies', href: `${base}${prefix}/product/ai-assistants` },
+              { text: 'Communities', href: `${base}${prefix}/product/communities` },
+              { text: 'Workspace', href: `${base}${prefix}/product/workspace` },
+              { text: 'Shop', href: `${base}${prefix}/product/shop` },
+              { text: 'Desktop Download', href: `${base}${prefix}/product/download` },
             ],
           },
           {
             title: 'Resources',
             links: [
-              { text: 'Play', href: `${base}${prefix}/play/` },
-              { text: 'Blog', href: `${base}${prefix}/blog/` },
-              { text: 'Guide', href: `${base}${prefix}/guide` },
-              { text: 'API Reference', href: `${base}${prefix}/api-doc/introduction` },
+              { text: 'Product Docs', href: `${base}${prefix}/product/` },
+              { text: 'API Reference', href: `${base}${prefix}/platform/introduction` },
               { text: 'Pricing', href: `${base}${prefix}/pricing` },
             ],
           },

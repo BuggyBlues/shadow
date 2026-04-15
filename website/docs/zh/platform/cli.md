@@ -90,4 +90,4 @@ shadowob oauth consents --json
 shadowob oauth revoke <app-id>
 ```
 
-详见 [平台应用](/zh/api-doc/platform-apps) 了解使用 OAuth API 构建应用的完整指南。
+详见 [平台应用](/zh/platform/platform-apps) 了解使用 OAuth API 构建应用的完整指南。

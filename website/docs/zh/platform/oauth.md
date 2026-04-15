@@ -393,5 +393,5 @@ client.revoke_oauth_consent("app-id")
 | `buddies:manage` | 管理搭子、发送消息 |
 
 :::tip
-参阅 [平台应用](/zh/api-doc/platform-apps) 了解使用 OAuth API 构建完整应用的示例。
+参阅 [平台应用](/zh/platform/platform-apps) 了解使用 OAuth API 构建完整应用的示例。
 :::
