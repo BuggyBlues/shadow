@@ -1081,3 +1081,50 @@ html.dark .code-group-tabs {
     background-position: -200% 0;
   }
 }
+
+/* ===== Homepage responsive grids ===== */
+
+/* Main two-column layout: feed + sidebar */
+.home-main-grid {
+  grid-template-columns: 1fr 360px;
+}
+@media (max-width: 1100px) {
+  .home-main-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Featured carousel: 3 columns */
+.home-featured-grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+@media (max-width: 900px) {
+  .home-featured-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 600px) {
+  .home-featured-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Platform funnel: 3 columns */
+.home-platform-grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+@media (max-width: 900px) {
+  .home-platform-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Leaderboard row hover */
+.leaderboard-row:hover {
+  transform: translateX(6px);
+  background: var(--shadow-card-bg) !important;
+  border-color: rgba(0, 198, 209, 0.3) !important;
+}
+html.dark .leaderboard-row:hover {
+  border-color: rgba(0, 243, 255, 0.2) !important;
+}

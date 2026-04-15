@@ -1,5 +1,6 @@
 import { useLang, useLocation, usePageData } from 'rspress/runtime'
 import Theme from 'rspress/theme'
+import { HomeContent } from '../components/HomeContent'
 import { PublicFooter } from '../components/Layout'
 import './index.css'
 
@@ -188,18 +189,16 @@ const Layout = () => {
   const isHomepage = page.pageType === 'custom'
 
   if (isHomepage) {
+    const isZh =
+      page.lang === 'zh' ||
+      (typeof window !== 'undefined' && window.location.pathname.startsWith('/zh'))
     return (
-      <Theme.Layout
-        // biome-ignore lint: rspress LayoutProps type is broad
-        uiSwitch={{ showNavbar: false } as never}
-        top={
-          <>
-            <HomeOrbs />
-            <HomeCapsuleNav />
-          </>
-        }
-        bottom={<GlobalFooter />}
-      />
+      <>
+        <HomeOrbs />
+        <HomeCapsuleNav />
+        <HomeContent lang={isZh ? 'zh' : 'en'} />
+        <GlobalFooter />
+      </>
     )
   }
 
