@@ -1,7 +1,19 @@
 import { Badge, Button, Card, EmptyState, Search } from '@shadowob/ui'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { ChevronRight, Heart, Package, Rocket, Sparkles, Star, Users } from 'lucide-react'
+import {
+  AlertCircle,
+  ChevronRight,
+  Heart,
+  Package,
+  Rocket,
+  Settings,
+  Sparkles,
+  Star,
+  Users,
+  Wifi,
+  WifiOff,
+} from 'lucide-react'
 import { type ReactNode, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PageShell } from '@/components/PageShell'
@@ -236,6 +248,7 @@ function StoreAppCard({
 
 export function StorePage() {
   const { t, i18n } = useTranslation()
+  const openSettings = useAppStore((state) => state.openSettings)
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<TemplateCategoryId | 'all'>('all')
   const [selectedDifficulty, setSelectedDifficulty] = useState<
@@ -243,9 +256,10 @@ export function StorePage() {
   >('all')
   const debouncedSearch = useDebounce(search)
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['template-catalog', i18n.language],
-    queryFn: () => api.templates.catalog(i18n.language),
+  // Use community catalog (with local fallback built into the backend)
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['community-catalog', i18n.language],
+    queryFn: () => api.community.catalog(i18n.language),
   })
 
   const typewriterPlaceholder = useTypewriterPlaceholder(
@@ -254,6 +268,7 @@ export function StorePage() {
 
   const templates = data?.templates ?? []
   const categories = data?.categories ?? []
+  const isCommunitySource = data?.source === 'community'
   const categoryLabels = useMemo(
     () =>
       Object.fromEntries(categories.map((category) => [category.id, category.label])) as Record<
@@ -327,14 +342,43 @@ export function StorePage() {
       title={t('store.title')}
       description={t('store.description')}
       headerContent={
-        <Search
-          value={search}
-          onChange={setSearch}
-          placeholder={typewriterPlaceholder || t('store.searchPlaceholder')}
-        />
+        <div className="flex items-center gap-2">
+          <Search
+            value={search}
+            onChange={setSearch}
+            placeholder={typewriterPlaceholder || t('store.searchPlaceholder')}
+          />
+          {/* Community source indicator */}
+          <div
+            className={cn(
+              'hidden sm:flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium',
+              isCommunitySource
+                ? 'border-primary/20 bg-primary/8 text-primary'
+                : 'border-border-subtle bg-bg-secondary text-text-muted',
+            )}
+            title={isCommunitySource ? t('store.communitySource') : t('store.localSource')}
+          >
+            {isCommunitySource ? <Wifi size={11} /> : <WifiOff size={11} />}
+            <span className="whitespace-nowrap">{isCommunitySource ? t('store.communitySource') : t('store.localSource')}</span>
+          </div>
+          <Button variant="ghost" size="sm" className="hidden sm:flex" onClick={() => openSettings('community')}>
+            <Settings size={13} />
+          </Button>
+        </div>
       }
       bodyClassName="space-y-4"
     >
+      {/* Error — community unreachable (shouldn't happen since we fall back, but just in case) */}
+      {isError && (
+        <div className="glass-card flex items-center gap-3 px-5 py-4 text-sm">
+          <AlertCircle size={16} className="shrink-0 text-warning" />
+          <span className="text-text-secondary">{t('store.communityUnavailable')}</span>
+          <Button variant="secondary" size="sm" className="ml-auto shrink-0" onClick={() => openSettings('community')}>
+            <Settings size={12} className="mr-1" />
+            {t('community.configure')}
+          </Button>
+        </div>
+      )}
       {/* Filter strip — colocated with cards */}
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap gap-1.5">

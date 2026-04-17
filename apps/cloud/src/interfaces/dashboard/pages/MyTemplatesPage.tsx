@@ -683,7 +683,7 @@ export function MyTemplatesPage() {
                 type="button"
                 variant="primary"
                 size="sm"
-                onClick={() => setShowForkDialog(true)}
+                onClick={() => navigate({ to: '/store' })}
               >
                 <GitFork size={14} />
                 <span className="truncate">{t('templates.forkFromStore')}</span>

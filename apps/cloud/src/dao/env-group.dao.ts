@@ -2,7 +2,7 @@
  * DAO — persisted environment groups.
  */
 
-import { asc } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import type { CloudDatabase } from '../db/index.js'
 import { envGroups } from '../db/schema.js'
 
@@ -23,5 +23,10 @@ export class EnvGroupDao {
 
   create(name: string): void {
     this.ensure(name)
+  }
+
+  delete(name: string): void {
+    if (name === 'default') return // protect default group
+    this.db.delete(envGroups).where(eq(envGroups.name, name)).run()
   }
 }

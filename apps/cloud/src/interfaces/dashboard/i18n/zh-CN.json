@@ -2,7 +2,7 @@
   "nav": {
     "deploy": "部署",
     "consoleHome": "控制台首页",
-    "agentStore": "Agent 商店",
+    "agentStore": "虾豆商店",
     "myTemplates": "我的模板",
     "manage": "管理",
     "clusters": "集群",
@@ -14,7 +14,8 @@
     "activity": "活动",
     "settings": "设置",
     "shadowCloud": "Shadow Cloud",
-    "console": "控制台"
+    "console": "控制台",
+    "shrimp": "虾豆商店"
   },
   "common": {
     "save": "保存",
@@ -144,7 +145,7 @@
     "image": "镜像"
   },
   "store": {
-    "title": "Agent 商店",
+    "title": "虾豆商店",
     "heroTitle": "一键部署 AI Agent 团队",
     "description": "浏览生产就绪的 Agent 团队模板。每个模板包含预配置的 Agent、工作流和部署设置 — 可直接部署到 Kubernetes 集群。",
     "searchPlaceholder": "按名称、分类或功能搜索模板…",
@@ -199,7 +200,10 @@
       "beginner": "入门",
       "intermediate": "进阶",
       "advanced": "高级"
-    }
+    },
+    "communitySource": "社区",
+    "localSource": "本地",
+    "communityUnavailable": "社区服务器不可用，正在显示本地模版。"
   },
   "storeDetail": {
     "overview": "概览",
@@ -240,6 +244,7 @@
   "deploy": {
     "reviewTemplate": "审查模板",
     "confirmDeployKubernetes": "确认要部署到 Kubernetes 集群的模板。",
+    "ownTemplateDescription": "你的自定义模板。",
     "agentsLabel": "Agent",
     "namespaceLabel": "命名空间",
     "deployTimeLabel": "部署时间",
@@ -256,6 +261,9 @@
     "restoreSavedValue": "恢复已保存的值",
     "usingSavedValue": "使用密钥中已保存的值",
     "override": "覆盖",
+    "useSaved": "使用已保存",
+    "fillFromGroup": "从分组自动填充：",
+    "selectGroup": "选择分组...",
     "additionalVariables": "附加变量",
     "optionalKeyValue": "超出必填项的可选键值对。",
     "noAdditionalVars": "无附加变量。",
@@ -563,7 +571,12 @@
     "tools": "工具",
     "noContent": "没有内容",
     "noContentDescription": "模板没有配置数据。",
-    "noAgents": "此模板中未找到 Agent 定义。"
+    "noAgents": "此模板中未找到 Agent 定义。",
+    "publishToCommunity": "发布到社区",
+    "publishing": "发布中...",
+    "publishSuccess": "模版已成功发布到社区。",
+    "publishFailed": "发布失败，请在设置中检查社区 Token。",
+    "publishTooltip": "将此模版发布到社区服务器"
   },
   "secrets": {
     "title": "密钥与环境变量",
@@ -577,6 +590,11 @@
     "groupNamePlaceholder": "分组名称",
     "groupCreated": "分组已创建",
     "groupCreateFailed": "创建分组失败",
+    "groupDeleted": "分组已删除",
+    "groupDeleteFailed": "删除分组失败",
+    "deleteGroup": "删除分组",
+    "deleteGroupTitle": "删除分组？",
+    "deleteGroupDescription": "这将永久删除「{{group}}」分组及其所有环境变量，此操作无法撤销。",
     "providerSecrets": "服务商密钥",
     "providerSecretsDesc": "LLM 服务商的 API 密钥和凭据。使用口令派生密钥进行静态加密。",
     "addSecret": "添加密钥",
@@ -736,7 +754,27 @@
     "configuration": "配置",
     "searchPlugins": "搜索插件…",
     "allCategories": "所有分类",
-    "developer": "开发者"
+    "developer": "开发者",
+    "community": "社区",
+    "communityDescription": "连接到 Shadow 社区中心，浏览并 Fork 社区分享的模版。",
+    "communityServer": "服务器配置",
+    "communityBaseUrl": "社区服务器地址",
+    "communityBaseUrlHint": "Shadow 社区服务器的 URL，默认为 https://shadowob.com。",
+    "communityToken": "访问令牌",
+    "communityTokenSet": "已设置",
+    "communityTokenPlaceholder": "粘贴您的令牌...",
+    "communityTokenHint": "社区服务器的个人访问令牌。如需通过 OAuth 授权，可留空。",
+    "communityConnected": "已连接到社区",
+    "communityNotConnected": "未连接",
+    "communitySaved": "社区设置已保存。",
+    "communityOAuth": "通过 OAuth 授权",
+    "communityOAuthHint": "弹出社区服务器页面，使用您的账号授权。",
+    "communityOAuthSuccess": "已通过 OAuth 成功连接。",
+    "communityOAuthError": "OAuth 授权失败，请重试。",
+    "connectViaOAuth": "通过 OAuth 连接",
+    "communityBrowse": "访问社区",
+    "communityBrowseHint": "在社区服务器上浏览完整的模版目录。",
+    "openCommunity": "打开社区"
   },
   "deployTask": {
     "title": "部署任务",
@@ -831,5 +869,19 @@
   },
   "confirmDialog": {
     "typeToConfirm": "输入 {{text}} 以确认："
+  },
+  "community": {
+    "title": "社区模版",
+    "description": "浏览 Shadow 社区分享的模版。",
+    "searchPlaceholder": "搜索社区模版...",
+    "forkToLocal": "Fork 到本地",
+    "forking": "Fork 中...",
+    "forkSuccess": "已将 \"{{name}}\" Fork 到您的模版。",
+    "forkError": "Fork 模版失败，请重试。",
+    "noTemplates": "未找到模版",
+    "noTemplatesHint": "尝试其他搜索词，或检查社区服务器连接配置。",
+    "errorTitle": "无法加载社区模版",
+    "errorHint": "请在 设置 → 社区 中检查社区服务器地址和令牌。",
+    "configure": "配置"
   }
 }

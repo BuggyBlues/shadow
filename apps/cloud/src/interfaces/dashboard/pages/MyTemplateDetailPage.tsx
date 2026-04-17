@@ -31,6 +31,7 @@ import {
   Settings,
   Shield,
   Trash2,
+  Upload,
   Users,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -208,12 +209,12 @@ function EditorTab({
           <Shield size={14} />
           {validateResult.valid
             ? t('templateDetail.validationSummaryValid', {
-                agents: validateResult.agents,
-                configurations: validateResult.configurations,
-              })
+              agents: validateResult.agents,
+              configurations: validateResult.configurations,
+            })
             : t('templateDetail.validationSummaryInvalid', {
-                count: validateResult.violations.length,
-              })}
+              count: validateResult.violations.length,
+            })}
         </div>
       )}
 
@@ -395,6 +396,12 @@ export function MyTemplateDetailPage() {
     onError: () => toast.error(t('templateDetail.templateDeleteFailed')),
   })
 
+  const publishMutation = useMutation({
+    mutationFn: () => api.community.publish(name),
+    onSuccess: () => toast.success(t('templateDetail.publishSuccess')),
+    onError: () => toast.error(t('templateDetail.publishFailed')),
+  })
+
   const agents = useMemo(
     () => (data?.content ? parseTemplateAgents(data.content) : []),
     [data?.content],
@@ -520,6 +527,17 @@ export function MyTemplateDetailPage() {
                 <Rocket size={16} />
                 {t('common.deploy')}
               </Link>
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={publishMutation.isPending}
+              onClick={() => publishMutation.mutate()}
+              title={t('templateDetail.publishTooltip')}
+            >
+              <Upload size={14} />
+              {publishMutation.isPending ? t('templateDetail.publishing') : t('templateDetail.publishToCommunity')}
             </Button>
             <Button
               type="button"

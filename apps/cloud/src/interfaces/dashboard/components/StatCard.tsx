@@ -13,12 +13,12 @@ interface StatCardProps {
 }
 
 const colorMap = {
-  default: { icon: 'text-text-muted', value: 'text-text-primary', chip: 'bg-bg-tertiary/70' },
-  green: { icon: 'text-success', value: 'text-success', chip: 'bg-success/12' },
-  yellow: { icon: 'text-warning', value: 'text-warning', chip: 'bg-warning/12' },
-  red: { icon: 'text-danger', value: 'text-danger', chip: 'bg-danger/12' },
-  blue: { icon: 'text-primary', value: 'text-primary', chip: 'bg-primary/12' },
-  purple: { icon: 'text-accent', value: 'text-accent', chip: 'bg-accent/12' },
+  default: { icon: 'text-text-muted', value: 'text-text-primary' },
+  green: { icon: 'text-success', value: 'text-success' },
+  yellow: { icon: 'text-warning', value: 'text-warning' },
+  red: { icon: 'text-danger', value: 'text-danger' },
+  blue: { icon: 'text-primary', value: 'text-primary' },
+  purple: { icon: 'text-accent', value: 'text-accent' },
 }
 
 export function StatCard({
@@ -45,13 +45,7 @@ export function StatCard({
     >
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2 text-xs">
-          <span
-            className={cn(
-              'inline-flex h-6 w-6 items-center justify-center rounded-lg border border-border-subtle',
-              colors.chip,
-              colors.icon,
-            )}
-          >
+          <span className={cn('inline-flex items-center justify-center', colors.icon)}>
             {icon}
           </span>
           <span className="text-text-muted">{label}</span>

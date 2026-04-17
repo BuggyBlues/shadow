@@ -15,7 +15,6 @@ import { MonitoringPage } from '@/pages/MonitoringPage'
 import { MyTemplateDetailPage } from '@/pages/MyTemplateDetailPage'
 import { MyTemplatesPage } from '@/pages/MyTemplatesPage'
 import { SecretsPage } from '@/pages/SecretsPage'
-import { SettingsPage } from '@/pages/SettingsPage'
 import { StoreDetailPage } from '@/pages/StoreDetailPage'
 import { StorePage } from '@/pages/StorePage'
 import { ValidatePage } from '@/pages/ValidatePage'
@@ -43,7 +42,9 @@ const rootRoute = createRootRoute({
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  component: withErrorBoundary(StorePage),
+  beforeLoad: () => {
+    throw redirect({ to: '/store' })
+  },
 })
 
 // ── Agent Store ───────────────────────────────────────────────────────────────
@@ -171,7 +172,9 @@ const activityRoute = createRoute({
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings',
-  component: withErrorBoundary(SettingsPage),
+  beforeLoad: () => {
+    throw redirect({ to: '/' })
+  },
 })
 
 const secretsRoute = createRoute({

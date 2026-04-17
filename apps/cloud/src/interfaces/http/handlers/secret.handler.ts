@@ -74,6 +74,15 @@ export function createSecretHandler(ctx: HandlerContext): Hono {
     }
   })
 
+  app.delete('/env/groups/:name', (c) => {
+    const name = c.req.param('name')
+    if (!name || name === 'default') {
+      return c.json({ error: 'Cannot delete the default group' }, 400)
+    }
+    ctx.envGroupDao.delete(name)
+    return c.json({ ok: true })
+  })
+
   app.get('/env', (c) => {
     const envVars = ctx.envVarDao.findAllMasked()
     const groups = new Set<string>(ctx.envGroupDao.findAll())

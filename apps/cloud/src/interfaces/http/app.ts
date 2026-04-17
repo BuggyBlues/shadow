@@ -10,6 +10,7 @@ import { cors } from 'hono/cors'
 import type { HandlerContext } from './handlers/types.js'
 import { createActivityHandler } from './handlers/activity.handler.js'
 import { createClusterHandler } from './handlers/cluster.handler.js'
+import { createCommunityHandler } from './handlers/community.handler.js'
 import { createConfigHandler } from './handlers/config.handler.js'
 import { createDeployHandler } from './handlers/deploy.handler.js'
 import { createHealthHandler } from './handlers/health.handler.js'
@@ -70,6 +71,7 @@ export function createCloudApp(ctx: HandlerContext, authToken?: string): Hono {
   app.route('/api', createActivityHandler(ctx))
   app.route('/api', createSecretHandler(ctx))
   app.route('/api', createMyTemplatesHandler(ctx))
+  app.route('/api', createCommunityHandler(ctx))
 
   // ── Console static files ──────────────────────────────────────────────
   app.get('*', (c) => {

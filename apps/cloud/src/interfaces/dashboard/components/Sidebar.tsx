@@ -11,13 +11,14 @@ import {
   Copy,
   Layers,
   type LucideIcon,
-  Package,
   Settings,
   ShieldCheck,
   ShoppingBag,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
+import { useAppStore } from '@/stores/app'
+import { SettingsModal } from '@/pages/SettingsPage'
 
 interface NavItem {
   to: string
@@ -37,7 +38,7 @@ const NAV_SECTIONS: NavSection[] = [
     id: 'discover',
     labelKey: 'nav.deploy',
     items: [
-      { to: '/', labelKey: 'nav.agentStore', icon: ShoppingBag, exact: true },
+      { to: '/store', labelKey: 'nav.shrimp', icon: ShoppingBag },
       { to: '/my-templates', labelKey: 'nav.myTemplates', icon: Copy },
     ],
   },
@@ -91,6 +92,7 @@ function SidebarSection({ section }: { section: NavSection }) {
 
 export function Sidebar() {
   const { t } = useTranslation()
+  const { settingsOpen, settingsTab, openSettings, closeSettings } = useAppStore()
 
   return (
     <aside className="relative z-20 w-[248px] shrink-0">
@@ -99,8 +101,8 @@ export function Sidebar() {
           <SidebarHeader className="border-b-0 bg-transparent p-3">
             <div className="flex items-center justify-between gap-2">
               <Link to="/" className="flex min-w-0 items-center gap-3 rounded-[20px]">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] border border-white/20 bg-primary shadow-[0_14px_28px_rgba(0,198,209,0.18),inset_0_1px_0_rgba(255,255,255,0.4)]">
-                  <Package size={20} className="text-black" />
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] overflow-hidden border border-white/20 shadow-[0_14px_28px_rgba(0,198,209,0.18),inset_0_1px_0_rgba(255,255,255,0.4)]">
+                  <img src="/logo.png" alt="Shadow Cloud" className="h-full w-full object-cover" />
                 </div>
 
                 <div className="min-w-0">
@@ -113,13 +115,14 @@ export function Sidebar() {
                 </div>
               </Link>
 
-              <Link
-                to="/settings"
+              <button
+                type="button"
+                onClick={() => openSettings()}
                 title={t('nav.settings')}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-text-muted transition-colors hover:bg-bg-modifier-hover hover:text-text-primary"
               >
                 <Settings size={15} />
-              </Link>
+              </button>
             </div>
           </SidebarHeader>
 
@@ -130,6 +133,7 @@ export function Sidebar() {
           </SidebarContent>
         </UISidebar>
       </div>
+      <SettingsModal open={settingsOpen} onClose={closeSettings} initialTab={settingsTab} />
     </aside>
   )
 }
