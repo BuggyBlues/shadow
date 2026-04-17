@@ -8,6 +8,7 @@ COPY packages/shared/package.json packages/shared/
 COPY packages/shared/tsup.config.ts packages/shared/
 COPY packages/sdk/package.json packages/sdk/
 COPY packages/sdk/tsup.config.ts packages/sdk/
+COPY packages/ui/package.json packages/ui/
 COPY apps/server/package.json apps/server/
 COPY apps/cloud/package.json apps/cloud/
 
@@ -16,6 +17,7 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 COPY packages/ packages/
 COPY apps/server/ apps/server/
 COPY apps/cloud/ apps/cloud/
+COPY apps/web/src/styles/ apps/web/src/styles/
 
 RUN pnpm --filter @shadowob/shared build && \
     pnpm --filter @shadowob/sdk build && \
@@ -41,4 +43,4 @@ COPY --from=builder /app/apps/server/dist apps/server/dist
 COPY --from=builder /app/apps/cloud/dist apps/cloud/dist
 
 ENV NODE_ENV=production
-CMD ["node", "apps/cloud/dist/worker.js"]
+CMD ["node", "apps/cloud/dist/worker.cjs"]

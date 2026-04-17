@@ -1,15 +1,26 @@
 -- Add cloud SaaS schema: templates, clusters, deployments, logs, configs, env vars, activities
 
--- Enums
-CREATE TYPE "cloud_deployment_status" AS ENUM (
-  'pending', 'deploying', 'deployed', 'failed', 'destroying', 'destroyed'
-);
-CREATE TYPE "cloud_template_source" AS ENUM ('official', 'community');
-CREATE TYPE "cloud_template_review_status" AS ENUM ('pending', 'approved', 'rejected');
-CREATE TYPE "cloud_activity_type" AS ENUM (
-  'deploy', 'destroy', 'scale', 'config_update',
-  'cluster_add', 'cluster_remove', 'envvar_update', 'template_submit'
-);
+-- Enums (idempotent)
+DO $$ BEGIN
+  CREATE TYPE "cloud_deployment_status" AS ENUM (
+    'pending', 'deploying', 'deployed', 'failed', 'destroying', 'destroyed'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE "cloud_template_source" AS ENUM ('official', 'community');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE "cloud_template_review_status" AS ENUM ('pending', 'approved', 'rejected');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE "cloud_activity_type" AS ENUM (
+    'deploy', 'destroy', 'scale', 'config_update',
+    'cluster_add', 'cluster_remove', 'envvar_update', 'template_submit'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- cloud_templates
 CREATE TABLE IF NOT EXISTS "cloud_templates" (

@@ -1,5 +1,6 @@
 import confetti from 'canvas-confetti'
 import { useEffect, useRef, useState } from 'react'
+import { fetchConfig } from '../lib/config-client'
 
 /* ─── Scroll reveal ─── */
 function ScrollReveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
@@ -263,6 +264,45 @@ const TOPICS: Topic[] = [
     accent: '#f472b6',
   },
 ]
+
+/* ─── Remote config state (overrides static data at runtime) ─── */
+
+// Module-level mutable references so all components share the same data
+let _plays: Play[] = PLAYS
+let _topics: Topic[] = TOPICS
+let _categoryMeta: CategoryMeta[] = CATEGORY_META
+
+// Subscriber pattern for hydration
+type ConfigListener = () => void
+const configListeners = new Set<ConfigListener>()
+let configLoaded = false
+
+async function loadRemoteConfig() {
+  if (configLoaded) return
+  configLoaded = true
+  try {
+    const [playsData, topicsData, categoryData] = await Promise.all([
+      fetchConfig<Play[]>('homepage-plays', PLAYS),
+      fetchConfig<Topic[]>('homepage-topics', TOPICS),
+      fetchConfig<CategoryMeta[]>('homepage-category-meta', CATEGORY_META),
+    ])
+    _plays = playsData
+    _topics = topicsData
+    _categoryMeta = categoryData
+    for (const fn of configListeners) fn()
+  } catch { }
+}
+
+function useRemoteData() {
+  const [, forceUpdate] = useState(0)
+  useEffect(() => {
+    const refresh = () => forceUpdate((n) => n + 1)
+    configListeners.add(refresh)
+    void loadRemoteConfig()
+    return () => { configListeners.delete(refresh) }
+  }, [])
+  return { plays: _plays, topics: _topics, categoryMeta: _categoryMeta }
+}
 
 /* ─── Hero: Typing slogan (2 lines, loops) ─── */
 
@@ -1491,6 +1531,12 @@ function DevCta({ isZh }: { isZh: boolean }) {
 
 export function HomeContent({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
   const isZh = lang === 'zh'
+  const { plays, topics, categoryMeta } = useRemoteData()
+
+  // Override module-level references so child components use fresh data
+  _plays = plays
+  _topics = topics
+  _categoryMeta = categoryMeta
 
   return (
     <div className="shadow-page" style={{ minHeight: '100vh' }}>

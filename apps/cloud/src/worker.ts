@@ -9,7 +9,6 @@
  *   POLL_INTERVAL_MS  — how often to poll (default: 5000)
  *   KMS_MASTER_KEY    — 32-byte hex key for decrypting kubeconfigs
  */
-import 'dotenv/config'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { CloudClusterDao } from '../../server/src/dao/cloud-cluster.dao'
