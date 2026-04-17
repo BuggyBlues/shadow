@@ -378,10 +378,9 @@ function stripAndCollectWorkspaceFiles(openclawConfig: OpenClawConfig): Record<s
 /**
  * Run the plugin pipeline — iterate enabled plugins, call their hooks, and merge results.
  *
- * Resolution order (new OS-like providers take priority over legacy hooks):
- * 1. configBuilder.build / channel.buildChannel (new structured providers)
- * 2. buildOpenClawConfig (legacy hook, fallback)
- * 3. env.build / buildEnvVars for environment variables
+ * Resolution order:
+ * 1. configBuilder.build / channel.buildChannel
+ * 2. env.build for environment variables
  */
 function applyPluginPipeline(
   agent: AgentDeployment,
@@ -423,38 +422,30 @@ function applyPluginPipeline(
       secrets,
       namespace: config.deployments?.namespace ?? 'default',
       pluginRegistry: registry,
-      cwd,
+      cwd: cwd ?? process.cwd(),
     }
 
     // agentConfig: use options as base, plugin instance config overrides
     // Note: resolved IS the merged config (not a wrapper), use it directly.
     const agentConfig: Record<string, unknown> = { ...useOptions, ...(resolved ?? {}) }
 
-    // Build OpenClaw config fragment (new providers → legacy fallback)
+    // Build OpenClaw config fragment
     if (pluginDef.configBuilder) {
       const fragment = pluginDef.configBuilder.build(agentConfig, context)
       Object.assign(openclawConfig, mergePluginFragments(openclawConfig, fragment))
     } else if (pluginDef.channel) {
       const fragment = pluginDef.channel.buildChannel(agentConfig, context)
       Object.assign(openclawConfig, mergePluginFragments(openclawConfig, fragment))
-    } else if (pluginDef.buildOpenClawConfig) {
-      const fragment = pluginDef.buildOpenClawConfig(agentConfig, context)
-      Object.assign(openclawConfig, mergePluginFragments(openclawConfig, fragment))
     }
 
-    // Build env vars (new provider → legacy fallback)
+    // Build env vars
     if (pluginDef.env) {
       Object.assign(envVars, pluginDef.env.build(agentConfig, context))
-    } else if (pluginDef.buildEnvVars) {
-      Object.assign(envVars, pluginDef.buildEnvVars(agentConfig, context))
     }
 
-    // Collect K8s resources (new provider → legacy fallback)
-    if (pluginDef.resources) {
-      const resources = pluginDef.resources.build(agentConfig, context)
-      pluginResources.push(...resources)
-    } else if (pluginDef.buildK8sResources) {
-      const resources = pluginDef.buildK8sResources(agentConfig, context)
+    // Collect K8s resources
+    if (pluginDef.k8sManifests) {
+      const resources = pluginDef.k8sManifests.build(agentConfig, context)
       pluginResources.push(...resources)
     }
 

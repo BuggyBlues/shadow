@@ -5,19 +5,16 @@
  * 1. createSkillPlugin  — skill-based plugin (most common, skills+CLI first)
  * 2. createChannelPlugin — communication channel plugin
  * 3. createProviderPlugin — AI model provider plugin
- *
- * Legacy compatibility:
- * - createToolPlugin — MCP-style tool plugin (deprecated, use createSkillPlugin)
  */
 
 import type {
   PluginBuildContext,
+  PluginCLIProvider,
   PluginConfigFragment,
   PluginDefinition,
   PluginManifest,
-  PluginSkillsProvider,
-  PluginCLIProvider,
   PluginMCPProvider,
+  PluginSkillsProvider,
   PluginValidationResult,
 } from './types.js'
 
@@ -157,17 +154,6 @@ export function createSkillPlugin(
     validation: {
       validate: (_agentConfig, context) => buildDefaultValidation(manifest, context),
     },
-
-    // ── Legacy compat (auto-delegate to new providers) ──
-    buildOpenClawConfig(agentConfig, context) {
-      return this.configBuilder!.build(agentConfig, context)
-    },
-    buildEnvVars(_agentConfig, context) {
-      return buildDefaultEnvVars(manifest, context)
-    },
-    validate(_agentConfig, context) {
-      return buildDefaultValidation(manifest, context)
-    },
   }
 }
 
@@ -212,15 +198,6 @@ export function createChannelPlugin(
     validation: {
       validate: (_agentConfig, context) => buildDefaultValidation(manifest, context),
     },
-
-    // ── Legacy compat ──
-    buildOpenClawConfig: channelBuilder,
-    buildEnvVars(_agentConfig, context) {
-      return buildDefaultEnvVars(manifest, context)
-    },
-    validate(_agentConfig, context) {
-      return buildDefaultValidation(manifest, context)
-    },
   }
 }
 
@@ -245,7 +222,10 @@ export function createProviderPlugin(
 
     // ── Config Builder ──
     configBuilder: {
-      build(agentConfig: Record<string, unknown>, _context: PluginBuildContext): PluginConfigFragment {
+      build(
+        agentConfig: Record<string, unknown>,
+        _context: PluginBuildContext,
+      ): PluginConfigFragment {
         const apiKeyField = manifest.auth.fields.find((f) => f.required && f.sensitive)
         const config: Record<string, unknown> = {
           ...(apiKeyField ? { apiKey: `\${env:${apiKeyField.key}}` } : {}),
@@ -275,17 +255,6 @@ export function createProviderPlugin(
     validation: {
       validate: (_agentConfig, context) => buildDefaultValidation(manifest, context),
     },
-
-    // ── Legacy compat ──
-    buildOpenClawConfig(agentConfig, context) {
-      return this.configBuilder!.build(agentConfig, context)
-    },
-    buildEnvVars(_agentConfig, context) {
-      return buildDefaultEnvVars(manifest, context)
-    },
-    validate(_agentConfig, context) {
-      return buildDefaultValidation(manifest, context)
-    },
   }
 }
 
@@ -294,43 +263,47 @@ export function createProviderPlugin(
 /**
  * @deprecated Use createSkillPlugin instead. This creates an MCP-based tool plugin.
  */
-export function createToolPlugin(rawManifest: PluginManifest | Record<string, unknown>): PluginDefinition {
+export function createToolPlugin(
+  rawManifest: PluginManifest | Record<string, unknown>,
+): PluginDefinition {
   const manifest = rawManifest as PluginManifest
   return {
     manifest,
 
-    buildOpenClawConfig(
-      agentConfig: Record<string, unknown>,
-      _context: PluginBuildContext,
-    ): PluginConfigFragment {
-      const entry: Record<string, unknown> = {
-        enabled: true,
-        config: { ...agentConfig },
-      }
-
-      const apiKeyField = manifest.auth.fields.find((f) => f.required && f.sensitive)
-      if (apiKeyField) {
-        entry.config = {
-          ...(entry.config as Record<string, unknown>),
-          apiKey: `\${env:${apiKeyField.key}}`,
+    configBuilder: {
+      build(
+        agentConfig: Record<string, unknown>,
+        _context: PluginBuildContext,
+      ): PluginConfigFragment {
+        const entry: Record<string, unknown> = {
+          enabled: true,
+          config: { ...agentConfig },
         }
-      }
 
-      return {
-        plugins: {
-          entries: {
-            [manifest.id]: entry,
+        const apiKeyField = manifest.auth.fields.find((f) => f.required && f.sensitive)
+        if (apiKeyField) {
+          entry.config = {
+            ...(entry.config as Record<string, unknown>),
+            apiKey: `\${env:${apiKeyField.key}}`,
+          }
+        }
+
+        return {
+          plugins: {
+            entries: {
+              [manifest.id]: entry,
+            },
           },
-        },
-      }
+        }
+      },
     },
 
-    buildEnvVars(_agentConfig, context) {
-      return buildDefaultEnvVars(manifest, context)
+    env: {
+      build: (_agentConfig, context) => buildDefaultEnvVars(manifest, context),
     },
 
-    validate(_agentConfig, context) {
-      return buildDefaultValidation(manifest, context)
+    validation: {
+      validate: (_agentConfig, context) => buildDefaultValidation(manifest, context),
     },
   }
 }

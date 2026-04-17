@@ -23,6 +23,7 @@
  */
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { readdir, readFile as readFileAsync, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import type {
   AgentCompliance,
@@ -233,17 +234,40 @@ function safeParseYaml(content: string, context: string): Record<string, unknown
 
 // ─── File readers ─────────────────────────────────────────────────────────────
 
-function readFile(dir: string, ...parts: string[]): string | null {
+/** Sync file reader — used for build-time config generation (config-builder). */
+function readFileSync_(dir: string, ...parts: string[]): string | null {
   const p = join(dir, ...parts)
   if (!existsSync(p)) return null
   return readFileSync(p, 'utf-8')
 }
 
-function listDir(dir: string, ...parts: string[]): string[] {
+/** Sync dir reader — used for build-time config generation (config-builder). */
+function listDirSync(dir: string, ...parts: string[]): string[] {
   const p = join(dir, ...parts)
   if (!existsSync(p)) return []
   try {
     return readdirSync(p)
+  } catch {
+    return []
+  }
+}
+
+/** Async file reader — used for pre-build agent resolution. */
+async function readFileA(dir: string, ...parts: string[]): Promise<string | null> {
+  const p = join(dir, ...parts)
+  try {
+    return await readFileAsync(p, 'utf-8')
+  } catch {
+    return null
+  }
+}
+
+/** Async dir reader — used for pre-build agent resolution. */
+async function listDirA(dir: string, ...parts: string[]): Promise<string[]> {
+  const p = join(dir, ...parts)
+  try {
+    await stat(p)
+    return await readdir(p)
   } catch {
     return []
   }
@@ -554,8 +578,8 @@ export interface ParsedGitAgent {
 }
 
 /**
- * Read and parse all gitagent standard files from a local directory.
- * Non-existent files are silently skipped.
+ * Read and parse all gitagent standard files from a local directory (synchronous).
+ * Used by config-builder at build time. Non-existent files are silently skipped.
  */
 export function readGitAgentDir(dir: string): ParsedGitAgent {
   const parsed: ParsedGitAgent = {
@@ -566,37 +590,37 @@ export function readGitAgentDir(dir: string): ParsedGitAgent {
   }
 
   // agent.yaml (required by spec, but we handle missing gracefully)
-  const agentYaml = readFile(dir, 'agent.yaml')
+  const agentYaml = readFileSync_(dir, 'agent.yaml')
   if (agentYaml) parsed.manifest = parseAgentYaml(agentYaml)
 
   // SOUL.md
-  const soulMd = readFile(dir, 'SOUL.md')
+  const soulMd = readFileSync_(dir, 'SOUL.md')
   if (soulMd) parsed.soul = parseSoulMd(soulMd)
 
   // RULES.md
-  const rulesMd = readFile(dir, 'RULES.md')
+  const rulesMd = readFileSync_(dir, 'RULES.md')
   if (rulesMd) parsed.rules = parseRulesMd(rulesMd)
 
   // INSTRUCTIONS.md
-  const instructionsMd = readFile(dir, 'INSTRUCTIONS.md')
+  const instructionsMd = readFileSync_(dir, 'INSTRUCTIONS.md')
   if (instructionsMd) parsed.instructions = parseInstructionsMd(instructionsMd)
 
   // AGENTS.md
-  const agentsMd = readFile(dir, 'AGENTS.md')
+  const agentsMd = readFileSync_(dir, 'AGENTS.md')
   if (agentsMd) parsed.agents = agentsMd.trim()
 
   // skills/*/SKILL.md
-  for (const skillDir of listDir(dir, 'skills')) {
-    const skillMd = readFile(dir, 'skills', skillDir, 'SKILL.md')
+  for (const skillDir of listDirSync(dir, 'skills')) {
+    const skillMd = readFileSync_(dir, 'skills', skillDir, 'SKILL.md')
     if (skillMd) {
       parsed.skills.push(parseSkillMd(skillDir, skillMd))
     }
   }
 
   // tools/*.yaml
-  for (const toolFile of listDir(dir, 'tools')) {
+  for (const toolFile of listDirSync(dir, 'tools')) {
     if (!toolFile.endsWith('.yaml') && !toolFile.endsWith('.yml')) continue
-    const toolContent = readFile(dir, 'tools', toolFile)
+    const toolContent = readFileSync_(dir, 'tools', toolFile)
     if (toolContent) {
       const toolId = toolFile.replace(/\.(ya?ml)$/, '')
       parsed.tools.push(parseToolYaml(toolId, toolContent))
@@ -604,34 +628,104 @@ export function readGitAgentDir(dir: string): ParsedGitAgent {
   }
 
   // hooks/hooks.yaml
-  const hooksYaml = readFile(dir, 'hooks', 'hooks.yaml')
+  const hooksYaml = readFileSync_(dir, 'hooks', 'hooks.yaml')
   if (hooksYaml) {
     parsed.hooks = parseHooksYaml(hooksYaml)
-    parsed.hooks.bootstrap = readFile(dir, 'hooks', 'bootstrap.md') ?? undefined
-    parsed.hooks.teardown = readFile(dir, 'hooks', 'teardown.md') ?? undefined
+    parsed.hooks.bootstrap = readFileSync_(dir, 'hooks', 'bootstrap.md') ?? undefined
+    parsed.hooks.teardown = readFileSync_(dir, 'hooks', 'teardown.md') ?? undefined
   } else {
-    const bootstrap = readFile(dir, 'hooks', 'bootstrap.md')
-    const teardown = readFile(dir, 'hooks', 'teardown.md')
+    const bootstrap = readFileSync_(dir, 'hooks', 'bootstrap.md')
+    const teardown = readFileSync_(dir, 'hooks', 'teardown.md')
     if (bootstrap || teardown) {
       parsed.hooks = { bootstrap: bootstrap ?? undefined, teardown: teardown ?? undefined }
     }
   }
 
   // skillflows/*.yaml
-  for (const sfFile of listDir(dir, 'skillflows')) {
+  for (const sfFile of listDirSync(dir, 'skillflows')) {
     if (!sfFile.endsWith('.yaml') && !sfFile.endsWith('.yml')) continue
-    const sfContent = readFile(dir, 'skillflows', sfFile)
+    const sfContent = readFileSync_(dir, 'skillflows', sfFile)
     if (sfContent) {
       parsed.skillFlows.push(parseSkillFlowYaml(sfContent, sfFile))
     }
   }
 
   // scheduler.yml / scheduler.yaml
-  const schedulerYml = readFile(dir, 'scheduler.yml') ?? readFile(dir, 'scheduler.yaml')
+  const schedulerYml = readFileSync_(dir, 'scheduler.yml') ?? readFileSync_(dir, 'scheduler.yaml')
   if (schedulerYml) parsed.scheduler = parseSchedulerYaml(schedulerYml)
 
   // memory/MEMORY.md
-  const memoryMd = readFile(dir, 'memory', 'MEMORY.md')
+  const memoryMd = readFileSync_(dir, 'memory', 'MEMORY.md')
+  if (memoryMd) parsed.memoryInstructions = memoryMd.trim()
+
+  return parsed
+}
+
+/**
+ * Read and parse all gitagent standard files from a local directory (async).
+ * Used by config-resolver at resolve time. Non-existent files are silently skipped.
+ */
+export async function readGitAgentDirAsync(dir: string): Promise<ParsedGitAgent> {
+  const parsed: ParsedGitAgent = {
+    skills: [],
+    tools: [],
+    skillFlows: [],
+    dir,
+  }
+
+  const agentYaml = await readFileA(dir, 'agent.yaml')
+  if (agentYaml) parsed.manifest = parseAgentYaml(agentYaml)
+
+  const soulMd = await readFileA(dir, 'SOUL.md')
+  if (soulMd) parsed.soul = parseSoulMd(soulMd)
+
+  const rulesMd = await readFileA(dir, 'RULES.md')
+  if (rulesMd) parsed.rules = parseRulesMd(rulesMd)
+
+  const instructionsMd = await readFileA(dir, 'INSTRUCTIONS.md')
+  if (instructionsMd) parsed.instructions = parseInstructionsMd(instructionsMd)
+
+  const agentsMd = await readFileA(dir, 'AGENTS.md')
+  if (agentsMd) parsed.agents = agentsMd.trim()
+
+  for (const skillDir of await listDirA(dir, 'skills')) {
+    const skillMd = await readFileA(dir, 'skills', skillDir, 'SKILL.md')
+    if (skillMd) parsed.skills.push(parseSkillMd(skillDir, skillMd))
+  }
+
+  for (const toolFile of await listDirA(dir, 'tools')) {
+    if (!toolFile.endsWith('.yaml') && !toolFile.endsWith('.yml')) continue
+    const toolContent = await readFileA(dir, 'tools', toolFile)
+    if (toolContent) {
+      const toolId = toolFile.replace(/\.(ya?ml)$/, '')
+      parsed.tools.push(parseToolYaml(toolId, toolContent))
+    }
+  }
+
+  const hooksYaml = await readFileA(dir, 'hooks', 'hooks.yaml')
+  if (hooksYaml) {
+    parsed.hooks = parseHooksYaml(hooksYaml)
+    parsed.hooks.bootstrap = (await readFileA(dir, 'hooks', 'bootstrap.md')) ?? undefined
+    parsed.hooks.teardown = (await readFileA(dir, 'hooks', 'teardown.md')) ?? undefined
+  } else {
+    const bootstrap = await readFileA(dir, 'hooks', 'bootstrap.md')
+    const teardown = await readFileA(dir, 'hooks', 'teardown.md')
+    if (bootstrap || teardown) {
+      parsed.hooks = { bootstrap: bootstrap ?? undefined, teardown: teardown ?? undefined }
+    }
+  }
+
+  for (const sfFile of await listDirA(dir, 'skillflows')) {
+    if (!sfFile.endsWith('.yaml') && !sfFile.endsWith('.yml')) continue
+    const sfContent = await readFileA(dir, 'skillflows', sfFile)
+    if (sfContent) parsed.skillFlows.push(parseSkillFlowYaml(sfContent, sfFile))
+  }
+
+  const schedulerYml =
+    (await readFileA(dir, 'scheduler.yml')) ?? (await readFileA(dir, 'scheduler.yaml'))
+  if (schedulerYml) parsed.scheduler = parseSchedulerYaml(schedulerYml)
+
+  const memoryMd = await readFileA(dir, 'memory', 'MEMORY.md')
   if (memoryMd) parsed.memoryInstructions = memoryMd.trim()
 
   return parsed

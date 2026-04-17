@@ -39,15 +39,15 @@ export function createBuildCommand(container: ServiceContainer) {
         }
 
         container.logger.step('Parsing config...')
-        let config: ReturnType<typeof container.config.parseFile>
+        let config: Awaited<ReturnType<typeof container.config.parseFile>>
         try {
-          config = container.config.parseFile(filePath)
+          config = await container.config.parseFile(filePath)
         } catch (err) {
           container.logger.error((err as Error).message)
           process.exit(1)
         }
 
-        const resolved = container.config.resolve(config)
+        const resolved = await container.config.resolve(config)
         const allAgents: AgentDeployment[] = resolved.deployments?.agents ?? []
 
         let targets = allAgents.filter((a) => a.source?.strategy === 'build-image' && a.source.git)

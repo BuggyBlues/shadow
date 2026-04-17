@@ -5,7 +5,7 @@
  * and destroying K8s stacks without requiring the Pulumi CLI.
  */
 
-import { mkdirSync } from 'node:fs'
+import { mkdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import * as automation from '@pulumi/pulumi/automation/index.js'
@@ -58,9 +58,9 @@ export async function getOrCreateStack(options: StackOptions) {
   // Ensure local file backend directory exists before Pulumi tries to open it
   if (backendUrl?.startsWith('file://')) {
     const dir = new URL(backendUrl).pathname
-    mkdirSync(dir, { recursive: true })
+    await mkdir(dir, { recursive: true })
   } else if (stateDir) {
-    mkdirSync(stateDir, { recursive: true })
+    await mkdir(stateDir, { recursive: true })
   }
 
   // Pulumi reads PULUMI_CONFIG_PASSPHRASE from process.env during stack init
@@ -84,13 +84,16 @@ export async function getOrCreateStack(options: StackOptions) {
       } catch {
         // Not installed anywhere — download and install to ~/.shadowob/pulumi/cli/
         try {
-          mkdirSync(cliRoot, { recursive: true })
-          cachedPulumiCommand = await PulumiCommand.install({ root: cliRoot, skipVersionCheck: true })
+          await mkdir(cliRoot, { recursive: true })
+          cachedPulumiCommand = await PulumiCommand.install({
+            root: cliRoot,
+            skipVersionCheck: true,
+          })
         } catch (installErr) {
           throw new Error(
             `Pulumi CLI not found and auto-install failed. ` +
-            `Install manually: https://www.pulumi.com/docs/install/ ` +
-            `(${(installErr as Error).message})`,
+              `Install manually: https://www.pulumi.com/docs/install/ ` +
+              `(${(installErr as Error).message})`,
           )
         }
       }
@@ -142,7 +145,11 @@ export async function deployStack(
     const msg = (err as Error).message ?? ''
     if (msg.includes('locked by') || msg.includes('locked')) {
       // Try to cancel and retry
-      try { await stack.cancel() } catch { /* ignore */ }
+      try {
+        await stack.cancel()
+      } catch {
+        /* ignore */
+      }
       return await run()
     }
     throw err

@@ -8,11 +8,7 @@
 import type { AgentDeployment, CloudConfig } from '../config/schema.js'
 import { resolveAgentPluginConfig, resolvePluginSecrets } from './config-merger.js'
 import { getPluginRegistry } from './registry.js'
-import type {
-  PluginBuildContext,
-  PluginInstanceConfig,
-  PluginProvisionContext,
-} from './types.js'
+import type { PluginBuildContext, PluginInstanceConfig, PluginProvisionContext } from './types.js'
 
 export interface ProvisionResults {
   secrets: Record<string, string>
@@ -104,6 +100,7 @@ export async function checkPluginHealth(
       secrets,
       namespace: config.deployments?.namespace ?? 'default',
       pluginRegistry: registry,
+      cwd: process.cwd(),
     }
 
     const agentConfig = (resolved.config ?? {}) as Record<string, unknown>

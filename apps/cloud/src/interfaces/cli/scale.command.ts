@@ -14,37 +14,39 @@ export function createScaleCommand(container: ServiceContainer) {
     .option('-r, --replicas <count>', 'Number of replicas', '1')
     .option('-f, --file <path>', 'Config file path', 'shadowob-cloud.json')
     .option('-n, --namespace <ns>', 'Kubernetes namespace')
-    .action((agent: string, options: { replicas: string; file: string; namespace?: string }) => {
-      let namespace = options.namespace
+    .action(
+      async (agent: string, options: { replicas: string; file: string; namespace?: string }) => {
+        let namespace = options.namespace
 
-      if (!namespace) {
-        const filePath = resolve(options.file)
-        if (existsSync(filePath)) {
-          try {
-            const config = container.config.parseFile(filePath)
-            namespace = config.deployments?.namespace
-          } catch {
-            // Ignore
+        if (!namespace) {
+          const filePath = resolve(options.file)
+          if (existsSync(filePath)) {
+            try {
+              const config = await container.config.parseFile(filePath)
+              namespace = config.deployments?.namespace
+            } catch {
+              // Ignore
+            }
           }
         }
-      }
 
-      namespace = namespace ?? 'shadowob-cloud'
-      const replicas = Number.parseInt(options.replicas, 10)
+        namespace = namespace ?? 'shadowob-cloud'
+        const replicas = Number.parseInt(options.replicas, 10)
 
-      if (Number.isNaN(replicas) || replicas < 0) {
-        container.logger.error('Invalid replicas count')
-        process.exit(1)
-      }
+        if (Number.isNaN(replicas) || replicas < 0) {
+          container.logger.error('Invalid replicas count')
+          process.exit(1)
+        }
 
-      container.logger.step(`Scaling "${agent}" to ${replicas} replica(s)...`)
+        container.logger.step(`Scaling "${agent}" to ${replicas} replica(s)...`)
 
-      try {
-        container.k8s.scaleDeployment(namespace, agent, replicas)
-        container.logger.success(`Scaled "${agent}" to ${replicas} replica(s)`)
-      } catch (err) {
-        container.logger.error(`Failed to scale: ${(err as Error).message}`)
-        process.exit(1)
-      }
-    })
+        try {
+          container.k8s.scaleDeployment(namespace, agent, replicas)
+          container.logger.success(`Scaled "${agent}" to ${replicas} replica(s)`)
+        } catch (err) {
+          container.logger.error(`Failed to scale: ${(err as Error).message}`)
+          process.exit(1)
+        }
+      },
+    )
 }

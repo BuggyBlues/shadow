@@ -29,12 +29,12 @@ export function createStatusCommand(container: ServiceContainer) {
         stateDir?: string
       }) => {
         let namespace = options.namespace
-        let config: ReturnType<typeof container.config.parseFile> | undefined
+        let config: Awaited<ReturnType<typeof container.config.parseFile>> | undefined
         const filePath = resolve(options.file)
 
         if (existsSync(filePath)) {
           try {
-            config = container.config.parseFile(filePath)
+            config = await container.config.parseFile(filePath)
             namespace = namespace ?? config.deployments?.namespace
           } catch {
             // Ignore

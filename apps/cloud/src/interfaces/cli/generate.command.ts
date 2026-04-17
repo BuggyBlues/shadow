@@ -19,15 +19,20 @@ export function createGenerateCommand(container: ServiceContainer) {
       .option('-n, --namespace <ns>', 'Kubernetes namespace')
       .option('--provision-url <url>', 'Shadow server URL (for NetworkPolicy egress)')
       .action(
-        (options: { file: string; output: string; namespace?: string; provisionUrl?: string }) => {
+        async (options: {
+          file: string
+          output: string
+          namespace?: string
+          provisionUrl?: string
+        }) => {
           const filePath = resolve(options.file)
           if (!existsSync(filePath)) {
             container.logger.error(`Config file not found: ${filePath}`)
             process.exit(1)
           }
 
-          const config = container.config.parseFile(filePath)
-          const resolved = container.config.resolve(config)
+          const config = await container.config.parseFile(filePath)
+          const resolved = await container.config.resolve(config)
           const namespace = options.namespace ?? config.deployments?.namespace ?? 'shadowob-cloud'
           const shadowServerUrl = options.provisionUrl ?? process.env.SHADOW_SERVER_URL
 
@@ -76,8 +81,8 @@ export function createGenerateCommand(container: ServiceContainer) {
         const outputPath = options.output ? resolve(options.output) : undefined
         const configCwd = dirname(filePath)
 
-        const config = container.config.parseFile(filePath)
-        const resolved = container.config.resolve(config, configCwd)
+        const config = await container.config.parseFile(filePath)
+        const resolved = await container.config.resolve(config, configCwd)
 
         const agentDef = resolved.deployments?.agents?.find((a) => a.id === agent)
         if (!agentDef) {

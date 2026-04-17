@@ -13,7 +13,7 @@ export function createValidateCommand(container: ServiceContainer) {
     .option('-f, --file <path>', 'Config file path', 'shadowob-cloud.json')
     .option('--strict', 'Fail on unresolvable env vars')
     .option('--dry-run', 'Validate structure without requiring env vars to be set')
-    .action((options: { file: string; strict?: boolean; dryRun?: boolean }) => {
+    .action(async (options: { file: string; strict?: boolean; dryRun?: boolean }) => {
       const filePath = resolve(options.file)
 
       if (!existsSync(filePath)) {
@@ -23,9 +23,9 @@ export function createValidateCommand(container: ServiceContainer) {
 
       // 1. Parse and validate schema
       container.logger.step('Validating schema...')
-      let config: ReturnType<typeof container.config.parseFile>
+      let config: Awaited<ReturnType<typeof container.config.parseFile>>
       try {
-        config = container.config.parseFile(filePath)
+        config = await container.config.parseFile(filePath)
         container.logger.success('Schema valid')
       } catch (err) {
         container.logger.error((err as Error).message)
