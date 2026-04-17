@@ -147,43 +147,34 @@ export function DeploymentTaskPage() {
             icon={<Copy size={12} />}
             label={t('deployTask.copyLink')}
           />
-          <Link
-            to="/deployments"
-            className="flex items-center gap-2 rounded-lg border border-border-subtle bg-bg-secondary/60 px-3 py-2 text-xs text-text-secondary transition-colors hover:border-border-dim hover:text-text-primary"
-          >
-            <Terminal size={12} />
-            {t('nav.deployments')}
-          </Link>
-          <Link
-            to="/deployments"
-            className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary px-3 py-2 text-xs text-black transition-colors hover:bg-primary/90"
-          >
-            <FolderOpen size={12} />
-            {t('deployTask.openClusters')}
-          </Link>
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/deployments">
+              <Terminal size={12} />
+              {t('nav.deployments')}
+            </Link>
+          </Button>
+          <Button asChild variant="primary" size="sm">
+            <Link to="/deployments">
+              <FolderOpen size={12} />
+              {t('deployTask.openClusters')}
+            </Link>
+          </Button>
         </div>
       </div>
 
-      <div
-        className={cn(
-          'mb-6',
-          running && 'text-blue-100',
-          success && 'text-green-100',
-          failed && 'text-red-100',
-        )}
-      >
+      <div className="mb-6">
         <Card variant="surface">
-          <div className="flex items-start gap-3">
-            {running && <Loader2 size={18} className="text-blue-400 animate-spin mt-1" />}
-            {success && <CheckCircle2 size={18} className="text-green-400 mt-1" />}
-            {failed && <XCircle size={18} className="text-red-400 mt-1" />}
+          <div className="flex items-start gap-3 p-4">
+            {running && <Loader2 size={18} className="text-primary animate-spin mt-1" />}
+            {success && <CheckCircle2 size={18} className="text-success mt-1" />}
+            {failed && <XCircle size={18} className="text-danger mt-1" />}
             <div>
               <p
                 className={cn(
                   'text-sm font-medium',
-                  running && 'text-blue-400',
-                  success && 'text-green-400',
-                  failed && 'text-red-400',
+                  running && 'text-primary',
+                  success && 'text-success',
+                  failed && 'text-danger',
                 )}
               >
                 {running && t('deployTask.runningMessage')}
@@ -200,7 +191,7 @@ export function DeploymentTaskPage() {
         </Card>
       </div>
 
-      <StatsGrid className="lg:grid-cols-4">
+      <StatsGrid className="lg:grid-cols-4 mb-6">
         <StatCard
           label={t('deployTask.taskId')}
           value={`#${task.id}`}
@@ -226,8 +217,8 @@ export function DeploymentTaskPage() {
         />
       </StatsGrid>
 
-      <Card variant="surface">
-        <div className="space-y-3">
+      <Card variant="surface" className="mb-6">
+        <div className="space-y-3 p-5">
           <div>
             <p className="mb-1 text-xs uppercase tracking-wider text-text-muted">
               {t('deployTask.taskUrl')}
@@ -256,9 +247,9 @@ export function DeploymentTaskPage() {
       </Card>
 
       {task.error && (
-        <div className="mb-6 bg-red-950/20 border border-red-900/30 rounded-xl p-4">
-          <p className="text-xs text-red-400 font-medium mb-1">{t('deployTask.error')}</p>
-          <p className="text-sm text-red-300 break-words">{task.error}</p>
+        <div className="mb-6 bg-danger/8 border border-danger/25 rounded-xl p-4">
+          <p className="text-xs text-danger font-medium mb-1">{t('deployTask.error')}</p>
+          <p className="text-sm text-danger break-words">{task.error}</p>
         </div>
       )}
 

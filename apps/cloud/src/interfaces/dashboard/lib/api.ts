@@ -71,6 +71,18 @@ export interface Settings {
   [key: string]: unknown
 }
 
+export interface CommunitySettings {
+  baseUrl: string
+  oauthConnected: boolean
+  hasToken: boolean
+}
+
+export interface CommunityCatalogResponse {
+  templates: TemplateCatalogSummary[]
+  categories: TemplateCategoryInfo[]
+  source: 'community' | 'local'
+}
+
 export interface ProviderSettings {
   id: string
   api: string
@@ -520,6 +532,10 @@ export const api = {
       }>('/env'),
     groups: () => get<{ groups: string[] }>('/env/groups'),
     createGroup: (name: string) => post<{ ok: boolean; name: string }>('/env/groups', { name }),
+    deleteGroup: (name: string) =>
+      fetch(`${BASE}/env/groups/${encodeURIComponent(name)}`, { method: 'DELETE' }).then((r) =>
+        r.json(),
+      ) as Promise<{ ok: boolean }>,
     getByScope: (scope: string) =>
       get<{ envVars: Array<{ key: string; value: string; isSecret: boolean }> }>(
         `/env/${encodeURIComponent(scope)}`,
@@ -537,5 +553,21 @@ export const api = {
       fetch(`${BASE}/env/${encodeURIComponent(scope)}/${encodeURIComponent(key)}`, {
         method: 'DELETE',
       }).then((r) => r.json()) as Promise<{ ok: boolean }>,
+  },
+
+  community: {
+    getSettings: () => get<CommunitySettings>('/community/settings'),
+    putSettings: (data: { baseUrl?: string; token?: string }) =>
+      put<{ ok: boolean }>('/community/settings', data),
+    catalog: (locale: string) =>
+      get<CommunityCatalogResponse>(
+        `/community/templates/catalog?locale=${encodeURIComponent(locale)}`,
+      ),
+    oauthInit: () => get<{ url: string }>('/community/oauth/init'),
+    publish: (name: string, opts?: { description?: string; visibility?: string }) =>
+      post<{ ok: boolean; result: unknown }>('/community/templates/publish', {
+        name,
+        ...opts,
+      }),
   },
 }

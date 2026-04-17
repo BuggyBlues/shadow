@@ -17,6 +17,12 @@ export interface ActivityEntry {
 }
 
 interface AppState {
+  // Settings modal
+  settingsOpen: boolean
+  settingsTab: string
+  openSettings: (tab?: string) => void
+  closeSettings: () => void
+
   // Activity log
   activities: ActivityEntry[]
   addActivity: (entry: Omit<ActivityEntry, 'id' | 'timestamp'>) => void
@@ -64,6 +70,12 @@ function persistState(state: AppState) {
 const persisted = loadPersisted()
 
 export const useAppStore = create<AppState>((set, get) => ({
+  // Settings modal
+  settingsOpen: false,
+  settingsTab: 'providers',
+  openSettings: (tab = 'providers') => set({ settingsOpen: true, settingsTab: tab }),
+  closeSettings: () => set({ settingsOpen: false }),
+
   // Activity log
   activities: persisted.activities ?? [],
   addActivity: (entry) =>

@@ -2,7 +2,7 @@
   "nav": {
     "deploy": "Deploy",
     "consoleHome": "Console Home",
-    "agentStore": "Agents Store",
+    "agentStore": "Shadow Store",
     "myTemplates": "My Templates",
     "manage": "Manage",
     "clusters": "Clusters",
@@ -14,7 +14,9 @@
     "activity": "Activity",
     "settings": "Settings",
     "shadowCloud": "Shadow Cloud",
-    "console": "Console"
+    "console": "Console",
+    "community": "Community",
+    "shrimp": "Shadow Store"
   },
   "common": {
     "save": "Save",
@@ -199,7 +201,10 @@
       "beginner": "Beginner",
       "intermediate": "Intermediate",
       "advanced": "Advanced"
-    }
+    },
+    "communitySource": "Community",
+    "localSource": "Local",
+    "communityUnavailable": "Community server unavailable. Showing local templates."
   },
   "storeDetail": {
     "overview": "Overview",
@@ -240,6 +245,7 @@
   "deploy": {
     "reviewTemplate": "Review Template",
     "confirmDeployKubernetes": "Confirm the template you want to deploy to your Kubernetes cluster.",
+    "ownTemplateDescription": "Your custom template.",
     "agentsLabel": "Agents",
     "namespaceLabel": "Namespace",
     "deployTimeLabel": "Deploy Time",
@@ -256,6 +262,9 @@
     "restoreSavedValue": "Restore saved value",
     "usingSavedValue": "Using saved value from Secrets",
     "override": "Override",
+    "useSaved": "Use saved",
+    "fillFromGroup": "Auto-fill from group:",
+    "selectGroup": "Select group...",
     "additionalVariables": "Additional Variables",
     "optionalKeyValue": "Optional key-value pairs beyond the required ones.",
     "noAdditionalVars": "No additional variables.",
@@ -563,7 +572,12 @@
     "tools": "Tools",
     "noContent": "No content",
     "noContentDescription": "Template has no configuration data.",
-    "noAgents": "No agent definitions found in this template."
+    "noAgents": "No agent definitions found in this template.",
+    "publishToCommunity": "Publish to Community",
+    "publishing": "Publishing...",
+    "publishSuccess": "Template published to community.",
+    "publishFailed": "Failed to publish template. Check your community token in Settings.",
+    "publishTooltip": "Publish this template to the community server"
   },
   "secrets": {
     "title": "Secrets & Environment",
@@ -577,6 +591,11 @@
     "groupNamePlaceholder": "Group name",
     "groupCreated": "Group created",
     "groupCreateFailed": "Failed to create group",
+    "groupDeleted": "Group deleted",
+    "groupDeleteFailed": "Failed to delete group",
+    "deleteGroup": "Delete group",
+    "deleteGroupTitle": "Delete group?",
+    "deleteGroupDescription": "This will permanently delete the \"{{group}}\" group and all its environment variables. This cannot be undone.",
     "providerSecrets": "Provider Secrets",
     "providerSecretsDesc": "API keys and credentials for LLM providers. Encrypted at rest with passphrase-derived key.",
     "addSecret": "Add Secret",
@@ -736,7 +755,27 @@
     "configuration": "Configuration",
     "searchPlugins": "Search plugins...",
     "allCategories": "All Categories",
-    "developer": "Developer"
+    "developer": "Developer",
+    "community": "Community",
+    "communityDescription": "Connect to the Shadow community hub to browse and fork templates shared by the community.",
+    "communityServer": "Server Configuration",
+    "communityBaseUrl": "Community Server URL",
+    "communityBaseUrlHint": "The URL of the Shadow community server. Defaults to https://shadowob.com.",
+    "communityToken": "Access Token",
+    "communityTokenSet": "Token set",
+    "communityTokenPlaceholder": "Paste your token here...",
+    "communityTokenHint": "Personal access token for the community server. Leave blank to use OAuth instead.",
+    "communityConnected": "Connected to community",
+    "communityNotConnected": "Not connected",
+    "communitySaved": "Community settings saved.",
+    "communityOAuth": "Authorize via OAuth",
+    "communityOAuthHint": "Open the community server in a popup to authorize with your account.",
+    "communityOAuthSuccess": "Successfully connected via OAuth.",
+    "communityOAuthError": "OAuth authorization failed. Please try again.",
+    "connectViaOAuth": "Connect via OAuth",
+    "communityBrowse": "Visit Community",
+    "communityBrowseHint": "Browse the full template catalog on the community server.",
+    "openCommunity": "Open Community"
   },
   "deployTask": {
     "title": "Deployment Task",
@@ -831,5 +870,19 @@
   },
   "confirmDialog": {
     "typeToConfirm": "Type {{text}} to confirm:"
+  },
+  "community": {
+    "title": "Community Templates",
+    "description": "Browse templates shared by the Shadow community.",
+    "searchPlaceholder": "Search community templates...",
+    "forkToLocal": "Fork to Local",
+    "forking": "Forking...",
+    "forkSuccess": "Forked \"{{name}}\" to your templates.",
+    "forkError": "Failed to fork template. Please try again.",
+    "noTemplates": "No templates found",
+    "noTemplatesHint": "Try a different search or check your community server connection.",
+    "errorTitle": "Could not load community templates",
+    "errorHint": "Check your community server URL and token in Settings → Community.",
+    "configure": "Configure"
   }
 }

@@ -1,8 +1,10 @@
-import { Button, Input } from '@shadowob/ui'
+import { Button, Input, Modal, ModalBody, ModalContent, ModalHeader } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Check,
+  CheckCircle2,
   Cloud,
+  ExternalLink,
   Globe,
   Info,
   Key,
@@ -13,10 +15,10 @@ import {
   Server,
   Sun,
   Trash2,
+  Unplug,
 } from 'lucide-react'
-import { type ReactNode, useState } from 'react'
+import { type ReactNode, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { PageShell } from '@/components/PageShell'
 import { api, type ProviderSettings, type Settings } from '@/lib/api'
 import { API_PRESETS } from '@/lib/presets'
 import { cn } from '@/lib/utils'
@@ -477,41 +479,217 @@ function AboutTab() {
   )
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+// ── Community Tab ──────────────────────────────────────────────────────────────
 
-export function SettingsPage() {
+function CommunityTab() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState('providers')
+  const toast = useToast()
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['community-settings'],
+    queryFn: api.community.getSettings,
+  })
+
+  const [baseUrl, setBaseUrl] = useState('')
+  const [token, setToken] = useState('')
+
+  // Initialise inputs once data loads (only on first load)
+  const effectiveBaseUrl = baseUrl || data?.baseUrl || 'https://shadowob.com'
+
+  const saveMutation = useMutation({
+    mutationFn: () =>
+      api.community.putSettings({
+        baseUrl: baseUrl || undefined,
+        token: token || undefined,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['community-settings'] })
+      setToken('')
+      toast.success(t('settings.communitySaved'))
+    },
+  })
+
+  const handleOAuth = async () => {
+    try {
+      const { url } = await api.community.oauthInit()
+      const popup = window.open(url, 'community-oauth', 'width=800,height=600')
+
+      const handleMessage = (event: MessageEvent) => {
+        if (event.data?.type === 'community-oauth-success') {
+          window.removeEventListener('message', handleMessage)
+          popup?.close()
+          queryClient.invalidateQueries({ queryKey: ['community-settings'] })
+          toast.success(t('settings.communityOAuthSuccess'))
+        }
+      }
+
+      window.addEventListener('message', handleMessage)
+    } catch {
+      toast.error(t('settings.communityOAuthError'))
+    }
+  }
+
+  if (isLoading) {
+    return <div className="py-12 text-center text-sm text-text-muted">{t('common.loading')}</div>
+  }
+
+  const isConnected = data?.oauthConnected || data?.hasToken
+
+  return (
+    <div className="space-y-5">
+      {/* Connection status */}
+      <div className="glass-card p-5">
+        <div className="mb-4 flex items-center gap-3">
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-full"
+            style={{
+              background: isConnected
+                ? 'rgba(0, 243, 255, 0.12)'
+                : 'rgba(255, 255, 255, 0.06)',
+              border: isConnected
+                ? '1px solid rgba(0, 243, 255, 0.24)'
+                : '1px solid rgba(255,255,255,0.1)',
+            }}
+          >
+            {isConnected ? (
+              <CheckCircle2 size={18} style={{ color: 'var(--color-nf-cyan)' }} />
+            ) : (
+              <Unplug size={18} className="text-text-muted" />
+            )}
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-text-primary">
+              {isConnected
+                ? t('settings.communityConnected')
+                : t('settings.communityNotConnected')}
+            </h3>
+            <p className="text-xs text-text-muted">{data?.baseUrl ?? 'https://shadowob.com'}</p>
+          </div>
+        </div>
+        <p className="text-sm leading-6 text-text-secondary">{t('settings.communityDescription')}</p>
+      </div>
+
+      {/* Server URL */}
+      <div className="glass-card space-y-4 p-5">
+        <h3 className="text-sm font-bold text-text-primary">{t('settings.communityServer')}</h3>
+        <div className="space-y-2">
+          <label className="text-xs font-semibold text-text-muted">
+            {t('settings.communityBaseUrl')}
+          </label>
+          <Input
+            value={baseUrl || data?.baseUrl || ''}
+            onChange={(e) => setBaseUrl(e.target.value)}
+            placeholder="https://shadowob.com"
+            className="font-mono text-sm"
+          />
+          <p className="text-xs text-text-muted">{t('settings.communityBaseUrlHint')}</p>
+        </div>
+
+        {/* Token */}
+        <div className="space-y-2">
+          <label className="text-xs font-semibold text-text-muted">
+            {t('settings.communityToken')}
+            {data?.hasToken && (
+              <span className="ml-2 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] text-primary">
+                {t('settings.communityTokenSet')}
+              </span>
+            )}
+          </label>
+          <Input
+            type="password"
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            placeholder={data?.hasToken ? '••••••••' : t('settings.communityTokenPlaceholder')}
+            className="font-mono text-sm"
+          />
+          <p className="text-xs text-text-muted">{t('settings.communityTokenHint')}</p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={saveMutation.isPending}
+            onClick={() => saveMutation.mutate()}
+          >
+            <Save size={14} className="mr-1.5" />
+            {saveMutation.isPending ? t('common.saving') : t('common.save')}
+          </Button>
+        </div>
+      </div>
+
+      {/* OAuth */}
+      <div className="glass-card p-5">
+        <h3 className="mb-2 text-sm font-bold text-text-primary">{t('settings.communityOAuth')}</h3>
+        <p className="mb-4 text-xs text-text-secondary">{t('settings.communityOAuthHint')}</p>
+        <Button variant="secondary" size="sm" onClick={handleOAuth}>
+          <ExternalLink size={14} className="mr-1.5" />
+          {t('settings.connectViaOAuth')}
+        </Button>
+      </div>
+
+      {/* Quick link to community */}
+      <div className="glass-card p-5">
+        <h3 className="mb-2 text-sm font-bold text-text-primary">{t('settings.communityBrowse')}</h3>
+        <p className="mb-3 text-xs text-text-secondary">{t('settings.communityBrowseHint')}</p>
+        <Button asChild variant="secondary" size="sm">
+          <a href={effectiveBaseUrl} target="_blank" rel="noopener noreferrer">
+            <Globe size={14} className="mr-1.5" />
+            {t('settings.openCommunity')}
+          </a>
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// ── Main Modal ────────────────────────────────────────────────────────────────
+
+export function SettingsModal({
+  open,
+  onClose,
+  initialTab = 'community',
+}: {
+  open: boolean
+  onClose: () => void
+  initialTab?: string
+}) {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const [activeTab, setActiveTab] = useState(initialTab)
+
+  useEffect(() => {
+    if (open) setActiveTab(initialTab)
+  }, [open, initialTab])
 
   const { data, isLoading } = useQuery({
     queryKey: ['settings'],
     queryFn: api.settings.get,
   })
 
-  const [localProviders, setLocalProviders] = useState<ProviderSettings[] | null>(null)
-  const currentProviders: ProviderSettings[] = localProviders ?? data?.providers ?? []
-
-  const mutation = useMutation({
-    mutationFn: (settings: Settings) => api.settings.put(settings),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settings'] })
-    },
-  })
-
   const tabs = [
-    { id: 'providers', label: t('settings.providers'), icon: Key },
+    { id: 'community', label: t('settings.community'), icon: Globe },
     { id: 'appearance', label: t('settings.appearance'), icon: Monitor },
     { id: 'system', label: t('settings.system'), icon: Server },
     { id: 'about', label: t('settings.about'), icon: Info },
   ]
 
+  const activeTabDef = tabs.find((t) => t.id === activeTab) ?? tabs[0]!
+  const ActiveTabIcon = activeTabDef.icon
+
   return (
-    <PageShell breadcrumb={[{ label: t('nav.settings') }]} title={t('nav.settings')} narrow>
-      <div className="glass-panel p-5">
-        <div className="flex min-h-0 gap-6">
+    <Modal open={open} onClose={onClose}>
+      <ModalContent maxWidth="max-w-4xl" className="h-[min(85vh,720px)] flex flex-col overflow-hidden">
+        <ModalHeader
+          overline={t('nav.settings')}
+          icon={<ActiveTabIcon size={18} />}
+          title={activeTabDef.label}
+          closeLabel={t('common.close')}
+        />
+        <ModalBody className="flex flex-1 min-h-0 overflow-hidden p-0">
           {/* Left nav */}
-          <nav className="w-44 shrink-0 space-y-1">
+          <nav className="w-48 shrink-0 border-r border-border-subtle p-4 flex flex-col overflow-y-auto space-y-1">
             {tabs.map((tab) => {
               const isActive = activeTab === tab.id
               const TabIcon = tab.icon
@@ -541,28 +719,21 @@ export function SettingsPage() {
           </nav>
 
           {/* Content */}
-          <div className="min-w-0 flex-1">
+          <div className="flex-1 overflow-y-auto p-6">
             {isLoading && (
               <div className="py-12 text-center text-sm text-text-muted">{t('common.loading')}</div>
             )}
             {!isLoading && (
               <>
-                {activeTab === 'providers' && (
-                  <ProvidersTab
-                    providers={currentProviders}
-                    setProviders={setLocalProviders}
-                    data={data}
-                    mutation={mutation}
-                  />
-                )}
                 {activeTab === 'appearance' && <AppearanceTab />}
+                {activeTab === 'community' && <CommunityTab />}
                 {activeTab === 'system' && <SystemTab />}
                 {activeTab === 'about' && <AboutTab />}
               </>
             )}
           </div>
-        </div>
-      </div>
-    </PageShell>
+        </ModalBody>
+      </ModalContent>
+    </Modal>
   )
 }
