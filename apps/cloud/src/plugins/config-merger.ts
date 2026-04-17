@@ -2,6 +2,7 @@
  * Plugin Config Merger — merges plugin config fragments into OpenClaw config.
  */
 
+import type { UseEntry } from '../config/schema/shadow.schema.js'
 import type { CloudConfig, OpenClawBinding, OpenClawConfig } from '../config/schema.js'
 import type { PluginConfigFragment, PluginInstanceConfig } from './types.js'
 
@@ -118,6 +119,22 @@ export function resolveAgentPluginConfig(
   agentId: string,
   config: CloudConfig,
 ): Record<string, unknown> | null {
+  // New-style: use array
+  if (config.use?.length) {
+    // Check agent-level use override
+    const agent = config.deployments?.agents?.find((a) => a.id === agentId)
+    const agentUse = (agent as unknown as { use?: UseEntry[] } | undefined)?.use
+    const agentEntry = agentUse?.find((e) => e.plugin === pluginId)
+    if (agentEntry) return agentEntry.options ?? {}
+
+    // Fall back to global use
+    const globalEntry = config.use.find((e) => e.plugin === pluginId)
+    if (globalEntry) return globalEntry.options ?? {}
+
+    return null
+  }
+
+  // Legacy: plugins map
   const pluginInstanceConfig = (
     config.plugins as Record<string, PluginInstanceConfig> | undefined
   )?.[pluginId]
@@ -145,13 +162,28 @@ export function resolvePluginSecrets(
   config: CloudConfig,
   processEnv: Record<string, string | undefined>,
 ): Record<string, string> {
+  // New-style: use array — options can contain secret refs
+  if (config.use?.length) {
+    const entry = config.use.find((e) => e.plugin === pluginId)
+    if (!entry?.options) return {}
+    return resolveSecretRefs(entry.options as Record<string, string>, processEnv)
+  }
+
+  // Legacy: plugins map
   const pluginInstanceConfig = (
     config.plugins as Record<string, PluginInstanceConfig> | undefined
   )?.[pluginId]
   if (!pluginInstanceConfig?.secrets) return {}
+  return resolveSecretRefs(pluginInstanceConfig.secrets, processEnv)
+}
 
+function resolveSecretRefs(
+  secrets: Record<string, string>,
+  processEnv: Record<string, string | undefined>,
+): Record<string, string> {
   const resolved: Record<string, string> = {}
-  for (const [key, ref] of Object.entries(pluginInstanceConfig.secrets)) {
+  for (const [key, ref] of Object.entries(secrets)) {
+    if (typeof ref !== 'string') continue
     // Resolve ${env:VAR_NAME} references
     const envMatch = ref.match(/^\$\{env:(\w+)\}$/)
     if (envMatch) {
@@ -166,6 +198,5 @@ export function resolvePluginSecrets(
       resolved[key] = ref
     }
   }
-
   return resolved
 }

@@ -5,22 +5,6 @@
 import { sql } from 'drizzle-orm'
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
-// ── Templates ────────────────────────────────────────────────────────────────
-
-export const templates = sqliteTable('templates', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  slug: text('slug').notNull().unique(),
-  name: text('name').notNull(),
-  description: text('description'),
-  category: text('category'),
-  featured: integer('featured', { mode: 'boolean' }).default(false),
-  content: text('content', { mode: 'json' }).notNull(),
-  version: text('version').default('1.0.0'),
-  metadata: text('metadata', { mode: 'json' }),
-  createdAt: text('created_at').default(sql`(datetime('now'))`),
-  updatedAt: text('updated_at').default(sql`(datetime('now'))`),
-})
-
 // ── Secrets (encrypted provider keys) ────────────────────────────────────────
 
 export const secrets = sqliteTable('secrets', {
@@ -117,8 +101,6 @@ export const configVersions = sqliteTable('config_versions', {
 
 // ── Schema type helpers ──────────────────────────────────────────────────────
 
-export type Template = typeof templates.$inferSelect
-export type NewTemplate = typeof templates.$inferInsert
 export type Secret = typeof secrets.$inferSelect
 export type NewSecret = typeof secrets.$inferInsert
 export type Config = typeof configs.$inferSelect

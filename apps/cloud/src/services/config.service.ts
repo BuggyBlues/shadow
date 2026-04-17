@@ -19,12 +19,12 @@ import { collectTemplateRefs } from '../config/template.js'
 
 export class ConfigService {
   /** Parse and validate a cloud config file using typia. */
-  parseFile(filePath: string): CloudConfig {
+  async parseFile(filePath: string): Promise<CloudConfig> {
     return parseConfigFile(filePath)
   }
 
   /** Expand 'extends' references and resolve template variables. */
-  resolve(config: CloudConfig, cwd?: string): CloudConfig {
+  async resolve(config: CloudConfig, cwd?: string): Promise<CloudConfig> {
     return resolveConfig(config, undefined, cwd)
   }
 
@@ -37,8 +37,10 @@ export class ConfigService {
    * Full validation: parse + security check + collect template refs.
    * Returns the parsed config and any security violations found.
    */
-  validate(filePath: string): { config: CloudConfig; violations: SecurityViolation[] } {
-    const config = parseConfigFile(filePath)
+  async validate(
+    filePath: string,
+  ): Promise<{ config: CloudConfig; violations: SecurityViolation[] }> {
+    const config = await parseConfigFile(filePath)
     const violations = validateNoInlineKeys(config)
     return { config, violations }
   }
@@ -47,8 +49,8 @@ export class ConfigService {
    * Parse, validate, and resolve in one call.
    * Convenience for callers that need the final resolved config.
    */
-  resolveFromFile(filePath: string): CloudConfig {
-    const config = parseConfigFile(filePath)
+  async resolveFromFile(filePath: string): Promise<CloudConfig> {
+    const config = await parseConfigFile(filePath)
     return resolveConfig(config, undefined, dirname(filePath))
   }
 

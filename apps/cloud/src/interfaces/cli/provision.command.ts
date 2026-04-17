@@ -40,7 +40,7 @@ export function createProvisionCommand(container: ServiceContainer) {
           process.exit(1)
         }
 
-        const config = container.config.parseFile(filePath)
+        const config = await container.config.parseFile(filePath)
         const shadowUrl = options.provisionUrl ?? process.env.SHADOW_SERVER_URL
         const shadowToken = options.provisionToken ?? process.env.SHADOW_USER_TOKEN
 

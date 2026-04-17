@@ -4,7 +4,7 @@
  * and builds official OpenClaw config format.
  */
 
-import { readFileSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { getPluginRegistry } from '../plugins/registry.js'
 import { parseJsonc } from '../utils/jsonc.js'
@@ -72,9 +72,9 @@ export function expandExtends(
 /**
  * Parse and validate a cloud config file using typia.
  */
-export function parseConfigFile(filePath: string): CloudConfig {
+export async function parseConfigFile(filePath: string): Promise<CloudConfig> {
   const absPath = resolve(filePath)
-  const raw = readFileSync(absPath, 'utf-8')
+  const raw = await readFile(absPath, 'utf-8')
 
   let parsed: unknown
   try {
@@ -99,11 +99,11 @@ export function parseConfigFile(filePath: string): CloudConfig {
  * Iterates plugins referenced in the agent's `use` array and calls
  * their `configResolver.resolveAgent()` to pre-process the agent.
  */
-function runPluginConfigResolvers(
+async function runPluginConfigResolvers(
   agent: AgentDeployment,
   config: CloudConfig,
   cwd?: string,
-): AgentDeployment {
+): Promise<AgentDeployment> {
   const useEntries = [...(config.use ?? []), ...(agent.use ?? [])]
   if (useEntries.length === 0) return agent
 
@@ -124,7 +124,7 @@ function runPluginConfigResolvers(
   for (const pluginId of uniquePlugins) {
     const pluginDef = registry.get(pluginId)
     if (!pluginDef?.configResolver) continue
-    resolved = pluginDef.configResolver.resolveAgent(resolved, config, cwd)
+    resolved = await pluginDef.configResolver.resolveAgent(resolved, config, cwd)
   }
 
   return resolved
@@ -137,29 +137,32 @@ function runPluginConfigResolvers(
  * 3. Resolve template variables
  * Returns a new config with all agents having their final configuration.
  */
-export function resolveConfig(
+export async function resolveConfig(
   config: CloudConfig,
   templateCtx?: TemplateContext,
   cwd?: string,
-): CloudConfig {
+): Promise<CloudConfig> {
   const configurations = config.registry?.configurations ?? []
   const resolved = { ...config }
 
   // Expand extends for each agent, then run plugin config resolvers
   if (resolved.deployments?.agents) {
-    resolved.deployments = {
-      ...resolved.deployments,
-      agents: resolved.deployments.agents.map((agent) => {
+    const agents = await Promise.all(
+      resolved.deployments.agents.map(async (agent) => {
         let a = {
           ...agent,
           configuration: expandExtends(agent.configuration, configurations),
         }
 
         // Run plugin configResolvers for any use entries on this agent
-        a = runPluginConfigResolvers(a, resolved, cwd)
+        a = await runPluginConfigResolvers(a, resolved, cwd)
 
         return a
       }),
+    )
+    resolved.deployments = {
+      ...resolved.deployments,
+      agents,
     }
   }
 

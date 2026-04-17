@@ -109,7 +109,7 @@ export interface PluginBuildContext {
   namespace: string
   pluginRegistry: PluginRegistry
   /** Absolute directory to resolve relative paths against (replaces process.chdir). */
-  cwd?: string
+  cwd: string
 }
 
 export interface PluginProvisionContext {
@@ -248,10 +248,10 @@ export interface PluginConfigBuilder {
   build(agentConfig: Record<string, unknown>, context: PluginBuildContext): PluginConfigFragment
 }
 
-// ─── Resource Provider ──────────────────────────────────────────────────────
+// ─── K8s Manifest Provider ──────────────────────────────────────────────────────────────
 
-/** Resource provider — generates Kubernetes resources (Ingress, CronJob, etc.). */
-export interface PluginResourceProvider {
+/** K8s manifest provider — generates cluster-level Kubernetes resources (Ingress, CronJob, etc.). */
+export interface PluginK8sManifestProvider {
   /** Generate K8s resource manifests */
   build(
     agentConfig: Record<string, unknown>,
@@ -376,7 +376,7 @@ export interface PluginConfigResolver {
   /** Transform an agent deployment before OpenClaw config building.
    *  Must return the (potentially modified) agent.
    *  @param cwd  Absolute directory to resolve relative paths against (avoids process.chdir). */
-  resolveAgent(agent: AgentDeployment, config: CloudConfig, cwd?: string): AgentDeployment
+  resolveAgent(agent: AgentDeployment, config: CloudConfig, cwd?: string): Promise<AgentDeployment>
 }
 
 // ─── Validation Provider ────────────────────────────────────────────────────
@@ -442,8 +442,8 @@ export interface PluginDefinition {
 
   /** Custom OpenClaw config generation */
   configBuilder?: PluginConfigBuilder
-  /** Kubernetes resource generation (Ingress, CronJob, etc.) */
-  resources?: PluginResourceProvider
+  /** Kubernetes cluster-level resources (Ingress, CronJob, etc.) */
+  k8sManifests?: PluginK8sManifestProvider
   /**
    * Kubernetes pod-level artifacts (init containers, volumes, env vars).
    * Use this when a plugin needs to inject a sidecar, init container, or
@@ -461,38 +461,6 @@ export interface PluginDefinition {
   lifecycle?: PluginLifecycleProvider
   /** Configuration validation */
   validation?: PluginValidationProvider
-
-  // ── Legacy Hooks (backward compat, will be deprecated) ──
-
-  /** @deprecated Use configBuilder.build */
-  buildOpenClawConfig?(
-    agentConfig: Record<string, unknown>,
-    context: PluginBuildContext,
-  ): PluginConfigFragment
-
-  /** @deprecated Use env.build */
-  buildEnvVars?(
-    agentConfig: Record<string, unknown>,
-    context: PluginBuildContext,
-  ): Record<string, string>
-
-  /** @deprecated Use resources.build */
-  buildK8sResources?(
-    agentConfig: Record<string, unknown>,
-    context: PluginBuildContext,
-  ): Record<string, unknown>[]
-
-  /** @deprecated Use lifecycle.provision */
-  provision?(
-    agentConfig: Record<string, unknown>,
-    context: PluginProvisionContext,
-  ): Promise<PluginProvisionResult>
-
-  /** @deprecated Use validation.validate */
-  validate?(
-    agentConfig: Record<string, unknown>,
-    context: PluginBuildContext,
-  ): PluginValidationResult
 }
 
 // ─── Plugin Registry Interface ──────────────────────────────────────────────

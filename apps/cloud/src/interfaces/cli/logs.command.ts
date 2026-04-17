@@ -16,7 +16,7 @@ export function createLogsCommand(container: ServiceContainer) {
     .option('--follow', 'Follow log output')
     .option('--tail <lines>', 'Number of lines to show', '100')
     .action(
-      (
+      async (
         agent: string | undefined,
         options: { file: string; namespace?: string; follow?: boolean; tail: string },
       ) => {
@@ -26,7 +26,7 @@ export function createLogsCommand(container: ServiceContainer) {
           const filePath = resolve(options.file)
           if (existsSync(filePath)) {
             try {
-              const config = container.config.parseFile(filePath)
+              const config = await container.config.parseFile(filePath)
               namespace = config.deployments?.namespace
             } catch {
               // Ignore

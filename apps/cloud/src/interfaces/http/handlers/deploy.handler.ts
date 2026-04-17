@@ -386,7 +386,7 @@ export function createDeployHandler(ctx: HandlerContext): Hono {
       writeFileSync(tmpFile, JSON.stringify(configData, null, 2), 'utf-8')
 
       try {
-        const { config, violations } = ctx.container.config.validate(tmpFile)
+        const { config, violations } = await ctx.container.config.validate(tmpFile)
         const refs = ctx.container.config.collectTemplateRefs(config)
         const agents = config.deployments?.agents ?? []
         const configurations = config.registry?.configurations ?? []
@@ -463,7 +463,7 @@ export function createDeployHandler(ctx: HandlerContext): Hono {
       writeFileSync(tmpFile, JSON.stringify(body.config, null, 2), 'utf-8')
 
       try {
-        const config = ctx.container.config.parseFile(tmpFile)
+        const config = await ctx.container.config.parseFile(tmpFile)
         const result = await ctx.container.provision.provision(config, {
           serverUrl: shadowUrl,
           userToken: shadowToken,
@@ -503,8 +503,8 @@ export function createDeployHandler(ctx: HandlerContext): Hono {
       writeFileSync(tmpFile, JSON.stringify(body.config, null, 2), 'utf-8')
 
       try {
-        const config = ctx.container.config.parseFile(tmpFile)
-        const resolved = ctx.container.config.resolve(config)
+        const config = await ctx.container.config.parseFile(tmpFile)
+        const resolved = await ctx.container.config.resolve(config)
         const ns = body.namespace ?? config.deployments?.namespace ?? 'shadowob-cloud'
         const manifests = ctx.container.manifest.build({
           config: resolved,
@@ -528,8 +528,8 @@ export function createDeployHandler(ctx: HandlerContext): Hono {
       writeFileSync(tmpFile, JSON.stringify(body.config, null, 2), 'utf-8')
 
       try {
-        const config = ctx.container.config.parseFile(tmpFile)
-        const resolved = ctx.container.config.resolve(config)
+        const config = await ctx.container.config.parseFile(tmpFile)
+        const resolved = await ctx.container.config.resolve(config)
         const agent = resolved.deployments?.agents?.find((a: any) => a.id === body.agentId)
         if (!agent) {
           return c.json({ error: `Agent "${body.agentId}" not found` }, 404)

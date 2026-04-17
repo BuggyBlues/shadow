@@ -6,14 +6,14 @@
  * Runs during resolveConfig(), before any build phase.
  */
 
-import { existsSync } from 'node:fs'
+import { access } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import type { AgentDeployment, AgentSource } from '../../config/schema.js'
 import type { PluginConfigResolver } from '../types.js'
-import { enrichAgentFromGitAgent, readGitAgentDir } from './reader.js'
+import { enrichAgentFromGitAgent, readGitAgentDirAsync } from './reader.js'
 
 export const configResolver: PluginConfigResolver = {
-  resolveAgent(agent: AgentDeployment, _config, cwd?: string): AgentDeployment {
+  async resolveAgent(agent: AgentDeployment, _config, cwd?: string): Promise<AgentDeployment> {
     if (agent.source) return agent // already has source, nothing to do
 
     const gitagentEntry = agent.use?.find((u: { plugin: string }) => u.plugin === 'gitagent')
@@ -25,8 +25,11 @@ export const configResolver: PluginConfigResolver = {
     // Resolve relative to cwd (config file directory) to avoid process.chdir.
     if (a.source?.path) {
       const localPath = cwd ? resolve(cwd, a.source.path) : resolve(a.source.path)
-      if (existsSync(localPath)) {
-        const parsed = readGitAgentDir(localPath)
+      const exists = await access(localPath)
+        .then(() => true)
+        .catch(() => false)
+      if (exists) {
+        const parsed = await readGitAgentDirAsync(localPath)
         a = enrichAgentFromGitAgent(a, parsed)
         // Normalise to absolute so downstream code doesn't need cwd
         a = { ...a, source: { ...a.source, path: localPath } }

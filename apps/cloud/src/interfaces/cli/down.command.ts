@@ -25,11 +25,11 @@ export function createDownCommand(container: ServiceContainer) {
       }) => {
         const filePath = resolve(options.file)
         let namespace = options.namespace
-        let config: ReturnType<typeof container.config.parseFile> | undefined
+        let config: Awaited<ReturnType<typeof container.config.parseFile>> | undefined
 
         if (existsSync(filePath)) {
           try {
-            config = container.config.parseFile(filePath)
+            config = await container.config.parseFile(filePath)
             namespace = namespace ?? config.deployments?.namespace
           } catch {
             // Ignore

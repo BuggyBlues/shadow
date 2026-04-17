@@ -91,7 +91,7 @@ export class DeployService {
     // 1. Parse config
     this.logger.step('Parsing config...')
     emit('Parsing config...\n')
-    const config = this.configService.parseFile(filePath)
+    const config = await this.configService.parseFile(filePath)
 
     const namespace = options.namespace ?? config.deployments?.namespace ?? 'shadowob-cloud'
     const agents = config.deployments?.agents ?? []
@@ -176,7 +176,7 @@ export class DeployService {
     // 3. Resolve config (expand extends + templates)
     this.logger.step('Resolving config...')
     emit('Resolving config...\n')
-    const resolved = this.configService.resolve(config, configCwd)
+    const resolved = await this.configService.resolve(config, configCwd)
 
     // 3b. Execute plugin lifecycle provisions (async hooks)
     try {
