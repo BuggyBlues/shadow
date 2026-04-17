@@ -1,18 +1,27 @@
 import UnpluginTypia from '@typia/unplugin'
 import { defineConfig } from 'tsup'
 
-export default defineConfig({
-  entry: ['src/index.ts'],
-  format: ['esm'],
-  target: 'es2022',
-  // Bundle @shadowob/shared (pure ESM, no CJS deps).
-  // Keep @shadowob/sdk external — it pulls in socket.io-client → xmlhttprequest-ssl (CJS),
-  // which cannot be bundled into ESM output (dynamic require of 'fs' fails).
-  noExternal: [/^@shadowob\/shared$/],
-  clean: true,
-  dts: true,
-  banner: {
-    js: '#!/usr/bin/env node',
+export default defineConfig([
+  // CLI entry
+  {
+    entry: ['src/index.ts'],
+    format: ['esm'],
+    target: 'es2022',
+    noExternal: [/^@shadowob\/shared$/],
+    clean: true,
+    dts: true,
+    banner: {
+      js: '#!/usr/bin/env node',
+    },
+    esbuildPlugins: [UnpluginTypia.esbuild({ cache: false })],
   },
-  esbuildPlugins: [UnpluginTypia.esbuild({ cache: false })],
-})
+  // Worker entry — imports from apps/server/src/, keep server deps external
+  {
+    entry: ['src/worker.ts'],
+    format: ['cjs'],
+    target: 'es2022',
+    noExternal: [/^@shadowob\/shared$/, 'postgres', 'drizzle-orm', /^drizzle-orm\//],
+    dts: false,
+    esbuildPlugins: [UnpluginTypia.esbuild({ cache: false })],
+  },
+])
