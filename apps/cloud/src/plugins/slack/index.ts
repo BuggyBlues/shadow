@@ -14,10 +14,8 @@ import type {
 } from '../types.js'
 import manifest from './manifest.json' with { type: 'json' }
 
-function buildSlackConfig(
-  agentConfig: Record<string, unknown>,
-  context: PluginBuildContext,
-): PluginConfigFragment {
+function buildSlackConfig(context: PluginBuildContext): PluginConfigFragment {
+  const { agentConfig } = context
   const channels = (agentConfig.channels as string[]) ?? []
   const mentionOnly = agentConfig.mentionOnly !== false
 
@@ -49,7 +47,7 @@ function buildSlackConfig(
 const plugin: PluginDefinition = {
   ...createChannelPlugin(manifest as PluginManifest, buildSlackConfig),
   lifecycle: {
-    async healthCheck(_agentConfig, context) {
+    async healthCheck(context) {
       const token = context.secrets.SLACK_BOT_TOKEN
       if (!token) {
         return { healthy: false, message: 'SLACK_BOT_TOKEN not configured' }

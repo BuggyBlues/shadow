@@ -39,10 +39,8 @@ interface ShadowobPluginConfig {
   servers?: Array<{ url: string }>
 }
 
-function buildShadowConfig(
-  agentConfig: Record<string, unknown>,
-  context: PluginBuildContext,
-): PluginConfigFragment {
+function buildShadowConfig(context: PluginBuildContext): PluginConfigFragment {
+  const agentConfig = context.agentConfig
   const shadowConfig = agentConfig as unknown as ShadowobPluginConfig
   const bindings = shadowConfig.bindings?.filter((b) => b.agentId === context.agent.id) ?? []
   // Always emit channel config — disabled fallback ensures the always-installed
@@ -94,9 +92,9 @@ const basePlugin = createChannelPlugin(manifest as PluginManifest, buildShadowCo
 const plugin: PluginDefinition = {
   ...basePlugin,
   validation: {
-    validate(agentConfig: Record<string, unknown>, context: PluginBuildContext) {
+    validate(context: PluginBuildContext) {
       // Run base validation first (checks required auth fields)
-      const baseResult = basePlugin.validation!.validate(agentConfig, context)
+      const baseResult = basePlugin.validation!.validate(context)
       const errors: PluginValidationError[] = [...baseResult.errors]
 
       // Custom: warn if SHADOW_SERVER_URL is missing
@@ -109,7 +107,7 @@ const plugin: PluginDefinition = {
       }
 
       // Custom: error if bindings reference non-existent buddies
-      const shadowConfig = agentConfig as unknown as ShadowobPluginConfig
+      const shadowConfig = context.agentConfig as unknown as ShadowobPluginConfig
       const buddyIds = new Set((shadowConfig.buddies ?? []).map((b) => b.id))
       for (const binding of shadowConfig.bindings ?? []) {
         if (!buddyIds.has(binding.targetId)) {
@@ -129,10 +127,7 @@ const plugin: PluginDefinition = {
   },
 
   lifecycle: {
-    async provision(
-      agentConfig: Record<string, unknown>,
-      context: PluginProvisionContext,
-    ): Promise<PluginProvisionResult> {
+    async provision(context: PluginProvisionContext): Promise<PluginProvisionResult> {
       const serverUrl = context.secrets.SHADOW_SERVER_URL
       const userToken = context.secrets.SHADOW_USER_TOKEN
       if (!serverUrl || !userToken) {
@@ -146,9 +141,12 @@ const plugin: PluginDefinition = {
         serverUrl,
         userToken,
         dryRun: context.dryRun,
-        existingState: context.existingState as
-          | import('../../utils/state.js').ProvisionState
-          | null,
+        existingState: context.previousState as {
+          servers?: Record<string, string>
+          channels?: Record<string, string>
+          buddies?: Record<string, { agentId: string; userId: string; token: string }>
+          shadowServerUrl?: string
+        } | null,
         logger: context.logger as import('../../utils/logger.js').Logger,
       })
 
@@ -163,12 +161,13 @@ const plugin: PluginDefinition = {
 
       return {
         state: {
+          shadowServerUrl: serverUrl,
           servers: Object.fromEntries(result.servers),
           channels: Object.fromEntries(result.channels),
           buddies: Object.fromEntries(
             [...result.buddies.entries()].map(([k, v]) => [
               k,
-              { agentId: v.agentId, userId: v.userId },
+              { agentId: v.agentId, userId: v.userId, token: v.token },
             ]),
           ),
         },

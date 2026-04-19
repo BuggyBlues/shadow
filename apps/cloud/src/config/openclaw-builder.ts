@@ -10,9 +10,6 @@
  * that gets merged by the top-level buildOpenClawConfig.
  */
 
-import { existsSync } from 'node:fs'
-import { resolve } from 'node:path'
-import { buildOpenClawFromGitAgent, readGitAgentDir } from '../adapters/gitagent.js'
 import {
   mergePluginFragments,
   resolveAgentPluginConfig,
@@ -302,58 +299,6 @@ function applySharedWorkspace(
 }
 
 /**
- * Apply gitagent source overlay → repoRoot.
- */
-function applyGitAgentSource(
-  agent: AgentDeployment,
-  agentEntry: OpenClawAgentConfig,
-  openclawConfig: OpenClawConfig,
-): void {
-  if (!agent.source) return
-
-  const mountPath = agent.source.mountPath ?? '/agent'
-  const useGitagent = agent.source.gitagent !== false
-
-  if (!useGitagent) return
-
-  if (!openclawConfig.agents) openclawConfig.agents = {}
-  if (!openclawConfig.agents.defaults) openclawConfig.agents.defaults = {}
-  if (!openclawConfig.agents.defaults.repoRoot) {
-    openclawConfig.agents.defaults.repoRoot = mountPath
-  }
-  if (!agentEntry.agentDir) {
-    agentEntry.agentDir = mountPath
-  }
-
-  if (agent.source.path) {
-    const localPath = resolve(agent.source.path)
-    if (existsSync(localPath)) {
-      const parsed = readGitAgentDir(localPath)
-      const additions = buildOpenClawFromGitAgent(parsed, mountPath)
-
-      if (additions.skills) {
-        if (!openclawConfig.skills) openclawConfig.skills = {}
-        const existingExtraDirs = openclawConfig.skills.load?.extraDirs ?? []
-        const newExtraDirs = additions.skills.load?.extraDirs ?? []
-        openclawConfig.skills = {
-          ...additions.skills,
-          ...openclawConfig.skills,
-          load: { extraDirs: [...new Set([...existingExtraDirs, ...newExtraDirs])] },
-          entries: {
-            ...(additions.skills.entries ?? {}),
-            ...(openclawConfig.skills.entries ?? {}),
-          },
-        }
-      }
-
-      if (additions.agents?.defaults?.heartbeat && !openclawConfig.agents.defaults.heartbeat) {
-        openclawConfig.agents.defaults.heartbeat = additions.agents.defaults.heartbeat
-      }
-    }
-  }
-}
-
-/**
  * Apply compliance → audit logging plugin.
  */
 function applyCompliance(
@@ -458,48 +403,27 @@ function applyPluginPipeline(
     const context: PluginBuildContext = {
       agent,
       config,
+      agentConfig: resolved,
       secrets,
       namespace: config.deployments?.namespace ?? 'default',
       pluginRegistry: registry,
     }
 
-    const agentConfig = (resolved ?? {}) as Record<string, unknown>
-
     // Build OpenClaw config fragment via configBuilder provider
     if (pluginDef.configBuilder) {
-      const fragment = pluginDef.configBuilder.build(agentConfig, context)
+      const fragment = pluginDef.configBuilder.build(context)
       Object.assign(openclawConfig, mergePluginFragments(openclawConfig, fragment))
     }
 
     // Build env vars via env provider
     if (pluginDef.env) {
-      Object.assign(envVars, pluginDef.env.build(agentConfig, context))
+      Object.assign(envVars, pluginDef.env.build(context))
     }
 
     // Collect K8s resources via resources provider
     if (pluginDef.resources) {
-      const resources = pluginDef.resources.build(agentConfig, context)
+      const resources = pluginDef.resources.build(context)
       pluginResources.push(...resources)
-    }
-
-    // Collect lifecycle provisioning tasks (async — deferred for infra layer)
-    if (pluginDef.lifecycle?.provision) {
-      if (!openclawConfig._pluginProvisions) {
-        openclawConfig._pluginProvisions = []
-      }
-      ;(openclawConfig._pluginProvisions as unknown[]).push({
-        pluginId,
-        provision: pluginDef.lifecycle.provision.bind(pluginDef.lifecycle),
-        context: {
-          agent,
-          config,
-          secrets,
-          logger: { info: () => {}, dim: () => {} },
-          dryRun: false,
-          existingState: null,
-        },
-        agentConfig,
-      })
     }
   }
 
@@ -555,10 +479,7 @@ export function buildOpenClawConfig(agent: AgentDeployment, config: CloudConfig)
   // 10. Shared workspace
   applySharedWorkspace(agent, config, openclawConfig.agents)
 
-  // 11. GitAgent source overlay
-  applyGitAgentSource(agent, agentEntry, openclawConfig)
-
-  // 12. Compliance → audit logging
+  // 11. Compliance → audit logging
   applyCompliance(agent, config, openclawConfig)
 
   // 13. Logging + messages

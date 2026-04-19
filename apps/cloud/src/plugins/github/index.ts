@@ -48,7 +48,7 @@ const plugin: PluginDefinition = {
     },
   }),
   lifecycle: {
-    async healthCheck(_agentConfig, context) {
+    async healthCheck(context) {
       const token = context.secrets.GITHUB_PERSONAL_ACCESS_TOKEN
       if (!token) {
         return { healthy: false, message: 'GITHUB_PERSONAL_ACCESS_TOKEN not configured' }

@@ -6,6 +6,7 @@
  */
 
 import type { AgentDeployment, CloudConfig } from '../config/schema.js'
+import type { ProvisionState } from '../utils/state.js'
 import { resolveAgentPluginConfig, resolvePluginSecrets } from './config-merger.js'
 import { getPluginRegistry } from './registry.js'
 import type { PluginBuildContext, PluginProvisionContext } from './types.js'
@@ -26,6 +27,8 @@ export async function executePluginProvisions(
   namespace: string,
   logger: { info: (msg: string) => void; dim: (msg: string) => void },
   dryRun = false,
+  extraSecrets: Record<string, string> = {},
+  persistedState: ProvisionState | null = null,
 ): Promise<ProvisionResults> {
   const registry = getPluginRegistry()
   const results: ProvisionResults = { secrets: {}, states: {}, errors: [] }
@@ -41,22 +44,21 @@ export async function executePluginProvisions(
     const resolved = resolveAgentPluginConfig(pluginId, agent.id, config)
     if (!resolved) continue
 
-    const secrets = resolvePluginSecrets(pluginId, config, process.env)
+    const secrets = { ...resolvePluginSecrets(pluginId, config, process.env), ...extraSecrets }
     const context: PluginProvisionContext = {
       agent,
       config,
+      agentConfig: resolved,
       secrets,
       namespace,
       logger,
       dryRun,
-      existingState: results.states[pluginId] ?? null,
+      previousState: persistedState?.plugins?.[pluginId] ?? null,
     }
-
-    const agentConfig = (resolved.config ?? {}) as Record<string, unknown>
 
     try {
       logger.dim(`  Provisioning plugin: ${pluginDef.manifest.name}`)
-      const result = await pluginDef.lifecycle.provision(agentConfig, context)
+      const result = await pluginDef.lifecycle.provision(context)
 
       if (result.state) {
         results.states[pluginId] = result.state
@@ -104,15 +106,14 @@ export async function checkPluginHealth(
         configuration: { openclaw: {} },
       } as AgentDeployment,
       config,
+      agentConfig: resolved,
       secrets,
       namespace: config.deployments?.namespace ?? 'default',
       pluginRegistry: registry,
     }
 
-    const agentConfig = (resolved.config ?? {}) as Record<string, unknown>
-
     try {
-      const result = await pluginDef.lifecycle.healthCheck(agentConfig, context)
+      const result = await pluginDef.lifecycle.healthCheck(context)
       results.push({
         pluginId,
         name: pluginDef.manifest.name,

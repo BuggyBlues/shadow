@@ -10,10 +10,8 @@ import type {
 } from '../types.js'
 import manifest from './manifest.json' with { type: 'json' }
 
-function buildTelegramConfig(
-  agentConfig: Record<string, unknown>,
-  context: PluginBuildContext,
-): PluginConfigFragment {
+function buildTelegramConfig(context: PluginBuildContext): PluginConfigFragment {
+  const { agentConfig } = context
   const allowedChats = (agentConfig.allowedChats as string[]) ?? []
   const polling = agentConfig.polling !== false
 

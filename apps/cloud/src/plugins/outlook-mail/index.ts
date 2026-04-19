@@ -10,10 +10,8 @@ import type {
 } from '../types.js'
 import manifest from './manifest.json' with { type: 'json' }
 
-function buildOutlookMailConfig(
-  agentConfig: Record<string, unknown>,
-  context: PluginBuildContext,
-): PluginConfigFragment {
+function buildOutlookMailConfig(context: PluginBuildContext): PluginConfigFragment {
+  const { agentConfig } = context
   const folders = (agentConfig.folders as string[]) ?? ['Inbox']
   return {
     channels: {

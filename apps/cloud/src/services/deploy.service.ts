@@ -10,12 +10,7 @@ import { resolve } from 'node:path'
 import type { CloudConfig } from '../config/schema.js'
 import type { ProvisionResult } from '../provisioning/index.js'
 import type { Logger } from '../utils/logger.js'
-import {
-  loadProvisionState,
-  mergeProvisionState,
-  provisionResultToState,
-  saveProvisionState,
-} from '../utils/state.js'
+import { loadProvisionState } from '../utils/state.js'
 import type { ConfigService } from './config.service.js'
 import type { K8sService } from './k8s.service.js'
 import type { ManifestService } from './manifest.service.js'
@@ -119,9 +114,10 @@ export class DeployService {
       this.logger.warn('kubectl cannot reach a cluster. Use --local to auto-create a kind cluster.')
     }
 
-    // 2. Make CLI-provided credentials available to plugin lifecycle provisions
-    if (options.shadowUrl) process.env.SHADOW_SERVER_URL = options.shadowUrl
-    if (options.shadowToken) process.env.SHADOW_USER_TOKEN = options.shadowToken
+    // 2. Build extra secrets from CLI-provided credentials (passed directly to plugin lifecycle)
+    const extraSecrets: Record<string, string> = {}
+    if (options.shadowUrl) extraSecrets.SHADOW_SERVER_URL = options.shadowUrl
+    if (options.shadowToken) extraSecrets.SHADOW_USER_TOKEN = options.shadowToken
 
     // 3. Resolve config (expand extends + templates)
     this.logger.step('Resolving config...')
@@ -148,6 +144,8 @@ export class DeployService {
             namespace,
             this.logger,
             options.dryRun,
+            extraSecrets,
+            existingState,
           )
           if (provisionResults.errors.length > 0) {
             for (const e of provisionResults.errors) {
@@ -159,24 +157,17 @@ export class DeployService {
             agent.env = { ...(agent.env ?? {}), ...provisionResults.secrets }
 
             // Persist provision state for future dedup
-            if (!options.dryRun) {
-              const { provisionResultToState, mergeProvisionState, saveProvisionState } =
-                await import('../utils/state.js')
-              if (existingState !== null && provisionResults.states) {
-                const newState: import('../utils/state.js').ProvisionState = {
-                  servers: {},
-                  channels: {},
-                  buddies: {},
-                  provisionedAt: new Date().toISOString(),
-                  shadowServerUrl: process.env.SHADOW_SERVER_URL ?? '',
-                  stackName: options.stack ?? 'dev',
-                  namespace,
-                  ...provisionResults.states,
-                }
-                const merged = mergeProvisionState(existingState, newState)
-                const statePath = saveProvisionState(filePath, merged, options.stateDir)
-                this.logger.dim(`  State saved: ${statePath}`)
+            if (!options.dryRun && Object.keys(provisionResults.states).length > 0) {
+              const { mergeProvisionState, saveProvisionState } = await import('../utils/state.js')
+              const newState: import('../utils/state.js').ProvisionState = {
+                provisionedAt: new Date().toISOString(),
+                stackName: options.stack ?? 'dev',
+                namespace,
+                plugins: provisionResults.states,
               }
+              const merged = mergeProvisionState(existingState, newState)
+              const statePath = saveProvisionState(filePath, merged, options.stateDir)
+              this.logger.dim(`  State saved: ${statePath}`)
             }
           }
         }

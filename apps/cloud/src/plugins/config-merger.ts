@@ -122,14 +122,33 @@ export function resolvePluginSecrets(
   config: CloudConfig,
   processEnv: Record<string, string | undefined>,
 ): Record<string, string> {
-  // Only the legacy plugins map carries secrets; use-array plugins resolve at build time via env refs.
+  // Legacy plugins map: explicit secrets map with ${env:VAR} support
   const pluginInstanceConfig = (
     config.plugins as Record<string, CloudPluginInstanceConfig> | undefined
   )?.[pluginId]
-  if (!pluginInstanceConfig?.secrets) return {}
+
+  const secretsMap: Record<string, string> = pluginInstanceConfig?.secrets ?? {}
+
+  // New `use` array: plugins may declare required env vars in options
+  // Resolve any ${env:VAR} references found in use entry options
+  if (!pluginInstanceConfig) {
+    const useEntry = config.use?.find((e) => e.plugin === pluginId)
+    if (useEntry?.options) {
+      for (const [, val] of Object.entries(useEntry.options)) {
+        if (typeof val === 'string') {
+          const envMatch = val.match(/^\$\{env:(\w+)\}$/)
+          if (envMatch?.[1]) {
+            const envKey = envMatch[1]
+            const envVal = processEnv[envKey]
+            if (envVal !== undefined) secretsMap[envKey] = envVal
+          }
+        }
+      }
+    }
+  }
 
   const resolved: Record<string, string> = {}
-  for (const [key, ref] of Object.entries(pluginInstanceConfig.secrets)) {
+  for (const [key, ref] of Object.entries(secretsMap)) {
     // Resolve ${env:VAR_NAME} references
     const envMatch = ref.match(/^\$\{env:(\w+)\}$/)
     if (envMatch) {

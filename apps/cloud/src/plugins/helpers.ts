@@ -93,10 +93,7 @@ export function createSkillPlugin(
 
     // ── Config Builder (auto-derived from skills+CLI+MCP) ──
     configBuilder: {
-      build(
-        _agentConfig: Record<string, unknown>,
-        _context: PluginBuildContext,
-      ): PluginConfigFragment {
+      build(_context: PluginBuildContext): PluginConfigFragment {
         const fragment: PluginConfigFragment = {}
 
         // Skills → skills.allowBundled + skills.entries
@@ -151,12 +148,12 @@ export function createSkillPlugin(
 
     // ── Env Provider ──
     env: {
-      build: (_agentConfig, context) => buildDefaultEnvVars(manifest, context),
+      build: (context) => buildDefaultEnvVars(manifest, context),
     },
 
     // ── Validation Provider ──
     validation: {
-      validate: (_agentConfig, context) => buildDefaultValidation(manifest, context),
+      validate: (context) => buildDefaultValidation(manifest, context),
     },
   }
 }
@@ -171,10 +168,7 @@ export function createSkillPlugin(
  */
 export function createChannelPlugin(
   manifest: PluginManifest,
-  channelBuilder: (
-    agentConfig: Record<string, unknown>,
-    context: PluginBuildContext,
-  ) => PluginConfigFragment,
+  channelBuilder: (context: PluginBuildContext) => PluginConfigFragment,
 ): PluginDefinition {
   return {
     manifest,
@@ -186,12 +180,12 @@ export function createChannelPlugin(
 
     // ── Env Provider ──
     env: {
-      build: (_agentConfig, context) => buildDefaultEnvVars(manifest, context),
+      build: (context) => buildDefaultEnvVars(manifest, context),
     },
 
     // ── Validation Provider ──
     validation: {
-      validate: (_agentConfig, context) => buildDefaultValidation(manifest, context),
+      validate: (context) => buildDefaultValidation(manifest, context),
     },
   }
 }
@@ -215,10 +209,8 @@ export function createProviderPlugin(
 
     // ── Config Builder ──
     configBuilder: {
-      build(
-        agentConfig: Record<string, unknown>,
-        _context: PluginBuildContext,
-      ): PluginConfigFragment {
+      build(context: PluginBuildContext): PluginConfigFragment {
+        const { agentConfig } = context
         const apiKeyField = manifest.auth.fields.find((f) => f.required && f.sensitive)
         const providerEntry: Record<string, unknown> = {
           ...(apiKeyField ? { apiKey: `\${env:${apiKeyField.key}}` } : {}),
@@ -252,12 +244,12 @@ export function createProviderPlugin(
 
     // ── Env Provider ──
     env: {
-      build: (_agentConfig, context) => buildDefaultEnvVars(manifest, context),
+      build: (context) => buildDefaultEnvVars(manifest, context),
     },
 
     // ── Validation Provider ──
     validation: {
-      validate: (_agentConfig, context) => buildDefaultValidation(manifest, context),
+      validate: (context) => buildDefaultValidation(manifest, context),
     },
   }
 }

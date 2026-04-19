@@ -10,10 +10,8 @@ import type {
 } from '../types.js'
 import manifest from './manifest.json' with { type: 'json' }
 
-function buildGoogleChatConfig(
-  agentConfig: Record<string, unknown>,
-  context: PluginBuildContext,
-): PluginConfigFragment {
+function buildGoogleChatConfig(context: PluginBuildContext): PluginConfigFragment {
+  const { agentConfig } = context
   const spaces = (agentConfig.spaces as string[]) ?? []
   return {
     channels: {

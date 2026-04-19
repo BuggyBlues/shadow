@@ -10,10 +10,8 @@ import type {
 } from '../types.js'
 import manifest from './manifest.json' with { type: 'json' }
 
-function buildDiscordConfig(
-  agentConfig: Record<string, unknown>,
-  context: PluginBuildContext,
-): PluginConfigFragment {
+function buildDiscordConfig(context: PluginBuildContext): PluginConfigFragment {
+  const { agentConfig } = context
   const channels = (agentConfig.channels as string[]) ?? []
   const mentionOnly = agentConfig.mentionOnly !== false
 

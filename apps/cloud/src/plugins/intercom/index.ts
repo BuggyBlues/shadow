@@ -10,10 +10,8 @@ import type {
 } from '../types.js'
 import manifest from './manifest.json' with { type: 'json' }
 
-function buildIntercomConfig(
-  agentConfig: Record<string, unknown>,
-  context: PluginBuildContext,
-): PluginConfigFragment {
+function buildIntercomConfig(context: PluginBuildContext): PluginConfigFragment {
+  const { agentConfig } = context
   return {
     channels: {
       intercom: {

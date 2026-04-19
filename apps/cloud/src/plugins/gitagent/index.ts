@@ -34,20 +34,19 @@ const plugin: PluginDefinition = {
   // Pre-build: convert gitagent use entry → agent.source + enrich from local path
   configResolver: {
     resolveAgent(agent, _config) {
-      if (agent.source) return agent // already has source, nothing to do
-
       const gitagentEntry = agent.use?.find((u) => u.plugin === 'gitagent')
       if (!gitagentEntry?.options) return agent
 
-      let a: AgentDeployment = { ...agent, source: gitagentEntry.options as AgentSource }
+      // Set source from use entry if not already set
+      let a: AgentDeployment = agent.source
+        ? agent
+        : { ...agent, source: gitagentEntry.options as AgentSource }
 
-      // If local path is set, enrich agent from the gitagent directory
-      if (a.source?.path) {
-        const localPath = resolve(a.source.path)
-        if (existsSync(localPath)) {
-          const parsed = readGitAgentDir(localPath)
-          a = enrichAgentFromGitAgent(a, parsed)
-        }
+      // Enrich from local gitagent directory if a path is provided
+      const localPath = a.source?.path ? resolve(a.source.path) : undefined
+      if (localPath && existsSync(localPath)) {
+        const parsed = readGitAgentDir(localPath)
+        a = enrichAgentFromGitAgent(a, parsed)
       }
 
       return a
@@ -57,10 +56,9 @@ const plugin: PluginDefinition = {
   // ── Config Builder ──
   // Build-time: generate OpenClaw config fragment from agent.source
   configBuilder: {
-    build(agentConfig: Record<string, unknown>, context: PluginBuildContext): PluginConfigFragment {
+    build(context: PluginBuildContext): PluginConfigFragment {
       const { agent } = context
       if (!agent.source) return {}
-
       const mountPath = agent.source.mountPath ?? '/agent'
       const useGitagent = agent.source.gitagent !== false
 

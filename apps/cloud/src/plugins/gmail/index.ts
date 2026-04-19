@@ -10,10 +10,8 @@ import type {
 } from '../types.js'
 import manifest from './manifest.json' with { type: 'json' }
 
-function buildGmailConfig(
-  agentConfig: Record<string, unknown>,
-  context: PluginBuildContext,
-): PluginConfigFragment {
+function buildGmailConfig(context: PluginBuildContext): PluginConfigFragment {
+  const { agentConfig } = context
   const labels = (agentConfig.labels as string[]) ?? ['INBOX']
   return {
     channels: {
