@@ -161,6 +161,11 @@ export class DeployService {
           // Merge provisioned secrets into agent env
           if (Object.keys(provisionResults.secrets).length > 0) {
             agent.env = { ...(agent.env ?? {}), ...provisionResults.secrets }
+            // Also update the resolved config so Pulumi picks up the secrets
+            const resolvedAgent = resolved.deployments?.agents?.find((a) => a.id === agent.id)
+            if (resolvedAgent) {
+              resolvedAgent.env = { ...(resolvedAgent.env ?? {}), ...provisionResults.secrets }
+            }
 
             // Persist provision state for future dedup
             if (!options.dryRun && Object.keys(provisionResults.states).length > 0) {

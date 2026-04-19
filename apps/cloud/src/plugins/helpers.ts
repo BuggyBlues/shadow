@@ -170,7 +170,9 @@ export function defineSkillPlugin(
           }
           sc.entries = entries
         }
-        if (options.skills.install) sc.install = options.skills.install
+        // Note: skills.install in the plugin definition is for internal tracking only.
+        // OpenClaw's skills.install only accepts {preferBrew, nodeManager} — not npmPackages.
+        // MCP package installation is handled automatically by the MCP plugin mechanism.
         fragment.skills = sc
       }
 
@@ -178,21 +180,10 @@ export function defineSkillPlugin(
         fragment.tools = { allow: options.cli.map((t) => t.name) }
       }
 
-      const mcps = Array.isArray(options.mcp) ? options.mcp : options.mcp ? [options.mcp] : []
-      if (mcps.length) {
-        const entries: Record<string, unknown> = {}
-        for (const [i, s] of mcps.entries()) {
-          const key = mcps.length === 1 ? manifest.id : `${manifest.id}-${i}`
-          entries[key] = {
-            enabled: true,
-            transport: s.transport,
-            command: s.command,
-            ...(s.args ? { args: s.args } : {}),
-            ...(s.env ? { env: s.env } : {}),
-          }
-        }
-        fragment.plugins = { entries }
-      }
+      // Note: MCP server config (options.mcp) is NOT written to plugins.entries.
+      // plugins.entries is only for pre-installed OpenClaw extension plugins (e.g. voice-call,
+      // firecrawl, memory-core). External MCP servers are not configurable via this path.
+      // GitHub integration uses skills.allowBundled["github"] (bundled skill), which is sufficient.
 
       return fragment
     })

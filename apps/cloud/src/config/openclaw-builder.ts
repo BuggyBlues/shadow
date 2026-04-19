@@ -415,7 +415,7 @@ function applyPluginPipeline(
     const context: PluginBuildContext = {
       agent,
       config,
-      agentConfig: resolved,
+      agentConfig: resolved ?? {},
       secrets,
       namespace: config.deployments?.namespace ?? 'default',
       pluginRegistry: registry,

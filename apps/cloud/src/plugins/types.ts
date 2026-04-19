@@ -214,6 +214,55 @@ export interface PluginMCPServer {
   env?: Record<string, string>
 }
 
+// ─── K8s Artifact Types ──────────────────────────────────────────────────────
+
+export interface PluginK8sInitContainer {
+  name: string
+  image: string
+  imagePullPolicy?: string
+  command: string[]
+  env?: Array<{ name: string; value?: string; valueFrom?: Record<string, unknown> }>
+  volumeMounts: Array<{ name: string; mountPath: string; readOnly?: boolean }>
+  securityContext?: Record<string, unknown>
+}
+
+export interface PluginK8sVolume {
+  name: string
+  spec: Record<string, unknown>
+}
+
+export interface PluginK8sVolumeMount {
+  name: string
+  mountPath: string
+  readOnly?: boolean
+}
+
+export interface PluginK8sEnvVar {
+  name: string
+  value?: string
+  valueFrom?: Record<string, unknown>
+}
+
+export interface PluginK8sResult {
+  initContainers?: PluginK8sInitContainer[]
+  volumes?: PluginK8sVolume[]
+  volumeMounts?: PluginK8sVolumeMount[]
+  envVars?: PluginK8sEnvVar[]
+  labels?: Record<string, string>
+  annotations?: Record<string, string>
+}
+
+export interface PluginK8sContext {
+  agent: AgentDeployment
+  config: CloudConfig
+  namespace: string
+}
+
+export interface PluginK8sProvider {
+  buildK8s(agent: AgentDeployment, ctx: PluginK8sContext): PluginK8sResult | undefined
+  buildDockerfileStages?(agent: AgentDeployment, ctx: PluginK8sContext): string | undefined
+}
+
 // ─── Plugin API (passed to setup()) ─────────────────────────────────────────
 
 /**
@@ -296,6 +345,8 @@ export interface PluginDefinition {
   cli?: PluginCLITool[]
   /** Declared MCP servers (from api.addMCP) */
   mcp?: PluginMCPServer[]
+  /** K8s provider — generates pod-level K8s artifacts (init containers, volumes) */
+  k8s?: PluginK8sProvider
 
   /** All registered hooks, collected during setup() */
   _hooks: PluginHooks

@@ -64,14 +64,18 @@ describe('State Utilities', () => {
     it('round-trips save → load', () => {
       const state: ProvisionState = {
         provisionedAt: '2026-07-15T10:00:00.000Z',
-        shadowServerUrl: 'https://shadow.example.com',
-        servers: { 'my-server': 'srv_123' },
-        channels: { 'my-channel': 'ch_456' },
-        buddies: {
-          'my-buddy': { agentId: 'ag_789', userId: 'usr_abc', token: 'tok_xyz' },
-        },
         stackName: 'dev',
         namespace: 'shadowob-cloud',
+        plugins: {
+          shadowob: {
+            shadowServerUrl: 'https://shadow.example.com',
+            servers: { 'my-server': 'srv_123' },
+            channels: { 'my-channel': 'ch_456' },
+            buddies: {
+              'my-buddy': { agentId: 'ag_789', userId: 'usr_abc', token: 'tok_xyz' },
+            },
+          },
+        },
       }
 
       saveProvisionState(configPath, state)
@@ -83,10 +87,14 @@ describe('State Utilities', () => {
     it('creates .shadowob directory if it does not exist', () => {
       const state: ProvisionState = {
         provisionedAt: new Date().toISOString(),
-        shadowServerUrl: 'https://example.com',
-        servers: {},
-        channels: {},
-        buddies: {},
+        plugins: {
+          shadowob: {
+            shadowServerUrl: 'https://example.com',
+            servers: {},
+            channels: {},
+            buddies: {},
+          },
+        },
       }
 
       saveProvisionState(configPath, state)
@@ -100,10 +108,14 @@ describe('State Utilities', () => {
     it('returns newState when existing is null', () => {
       const newState: ProvisionState = {
         provisionedAt: '2026-07-15T10:00:00.000Z',
-        shadowServerUrl: 'https://example.com',
-        servers: { a: '1' },
-        channels: {},
-        buddies: {},
+        plugins: {
+          shadowob: {
+            shadowServerUrl: 'https://example.com',
+            servers: { a: '1' },
+            channels: {},
+            buddies: {},
+          },
+        },
       }
 
       expect(mergeProvisionState(null, newState)).toEqual(newState)
@@ -112,33 +124,46 @@ describe('State Utilities', () => {
     it('merges servers, channels, buddies — new values overwrite', () => {
       const existing: ProvisionState = {
         provisionedAt: '2026-07-15T09:00:00.000Z',
-        shadowServerUrl: 'https://old.example.com',
-        servers: { a: 'old-a', b: 'keep-b' },
-        channels: { ch1: 'old-ch1' },
-        buddies: {},
+        plugins: {
+          shadowob: {
+            shadowServerUrl: 'https://old.example.com',
+            servers: { a: 'old-a', b: 'keep-b' },
+            channels: { ch1: 'old-ch1' },
+            buddies: {},
+          },
+        },
       }
 
       const newState: ProvisionState = {
         provisionedAt: '2026-07-15T10:00:00.000Z',
-        shadowServerUrl: 'https://new.example.com',
-        servers: { a: 'new-a', c: 'new-c' },
-        channels: { ch2: 'new-ch2' },
-        buddies: {
-          buddy1: { agentId: 'ag1', userId: 'u1', token: 't1' },
+        plugins: {
+          shadowob: {
+            shadowServerUrl: 'https://new.example.com',
+            servers: { a: 'new-a', c: 'new-c' },
+            channels: { ch2: 'new-ch2' },
+            buddies: {
+              buddy1: { agentId: 'ag1', userId: 'u1', token: 't1' },
+            },
+          },
         },
       }
 
       const merged = mergeProvisionState(existing, newState)
+      const shadowob = merged.plugins.shadowob as {
+        shadowServerUrl?: string
+        servers?: Record<string, string>
+        channels?: Record<string, string>
+      }
 
       // New values overwrite
-      expect(merged.servers.a).toBe('new-a')
-      expect(merged.servers.c).toBe('new-c')
+      expect(shadowob.servers?.a).toBe('new-a')
+      expect(shadowob.servers?.c).toBe('new-c')
       // Old values preserved
-      expect(merged.servers.b).toBe('keep-b')
-      expect(merged.channels.ch1).toBe('old-ch1')
-      expect(merged.channels.ch2).toBe('new-ch2')
+      expect(shadowob.servers?.b).toBe('keep-b')
+      expect(shadowob.channels?.ch1).toBe('old-ch1')
+      expect(shadowob.channels?.ch2).toBe('new-ch2')
       // New metadata wins
-      expect(merged.shadowServerUrl).toBe('https://new.example.com')
+      expect(shadowob.shadowServerUrl).toBe('https://new.example.com')
       expect(merged.provisionedAt).toBe('2026-07-15T10:00:00.000Z')
     })
   })
@@ -158,14 +183,20 @@ describe('State Utilities', () => {
         namespace: 'shadowob-cloud',
       })
 
-      expect(state.servers).toEqual({ 'srv-config': 'srv_real' })
-      expect(state.channels).toEqual({ 'ch-config': 'ch_real' })
-      expect(state.buddies['buddy-config']).toEqual({
+      const shadowob = state.plugins.shadowob as {
+        shadowServerUrl?: string
+        servers?: Record<string, string>
+        channels?: Record<string, string>
+        buddies?: Record<string, { agentId: string; userId: string; token: string }>
+      }
+      expect(shadowob.servers).toEqual({ 'srv-config': 'srv_real' })
+      expect(shadowob.channels).toEqual({ 'ch-config': 'ch_real' })
+      expect(shadowob.buddies?.['buddy-config']).toEqual({
         agentId: 'ag1',
         userId: 'u1',
         token: 't1',
       })
-      expect(state.shadowServerUrl).toBe('https://shadow.example.com')
+      expect(shadowob.shadowServerUrl).toBe('https://shadow.example.com')
       expect(state.stackName).toBe('prod')
       expect(state.namespace).toBe('shadowob-cloud')
       expect(state.provisionedAt).toBeDefined()

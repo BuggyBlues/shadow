@@ -157,8 +157,8 @@
                 "heartbeat": {
                   "every": "48h",
                   "prompt": "Research one emerging trend or market opportunity in our sector. Deliver a structured report with sources and actionable insights.",
-                  "to": "shadowob",
-                  "target": "market-research"
+                  "target": "shadowob",
+                  "accountId": "market-research"
                 }
               }
             }
@@ -200,8 +200,8 @@
                 "heartbeat": {
                   "every": "24h",
                   "prompt": "Check all configured competitors for changes. Alert on significant events. Log all observations to Notion.",
-                  "to": "shadowob",
-                  "target": "competitor-intel"
+                  "target": "shadowob",
+                  "accountId": "competitor-intel"
                 }
               }
             }
@@ -243,8 +243,8 @@
                 "heartbeat": {
                   "every": "24h",
                   "prompt": "If today is Monday, produce the weekly intelligence digest and post it. Otherwise, collect and curate interesting intelligence items from the week so far.",
-                  "to": "shadowob",
-                  "target": "weekly-digest"
+                  "target": "shadowob",
+                  "accountId": "weekly-digest"
                 }
               }
             }

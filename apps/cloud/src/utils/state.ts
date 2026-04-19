@@ -139,7 +139,27 @@ export function mergeProvisionState(
     mergedPlugins[pluginId] = { ...pluginState }
   }
   for (const [pluginId, pluginState] of Object.entries(newState.plugins ?? {})) {
-    mergedPlugins[pluginId] = { ...(mergedPlugins[pluginId] ?? {}), ...pluginState }
+    const prev = mergedPlugins[pluginId] ?? {}
+    const merged: Record<string, unknown> = { ...prev }
+    for (const [key, value] of Object.entries(pluginState)) {
+      const prevValue = prev[key]
+      if (
+        value !== null &&
+        typeof value === 'object' &&
+        !Array.isArray(value) &&
+        prevValue !== null &&
+        typeof prevValue === 'object' &&
+        !Array.isArray(prevValue)
+      ) {
+        merged[key] = {
+          ...(prevValue as Record<string, unknown>),
+          ...(value as Record<string, unknown>),
+        }
+      } else {
+        merged[key] = value
+      }
+    }
+    mergedPlugins[pluginId] = merged
   }
 
   return { ...newState, plugins: mergedPlugins }

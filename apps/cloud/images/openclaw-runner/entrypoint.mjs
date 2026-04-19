@@ -257,6 +257,9 @@ function startGateway(_healthServer) {
     OPENCLAW_NO_RESPAWN: '1',
     // Avoid overhead from compile-cache setup in containers
     NODE_COMPILE_CACHE: '/tmp/openclaw-compile-cache',
+    // npm/npx writes cache to $HOME/.npm by default; HOME is read-only in containers,
+    // so redirect to /tmp to allow ACPX backend probes (e.g. npx @zed-industries/codex-acp)
+    npm_config_cache: '/tmp/npm-cache',
   }
 
   const proc = spawn(

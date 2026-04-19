@@ -162,8 +162,8 @@
                 "heartbeat": {
                   "every": "24h",
                   "prompt": "Run full security scan of the repository. Report CRITICAL and HIGH findings immediately. Queue MEDIUM/LOW for weekly report.",
-                  "to": "shadowob",
-                  "target": "findings"
+                  "target": "shadowob",
+                  "accountId": "findings"
                 }
               }
             }
@@ -205,8 +205,8 @@
                 "heartbeat": {
                   "every": "24h",
                   "prompt": "Run dependency audit. Check for new CVEs in direct and transitive dependencies. Alert on critical findings.",
-                  "to": "shadowob",
-                  "target": "dependencies"
+                  "target": "shadowob",
+                  "accountId": "dependencies"
                 }
               }
             }
@@ -248,8 +248,8 @@
                 "heartbeat": {
                   "every": "6h",
                   "prompt": "Scan all recent commits for exposed secrets. Alert immediately on any findings. Never include secret values in output.",
-                  "to": "shadowob",
-                  "target": "secrets"
+                  "target": "shadowob",
+                  "accountId": "secrets"
                 }
               }
             }

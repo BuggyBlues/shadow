@@ -7,6 +7,9 @@
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { getPluginRegistry } from '../plugins/registry.js'
+
+export { deepMerge } from '../utils/deep-merge.js'
+
 import { deepMerge } from '../utils/deep-merge.js'
 import { parseJsonc } from '../utils/jsonc.js'
 import type { AgentConfiguration, AgentDeployment, CloudConfig, Configuration } from './schema.js'
@@ -15,6 +18,35 @@ import { resolveTemplates, type TemplateContext } from './template.js'
 
 // Re-export buildOpenClawConfig from its dedicated module
 export { buildOpenClawConfig } from './openclaw-builder.js'
+
+/**
+ * Recursively resolve a Configuration from the registry, following the
+ * `extends` chain. Child fields override parent fields (deep merge).
+ */
+function resolveConfigurationChain(
+  id: string,
+  configurations: Configuration[],
+  visited: Set<string> = new Set(),
+): Omit<Configuration, 'id'> {
+  if (visited.has(id)) {
+    throw new Error(`Circular extends detected in registry.configurations: ${id}`)
+  }
+  visited.add(id)
+
+  const config = configurations.find((c) => c.id === id)
+  if (!config) {
+    throw new Error(
+      `Configuration "${id}" not found in registry.configurations. ` +
+        `Available: ${configurations.map((c) => c.id).join(', ')}`,
+    )
+  }
+
+  const { id: _id, extends: parentId, ...fields } = config
+  if (!parentId) return fields
+
+  const parentFields = resolveConfigurationChain(parentId, configurations, visited)
+  return deepMerge(parentFields as Record<string, unknown>, fields) as Omit<Configuration, 'id'>
+}
 
 /**
  * Expand the 'extends' field in an agent configuration by merging

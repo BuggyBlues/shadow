@@ -168,8 +168,8 @@
                   "every": "24h",
                   "session": "daily-report",
                   "prompt": "Generate today's morning metrics report. Pull data from Stripe, GA4, and Mixpanel. Format it clearly.",
-                  "to": "shadowob",
-                  "target": "daily-reports"
+                  "target": "shadowob",
+                  "accountId": "daily-reports"
                 }
               }
             }
@@ -218,8 +218,8 @@
                 "heartbeat": {
                   "every": "1h",
                   "prompt": "Check all monitored metrics for anomalies in the last hour. Only alert if something is genuinely unusual. Stay silent if all metrics are normal.",
-                  "to": "shadowob",
-                  "target": "alerts"
+                  "target": "shadowob",
+                  "accountId": "alerts"
                 }
               }
             }

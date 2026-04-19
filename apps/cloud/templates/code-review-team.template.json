@@ -176,8 +176,8 @@
                 "heartbeat": {
                   "every": "15m",
                   "prompt": "Check for open PRs that need review. Review any unreviewed PRs. Report your findings.",
-                  "to": "shadowob",
-                  "target": "code-reviews"
+                  "target": "shadowob",
+                  "accountId": "code-reviews"
                 }
               }
             }
@@ -219,8 +219,8 @@
                 "heartbeat": {
                   "every": "20m",
                   "prompt": "Scan all open PRs for security vulnerabilities. Report any HIGH or CRITICAL findings immediately.",
-                  "to": "shadowob",
-                  "target": "security"
+                  "target": "shadowob",
+                  "accountId": "security"
                 }
               }
             }
@@ -262,8 +262,8 @@
                 "heartbeat": {
                   "every": "30m",
                   "prompt": "Check open PRs for documentation gaps. Report missing docs. On Mondays generate a weekly docs quality report.",
-                  "to": "shadowob",
-                  "target": "docs"
+                  "target": "shadowob",
+                  "accountId": "docs"
                 }
               }
             }
