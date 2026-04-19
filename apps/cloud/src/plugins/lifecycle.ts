@@ -9,7 +9,7 @@ import type { AgentDeployment, CloudConfig } from '../config/schema.js'
 import type { ProvisionState } from '../utils/state.js'
 import { resolveAgentPluginConfig, resolvePluginSecrets } from './config-merger.js'
 import { getPluginRegistry } from './registry.js'
-import type { PluginBuildContext, PluginProvisionContext } from './types.js'
+import type { PluginHealthCheckContext, PluginProvisionContext } from './types.js'
 
 export interface ProvisionResults {
   secrets: Record<string, string>
@@ -96,17 +96,14 @@ export async function checkPluginHealth(
 
     const secrets = resolvePluginSecrets(pluginId, config, process.env)
 
-    const context: PluginBuildContext = {
-      agent: {
-        id: agentId,
-        runtime: 'openclaw',
-        configuration: { openclaw: {} },
-      } as AgentDeployment,
+    const noopLogger = { info: (_: string) => {}, dim: (_: string) => {} }
+    const context: PluginHealthCheckContext = {
+      agent: { id: agentId },
       config,
       agentConfig: resolved,
       secrets,
       namespace: config.deployments?.namespace ?? 'default',
-      pluginRegistry: registry,
+      logger: noopLogger,
     }
 
     try {

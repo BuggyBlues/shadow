@@ -24,6 +24,7 @@ export type {
   PluginCategory,
   PluginCLITool,
   PluginConfigFragment,
+  PluginHealthCheckContext,
   PluginInstallConfig,
   PluginManifest,
   PluginMCPServer,

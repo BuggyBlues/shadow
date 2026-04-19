@@ -13,9 +13,13 @@ export function createPluginRegistry(): PluginRegistry {
     },
 
     register(plugin: PluginDefinition): void {
-      const { id } = plugin.manifest
-      if (plugins.has(id)) {
-        throw new Error(`Plugin "${id}" is already registered`)
+      const { id, version } = plugin.manifest
+      const existing = plugins.get(id)
+      if (existing) {
+        // Idempotent: same version is a no-op (handles repeated loadAllPlugins in tests)
+        if (existing.manifest.version === version) return
+        // Different version: overwrite (e.g. hot-reload during development)
+        console.warn(`Plugin "${id}" re-registered with version ${version} (was ${existing.manifest.version})`)
       }
       plugins.set(id, plugin)
     },

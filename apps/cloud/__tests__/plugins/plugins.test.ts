@@ -8,7 +8,7 @@ import {
   resolveAgentPluginConfig,
   resolvePluginSecrets,
 } from '../../src/plugins/config-merger.js'
-import { createChannelPlugin, createSkillPlugin } from '../../src/plugins/helpers.js'
+import { defineChannelPlugin, defineSkillPlugin } from '../../src/plugins/helpers.js'
 import { loadAllPlugins, registerPlugin, validateManifest } from '../../src/plugins/loader.js'
 import {
   createPluginRegistry,
@@ -46,7 +46,7 @@ function makeManifest(overrides: Partial<PluginManifest> = {}): PluginManifest {
 }
 
 function makePlugin(manifest: PluginManifest): PluginDefinition {
-  return createSkillPlugin(manifest, { skills: { bundled: [manifest.id] } })
+  return defineSkillPlugin(manifest, { skills: { bundled: [manifest.id] } })
 }
 
 function makeBuildContext(overrides: Partial<PluginBuildContext> = {}): PluginBuildContext {
@@ -194,9 +194,9 @@ describe('loadAllPlugins', () => {
   })
 })
 
-// ─── createSkillPlugin ─────────────────────────────────────────────────────
+// ─── defineSkillPlugin ─────────────────────────────────────────────────────
 
-describe('createSkillPlugin', () => {
+describe('defineSkillPlugin', () => {
   it('should create a valid plugin definition', () => {
     const plugin = makePlugin(makeManifest())
     expect(plugin.manifest.id).toBe('test-plugin')
@@ -237,18 +237,18 @@ describe('createSkillPlugin', () => {
   })
 })
 
-// ─── createChannelPlugin ───────────────────────────────────────────────────
+// ─── defineChannelPlugin ───────────────────────────────────────────────────
 
-describe('createChannelPlugin', () => {
+describe('defineChannelPlugin', () => {
   it('should use custom channel builder for config', () => {
     const channelBuilder = (ctx: PluginBuildContext): PluginConfigFragment => ({
       channels: {
-        'test-channel': { enabled: true, accounts: { [ctx.agent.id]: { token: 'tok' } } },
+        'test-channel': { enabled: true, accounts: { [ctx.agent.id as string]: { token: 'tok' } } },
       },
       bindings: [{ agentId: ctx.agent.id, type: 'route', match: { channel: 'test-channel' } }],
     })
 
-    const plugin = createChannelPlugin(makeManifest({ capabilities: ['channel'] }), channelBuilder)
+    const plugin = defineChannelPlugin(makeManifest({ capabilities: ['channel'] }), channelBuilder)
     const ctx = makeBuildContext()
     const fragment = plugin._hooks.buildConfig[0]!(ctx)
 
@@ -258,7 +258,7 @@ describe('createChannelPlugin', () => {
 
   it('should still provide env vars and validation', () => {
     const channelBuilder = () => ({})
-    const plugin = createChannelPlugin(makeManifest(), channelBuilder)
+    const plugin = defineChannelPlugin(makeManifest(), channelBuilder)
     const ctx = makeBuildContext({ secrets: { TEST_API_KEY: 'sk-x' } })
 
     expect(plugin._hooks.buildEnv[0]!(ctx)).toEqual({ TEST_API_KEY: 'sk-x' })

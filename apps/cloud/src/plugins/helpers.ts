@@ -74,11 +74,16 @@ function makeAPI(
  * Define a plugin by registering hooks via a setup(api) function.
  *
  * This is the lowest-level primitive. Use factory helpers for common patterns.
+ *
+ * Accepts either a validated PluginManifest or a raw object (e.g. JSON import).
+ * Raw objects are validated via loadManifest() at call time, so invalid manifests
+ * fail at module load time rather than at registration.
  */
 export function definePlugin(
-  manifest: PluginManifest,
+  rawManifest: PluginManifest | Record<string, unknown>,
   setup: (api: PluginAPI) => void,
 ): PluginDefinition {
+  const manifest = loadManifest(rawManifest as Record<string, unknown>)
   const hooks = makeHooks()
   const collected: { skills?: PluginSkillsConfig; cli?: PluginCLITool[]; mcp?: PluginMCPServer[] } =
     {}
@@ -137,7 +142,7 @@ function defaultValidation(
  * })
  */
 export function defineSkillPlugin(
-  manifest: PluginManifest,
+  rawManifest: PluginManifest | Record<string, unknown>,
   options: {
     skills?: PluginSkillsConfig
     cli?: PluginCLITool[]
@@ -145,6 +150,7 @@ export function defineSkillPlugin(
   },
   extraSetup?: (api: PluginAPI) => void,
 ): PluginDefinition {
+  const manifest = loadManifest(rawManifest as Record<string, unknown>)
   return definePlugin(manifest, (api) => {
     if (options.skills) api.addSkills(options.skills)
     if (options.cli?.length) api.addCLI(options.cli)
@@ -210,10 +216,11 @@ export function defineSkillPlugin(
  * defineChannelPlugin(manifest, buildSlackConfig)
  */
 export function defineChannelPlugin(
-  manifest: PluginManifest,
+  rawManifest: PluginManifest | Record<string, unknown>,
   channelBuilder: (ctx: PluginBuildContext) => PluginConfigFragment,
   extraSetup?: (api: PluginAPI) => void,
 ): PluginDefinition {
+  const manifest = loadManifest(rawManifest as Record<string, unknown>)
   return definePlugin(manifest, (api) => {
     api.onBuildConfig(channelBuilder)
     api.onBuildEnv((ctx) => defaultEnvVars(manifest, ctx))
@@ -229,10 +236,11 @@ export function defineChannelPlugin(
  * defineProviderPlugin(manifest, { provider: { id: 'openai', api: 'openai' } })
  */
 export function defineProviderPlugin(
-  manifest: PluginManifest,
+  rawManifest: PluginManifest | Record<string, unknown>,
   options: { provider: { id: string; api: string; baseUrl?: string } },
   extraSetup?: (api: PluginAPI) => void,
 ): PluginDefinition {
+  const manifest = loadManifest(rawManifest as Record<string, unknown>)
   return definePlugin(manifest, (api) => {
     api.onBuildConfig((ctx): PluginConfigFragment => {
       const { agentConfig } = ctx

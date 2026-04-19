@@ -137,6 +137,29 @@ export interface PluginProvisionContext extends PluginBaseContext {
   previousState: Record<string, unknown> | null
 }
 
+/**
+ * Context passed to health check hooks.
+ *
+ * Extends PluginBaseContext only (not PluginBuildContext) to avoid exposing
+ * build-time fields (pluginRegistry) that are irrelevant for connectivity checks.
+ * The `agent` field uses Partial<AgentDeployment> because health checks are often
+ * run without a specific agent context (e.g. from the doctor CLI).
+ */
+export interface PluginHealthCheckContext {
+  /** Partial agent context — may be empty when run from the doctor CLI */
+  agent: Partial<AgentDeployment>
+  /** Full cloud config */
+  config: CloudConfig
+  /** Resolved secrets for this plugin */
+  secrets: Record<string, string>
+  /** K8s namespace */
+  namespace: string
+  /** Resolved plugin options */
+  agentConfig: Record<string, unknown>
+  /** Logger for output */
+  logger: { info: (msg: string) => void; dim: (msg: string) => void }
+}
+
 // ─── Hook Return Types ───────────────────────────────────────────────────────
 
 export interface PluginProvisionResult {
@@ -257,7 +280,7 @@ export interface PluginAPI {
 
   /** Check that plugin dependencies are reachable */
   onHealthCheck(
-    fn: (ctx: PluginBuildContext) => Promise<{ healthy: boolean; message: string }>,
+    fn: (ctx: PluginHealthCheckContext) => Promise<{ healthy: boolean; message: string }>,
   ): void
 }
 
@@ -271,7 +294,7 @@ export interface PluginHooks {
   buildResources: Array<(ctx: PluginBuildContext) => Record<string, unknown>[]>
   validate: Array<(ctx: PluginBuildContext) => PluginValidationResult | void>
   provision: Array<(ctx: PluginProvisionContext) => Promise<PluginProvisionResult>>
-  healthCheck: Array<(ctx: PluginBuildContext) => Promise<{ healthy: boolean; message: string }>>
+  healthCheck: Array<(ctx: PluginHealthCheckContext) => Promise<{ healthy: boolean; message: string }>>
 }
 
 // ─── Plugin Definition ───────────────────────────────────────────────────────

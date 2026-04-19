@@ -54,7 +54,8 @@ export function registerPlugin(registry: PluginRegistry, plugin: PluginDefinitio
 export async function loadAllPlugins(registry: PluginRegistry): Promise<void> {
   // Import all built-in plugins statically
   // Each plugin directory exports a default PluginDefinition
-  const pluginModules = await Promise.all([
+  // Use allSettled so a single bad plugin doesn't abort the entire load.
+  const results = await Promise.allSettled([
     import('./shadowob/index.js'),
     import('./slack/index.js'),
     import('./discord/index.js'),
@@ -125,8 +126,12 @@ export async function loadAllPlugins(registry: PluginRegistry): Promise<void> {
     import('./gitagent/index.js'),
   ])
 
-  for (const mod of pluginModules) {
-    const plugin = mod.default as PluginDefinition
+  for (const result of results) {
+    if (result.status === 'rejected') {
+      console.warn(`Failed to load plugin module: ${result.reason}`)
+      continue
+    }
+    const plugin = result.value.default as PluginDefinition
     if (plugin?.manifest) {
       registerPlugin(registry, plugin)
     }
