@@ -24,8 +24,6 @@ export type {
   PluginCategory,
   PluginCLITool,
   PluginConfigFragment,
-  PluginDefinition,
-  PluginHooks,
   PluginInstallConfig,
   PluginManifest,
   PluginMCPServer,
