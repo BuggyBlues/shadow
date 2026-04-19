@@ -88,11 +88,18 @@ describe('OpenClaw Adapter', () => {
     expect(adapter.extraEnv(makeAgent())).toEqual({})
   })
 
-  it('applyConfig does not modify config', () => {
+  it('applyConfig does not set acp config', () => {
     const config = emptyOpenClawConfig()
     const entry = emptyAgentEntry()
     adapter.applyConfig(makeAgent(), entry, config)
     expect(config.acp).toBeUndefined()
+  })
+
+  it('applyConfig explicitly disables acpx plugin to prevent spurious backend probes', () => {
+    const config = emptyOpenClawConfig()
+    const entry = emptyAgentEntry()
+    adapter.applyConfig(makeAgent(), entry, config)
+    expect(config.plugins?.entries?.acpx?.enabled).toBe(false)
   })
 })
 

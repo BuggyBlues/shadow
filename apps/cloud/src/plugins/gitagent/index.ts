@@ -13,15 +13,11 @@
 
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
-import {
-  buildOpenClawFromGitAgent,
-  enrichAgentFromGitAgent,
-  readGitAgentDir,
-} from '../../adapters/gitagent.js'
 import type { AgentDeployment, AgentSource } from '../../config/schema.js'
 import { definePlugin } from '../helpers.js'
 import type { PluginBuildContext, PluginConfigFragment, PluginManifest } from '../types.js'
 import manifest from './manifest.json' with { type: 'json' }
+import { buildOpenClawFromGitAgent, enrichAgentFromGitAgent, readGitAgentDir } from './reader.js'
 
 export default definePlugin(manifest as PluginManifest, (api) => {
   // ── Resolve hook ──

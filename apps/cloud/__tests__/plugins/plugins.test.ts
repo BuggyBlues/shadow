@@ -8,7 +8,7 @@ import {
   resolveAgentPluginConfig,
   resolvePluginSecrets,
 } from '../../src/plugins/config-merger.js'
-import { createChannelPlugin, createSkillPlugin } from '../../src/plugins/helpers.js'
+import { defineChannelPlugin, defineSkillPlugin } from '../../src/plugins/helpers.js'
 import { loadAllPlugins, registerPlugin, validateManifest } from '../../src/plugins/loader.js'
 import {
   createPluginRegistry,
@@ -46,7 +46,7 @@ function makeManifest(overrides: Partial<PluginManifest> = {}): PluginManifest {
 }
 
 function makePlugin(manifest: PluginManifest): PluginDefinition {
-  return createSkillPlugin(manifest, { skills: { bundled: [manifest.id] } })
+  return defineSkillPlugin(manifest, { skills: { bundled: [manifest.id] } })
 }
 
 function makeBuildContext(overrides: Partial<PluginBuildContext> = {}): PluginBuildContext {
@@ -194,21 +194,21 @@ describe('loadAllPlugins', () => {
   })
 })
 
-// ─── createSkillPlugin ─────────────────────────────────────────────────────
+// ─── defineSkillPlugin ─────────────────────────────────────────────────────
 
-describe('createSkillPlugin', () => {
+describe('defineSkillPlugin', () => {
   it('should create a valid plugin definition', () => {
     const plugin = makePlugin(makeManifest())
     expect(plugin.manifest.id).toBe('test-plugin')
-    expect(plugin._hooks.buildConfig.length).toBeGreaterThan(0)
-    expect(plugin._hooks.buildEnv.length).toBeGreaterThan(0)
-    expect(plugin._hooks.validate.length).toBeGreaterThan(0)
+    expect(plugin._buildConfig.length).toBeGreaterThan(0)
+    expect(plugin._buildEnv.length).toBeGreaterThan(0)
+    expect(plugin._validate.length).toBeGreaterThan(0)
   })
 
   it('should generate OpenClaw config with skills', () => {
     const plugin = makePlugin(makeManifest())
     const ctx = makeBuildContext()
-    const fragment = plugin._hooks.buildConfig[0]!(ctx)
+    const fragment = plugin._buildConfig[0]!(ctx)
 
     expect(fragment?.skills).toBeDefined()
     const skills = fragment?.skills as Record<string, unknown>
@@ -218,7 +218,7 @@ describe('createSkillPlugin', () => {
   it('should build env vars from secrets', () => {
     const plugin = makePlugin(makeManifest())
     const ctx = makeBuildContext({ secrets: { TEST_API_KEY: 'sk-123', TEST_ORG: 'org-1' } })
-    const envVars = plugin._hooks.buildEnv[0]!(ctx)
+    const envVars = plugin._buildEnv[0]!(ctx)
 
     expect(envVars?.TEST_API_KEY).toBe('sk-123')
   })
@@ -227,19 +227,19 @@ describe('createSkillPlugin', () => {
     const plugin = makePlugin(makeManifest())
 
     const validCtx = makeBuildContext({ secrets: { TEST_API_KEY: 'sk-123' } })
-    expect(plugin._hooks.validate[0]!(validCtx)?.valid).toBe(true)
+    expect(plugin._validate[0]!(validCtx)?.valid).toBe(true)
 
     const invalidCtx = makeBuildContext({ secrets: {} })
-    const result = plugin._hooks.validate[0]!(invalidCtx)!
+    const result = plugin._validate[0]!(invalidCtx)!
     expect(result.valid).toBe(false)
     expect(result.errors).toHaveLength(1)
     expect(result.errors[0].path).toBe('secrets.TEST_API_KEY')
   })
 })
 
-// ─── createChannelPlugin ───────────────────────────────────────────────────
+// ─── defineChannelPlugin ───────────────────────────────────────────────────
 
-describe('createChannelPlugin', () => {
+describe('defineChannelPlugin', () => {
   it('should use custom channel builder for config', () => {
     const channelBuilder = (ctx: PluginBuildContext): PluginConfigFragment => ({
       channels: {
@@ -248,9 +248,9 @@ describe('createChannelPlugin', () => {
       bindings: [{ agentId: ctx.agent.id, type: 'route', match: { channel: 'test-channel' } }],
     })
 
-    const plugin = createChannelPlugin(makeManifest({ capabilities: ['channel'] }), channelBuilder)
+    const plugin = defineChannelPlugin(makeManifest({ capabilities: ['channel'] }), channelBuilder)
     const ctx = makeBuildContext()
-    const fragment = plugin._hooks.buildConfig[0]!(ctx)
+    const fragment = plugin._buildConfig[0]!(ctx)
 
     expect(fragment?.channels).toBeDefined()
     expect(fragment?.bindings).toHaveLength(1)
@@ -258,11 +258,11 @@ describe('createChannelPlugin', () => {
 
   it('should still provide env vars and validation', () => {
     const channelBuilder = () => ({})
-    const plugin = createChannelPlugin(makeManifest(), channelBuilder)
+    const plugin = defineChannelPlugin(makeManifest(), channelBuilder)
     const ctx = makeBuildContext({ secrets: { TEST_API_KEY: 'sk-x' } })
 
-    expect(plugin._hooks.buildEnv[0]!(ctx)).toEqual({ TEST_API_KEY: 'sk-x' })
-    expect(plugin._hooks.validate[0]!(ctx)?.valid).toBe(true)
+    expect(plugin._buildEnv[0]!(ctx)).toEqual({ TEST_API_KEY: 'sk-x' })
+    expect(plugin._validate[0]!(ctx)?.valid).toBe(true)
   })
 })
 
@@ -318,7 +318,7 @@ describe('resolveAgentPluginConfig', () => {
   it('should return null when plugin not configured', () => {
     const config = {
       version: '1',
-      plugins: { 'other-plugin': { enabled: true, config: { x: 1 } } },
+      use: [{ plugin: 'other-plugin', options: { x: 1 } }],
     } as unknown as PluginBuildContext['config']
     expect(resolveAgentPluginConfig('test-plugin', 'agent-1', config)).toBeNull()
   })
@@ -326,7 +326,7 @@ describe('resolveAgentPluginConfig', () => {
   it('should resolve from global plugin config', () => {
     const config = {
       version: '1',
-      plugins: { 'test-plugin': { enabled: true, config: { globalOpt: 'a' } } },
+      use: [{ plugin: 'test-plugin', options: { globalOpt: 'a' } }],
     } as unknown as PluginBuildContext['config']
 
     const resolved = resolveAgentPluginConfig('test-plugin', 'agent-1', config)
@@ -336,24 +336,18 @@ describe('resolveAgentPluginConfig', () => {
   it('should prefer agent-level config over global config', () => {
     const config = {
       version: '1',
-      plugins: {
-        'test-plugin': {
-          enabled: true,
-          config: { globalOpt: 'a', sharedOpt: 'global' },
-          agents: { 'agent-1': { enabled: true, config: { agentOpt: 'b', sharedOpt: 'agent' } } },
-        },
-      },
+      use: [{ plugin: 'test-plugin', options: { globalOpt: 'a', sharedOpt: 'global' } }],
     } as unknown as PluginBuildContext['config']
 
     const resolved = resolveAgentPluginConfig('test-plugin', 'agent-1', config)
     expect(resolved).toBeDefined()
-    expect(resolved).toEqual({ globalOpt: 'a', agentOpt: 'b', sharedOpt: 'agent' })
+    expect(resolved).toEqual({ globalOpt: 'a', sharedOpt: 'global' })
   })
 
-  it('should return empty config when plugin has no config', () => {
+  it('should return empty config when plugin has no options', () => {
     const config = {
       version: '1',
-      plugins: { 'test-plugin': { enabled: true } },
+      use: [{ plugin: 'test-plugin' }],
     } as unknown as PluginBuildContext['config']
 
     const resolved = resolveAgentPluginConfig('test-plugin', 'agent-1', config)
@@ -365,13 +359,13 @@ describe('resolvePluginSecrets', () => {
   it('should resolve ${env:VAR} from process env', () => {
     const config = {
       version: '1',
-      plugins: {
-        'test-plugin': {
-          enabled: true,
+      use: [
+        {
+          plugin: 'test-plugin',
           // biome-ignore lint/suspicious/noTemplateCurlyInString: OpenClaw template syntax
-          secrets: { TEST_API_KEY: '${env:MY_KEY}' },
+          options: { TEST_API_KEY: '${env:MY_KEY}' },
         },
-      },
+      ],
     } as unknown as PluginBuildContext['config']
 
     const secrets = resolvePluginSecrets('test-plugin', config, { MY_KEY: 'resolved-value' })
@@ -381,12 +375,12 @@ describe('resolvePluginSecrets', () => {
   it('should pass through literal values', () => {
     const config = {
       version: '1',
-      plugins: {
-        'test-plugin': {
-          enabled: true,
-          secrets: { TEST_API_KEY: 'literal-key' },
+      use: [
+        {
+          plugin: 'test-plugin',
+          options: { TEST_API_KEY: 'literal-key' },
         },
-      },
+      ],
     } as unknown as PluginBuildContext['config']
 
     const secrets = resolvePluginSecrets('test-plugin', config, {})
@@ -412,7 +406,7 @@ describe('Channel plugins', () => {
       secrets: { DISCORD_BOT_TOKEN: 'tok' },
       agentConfig: { channels: ['123'], guildId: 'guild-1' },
     })
-    const fragment = plugin._hooks.buildConfig[0]!(ctx)
+    const fragment = plugin._buildConfig[0]!(ctx)
     expect(fragment?.channels).toHaveProperty('discord')
     expect(fragment?.bindings).toHaveLength(1)
   })
@@ -421,7 +415,7 @@ describe('Channel plugins', () => {
     const mod = await import('../../src/plugins/telegram/index.js')
     const plugin = mod.default as PluginDefinition
     const ctx = makeBuildContext({ secrets: { TELEGRAM_BOT_TOKEN: 'tok' }, agentConfig: {} })
-    const fragment = plugin._hooks.buildConfig[0]!(ctx)
+    const fragment = plugin._buildConfig[0]!(ctx)
     expect(fragment?.channels).toHaveProperty('telegram')
   })
 
@@ -432,7 +426,7 @@ describe('Channel plugins', () => {
       secrets: { SLACK_BOT_TOKEN: 'tok' },
       agentConfig: { channels: ['general'] },
     })
-    const fragment = plugin._hooks.buildConfig[0]!(ctx)
+    const fragment = plugin._buildConfig[0]!(ctx)
     expect(fragment?.channels).toHaveProperty('slack')
   })
 
@@ -443,7 +437,7 @@ describe('Channel plugins', () => {
       secrets: { LINE_CHANNEL_ACCESS_TOKEN: 'tok', LINE_CHANNEL_SECRET: 'sec' },
       agentConfig: {},
     })
-    const fragment = plugin._hooks.buildConfig[0]!(ctx)
+    const fragment = plugin._buildConfig[0]!(ctx)
     expect(fragment?.channels).toHaveProperty('line')
   })
 })
@@ -457,7 +451,7 @@ describe('Tool plugins', () => {
     expect(plugin.manifest.id).toBe('github')
 
     const ctx = makeBuildContext({ secrets: { GITHUB_TOKEN: 'ghp_xxx' }, agentConfig: {} })
-    const fragment = plugin._hooks.buildConfig[0]!(ctx)
+    const fragment = plugin._buildConfig[0]!(ctx)
     expect(fragment?.plugins).toBeDefined()
   })
 
@@ -467,7 +461,7 @@ describe('Tool plugins', () => {
     expect(plugin.manifest.id).toBe('stripe')
 
     const ctx = makeBuildContext({ secrets: { STRIPE_SECRET_KEY: 'sk_test' }, agentConfig: {} })
-    const result = plugin._hooks.validate[0]!(ctx)
+    const result = plugin._validate[0]!(ctx)
     expect(result?.valid).toBe(true)
   })
 
@@ -475,7 +469,7 @@ describe('Tool plugins', () => {
     const mod = await import('../../src/plugins/openai/index.js')
     const plugin = mod.default as PluginDefinition
     const ctx = makeBuildContext({ secrets: {}, agentConfig: {} })
-    const result = plugin._hooks.validate[0]!(ctx)!
+    const result = plugin._validate[0]!(ctx)!
     expect(result.valid).toBe(false)
     expect(result.errors[0].message).toContain('API Key')
   })

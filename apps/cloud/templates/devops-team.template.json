@@ -174,8 +174,8 @@
                 "heartbeat": {
                   "every": "30m",
                   "prompt": "Check infrastructure health. Report any anomalies. Generate summary if it's 9am UTC.",
-                  "to": "shadowob",
-                  "target": "alerts"
+                  "target": "shadowob",
+                  "accountId": "alerts"
                 }
               }
             }
@@ -217,8 +217,8 @@
                 "heartbeat": {
                   "every": "10m",
                   "prompt": "Check GitHub Actions for any failed workflow runs in the last 10 minutes. Alert on failures. Confirm successful production deploys.",
-                  "to": "shadowob",
-                  "target": "alerts"
+                  "target": "shadowob",
+                  "accountId": "alerts"
                 }
               }
             }

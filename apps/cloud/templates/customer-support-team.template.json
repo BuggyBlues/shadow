@@ -156,8 +156,8 @@
                 "heartbeat": {
                   "every": "4h",
                   "prompt": "Generate a support queue summary: open tickets by category and priority. Flag any SLA breaches (tickets open > 24h without response).",
-                  "to": "shadowob",
-                  "target": "metrics"
+                  "target": "shadowob",
+                  "accountId": "metrics"
                 }
               }
             }

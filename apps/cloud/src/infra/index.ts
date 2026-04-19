@@ -82,6 +82,12 @@ export function createInfraProgram(options: InfraOptions) {
       // Merge with agent-level env
       const env = { ...provisionedEnv, ...(agent.env ?? {}) }
 
+      // The k8s shadow URL (pod-shadow-url) must override the provision URL
+      // that onProvision wrote into agent.env.SHADOW_SERVER_URL.
+      if (shadowServerUrl) {
+        env.SHADOW_SERVER_URL = shadowServerUrl
+      }
+
       // ConfigMap + Secret
       const configRes = createConfigResources({
         agentName,
@@ -198,6 +204,12 @@ export function buildManifests(options: InfraOptions) {
         ? buildProvisionedEnvVars(agent.id, config, provision, shadowServerUrl)
         : {}
     const env = { ...provisionedEnv, ...(agent.env ?? {}) }
+
+    // The k8s shadow URL (pod-shadow-url) must override the provision URL
+    // that onProvision wrote into agent.env.SHADOW_SERVER_URL.
+    if (shadowServerUrl) {
+      env.SHADOW_SERVER_URL = shadowServerUrl
+    }
 
     const openclawConfig = buildOpenClawConfig(agent, config)
 
@@ -336,9 +348,9 @@ export function buildManifests(options: InfraOptions) {
       volumes.push({ name: vol.name, ...vol.spec })
     }
     for (const vm of pluginK8s.volumeMounts) {
-      volumeMounts.push(vm)
+      volumeMounts.push(vm as unknown as Record<string, unknown>)
     }
-    initContainers = pluginK8s.initContainers as Array<Record<string, unknown>>
+    initContainers = pluginK8s.initContainers as unknown as Array<Record<string, unknown>>
 
     const envList = [
       ...baseEnvVars(agentName),

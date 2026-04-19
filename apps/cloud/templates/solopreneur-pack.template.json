@@ -204,8 +204,8 @@
                 "heartbeat": {
                   "every": "24h",
                   "prompt": "Send the morning metrics brief.",
-                  "to": "shadowob",
-                  "target": "morning-brief"
+                  "target": "shadowob",
+                  "accountId": "morning-brief"
                 }
               }
             }
@@ -248,8 +248,8 @@
                 "heartbeat": {
                   "every": "24h",
                   "prompt": "Check SEO rankings. Alert if any top-20 keywords dropped. Surface new opportunities.",
-                  "to": "shadowob",
-                  "target": "seo"
+                  "target": "shadowob",
+                  "accountId": "seo"
                 }
               }
             }
@@ -291,8 +291,8 @@
                 "heartbeat": {
                   "every": "24h",
                   "prompt": "Today is {day_of_week}. If it's Monday, Wednesday, or Friday, write a new blog post draft and save it to Notion.",
-                  "to": "shadowob",
-                  "target": "content"
+                  "target": "shadowob",
+                  "accountId": "content"
                 }
               }
             }
@@ -334,8 +334,8 @@
                 "heartbeat": {
                   "every": "12h",
                   "prompt": "Check for new published blog posts. Create social media posts for any new content. Check engagement metrics.",
-                  "to": "shadowob",
-                  "target": "social"
+                  "target": "shadowob",
+                  "accountId": "social"
                 }
               }
             }
