@@ -26,7 +26,6 @@ export type {
   PluginDefinition,
   PluginEnvProvider,
   PluginInstallConfig,
-  PluginInstanceConfig,
   PluginLifecycleProvider,
   PluginManifest,
   PluginMCPProvider,

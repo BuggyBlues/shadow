@@ -10,7 +10,6 @@ const plugin: PluginDefinition = createProviderPlugin(manifest as PluginManifest
     api: 'openai',
     baseUrl: 'https://api-inference.huggingface.co/v1',
   },
-  defaultModel: 'meta-llama/Llama-3-70b-chat-hf',
 })
 
 export default plugin

@@ -10,7 +10,6 @@ const plugin: PluginDefinition = createProviderPlugin(manifest as PluginManifest
     api: 'google',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
   },
-  defaultModel: 'gemini-2.0-flash',
 })
 
 export default plugin

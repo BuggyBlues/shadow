@@ -59,11 +59,7 @@ export class TemplateService {
           return { name, file, description: '', teamName: name, agentCount: 0, namespace: name }
         }
       })
-      .sort((a, b) => {
-        if (a.name === 'shadowob-cloud') return -1
-        if (b.name === 'shadowob-cloud') return 1
-        return a.name.localeCompare(b.name)
-      })
+      .sort((a, b) => a.name.localeCompare(b.name))
   }
 
   /** Read a template by name. Returns parsed JSON or null if not found. */

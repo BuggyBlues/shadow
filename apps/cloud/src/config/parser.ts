@@ -13,7 +13,6 @@ import type { AgentConfiguration, AgentDeployment, CloudConfig, Configuration } 
 import { validateCloudConfig } from './schema.js'
 import { resolveTemplates, type TemplateContext } from './template.js'
 
-export { deepMerge } from '../utils/deep-merge.js'
 // Re-export buildOpenClawConfig from its dedicated module
 export { buildOpenClawConfig } from './openclaw-builder.js'
 

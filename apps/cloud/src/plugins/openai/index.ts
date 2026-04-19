@@ -10,7 +10,6 @@ import manifest from './manifest.json' with { type: 'json' }
 
 const plugin: PluginDefinition = createProviderPlugin(manifest as PluginManifest, {
   provider: { id: 'openai', api: 'openai' },
-  defaultModel: 'gpt-4o',
 })
 
 export default plugin

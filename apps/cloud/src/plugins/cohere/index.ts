@@ -6,7 +6,6 @@ import manifest from './manifest.json' with { type: 'json' }
 
 const plugin: PluginDefinition = createProviderPlugin(manifest as PluginManifest, {
   provider: { id: 'cohere', api: 'openai', baseUrl: 'https://api.cohere.com/v2' },
-  defaultModel: 'command-r-plus',
 })
 
 export default plugin

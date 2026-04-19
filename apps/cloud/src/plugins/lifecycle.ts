@@ -23,6 +23,7 @@ export interface ProvisionResults {
 export async function executePluginProvisions(
   agent: AgentDeployment,
   config: CloudConfig,
+  namespace: string,
   logger: { info: (msg: string) => void; dim: (msg: string) => void },
   dryRun = false,
 ): Promise<ProvisionResults> {
@@ -45,6 +46,7 @@ export async function executePluginProvisions(
       agent,
       config,
       secrets,
+      namespace,
       logger,
       dryRun,
       existingState: results.states[pluginId] ?? null,

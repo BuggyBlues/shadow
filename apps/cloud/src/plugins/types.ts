@@ -114,6 +114,7 @@ export interface PluginProvisionContext {
   agent: AgentDeployment
   config: CloudConfig
   secrets: Record<string, string>
+  namespace: string
   logger: { info: (msg: string) => void; dim: (msg: string) => void }
   dryRun: boolean
   existingState: Record<string, unknown> | null

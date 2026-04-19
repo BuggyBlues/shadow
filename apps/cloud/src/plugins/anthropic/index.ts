@@ -6,7 +6,6 @@ import manifest from './manifest.json' with { type: 'json' }
 
 const plugin: PluginDefinition = createProviderPlugin(manifest as PluginManifest, {
   provider: { id: 'anthropic', api: 'anthropic' },
-  defaultModel: 'claude-sonnet-4-20250514',
 })
 
 export default plugin

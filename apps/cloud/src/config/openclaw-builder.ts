@@ -255,86 +255,6 @@ function buildProvidersConfig(config: CloudConfig): OpenClawConfig['models'] {
 }
 
 /**
- * Build Shadowob channel config from plugins + bindings.
- */
-function buildShadowobChannels(
-  agent: AgentDeployment,
-  config: CloudConfig,
-): { channels?: OpenClawConfig['channels']; bindings?: OpenClawBinding[] } {
-  type ShadowobBinding = {
-    agentId: string
-    targetId: string
-    replyPolicy?: {
-      mode: string
-      custom?: Record<string, unknown>
-    }
-  }
-
-  type ShadowobBuddy = {
-    id: string
-    name: string
-    description?: string
-  }
-
-  type ShadowobPluginConfig = {
-    bindings?: ShadowobBinding[]
-    buddies?: ShadowobBuddy[]
-  }
-
-  // Support both modern `use` array and deprecated `plugins.shadowob` patterns
-  let shadowobPlugin = config.plugins?.shadowob as ShadowobPluginConfig | undefined
-  if (!shadowobPlugin) {
-    const useEntry = config.use?.find((u) => u.plugin === 'shadowob')
-    if (useEntry?.options) {
-      shadowobPlugin = useEntry.options as ShadowobPluginConfig
-    }
-  }
-  if (!shadowobPlugin) return {}
-
-  const bindings =
-    shadowobPlugin.bindings?.filter((b: ShadowobBinding) => b.agentId === agent.id) ?? []
-  if (bindings.length === 0) return {}
-
-  const accounts: Record<string, Record<string, unknown>> = {}
-  const configBindings: OpenClawBinding[] = []
-
-  for (const binding of bindings) {
-    const buddy = shadowobPlugin.buddies?.find((b: ShadowobBuddy) => b.id === binding.targetId)
-    if (!buddy) continue
-
-    const account: Record<string, unknown> = {
-      token: `\${env:SHADOW_TOKEN_${binding.targetId.toUpperCase().replace(/-/g, '_')}}`,
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: OpenClaw template syntax
-      serverUrl: '${env:SHADOW_SERVER_URL}',
-      enabled: true,
-      buddyName: buddy.name,
-      ...(buddy.description ? { buddyDescription: buddy.description } : {}),
-      ...(buddy.id ? { buddyId: buddy.id } : {}),
-    }
-
-    if (binding.replyPolicy) {
-      const policy = binding.replyPolicy
-      account.replyPolicy = {
-        mode: policy.mode,
-        ...(policy.custom ? { config: policy.custom } : {}),
-      }
-    }
-
-    accounts[binding.targetId] = account
-    configBindings.push({
-      agentId: agent.id,
-      type: 'route',
-      match: { channel: 'shadowob', accountId: binding.targetId },
-    })
-  }
-
-  return {
-    channels: { shadowob: { enabled: true, accounts } },
-    bindings: configBindings,
-  }
-}
-
-/**
  * Build cloud-level skills config.
  */
 function buildCloudSkillsConfig(
@@ -530,8 +450,6 @@ function applyPluginPipeline(
 
   for (const pluginDef of registry.getAll()) {
     const pluginId = pluginDef.manifest.id
-    // Skip shadowob — it's handled separately in buildShadowobChannels
-    if (pluginId === 'shadowob') continue
 
     const resolved = resolveAgentPluginConfig(pluginId, agent.id, config)
     if (!resolved) continue
@@ -545,7 +463,7 @@ function applyPluginPipeline(
       pluginRegistry: registry,
     }
 
-    const agentConfig = (resolved.config ?? {}) as Record<string, unknown>
+    const agentConfig = (resolved ?? {}) as Record<string, unknown>
 
     // Build OpenClaw config fragment via configBuilder provider
     if (pluginDef.configBuilder) {
@@ -630,60 +548,36 @@ export function buildOpenClawConfig(agent: AgentDeployment, config: CloudConfig)
   const models = buildProvidersConfig(config)
   if (models) openclawConfig.models = models
 
-  // 9. Shadowob channels
-  const { channels, bindings } = buildShadowobChannels(agent, config)
-  if (channels) {
-    if (!openclawConfig.channels) openclawConfig.channels = {}
-    Object.assign(openclawConfig.channels, channels)
-  }
-  if (bindings) {
-    openclawConfig.bindings = [...(openclawConfig.bindings ?? []), ...bindings]
-  }
-
-  // 10. Cloud skills
+  // 9. Cloud skills
   openclawConfig.skills =
     buildCloudSkillsConfig(config, openclawConfig.skills) ?? openclawConfig.skills
 
-  // 11. Shared workspace
+  // 10. Shared workspace
   applySharedWorkspace(agent, config, openclawConfig.agents)
 
-  // 12. GitAgent source overlay
+  // 11. GitAgent source overlay
   applyGitAgentSource(agent, agentEntry, openclawConfig)
 
-  // 13. Compliance → audit logging
+  // 12. Compliance → audit logging
   applyCompliance(agent, config, openclawConfig)
 
-  // 14. Logging + messages
+  // 13. Logging + messages
   if (oc?.logging) openclawConfig.logging = oc.logging
   if (oc?.messages) openclawConfig.messages = oc.messages
 
-  // 15. Gateway config
+  // 14. Gateway config
   openclawConfig.gateway = buildGatewayConfig(oc, openclawConfig.gateway)
 
-  // 16. Strip strict-schema-violating fields
+  // 15. Strip strict-schema-violating fields
   const workspaceFiles = stripAndCollectWorkspaceFiles(openclawConfig)
   if (Object.keys(workspaceFiles).length > 0) {
     openclawConfig._workspaceFiles = workspaceFiles
   }
 
-  // 17. Plugin pipeline — merge enabled plugin configs
+  // 16. Plugin pipeline — merge enabled plugin configs (channels, bindings, env, resources)
   const pluginEnvVars = applyPluginPipeline(agent, config, openclawConfig)
   if (Object.keys(pluginEnvVars).length > 0) {
     openclawConfig._pluginEnvVars = pluginEnvVars
-  }
-
-  // 18. Ensure shadowob channel has a disabled fallback config so the
-  //     always-installed openclaw-shadowob extension passes validation.
-  const existingChannels = (openclawConfig as Record<string, unknown>).channels as
-    | Record<string, unknown>
-    | undefined
-  if (!existingChannels?.shadowob && !existingChannels?.['openclaw-shadowob']) {
-    if (!openclawConfig.channels) {
-      ;(openclawConfig as Record<string, unknown>).channels = {}
-    }
-    ;((openclawConfig as Record<string, unknown>).channels as Record<string, unknown>).shadowob = {
-      enabled: false,
-    }
   }
 
   return openclawConfig

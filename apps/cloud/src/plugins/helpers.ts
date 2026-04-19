@@ -208,8 +208,6 @@ export function createProviderPlugin(
   manifest: PluginManifest,
   options: {
     provider: { id: string; api: string; baseUrl?: string }
-    /** @deprecated defaultModel is not written to models.providers; configure it at the agent level instead */
-    defaultModel?: string
   },
 ): PluginDefinition {
   return {

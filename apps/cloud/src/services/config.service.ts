@@ -7,7 +7,6 @@
 
 import {
   buildOpenClawConfig,
-  deepMerge,
   expandExtends,
   parseConfigFile,
   resolveConfig,
@@ -15,6 +14,7 @@ import {
 import type { AgentDeployment, CloudConfig, Configuration } from '../config/schema.js'
 import { type SecurityViolation, validateNoInlineKeys } from '../config/security.js'
 import { collectTemplateRefs } from '../config/template.js'
+import { deepMerge } from '../utils/deep-merge.js'
 
 export class ConfigService {
   /** Parse and validate a cloud config file using typia. */
