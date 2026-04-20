@@ -571,3 +571,6 @@ export const api = {
       }),
   },
 }
+
+// ── API Client type for dependency injection (e.g. web-saas mode) ──────────
+export type CloudApiClient = typeof api

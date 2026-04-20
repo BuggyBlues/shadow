@@ -1,0 +1,179 @@
+/**
+ * SaaS API Client — wraps /api/cloud-saas/* endpoints on apps/server.
+ * Used by web-saas pages (embedded in apps/web at /cloud/*).
+ */
+
+const BASE = '/api/cloud-saas'
+
+async function get<T>(path: string): Promise<T> {
+  const res = await fetch(`${BASE}${path}`)
+  if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`)
+  return res.json() as Promise<T>
+}
+
+async function post<T>(path: string, body?: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  })
+  if (!res.ok) throw new Error(`POST ${path} failed: ${res.status}`)
+  return res.json() as Promise<T>
+}
+
+async function put<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`PUT ${path} failed: ${res.status}`)
+  return res.json() as Promise<T>
+}
+
+async function del<T>(path: string): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error(`DELETE ${path} failed: ${res.status}`)
+  return res.json() as Promise<T>
+}
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+export type ResourceTier = 'lightweight' | 'standard' | 'pro'
+
+export interface SaasTemplate {
+  id: string
+  slug: string
+  name: string
+  description: string | null
+  source: 'official' | 'community'
+  reviewStatus: 'pending' | 'approved' | 'rejected'
+  tags: string[] | null
+  category: string | null
+  deployCount: number
+  rating: number | null
+  baseCost: number | null
+  authorId: string | null
+  content: Record<string, unknown>
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SaasDeployment {
+  id: string
+  userId: string
+  clusterId: string | null
+  namespace: string
+  name: string
+  status: 'pending' | 'deploying' | 'deployed' | 'failed' | 'destroying' | 'destroyed'
+  agentCount: number
+  configSnapshot: Record<string, unknown> | null
+  errorMessage: string | null
+  templateSlug: string | null
+  resourceTier: ResourceTier | null
+  monthlyCost: number | null
+  saasMode: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SaasEnvVar {
+  id: string
+  key: string
+  scope: string
+  groupId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SaasWallet {
+  balance: number
+}
+
+export interface SaasActivityEntry {
+  id: string
+  type: string
+  namespace: string | null
+  meta: Record<string, unknown> | null
+  createdAt: string
+}
+
+// ── API ───────────────────────────────────────────────────────────────────────
+
+export const saasApi = {
+  // Templates
+  templates: {
+    list: (params?: { category?: string; q?: string }) => {
+      const qs = new URLSearchParams()
+      if (params?.category) qs.set('category', params.category)
+      if (params?.q) qs.set('q', params.q)
+      const query = qs.toString()
+      return get<SaasTemplate[]>(`/templates${query ? `?${query}` : ''}`)
+    },
+    get: (slug: string) => get<SaasTemplate>(`/templates/${encodeURIComponent(slug)}`),
+    create: (data: {
+      slug: string
+      name: string
+      description?: string
+      content: Record<string, unknown>
+      tags?: string[]
+      category?: string
+      baseCost?: number
+    }) => post<SaasTemplate>('/templates', data),
+    update: (
+      slug: string,
+      data: {
+        name?: string
+        description?: string
+        content?: Record<string, unknown>
+        tags?: string[]
+        category?: string
+        baseCost?: number
+      },
+    ) => put<SaasTemplate>(`/templates/${encodeURIComponent(slug)}`, data),
+    submit: (slug: string) =>
+      post<SaasTemplate>(`/templates/${encodeURIComponent(slug)}/submit`),
+  },
+
+  // Deployments
+  deployments: {
+    list: (params?: { limit?: number; offset?: number }) =>
+      get<SaasDeployment[]>(
+        `/deployments${params ? `?limit=${params.limit ?? 50}&offset=${params.offset ?? 0}` : ''}`,
+      ),
+    get: (id: string) => get<SaasDeployment>(`/deployments/${encodeURIComponent(id)}`),
+    create: (data: {
+      namespace: string
+      name: string
+      templateSlug: string
+      resourceTier: ResourceTier
+      agentCount?: number
+      configSnapshot?: Record<string, unknown>
+    }) => post<SaasDeployment>('/deployments', data),
+    delete: (id: string) => del<{ ok: boolean }>(`/deployments/${encodeURIComponent(id)}`),
+    scale: (id: string, agentCount: number) =>
+      post<SaasDeployment>(`/deployments/${encodeURIComponent(id)}/scale`, { agentCount }),
+    logsUrl: (id: string) => `${BASE}/deployments/${encodeURIComponent(id)}/logs`,
+  },
+
+  // Env vars
+  envvars: {
+    list: (deploymentId: string) =>
+      get<SaasEnvVar[]>(`/envvars/${encodeURIComponent(deploymentId)}`),
+    update: (deploymentId: string, vars: Array<{ key: string; value: string }>) =>
+      put<{ ok: boolean }>(`/envvars/${encodeURIComponent(deploymentId)}`, { vars }),
+  },
+
+  // Wallet
+  wallet: {
+    get: () => get<SaasWallet>('/wallet'),
+  },
+
+  // Activity
+  activity: {
+    list: (params?: { limit?: number; offset?: number }) =>
+      get<SaasActivityEntry[]>(
+        `/activity${params ? `?limit=${params.limit ?? 50}&offset=${params.offset ?? 0}` : ''}`,
+      ),
+  },
+}
