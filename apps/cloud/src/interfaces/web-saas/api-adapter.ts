@@ -22,6 +22,15 @@ export const saasApiAdapter: CloudApiClient = {
   // ── Community (StorePage uses api.community.catalog) ─────────────────────
   community: {
     ...api.community,
+    // getSettings: saas server has no /api/community/settings — return default
+    getSettings: () =>
+      Promise.resolve({
+        baseUrl: 'https://shadowob.com',
+        oauthConnected: false,
+        hasToken: false,
+      }),
+    putSettings: () => Promise.resolve({ ok: true }),
+    oauthInit: () => Promise.resolve({ url: '' }),
     catalog: (_locale: string) =>
       saasApi.templates.list().then((rows) => ({
         source: 'community' as const,
