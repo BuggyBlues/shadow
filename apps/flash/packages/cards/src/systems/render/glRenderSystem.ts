@@ -5,19 +5,14 @@
 import { RenderOrder } from '../../components/renderOrderComponent'
 import type { ViewportData } from '../../components/viewportComponent'
 import { Visibility } from '../../components/visibilityComponent'
+import type { RenderConfig } from '../../constants'
 import { SceneWorld } from '../../core/world'
 import type { GLContext } from '../../resources/glContext'
 import { orthoMatrix } from '../../utils/glUtils'
 import { type GLDrawContext, glDrawSystem } from './glDrawSystem'
 import { glTextureSystem } from './glTextureSystem'
 
-export interface RenderConfig {
-  cardW: number
-  cardH: number
-  cardRadius: number
-  cardPadding: number
-  tiltStrength: number
-}
+export type { RenderConfig }
 
 export function glRenderSystem(
   scene: SceneWorld,

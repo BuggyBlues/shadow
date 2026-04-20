@@ -6,7 +6,6 @@
 // ══════════════════════════════════════════════════════════════
 
 import type { Card } from '@shadowob/flash-types'
-import { bootstrapCards } from '../core/bootstrap'
 import { runPipeline } from '../core/world'
 import { setupCanvas } from './canvasManager'
 import {
@@ -17,8 +16,6 @@ import {
   removeCachedTexture,
   setCachedTexture,
 } from './textureCache'
-
-bootstrapCards()
 
 export type { CardTextureInfo }
 

@@ -22,3 +22,21 @@ export const TILT_STRENGTH = 0.65
 /** Spacing between cards in the initial physics layout */
 export const CARD_SPACING_X = CARD_W + 40
 export const CARD_SPACING_Y = CARD_H + 40
+
+/** Render configuration derived from card constants — shared by GL and GPU render systems. */
+export interface RenderConfig {
+  cardW: number
+  cardH: number
+  cardRadius: number
+  cardPadding: number
+  tiltStrength: number
+}
+
+/** Singleton render config built from card constants. */
+export const RENDER_CONFIG: RenderConfig = {
+  cardW: CARD_W,
+  cardH: CARD_H,
+  cardRadius: CARD_RADIUS,
+  cardPadding: CARD_PADDING,
+  tiltStrength: TILT_STRENGTH,
+}

@@ -114,3 +114,15 @@ export function createQuadVBO(gl: WebGLRenderingContext): WebGLBuffer {
   gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW)
   return buf
 }
+
+/**
+ * Map a (zoom × dpr) to one of the supported LOD scale steps: 1 | 2 | 4 | 6.
+ * Shared by both the WebGL and WebGPU texture systems.
+ */
+export function zoomToLodScale(zoom: number, dpr: number): number {
+  const needed = zoom * dpr
+  if (needed <= 1) return 1
+  if (needed <= 2) return 2
+  if (needed <= 4) return 4
+  return 6
+}

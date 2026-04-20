@@ -10,6 +10,7 @@ import type { GPUContext } from '../../resources/gpuContext'
 import { allocateTextureLayer, GPU_TEX_H, GPU_TEX_W } from '../../resources/gpuContext'
 import { removeCachedTexture } from '../../resources/textureCache'
 import { renderCardTexture } from '../../resources/textureRenderer'
+import { zoomToLodScale } from '../../utils/glUtils'
 
 export function gpuTextureSystem(
   eid: number,
@@ -29,8 +30,7 @@ export function gpuTextureSystem(
     animationManager.clearDirty(card.id)
   }
 
-  const needed = zoom * dpr
-  const lodScale = needed <= 1 ? 1 : needed <= 2 ? 2 : needed <= 4 ? 4 : 6
+  const lodScale = zoomToLodScale(zoom, dpr)
   const texInfo = renderCardTexture(card, cardW, cardH, lodScale)
 
   let gpuState = gpuStateStore[eid]
