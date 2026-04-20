@@ -11,6 +11,7 @@ import { shaderStyleStore } from '../../components/shaderStyleComponent'
 import { Transform } from '../../components/transformComponent'
 import type { ViewportData } from '../../components/viewportComponent'
 import { Visibility } from '../../components/visibilityComponent'
+import type { RenderConfig } from '../../constants'
 import type { SceneWorld } from '../../core/world'
 import type { GPUContext } from '../../resources/gpuContext'
 import {
@@ -49,13 +50,7 @@ import {
 } from '../../utils/wgslShaders'
 import { gpuTextureSystem } from './gpuTextureSystem'
 
-export interface GPURenderConfig {
-  cardW: number
-  cardH: number
-  cardRadius: number
-  cardPadding: number
-  tiltStrength: number
-}
+export type { RenderConfig as GPURenderConfig }
 
 export function gpuRenderSystem(
   scene: SceneWorld,
@@ -63,7 +58,7 @@ export function gpuRenderSystem(
   viewport: ViewportData,
   hiddenCardIds: Set<string>,
   time: number,
-  config: GPURenderConfig,
+  config: RenderConfig,
 ): void {
   const { device, queue, ctx: canvasCtx, pipeline, globalBuf, instanceBuf, bg0, bg1 } = gpuCtx
   const { dpr } = viewport

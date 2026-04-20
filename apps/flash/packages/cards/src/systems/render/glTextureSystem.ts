@@ -7,15 +7,7 @@ import { glStateStore } from '../../components/glStateComponent'
 import { animationManager } from '../../resources/animationManager'
 import { removeCachedTexture } from '../../resources/textureCache'
 import { renderCardTexture } from '../../resources/textureRenderer'
-import { createTexture, updateTexture } from '../../utils/glUtils'
-
-function zoomToLodScale(zoom: number, dpr: number): number {
-  const needed = zoom * dpr
-  if (needed <= 1) return 1
-  if (needed <= 2) return 2
-  if (needed <= 4) return 4
-  return 6
-}
+import { createTexture, updateTexture, zoomToLodScale } from '../../utils/glUtils'
 
 export function glTextureSystem(
   eid: number,

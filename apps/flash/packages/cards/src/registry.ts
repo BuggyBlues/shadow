@@ -97,6 +97,7 @@ class CardPluginRegistry {
     }
     this._dirty = true
     this.rebuildContentChain()
+    for (const cb of this.listeners) cb('register', plugins[0])
   }
 
   /** Unregister plugin(s) for a kind. */

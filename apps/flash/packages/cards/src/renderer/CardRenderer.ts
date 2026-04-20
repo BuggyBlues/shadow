@@ -21,6 +21,7 @@ import { RenderOrder } from '../components/renderOrderComponent'
 import { Transform } from '../components/transformComponent'
 import type { ViewportData } from '../components/viewportComponent'
 import { CARD_H, CARD_PADDING, CARD_RADIUS, CARD_W, TILT_STRENGTH } from '../constants'
+import { bootstrapCards } from '../core/bootstrap'
 import { SceneWorld } from '../core/world'
 import { animationManager } from '../resources/animationManager'
 import {
@@ -46,20 +47,12 @@ import {
   zoomViewport,
 } from '../resources/viewport'
 import { glRenderSystem, type RenderConfig } from '../systems/render/glRenderSystem'
-import { type GPURenderConfig, gpuRenderSystem } from '../systems/render/gpuRenderSystem'
+import { gpuRenderSystem } from '../systems/render/gpuRenderSystem'
 import { hitTestPoint, hitTestRect as hitTestRectSystem } from '../systems/render/hitTestSystem'
 import type { InputState } from '../systems/scene/inputSystem'
 import { sceneUpdateSystem } from '../systems/scene/sceneUpdateSystem'
 
 const RENDER_CONFIG: RenderConfig = {
-  cardW: CARD_W,
-  cardH: CARD_H,
-  cardRadius: CARD_RADIUS,
-  cardPadding: CARD_PADDING,
-  tiltStrength: TILT_STRENGTH,
-}
-
-const GPU_RENDER_CONFIG: GPURenderConfig = {
   cardW: CARD_W,
   cardH: CARD_H,
   cardRadius: CARD_RADIUS,
@@ -97,6 +90,9 @@ export class CardRenderer {
 
   constructor(canvas: HTMLCanvasElement) {
     this._canvas = canvas
+
+    // Register built-in card plugins before first render.
+    bootstrapCards()
 
     // Always bootstrap the WebGL fallback synchronously.
     this.glCtx = createGLContext(canvas)
@@ -249,6 +245,7 @@ export class CardRenderer {
         (eid, cardId) => {
           const gpuState = gpuStateStore[eid]
           if (gpuState) releaseTextureLayer(this.gpuCtx!, cardId)
+          gpuStateStore[eid] = undefined
         },
         dt,
         CARD_W,
@@ -260,7 +257,7 @@ export class CardRenderer {
         this.viewport,
         this.hiddenCardIds,
         time,
-        GPU_RENDER_CONFIG,
+        RENDER_CONFIG,
       )
     } else {
       // ── WebGL fallback path ──
@@ -273,6 +270,7 @@ export class CardRenderer {
         (eid, _cardId) => {
           const glState = glStateStore[eid]
           if (glState) this.glCtx.gl.deleteTexture(glState.texture)
+          glStateStore[eid] = undefined
         },
         dt,
         CARD_W,

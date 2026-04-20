@@ -7,6 +7,8 @@
 // ══════════════════════════════════════════════════════════════
 
 import { addEntity, createWorld, removeEntity } from 'bitecs'
+import { cardDataStore } from '../components/cardDataComponent'
+import { shaderStyleStore } from '../components/shaderStyleComponent'
 
 // ── Worlds (module-level singletons) ──
 
@@ -39,6 +41,10 @@ export function destroySceneEntity(cardId: string): void {
   removeEntity(sceneWorld, eid)
   _cardIdToEid.delete(cardId)
   _eidToCardId.delete(eid)
+  // Clear AoS object stores so that if bitECS reuses this eid, the new
+  // entity starts with a clean slate and won't inherit stale data.
+  cardDataStore[eid] = undefined
+  shaderStyleStore[eid] = undefined
 }
 
 export function allSceneEids(): IterableIterator<number> {
