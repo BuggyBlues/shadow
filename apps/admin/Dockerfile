@@ -8,7 +8,8 @@ COPY packages/shared/package.json packages/shared/
 COPY packages/ui/package.json packages/ui/
 COPY apps/admin/package.json apps/admin/
 
-RUN pnpm install --frozen-lockfile --ignore-scripts
+RUN npm config set registry https://registry.npmmirror.com && \
+    pnpm install --frozen-lockfile --ignore-scripts
 
 COPY packages/ packages/
 COPY apps/admin/ apps/admin/

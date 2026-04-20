@@ -35,6 +35,7 @@ import { useTranslation } from 'react-i18next'
 import { EnvVarEditorDialog } from '@/components/EnvVarEditorDialog'
 import { PageShell } from '@/components/PageShell'
 import { api } from '@/lib/api'
+import { useApiClient } from '@/lib/api-context'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/stores/toast'
 
@@ -62,6 +63,7 @@ function GroupTabs({
   onCreate: (name: string) => Promise<void>
   onDelete: (name: string) => Promise<void>
 }) {
+  const api = useApiClient()
   const { t } = useTranslation()
   const [showAdd, setShowAdd] = useState(false)
   const [groupName, setGroupName] = useState('')
@@ -213,6 +215,7 @@ function GroupTabs({
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export function SecretsPage() {
+  const api = useApiClient()
   const { t } = useTranslation()
   const toast = useToast()
   const queryClient = useQueryClient()

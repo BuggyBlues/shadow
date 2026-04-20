@@ -12,7 +12,8 @@ COPY packages/ui/package.json packages/ui/
 COPY apps/server/package.json apps/server/
 COPY apps/cloud/package.json apps/cloud/
 
-RUN pnpm install --frozen-lockfile --ignore-scripts
+RUN npm config set registry https://registry.npmmirror.com && \
+    pnpm install --frozen-lockfile --ignore-scripts
 
 COPY packages/ packages/
 COPY apps/server/ apps/server/
@@ -35,7 +36,8 @@ COPY packages/sdk/package.json packages/sdk/
 COPY apps/server/package.json apps/server/
 COPY apps/cloud/package.json apps/cloud/
 
-RUN pnpm install --frozen-lockfile --prod --ignore-scripts
+RUN npm config set registry https://registry.npmmirror.com && \
+    pnpm install --frozen-lockfile --prod --ignore-scripts
 
 COPY --from=builder /app/packages/shared/dist packages/shared/dist
 COPY --from=builder /app/packages/sdk/dist packages/sdk/dist

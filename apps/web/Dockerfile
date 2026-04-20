@@ -13,7 +13,8 @@ COPY apps/cloud/package.json apps/cloud/
 COPY apps/cloud/packages/ui/package.json apps/cloud/packages/ui/
 COPY website/package.json website/
 
-RUN pnpm install --frozen-lockfile --ignore-scripts
+RUN npm config set registry https://registry.npmmirror.com && \
+    pnpm install --frozen-lockfile --ignore-scripts
 
 COPY packages/ packages/
 COPY apps/web/ apps/web/
@@ -33,5 +34,6 @@ FROM nginx:alpine AS runner
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/website/doc_build /usr/share/nginx/html
 COPY --from=builder /app/apps/web/dist /usr/share/nginx/html/app
+COPY --from=builder /app/apps/web/dist/logo.png /usr/share/nginx/html/logo.png
 EXPOSE 3000
 CMD ["nginx", "-g", "daemon off;"]
