@@ -21,7 +21,6 @@ import { RenderOrder } from '../components/renderOrderComponent'
 import { Transform } from '../components/transformComponent'
 import type { ViewportData } from '../components/viewportComponent'
 import { CARD_H, CARD_PADDING, CARD_RADIUS, CARD_W, TILT_STRENGTH } from '../constants'
-import { bootstrapCards } from '../core/bootstrap'
 import { SceneWorld } from '../core/world'
 import { animationManager } from '../resources/animationManager'
 import {
@@ -90,9 +89,6 @@ export class CardRenderer {
 
   constructor(canvas: HTMLCanvasElement) {
     this._canvas = canvas
-
-    // Register built-in card plugins before first render.
-    bootstrapCards()
 
     // Always bootstrap the WebGL fallback synchronously.
     this.glCtx = createGLContext(canvas)
