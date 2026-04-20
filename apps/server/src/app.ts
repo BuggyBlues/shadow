@@ -10,6 +10,7 @@ import { createAppHandler } from './handlers/app.handler'
 import { createAuthHandler } from './handlers/auth.handler'
 import { createChannelHandler } from './handlers/channel.handler'
 import { createCloudHandler } from './handlers/cloud.handler'
+import { createCloudSaasHandler } from './handlers/cloud-saas.handler'
 import { createDiscoverHandler } from './handlers/discover.handler'
 import { createDmHandler } from './handlers/dm.handler'
 import { createFriendshipHandler } from './handlers/friendship.handler'
@@ -150,6 +151,7 @@ export function createApp(container: AppContainer) {
 
   // Cloud SaaS endpoints
   app.route('/api/cloud', createCloudHandler(container))
+  app.route('/api/cloud-saas', createCloudSaasHandler(container))
 
   // 404 handler
   app.notFound((c) => c.json({ ok: false, error: 'Not Found' }, 404))

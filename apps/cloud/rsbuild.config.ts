@@ -13,7 +13,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': './src/interfaces/dashboard',
+      '@': './packages/ui/src',
     },
   },
   html: {

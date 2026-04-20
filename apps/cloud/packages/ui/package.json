@@ -1,0 +1,17 @@
+{
+  "name": "@shadowob/cloud-ui",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./components/*": "./src/components/*",
+    "./pages/*": "./src/pages/*",
+    "./hooks/*": "./src/hooks/*",
+    "./stores/*": "./src/stores/*",
+    "./i18n": "./src/i18n/index.ts",
+    "./lib/*": "./src/lib/*",
+    "./styles/*": "./src/styles/*",
+    "./web-saas": "../../src/interfaces/web-saas/index.tsx"
+  }
+}
