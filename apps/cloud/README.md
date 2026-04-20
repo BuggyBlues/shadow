@@ -108,6 +108,93 @@ Write your own — see [Config Reference](#config-reference) below.
 | `shadowob-cloud doctor` | Check prerequisites |
 | `shadowob-cloud build` | Build Docker images for Git agents |
 | `shadowob-cloud images` | Manage runner images |
+| `shadowob-cloud cluster init` | Bootstrap k3s on bare servers |
+| `shadowob-cloud cluster import` | Register an existing kubeconfig locally |
+| `shadowob-cloud cluster status` | Check SSH + k3s health on all nodes |
+| `shadowob-cloud cluster list` | List all registered clusters |
+| `shadowob-cloud cluster kubeconfig <name>` | Print kubeconfig path |
+| `shadowob-cloud cluster destroy` | Uninstall k3s and remove local files |
+
+## Bare-Server Cluster Management
+
+Deploy to cloud servers (Ubuntu/Debian) over SSH with a single command — no existing K8s required.
+
+### How it works
+
+1. `cluster init` — SSH into each server, install k3s, form the cluster, store kubeconfig at `~/.shadow-cloud/clusters/<name>.yaml`
+2. `up --cluster <name>` — Pulumi uses the stored kubeconfig to deploy agents to that cluster
+
+### 1. Write a cluster.json
+
+```jsonc
+{
+  "name": "prod",
+  "nodes": [
+    {
+      "role": "master",
+      "host": "1.2.3.4",
+      "user": "root",
+      "sshKeyPath": "~/.ssh/id_rsa"
+    },
+    {
+      "role": "worker",
+      "host": "1.2.3.5",
+      "user": "root",
+      "password": "${env:SERVER_PASSWORD}"
+    }
+  ]
+}
+```
+
+Credentials never stored on disk — use `${env:VAR}` for passwords.
+
+### 2. Bootstrap k3s
+
+```bash
+shadowob-cloud cluster init                        # default: reads cluster.json
+shadowob-cloud cluster init --config my-cluster.json
+shadowob-cloud cluster init --force                # reinstall k3s even if already present
+```
+
+**Re-initializing safely:** If k3s is already installed on a node, `init` skips that node by default. Pass `--force` to fully reinstall (uninstalls first, then reinstalls).
+
+### 3. Deploy agents
+
+```bash
+shadowob-cloud up --cluster prod
+shadowob-cloud up --cluster prod --stack prod      # use a named Pulumi stack
+shadowob-cloud up --cluster prod --skip-provision  # skip Shadow resource provisioning
+```
+
+### 4. Manage the cluster
+
+```bash
+shadowob-cloud cluster status                      # SSH health + k3s version on each node
+shadowob-cloud cluster list                        # list all registered clusters
+shadowob-cloud cluster kubeconfig prod             # print kubeconfig path (use with kubectl)
+
+export KUBECONFIG=$(shadowob-cloud cluster kubeconfig prod)
+kubectl get pods -n my-team
+```
+
+### 5. Share cluster access across machines
+
+Another developer on a different machine can register the same cluster without running `init` again:
+
+```bash
+# On any machine that has the kubeconfig file:
+shadowob-cloud cluster import --name prod --file ./prod.yaml
+shadowob-cloud up --cluster prod
+```
+
+### 6. Tear down
+
+```bash
+shadowob-cloud cluster destroy                     # confirms prompt
+shadowob-cloud cluster destroy --yes               # skip confirmation
+```
+
+Runs `k3s-uninstall.sh` (master) and `k3s-agent-uninstall.sh` (workers) over SSH, then removes `~/.shadow-cloud/clusters/prod.*`.
 
 ## Dashboard
 

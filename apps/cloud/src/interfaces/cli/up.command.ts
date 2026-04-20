@@ -31,6 +31,10 @@ export function createUpCommand(container: ServiceContainer) {
       'Shadow server URL as seen from inside K8s pods (e.g. http://host.lima.internal:3002)',
     )
     .option('--local', 'Auto-create a local kind cluster if no K8s is available')
+    .option(
+      '--cluster <name>',
+      'Named cluster to deploy to (uses ~/.shadow-cloud/clusters/<name>.yaml)',
+    )
     .action(
       async (options: {
         file: string
@@ -46,6 +50,7 @@ export function createUpCommand(container: ServiceContainer) {
         imagePullPolicy?: string
         podShadowUrl?: string
         local?: boolean
+        cluster?: string
       }) => {
         try {
           await container.deploy.up({
@@ -62,6 +67,7 @@ export function createUpCommand(container: ServiceContainer) {
               (options.imagePullPolicy as 'Always' | 'IfNotPresent' | 'Never') ?? 'IfNotPresent',
             k8sShadowUrl: options.podShadowUrl,
             local: options.local,
+            cluster: options.cluster,
           })
         } catch (err) {
           container.logger.error((err as Error).message)

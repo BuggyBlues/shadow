@@ -36,6 +36,8 @@ export interface InfraOptions {
   shadowServerUrl?: string
   /** kubectl context for K8s provider — defaults to KUBECONFIG_CONTEXT or 'rancher-desktop' */
   kubeContext?: string
+  /** Path to a kubeconfig YAML file — takes precedence over kubeContext when set */
+  kubeConfigPath?: string
   /**
    * Image pull policy for all agent containers.
    * Default: 'IfNotPresent' — works for local Docker builds (Rancher Desktop).
@@ -58,6 +60,7 @@ export function createInfraProgram(options: InfraOptions) {
     const shared = createSharedResources({
       namespace,
       kubeContext: options.kubeContext,
+      kubeConfigPath: options.kubeConfigPath,
       workspace: config.workspace,
     })
     const { provider } = shared
