@@ -15,6 +15,17 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': './src',
+      // Explicitly deduplicate cloud-ui lib modules to avoid dual-module issues.
+      // router.tsx imports via '@shadowob/cloud-ui/lib/*' (package exports)
+      // while pages import via '@/lib/*' (NormalModuleReplacementPlugin -> cloudUiSrc).
+      // Without this, ApiClientContext can be two different instances.
+      '@shadowob/cloud-ui/lib': path.join(cloudUiSrc, 'lib'),
+      '@shadowob/cloud-ui/components': path.join(cloudUiSrc, 'components'),
+      '@shadowob/cloud-ui/pages': path.join(cloudUiSrc, 'pages'),
+      '@shadowob/cloud-ui/hooks': path.join(cloudUiSrc, 'hooks'),
+      '@shadowob/cloud-ui/stores': path.join(cloudUiSrc, 'stores'),
+      '@shadowob/cloud-ui/styles': path.join(cloudUiSrc, 'styles'),
+      '@shadowob/cloud-ui/i18n': path.join(cloudUiSrc, 'i18n/index.ts'),
     },
     conditionNames: ['development', 'import', 'module', 'default'],
   },
