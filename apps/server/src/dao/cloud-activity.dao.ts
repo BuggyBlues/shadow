@@ -29,6 +29,10 @@ export class CloudActivityDao {
       | 'cluster_remove'
       | 'envvar_update'
       | 'template_submit'
+      | 'template_update'
+      | 'template_approved'
+      | 'template_rejected'
+      | 'billing_deduct'
     namespace?: string
     meta?: Record<string, unknown>
   }) {

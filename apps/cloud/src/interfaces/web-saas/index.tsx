@@ -1,7 +1,12 @@
+/**
+ * web-saas entry — mounts the Shadow Cloud SaaS interface.
+ * Decision 1.D: embedded as /cloud/* route inside apps/web (same SPA).
+ * This file is the React subtree root; apps/web imports `CloudSaasApp`
+ * and renders it inside a route component.
+ */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from '@tanstack/react-router'
-import { StrictMode, useEffect } from 'react'
-import { createRoot } from 'react-dom/client'
+import { useEffect } from 'react'
 import '@/i18n'
 import { router } from './router'
 import { applyTheme, useThemeStore } from '@/stores/theme'
@@ -24,7 +29,6 @@ function ThemeSync() {
   const theme = useThemeStore((s) => s.theme)
   useEffect(() => {
     applyTheme(theme)
-    // Listen for system preference changes when theme is 'system'
     if (theme !== 'system') return
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
     const handler = () => applyTheme('system')
@@ -34,14 +38,18 @@ function ThemeSync() {
   return null
 }
 
-const rootEl = document.getElementById('root')
-if (!rootEl) throw new Error('Root element not found')
-
-createRoot(rootEl).render(
-  <StrictMode>
+/**
+ * CloudSaasApp — exported for use by apps/web as a lazy-loaded route component.
+ *
+ * Usage in apps/web:
+ *   const CloudSaasApp = lazy(() => import('@shadowob/cloud-ui/web-saas'))
+ *   // render at /cloud route
+ */
+export function CloudSaasApp() {
+  return (
     <QueryClientProvider client={queryClient}>
       <ThemeSync />
       <RouterProvider router={router} />
     </QueryClientProvider>
-  </StrictMode>,
-)
+  )
+}

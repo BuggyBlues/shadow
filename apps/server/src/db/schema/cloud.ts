@@ -40,6 +40,10 @@ export const cloudActivityTypeEnum = pgEnum('cloud_activity_type', [
   'cluster_remove',
   'envvar_update',
   'template_submit',
+  'template_update',
+  'template_approved',
+  'template_rejected',
+  'billing_deduct',
 ])
 
 // ─── Tables ─────────────────────────────────────────────────────────────────
@@ -61,12 +65,20 @@ export const cloudTemplates = pgTable(
     }),
     content: jsonb('content').notNull(),
     tags: jsonb('tags').$type<string[]>().default([]),
+    // SaaS fields
+    category: varchar('category', { length: 64 }),
+    deployCount: integer('deploy_count').default(0).notNull(),
+    rating: integer('rating'),
+    baseCost: integer('base_cost'),
+    authorId: uuid('author_id').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
     cloudTemplatesSourceIdx: index('cloud_templates_source_idx').on(t.source),
     cloudTemplatesReviewStatusIdx: index('cloud_templates_review_status_idx').on(t.reviewStatus),
+    cloudTemplatesCategoryIdx: index('cloud_templates_category_idx').on(t.category),
+    cloudTemplatesAuthorIdIdx: index('cloud_templates_author_id_idx').on(t.authorId),
   }),
 )
 
@@ -112,12 +124,18 @@ export const cloudDeployments = pgTable(
     agentCount: integer('agent_count').default(0).notNull(),
     configSnapshot: jsonb('config_snapshot'),
     errorMessage: text('error_message'),
+    // SaaS fields
+    templateSlug: varchar('template_slug', { length: 255 }),
+    resourceTier: varchar('resource_tier', { length: 32 }),
+    monthlyCost: integer('monthly_cost'),
+    saasMode: boolean('saas_mode').default(false).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
     cloudDeploymentsUserIdIdx: index('cloud_deployments_user_id_idx').on(t.userId),
     cloudDeploymentsStatusIdx: index('cloud_deployments_status_idx').on(t.status),
+    cloudDeploymentsSaasModeIdx: index('cloud_deployments_saas_mode_idx').on(t.saasMode),
   }),
 )
 

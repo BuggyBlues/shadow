@@ -16,8 +16,8 @@
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/interfaces/dashboard/*"]
+      "@/*": ["./packages/ui/src/*"]
     }
   },
-  "include": ["src/interfaces/dashboard"]
+  "include": ["src/interfaces/dashboard", "src/interfaces/web-saas", "packages/ui/src"]
 }
