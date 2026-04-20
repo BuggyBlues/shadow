@@ -154,6 +154,9 @@ importers:
       '@pulumi/pulumi':
         specifier: ^3.160.0
         version: 3.228.0(ts-node@10.9.2(@types/node@22.19.15)(typescript@5.9.3))(typescript@5.9.3)
+      '@shadowob/cloud-ui':
+        specifier: workspace:*
+        version: link:packages/ui
       '@shadowob/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
