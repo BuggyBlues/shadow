@@ -95,8 +95,8 @@ export function Sidebar() {
   const { settingsOpen, settingsTab, openSettings, closeSettings } = useAppStore()
 
   return (
-    <aside className="relative z-20 w-[248px] shrink-0 self-stretch">
-      <div className="sticky top-3.5 h-screen px-2.5 pb-3">
+    <aside className="relative z-20 w-[248px] shrink-0 flex flex-col">
+      <div className="flex flex-col h-full px-2.5 py-3">
         <UISidebar className="glass-panel h-full w-full border-0 bg-transparent">
           <SidebarHeader className="border-b-0 bg-transparent p-3">
             <div className="flex items-center justify-between gap-2">

@@ -17,6 +17,7 @@ import {
 import { type ReactNode, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api } from '@/lib/api'
+import { useApiClient } from '@/lib/api-context'
 import { cn } from '@/lib/utils'
 import { type Theme, useThemeStore } from '@/stores/theme'
 import { useToast } from '@/stores/toast'
@@ -284,10 +285,11 @@ function CommunityTab() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const toast = useToast()
+  const apiClient = useApiClient()
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['community-settings'],
-    queryFn: api.community.getSettings,
+    queryFn: apiClient.community.getSettings,
     retry: 0,
   })
 
@@ -299,7 +301,7 @@ function CommunityTab() {
 
   const saveMutation = useMutation({
     mutationFn: () =>
-      api.community.putSettings({
+      apiClient.community.putSettings({
         baseUrl: baseUrl || undefined,
         token: token || undefined,
       }),
@@ -312,7 +314,7 @@ function CommunityTab() {
 
   const handleOAuth = async () => {
     try {
-      const { url } = await api.community.oauthInit()
+      const { url } = await apiClient.community.oauthInit()
       const popup = window.open(url, 'community-oauth', 'width=800,height=600')
 
       const handleMessage = (event: MessageEvent) => {
@@ -332,20 +334,6 @@ function CommunityTab() {
 
   if (isLoading) {
     return <div className="py-12 text-center text-sm text-text-muted">{t('common.loading')}</div>
-  }
-
-  if (isError) {
-    return (
-      <div className="space-y-5">
-        <div className="glass-card p-6 space-y-3">
-          <h2 className="text-sm font-bold text-text-primary">{t('settings.community')}</h2>
-          <p className="text-sm text-text-muted">{t('settings.communityBrowseHint')}</p>
-          <div className="glass-card p-4 rounded-xl border border-border-subtle">
-            <p className="text-xs text-text-muted">{t('store.communityUnavailable')}</p>
-          </div>
-        </div>
-      </div>
-    )
   }
 
   const isConnected = data?.oauthConnected || data?.hasToken
