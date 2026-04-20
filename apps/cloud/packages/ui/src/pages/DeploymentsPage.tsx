@@ -33,6 +33,7 @@ import { StatusBadge } from '@/components/StatusBadge'
 import { StatusDot } from '@/components/StatusDot'
 import { useDebounce } from '@/hooks/useDebounce'
 import { api, type Deployment, type DeployTaskListItem } from '@/lib/api'
+import { useApiClient } from '@/lib/api-context'
 import { formatUsdCost } from '@/lib/store-data'
 import {
   formatTimestamp,
@@ -69,6 +70,7 @@ function getStatusVariant(status: string): 'neutral' | 'success' | 'warning' | '
 // ── Deployment Row ────────────────────────────────────────────────────────────
 
 function DeploymentRow({ dep }: { dep: Deployment }) {
+  const api = useApiClient()
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const toast = useToast()
@@ -183,6 +185,7 @@ function NamespaceCard({
   onRedeploy: (taskId: number) => void
   onRollback: (ns: string) => void
 }) {
+  const api = useApiClient()
   const { t, i18n } = useTranslation()
   const task = group.latestTask
   const readyLabel = `${group.readyCount}/${group.totalCount} ${t('clusters.ready').toLowerCase()}`
@@ -304,6 +307,7 @@ function NamespaceCard({
 // ── Tasks Panel ───────────────────────────────────────────────────────────────
 
 function TasksPanel({ tasks }: { tasks: DeployTaskListItem[] }) {
+  const api = useApiClient()
   const { t } = useTranslation()
 
   if (tasks.length === 0) {
@@ -351,6 +355,7 @@ function TasksPanel({ tasks }: { tasks: DeployTaskListItem[] }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export function DeploymentsPage() {
+  const api = useApiClient()
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()

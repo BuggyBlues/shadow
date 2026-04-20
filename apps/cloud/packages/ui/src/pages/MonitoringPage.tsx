@@ -54,6 +54,7 @@ import {
   type DoctorResult,
   type NamespaceCostSummary,
 } from '@/lib/api'
+import { useApiClient } from '@/lib/api-context'
 import { formatUsdCost } from '@/lib/store-data'
 import { formatTimestamp, getRelativeTime, isDeploymentReady } from '@/lib/utils'
 import { type ActivityEntry, type ActivityType } from '@/stores/app'
@@ -590,6 +591,7 @@ function CostsPanel({
   namespaceCosts: NamespaceCostSummary[]
   loadingNamespaceCosts: boolean
 }) {
+  const api = useApiClient()
   const { t, i18n } = useTranslation()
 
   const costByNamespace = useMemo(
@@ -777,6 +779,7 @@ function CostsPanel({
 }
 
 function ActivityPanel({ activities }: { activities: ActivityEntry[] }) {
+  const api = useApiClient()
   const { t } = useTranslation()
   const activityTypeConfig = useMemo(() => getActivityTypeConfig(t), [t])
   const [search, setSearch] = useState('')
@@ -861,6 +864,7 @@ function ActivityPanel({ activities }: { activities: ActivityEntry[] }) {
 }
 
 export function MonitoringPage() {
+  const api = useApiClient()
   const { t, i18n } = useTranslation()
   const [activeTab, setActiveTab] = useState('overview')
 

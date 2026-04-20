@@ -51,6 +51,7 @@ import { StatusDot } from '@/components/StatusDot'
 import { ToolbarActionButton } from '@/components/ToolbarActionButton'
 import { useSSEStream } from '@/hooks/useSSEStream'
 import { api, type Deployment, type EnvVarListEntry, type Pod } from '@/lib/api'
+import { useApiClient } from '@/lib/api-context'
 import { formatUsdCost } from '@/lib/store-data'
 import { cn, formatTimestamp, getAge, getReadyReplicas, isDeploymentReady } from '@/lib/utils'
 import { useAppStore } from '@/stores/app'
@@ -81,6 +82,7 @@ function AgentCard({
   onSelect: () => void
   onOpenLogs: () => void
 }) {
+  const api = useApiClient()
   const { t } = useTranslation()
   const toast = useToast()
   const queryClient = useQueryClient()
@@ -194,6 +196,7 @@ function PodsPanel({
   agent: string | null
   enabled: boolean
 }) {
+  const api = useApiClient()
   const { t } = useTranslation()
   const { data: pods, isLoading } = useQuery({
     queryKey: ['pods', namespace, agent],
@@ -261,6 +264,7 @@ function PodsPanel({
 }
 
 function NamespaceLogsTab({ namespace, agent }: { namespace: string; agent: string | null }) {
+  const api = useApiClient()
   const { t } = useTranslation()
   const logRef = useRef<HTMLDivElement>(null)
   const [page, setPage] = useState(1)
@@ -440,6 +444,7 @@ function NamespaceLogsTab({ namespace, agent }: { namespace: string; agent: stri
 }
 
 function NamespaceEnvironmentTab({ namespace }: { namespace: string }) {
+  const api = useApiClient()
   const { t } = useTranslation()
   const toast = useToast()
   const queryClient = useQueryClient()
@@ -669,6 +674,7 @@ function NamespaceEnvironmentTab({ namespace }: { namespace: string }) {
 }
 
 function NamespaceTasksTab({ namespace }: { namespace: string }) {
+  const api = useApiClient()
   const { t } = useTranslation()
   const { data, isLoading } = useQuery({
     queryKey: ['deploy-tasks'],
@@ -738,6 +744,7 @@ function NamespaceTasksTab({ namespace }: { namespace: string }) {
 }
 
 function NamespaceCostTab({ namespace }: { namespace: string }) {
+  const api = useApiClient()
   const { t, i18n } = useTranslation()
   const { data, isLoading } = useQuery({
     queryKey: ['namespace-costs', namespace],
@@ -858,6 +865,7 @@ function NamespaceInfoTab({
   deployments: Deployment[]
   pods: Pod[] | undefined
 }) {
+  const api = useApiClient()
   const { t } = useTranslation()
   const readyAgents = deployments.filter((deployment) => isDeploymentReady(deployment.ready)).length
   const totalRestarts = pods?.reduce((sum, pod) => sum + Number(pod.restarts), 0) ?? 0
@@ -922,6 +930,7 @@ function NamespaceInfoTab({
 }
 
 export function DeploymentNamespacePage() {
+  const api = useApiClient()
   const { t, i18n } = useTranslation()
   const { namespace } = useParams({ strict: false }) as { namespace: string }
   const navigate = useNavigate()

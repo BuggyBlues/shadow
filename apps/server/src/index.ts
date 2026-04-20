@@ -104,7 +104,19 @@ async function main() {
   // Seed official cloud templates from @shadowob/cloud package
   try {
     const cloudService = container.resolve('cloudService')
-    const templatesDir = path.resolve(process.cwd(), 'node_modules/@shadowob/cloud/templates')
+    // Resolve templates directory: env override > monorepo source > installed package
+    const templatesDir =
+      process.env.CLOUD_TEMPLATES_DIR ??
+      (() => {
+        const candidates = [
+          path.resolve(__dirname, '../../../../apps/cloud/templates'), // monorepo dev
+          path.resolve(process.cwd(), '../../apps/cloud/templates'), // docker build context
+          path.resolve(process.cwd(), '../cloud/templates'), // alternative layout
+          path.resolve(process.cwd(), 'node_modules/@shadowob/cloud/templates'), // installed pkg
+        ]
+        const { existsSync } = require('node:fs')
+        return candidates.find(existsSync) ?? candidates[0]
+      })()
     await cloudService.seedOfficialTemplates(templatesDir)
     logger.info('Cloud templates seeded')
   } catch (err) {
