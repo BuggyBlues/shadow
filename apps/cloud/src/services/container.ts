@@ -12,6 +12,7 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { TemplateDao } from '../dao/template.dao.js'
 import { type Logger, log } from '../utils/logger.js'
+import { ClusterService } from './cluster.service.js'
 import { ConfigService } from './config.service.js'
 import { DeployService } from './deploy.service.js'
 import { ImageService } from './image.service.js'
@@ -38,6 +39,7 @@ export interface ServiceContainer {
   image: ImageService
   k8s: K8sService
   usageCost: UsageCostService
+  cluster: ClusterService
 }
 
 /**
@@ -60,6 +62,7 @@ export function createContainer(overrides?: Partial<ServiceContainer>): ServiceC
   const templateI18n = overrides?.templateI18n ?? new TemplateI18nService(template)
   const usageCost = overrides?.usageCost ?? new UsageCostService(k8s)
   const deploy = overrides?.deploy ?? new DeployService(config, manifest, provision, k8s, logger)
+  const cluster = overrides?.cluster ?? new ClusterService()
 
   return {
     logger,
@@ -73,9 +76,11 @@ export function createContainer(overrides?: Partial<ServiceContainer>): ServiceC
     image,
     k8s,
     usageCost,
+    cluster,
   }
 }
 
+export { ClusterService } from './cluster.service.js'
 // Re-export service classes for SDK use
 export { ConfigService } from './config.service.js'
 export { type DeployOptions, type DeployResult, DeployService } from './deploy.service.js'

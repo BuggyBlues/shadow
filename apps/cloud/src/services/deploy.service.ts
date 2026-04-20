@@ -7,6 +7,7 @@
 
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
+import { loadKubeconfigPath } from '../cluster/kubeconfig.js'
 import type { CloudConfig } from '../config/schema.js'
 import type { ProvisionResult } from '../provisioning/index.js'
 import type { Logger } from '../utils/logger.js'
@@ -33,6 +34,10 @@ export interface DeployOptions {
   k8sShadowUrl?: string
   local?: boolean
   onOutput?: (out: string) => void
+  /** Named cluster — resolves to kubeconfig in ~/.shadow-cloud/clusters/<name>.yaml */
+  cluster?: string
+  /** Explicit path to a kubeconfig file (overrides cluster and k8sContext) */
+  kubeConfigPath?: string
 }
 
 export interface DeployResult {
@@ -77,6 +82,14 @@ export class DeployService {
       throw new Error(`Config file not found: ${filePath}`)
     }
 
+    // Resolve kubeconfig path: explicit > cluster name > none (use kubeContext / default)
+    const kubeConfigPath =
+      options.kubeConfigPath ?? (options.cluster ? loadKubeconfigPath(options.cluster) : undefined)
+
+    if (!existsSync(filePath)) {
+      throw new Error(`Config file not found: ${filePath}`)
+    }
+
     // The directory containing the config file is used as the working directory
     // for resolving relative paths (e.g. gitagent path) throughout the pipeline.
     // We pass it explicitly rather than mutating process.cwd() so concurrent
@@ -116,7 +129,7 @@ export class DeployService {
       } else {
         this.logger.dim('Kind cluster already exists')
       }
-    } else if (!this.k8s.isKubeReachable()) {
+    } else if (!kubeConfigPath && !this.k8s.isKubeReachable()) {
       this.logger.warn('kubectl cannot reach a cluster. Use --local to auto-create a kind cluster.')
     }
 
@@ -234,6 +247,7 @@ export class DeployService {
         provision,
         shadowServerUrl: k8sShadowUrl,
         kubeContext: options.k8sContext,
+        kubeConfigPath,
         imagePullPolicy: options.imagePullPolicy ?? 'IfNotPresent',
       })
     } catch (err) {
@@ -251,6 +265,7 @@ export class DeployService {
               provision,
               shadowServerUrl: k8sShadowUrl,
               kubeContext: options.k8sContext,
+              kubeConfigPath,
               imagePullPolicy: options.imagePullPolicy ?? 'IfNotPresent',
             })
             .catch(() => null)
@@ -283,6 +298,7 @@ export class DeployService {
           provision,
           shadowServerUrl: k8sShadowUrl,
           kubeContext: options.k8sContext,
+          kubeConfigPath,
           imagePullPolicy: options.imagePullPolicy ?? 'IfNotPresent',
         })
       } else {

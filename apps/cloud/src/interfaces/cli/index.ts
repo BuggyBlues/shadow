@@ -13,6 +13,7 @@ import { Command } from 'commander'
 import type { ServiceContainer } from '../../services/container.js'
 import { loadEnvFiles } from '../../utils/env.js'
 import { createBuildCommand } from './build.command.js'
+import { createClusterCommand } from './cluster.command.js'
 import { createConsoleCommand } from './dashboard.command.js'
 import { createDoctorCommand } from './doctor.command.js'
 import { createDownCommand } from './down.command.js'
@@ -72,6 +73,7 @@ export function createCLI(container: ServiceContainer): Command {
   program.addCommand(createDoctorCommand(container))
   program.addCommand(createOnboardCommand(container))
   program.addCommand(createTemplatesCommand(container))
+  program.addCommand(createClusterCommand(container))
 
   return program
 }

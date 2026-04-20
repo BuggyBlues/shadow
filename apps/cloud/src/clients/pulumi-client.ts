@@ -28,6 +28,8 @@ export interface StackOptions {
   stateDir?: string
   /** kubectl context for K8s provider */
   kubeContext?: string
+  /** Path to a kubeconfig YAML file — takes precedence over kubeContext when set */
+  kubeConfigPath?: string
   /** Image pull policy for containers */
   imagePullPolicy?: 'Always' | 'IfNotPresent' | 'Never'
 }
@@ -49,6 +51,7 @@ export async function getOrCreateStack(options: StackOptions) {
     provision: options.provision,
     shadowServerUrl: options.shadowServerUrl,
     kubeContext: options.kubeContext ?? process.env.KUBECONFIG_CONTEXT ?? 'rancher-desktop',
+    kubeConfigPath: options.kubeConfigPath,
     imagePullPolicy: options.imagePullPolicy ?? 'IfNotPresent',
   }
 
