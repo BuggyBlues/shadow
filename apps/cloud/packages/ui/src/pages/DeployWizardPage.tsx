@@ -33,6 +33,7 @@ import { AlertBanner, AlertBannerList } from '@/components/AlertBanner'
 import { Breadcrumb } from '@/components/Breadcrumb'
 import { useSSEStream } from '@/hooks/useSSEStream'
 import { api, type ProviderSettings } from '@/lib/api'
+import { useApiClient } from '@/lib/api-context'
 import { API_PRESETS } from '@/lib/presets'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/stores/app'
@@ -108,6 +109,7 @@ function extractClientEnvRefs(obj: unknown): string[] {
 // ── Step 1: Template Overview ─────────────────────────────────────────────────
 
 function StepOverview({ name }: { name: string }) {
+  const api = useApiClient()
   const { t, i18n } = useTranslation()
   const { data, isError: isStoreError } = useQuery({
     queryKey: ['template-detail', name, i18n.language],
@@ -225,6 +227,7 @@ function StepConfigure({
   onChange: (config: DeployConfig) => void
   onNext: () => void
 }) {
+  const api = useApiClient()
   const { t, i18n } = useTranslation()
   const { data: detailData } = useQuery({
     queryKey: ['template-detail', name, i18n.language],
@@ -649,6 +652,7 @@ export function StepProviders({
   providers: ProviderSettings[]
   onChange: (providers: ProviderSettings[]) => void
 }) {
+  const api = useApiClient()
   const { t } = useTranslation()
   const { data: settings } = useQuery({
     queryKey: ['settings'],
@@ -804,6 +808,7 @@ function StepDeploy({
   config: DeployConfig
   onBack: () => void
 }) {
+  const api = useApiClient()
   const { t, i18n } = useTranslation()
   const logRef = useRef<HTMLDivElement>(null)
   const toast = useToast()

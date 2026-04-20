@@ -30,6 +30,7 @@ import {
   TemplateDetailShell,
 } from '@/components/TemplateDetailShared'
 import { api } from '@/lib/api'
+import { useApiClient } from '@/lib/api-context'
 import { useAppStore } from '@/stores/app'
 import { useToast } from '@/stores/toast'
 
@@ -58,6 +59,7 @@ function OverviewTab({
   useCases: string[]
   requirements: string[]
 }) {
+  const api = useApiClient()
   const { t } = useTranslation()
 
   return (
@@ -128,6 +130,7 @@ function OverviewTab({
 }
 
 export function StoreDetailPage() {
+  const api = useApiClient()
   const { t, i18n } = useTranslation()
   const { name } = useParams({ strict: false }) as { name: string }
   const [activeTab, setActiveTab] = useState('overview')

@@ -45,6 +45,7 @@ import {
   TemplateDetailShell,
 } from '@/components/TemplateDetailShared'
 import { api, type ValidateResult } from '@/lib/api'
+import { useApiClient } from '@/lib/api-context'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/stores/toast'
 
@@ -59,6 +60,7 @@ function EditorTab({
   content: unknown
   templateSlug: string | null
 }) {
+  const api = useApiClient()
   const { t } = useTranslation()
   const toast = useToast()
   const queryClient = useQueryClient()
@@ -266,6 +268,7 @@ function EditorTab({
 // ── Versions Tab ──────────────────────────────────────────────────────────────
 
 function VersionsTab({ name }: { name: string }) {
+  const api = useApiClient()
   const { t } = useTranslation()
   const toast = useToast()
   const queryClient = useQueryClient()
@@ -373,6 +376,7 @@ function VersionsTab({ name }: { name: string }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export function MyTemplateDetailPage() {
+  const api = useApiClient()
   const { t } = useTranslation()
   const { name } = useParams({ strict: false }) as { name: string }
   const [activeTab, setActiveTab] = useState('overview')

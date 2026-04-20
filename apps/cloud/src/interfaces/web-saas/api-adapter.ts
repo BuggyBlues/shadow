@@ -9,9 +9,49 @@
  * Only the intersection of shared pages is wired here.
  */
 
+import type { EnvVarListEntry } from '@shadowob/cloud-ui/lib/api'
 import { api } from '@shadowob/cloud-ui/lib/api'
 import type { CloudApiClient } from '@shadowob/cloud-ui/lib/api-context'
 import { saasApi } from './api'
+
+// Helper to map a SaasTemplate to the dashboard TemplateCatalogSummary shape
+function toTemplateSummary(t: Awaited<ReturnType<typeof saasApi.templates.list>>[number]) {
+  return {
+    name: t.slug,
+    namespace: '',
+    description: t.description ?? '',
+    teamName: 'Shadow Cloud',
+    agentCount: 0,
+    tags: Array.isArray(t.tags) ? t.tags : [],
+    category: (t.category as import('@shadowob/cloud-ui/lib/api').TemplateCategoryId) ?? 'demo',
+    emoji: '☁️',
+    featured: t.source === 'official',
+    popularity: t.deployCount,
+    difficulty: (t.category === 'advanced'
+      ? 'advanced'
+      : t.category === 'intermediate'
+        ? 'intermediate'
+        : 'beginner') as import('@shadowob/cloud-ui/lib/api').TemplateDifficulty,
+    estimatedDeployTime: '5 min',
+    overview: [],
+    features: [],
+    highlights: [],
+  }
+}
+
+// Helper to map a SaasTemplate to the myTemplates list shape
+function toMyTemplate(t: Awaited<ReturnType<typeof saasApi.templates.list>>[number]) {
+  return {
+    name: t.slug,
+    slug: t.slug,
+    templateSlug: t.slug,
+    content: t.content,
+    version: 1,
+    updatedAt: t.updatedAt,
+  }
+}
+
+const now = () => new Date().toISOString()
 
 // Build a partial override that matches CloudApiClient shape
 // for the saas-relevant subset, falling back to the local `api`
@@ -22,7 +62,6 @@ export const saasApiAdapter: CloudApiClient = {
   // ── Community (StorePage uses api.community.catalog) ─────────────────────
   community: {
     ...api.community,
-    // getSettings: saas server has no /api/community/settings — return default
     getSettings: () =>
       Promise.resolve({
         baseUrl: 'https://shadowob.com',
@@ -34,36 +73,16 @@ export const saasApiAdapter: CloudApiClient = {
     catalog: (_locale: string) =>
       saasApi.templates.list().then((rows) => ({
         source: 'community' as const,
-        templates: rows.map((t) => ({
-          name: t.slug,
-          namespace: '',
-          description: t.description ?? '',
-          teamName: 'Shadow Cloud',
-          agentCount: 0,
-          tags: Array.isArray(t.tags) ? t.tags : [],
-          category:
-            (t.category as import('@shadowob/cloud-ui/lib/api').TemplateCategoryId) ?? 'demo',
-          emoji: '☁️',
-          featured: t.source === 'official',
-          popularity: t.deployCount,
-          difficulty: (t.category === 'advanced'
-            ? 'advanced'
-            : t.category === 'intermediate'
-              ? 'intermediate'
-              : 'beginner') as import('@shadowob/cloud-ui/lib/api').TemplateDifficulty,
-          estimatedDeployTime: '5 min',
-          overview: [],
-          features: [],
-          highlights: [],
-        })),
+        templates: rows.map(toTemplateSummary),
         categories: [],
       })),
+    publish: (name: string, _data?: unknown) =>
+      saasApi.templates.submit(name).then(() => ({ ok: true })),
   },
 
   // ── Templates ────────────────────────────────────────────────────────────
   templates: {
     ...api.templates,
-    // list all approved templates from the server-side store
     list: () =>
       saasApi.templates.list().then((rows) =>
         rows.map((t) => ({
@@ -77,45 +96,18 @@ export const saasApiAdapter: CloudApiClient = {
       ),
     catalog: (_locale: string) =>
       saasApi.templates.list().then((rows) => ({
-        templates: rows.map((t) => ({
-          name: t.slug,
-          namespace: '',
-          description: t.description ?? '',
-          teamName: 'Shadow Cloud',
-          agentCount: 0,
-          tags: t.tags ?? [],
-          category:
-            (t.category as import('@shadowob/cloud-ui/lib/api').TemplateCategoryId) ?? 'demo',
-          emoji: '☁️',
-          featured: t.source === 'official',
-          popularity: t.deployCount,
-          difficulty: 'beginner' as const,
-          estimatedDeployTime: '5 min',
-          overview: [],
-          features: [],
-          highlights: [],
-        })),
+        templates: rows.map(toTemplateSummary),
+        categories: [],
+      })),
+    listByLocale: (_locale: string) =>
+      saasApi.templates.list().then((rows) => ({
+        templates: rows.map(toTemplateSummary),
         categories: [],
       })),
     detail: (name: string, _locale: string) =>
       saasApi.templates.get(name).then((t) => ({
         template: {
-          name: t.slug,
-          namespace: '',
-          description: t.description ?? '',
-          teamName: 'Shadow Cloud',
-          agentCount: 0,
-          tags: t.tags ?? [],
-          category:
-            (t.category as import('@shadowob/cloud-ui/lib/api').TemplateCategoryId) ?? 'demo',
-          emoji: '☁️',
-          featured: t.source === 'official',
-          popularity: t.deployCount,
-          difficulty: 'beginner' as const,
-          estimatedDeployTime: '5 min',
-          overview: [],
-          features: [],
-          highlights: [],
+          ...toTemplateSummary(t),
           file: '',
           lastUpdated: t.updatedAt,
           useCases: [],
@@ -123,6 +115,60 @@ export const saasApiAdapter: CloudApiClient = {
           requiredEnvVars: [],
         },
       })),
+    get: (name: string) =>
+      saasApi.templates.get(name).then((t) => ({
+        template: {
+          ...toTemplateSummary(t),
+          file: '',
+          lastUpdated: t.updatedAt,
+          useCases: [],
+          requirements: [],
+          requiredEnvVars: [],
+        },
+      })),
+    envRefs: (_name: string) => Promise.resolve({ template: '', requiredEnvVars: [] }),
+  },
+
+  // ── My Templates (user-owned templates in SaaS = community submissions) ──
+  myTemplates: {
+    list: () => saasApi.templates.list().then((rows) => rows.map(toMyTemplate)),
+    get: (name: string) =>
+      saasApi.templates.get(name).then((t) => ({
+        name: t.slug,
+        slug: t.slug,
+        templateSlug: t.slug,
+        content: t.content,
+        version: 1,
+      })),
+    save: (name: string, content: unknown, _templateSlug?: string) =>
+      saasApi.templates
+        .update(name, { content: content as Record<string, unknown> })
+        .then(() => ({ ok: true })),
+    fork: (_sourceTemplate: string, _newName?: string) =>
+      Promise.resolve({ name: _newName ?? _sourceTemplate, slug: _newName ?? _sourceTemplate }),
+    delete: (_name: string) => Promise.resolve({ ok: true }),
+    versions: (_name: string) =>
+      Promise.resolve({ current: 1, versions: [{ version: 1, createdAt: now(), current: true }] }),
+    restoreVersion: (_name: string, _version: number) =>
+      Promise.resolve({ ok: true, restoredVersion: _version }),
+    share: (name: string) =>
+      saasApi.templates.get(name).then((t) => ({
+        name: t.slug,
+        templateSlug: t.slug,
+        version: 1,
+        content: t.content,
+        sharedAt: now(),
+      })),
+    import: (data: { name: string; content: unknown; templateSlug?: string }) =>
+      saasApi.templates
+        .create({
+          slug: data.name,
+          name: data.name,
+          content: data.content as Record<string, unknown>,
+        })
+        .then((t) => ({ ok: true, name: t.slug })),
+    importGit: (data: { url: string; name?: string; path?: string; branch?: string }) =>
+      Promise.resolve({ ok: true, name: data.name ?? 'imported', source: data.url }),
   },
 
   // ── Deployments ──────────────────────────────────────────────────────────
@@ -139,8 +185,74 @@ export const saasApiAdapter: CloudApiClient = {
           age: d.createdAt,
         })),
       ),
+    namespaces: () =>
+      saasApi.deployments.list().then((rows) => {
+        const ns = [...new Set(rows.map((d) => d.namespace))]
+        return { configured: ns, discovered: ns, all: ns }
+      }),
     scale: (namespace: string, _id: string, agentCount: number) =>
       saasApi.deployments.scale(namespace, agentCount).then(() => ({ ok: true })),
+    costs: () =>
+      Promise.resolve({
+        totalUsd: null,
+        namespaces: [],
+        generatedAt: now(),
+      }),
+    namespaceCosts: (namespace: string) =>
+      Promise.resolve({
+        namespace,
+        totalUsd: null,
+        agents: [],
+        availableAgents: 0,
+        unavailableAgents: 0,
+        generatedAt: now(),
+      }),
+    pods: (_namespace: string, _id: string) => Promise.resolve([]),
+    logsUrl: (namespace: string, _id: string) => saasApi.deployments.logsUrl(namespace),
+    logsHistory: (namespace: string, agent: string, _page = 1, limit = 200) =>
+      Promise.resolve({ namespace, agent, limit, lines: [], hasMore: false }),
+    env: (namespace: string, _name: string) =>
+      saasApi.envvars.list(namespace).then((vars) => ({
+        envVars: vars.map((v) => ({
+          scope: v.scope,
+          key: v.key,
+          maskedValue: '****',
+          isSecret: true,
+          groupName: v.groupId ?? 'default',
+        })),
+      })),
+  },
+
+  // ── Deploy Tasks (stubs — no saas equivalent) ────────────────────────────
+  deployTasks: {
+    ...api.deployTasks,
+    list: () => Promise.resolve({ tasks: [] }),
+    redeployToTaskId: (_id: number | string) => Promise.resolve(0),
+  },
+
+  // ── Env Vars (global scope in SaaS — stubs) ──────────────────────────────
+  env: {
+    list: () =>
+      Promise.resolve({
+        envVars: [] as EnvVarListEntry[],
+        groups: [],
+      }),
+    groups: () => Promise.resolve({ groups: [] }),
+    createGroup: (name: string) => Promise.resolve({ ok: true, name }),
+    deleteGroup: (_name: string) => Promise.resolve({ ok: true }),
+    getByScope: (_scope: string) => Promise.resolve({ envVars: [] }),
+    getOne: (scope: string, key: string) =>
+      Promise.resolve({
+        envVar: { scope, key, value: '', isSecret: false, groupName: 'default' },
+      }),
+    upsert: (_scope: string, _key: string, _value: string) => Promise.resolve({ ok: true }),
+    delete: (_scope: string, _key: string) => Promise.resolve({ ok: true }),
+  },
+
+  // ── Settings (stub — saas doesn't expose provider config) ────────────────
+  settings: {
+    get: () => Promise.resolve({ providers: [] }),
+    put: () => Promise.resolve({ ok: true }),
   },
 
   // ── Activity ─────────────────────────────────────────────────────────────
