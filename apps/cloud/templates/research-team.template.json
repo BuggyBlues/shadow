@@ -9,6 +9,9 @@
   },
   "use": [
     {
+      "plugin": "model-provider"
+    },
+    {
       "plugin": "shadowob",
       "options": {
         "servers": [
@@ -75,60 +78,6 @@
       }
     }
   ],
-  "registry": {
-    "providers": [
-      {
-        "id": "anthropic",
-        "api": "anthropic",
-        "apiKey": "${env:ANTHROPIC_API_KEY}",
-        "models": [
-          {
-            "id": "claude-sonnet-4-5",
-            "contextWindow": 200000
-          }
-        ]
-      },
-      {
-        "id": "deepseek",
-        "api": "openai",
-        "baseUrl": "https://api.deepseek.com/v1",
-        "apiKey": "${env:DEEPSEEK_API_KEY}",
-        "models": [
-          {
-            "id": "deepseek-chat",
-            "contextWindow": 65536
-          },
-          {
-            "id": "deepseek-reasoner",
-            "contextWindow": 65536
-          }
-        ]
-      }
-    ],
-    "configurations": [
-      {
-        "id": "research-base",
-        "openclaw": {
-          "tools": {
-            "profile": "full",
-            "web": {
-              "search": {
-                "enabled": true,
-                "maxResults": 10
-              },
-              "fetch": {
-                "enabled": true,
-                "maxChars": 100000
-              }
-            }
-          },
-          "session": {
-            "dmScope": "per-peer"
-          }
-        }
-      }
-    ]
-  },
   "deployments": {
     "namespace": "research-team",
     "agents": [
@@ -150,7 +99,6 @@
           }
         ],
         "configuration": {
-          "extends": "research-base",
           "openclaw": {
             "agents": {
               "defaults": {
@@ -193,7 +141,6 @@
           }
         ],
         "configuration": {
-          "extends": "research-base",
           "openclaw": {
             "agents": {
               "defaults": {
@@ -236,7 +183,6 @@
           }
         ],
         "configuration": {
-          "extends": "research-base",
           "openclaw": {
             "agents": {
               "defaults": {

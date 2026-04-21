@@ -1,6 +1,3 @@
-// Template: Deploy agents defined in a gitagent-standard git repository.
-// Supports two overlay strategies: init-container (default) and build-image.
-// See https://github.com/open-gitagent/gitagent for the gitagent directory spec.
 {
   "i18n": {
     "en": {
@@ -20,43 +17,10 @@
     "name": "gitagent-team",
     "description": "Agents sourced from a gitagent-standard git repository"
   },
-  "registry": {
-    "providers": [
-      {
-        "id": "anthropic",
-        "api": "anthropic",
-        "apiKey": "${env:ANTHROPIC_API_KEY}",
-        "models": [
-          {
-            "id": "claude-sonnet-4-5",
-            "contextWindow": 200000
-          },
-          {
-            "id": "claude-haiku-4-5",
-            "contextWindow": 200000
-          }
-        ]
-      },
-      {
-        "id": "openai",
-        "api": "openai",
-        "apiKey": "${env:OPENAI_API_KEY}",
-        "models": [
-          {
-            "id": "gpt-4o",
-            "contextWindow": 128000
-          }
-        ]
-      }
-    ]
-  },
   "deployments": {
     "namespace": "gitagent-team",
     "imagePullPolicy": "IfNotPresent",
     "agents": [
-      // Strategy 1: init-container (default) — no pre-build required.
-      // Kubernetes adds an alpine/git init container that clones the repo at pod startup.
-      // The cloned files are mounted at mountPath (/agent) for the OpenClaw runtime.
       {
         "id": "my-agent-init",
         "runtime": "openclaw",
@@ -70,17 +34,12 @@
                 "ref": "main",
                 "dir": "agents/my-agent",
                 "depth": 1
-                // For private repos: use tokenSecret (HTTPS) or sshKeySecret (SSH)
               },
               "strategy": "init-container",
               "mountPath": "/agent"
-              // Optional: restrict which files/dirs are copied. Default: all standard gitagent files.
-              // "include": ["SOUL.md", "RULES.md", "skills", "tools"]
             }
           }
         ],
-        // With gitagent source, SOUL.md → identity.personality, RULES.md → hard constraints.
-        // You can still set identity here to override or supplement the git-sourced content.
         "identity": {
           "name": "My Agent"
         },
@@ -107,10 +66,6 @@
           }
         }
       },
-
-      // Strategy 2: build-image — bakes git content into Docker image layers at build time.
-      // Run `shadowob-cloud build` to generate and build the image before deploying.
-      // Better for production: no git access needed at runtime, reproducible layers.
       {
         "id": "my-agent-built",
         "runtime": "openclaw",
@@ -124,7 +79,6 @@
                 "ref": "v1.2.0",
                 "dir": "agents/my-agent",
                 "depth": 1,
-                // tokenSecret can be a K8s Secret name or an env var like GITHUB_TOKEN for HTTPS private repos
                 "tokenSecret": "${env:GITHUB_TOKEN}"
               },
               "strategy": "build-image",
@@ -133,7 +87,6 @@
             }
           }
         ],
-        // After `shadowob-cloud build`, set image to the built tag.
         "image": "ghcr.io/my-org/my-agent:v1.2.0",
         "identity": {
           "name": "My Agent (Built)"
@@ -156,9 +109,6 @@
           }
         }
       },
-
-      // SSH-authenticated private repo — for repos that require SSH key access.
-      // Create a K8s secret first: kubectl create secret generic git-ssh-key --from-file=ssh-privatekey=~/.ssh/id_ed25519
       {
         "id": "private-agent",
         "runtime": "openclaw",
@@ -199,9 +149,6 @@
           }
         }
       },
-
-      // Monorepo example — multiple agents from the same repository, different subdirectories.
-      // All agents share the same git.url; each points to its own agents/<name> subdirectory.
       {
         "id": "monorepo-agent-a",
         "runtime": "openclaw",
@@ -280,10 +227,6 @@
           }
         }
       },
-
-      // Local dev path example — reference a local gitagent directory during development.
-      // At deploy time, shadowob-cloud reads the local files and enriches the agent config.
-      // In production, switch source.git to a git URL.
       {
         "id": "local-dev-agent",
         "runtime": "openclaw",
@@ -320,5 +263,10 @@
         }
       }
     ]
-  }
+  },
+  "use": [
+    {
+      "plugin": "model-provider"
+    }
+  ]
 }

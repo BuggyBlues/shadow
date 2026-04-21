@@ -5,9 +5,12 @@
   "environment": "production",
   "team": {
     "name": "devops-team",
-    "description": "24/7 DevOps monitoring and incident response team"
+    "description": "24/7 DevOps monitoring, incident response, and business metrics team"
   },
   "use": [
+    {
+      "plugin": "model-provider"
+    },
     {
       "plugin": "shadowob",
       "options": {
@@ -31,6 +34,11 @@
                 "id": "incidents",
                 "title": "Incidents",
                 "type": "text"
+              },
+              {
+                "id": "daily-reports",
+                "title": "Daily Reports",
+                "type": "text"
               }
             ]
           }
@@ -47,6 +55,14 @@
           {
             "id": "incident-bot",
             "name": "Incident Responder"
+          },
+          {
+            "id": "analyst-bot",
+            "name": "Data Analyst"
+          },
+          {
+            "id": "alert-bot",
+            "name": "Anomaly Alerter"
           }
         ],
         "bindings": [
@@ -70,71 +86,25 @@
             "servers": ["devops-hub"],
             "channels": ["general", "incidents"],
             "agentId": "incident-responder"
+          },
+          {
+            "targetId": "analyst-bot",
+            "targetType": "buddy",
+            "servers": ["devops-hub"],
+            "channels": ["daily-reports"],
+            "agentId": "data-analyst"
+          },
+          {
+            "targetId": "alert-bot",
+            "targetType": "buddy",
+            "servers": ["devops-hub"],
+            "channels": ["alerts"],
+            "agentId": "anomaly-alerter"
           }
         ]
       }
     }
   ],
-  "registry": {
-    "providers": [
-      {
-        "id": "anthropic",
-        "api": "anthropic",
-        "apiKey": "${env:ANTHROPIC_API_KEY}",
-        "models": [
-          {
-            "id": "claude-sonnet-4-5",
-            "contextWindow": 200000
-          },
-          {
-            "id": "claude-haiku-4-5",
-            "contextWindow": 200000
-          }
-        ]
-      },
-      {
-        "id": "deepseek",
-        "api": "openai",
-        "baseUrl": "https://api.deepseek.com/v1",
-        "apiKey": "${env:DEEPSEEK_API_KEY}",
-        "models": [
-          {
-            "id": "deepseek-chat",
-            "contextWindow": 65536
-          },
-          {
-            "id": "deepseek-reasoner",
-            "contextWindow": 65536
-          }
-        ]
-      }
-    ],
-    "configurations": [
-      {
-        "id": "devops-base",
-        "openclaw": {
-          "tools": {
-            "profile": "full"
-          },
-          "session": {
-            "dmScope": "per-peer"
-          },
-          "channels": {
-            "telegram": {
-              "enabled": true,
-              "dmPolicy": "open",
-              "botToken": "${env:TELEGRAM_BOT_TOKEN}"
-            },
-            "slack": {
-              "enabled": true,
-              "botToken": "${env:SLACK_BOT_TOKEN}",
-              "appToken": "${env:SLACK_APP_TOKEN}"
-            }
-          }
-        }
-      }
-    ]
-  },
   "workspace": {
     "enabled": true,
     "storageSize": "10Gi",
@@ -154,6 +124,12 @@
         },
         "use": [
           {
+            "plugin": "model-provider",
+            "options": {
+              "tag": "flash"
+            }
+          },
+          {
             "plugin": "kubernetes",
             "options": {
               "KUBECONFIG": "${env:KUBECONFIG_B64}"
@@ -167,7 +143,6 @@
           }
         ],
         "configuration": {
-          "extends": "devops-base",
           "openclaw": {
             "agents": {
               "defaults": {
@@ -203,6 +178,12 @@
         },
         "use": [
           {
+            "plugin": "model-provider",
+            "options": {
+              "tag": "flash"
+            }
+          },
+          {
             "plugin": "github",
             "options": {
               "GITHUB_TOKEN": "${env:GITHUB_TOKEN}"
@@ -210,7 +191,6 @@
           }
         ],
         "configuration": {
-          "extends": "devops-base",
           "openclaw": {
             "agents": {
               "defaults": {
@@ -246,6 +226,12 @@
         },
         "use": [
           {
+            "plugin": "model-provider",
+            "options": {
+              "tag": "reasoning"
+            }
+          },
+          {
             "plugin": "kubernetes",
             "options": {
               "KUBECONFIG": "${env:KUBECONFIG_B64}"
@@ -265,7 +251,6 @@
           }
         ],
         "configuration": {
-          "extends": "devops-base",
           "openclaw": {
             "tools": {
               "profile": "full"
@@ -282,17 +267,136 @@
             "memory": "1Gi"
           }
         }
+      },
+      {
+        "id": "data-analyst",
+        "runtime": "openclaw",
+        "description": "Pulls revenue, traffic, and product analytics data every morning and delivers a comprehensive report to your team channel.",
+        "identity": {
+          "name": "Data Analyst",
+          "personality": "You are a sharp data analyst who delivers concise, insight-rich reports. You never just dump raw numbers — you always highlight trends, anomalies, and what they mean for the business. Your reports have a consistent structure: headline metrics, trend analysis, notable changes, and a 'what to watch' section. You're enthusiastic about data but respect people's time.",
+          "systemPrompt": "Generate a daily business metrics report at 9:00 AM UTC every day. Pull data from:\n- Stripe: MRR, new subscriptions, churn, failed payments\n- Google Analytics 4: Sessions, users, conversion rate, top pages\n- Mixpanel: Active users, retention, key funnel metrics\n\nReport format:\n## 📊 Daily Metrics Report — {date}\n**Revenue**: ...\n**Traffic**: ...\n**Product**: ...\n**Trends**: ...\n**Watch**: ..."
+        },
+        "use": [
+          {
+            "plugin": "model-provider",
+            "options": {
+              "tag": "reasoning"
+            }
+          },
+          {
+            "plugin": "stripe",
+            "options": {
+              "STRIPE_SECRET_KEY": "${env:STRIPE_SECRET_KEY}"
+            }
+          },
+          {
+            "plugin": "google-analytics",
+            "options": {
+              "GA4_PROPERTY_ID": "${env:GA4_PROPERTY_ID}",
+              "GOOGLE_APPLICATION_CREDENTIALS": "${env:GOOGLE_CREDENTIALS_B64}"
+            }
+          },
+          {
+            "plugin": "mixpanel",
+            "options": {
+              "MIXPANEL_SERVICE_ACCOUNT_USERNAME": "${env:MIXPANEL_USERNAME}",
+              "MIXPANEL_SERVICE_ACCOUNT_SECRET": "${env:MIXPANEL_SECRET}",
+              "MIXPANEL_PROJECT_ID": "${env:MIXPANEL_PROJECT_ID}"
+            }
+          }
+        ],
+        "configuration": {
+          "openclaw": {
+            "agents": {
+              "defaults": {
+                "heartbeat": {
+                  "every": "24h",
+                  "session": "daily-report",
+                  "prompt": "Generate today's morning metrics report. Pull data from Stripe, GA4, and Mixpanel. Format it clearly.",
+                  "target": "shadowob",
+                  "accountId": "daily-reports"
+                }
+              }
+            }
+          }
+        },
+        "resources": {
+          "requests": {
+            "cpu": "100m",
+            "memory": "256Mi"
+          },
+          "limits": {
+            "cpu": "500m",
+            "memory": "512Mi"
+          }
+        }
+      },
+      {
+        "id": "anomaly-alerter",
+        "runtime": "openclaw",
+        "description": "Watches key business metrics every hour for anomalies: sudden revenue drops, traffic spikes, conversion rate changes, or unusual churn.",
+        "identity": {
+          "name": "Anomaly Alerter",
+          "personality": "You are an always-on anomaly detection sentinel for business metrics. You only alert when something is genuinely unusual — not just normal variance. You calibrate your thresholds based on historical baselines. When you alert, you include: what changed, by how much, when it changed, and a hypothesis for why. You never cry wolf.",
+          "systemPrompt": "Monitor business metrics every hour for anomalies:\n- Revenue: Alert if hourly Stripe revenue drops >40% vs same hour yesterday\n- Traffic: Alert if sessions drop >50% or spike >200% vs baseline\n- Errors: Alert if 5xx error rate exceeds 2%\n- Churn: Alert if cancellations in a 4-hour window exceed baseline by 3x\n\nFor each alert include: metric name, current value, expected range, % deviation, and your top hypothesis."
+        },
+        "use": [
+          {
+            "plugin": "model-provider",
+            "options": {
+              "tag": "flash"
+            }
+          },
+          {
+            "plugin": "stripe",
+            "options": {
+              "STRIPE_SECRET_KEY": "${env:STRIPE_SECRET_KEY}"
+            }
+          },
+          {
+            "plugin": "google-analytics",
+            "options": {
+              "GA4_PROPERTY_ID": "${env:GA4_PROPERTY_ID}",
+              "GOOGLE_APPLICATION_CREDENTIALS": "${env:GOOGLE_CREDENTIALS_B64}"
+            }
+          }
+        ],
+        "configuration": {
+          "openclaw": {
+            "agents": {
+              "defaults": {
+                "heartbeat": {
+                  "every": "1h",
+                  "prompt": "Check all monitored metrics for anomalies in the last hour. Only alert if something is genuinely unusual. Stay silent if all metrics are normal.",
+                  "target": "shadowob",
+                  "accountId": "alerts"
+                }
+              }
+            }
+          }
+        },
+        "resources": {
+          "requests": {
+            "cpu": "100m",
+            "memory": "256Mi"
+          },
+          "limits": {
+            "cpu": "500m",
+            "memory": "512Mi"
+          }
+        }
       }
     ]
   },
   "i18n": {
     "en": {
-      "name": "DevOps Team",
-      "description": "Three-agent DevOps team: infrastructure monitor, CI/CD watcher, and incident responder. Delivers real-time alerts to Telegram/Slack when builds fail, deployments break, or databases degrade."
+      "name": "DevOps & Metrics Team",
+      "description": "Five-agent DevOps and metrics team: infrastructure monitor, CI/CD watcher, incident responder, daily data analyst, and anomaly alerter. Covers 24/7 system health, pipeline status, incident coordination, and business metrics reporting."
     },
     "zh-CN": {
-      "name": "DevOps 团队",
-      "description": "三智能体 DevOps 团队：基础设施监控、CI/CD 监控和事件响应。提供实时警报、流水线状态和事件协调。"
+      "name": "DevOps 与数据团队",
+      "description": "五智能体 DevOps 与数据团队：基础设施监控、CI/CD 监控、事件响应、每日数据分析、异常告警。全面覆盖系统健康、流水线状态、事件协调与业务指标报告。"
     }
   }
 }

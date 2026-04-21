@@ -1,0 +1,151 @@
+{
+  "version": "1.0.0",
+  "name": "${i18n:name}",
+  "description": "${i18n:description}",
+  "environment": "production",
+  "use": [
+    {
+      "plugin": "model-provider"
+    },
+    {
+      "plugin": "shadowob",
+      "options": {
+        "servers": [
+          {
+            "id": "rental-hub",
+            "name": "AI Rental Hub",
+            "description": "Server for managing OpenClaw rental listings and renter interactions",
+            "channels": [
+              {
+                "id": "announcements",
+                "title": "Announcements",
+                "description": "Rental status and updates"
+              },
+              {
+                "id": "renter-support",
+                "title": "Renter Support",
+                "description": "Channel for renters to ask questions and report issues"
+              }
+            ]
+          }
+        ],
+        "buddies": [
+          {
+            "id": "rental-host",
+            "name": "Rental Host",
+            "description": "Manages OpenClaw rental listings on the Shadow claw marketplace. Helps renters understand the offering, handles inquiries via DM, announces rental availability, and monitors usage."
+          },
+          {
+            "id": "renter-assistant",
+            "name": "Renter Assistant",
+            "description": "AI assistant available to active renters in the renter-support channel. Answers questions, performs tasks, and reports session usage."
+          }
+        ],
+        "bindings": [
+          {
+            "targetId": "rental-host",
+            "targetType": "buddy",
+            "servers": ["rental-hub"],
+            "channels": ["announcements"],
+            "agentId": "rental-manager",
+            "replyPolicy": {
+              "mode": "mentionOnly"
+            }
+          },
+          {
+            "targetId": "renter-assistant",
+            "targetType": "buddy",
+            "servers": ["rental-hub"],
+            "channels": ["renter-support"],
+            "agentId": "renter-agent",
+            "replyPolicy": {
+              "mode": "replyAll"
+            }
+          }
+        ],
+        "listings": [
+          {
+            "buddyId": "rental-host",
+            "title": "AI Rental Host Bot",
+            "description": "An AI assistant that manages OpenClaw rental listings and handles renter inquiries. Perfect for operators who want to automate their claw marketplace presence.",
+            "pricePerHour": 10,
+            "tags": ["management", "automation", "marketplace"],
+            "active": true
+          },
+          {
+            "buddyId": "renter-assistant",
+            "title": "General Purpose AI Assistant",
+            "description": "A capable AI assistant available for rent. Can help with research, writing, code review, web search, and everyday tasks. Powered by Claude.",
+            "pricePerHour": 5,
+            "tags": ["research", "writing", "coding", "general"],
+            "active": true
+          }
+        ]
+      }
+    }
+  ],
+  "deployments": {
+    "namespace": "shadowob-cloud",
+    "agents": [
+      {
+        "id": "rental-manager",
+        "runtime": "openclaw",
+        "configuration": {
+          "openclaw": {
+            "systemPrompt": "You are {{buddyName}}, an AI that manages OpenClaw rental listings on the Shadow platform.\n\nYour responsibilities:\n1. **Listing management**: Create and update rental listings with clear skill descriptions, pricing (baseDailyRate + messageFee), availability, and guidelines.\n2. **DM inquiries**: When users DM you asking about renting, explain what's offered, pricing, and how to sign a contract via the Shadow marketplace.\n3. **Announcements**: Post to the announcements channel when listing status changes (available → paused, new pricing, etc.).\n4. **Contract monitoring**: Track active rental contracts and flag violations if renters breach usage guidelines.\n\nListing guidelines to enforce:\n- Max concurrent rentals: 3\n- Token abuse (> 50k tokens/day) should be flagged as a violation\n- Renters must not use the claw for illegal content generation\n\nWhen managing listings, use the Shadow SDK tools available to your runtime.",
+            "tools": {
+              "profile": "full",
+              "memory": {
+                "enabled": true
+              }
+            }
+          }
+        },
+        "use": [
+          {
+            "plugin": "model-provider",
+            "options": {
+              "tag": "flash"
+            }
+          }
+        ]
+      },
+      {
+        "id": "renter-agent",
+        "runtime": "openclaw",
+        "configuration": {
+          "openclaw": {
+            "systemPrompt": "You are {{buddyName}}, an AI assistant available to active renters of this OpenClaw.\n\nYou help renters with:\n- Answering questions and performing tasks within your capabilities\n- Web research, writing, code review, and analysis\n- Providing transparent usage summaries when asked (token usage, session time)\n\nBe transparent about your nature as a rented AI assistant. If a renter asks how long their contract lasts or how much it costs, explain they can check their rental contract on the Shadow marketplace.\n\nDo NOT perform tasks that violate the rental usage guidelines (no illegal content, no spam generation, no automated abuse).",
+            "tools": {
+              "profile": "full",
+              "memory": {
+                "enabled": true
+              },
+              "web": {
+                "search": {
+                  "enabled": true
+                },
+                "fetch": {
+                  "enabled": true
+                }
+              },
+              "code": {
+                "enabled": true
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  "i18n": {
+    "en": {
+      "name": "Buddy Rental Host",
+      "description": "Template for hosting OpenClaw rentals via the Shadow claw marketplace. Includes a rental manager buddy for listing/contract management and a renter-facing assistant buddy."
+    },
+    "zh-CN": {
+      "name": "Buddy 租赁主机",
+      "description": "通过 Shadow 虾爪市场托管 OpenClaw 租赁的模板。包含一个租赁管理 Buddy（负责挂单与合约管理）和一个面向租户的助手 Buddy。"
+    }
+  }
+}

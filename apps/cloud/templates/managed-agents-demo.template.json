@@ -26,21 +26,7 @@
           }
         }
       }
-    },
-    "configurations": [
-      {
-        "id": "base",
-        "openclaw": {
-          "agents": {
-            "defaults": {
-              "model": {
-                "primary": "claude-sonnet-4-20250514"
-              }
-            }
-          }
-        }
-      }
-    ]
+    }
   },
   "deployments": {
     "namespace": "managed-agents-demo",
@@ -51,9 +37,7 @@
         "version": "1.0.0",
         "changelog": "Initial release with coding assistance",
         "vault": "default",
-        "configuration": {
-          "extends": "base"
-        },
+        "configuration": {},
         "permissions": {
           "default": "approve-reads",
           "tools": {
@@ -83,9 +67,7 @@
         "version": "2.1.0",
         "changelog": "Added web search capabilities",
         "vault": "restricted",
-        "configuration": {
-          "extends": "base"
-        },
+        "configuration": {},
         "permissions": {
           "default": "always-allow",
           "tools": {
@@ -100,22 +82,36 @@
           "name": "Researcher",
           "systemPrompt": "Research topics and provide summaries."
         },
-        "description": "Research agent with unrestricted networking but no filesystem access"
+        "description": "Research agent with unrestricted networking but no filesystem access",
+        "use": [
+          {
+            "plugin": "model-provider",
+            "options": {
+              "tag": "reasoning"
+            }
+          }
+        ]
       },
       {
         "id": "sandboxed-runner",
         "runtime": "openclaw",
         "version": "0.5.0",
-        "configuration": {
-          "extends": "base"
-        },
+        "configuration": {},
         "permissions": {
           "default": "deny-all"
         },
         "networking": {
           "type": "deny-all"
         },
-        "description": "Fully sandboxed agent — no network, no tools"
+        "description": "Fully sandboxed agent — no network, no tools",
+        "use": [
+          {
+            "plugin": "model-provider",
+            "options": {
+              "tag": "flash"
+            }
+          }
+        ]
       }
     ]
   },
@@ -128,5 +124,10 @@
       "name": "托管智能体演示",
       "description": "演示 P0/P1 托管智能体功能"
     }
-  }
+  },
+  "use": [
+    {
+      "plugin": "model-provider"
+    }
+  ]
 }

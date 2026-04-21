@@ -5,6 +5,9 @@
   "environment": "production",
   "use": [
     {
+      "plugin": "model-provider"
+    },
+    {
       "plugin": "shadowob",
       "options": {
         "servers": [
@@ -14,7 +17,13 @@
             "channels": [
               {
                 "id": "general",
-                "title": "General"
+                "title": "General",
+                "description": "Main chat channel"
+              },
+              {
+                "id": "ask-ai",
+                "title": "Ask AI",
+                "description": "Channel dedicated to AI assistant queries"
               }
             ]
           }
@@ -22,7 +31,8 @@
         "buddies": [
           {
             "id": "my-buddy",
-            "name": "My AI Assistant"
+            "name": "My AI Assistant",
+            "description": "A helpful general-purpose AI assistant. Can answer questions, search the web, summarize content, and assist with everyday tasks."
           }
         ],
         "bindings": [
@@ -30,76 +40,35 @@
             "targetId": "my-buddy",
             "targetType": "buddy",
             "servers": ["my-server"],
-            "channels": ["general"],
-            "agentId": "my-agent"
+            "channels": ["general", "ask-ai"],
+            "agentId": "my-agent",
+            "replyPolicy": {
+              "mode": "custom",
+              "custom": {
+                "replyToBuddy": false,
+                "maxBuddyChainDepth": 2,
+                "smartReply": true
+              }
+            }
           }
         ]
       }
     }
   ],
-  "registry": {
-    "providers": [
-      {
-        "id": "openai",
-        "api": "openai",
-        "baseUrl": "https://api.openai.com/v1",
-        "apiKey": "${env:OPENAI_API_KEY}",
-        "models": [
-          {
-            "id": "gpt-4o-mini",
-            "labels": ["fast", "chat"]
-          },
-          {
-            "id": "gpt-4o",
-            "labels": ["reasoning"]
-          }
-        ]
-      },
-      {
-        "id": "deepseek",
-        "api": "openai",
-        "baseUrl": "https://api.deepseek.com/v1",
-        "apiKey": "${env:DEEPSEEK_API_KEY}",
-        "models": [
-          {
-            "id": "deepseek-chat",
-            "contextWindow": 65536
-          },
-          {
-            "id": "deepseek-reasoner",
-            "contextWindow": 65536
-          }
-        ]
-      }
-    ],
-    "configurations": [
-      {
-        "id": "base-chat",
-        "openclaw": {
-          "policies": {
-            "maxTokensPerResponse": 1024,
-            "timeoutSeconds": 30
-          }
-        }
-      }
-    ]
-  },
   "deployments": {
     "namespace": "shadowob-cloud",
     "agents": [
       {
         "id": "my-agent",
         "runtime": "openclaw",
-        "model": {
-          "preferred": "openai/gpt-4o-mini",
-          "fallbacks": ["deepseek/deepseek-chat"]
-        },
         "configuration": {
-          "extends": "base-chat",
           "openclaw": {
-            "systemPrompt": "You are a helpful AI assistant.",
+            "systemPrompt": "You are a helpful AI assistant named {{buddyName}}. Be concise, friendly, and accurate. When you don't know something, say so rather than guessing. You operate inside a Shadow chat server — users can @mention you or message you directly.",
             "tools": {
               "profile": "full",
+              "memory": {
+                "enabled": true
+              },
               "web": {
                 "search": {
                   "enabled": true
@@ -110,7 +79,15 @@
               }
             }
           }
-        }
+        },
+        "use": [
+          {
+            "plugin": "model-provider",
+            "options": {
+              "tag": "flash"
+            }
+          }
+        ]
       }
     ]
   },

@@ -9,6 +9,9 @@
   },
   "use": [
     {
+      "plugin": "model-provider"
+    },
+    {
       "plugin": "shadowob",
       "options": {
         "servers": [
@@ -80,55 +83,6 @@
       }
     }
   ],
-  "registry": {
-    "providers": [
-      {
-        "id": "anthropic",
-        "api": "anthropic",
-        "apiKey": "${env:ANTHROPIC_API_KEY}",
-        "models": [
-          {
-            "id": "claude-sonnet-4-5",
-            "contextWindow": 200000
-          }
-        ]
-      },
-      {
-        "id": "deepseek",
-        "api": "openai",
-        "baseUrl": "https://api.deepseek.com/v1",
-        "apiKey": "${env:DEEPSEEK_API_KEY}",
-        "models": [
-          {
-            "id": "deepseek-chat",
-            "contextWindow": 65536
-          },
-          {
-            "id": "deepseek-reasoner",
-            "contextWindow": 65536
-          }
-        ]
-      }
-    ],
-    "configurations": [
-      {
-        "id": "security-base",
-        "openclaw": {
-          "tools": {
-            "profile": "coding",
-            "web": {
-              "fetch": {
-                "enabled": true
-              }
-            }
-          },
-          "session": {
-            "dmScope": "per-peer"
-          }
-        }
-      }
-    ]
-  },
   "workspace": {
     "enabled": true,
     "storageSize": "10Gi",
@@ -148,6 +102,12 @@
         },
         "use": [
           {
+            "plugin": "model-provider",
+            "options": {
+              "tag": "reasoning"
+            }
+          },
+          {
             "plugin": "github",
             "options": {
               "GITHUB_TOKEN": "${env:GITHUB_TOKEN}"
@@ -155,7 +115,6 @@
           }
         ],
         "configuration": {
-          "extends": "security-base",
           "openclaw": {
             "agents": {
               "defaults": {
@@ -191,6 +150,12 @@
         },
         "use": [
           {
+            "plugin": "model-provider",
+            "options": {
+              "tag": "flash"
+            }
+          },
+          {
             "plugin": "github",
             "options": {
               "GITHUB_TOKEN": "${env:GITHUB_TOKEN}"
@@ -198,7 +163,6 @@
           }
         ],
         "configuration": {
-          "extends": "security-base",
           "openclaw": {
             "agents": {
               "defaults": {
@@ -234,6 +198,12 @@
         },
         "use": [
           {
+            "plugin": "model-provider",
+            "options": {
+              "tag": "reasoning"
+            }
+          },
+          {
             "plugin": "github",
             "options": {
               "GITHUB_TOKEN": "${env:GITHUB_TOKEN}"
@@ -241,7 +211,6 @@
           }
         ],
         "configuration": {
-          "extends": "security-base",
           "openclaw": {
             "agents": {
               "defaults": {
