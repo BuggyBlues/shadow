@@ -9,6 +9,9 @@
   },
   "use": [
     {
+      "plugin": "model-provider"
+    },
+    {
       "plugin": "shadowob",
       "options": {
         "servers": [
@@ -64,64 +67,6 @@
       }
     }
   ],
-  "registry": {
-    "providers": [
-      {
-        "id": "anthropic",
-        "api": "anthropic",
-        "apiKey": "${env:ANTHROPIC_API_KEY}",
-        "models": [
-          {
-            "id": "claude-sonnet-4-5",
-            "contextWindow": 200000
-          },
-          {
-            "id": "claude-haiku-4-5",
-            "contextWindow": 200000
-          }
-        ]
-      },
-      {
-        "id": "deepseek",
-        "api": "openai",
-        "baseUrl": "https://api.deepseek.com/v1",
-        "apiKey": "${env:DEEPSEEK_API_KEY}",
-        "models": [
-          {
-            "id": "deepseek-chat",
-            "contextWindow": 65536
-          },
-          {
-            "id": "deepseek-reasoner",
-            "contextWindow": 65536
-          }
-        ]
-      }
-    ],
-    "configurations": [
-      {
-        "id": "support-base",
-        "openclaw": {
-          "tools": {
-            "profile": "messaging",
-            "web": {
-              "fetch": {
-                "enabled": true
-              }
-            }
-          },
-          "session": {
-            "dmScope": "per-peer"
-          },
-          "messages": {
-            "ackReaction": "👀",
-            "ackReactionScope": "all",
-            "removeAckAfterReply": true
-          }
-        }
-      }
-    ]
-  },
   "deployments": {
     "namespace": "customer-support",
     "agents": [
@@ -136,6 +81,12 @@
         },
         "use": [
           {
+            "plugin": "model-provider",
+            "options": {
+              "tag": "flash"
+            }
+          },
+          {
             "plugin": "notion",
             "options": {
               "NOTION_TOKEN": "${env:NOTION_TOKEN}"
@@ -149,7 +100,6 @@
           }
         ],
         "configuration": {
-          "extends": "support-base",
           "openclaw": {
             "agents": {
               "defaults": {
@@ -203,9 +153,7 @@
             }
           }
         ],
-        "configuration": {
-          "extends": "support-base"
-        },
+        "configuration": {},
         "resources": {
           "requests": {
             "cpu": "200m",
