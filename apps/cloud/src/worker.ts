@@ -224,11 +224,13 @@ async function processDestroy(
 
   try {
     const cluster = await resolveClusterRuntime(deployment.clusterId, clusterDao)
+    const { configSnapshot } = extractCloudSaasRuntime(deployment.configSnapshot)
 
     await container.deploymentRuntime.destroy({
       namespace: deployment.namespace,
       stack: deployment.id,
       cluster,
+      configSnapshot,
     })
 
     await deploymentDao.appendLog(

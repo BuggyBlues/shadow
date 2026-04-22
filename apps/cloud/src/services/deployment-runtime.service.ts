@@ -1,6 +1,8 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { createHash } from 'node:crypto'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type { CloudConfig } from '../config/schema.js'
 import type { DeployOptions, DeployResult } from './deploy.service.js'
 import { DeployService } from './deploy.service.js'
 
@@ -10,7 +12,10 @@ export interface DeploymentRuntimeCluster {
 }
 
 export interface DeployFromSnapshotOptions
-  extends Omit<DeployOptions, 'filePath' | 'k8sContext' | 'shadowUrl' | 'shadowToken'> {
+  extends Omit<
+    DeployOptions,
+    'filePath' | 'k8sContext' | 'shadowUrl' | 'shadowToken' | 'cluster' | 'kubeConfigPath'
+  > {
   configSnapshot: unknown
   runtimeEnvVars?: Record<string, string>
   shadowUrl?: string
@@ -22,6 +27,7 @@ export interface DestroyRuntimeOptions {
   namespace: string
   stack?: string
   cluster?: DeploymentRuntimeCluster | null
+  configSnapshot?: unknown
 }
 
 function extractKubeContext(kubeconfigYaml: string): string | undefined {
@@ -43,8 +49,10 @@ export function rewriteLoopbackKubeconfig(
     const match = line?.match(/^([ \t]*server:\s*https?:\/\/)(127\.0\.0\.1|localhost)([:/].*)$/)
     if (!match) continue
 
-    const indent = match[1].match(/^[ \t]*/)?.[0] ?? ''
-    lines[index] = `${match[1]}${normalizedHost}${match[3]}`
+    const serverPrefix = match[1] ?? ''
+    const serverSuffix = match[3] ?? ''
+    const indent = serverPrefix.match(/^[ \t]*/)?.[0] ?? ''
+    lines[index] = `${serverPrefix}${normalizedHost}${serverSuffix}`
 
     const tlsServerNameLine = `${indent}tls-server-name: localhost`
     const nextLine = lines[index + 1]
@@ -70,6 +78,20 @@ function normalizeRuntimeEnvVars(envVars?: Record<string, string>): Record<strin
   return normalized
 }
 
+function getStableRuntimeKubeconfigPath(kubeconfigYaml: string): string {
+  const runtimeDir = join(homedir(), '.shadowob', 'kubeconfigs')
+  mkdirSync(runtimeDir, { recursive: true })
+
+  const hash = createHash('sha256').update(kubeconfigYaml).digest('hex')
+  const kubeconfigPath = join(runtimeDir, `${hash}.yaml`)
+
+  if (!existsSync(kubeconfigPath)) {
+    writeFileSync(kubeconfigPath, kubeconfigYaml, { mode: 0o600 })
+  }
+
+  return kubeconfigPath
+}
+
 export class DeploymentRuntimeService {
   constructor(private readonly deployService: DeployService) {}
 
@@ -77,15 +99,23 @@ export class DeploymentRuntimeService {
     const configDir = mkdtempSync(join(tmpdir(), 'sc-cfg-'))
     const configPath = join(configDir, 'shadowob-cloud.json')
     writeFileSync(configPath, JSON.stringify(options.configSnapshot, null, 2), 'utf-8')
+    const {
+      configSnapshot: _configSnapshot,
+      runtimeEnvVars: _runtimeEnvVars,
+      cluster: _cluster,
+      shadowUrl,
+      shadowToken,
+      ...deployOptions
+    } = options
 
     try {
       return await this.withResolvedContext(options.cluster, options.runtimeEnvVars, (k8sContext) =>
         this.deployService.up({
-          ...options,
+          ...deployOptions,
           filePath: configPath,
           k8sContext,
-          shadowUrl: options.shadowUrl,
-          shadowToken: options.shadowToken,
+          shadowUrl,
+          shadowToken,
         }),
       )
     } finally {
@@ -94,11 +124,19 @@ export class DeploymentRuntimeService {
   }
 
   async destroy(options: DestroyRuntimeOptions): Promise<void> {
+    const configSnapshot =
+      options.configSnapshot &&
+      typeof options.configSnapshot === 'object' &&
+      !Array.isArray(options.configSnapshot)
+        ? (options.configSnapshot as CloudConfig)
+        : undefined
+
     await this.withResolvedContext(options.cluster, undefined, (k8sContext) =>
       this.deployService.destroy({
         namespace: options.namespace,
         stack: options.stack,
         k8sContext,
+        config: configSnapshot,
       }),
     )
   }
@@ -108,7 +146,6 @@ export class DeploymentRuntimeService {
     runtimeEnvVars: Record<string, string> | undefined,
     run: (k8sContext: string | undefined) => Promise<T>,
   ): Promise<T> {
-    const tempDirs: string[] = []
     const originalKubeconfig = process.env.KUBECONFIG
     const originalKubeContext = process.env.KUBECONFIG_CONTEXT
     const originalRuntimeEnv: Record<string, string | undefined> = {}
@@ -117,19 +154,24 @@ export class DeploymentRuntimeService {
 
     try {
       const activeKubeconfigPath = process.env.KUBECONFIG
+      const hasMountedKubeconfig = Boolean(activeKubeconfigPath && existsSync(activeKubeconfigPath))
       const activeKubeconfig = cluster?.kubeconfig
         ? cluster.kubeconfig
-        : activeKubeconfigPath && existsSync(activeKubeconfigPath)
+        : hasMountedKubeconfig && activeKubeconfigPath
           ? readFileSync(activeKubeconfigPath, 'utf8')
           : undefined
 
       if (activeKubeconfig) {
-        const kubeDir = mkdtempSync(join(tmpdir(), 'sc-kube-'))
-        const kubeconfigPath = join(kubeDir, 'kubeconfig')
         const rewrittenKubeconfig = rewriteLoopbackKubeconfig(activeKubeconfig)
-        writeFileSync(kubeconfigPath, rewrittenKubeconfig, { mode: 0o600 })
-        tempDirs.push(kubeDir)
-        process.env.KUBECONFIG = kubeconfigPath
+        const shouldReuseMountedPath =
+          !cluster?.kubeconfig &&
+          hasMountedKubeconfig &&
+          activeKubeconfigPath &&
+          rewrittenKubeconfig === activeKubeconfig
+
+        process.env.KUBECONFIG = shouldReuseMountedPath
+          ? activeKubeconfigPath
+          : getStableRuntimeKubeconfigPath(rewrittenKubeconfig)
         k8sContext = extractKubeContext(rewrittenKubeconfig) ?? process.env.KUBECONFIG_CONTEXT
         if (k8sContext) {
           process.env.KUBECONFIG_CONTEXT = k8sContext
@@ -162,10 +204,6 @@ export class DeploymentRuntimeService {
         } else {
           process.env[key] = value
         }
-      }
-
-      for (const dir of tempDirs) {
-        rmSync(dir, { recursive: true, force: true })
       }
     }
   }

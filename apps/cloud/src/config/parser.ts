@@ -7,6 +7,7 @@
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { getPluginRegistry } from '../plugins/registry.js'
+import '../runtimes/loader.js'
 
 export { deepMerge } from '../utils/deep-merge.js'
 

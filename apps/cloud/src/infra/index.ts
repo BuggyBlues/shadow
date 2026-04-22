@@ -69,6 +69,7 @@ export function createInfraProgram(options: InfraOptions) {
     const skillsInstallDir = config.skills?.entries?.length
       ? (config.skills.installDir ?? '/app/skills')
       : undefined
+    const namespaceResourceOptions = { dependsOn: [shared.namespace] }
 
     for (const agent of agents) {
       const agentName = agent.id
@@ -90,6 +91,7 @@ export function createInfraProgram(options: InfraOptions) {
         namespace,
         extraEnv: env,
         provider,
+        resourceOptions: namespaceResourceOptions,
       })
 
       // Deployment — must wait for namespace to exist
@@ -97,6 +99,7 @@ export function createInfraProgram(options: InfraOptions) {
         agentName,
         agent,
         namespace,
+        namespaceName: namespace,
         config,
         configMapName: configRes.configMapName,
         secretName: configRes.secretName,
@@ -106,6 +109,14 @@ export function createInfraProgram(options: InfraOptions) {
         sharedWorkspacePvcName,
         sharedWorkspaceMountPath,
         skillsInstallDir,
+        resourceOptions: {
+          dependsOn: [
+            shared.namespace,
+            ...(shared.workspacePvc ? [shared.workspacePvc] : []),
+            configRes.configMap,
+            configRes.secret,
+          ],
+        },
       })
 
       // Service (for health check endpoint)
@@ -114,6 +125,7 @@ export function createInfraProgram(options: InfraOptions) {
         namespace,
         port: HEALTH_PORT,
         provider,
+        resourceOptions: namespaceResourceOptions,
       })
 
       // Export service cluster IP for resource retrieval

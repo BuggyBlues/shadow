@@ -53,6 +53,50 @@ async function clickFirst(page, selectors) {
   return false
 }
 
+async function waitForVisibleLocator(
+  page,
+  selectors,
+  { timeoutMs = 15_000, intervalMs = 200, label = 'visible locator' } = {},
+) {
+  return poll(
+    async () => {
+      for (const selector of selectors) {
+        const locator = selector()
+        const count = await locator.count().catch(() => 0)
+        if (count === 0) continue
+
+        const first = locator.first()
+        const visible = await first.isVisible().catch(() => false)
+        if (visible) return first
+      }
+      return null
+    },
+    { timeoutMs, intervalMs, label },
+  )
+}
+
+async function waitForLocatorToDisappear(
+  page,
+  selectors,
+  { timeoutMs = 15_000, intervalMs = 200, label = 'locator to disappear' } = {},
+) {
+  return poll(
+    async () => {
+      for (const selector of selectors) {
+        const locator = selector()
+        const count = await locator.count().catch(() => 0)
+        if (count === 0) continue
+
+        const first = locator.first()
+        const visible = await first.isVisible().catch(() => false)
+        if (visible) return null
+      }
+      return true
+    },
+    { timeoutMs, intervalMs, label },
+  )
+}
+
 async function overrideAndFillEnv(page, key, value) {
   const label = page
     .locator('label')
@@ -129,7 +173,7 @@ let destroyStatus = null
 let revokeError = null
 
 try {
-  await page.goto(WEB_BASE, { waitUntil: 'networkidle' })
+  await page.goto(WEB_BASE, { waitUntil: 'domcontentloaded' })
   await page.evaluate(
     ({ token, refresh }) => {
       localStorage.setItem('accessToken', token)
@@ -138,7 +182,17 @@ try {
     { token: accessToken, refresh: refreshToken },
   )
 
-  await page.goto(`${WEB_BASE}/app/cloud`, { waitUntil: 'networkidle' })
+  await page.goto(`${WEB_BASE}/app/cloud`, { waitUntil: 'domcontentloaded' })
+  await waitForVisibleLocator(
+    page,
+    [
+      () => page.getByRole('button', { name: /deploy template|部署模板/i }),
+      () => page.getByRole('link', { name: /deploy template|部署模板/i }),
+      () => page.getByRole('link', { name: /Buddy Rental Host/i }),
+      () => page.getByText(/Buddy Rental Host/i, { exact: false }),
+    ],
+    { label: 'cloud console entry point' },
+  )
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'p0-verify-01-cloud-root.png'), fullPage: true })
 
   const deployClicked = await clickFirst(page, [
@@ -152,7 +206,14 @@ try {
       () => page.getByText(/Buddy Rental Host/i, { exact: false }),
     ])
 
-    await page.waitForLoadState('networkidle')
+    await waitForVisibleLocator(
+      page,
+      [
+        () => page.getByRole('button', { name: /deploy template|部署模板/i }),
+        () => page.getByRole('link', { name: /deploy template|部署模板/i }),
+      ],
+      { label: 'template detail deploy action' },
+    )
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, 'p0-verify-02-template-detail.png'),
       fullPage: true,
@@ -170,14 +231,20 @@ try {
     }
   }
 
-  await page.waitForTimeout(1500)
+  await waitForVisibleLocator(
+    page,
+    [() => page.getByRole('button', { name: /continue|继续/i })],
+    { label: 'wizard step 1 continue button' },
+  )
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'p0-verify-03-deploy-step-1.png'), fullPage: true })
 
   await clickFirst(page, [
     () => page.getByRole('button', { name: /continue|继续/i }),
   ])
 
-  await page.waitForTimeout(1000)
+  await waitForVisibleLocator(page, [() => page.locator('#namespace')], {
+    label: 'namespace input',
+  })
   const namespaceInput = page.locator('#namespace')
   await namespaceInput.fill(namespace)
   if ((await namespaceInput.inputValue()) !== namespace) {
@@ -197,26 +264,28 @@ try {
     () => page.getByRole('button', { name: /continue|继续/i }),
   ])
 
-  await page.getByRole('button', { name: /start deployment|开始部署/i }).waitFor({
+  const startDeploymentButton = page.getByRole('button', { name: /start deployment|开始部署/i }).last()
+  await startDeploymentButton.waitFor({
     state: 'visible',
     timeout: 10_000,
   })
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'p0-verify-05-deploy-step-3-review.png'), fullPage: true })
 
-  const createResponsePromise = page
-    .waitForResponse(
-      (response) =>
-        response.request().method() === 'POST' &&
-        response.url().includes('/api/cloud-saas/deployments'),
-      { timeout: 30_000 },
-    )
-    .catch(() => null)
+  let createResponse = null
+  try {
+    ;[createResponse] = await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.request().method() === 'POST' &&
+          response.url().includes('/api/cloud-saas/deployments'),
+        { timeout: 30_000 },
+      ),
+      startDeploymentButton.click(),
+    ])
+  } catch {
+    createResponse = null
+  }
 
-  await clickFirst(page, [
-    () => page.getByRole('button', { name: /start deployment|开始部署/i }),
-  ])
-
-  const createResponse = await createResponsePromise
   if (!createResponse) {
     throw new Error('Deploy submit did not trigger POST /api/cloud-saas/deployments')
   }
@@ -260,8 +329,40 @@ try {
     !redactedConfig.includes('__shadowobRuntime') &&
     !redactedConfig.includes('http://server:3002')
 
-  await page.goto(`${WEB_BASE}/app/cloud/deployments`, { waitUntil: 'networkidle' })
-  await page.waitForTimeout(1500)
+  await waitForVisibleLocator(
+    page,
+    [() => page.getByRole('button', { name: /open namespace|打开命名空间/i })],
+    { timeoutMs: 60_000, label: 'open namespace action after deploy success' },
+  )
+  await clickFirst(page, [() => page.getByRole('button', { name: /open namespace|打开命名空间/i })])
+
+  await waitForVisibleLocator(
+    page,
+    [
+      () => page.getByText(namespace, { exact: false }),
+      () => page.getByRole('link', { name: /deployments|部署/i }),
+    ],
+    { timeoutMs: 20_000, label: `namespace page ${namespace}` },
+  )
+
+  const deploymentsLinkClicked = await clickFirst(page, [
+    () => page.getByRole('link', { name: /^deployments$/i }),
+    () => page.getByRole('link', { name: /deployments|部署/i }),
+  ])
+
+  if (!deploymentsLinkClicked) {
+    throw new Error('Could not navigate to deployments page from namespace view')
+  }
+
+  await waitForVisibleLocator(
+    page,
+    [
+      () => page.getByRole('button', { name: /deploy new|刷新/i }),
+      () => page.getByRole('heading', { name: /deployments|部署/i }),
+      () => page.getByText(namespace, { exact: false }),
+    ],
+    { timeoutMs: 20_000, label: 'deployments page after create' },
+  )
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'p0-verify-07-deployments-after-create.png'), fullPage: true })
 
   const destroyResult = await api(`/api/cloud-saas/deployments/${deploymentId}`, {
@@ -285,8 +386,31 @@ try {
     { timeoutMs: 180_000, intervalMs: 3_000, label: `destroy ${deploymentId}` },
   )
 
-  await page.goto(`${WEB_BASE}/app/cloud/deployments`, { waitUntil: 'networkidle' })
-  await page.waitForTimeout(1500)
+  const refreshClicked = await clickFirst(page, [
+    () => page.getByRole('button', { name: /refresh|刷新/i }),
+  ])
+
+  if (!refreshClicked) {
+    throw new Error('Could not refresh deployments page after destroy')
+  }
+
+  await waitForVisibleLocator(
+    page,
+    [
+      () => page.getByRole('button', { name: /deploy new|部署新/i }),
+      () => page.getByRole('button', { name: /refresh|刷新/i }),
+      () => page.getByRole('heading', { name: /deployments|部署/i }),
+    ],
+    { timeoutMs: 20_000, label: 'deployments page after destroy' },
+  )
+  await waitForLocatorToDisappear(
+    page,
+    [() => page.getByText(namespace, { exact: false })],
+    {
+      timeoutMs: 20_000,
+      label: `namespace ${namespace} removal from deployments page`,
+    },
+  )
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'p0-verify-08-deployments-after-destroy.png'), fullPage: true })
 
   console.log(

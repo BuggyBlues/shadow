@@ -15,10 +15,11 @@ export interface ConfigResourcesOptions {
   namespace: string | pulumi.Input<string>
   extraEnv?: Record<string, string>
   provider: k8s.Provider
+  resourceOptions?: pulumi.CustomResourceOptions
 }
 
 export function createConfigResources(options: ConfigResourcesOptions) {
-  const { agentName, agent, config, namespace, extraEnv, provider } = options
+  const { agentName, agent, config, namespace, extraEnv, provider, resourceOptions } = options
 
   const openclawConfig = buildOpenClawConfig(agent, config)
 
@@ -79,7 +80,7 @@ export function createConfigResources(options: ConfigResourcesOptions) {
       },
       data: configData,
     },
-    { provider },
+    { provider, ...resourceOptions },
   )
 
   const secret = new k8s.core.v1.Secret(
@@ -96,7 +97,7 @@ export function createConfigResources(options: ConfigResourcesOptions) {
       type: 'Opaque',
       stringData: secretData,
     },
-    { provider },
+    { provider, ...resourceOptions },
   )
 
   return { configMapName, secretName, configMap, secret }

@@ -18,9 +18,6 @@ import {
 import { getPluginRegistry } from '../plugins/registry.js'
 import type { PluginBuildContext } from '../plugins/types.js'
 import { getRuntime } from '../runtimes/index.js'
-import { registerAllRuntimes } from '../runtimes/loader.js'
-
-registerAllRuntimes()
 
 import type {
   AgentDeployment,
