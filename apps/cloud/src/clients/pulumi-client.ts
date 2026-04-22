@@ -5,9 +5,10 @@
  * and destroying K8s stacks without requiring the Pulumi CLI.
  */
 
+import { execFileSync } from 'node:child_process'
 import { mkdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { delimiter, join } from 'node:path'
 import * as automation from '@pulumi/pulumi/automation/index.js'
 import { PulumiCommand } from '@pulumi/pulumi/automation/index.js'
 import type { CloudConfig } from '../config/schema.js'
@@ -15,6 +16,7 @@ import { createInfraProgram, type InfraOptions } from '../infra/index.js'
 
 /** Cached PulumiCommand instance (installed once). */
 let cachedPulumiCommand: automation.PulumiCommand | null = null
+let cachedPulumiBackendUrl: string | null = null
 
 export interface StackOptions {
   projectName?: string
@@ -38,11 +40,50 @@ function getDefaultStateDir(): string {
     : join(homedir(), '.shadowob', 'pulumi')
 }
 
+export function ensurePulumiCliOnPath(cliRoot: string): string {
+  const binDir = join(cliRoot, 'bin')
+  const currentPath = process.env.PATH ?? ''
+  const parts = currentPath.split(delimiter).filter(Boolean)
+
+  if (!parts.includes(binDir)) {
+    process.env.PATH = [binDir, ...parts].join(delimiter)
+  }
+
+  return binDir
+}
+
+function loginToPulumiBackend(backendUrl: string, pulumiHome: string): void {
+  if (!backendUrl || cachedPulumiBackendUrl === backendUrl) return
+
+  try {
+    execFileSync('pulumi', ['login', backendUrl, '--non-interactive'], {
+      env: {
+        ...process.env,
+        PULUMI_BACKEND_URL: backendUrl,
+        PULUMI_HOME: pulumiHome,
+      },
+      stdio: 'pipe',
+    })
+    cachedPulumiBackendUrl = backendUrl
+  } catch (error) {
+    const stderr =
+      error && typeof error === 'object' && 'stderr' in error && error.stderr
+        ? String(error.stderr)
+        : ''
+    const message = error instanceof Error ? error.message : String(error)
+    throw new Error(
+      `Pulumi login failed for backend ${backendUrl}: ${message}${stderr ? `\n${stderr}` : ''}`,
+    )
+  }
+}
+
 /**
  * Create or select a Pulumi stack for shadowob-cloud deployments.
  * Uses a local file backend by default for reproducible, offline operation.
  */
 export async function getOrCreateStack(options: StackOptions) {
+  const cliRoot = join(homedir(), '.shadowob', 'pulumi', 'cli')
+  const pulumiHome = join(homedir(), '.shadowob', 'pulumi', 'home')
   const infraOpts: InfraOptions = {
     config: options.config,
     namespace: options.namespace,
@@ -62,6 +103,7 @@ export async function getOrCreateStack(options: StackOptions) {
   } else if (stateDir) {
     await mkdir(stateDir, { recursive: true })
   }
+  await mkdir(pulumiHome, { recursive: true })
 
   // Pulumi reads PULUMI_CONFIG_PASSPHRASE from process.env during stack init
   // Set it now so that the pulumi binary subprocess can see it
@@ -74,7 +116,8 @@ export async function getOrCreateStack(options: StackOptions) {
 
   // Ensure the Pulumi CLI binary is available (install if needed)
   if (!cachedPulumiCommand) {
-    const cliRoot = join(homedir(), '.shadowob', 'pulumi', 'cli')
+    ensurePulumiCliOnPath(cliRoot)
+
     try {
       cachedPulumiCommand = await PulumiCommand.get({ skipVersionCheck: true })
     } catch {
@@ -89,6 +132,7 @@ export async function getOrCreateStack(options: StackOptions) {
             root: cliRoot,
             skipVersionCheck: true,
           })
+          ensurePulumiCliOnPath(cliRoot)
         } catch (installErr) {
           throw new Error(
             `Pulumi CLI not found and auto-install failed. ` +
@@ -100,14 +144,28 @@ export async function getOrCreateStack(options: StackOptions) {
     }
   }
 
+  if (backendUrl) {
+    ensurePulumiCliOnPath(cliRoot)
+    loginToPulumiBackend(backendUrl, pulumiHome)
+  }
+
+  const inheritedEnv = Object.fromEntries(
+    Object.entries(process.env).filter(
+      (entry): entry is [string, string] => typeof entry[1] === 'string',
+    ),
+  )
+
   const workspaceOpts: automation.LocalWorkspaceOptions = {
     pulumiCommand: cachedPulumiCommand,
+    pulumiHome,
     projectSettings: {
       name: options.projectName ?? 'shadowob-cloud',
       runtime: 'nodejs',
       backend: backendUrl ? { url: backendUrl } : undefined,
     },
     envVars: {
+      ...inheritedEnv,
+      PULUMI_HOME: pulumiHome,
       ...(backendUrl ? { PULUMI_BACKEND_URL: backendUrl } : {}),
       // Disable Pulumi telemetry in tests/CI
       PULUMI_SKIP_UPDATE_CHECK: '1',

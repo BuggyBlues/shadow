@@ -63,11 +63,26 @@ export class CloudEnvVarDao {
       .orderBy(cloudEnvGroups.name)
   }
 
+  async findGroupByName(userId: string, name: string) {
+    const result = await this.db
+      .select()
+      .from(cloudEnvGroups)
+      .where(and(eq(cloudEnvGroups.userId, userId), eq(cloudEnvGroups.name, name)))
+      .limit(1)
+    return result[0] ?? null
+  }
+
   async createGroup(data: { userId: string; name: string }) {
     const result = await this.db
       .insert(cloudEnvGroups)
       .values({ userId: data.userId, name: data.name })
       .returning()
     return result[0]
+  }
+
+  async deleteGroupByName(userId: string, name: string) {
+    await this.db
+      .delete(cloudEnvGroups)
+      .where(and(eq(cloudEnvGroups.userId, userId), eq(cloudEnvGroups.name, name)))
   }
 }

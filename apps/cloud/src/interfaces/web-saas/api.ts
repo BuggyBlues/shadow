@@ -3,7 +3,7 @@
  * Used by web-saas pages (embedded in apps/web at /cloud/*).
  */
 
-const BASE = '/api/cloud-saas'
+export const BASE = '/api/cloud-saas'
 
 function getAuthHeaders(): Record<string, string> {
   const token = localStorage.getItem('accessToken')
@@ -88,6 +88,7 @@ export interface SaasEnvVar {
   key: string
   scope: string
   groupId: string | null
+  groupName?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -118,6 +119,17 @@ export interface SaasActivityEntry {
 // ── API ───────────────────────────────────────────────────────────────────────
 
 export const saasApi = {
+  schema: () => get<Record<string, unknown>>('/schema'),
+  validate: (config: unknown) =>
+    post<{
+      valid: boolean
+      agents: number
+      configurations: number
+      violations: Array<{ path: string; prefix: string }>
+      extendsErrors: string[]
+      templateRefs: { env: number; secret: number; file: number }
+    }>('/validate', config),
+
   // Templates
   templates: {
     list: (params?: { category?: string; q?: string }) => {
@@ -130,6 +142,10 @@ export const saasApi = {
     mine: () => get<SaasTemplate[]>('/templates/mine'),
     mineOne: (slug: string) => get<SaasTemplate>(`/templates/mine/${encodeURIComponent(slug)}`),
     get: (slug: string) => get<SaasTemplate>(`/templates/${encodeURIComponent(slug)}`),
+    envRefs: (slug: string) =>
+      get<{ template: string; requiredEnvVars: string[] }>(
+        `/templates/${encodeURIComponent(slug)}/env-refs`,
+      ),
     create: (data: {
       slug: string
       name: string
@@ -167,7 +183,8 @@ export const saasApi = {
       templateSlug: string
       resourceTier: ResourceTier
       agentCount?: number
-      configSnapshot?: Record<string, unknown>
+      configSnapshot: Record<string, unknown>
+      envVars?: Record<string, string>
     }) => post<SaasDeployment>('/deployments', data),
     delete: (id: string) => del<{ ok: boolean }>(`/deployments/${encodeURIComponent(id)}`),
     scale: (id: string, agentCount: number) =>
@@ -258,6 +275,10 @@ export const saasApi = {
         }>
         groups: string[]
       }>('/global-envvars'),
+    groups: () =>
+      get<{ groups: string[] }>('/global-envvars').then((response) => ({
+        groups: response.groups,
+      })),
     getOne: (key: string) =>
       get<{
         envVar: { scope: string; key: string; value: string; isSecret: boolean; groupName: string }
@@ -265,7 +286,9 @@ export const saasApi = {
     upsert: (key: string, value: string, isSecret?: boolean, groupName?: string) =>
       put<{ ok: boolean }>('/global-envvars', { key, value, isSecret, groupName }),
     delete: (key: string) => del<{ ok: boolean }>(`/global-envvars/${encodeURIComponent(key)}`),
-    createGroup: (name: string) => Promise.resolve({ ok: true, name }), // groups stored implicitly
-    deleteGroup: (name: string) => Promise.resolve({ ok: true }),
+    createGroup: (name: string) =>
+      post<{ ok: boolean; name: string }>('/global-envvars/groups', { name }),
+    deleteGroup: (name: string) =>
+      del<{ ok: boolean }>(`/global-envvars/groups/${encodeURIComponent(name)}`),
   },
 }

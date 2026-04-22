@@ -4,6 +4,15 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import type { AppContainer } from '../container'
 import { cloudDeployments, cloudTemplates } from '../db/schema'
+import {
+  prepareCloudSaasConfigSnapshot,
+  sanitizeCloudSaasDeployment,
+} from '../lib/cloud-saas-config'
+import {
+  extractRequiredEnvVars,
+  loadCloudConfigSchema,
+  summarizeCloudConfigValidation,
+} from '../lib/cloud-saas-validation'
 import { listManagedNamespaces, listPods, spawnPodLogStream } from '../lib/k8s-cli'
 import { decrypt } from '../lib/kms'
 import { authMiddleware } from '../middleware/auth.middleware'
@@ -16,12 +25,47 @@ const TIER_COST: Record<string, number> = {
   pro: 2800,
 }
 
+function getPrimarySchema(): Record<string, unknown> {
+  return loadCloudConfigSchema()
+}
+
 export function createCloudSaasHandler(container: AppContainer) {
   const h = new Hono()
 
   h.use('*', authMiddleware)
 
+  async function loadGroupNameLookup(userId: string): Promise<Map<string, string>> {
+    const envDao = container.resolve('cloudEnvVarDao')
+    const groups = await envDao.listGroupsByUser(userId)
+    return new Map(groups.map((group) => [group.id, group.name]))
+  }
+
+  async function resolveGroupId(userId: string, groupName?: string | null): Promise<string | null> {
+    if (!groupName || groupName === 'default') return null
+
+    const envDao = container.resolve('cloudEnvVarDao')
+    const existing = await envDao.findGroupByName(userId, groupName)
+    if (existing) return existing.id
+
+    const created = await envDao.createGroup({ userId, name: groupName })
+    return created?.id ?? null
+  }
+
   // ─── Templates ─────────────────────────────────────────────────────────────
+
+  h.get('/schema', (c) => c.json(getPrimarySchema()))
+
+  h.post('/validate', async (c) => {
+    try {
+      const config = await c.req.json<unknown>()
+      return c.json(summarizeCloudConfigValidation(config))
+    } catch (err) {
+      return c.json(
+        { ok: false, error: err instanceof Error ? err.message : 'Invalid request' },
+        400,
+      )
+    }
+  })
 
   /**
    * GET /api/cloud-saas/templates
@@ -99,6 +143,16 @@ export function createCloudSaasHandler(container: AppContainer) {
       return c.json({ ok: false, error: 'Template not found' }, 404)
     }
     return c.json(template)
+  })
+
+  h.get('/templates/:slug/env-refs', async (c) => {
+    const slug = c.req.param('slug')
+    const dao = container.resolve('cloudTemplateDao')
+    const template = await dao.findBySlug(slug)
+    if (!template || template.reviewStatus !== 'approved') {
+      return c.json({ ok: false, error: 'Template not found' }, 404)
+    }
+    return c.json({ template: slug, requiredEnvVars: extractRequiredEnvVars(template.content) })
   })
 
   /**
@@ -293,7 +347,7 @@ export function createCloudSaasHandler(container: AppContainer) {
       .offset(offset)
 
     if (!includeOrphans) {
-      return c.json(rows)
+      return c.json(rows.map((row) => sanitizeCloudSaasDeployment(row)))
     }
 
     const known = new Set(rows.map((r) => r.namespace))
@@ -303,7 +357,7 @@ export function createCloudSaasHandler(container: AppContainer) {
     // by the worker's reconcile loop instead.
     const ns = listManagedNamespaces() ?? []
     const orphans = ns.filter((n) => !known.has(n))
-    return c.json({ items: rows, _orphans: orphans })
+    return c.json({ items: rows.map((row) => sanitizeCloudSaasDeployment(row)), _orphans: orphans })
   })
 
   /**
@@ -316,7 +370,7 @@ export function createCloudSaasHandler(container: AppContainer) {
     const dao = container.resolve('cloudDeploymentDao')
     const deployment = await dao.findById(id, user.userId)
     if (!deployment) return c.json({ ok: false, error: 'Deployment not found' }, 404)
-    return c.json(deployment)
+    return c.json(sanitizeCloudSaasDeployment(deployment))
   })
 
   /**
@@ -333,12 +387,14 @@ export function createCloudSaasHandler(container: AppContainer) {
         templateSlug: z.string().min(1),
         resourceTier: z.enum(['lightweight', 'standard', 'pro']),
         agentCount: z.number().int().min(0).optional(),
-        configSnapshot: z.record(z.unknown()).optional(),
+        configSnapshot: z.record(z.unknown()),
+        envVars: z.record(z.string()).optional(),
       }),
     ),
     async (c) => {
       const user = c.get('user') as { userId: string }
       const input = c.req.valid('json')
+      const db = container.resolve('db')
 
       // Verify template exists
       const templateDao = container.resolve('cloudTemplateDao')
@@ -347,64 +403,132 @@ export function createCloudSaasHandler(container: AppContainer) {
         return c.json({ ok: false, error: 'Template not found or not approved' }, 404)
       }
 
+      let storedConfigSnapshot: Record<string, unknown>
+      try {
+        storedConfigSnapshot = prepareCloudSaasConfigSnapshot(input.configSnapshot, input.envVars)
+      } catch (err) {
+        const status =
+          typeof (err as { status?: number }).status === 'number'
+            ? (err as { status: number }).status
+            : 422
+        return c.json(
+          {
+            ok: false,
+            error: err instanceof Error ? err.message : 'Invalid configSnapshot',
+          },
+          { status: status as 400 | 404 | 409 | 422 | 500 },
+        )
+      }
+
       const baseCost = template.baseCost ?? 0
       const monthlyCost = (TIER_COST[input.resourceTier] ?? 0) + baseCost
 
       // Deduct Shrimp Coins
       const walletService = container.resolve('walletService')
       const deployRefId = crypto.randomUUID()
-      await walletService.debit(
-        user.userId,
-        monthlyCost,
-        deployRefId,
-        'cloud_deploy',
-        `部署 ${template.name} (${input.resourceTier})`,
-      )
+      let charged = false
+      let deploymentId: string | null = null
 
-      // Get or use platform cluster
-      const clusterDao = container.resolve('cloudClusterDao')
-      const clusters = await clusterDao.listByUser(user.userId)
-      const platformCluster = clusters.find((cl) => cl.isPlatform) ?? null
-
-      // Create deployment record
-      const deploymentDao = container.resolve('cloudDeploymentDao')
-      const deployment = await deploymentDao.create({
-        userId: user.userId,
-        clusterId: platformCluster?.id ?? null,
-        namespace: input.namespace,
-        name: input.name,
-        agentCount: input.agentCount,
-        configSnapshot: input.configSnapshot,
-      })
-
-      // Set SaaS fields
-      const db = container.resolve('db')
-      const [updated] = await db
-        .update(cloudDeployments)
-        .set({
-          templateSlug: input.templateSlug,
-          resourceTier: input.resourceTier,
+      try {
+        await walletService.debit(
+          user.userId,
           monthlyCost,
-          saasMode: true,
+          deployRefId,
+          'cloud_deploy',
+          `部署 ${template.name} (${input.resourceTier})`,
+        )
+        charged = true
+
+        // Get or use platform cluster
+        const clusterDao = container.resolve('cloudClusterDao')
+        const clusters = await clusterDao.listByUser(user.userId)
+        const platformCluster = clusters.find((cl) => cl.isPlatform) ?? null
+
+        // Create deployment record
+        const deploymentDao = container.resolve('cloudDeploymentDao')
+        const deployment = await deploymentDao.create({
+          userId: user.userId,
+          clusterId: platformCluster?.id ?? null,
+          namespace: input.namespace,
+          name: input.name,
+          agentCount: input.agentCount,
+          configSnapshot: storedConfigSnapshot,
         })
-        .where(eq(cloudDeployments.id, deployment!.id))
-        .returning()
 
-      // Increment template deploy_count
-      await db
-        .update(cloudTemplates)
-        .set({ deployCount: sql`${cloudTemplates.deployCount} + 1` })
-        .where(eq(cloudTemplates.slug, input.templateSlug))
+        if (!deployment) {
+          throw new Error('Failed to create deployment')
+        }
+        deploymentId = deployment.id
 
-      const activityDao = container.resolve('cloudActivityDao')
-      await activityDao.log({
-        userId: user.userId,
-        type: 'deploy',
-        namespace: input.namespace,
-        meta: { templateSlug: input.templateSlug, resourceTier: input.resourceTier, monthlyCost },
-      })
+        // Set SaaS fields
+        const [updated] = await db
+          .update(cloudDeployments)
+          .set({
+            templateSlug: input.templateSlug,
+            resourceTier: input.resourceTier,
+            monthlyCost,
+            saasMode: true,
+          })
+          .where(eq(cloudDeployments.id, deployment.id))
+          .returning()
 
-      return c.json(updated, 201)
+        if (!updated) {
+          throw new Error('Failed to finalize deployment metadata')
+        }
+
+        // Increment template deploy_count
+        await db
+          .update(cloudTemplates)
+          .set({ deployCount: sql`${cloudTemplates.deployCount} + 1` })
+          .where(eq(cloudTemplates.slug, input.templateSlug))
+
+        const activityDao = container.resolve('cloudActivityDao')
+        await activityDao.log({
+          userId: user.userId,
+          type: 'deploy',
+          namespace: input.namespace,
+          meta: { templateSlug: input.templateSlug, resourceTier: input.resourceTier, monthlyCost },
+        })
+
+        return c.json(sanitizeCloudSaasDeployment(updated), 201)
+      } catch (err) {
+        if (deploymentId) {
+          try {
+            await db.delete(cloudDeployments).where(eq(cloudDeployments.id, deploymentId))
+          } catch (cleanupErr) {
+            console.error(
+              '[cloud-saas] failed to clean up deployment after create error:',
+              cleanupErr,
+            )
+          }
+        }
+
+        if (charged) {
+          try {
+            await walletService.refund(
+              user.userId,
+              monthlyCost,
+              deployRefId,
+              'cloud_deploy',
+              `部署退款 ${template.name} (${input.resourceTier})`,
+            )
+          } catch (refundErr) {
+            console.error('[cloud-saas] failed to refund wallet after create error:', refundErr)
+          }
+        }
+
+        const status =
+          typeof (err as { status?: number }).status === 'number'
+            ? (err as { status: number }).status
+            : 500
+        return c.json(
+          {
+            ok: false,
+            error: err instanceof Error ? err.message : 'Failed to create deployment',
+          },
+          { status: status as 400 | 404 | 409 | 422 | 500 },
+        )
+      }
     },
   )
 
@@ -509,7 +633,10 @@ export function createCloudSaasHandler(container: AppContainer) {
         namespace: deployment.namespace,
         meta: { deploymentId: id, agentCount },
       })
-      return c.json(updated)
+      if (!updated) {
+        return c.json({ ok: false, error: 'Failed to update deployment' }, 500)
+      }
+      return c.json(sanitizeCloudSaasDeployment(updated))
     },
   )
 
@@ -560,8 +687,14 @@ export function createCloudSaasHandler(container: AppContainer) {
     const deployment = await deploymentDao.findById(deploymentId, user.userId)
     if (!deployment) return c.json({ ok: false, error: 'Deployment not found' }, 404)
     const envDao = container.resolve('cloudEnvVarDao')
+    const groupNames = await loadGroupNameLookup(user.userId)
     const vars = await envDao.listByUser(user.userId, deploymentId)
-    return c.json(vars.map(({ encryptedValue: _e, ...rest }) => rest))
+    return c.json(
+      vars.map(({ encryptedValue: _e, ...rest }) => ({
+        ...rest,
+        groupName: rest.groupId ? (groupNames.get(rest.groupId) ?? 'default') : 'default',
+      })),
+    )
   })
 
   /**
@@ -576,6 +709,7 @@ export function createCloudSaasHandler(container: AppContainer) {
     const deployment = await deploymentDao.findById(deploymentId, user.userId)
     if (!deployment) return c.json({ ok: false, error: 'Deployment not found' }, 404)
     const envDao = container.resolve('cloudEnvVarDao')
+    const groupNames = await loadGroupNameLookup(user.userId)
     const vars = await envDao.listByUser(user.userId, deploymentId)
     const found = vars.find((v) => v.key === key)
     if (!found) return c.json({ ok: false, error: 'Not found' }, 404)
@@ -586,7 +720,7 @@ export function createCloudSaasHandler(container: AppContainer) {
         key: found.key,
         value: decrypt(found.encryptedValue),
         isSecret: true,
-        groupName: found.groupId ?? 'default',
+        groupName: found.groupId ? (groupNames.get(found.groupId) ?? 'default') : 'default',
       },
     })
   })
@@ -673,6 +807,7 @@ export function createCloudSaasHandler(container: AppContainer) {
     const user = c.get('user') as { userId: string }
     const id = c.req.param('id')
     const podParam = c.req.query('pod')
+    const agentParam = c.req.query('agent')
     const tail = Math.min(Number(c.req.query('tail')) || 200, 2000)
     const containerParam = c.req.query('container')
 
@@ -684,8 +819,11 @@ export function createCloudSaasHandler(container: AppContainer) {
 
     // If no pod is specified, pick the first running pod in the namespace.
     let pod: string | undefined = podParam
+    const pods = listPods(deployment.namespace, kubeconfig)
+    if (!pod && agentParam) {
+      pod = pods.find((item) => item.name.includes(agentParam))?.name ?? undefined
+    }
     if (!pod) {
-      const pods = listPods(deployment.namespace, kubeconfig)
       pod = pods.find((p) => p.status === 'Running')?.name ?? pods[0]?.name ?? undefined
     }
     if (!pod) {
@@ -780,7 +918,7 @@ export function createCloudSaasHandler(container: AppContainer) {
     // Bypass the normal "pending → deploying → deployed" pipeline.
     await dao.updateStatus(created.id, 'deployed')
     await dao.appendLog(created.id, '[reconcile] Adopted orphan namespace', 'info')
-    return c.json({ ok: true, deployment: created })
+    return c.json({ ok: true, deployment: sanitizeCloudSaasDeployment(created) })
   })
 
   /**
@@ -835,6 +973,13 @@ export function createCloudSaasHandler(container: AppContainer) {
       const envDao = container.resolve('cloudEnvVarDao')
       for (const { key, value } of vars) {
         const encryptedValue = encrypt(value)
+        const existing = (await envDao.listByUser(user.userId, deploymentId)).find(
+          (v) => v.key === key,
+        )
+        if (existing) {
+          await envDao.update(existing.id, user.userId, encryptedValue)
+          continue
+        }
         await envDao.create({
           userId: user.userId,
           key,
@@ -895,10 +1040,15 @@ export function createCloudSaasHandler(container: AppContainer) {
   h.get('/global-envvars', async (c) => {
     const user = c.get('user') as { userId: string }
     const envDao = container.resolve('cloudEnvVarDao')
+    const groupNames = await loadGroupNameLookup(user.userId)
     const vars = await envDao.listByUser(user.userId, 'global')
+    const persistedGroups = await envDao.listGroupsByUser(user.userId)
     const groups: string[] = [
       'default',
-      ...new Set(vars.map((v) => v.groupId ?? 'default').filter((g) => g !== 'default')),
+      ...persistedGroups.map((group) => group.name),
+      ...vars
+        .map((v) => (v.groupId ? groupNames.get(v.groupId) : 'default'))
+        .filter((groupName): groupName is string => Boolean(groupName && groupName !== 'default')),
     ]
     return c.json({
       envVars: vars.map(({ encryptedValue: _e, ...rest }) => ({
@@ -906,10 +1056,37 @@ export function createCloudSaasHandler(container: AppContainer) {
         key: rest.key,
         maskedValue: '****',
         isSecret: true,
-        groupName: rest.groupId ?? 'default',
+        groupName: rest.groupId ? (groupNames.get(rest.groupId) ?? 'default') : 'default',
       })),
-      groups,
+      groups: [...new Set(groups)],
     })
+  })
+
+  h.post(
+    '/global-envvars/groups',
+    zValidator('json', z.object({ name: z.string().min(1).max(255) })),
+    async (c) => {
+      const user = c.get('user') as { userId: string }
+      const { name } = c.req.valid('json')
+      const envDao = container.resolve('cloudEnvVarDao')
+      const existing = await envDao.findGroupByName(user.userId, name)
+      if (existing) {
+        return c.json({ ok: true, name: existing.name })
+      }
+      const created = await envDao.createGroup({ userId: user.userId, name })
+      if (!created) {
+        return c.json({ ok: false, error: 'Failed to create env group' }, 500)
+      }
+      return c.json({ ok: true, name: created.name })
+    },
+  )
+
+  h.delete('/global-envvars/groups/:name', async (c) => {
+    const user = c.get('user') as { userId: string }
+    const name = c.req.param('name')
+    const envDao = container.resolve('cloudEnvVarDao')
+    await envDao.deleteGroupByName(user.userId, name)
+    return c.json({ ok: true })
   })
 
   /**
@@ -932,6 +1109,7 @@ export function createCloudSaasHandler(container: AppContainer) {
       const { key, value, isSecret: _isSecret, groupName } = c.req.valid('json')
       const { encrypt } = await import('../lib/kms')
       const envDao = container.resolve('cloudEnvVarDao')
+      const resolvedGroupId = await resolveGroupId(user.userId, groupName)
       // Delete existing entry with same key first (upsert pattern)
       const existing = await envDao.listByUser(user.userId, 'global')
       const found = existing.find((v) => v.key === key)
@@ -943,7 +1121,7 @@ export function createCloudSaasHandler(container: AppContainer) {
           key,
           encryptedValue: encrypt(value),
           scope: 'global',
-          groupId: null,
+          groupId: resolvedGroupId,
         })
       }
       return c.json({ ok: true })
@@ -972,6 +1150,7 @@ export function createCloudSaasHandler(container: AppContainer) {
     const user = c.get('user') as { userId: string }
     const key = c.req.param('key')
     const envDao = container.resolve('cloudEnvVarDao')
+    const groupNames = await loadGroupNameLookup(user.userId)
     const vars = await envDao.listByUser(user.userId, 'global')
     const found = vars.find((v) => v.key === key)
     if (!found) return c.json({ ok: false, error: 'Not found' }, 404)
@@ -982,7 +1161,7 @@ export function createCloudSaasHandler(container: AppContainer) {
         key: found.key,
         value: decrypt(found.encryptedValue),
         isSecret: true,
-        groupName: found.groupId ?? 'default',
+        groupName: found.groupId ? (groupNames.get(found.groupId) ?? 'default') : 'default',
       },
     })
   })

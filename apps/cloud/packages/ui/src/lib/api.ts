@@ -590,6 +590,7 @@ export type CloudApiClient = typeof api & {
     namespace: string
     name: string
     resourceTier?: string
+    configSnapshot?: Record<string, unknown>
     envVars?: Record<string, string>
   }) => Promise<{ success: boolean; error?: string }>
 }

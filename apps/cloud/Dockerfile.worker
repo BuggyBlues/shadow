@@ -27,7 +27,8 @@ RUN pnpm --filter @shadowob/shared build && \
 
 # ── Run stage ─────────────────────────────────────────
 FROM node:22-alpine AS runner
-RUN corepack enable && corepack prepare pnpm@10.19.0 --activate
+RUN apk add --no-cache curl && \
+    corepack enable && corepack prepare pnpm@10.19.0 --activate
 WORKDIR /app
 
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.json ./
@@ -45,4 +46,7 @@ COPY --from=builder /app/apps/server/dist apps/server/dist
 COPY --from=builder /app/apps/cloud/dist apps/cloud/dist
 
 ENV NODE_ENV=production
+ENV PULUMI_HOME=/root/.shadowob/pulumi/home
+ENV PULUMI_BACKEND_URL=file:///root/.shadowob/pulumi
+ENV PATH=/root/.shadowob/pulumi/cli/bin:$PATH
 CMD ["node", "apps/cloud/dist/worker.cjs"]

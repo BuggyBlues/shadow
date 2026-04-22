@@ -875,6 +875,21 @@ function StepDeploy({
         deployConfig.envVars = config.envVars
       }
 
+      const saasConfigSnapshot =
+        typeof templateConfig === 'object' && templateConfig !== null
+          ? { ...(templateConfig as Record<string, unknown>) }
+          : {}
+
+      const existingDeployments =
+        saasConfigSnapshot.deployments && typeof saasConfigSnapshot.deployments === 'object'
+          ? (saasConfigSnapshot.deployments as Record<string, unknown>)
+          : {}
+
+      saasConfigSnapshot.deployments = {
+        ...existingDeployments,
+        namespace: targetNamespace,
+      }
+
       let result: { success: boolean; error?: string }
 
       if (typeof (api as { deployFn?: unknown }).deployFn === 'function') {
@@ -884,6 +899,7 @@ function StepDeploy({
           namespace: targetNamespace,
           name: `${targetNamespace}-${Date.now()}`,
           resourceTier: 'lightweight',
+          configSnapshot: saasConfigSnapshot,
           envVars: config.envVars,
         })
       } else {

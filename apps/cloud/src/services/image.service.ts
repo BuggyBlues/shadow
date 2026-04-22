@@ -8,8 +8,8 @@
 import { execFileSync, spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import type { Logger } from '../utils/logger.js'
+import { resolveCloudPackageAssetDir } from '../utils/package-asset-path.js'
 
 export const IMAGES = [
   'openclaw-runner',
@@ -36,9 +36,7 @@ export class ImageService {
 
   constructor(logger: Logger, imagesDir?: string) {
     this.logger = logger
-    // After tsup bundling, import.meta.url points to dist/index.js
-    // so we only need to go up 1 level to reach the package root.
-    this.imagesDir = imagesDir ?? resolve(fileURLToPath(import.meta.url), '..', '..', 'images')
+    this.imagesDir = imagesDir ?? resolveCloudPackageAssetDir('images')
   }
 
   /** Get the images directory path. */

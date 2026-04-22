@@ -31,9 +31,11 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { CloudClusterDao } from '../../server/src/dao/cloud-cluster.dao'
 import { CloudDeploymentDao } from '../../server/src/dao/cloud-deployment.dao'
+import type { Database } from '../../server/src/db'
 import * as schema from '../../server/src/db/schema'
 import { decrypt } from '../../server/src/lib/kms'
-import { createContainer } from './services/container'
+import { extractCloudSaasRuntime } from './application/cloud-saas-config'
+import { createContainer, type ServiceContainer } from './services/container'
 
 const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS ?? 5000)
 const RECONCILE_INTERVAL_MS = Number(process.env.RECONCILE_INTERVAL_MS ?? 60_000)
@@ -54,12 +56,13 @@ const runningDeploys = new Map<
 async function main() {
   const client = postgres(process.env.DATABASE_URL!)
   const db = drizzle(client, { schema })
+  const container = createContainer()
 
   const deploymentDao = new CloudDeploymentDao({
-    db: db as Parameters<typeof CloudDeploymentDao.prototype.constructor>[0]['db'],
+    db: db as Database,
   })
   const clusterDao = new CloudClusterDao({
-    db: db as Parameters<typeof CloudClusterDao.prototype.constructor>[0]['db'],
+    db: db as Database,
   })
 
   console.log('[cloud-worker] Started, polling every', POLL_INTERVAL_MS, 'ms')
@@ -73,13 +76,13 @@ async function main() {
       for (const deployment of pending) {
         // Don't await — run concurrently so cancel-poll can still fire promptly.
         // But to keep semantics simple (single-stack-per-deploy id) we await.
-        await processDeployment(deployment, deploymentDao, clusterDao)
+        await processDeployment(deployment, deploymentDao, clusterDao, container)
       }
 
       // 2. Process destroying deployments
       const destroying = await deploymentDao.listDestroying()
       for (const deployment of destroying) {
-        await processDestroy(deployment, deploymentDao, clusterDao)
+        await processDestroy(deployment, deploymentDao, clusterDao, container)
       }
 
       // 3. Honor cancel requests
@@ -103,41 +106,26 @@ async function main() {
   }
 }
 
-/**
- * Write a kubeconfig string to a temp file and return its path.
- * Caller is responsible for deleting the file after use.
- */
-function writeKubeconfigTemp(kubeconfig: string): string {
-  const dir = mkdtempSync(join(tmpdir(), 'sc-kube-'))
-  const kubeconfigPath = join(dir, 'kubeconfig')
-  writeFileSync(kubeconfigPath, kubeconfig, { mode: 0o600 })
-  return kubeconfigPath
-}
+async function resolveClusterRuntime(
+  clusterId: string | null,
+  clusterDao: CloudClusterDao,
+): Promise<{ name: string; kubeconfig: string } | null> {
+  if (!clusterId) return null
 
-/**
- * Write a config snapshot object to a temp JSON file.
- * Caller is responsible for deleting the file after use.
- */
-function writeConfigTemp(configSnapshot: unknown): string {
-  const dir = mkdtempSync(join(tmpdir(), 'sc-cfg-'))
-  const configPath = join(dir, 'shadowob-cloud.json')
-  writeFileSync(configPath, JSON.stringify(configSnapshot), 'utf-8')
-  return configPath
-}
+  const cluster = await clusterDao.findByIdOnly(clusterId)
+  if (!cluster?.kubeconfigEncrypted) return null
 
-/**
- * Extract the first context name from a kubeconfig YAML string.
- * Falls back to 'default' if parsing fails.
- */
-function extractKubeContext(kubeconfigYaml: string): string | undefined {
-  const match = kubeconfigYaml.match(/current-context:\s*(\S+)/)
-  return match?.[1]
+  return {
+    name: cluster.name,
+    kubeconfig: decrypt(cluster.kubeconfigEncrypted),
+  }
 }
 
 async function processDeployment(
   deployment: Awaited<ReturnType<CloudDeploymentDao['listPending']>>[number],
   deploymentDao: CloudDeploymentDao,
   clusterDao: CloudClusterDao,
+  container: ServiceContainer,
 ) {
   console.log(`[cloud-worker] Deploying ${deployment.id} (${deployment.name})`)
   await deploymentDao.updateStatus(deployment.id, 'deploying')
@@ -150,24 +138,10 @@ async function processDeployment(
   }
   runningDeploys.set(deployment.id, cancelToken)
 
-  const tmpFiles: string[] = []
-  const originalKubeconfig = process.env.KUBECONFIG
-  const originalKubeContext = process.env.KUBECONFIG_CONTEXT
-
   try {
-    // Resolve kubeconfig for BYOK clusters
-    let k8sContext: string | undefined
-    if (deployment.clusterId) {
-      const cluster = await clusterDao.findByIdOnly(deployment.clusterId)
-      if (cluster?.kubeconfigEncrypted) {
-        const kubeconfig = decrypt(cluster.kubeconfigEncrypted)
-        const kubeconfigPath = writeKubeconfigTemp(kubeconfig)
-        tmpFiles.push(kubeconfigPath)
-        process.env.KUBECONFIG = kubeconfigPath
-        k8sContext = extractKubeContext(kubeconfig)
-        if (k8sContext) process.env.KUBECONFIG_CONTEXT = k8sContext
-        await deploymentDao.appendLog(deployment.id, `Using BYOK cluster: ${cluster.name}`, 'info')
-      }
+    const cluster = await resolveClusterRuntime(deployment.clusterId, clusterDao)
+    if (cluster) {
+      await deploymentDao.appendLog(deployment.id, `Using BYOK cluster: ${cluster.name}`, 'info')
     }
 
     // Validate configSnapshot
@@ -175,22 +149,31 @@ async function processDeployment(
       throw new Error('No config snapshot found for this deployment. Cannot deploy.')
     }
 
-    const configPath = writeConfigTemp(deployment.configSnapshot)
-    tmpFiles.push(configPath)
+    const { configSnapshot, envVars: runtimeEnvVars } = extractCloudSaasRuntime(
+      deployment.configSnapshot,
+    )
+
+    if (!configSnapshot) {
+      throw new Error('No valid config snapshot found for this deployment. Cannot deploy.')
+    }
+
+    const shadowUrl = runtimeEnvVars.SHADOW_SERVER_URL ?? process.env.SHADOW_SERVER_URL
+    const shadowToken = runtimeEnvVars.SHADOW_USER_TOKEN ?? process.env.SHADOW_USER_TOKEN
+
     await deploymentDao.appendLog(
       deployment.id,
       'Config snapshot written, starting Pulumi deploy...',
       'info',
     )
 
-    const container = createContainer()
-
-    const result = await container.deploy.up({
-      filePath: configPath,
+    const result = await container.deploymentRuntime.deployFromSnapshot({
+      configSnapshot,
+      runtimeEnvVars,
       namespace: deployment.namespace,
       stack: deployment.id,
-      k8sContext,
-      shadowUrl: process.env.SHADOW_SERVER_URL,
+      cluster,
+      shadowUrl,
+      shadowToken,
       onOutput: (out) => {
         process.stdout.write(`[deploy:${deployment.id}] ${out}`)
         deploymentDao.appendLog(deployment.id, out.trim(), 'info').catch(() => {})
@@ -227,25 +210,6 @@ async function processDeployment(
     await deploymentDao.updateStatus(deployment.id, 'failed', cancelled ? 'cancelled by user' : msg)
   } finally {
     runningDeploys.delete(deployment.id)
-    if (originalKubeconfig !== undefined) {
-      process.env.KUBECONFIG = originalKubeconfig
-    } else {
-      delete process.env.KUBECONFIG
-    }
-    if (originalKubeContext !== undefined) {
-      process.env.KUBECONFIG_CONTEXT = originalKubeContext
-    } else {
-      delete process.env.KUBECONFIG_CONTEXT
-    }
-    for (const f of tmpFiles) {
-      try {
-        const dir =
-          f.endsWith('kubeconfig') || f.endsWith('shadowob-cloud.json') ? join(f, '..') : f
-        rmSync(dir, { recursive: true, force: true })
-      } catch {
-        /* ignore */
-      }
-    }
   }
 }
 
@@ -253,34 +217,18 @@ async function processDestroy(
   deployment: Awaited<ReturnType<CloudDeploymentDao['listDestroying']>>[number],
   deploymentDao: CloudDeploymentDao,
   clusterDao: CloudClusterDao,
+  container: ServiceContainer,
 ) {
   console.log(`[cloud-worker] Destroying ${deployment.id} (${deployment.name})`)
   await deploymentDao.appendLog(deployment.id, `Starting destroy: ${deployment.name}`, 'info')
 
-  const tmpFiles: string[] = []
-  const originalKubeconfig = process.env.KUBECONFIG
-  const originalKubeContext = process.env.KUBECONFIG_CONTEXT
-
   try {
-    let k8sContext: string | undefined
-    if (deployment.clusterId) {
-      const cluster = await clusterDao.findByIdOnly(deployment.clusterId)
-      if (cluster?.kubeconfigEncrypted) {
-        const kubeconfig = decrypt(cluster.kubeconfigEncrypted)
-        const kubeconfigPath = writeKubeconfigTemp(kubeconfig)
-        tmpFiles.push(kubeconfigPath)
-        process.env.KUBECONFIG = kubeconfigPath
-        k8sContext = extractKubeContext(kubeconfig)
-        if (k8sContext) process.env.KUBECONFIG_CONTEXT = k8sContext
-      }
-    }
+    const cluster = await resolveClusterRuntime(deployment.clusterId, clusterDao)
 
-    const container = createContainer()
-
-    await container.deploy.destroy({
+    await container.deploymentRuntime.destroy({
       namespace: deployment.namespace,
       stack: deployment.id,
-      k8sContext,
+      cluster,
     })
 
     await deploymentDao.appendLog(
@@ -295,25 +243,6 @@ async function processDestroy(
     console.error(`[cloud-worker] Destroy ${deployment.id} failed:`, msg)
     await deploymentDao.appendLog(deployment.id, `Destroy error: ${msg}`, 'error')
     await deploymentDao.updateStatus(deployment.id, 'failed', `destroy: ${msg}`)
-  } finally {
-    if (originalKubeconfig !== undefined) {
-      process.env.KUBECONFIG = originalKubeconfig
-    } else {
-      delete process.env.KUBECONFIG
-    }
-    if (originalKubeContext !== undefined) {
-      process.env.KUBECONFIG_CONTEXT = originalKubeContext
-    } else {
-      delete process.env.KUBECONFIG_CONTEXT
-    }
-    for (const f of tmpFiles) {
-      try {
-        const dir = join(f, '..')
-        rmSync(dir, { recursive: true, force: true })
-      } catch {
-        /* ignore */
-      }
-    }
   }
 }
 
