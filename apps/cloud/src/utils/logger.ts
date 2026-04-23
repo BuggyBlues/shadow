@@ -24,7 +24,7 @@ const passthroughChalk: ChalkFormatter = {
   bold: identity,
 }
 
-function isObjectLike(value: unknown): value is Record<string, unknown> | Function {
+function isObjectLike(value: unknown): value is Record<string, unknown> {
   return (typeof value === 'object' && value !== null) || typeof value === 'function'
 }
 

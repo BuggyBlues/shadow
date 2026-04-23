@@ -142,7 +142,7 @@ export function WalletPage() {
                     <th className="px-4 py-2.5 text-left font-medium">{t('wallet.txDate')}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="divide-y divide-[var(--glass-line)]">
                   {transactions.map((tx) => (
                     <tr key={tx.id} className="hover:bg-bg-secondary/50 transition-colors">
                       <td className="px-4 py-2.5">

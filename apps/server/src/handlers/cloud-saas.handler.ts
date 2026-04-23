@@ -13,7 +13,7 @@ import {
   loadCloudConfigSchema,
   summarizeCloudConfigValidation,
 } from '../lib/cloud-saas-validation'
-import { listManagedNamespaces, listPods, spawnPodLogStream } from '../lib/k8s-cli'
+import { deleteNamespace, listManagedNamespaces, listPods, spawnPodLogStream } from '../lib/k8s-cli'
 import { decrypt } from '../lib/kms'
 import { authMiddleware } from '../middleware/auth.middleware'
 
@@ -938,12 +938,8 @@ export function createCloudSaasHandler(container: AppContainer) {
         422,
       )
     }
-    const { execSync } = await import('node:child_process')
     try {
-      execSync(`kubectl delete namespace ${namespace} --wait=false`, {
-        encoding: 'utf-8',
-        timeout: 15_000,
-      })
+      deleteNamespace(namespace)
       return c.json({ ok: true })
     } catch (err) {
       return c.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, 500)

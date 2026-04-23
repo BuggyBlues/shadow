@@ -12,6 +12,27 @@
 import type { CloudApiClient } from '@shadowob/cloud-ui/lib/api-context'
 import { BASE, type ResourceTier, type SaasDeployment, saasApi } from './api'
 
+type WalletApiExtension = {
+  wallet: {
+    get: () => Promise<{ balance: number }>
+    transactions: (params?: { limit?: number; offset?: number }) => Promise<{
+      transactions: Array<{
+        id: string
+        type: string
+        amount: number
+        balanceAfter: number
+        referenceId: string | null
+        referenceType: string | null
+        note: string | null
+        createdAt: string
+      }>
+      total: number
+      limit: number
+      offset: number
+    }>
+  }
+}
+
 type Deployment = Awaited<ReturnType<CloudApiClient['deployments']['list']>>[number]
 type Pod = Awaited<ReturnType<CloudApiClient['deployments']['pods']>>[number]
 type EnvVarListEntry = Awaited<ReturnType<CloudApiClient['env']['list']>>['envVars'][number]
@@ -33,6 +54,10 @@ type TemplateDeployments = {
 
 const deploymentCacheByNamespace = new Map<string, SaasDeployment>()
 const deploymentCacheById = new Map<string, SaasDeployment>()
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
 function syncDeploymentCache(rows: SaasDeployment[]) {
   for (const row of rows) {
@@ -205,7 +230,7 @@ const now = () => new Date().toISOString()
 // Build a partial override that matches CloudApiClient shape
 // for the saas-relevant subset, falling back to the local `api`
 // for anything not reachable from the web-saas router.
-export const saasApiAdapter: CloudApiClient = {
+export const saasApiAdapter: CloudApiClient & WalletApiExtension = {
   health: async () => ({ status: 'ok', timestamp: now() }),
 
   // ── Community (StorePage uses api.community.catalog) ─────────────────────
@@ -227,10 +252,10 @@ export const saasApiAdapter: CloudApiClient = {
     publish: (name: string, _data?: unknown) =>
       saasApi.templates
         .submit(name)
-        .then(() => ({ ok: true }))
+        .then(() => ({ ok: true, result: null }))
         .catch((err: unknown) => {
           if (err instanceof Error && err.message.includes(': 422')) {
-            return { ok: true }
+            return { ok: true, result: null }
           }
           throw err
         }),
@@ -688,9 +713,42 @@ export const saasApiAdapter: CloudApiClient = {
         envVars: config.envVars,
       })
       syncDeploymentCache([created])
-      return { success: true }
+
+      let current = created
+      const timeoutMs = 3 * 60 * 1000
+      const intervalMs = 2_000
+      const deadline = Date.now() + timeoutMs
+
+      while (Date.now() < deadline) {
+        if (current.status === 'deployed') {
+          return { success: true, deploymentId: current.id, status: current.status }
+        }
+
+        if (current.status === 'failed' || current.status === 'destroyed') {
+          return {
+            success: false,
+            error: `Deployment ${current.status}`,
+            deploymentId: current.id,
+            status: current.status,
+          }
+        }
+
+        await sleep(intervalMs)
+        current = await saasApi.deployments.get(created.id)
+        syncDeploymentCache([current])
+      }
+
+      return {
+        success: false,
+        error: 'Deployment is still in progress. Please check the deployment list.',
+        deploymentId: current.id,
+        status: current.status,
+      }
     } catch (err) {
-      return { success: false, error: err instanceof Error ? err.message : String(err) }
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : String(err),
+      }
     }
   },
 

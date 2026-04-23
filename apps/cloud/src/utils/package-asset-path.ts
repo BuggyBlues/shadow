@@ -32,6 +32,7 @@ export function resolveCloudPackageAssetDir(assetName: string): string {
     entryDir ? resolve(entryDir, assetName) : undefined,
     resolve(process.cwd(), assetName),
     resolve(process.cwd(), 'apps/cloud', assetName),
+    resolve(process.cwd(), 'node_modules', '@shadowob', 'cloud', assetName),
   ])
 
   for (const candidate of candidates) {

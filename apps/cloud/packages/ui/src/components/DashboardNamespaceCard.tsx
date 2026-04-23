@@ -19,15 +19,15 @@ export function DashboardNamespaceCard({
 }: DashboardNamespaceCardProps) {
   return (
     <Card variant="glass" className={cn(className)}>
-      <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4">
+      <div className="flex items-center justify-between border-b border-[var(--glass-line)] px-5 py-4">
         <div className="min-w-0">{headerLeft}</div>
         {headerRight ? <div className="shrink-0">{headerRight}</div> : null}
       </div>
 
-      <div className="divide-y divide-border-subtle/70">{rows}</div>
+      <div className="divide-y divide-[var(--glass-line-soft)]">{rows}</div>
 
       {footer ? (
-        <div className="flex items-center justify-between border-t border-border-subtle bg-bg-secondary/50 px-5 py-2.5">
+        <div className="flex items-center justify-between border-t border-[var(--glass-line)] bg-bg-secondary/30 px-5 py-2.5">
           {footer}
         </div>
       ) : null}

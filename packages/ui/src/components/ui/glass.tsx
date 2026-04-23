@@ -6,22 +6,22 @@ type GlassVariant = 'panel' | 'surface' | 'card'
 const glassStyles: Record<GlassVariant, React.CSSProperties> = {
   panel: {
     background: 'var(--glass-bg)',
-    border: '1px solid var(--glass-border)',
+    border: '1px solid var(--glass-line)',
     backdropFilter: 'blur(48px)',
     WebkitBackdropFilter: 'blur(48px)',
     boxShadow: 'var(--nf-shadow-card, var(--shadow-soft))',
   },
   surface: {
     background: 'color-mix(in srgb, var(--glass-bg) 72%, transparent)',
-    border: '1px solid var(--glass-border)',
+    border: '1px solid var(--glass-line)',
     backdropFilter: 'blur(32px)',
     WebkitBackdropFilter: 'blur(32px)',
     boxShadow: 'var(--nf-shadow-soft, var(--shadow-soft))',
   },
   card: {
     background: 'color-mix(in srgb, var(--glass-bg) 72%, transparent)',
-    border: '1px solid var(--glass-border)',
-    borderTop: '1px solid var(--color-border-dim)',
+    border: '1px solid var(--glass-line)',
+    borderTop: '1px solid var(--glass-line-strong)',
     backdropFilter: 'blur(48px)',
     WebkitBackdropFilter: 'blur(48px)',
     boxShadow: 'var(--nf-shadow-soft, var(--shadow-soft))',
@@ -80,7 +80,7 @@ export const GlassHeader = React.forwardRef<HTMLElement, GlassHeaderProps>(
         background: 'color-mix(in srgb, var(--glass-bg) 78%, transparent)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
-        borderBottom: '1px solid var(--color-border-subtle)',
+        borderBottom: '1px solid var(--glass-line)',
         flexShrink: 0,
         ...style,
       }}

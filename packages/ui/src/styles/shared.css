@@ -38,6 +38,9 @@
   /* Glassmorphism */
   --glass-bg: rgba(255, 255, 255, 0.03);
   --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-line-soft: rgba(255, 255, 255, 0.04);
+  --glass-line: rgba(255, 255, 255, 0.07);
+  --glass-line-strong: rgba(255, 255, 255, 0.1);
   --shadow-soft: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
   --shadow-cyan: 0 10px 25px rgba(0, 243, 255, 0.4);
 
@@ -65,6 +68,9 @@
   --color-divider: #e2e8f0;
   --glass-bg: rgba(255, 255, 255, 0.85);
   --glass-border: rgba(0, 0, 0, 0.05);
+  --glass-line-soft: rgba(0, 0, 0, 0.04);
+  --glass-line: rgba(0, 0, 0, 0.06);
+  --glass-line-strong: rgba(0, 0, 0, 0.1);
   --shadow-soft: 0 10px 40px -10px rgba(0, 0, 0, 0.08);
 }
 

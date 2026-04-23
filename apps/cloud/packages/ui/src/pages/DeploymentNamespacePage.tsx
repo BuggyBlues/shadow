@@ -49,7 +49,7 @@ import { StatusBadge } from '@/components/StatusBadge'
 import { StatusDot } from '@/components/StatusDot'
 import { ToolbarActionButton } from '@/components/ToolbarActionButton'
 import { useSSEStream } from '@/hooks/useSSEStream'
-import { api, type Deployment, type EnvVarListEntry, type Pod } from '@/lib/api'
+import { type Deployment, type EnvVarListEntry, type Pod } from '@/lib/api'
 import { useApiClient } from '@/lib/api-context'
 import { formatUsdCost } from '@/lib/store-data'
 import { cn, formatTimestamp, getAge, getReadyReplicas, isDeploymentReady } from '@/lib/utils'
@@ -888,7 +888,6 @@ function NamespaceInfoTab({
   deployments: Deployment[]
   pods: Pod[] | undefined
 }) {
-  const api = useApiClient()
   const { t } = useTranslation()
   const readyAgents = deployments.filter((deployment) => isDeploymentReady(deployment.ready)).length
   const totalRestarts = pods?.reduce((sum, pod) => sum + Number(pod.restarts), 0) ?? 0

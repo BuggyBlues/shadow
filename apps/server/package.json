@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "JWT_SECRET=${JWT_SECRET:-shadow-dev-jwt-secret-do-not-use-in-production} DB_PUSH=true tsx watch src/index.ts",
     "dev:backend": "JWT_SECRET=${JWT_SECRET:-shadow-dev-jwt-secret-do-not-use-in-production} DB_PUSH=true tsx watch src/index.ts",
+    "dev:cloud-worker": "tsx watch src/cloud-worker.ts",
     "dev:migrate": "JWT_SECRET=${JWT_SECRET:-shadow-dev-jwt-secret-do-not-use-in-production} tsx watch src/index.ts",
     "build": "tsup",
     "start": "node dist/index.js",
+    "start:cloud-worker": "node dist/cloud-worker.cjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
@@ -20,6 +22,7 @@
   "dependencies": {
     "@hono/node-server": "^1.14.1",
     "@hono/zod-validator": "^0.7.6",
+    "@shadowob/cloud": "workspace:*",
     "@shadowob/sdk": "workspace:*",
     "@shadowob/shared": "workspace:*",
     "@types/archiver": "^7.0.0",

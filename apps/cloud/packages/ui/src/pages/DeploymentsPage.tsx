@@ -33,7 +33,7 @@ import { StatsGrid } from '@/components/StatsGrid'
 import { StatusBadge } from '@/components/StatusBadge'
 import { StatusDot } from '@/components/StatusDot'
 import { useDebounce } from '@/hooks/useDebounce'
-import { api, type Deployment, type DeployTaskListItem } from '@/lib/api'
+import { type Deployment, type DeployTaskListItem } from '@/lib/api'
 import { useApiClient } from '@/lib/api-context'
 import { formatUsdCost } from '@/lib/store-data'
 import {
@@ -186,7 +186,6 @@ function NamespaceCard({
   onRedeploy: (taskId: number) => void
   onRollback: (ns: string) => void
 }) {
-  const api = useApiClient()
   const { t, i18n } = useTranslation()
   const task = group.latestTask
   const readyLabel = `${group.readyCount}/${group.totalCount} ${t('clusters.ready').toLowerCase()}`
@@ -308,7 +307,6 @@ function NamespaceCard({
 // ── Tasks Panel ───────────────────────────────────────────────────────────────
 
 function TasksPanel({ tasks }: { tasks: DeployTaskListItem[] }) {
-  const api = useApiClient()
   const { t } = useTranslation()
 
   if (tasks.length === 0) {
@@ -574,7 +572,7 @@ export function DeploymentsPage() {
       }
       headerContent={
         <div className="space-y-3">
-          <StatsGrid className="grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+          <StatsGrid className="grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
             <StatCard
               label={t('clusters.totalDeployments')}
               value={total}

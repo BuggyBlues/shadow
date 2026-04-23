@@ -11,6 +11,7 @@
  * Requires: docker compose postgres running on localhost:5432
  */
 
+import { randomUUID } from 'node:crypto'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { Hono } from 'hono'
 import postgres from 'postgres'
@@ -31,6 +32,34 @@ let app: Hono
 let userId: string
 let token: string
 let officialTemplateSlug: string
+
+function uniqueName(prefix: string): string {
+  return `${prefix}-${randomUUID().slice(0, 8)}`
+}
+
+function makeConfigSnapshot(secret = 'super-secret'): Record<string, unknown> {
+  return {
+    version: '1',
+    deployments: {
+      agents: [
+        {
+          id: 'agent-1',
+          runtime: 'docker',
+          envVars: {
+            OPENAI_API_KEY: secret,
+          },
+        },
+      ],
+      secrets: {
+        API_KEY: secret,
+      },
+      publicMetadata: {
+        displayName: 'E2E Agent',
+      },
+    },
+    apiKey: secret,
+  }
+}
 
 /* ── Helper ── */
 async function req(method: string, path: string, body?: unknown, authToken = token) {
@@ -141,22 +170,38 @@ describe('Cloud SaaS — wallet', () => {
   it('GET /api/cloud-saas/wallet returns wallet with positive balance', async () => {
     const res = await req('GET', '/api/cloud-saas/wallet')
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { balance: number; userId: string }
-    expect(body.userId).toBe(userId)
+    const body = (await res.json()) as { balance: number }
     expect(body.balance).toBeGreaterThan(0)
   })
 
-  it('GET /api/cloud-saas/wallet/transactions returns array', async () => {
+  it('GET /api/cloud-saas/wallet/transactions returns paginated transactions', async () => {
     const res = await req('GET', '/api/cloud-saas/wallet/transactions')
     expect(res.status).toBe(200)
-    const body = (await res.json()) as unknown[]
-    expect(Array.isArray(body)).toBe(true)
+    const body = (await res.json()) as {
+      transactions: unknown[]
+      total: number
+      limit: number
+      offset: number
+    }
+    expect(Array.isArray(body.transactions)).toBe(true)
+    expect(body.total).toBeGreaterThanOrEqual(0)
+    expect(body.limit).toBeGreaterThan(0)
+    expect(body.offset).toBe(0)
   })
 })
 
-describe('Cloud SaaS — fork a community template', () => {
-  it('POST /api/cloud-saas/templates/:slug/fork creates a pending template', async () => {
-    const res = await req('POST', `/api/cloud-saas/templates/${officialTemplateSlug}/fork`)
+describe('Cloud SaaS — create a community template', () => {
+  it('POST /api/cloud-saas/templates creates a draft community template', async () => {
+    const slug = uniqueName('e2e-community-template')
+    const res = await req('POST', '/api/cloud-saas/templates', {
+      slug,
+      name: 'E2E Community Template',
+      description: 'Created by integration test',
+      content: makeConfigSnapshot('template-secret'),
+      tags: ['test'],
+      category: 'test',
+      baseCost: 0,
+    })
     expect(res.status).toBe(201)
     const body = (await res.json()) as {
       slug: string
@@ -164,27 +209,55 @@ describe('Cloud SaaS — fork a community template', () => {
       reviewStatus: string
     }
     expect(body.source).toBe('community')
-    expect(body.reviewStatus).toBe('pending')
-    expect(body.slug).not.toBe(officialTemplateSlug)
+    expect(body.reviewStatus).toBe('draft')
+    expect(body.slug).toBe(slug)
   })
 })
 
 describe('Cloud SaaS — deployment + billing', () => {
-  it('POST /api/cloud-saas/deployments deducts coins and creates deployment', async () => {
+  it('POST /api/cloud-saas/deployments deducts coins, creates deployment, and redacts config secrets', async () => {
     // Get balance before
     const walletBefore = (await (await req('GET', '/api/cloud-saas/wallet')).json()) as {
       balance: number
     }
 
+    const namespace = uniqueName('e2e-test-ns')
+    const configSnapshot = makeConfigSnapshot('deploy-secret')
+
     const res = await req('POST', '/api/cloud-saas/deployments', {
-      namespace: 'e2e-test-ns',
-      name: 'e2e-test-deploy',
+      namespace,
+      name: uniqueName('e2e-test-deploy'),
       templateSlug: officialTemplateSlug,
       resourceTier: 'lightweight',
+      configSnapshot,
+      envVars: {
+        SHADOW_USER_TOKEN: 'runtime-only-secret',
+      },
     })
     expect(res.status).toBe(201)
-    const deployment = (await res.json()) as { id: string; saasMode: boolean }
+    const deployment = (await res.json()) as {
+      id: string
+      saasMode: boolean
+      configSnapshot: {
+        apiKey?: string
+        deployments?: {
+          secrets?: Record<string, string>
+          publicMetadata?: { displayName?: string }
+        }
+        __shadowobRuntime?: unknown
+      }
+    }
     expect(deployment.saasMode).toBe(true)
+    expect(deployment.configSnapshot.__shadowobRuntime).toBeUndefined()
+    expect(deployment.configSnapshot.apiKey).toBe('[REDACTED]')
+    expect(deployment.configSnapshot.deployments?.secrets?.API_KEY).toBe('[REDACTED]')
+    expect(deployment.configSnapshot.deployments?.publicMetadata?.displayName).toBe('E2E Agent')
+
+    const detailRes = await req('GET', `/api/cloud-saas/deployments/${deployment.id}`)
+    expect(detailRes.status).toBe(200)
+    const detail = (await detailRes.json()) as typeof deployment
+    expect(detail.configSnapshot.__shadowobRuntime).toBeUndefined()
+    expect(detail.configSnapshot.deployments?.secrets?.API_KEY).toBe('[REDACTED]')
 
     // Balance should decrease
     const walletAfter = (await (await req('GET', '/api/cloud-saas/wallet')).json()) as {
@@ -194,8 +267,39 @@ describe('Cloud SaaS — deployment + billing', () => {
 
     // Transaction should appear
     const txRes = await req('GET', '/api/cloud-saas/wallet/transactions')
-    const txList = (await txRes.json()) as Array<{ type: string; deployRefId?: string }>
-    const deployTx = txList.find((tx) => tx.type === 'cloud_deploy')
+    const txBody = (await txRes.json()) as {
+      transactions: Array<{ type: string; referenceType?: string }>
+    }
+    const deployTx = txBody.transactions.find((tx) => tx.referenceType === 'cloud_deploy')
     expect(deployTx).toBeDefined()
+  })
+
+  it('POST /api/cloud-saas/deployments rejects invalid config without charging wallet', async () => {
+    const walletBefore = (await (await req('GET', '/api/cloud-saas/wallet')).json()) as {
+      balance: number
+    }
+
+    const res = await req('POST', '/api/cloud-saas/deployments', {
+      namespace: uniqueName('e2e-invalid-ns'),
+      name: uniqueName('e2e-invalid-deploy'),
+      templateSlug: officialTemplateSlug,
+      resourceTier: 'lightweight',
+      configSnapshot: {
+        version: '1',
+        deployments: {
+          agents: [],
+        },
+      },
+    })
+
+    expect(res.status).toBe(422)
+    const body = (await res.json()) as { ok: boolean; error: string }
+    expect(body.ok).toBe(false)
+    expect(body.error).toContain('Invalid configSnapshot')
+
+    const walletAfter = (await (await req('GET', '/api/cloud-saas/wallet')).json()) as {
+      balance: number
+    }
+    expect(walletAfter.balance).toBe(walletBefore.balance)
   })
 })

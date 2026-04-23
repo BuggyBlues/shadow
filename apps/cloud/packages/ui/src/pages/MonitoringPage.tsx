@@ -1,9 +1,9 @@
 import {
   Badge,
   Button,
-  Card,
   EmptyState,
   GlassCard,
+  GlassPanel,
   GlassSurface,
   NativeSelect,
   Search,
@@ -48,7 +48,6 @@ import { StatsGrid } from '@/components/StatsGrid'
 import { StatusDot, type StatusType } from '@/components/StatusDot'
 import { useDebounce } from '@/hooks/useDebounce'
 import {
-  api,
   type CostOverviewSummary,
   type Deployment,
   type DoctorCheck,
@@ -228,7 +227,7 @@ function HealthPanel({ doctor }: { doctor: DoctorResult }) {
         </div>
       </div>
 
-      <Card variant="surface">
+      <div className="overflow-hidden rounded-2xl border border-[var(--glass-line)] divide-y divide-[var(--glass-line-soft)]">
         {doctor.checks.map((check) => (
           <div key={check.name} className="px-4 py-3 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
@@ -249,7 +248,7 @@ function HealthPanel({ doctor }: { doctor: DoctorResult }) {
             </Badge>
           </div>
         ))}
-      </Card>
+      </div>
     </div>
   )
 }
@@ -270,7 +269,7 @@ function DeploymentsPanel({ deployments }: { deployments: Deployment[] }) {
         })}
       </p>
 
-      <Card variant="surface">
+      <div className="overflow-hidden rounded-2xl border border-[var(--glass-line)]">
         <Table>
           <TableHeader>
             <TableRow>
@@ -320,7 +319,7 @@ function DeploymentsPanel({ deployments }: { deployments: Deployment[] }) {
             })}
           </TableBody>
         </Table>
-      </Card>
+      </div>
     </div>
   )
 }
@@ -449,26 +448,27 @@ function OverviewPanel({
               <div className="space-y-2">
                 {topCostNamespaces.length > 0 ? (
                   topCostNamespaces.map((item) => (
-                    <GlassSurface
-                      as={Link}
+                    <Link
                       key={item.namespace}
                       to="/deployments/$namespace"
                       params={{ namespace: item.namespace }}
-                      className="flex items-center justify-between gap-3 rounded-2xl px-4 py-3 border transition-colors hover:bg-bg-modifier-hover border-border-subtle"
+                      className="block"
                     >
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate text-text-primary">
-                          {item.namespace}
-                        </p>
-                        <p className="text-xs text-text-muted">
-                          {t('deployments.availableAgents')}: {item.availableAgents} ·{' '}
-                          {t('deployments.unavailableAgents')}: {item.unavailableAgents}
-                        </p>
-                      </div>
-                      <span className="text-sm font-semibold text-green-400 shrink-0">
-                        {formatUsdCost(item.totalUsd, i18n.language)}
-                      </span>
-                    </GlassSurface>
+                      <GlassSurface className="flex items-center justify-between gap-3 rounded-2xl border border-border-subtle px-4 py-3 transition-colors hover:bg-bg-modifier-hover">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate text-text-primary">
+                            {item.namespace}
+                          </p>
+                          <p className="text-xs text-text-muted">
+                            {t('deployments.availableAgents')}: {item.availableAgents} ·{' '}
+                            {t('deployments.unavailableAgents')}: {item.unavailableAgents}
+                          </p>
+                        </div>
+                        <span className="text-sm font-semibold text-green-400 shrink-0">
+                          {formatUsdCost(item.totalUsd, i18n.language)}
+                        </span>
+                      </GlassSurface>
+                    </Link>
                   ))
                 ) : (
                   <p className="text-sm text-text-muted">
@@ -557,23 +557,27 @@ function OverviewPanel({
           {groupedDeployments.length > 0 ? (
             <div className="space-y-3">
               {groupedDeployments.map((group) => (
-                <GlassSurface
-                  as={Link}
+                <Link
                   key={group.namespace}
                   to="/deployments/$namespace"
                   params={{ namespace: group.namespace }}
-                  className="block rounded-2xl border px-4 py-3 transition-colors hover:bg-bg-modifier-hover border-border-subtle"
+                  className="block"
                 >
-                  <div className="flex items-center justify-between gap-3 mb-2">
-                    <p className="text-sm font-medium text-text-primary">{group.namespace}</p>
-                    <Badge variant={group.ready === group.total ? 'success' : 'warning'} size="sm">
-                      {group.ready}/{group.total}
-                    </Badge>
-                  </div>
-                  <p className="text-xs line-clamp-2 text-text-muted">
-                    {group.deployments.map((deployment) => deployment.name).join(', ')}
-                  </p>
-                </GlassSurface>
+                  <GlassSurface className="block rounded-2xl border border-border-subtle px-4 py-3 transition-colors hover:bg-bg-modifier-hover">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-text-primary">{group.namespace}</p>
+                      <Badge
+                        variant={group.ready === group.total ? 'success' : 'warning'}
+                        size="sm"
+                      >
+                        {group.ready}/{group.total}
+                      </Badge>
+                    </div>
+                    <p className="line-clamp-2 text-xs text-text-muted">
+                      {group.deployments.map((deployment) => deployment.name).join(', ')}
+                    </p>
+                  </GlassSurface>
+                </Link>
               ))}
             </div>
           ) : (
@@ -598,7 +602,6 @@ function CostsPanel({
   namespaceCosts: NamespaceCostSummary[]
   loadingNamespaceCosts: boolean
 }) {
-  const api = useApiClient()
   const { t, i18n } = useTranslation()
 
   const costByNamespace = useMemo(
@@ -786,7 +789,6 @@ function CostsPanel({
 }
 
 function ActivityPanel({ activities }: { activities: ActivityEntry[] }) {
-  const api = useApiClient()
   const { t } = useTranslation()
   const activityTypeConfig = useMemo(() => getActivityTypeConfig(t), [t])
   const [search, setSearch] = useState('')
@@ -991,6 +993,8 @@ export function MonitoringPage() {
     { id: 'activity', label: t('activity.title'), icon: <Activity size={13} /> },
   ]
 
+  const tabPanelClassName = 'rounded-[28px] p-4 md:p-5 lg:p-6'
+
   return (
     <PageShell
       breadcrumb={[{ label: t('nav.monitoring') }]}
@@ -1004,7 +1008,7 @@ export function MonitoringPage() {
       }
       headerContent={
         <div className="space-y-4">
-          <StatsGrid className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-6">
+          <StatsGrid className="grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
             <StatCard
               label={t('monitoring.healthScore')}
               value={doctor ? `${healthScore}%` : '—'}
@@ -1049,59 +1053,81 @@ export function MonitoringPage() {
         </div>
       }
     >
-      <div className="min-h-[36vh]">
+      <div className="min-h-[40vh]">
         {activeTab === 'overview' && (
-          <OverviewPanel
-            doctor={doctor}
-            deployments={deploymentList}
-            namespaces={namespaces}
-            costOverview={costOverview}
-            activities={activities}
-          />
+          <GlassPanel className={tabPanelClassName}>
+            <OverviewPanel
+              doctor={doctor}
+              deployments={deploymentList}
+              namespaces={namespaces}
+              costOverview={costOverview}
+              activities={activities}
+            />
+          </GlassPanel>
         )}
 
         {activeTab === 'health' &&
           (loadingDoctor ? (
-            <div className="py-10 text-center text-text-muted text-sm">
-              {t('monitoring.runningHealthChecks')}
-            </div>
+            <GlassPanel className={tabPanelClassName}>
+              <div className="min-h-[22vh] py-10 text-center text-sm text-text-muted">
+                {t('monitoring.runningHealthChecks')}
+              </div>
+            </GlassPanel>
           ) : doctor ? (
-            <HealthPanel doctor={doctor} />
+            <GlassPanel className={tabPanelClassName}>
+              <HealthPanel doctor={doctor} />
+            </GlassPanel>
           ) : (
-            <div className="py-10 text-center text-text-muted text-sm">
-              {t('monitoring.failedHealthChecks')}
-            </div>
+            <GlassPanel className={tabPanelClassName}>
+              <div className="min-h-[22vh] py-10 text-center text-sm text-text-muted">
+                {t('monitoring.failedHealthChecks')}
+              </div>
+            </GlassPanel>
           ))}
 
         {activeTab === 'deployments' &&
           (loadingDeployments ? (
-            <DashboardLoadingState inline className="py-10" />
+            <GlassPanel className={tabPanelClassName}>
+              <DashboardLoadingState inline className="py-10" />
+            </GlassPanel>
           ) : deploymentList.length > 0 ? (
-            <DeploymentsPanel deployments={deploymentList} />
+            <GlassPanel className={tabPanelClassName}>
+              <DeploymentsPanel deployments={deploymentList} />
+            </GlassPanel>
           ) : (
-            <EmptyState
-              icon={Box}
-              title={t('monitoring.noDeploymentsFound')}
-              description={t('deployments.noDeploymentsYet')}
-            />
+            <GlassPanel className={tabPanelClassName}>
+              <EmptyState
+                icon={Box}
+                title={t('monitoring.noDeploymentsFound')}
+                description={t('deployments.noDeploymentsYet')}
+              />
+            </GlassPanel>
           ))}
 
         {activeTab === 'costs' &&
           (loadingCosts || loadingNamespaces ? (
-            <DashboardLoadingState inline className="py-10" />
+            <GlassPanel className={tabPanelClassName}>
+              <DashboardLoadingState inline className="py-10" />
+            </GlassPanel>
           ) : (
-            <CostsPanel
-              overview={costOverview}
-              namespaceCosts={namespaceCosts}
-              loadingNamespaceCosts={loadingNamespaceCosts}
-            />
+            <GlassPanel className={tabPanelClassName}>
+              <CostsPanel
+                overview={costOverview}
+                namespaceCosts={namespaceCosts}
+                loadingNamespaceCosts={loadingNamespaceCosts}
+              />
+            </GlassPanel>
           ))}
 
         {activeTab === 'activity' &&
           (loadingActivity ? (
-            <DashboardLoadingState inline className="py-10" />
+            <GlassPanel className={tabPanelClassName}>
+              <DashboardLoadingState inline className="py-10" />
+            </GlassPanel>
           ) : (
-            <ActivityPanel activities={activities} />
+            <GlassPanel className={tabPanelClassName}>
+              <ActivityPanel activities={activities} />
+            </GlassPanel>
           ))}
       </div>
     </PageShell>

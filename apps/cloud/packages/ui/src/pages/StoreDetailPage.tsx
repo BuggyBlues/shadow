@@ -28,7 +28,6 @@ import {
   TemplateConfigTab,
   TemplateDetailShell,
 } from '@/components/TemplateDetailShared'
-import { api } from '@/lib/api'
 import { useApiClient } from '@/lib/api-context'
 import { useToast } from '@/stores/toast'
 
@@ -57,7 +56,6 @@ function OverviewTab({
   useCases: string[]
   requirements: string[]
 }) {
-  const api = useApiClient()
   const { t } = useTranslation()
 
   return (

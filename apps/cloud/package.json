@@ -4,7 +4,7 @@
   "description": "shadowob-cloud — deploy AI agents to Kubernetes",
   "type": "module",
   "bin": {
-    "shadowob-cloud": "./dist/index.js"
+    "shadowob-cloud": "./dist/cli.js"
   },
   "files": [
     "dist",
@@ -12,9 +12,18 @@
     "templates"
   ],
   "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js"
+      "types": "./dist/index.d.ts",
+      "development": "./src/index.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./cli": {
+      "development": "./src/cli.ts",
+      "import": "./dist/cli.js",
+      "default": "./dist/cli.js"
     }
   },
   "scripts": {

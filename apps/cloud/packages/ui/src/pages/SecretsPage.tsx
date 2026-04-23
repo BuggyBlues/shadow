@@ -34,12 +34,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { EnvVarEditorDialog } from '@/components/EnvVarEditorDialog'
 import { PageShell } from '@/components/PageShell'
-import { api } from '@/lib/api'
-import { useApiClient } from '@/lib/api-context'
+import { type CloudApiClient, useApiClient } from '@/lib/api-context'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/stores/toast'
 
-type EnvListResponse = Awaited<ReturnType<typeof api.env.list>>
+type EnvListResponse = Awaited<ReturnType<CloudApiClient['env']['list']>>
 type EnvListEntry = EnvListResponse['envVars'][number]
 
 function sortGroups(groups: Iterable<string>): string[] {
@@ -63,7 +62,6 @@ function GroupTabs({
   onCreate: (name: string) => Promise<void>
   onDelete: (name: string) => Promise<void>
 }) {
-  const api = useApiClient()
   const { t } = useTranslation()
   const [showAdd, setShowAdd] = useState(false)
   const [groupName, setGroupName] = useState('')
@@ -249,10 +247,13 @@ export function SecretsPage() {
     onMutate: async (name) => {
       await queryClient.cancelQueries({ queryKey: ['env'] })
       const previous = queryClient.getQueryData<EnvListResponse>(['env'])
-      queryClient.setQueryData<EnvListResponse>(['env'], (current) => ({
-        envVars: current?.envVars ?? [],
-        groups: sortGroups(['default', ...(current?.groups ?? []), name]),
-      }))
+      queryClient.setQueryData<EnvListResponse>(
+        ['env'],
+        (current: EnvListResponse | undefined) => ({
+          envVars: current?.envVars ?? [],
+          groups: sortGroups(['default', ...(current?.groups ?? []), name]),
+        }),
+      )
       setActiveGroup(name)
       return { previous }
     },
@@ -271,10 +272,15 @@ export function SecretsPage() {
     onMutate: async (name) => {
       await queryClient.cancelQueries({ queryKey: ['env'] })
       const previous = queryClient.getQueryData<EnvListResponse>(['env'])
-      queryClient.setQueryData<EnvListResponse>(['env'], (current) => ({
-        envVars: (current?.envVars ?? []).filter((ev) => (ev.groupName ?? 'default') !== name),
-        groups: sortGroups((current?.groups ?? []).filter((g) => g !== name)),
-      }))
+      queryClient.setQueryData<EnvListResponse>(
+        ['env'],
+        (current: EnvListResponse | undefined) => ({
+          envVars: (current?.envVars ?? []).filter(
+            (ev: EnvListEntry) => (ev.groupName ?? 'default') !== name,
+          ),
+          groups: sortGroups((current?.groups ?? []).filter((g: string) => g !== name)),
+        }),
+      )
       if (activeGroup === name) setActiveGroup('default')
       return { previous }
     },

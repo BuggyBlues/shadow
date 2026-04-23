@@ -26,9 +26,12 @@
   --color-text-muted: #94a3b8;
   --color-bg-modifier-hover: rgba(255, 255, 255, 0.04);
   --color-bg-modifier-active: rgba(255, 255, 255, 0.08);
-  --color-border-subtle: rgba(255, 255, 255, 0.06);
-  --color-border-dim: rgba(255, 255, 255, 0.1);
+  --color-border-subtle: rgba(255, 255, 255, 0.045);
+  --color-border-dim: rgba(255, 255, 255, 0.075);
   --color-divider: #272733;
+  --glass-line-soft: rgba(255, 255, 255, 0.032);
+  --glass-line: rgba(255, 255, 255, 0.055);
+  --glass-line-strong: rgba(255, 255, 255, 0.078);
 
   /* Brand palette */
   --color-nf-cyan: var(--color-primary);
@@ -95,7 +98,7 @@
 
   --nf-border: var(--color-border-dim);
   --nf-border-soft: var(--color-border-subtle);
-  --nf-border-strong: color-mix(in srgb, var(--color-border-dim) 80%, white);
+  --nf-border-strong: var(--glass-line-strong);
 
   --nf-text-high: var(--color-text-primary);
   --nf-text-mid: var(--color-text-secondary);
@@ -105,13 +108,12 @@
   --nf-sidebar-active: color-mix(in srgb, var(--color-primary) 12%, transparent);
 
   --nf-glass-blur: 48px;
-  --nf-shadow-card: inset 0 1px 0 0 rgba(255, 255, 255, 0.05), 0 12px 48px -12px rgba(0, 0, 0, 0.5);
+  --nf-shadow-card: inset 0 1px 0 0 var(--glass-line-soft), 0 12px 48px -12px rgba(0, 0, 0, 0.5);
   --nf-shadow-soft: var(--shadow-soft);
   --nf-shadow-glow: var(--shadow-cyan);
-  --nf-sidebar-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.05), 0 12px 48px -12px rgba(0, 0, 0, 0.5);
+  --nf-sidebar-shadow: inset 0 1px 0 0 var(--glass-line-soft), 0 12px 48px -12px rgba(0, 0, 0, 0.5);
 
-  --glass-border: var(--color-border-dim);
+  --glass-border: var(--glass-line);
 }
 
 /* ── Light theme ───────────────────────────────────────────────────── */
@@ -140,8 +142,11 @@
   --color-border-subtle: rgba(0, 0, 0, 0.08);
   --color-border-dim: rgba(0, 0, 0, 0.12);
   --color-divider: #e2e8f0;
+  --glass-line-soft: rgba(0, 0, 0, 0.045);
+  --glass-line: rgba(0, 0, 0, 0.07);
+  --glass-line-strong: rgba(0, 0, 0, 0.105);
   --glass-bg: rgba(255, 255, 255, 0.86);
-  --glass-border: var(--color-border-dim);
+  --glass-border: var(--glass-line);
   --shadow-soft: 0 15px 45px rgba(15, 23, 42, 0.06);
 
   --nf-bg-core: var(--color-bg-deep);
@@ -152,7 +157,7 @@
 
   --nf-border: var(--color-border-subtle);
   --nf-border-soft: var(--color-border-subtle);
-  --nf-border-strong: var(--color-border-dim);
+  --nf-border-strong: var(--glass-line-strong);
 
   --nf-text-high: var(--color-text-primary);
   --nf-text-mid: var(--color-text-secondary);
@@ -162,10 +167,10 @@
   --nf-sidebar-active: color-mix(in srgb, var(--color-primary-strong) 16%, transparent);
 
   --nf-glass-blur: 40px;
-  --nf-shadow-card: 0 18px 48px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  --nf-shadow-card: 0 18px 48px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.72);
   --nf-shadow-soft: var(--shadow-soft);
   --nf-shadow-glow: 0 10px 24px rgba(0, 198, 209, 0.12);
-  --nf-sidebar-shadow: 0 18px 48px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  --nf-sidebar-shadow: 0 18px 48px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .light body {

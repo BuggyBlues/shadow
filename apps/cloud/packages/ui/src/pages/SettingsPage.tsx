@@ -346,10 +346,10 @@ function CommunityTab() {
           <div
             className="flex h-10 w-10 items-center justify-center rounded-full"
             style={{
-              background: isConnected ? 'rgba(0, 243, 255, 0.12)' : 'rgba(255, 255, 255, 0.06)',
+              background: isConnected ? 'rgba(0, 243, 255, 0.12)' : 'var(--nf-bg-raised)',
               border: isConnected
                 ? '1px solid rgba(0, 243, 255, 0.24)'
-                : '1px solid rgba(255,255,255,0.1)',
+                : '1px solid var(--glass-line-strong)',
             }}
           >
             {isConnected ? (

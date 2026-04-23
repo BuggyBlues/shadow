@@ -285,6 +285,16 @@ const cloudRoute = createRoute({
   ),
 })
 
+const cloudSplatRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/cloud/$',
+  component: () => (
+    <Suspense fallback={null}>
+      <CloudSaasApp />
+    </Suspense>
+  ),
+})
+
 const developersCloudRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/developers/cloud',
@@ -322,6 +332,7 @@ const routeTree = rootRoute.addChildren([
     buddyDashboardRoute,
     dmChatRoute,
     cloudRoute,
+    cloudSplatRoute,
     developersCloudRoute,
   ]),
 ])

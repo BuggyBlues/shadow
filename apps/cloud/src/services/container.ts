@@ -88,6 +88,7 @@ export {
   type DeploymentRuntimeCluster,
   DeploymentRuntimeService,
   type DestroyRuntimeOptions,
+  rewriteLoopbackKubeconfig,
 } from './deployment-runtime.service.js'
 export { IMAGES, type ImageBuildOptions, ImageService } from './image.service.js'
 export { K8sService } from './k8s.service.js'

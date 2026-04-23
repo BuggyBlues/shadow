@@ -1,4 +1,4 @@
-import { Badge, Button, Checkbox, GlassPanel, GlassSurface, Input, SecretInput } from '@shadowob/ui'
+import { Badge, Button, Checkbox, GlassPanel, Input, SecretInput } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import {
@@ -32,7 +32,7 @@ import { useTranslation } from 'react-i18next'
 import { AlertBanner, AlertBannerList } from '@/components/AlertBanner'
 import { Breadcrumb } from '@/components/Breadcrumb'
 import { useSSEStream } from '@/hooks/useSSEStream'
-import { api, type ProviderSettings } from '@/lib/api'
+import { type ProviderSettings } from '@/lib/api'
 import { useApiClient } from '@/lib/api-context'
 import { API_PRESETS } from '@/lib/presets'
 import { cn } from '@/lib/utils'
@@ -125,6 +125,12 @@ function StepOverview({ name }: { name: string }) {
   })
 
   const template = data?.template
+  const highlightItems =
+    template?.highlights && template.highlights.length > 0
+      ? template.highlights
+      : template?.features && template.features.length > 0
+        ? template.features
+        : [t('deploy.asConfigured')]
 
   return (
     <div className="space-y-6">
@@ -133,7 +139,7 @@ function StepOverview({ name }: { name: string }) {
         <p className="text-sm text-text-muted">{t('deploy.confirmDeployKubernetes')}</p>
       </div>
 
-      <GlassPanel className="rounded-[28px] p-6">
+      <div className="rounded-[24px] border border-border-subtle/40 bg-bg-secondary/35 p-6">
         <div className="flex items-start gap-4">
           <span className="text-4xl">{template?.emoji ?? '📦'}</span>
           <div className="flex-1">
@@ -159,40 +165,36 @@ function StepOverview({ name }: { name: string }) {
             </div>
 
             {/* Quick stats */}
-            <div className="grid grid-cols-3 gap-4">
-              <GlassSurface className="rounded-xl border border-border-subtle p-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="rounded-xl border border-border-subtle/35 bg-bg-secondary/40 p-3">
                 <div className="text-xs text-text-muted flex items-center gap-1 mb-1">
                   <Users size={11} />
                   {t('deploy.agentsLabel')}
                 </div>
                 <p className="text-lg font-semibold">{template?.agentCount ?? '—'}</p>
-              </GlassSurface>
-              <GlassSurface className="rounded-xl border border-border-subtle p-3">
+              </div>
+              <div className="rounded-xl border border-border-subtle/35 bg-bg-secondary/40 p-3">
                 <div className="text-xs text-text-muted flex items-center gap-1 mb-1">
                   <FolderOpen size={11} />
                   {t('deploy.namespaceLabel')}
                 </div>
                 <p className="text-sm font-mono mt-1">{template?.namespace ?? '—'}</p>
-              </GlassSurface>
-              <GlassSurface className="rounded-xl border border-border-subtle p-3">
+              </div>
+              <div className="rounded-xl border border-border-subtle/35 bg-bg-secondary/40 p-3">
                 <div className="text-xs text-text-muted flex items-center gap-1 mb-1">
                   <Clock size={11} />
                   {t('deploy.deployTimeLabel')}
                 </div>
                 <p className="text-sm mt-1">{template?.estimatedDeployTime ?? '—'}</p>
-              </GlassSurface>
+              </div>
             </div>
           </div>
         </div>
-      </GlassPanel>
+      </div>
 
       {/* Highlights */}
       <AlertBanner variant="info" icon={Sparkles} title={t('deploy.whatYouWillGet')}>
-        <AlertBannerList
-          variant="info"
-          items={template?.highlights ?? []}
-          bulletIcon={CheckCircle}
-        />
+        <AlertBannerList variant="info" items={highlightItems} bulletIcon={CheckCircle} />
       </AlertBanner>
 
       {/* Requirements */}
@@ -295,41 +297,33 @@ function EnvVarRow({
           </button>
         </div>
       ) : (
-        <div
-          className={cn(
-            'flex items-center gap-2 rounded-xl p-1 transition-colors',
-            error && 'bg-danger/8 ring-1 ring-danger/30',
-          )}
-        >
+        <div className="flex items-center gap-2 rounded-xl p-1 transition-colors">
           {isSecret ? (
             <SecretInput
               id={inputId}
-              name={envKey}
               data-testid={inputId}
               value={value}
               onChange={(e) => onValueChange(e.target.value)}
               onBlur={onInputBlur}
-              onPaste={(e) => e.stopPropagation()}
               placeholder={placeholder}
-              autoComplete="off"
+              autoComplete="new-password"
               className="flex-1"
               error={error}
               ref={inputRef}
               aria-invalid={error}
               aria-describedby={errorMessage ? errorId : undefined}
+              data-bwignore="true"
             />
           ) : (
             <Input
               id={inputId}
-              name={envKey}
               data-testid={inputId}
               type="text"
               value={value}
               onChange={(e) => onValueChange(e.target.value)}
               onBlur={onInputBlur}
-              onPaste={(e) => e.stopPropagation()}
               placeholder={placeholder}
-              autoComplete="off"
+              autoComplete={envKey === 'SHADOW_SERVER_URL' ? 'url' : 'off'}
               className="flex-1"
               error={error}
               ref={inputRef}
@@ -338,6 +332,7 @@ function EnvVarRow({
               data-1p-ignore
               data-lpignore="true"
               data-form-type="other"
+              data-bwignore="true"
             />
           )}
           {hasSaved && (
@@ -376,11 +371,13 @@ function StepConfigure({
   name,
   config,
   onChange,
+  onBack,
   onNext,
 }: {
   name: string
   config: DeployConfig
   onChange: (config: DeployConfig) => void
+  onBack: () => void
   onNext: () => void
 }) {
   const api = useApiClient()
@@ -462,6 +459,11 @@ function StepConfigure({
     envRefsData?.requiredEnvVars ??
     (isEnvRefsError ? extractClientEnvRefs(ownTemplateForEnv?.content) : [])
 
+  const requiredTemplateVars = useMemo(
+    () => requiredVars.filter((key) => key !== 'SHADOW_SERVER_URL' && key !== 'SHADOW_USER_TOKEN'),
+    [requiredVars],
+  )
+
   // Build a lookup of saved env var keys → masked values (from effective deployment env)
   const savedLookup = useMemo(() => {
     const lookup: Record<string, string> = {}
@@ -496,17 +498,14 @@ function StepConfigure({
 
   useEffect(() => {
     if (initializedRef.current || Object.keys(combinedLookup).length === 0) return
-    if (envRefsData === undefined) return
     initializedRef.current = true
     const merged = { ...getValues('envVars') }
     let changed = false
-    for (const shadowKey of ['SHADOW_SERVER_URL', 'SHADOW_USER_TOKEN']) {
-      if (!merged[shadowKey] && combinedLookup[shadowKey]) {
-        merged[shadowKey] = '__SAVED__'
-        changed = true
-      }
+    if (!merged.SHADOW_SERVER_URL && combinedLookup.SHADOW_SERVER_URL) {
+      merged.SHADOW_SERVER_URL = '__SAVED__'
+      changed = true
     }
-    for (const key of requiredVars) {
+    for (const key of requiredTemplateVars) {
       if (!merged[key] && combinedLookup[key]) {
         merged[key] = '__SAVED__'
         changed = true
@@ -515,7 +514,7 @@ function StepConfigure({
     if (changed) {
       setValue('envVars', merged, { shouldDirty: true })
     }
-  }, [requiredVars, combinedLookup, envRefsData, getValues, setValue])
+  }, [requiredTemplateVars, combinedLookup, getValues, setValue])
 
   // When group changes, re-fill any already-saved marked vars that now have values
   const applyGroup = (group: string) => {
@@ -526,7 +525,7 @@ function StepConfigure({
     }
     const merged = { ...getValues('envVars') }
     let changed = false
-    const allKeys = ['SHADOW_SERVER_URL', 'SHADOW_USER_TOKEN', ...requiredVars]
+    const allKeys = ['SHADOW_SERVER_URL', ...requiredTemplateVars]
     for (const key of allKeys) {
       if (groupVars[key] || savedLookup[key]) {
         merged[key] = '__SAVED__'
@@ -559,7 +558,7 @@ function StepConfigure({
     if (!shadowToken || (shadowToken !== '__SAVED__' && !shadowToken.trim())) {
       if (!combinedLookup.SHADOW_USER_TOKEN) missingShadow.push('SHADOW_USER_TOKEN')
     }
-    const missing = requiredVars.filter((k) => {
+    const missing = requiredTemplateVars.filter((k) => {
       const val = currentEnvVars[k]
       return !val || val.trim() === ''
     })
@@ -595,7 +594,15 @@ function StepConfigure({
   }
 
   return (
-    <form id="wizard-configure-form" onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+    <form
+      id="wizard-configure-form"
+      onSubmit={handleSubmit(onSubmit)}
+      className="space-y-5"
+      autoComplete="off"
+      data-1p-ignore
+      data-lpignore="true"
+      data-form-type="other"
+    >
       <GlassPanel className="rounded-[28px] p-5 md:p-6 space-y-5">
         <div className="space-y-1">
           <h2 className="text-lg font-semibold">{t('deploy.stepConfigureLabel')}</h2>
@@ -687,19 +694,19 @@ function StepConfigure({
         </div>
 
         {/* Required Environment Variables */}
-        {requiredVars.length > 0 && (
+        {requiredTemplateVars.length > 0 && (
           <div className="rounded-xl border border-border-subtle bg-bg-secondary/50 p-4 space-y-4">
             <div className="flex items-center gap-2">
               <Key size={14} className="text-warning" />
               <div>
                 <h3 className="text-sm font-semibold">{t('deploy.requiredEnvVars')}</h3>
                 <p className="text-xs text-text-muted">
-                  {t('deploy.templateRequiresVars', { count: requiredVars.length })}{' '}
+                  {t('deploy.templateRequiresVars', { count: requiredTemplateVars.length })}{' '}
                   {t('deploy.envVarsAllRequired')}
                 </p>
               </div>
             </div>
-            {requiredVars.map((key) => {
+            {requiredTemplateVars.map((key) => {
               const fieldError = getEnvFieldError(errors, key)
               return (
                 <EnvVarRow
@@ -806,6 +813,17 @@ function StepConfigure({
           )}
         </div>
       </GlassPanel>
+
+      <div className="flex items-center justify-between gap-3 px-1">
+        <Button type="button" onClick={onBack} variant="ghost">
+          <ArrowLeft size={14} />
+          {t('common.back')}
+        </Button>
+        <Button type="submit" variant="primary">
+          {t('common.continue')}
+          <ArrowRight size={14} />
+        </Button>
+      </div>
     </form>
   )
 }
@@ -1057,11 +1075,27 @@ function StepDeploy({
         namespace: targetNamespace,
       }
 
-      let result: { success: boolean; error?: string }
+      type DeployInvocationResult = {
+        success: boolean
+        error?: string
+        exitCode?: number | null
+      }
+      const deployApi = api as typeof api & {
+        deployFn?: (config: {
+          templateSlug: string
+          namespace: string
+          name: string
+          resourceTier: string
+          configSnapshot: Record<string, unknown>
+          envVars?: Record<string, string>
+        }) => Promise<DeployInvocationResult>
+      }
 
-      if (typeof (api as { deployFn?: unknown }).deployFn === 'function') {
+      let result: DeployInvocationResult
+
+      if (typeof deployApi.deployFn === 'function') {
         // SaaS mode: use the injected deployFn (bypasses local SSE /api/deploy)
-        result = await (api as { deployFn: typeof api.deployFn & Function }).deployFn({
+        result = await deployApi.deployFn({
           templateSlug: name,
           namespace: targetNamespace,
           name: `${targetNamespace}-${Date.now()}`,
@@ -1091,7 +1125,9 @@ function StepDeploy({
         setDeploySuccess(false)
         throw new Error(
           result.error ||
-            t('deploy.deployFailedWithCode', { code: result.exitCode ?? t('common.none') }),
+            t('deploy.deployFailedWithCode', {
+              code: 'exitCode' in result ? (result.exitCode ?? t('common.none')) : t('common.none'),
+            }),
         )
       }
 
@@ -1519,9 +1555,9 @@ export function DeployWizardPage() {
               ]}
               className="mb-3"
             />
-            <div className="flex items-center gap-4">
-              {/* Classic step indicators with connectors */}
-              <div className="flex items-center flex-1 min-w-0">
+            <div className="flex items-start gap-4">
+              {/* Glass step indicators */}
+              <div className="grid grid-cols-3 gap-2 flex-1 min-w-0">
                 {steps.map((step, index) => {
                   const status =
                     index < currentStep
@@ -1529,57 +1565,64 @@ export function DeployWizardPage() {
                       : index === currentStep
                         ? 'active'
                         : 'upcoming'
-                  const isClickable = status === 'completed'
+                  const isClickable = index <= currentStep
                   return (
-                    <div key={step.id} className="flex items-center flex-1 last:flex-none">
-                      <button
-                        type="button"
-                        disabled={!isClickable}
-                        onClick={() => isClickable && setCurrentStep(index)}
-                        className={cn(
-                          'flex items-center gap-2 group',
-                          isClickable ? 'cursor-pointer' : 'cursor-default',
-                        )}
-                      >
+                    <button
+                      key={step.id}
+                      type="button"
+                      disabled={!isClickable}
+                      onClick={() => isClickable && setCurrentStep(index)}
+                      className={cn(
+                        'group rounded-xl border border-border-subtle/45 px-3 py-2 text-left transition-colors',
+                        isClickable ? 'cursor-pointer' : 'cursor-default',
+                        status === 'active' &&
+                          'border-primary/35 bg-primary/10 shadow-[0_0_0_1px_rgba(0,243,255,0.08)_inset]',
+                        status === 'completed' &&
+                          'border-success/28 bg-success/8 hover:border-success/40 hover:bg-success/12',
+                        status === 'upcoming' && 'bg-bg-secondary/40 text-text-muted',
+                      )}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
                         <div
                           className={cn(
-                            'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-all',
-                            status === 'active' &&
-                              'bg-primary text-white shadow-sm shadow-primary/40',
+                            'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition-all',
+                            status === 'active' && 'bg-primary text-bg-base',
                             status === 'completed' &&
-                              'bg-success/15 text-success ring-1 ring-success/40 group-hover:bg-success group-hover:text-white',
+                              'bg-success/18 text-success ring-1 ring-success/35',
                             status === 'upcoming' &&
                               'bg-bg-secondary text-text-muted ring-1 ring-border-subtle',
                           )}
                         >
                           {status === 'completed' ? <CheckCircle2 size={14} /> : index + 1}
                         </div>
-                        <span
-                          className={cn(
-                            'text-sm font-medium hidden sm:inline whitespace-nowrap transition-colors',
-                            status === 'active' && 'text-text-primary',
-                            status === 'completed' &&
-                              'text-text-secondary group-hover:text-text-primary',
-                            status === 'upcoming' && 'text-text-muted',
-                          )}
-                        >
-                          {step.label}
-                        </span>
-                      </button>
-                      {index < steps.length - 1 && (
-                        <div
-                          className={cn(
-                            'mx-3 h-px flex-1 transition-colors',
-                            index < currentStep ? 'bg-success/50' : 'bg-border-subtle',
-                          )}
-                        />
-                      )}
-                    </div>
+                        <div className="min-w-0">
+                          <span
+                            className={cn(
+                              'text-xs md:text-sm font-medium block truncate transition-colors',
+                              status === 'active' && 'text-text-primary',
+                              status === 'completed' &&
+                                'text-text-secondary group-hover:text-text-primary',
+                              status === 'upcoming' && 'text-text-muted',
+                            )}
+                          >
+                            {step.label}
+                          </span>
+                          <span
+                            className={cn(
+                              'hidden md:block text-[11px] truncate',
+                              status === 'active' ? 'text-text-secondary' : 'text-text-muted',
+                            )}
+                          >
+                            {step.description}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
                   )
                 })}
               </div>
               {/* Nav buttons */}
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0 pt-1">
                 {currentStep > 0 && currentStep < 2 && (
                   <Button type="button" onClick={handleBack} variant="ghost" size="sm">
                     <ArrowLeft size={14} />
@@ -1616,6 +1659,7 @@ export function DeployWizardPage() {
               name={name}
               config={deployConfig}
               onChange={setDeployConfig}
+              onBack={handleBack}
               onNext={() => setCurrentStep(2)}
             />
           )}

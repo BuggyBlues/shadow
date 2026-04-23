@@ -40,7 +40,7 @@ import { PageShell } from '@/components/PageShell'
 import { parseTemplateAgents } from '@/components/TemplateDetailShared'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useTypewriterPlaceholder } from '@/hooks/useTypewriterPlaceholder'
-import { api, type TemplateCatalogSummary } from '@/lib/api'
+import { type TemplateCatalogSummary } from '@/lib/api'
 import { useApiClient } from '@/lib/api-context'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/stores/toast'
@@ -98,7 +98,6 @@ function FilterPill({
   active: boolean
   onClick: () => void
 }) {
-  const api = useApiClient()
   return (
     <Button type="button" onClick={onClick} variant="ghost" size="sm">
       <span className="truncate">{label}</span>
@@ -123,7 +122,6 @@ function CardMetric({
   value: string | number
   label: string
 }) {
-  const api = useApiClient()
   return (
     <span
       className="inline-flex items-center gap-1.5 rounded-xl border border-border-subtle bg-bg-primary/60 px-2.5 py-1.5 text-[11px] font-semibold text-text-secondary"
@@ -158,7 +156,6 @@ function TemplateCard({
   onDelete: () => void
   onShare: () => void
 }) {
-  const api = useApiClient()
   const { t, i18n } = useTranslation()
   const overview = useMemo(() => getMyTemplateOverview(content), [content])
   const sourceType = getTemplateSourceType(templateSlug)
@@ -213,7 +210,7 @@ function TemplateCard({
                         reviewStatus === 'approved'
                           ? 'success'
                           : reviewStatus === 'rejected'
-                            ? 'destructive'
+                            ? 'danger'
                             : reviewStatus === 'pending'
                               ? 'warning'
                               : 'neutral'
@@ -484,7 +481,6 @@ function ImportGitDialog({
   onClose: () => void
   isPending: boolean
 }) {
-  const api = useApiClient()
   const { t } = useTranslation()
   const [url, setUrl] = useState('')
   const [name, setName] = useState('')

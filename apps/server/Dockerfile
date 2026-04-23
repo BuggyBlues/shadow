@@ -45,7 +45,7 @@ RUN pnpm --filter @shadowob/shared build && \
 FROM node:22-alpine AS runner
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
-RUN apk add --no-cache curl && \
+RUN apk add --no-cache curl kubectl && \
     corepack enable && corepack prepare pnpm@10.19.0 --activate
 WORKDIR /app
 
@@ -72,10 +72,13 @@ COPY --from=builder /app/packages/shared/dist packages/shared/dist
 COPY --from=builder /app/packages/sdk/dist packages/sdk/dist
 COPY --from=builder /app/apps/server/dist apps/server/dist
 COPY --from=builder /app/apps/cloud/dist apps/cloud/dist
+COPY --from=builder /app/apps/cloud/templates apps/cloud/templates
+COPY --from=builder /app/apps/cloud/images apps/cloud/images
 COPY --from=builder /app/apps/server/src/db/migrations apps/server/migrations
 
 EXPOSE 3002
 ENV NODE_ENV=production
+ENV CLOUD_TEMPLATES_DIR=/app/apps/cloud/templates
 ENV PULUMI_HOME=/root/.shadowob/pulumi/home
 ENV PULUMI_BACKEND_URL=file:///root/.shadowob/pulumi
 ENV PATH=/root/.shadowob/pulumi/cli/bin:$PATH

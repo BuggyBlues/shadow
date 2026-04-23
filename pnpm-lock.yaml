@@ -833,6 +833,9 @@ importers:
       '@hono/zod-validator':
         specifier: ^0.7.6
         version: 0.7.6(hono@4.12.8)(zod@3.25.76)
+      '@shadowob/cloud':
+        specifier: workspace:*
+        version: link:../cloud
       '@shadowob/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk

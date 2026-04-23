@@ -592,5 +592,10 @@ export type CloudApiClient = typeof api & {
     resourceTier?: string
     configSnapshot?: Record<string, unknown>
     envVars?: Record<string, string>
-  }) => Promise<{ success: boolean; error?: string }>
+  }) => Promise<{
+    success: boolean
+    error?: string
+    deploymentId?: string
+    status?: 'pending' | 'deploying' | 'deployed' | 'failed' | 'destroying' | 'destroyed'
+  }>
 }

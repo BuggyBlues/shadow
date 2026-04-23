@@ -45,7 +45,7 @@ import {
   TemplateConfigTab,
   TemplateDetailShell,
 } from '@/components/TemplateDetailShared'
-import { api, type ValidateResult } from '@/lib/api'
+import { type ValidateResult } from '@/lib/api'
 import { useApiClient } from '@/lib/api-context'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/stores/toast'
@@ -655,7 +655,7 @@ export function MyTemplateDetailPage() {
                       data.reviewStatus === 'approved'
                         ? 'success'
                         : data.reviewStatus === 'rejected'
-                          ? 'destructive'
+                          ? 'danger'
                           : data.reviewStatus === 'pending'
                             ? 'warning'
                             : 'neutral'

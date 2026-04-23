@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, sql } from 'drizzle-orm'
 import type { Database } from '../db'
 import { cloudDeploymentLogs, cloudDeployments } from '../db/schema'
 
@@ -136,5 +136,27 @@ export class CloudDeploymentDao {
       .from(cloudDeploymentLogs)
       .where(eq(cloudDeploymentLogs.deploymentId, deploymentId))
       .orderBy(cloudDeploymentLogs.createdAt)
+  }
+
+  /**
+   * Acquire a per-deployment advisory lock for cross-worker mutual exclusion.
+   * Returns true when the lock is acquired by this session.
+   */
+  async tryAcquireWorkerLock(deploymentId: string): Promise<boolean> {
+    const result = await this.db.execute(
+      sql`select pg_try_advisory_lock(hashtext(${deploymentId})) as locked`,
+    )
+
+    const rows = (result as { rows?: Array<{ locked?: unknown }> }).rows
+    const row = rows?.[0]
+    const locked = row?.locked
+    return locked === true || locked === 't' || locked === 1 || locked === '1'
+  }
+
+  /**
+   * Release a per-deployment advisory lock previously acquired by this session.
+   */
+  async releaseWorkerLock(deploymentId: string): Promise<void> {
+    await this.db.execute(sql`select pg_advisory_unlock(hashtext(${deploymentId}))`)
   }
 }

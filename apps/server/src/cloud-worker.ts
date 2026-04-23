@@ -1,49 +1,27 @@
 /**
  * Cloud Worker — polls cloud_deployments and executes lifecycle actions.
  *
- * Runs as a separate container. Requires access to the same PostgreSQL database
- * as apps/server, plus a running K8s cluster via KUBECONFIG.
- *
- * Lifecycle states handled:
- *   - pending     → execute deploy, transition to deployed/failed
- *   - destroying  → execute destroy, transition to destroyed/failed
- *   - cancelling  → if a deploy is currently running for this id, ask the
- *                   Pulumi stack to cancel; otherwise transition to failed
- *
- * In addition, the worker periodically reconciles DB ↔ K8s state to detect:
- *   - DB rows that point at namespaces no longer present on the cluster
- *     ("orphaned by cluster") — marked failed
- *
- * Environment variables:
- *   DATABASE_URL           — PostgreSQL connection string
- *   POLL_INTERVAL_MS       — how often to poll (default: 5000)
- *   RECONCILE_INTERVAL_MS  — how often to run orphan reconcile (default: 60000)
- *   KMS_MASTER_KEY         — 32-byte hex key for decrypting kubeconfigs
- *   SHADOW_SERVER_URL      — Shadow server URL injected into deployed agents
- *   KUBECONFIG             — Default kubeconfig path (overridden per-deployment)
- *   KUBECONFIG_CONTEXT     — Default K8s context name (overridden per-deployment)
+ * Runs as a separate container. Requires access to PostgreSQL and a reachable
+ * Kubernetes cluster via KUBECONFIG.
  */
-import { execSync } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { drizzle } from 'drizzle-orm/postgres-js'
-import postgres from 'postgres'
-import { CloudClusterDao } from '../../server/src/dao/cloud-cluster.dao'
-import { CloudDeploymentDao } from '../../server/src/dao/cloud-deployment.dao'
-import type { Database } from '../../server/src/db'
-import * as schema from '../../server/src/db/schema'
-import { decrypt } from '../../server/src/lib/kms'
-import { extractCloudSaasRuntime } from './application/cloud-saas-config'
-import { createContainer, type ServiceContainer } from './services/container'
+import { createContainer, extractCloudSaasRuntime, type ServiceContainer } from '@shadowob/cloud'
+import { CloudClusterDao } from './dao/cloud-cluster.dao'
+import { CloudDeploymentDao } from './dao/cloud-deployment.dao'
+import type { Database } from './db'
+import { db } from './db'
+import { listManagedNamespaces, namespaceExists } from './lib/k8s-cli'
+import { decrypt } from './lib/kms'
 
 const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS ?? 5000)
 const RECONCILE_INTERVAL_MS = Number(process.env.RECONCILE_INTERVAL_MS ?? 60_000)
 
+type CloudDeploymentRecord = NonNullable<Awaited<ReturnType<CloudDeploymentDao['findByIdOnly']>>>
+type DeploymentStatus = CloudDeploymentRecord['status']
+
 /**
  * In-process registry of currently-running deploy operations.
  * Keyed by deployment.id. Used to wire cancellation requests to the live
- * Pulumi stack so we can call `stack.cancel()`.
+ * Pulumi stack so we can call stack.cancel().
  */
 const runningDeploys = new Map<
   string,
@@ -54,8 +32,6 @@ const runningDeploys = new Map<
 >()
 
 async function main() {
-  const client = postgres(process.env.DATABASE_URL!)
-  const db = drizzle(client, { schema })
   const container = createContainer()
 
   const deploymentDao = new CloudDeploymentDao({
@@ -74,21 +50,40 @@ async function main() {
       // 1. Process pending deployments (deploy)
       const pending = await deploymentDao.listPending()
       for (const deployment of pending) {
-        // Don't await — run concurrently so cancel-poll can still fire promptly.
-        // But to keep semantics simple (single-stack-per-deploy id) we await.
-        await processDeployment(deployment, deploymentDao, clusterDao, container)
+        await withLockedDeployment(
+          deployment.id,
+          ['pending'],
+          deploymentDao,
+          async (latestDeployment) => {
+            await processDeployment(latestDeployment, deploymentDao, clusterDao, container)
+          },
+        )
       }
 
       // 2. Process destroying deployments
       const destroying = await deploymentDao.listDestroying()
       for (const deployment of destroying) {
-        await processDestroy(deployment, deploymentDao, clusterDao, container)
+        await withLockedDeployment(
+          deployment.id,
+          ['destroying'],
+          deploymentDao,
+          async (latestDeployment) => {
+            await processDestroy(latestDeployment, deploymentDao, clusterDao, container)
+          },
+        )
       }
 
       // 3. Honor cancel requests
       const cancelling = await deploymentDao.listCancelling()
       for (const deployment of cancelling) {
-        await processCancel(deployment, deploymentDao)
+        await withLockedDeployment(
+          deployment.id,
+          ['cancelling'],
+          deploymentDao,
+          async (latestDeployment) => {
+            await processCancel(latestDeployment, deploymentDao)
+          },
+        )
       }
 
       // 4. Periodic orphan reconcile
@@ -103,6 +98,33 @@ async function main() {
       console.error('[cloud-worker] Poll error:', err)
     }
     await sleep(POLL_INTERVAL_MS)
+  }
+}
+
+async function withLockedDeployment(
+  deploymentId: string,
+  expectedStatuses: readonly DeploymentStatus[],
+  deploymentDao: CloudDeploymentDao,
+  run: (deployment: CloudDeploymentRecord) => Promise<void>,
+): Promise<void> {
+  const acquired = await deploymentDao.tryAcquireWorkerLock(deploymentId)
+  if (!acquired) {
+    return
+  }
+
+  try {
+    const latest = await deploymentDao.findByIdOnly(deploymentId)
+    if (!latest || !expectedStatuses.includes(latest.status)) {
+      return
+    }
+
+    await run(latest)
+  } finally {
+    try {
+      await deploymentDao.releaseWorkerLock(deploymentId)
+    } catch {
+      // best effort unlock
+    }
   }
 }
 
@@ -122,7 +144,7 @@ async function resolveClusterRuntime(
 }
 
 async function processDeployment(
-  deployment: Awaited<ReturnType<CloudDeploymentDao['listPending']>>[number],
+  deployment: CloudDeploymentRecord,
   deploymentDao: CloudDeploymentDao,
   clusterDao: CloudClusterDao,
   container: ServiceContainer,
@@ -214,7 +236,7 @@ async function processDeployment(
 }
 
 async function processDestroy(
-  deployment: Awaited<ReturnType<CloudDeploymentDao['listDestroying']>>[number],
+  deployment: CloudDeploymentRecord,
   deploymentDao: CloudDeploymentDao,
   clusterDao: CloudClusterDao,
   container: ServiceContainer,
@@ -255,10 +277,7 @@ async function processDestroy(
  *   - Otherwise (worker restarted, or cancellation arrived before the deploy
  *     was picked up), mark failed directly.
  */
-async function processCancel(
-  deployment: Awaited<ReturnType<CloudDeploymentDao['listCancelling']>>[number],
-  deploymentDao: CloudDeploymentDao,
-) {
+async function processCancel(deployment: CloudDeploymentRecord, deploymentDao: CloudDeploymentDao) {
   const live = runningDeploys.get(deployment.id)
   if (live) {
     live.cancelled = true
@@ -296,9 +315,6 @@ async function processCancel(
  * verify that the corresponding K8s namespace exists. If not, mark the
  * deployment as failed with a clear reason so it shows up in the UI for the
  * user to take action.
- *
- * Note: the inverse direction (k8s namespace exists but no DB row) is handled
- * by the SaaS API's GET /deployments handler, which annotates orphan rows.
  */
 async function reconcileOrphans(deploymentDao: CloudDeploymentDao, clusterDao: CloudClusterDao) {
   const live = await deploymentDao.listLive()
@@ -309,28 +325,21 @@ async function reconcileOrphans(deploymentDao: CloudDeploymentDao, clusterDao: C
 
   const presentNs = new Set(namespaces)
 
-  for (const d of live) {
-    if (presentNs.has(d.namespace)) continue
+  for (const deployment of live) {
+    if (presentNs.has(deployment.namespace)) continue
     // Skip deployments tied to a BYOK cluster we can't reach.
-    if (d.clusterId) {
+    if (deployment.clusterId) {
       try {
-        const cluster = await clusterDao.findByIdOnly(d.clusterId)
+        const cluster = await clusterDao.findByIdOnly(deployment.clusterId)
         if (cluster?.kubeconfigEncrypted) {
           // Best-effort: use the cluster's kubeconfig before declaring orphan.
           const kubeconfig = decrypt(cluster.kubeconfigEncrypted)
-          const tmpDir = mkdtempSync(join(tmpdir(), 'sc-kube-rec-'))
-          const kPath = join(tmpDir, 'kubeconfig')
-          writeFileSync(kPath, kubeconfig, { mode: 0o600 })
-          try {
-            const out = execSync(
-              `kubectl --kubeconfig=${kPath} get ns ${d.namespace} --no-headers --ignore-not-found`,
-              { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] },
-            )
-            if (out.trim().length > 0) continue
-          } catch {
-            /* assume orphan if kubectl errors */
-          } finally {
-            rmSync(tmpDir, { recursive: true, force: true })
+          const exists = namespaceExists(deployment.namespace, kubeconfig)
+          if (exists === true) {
+            continue
+          }
+          if (exists === null) {
+            continue
           }
         }
       } catch {
@@ -338,14 +347,14 @@ async function reconcileOrphans(deploymentDao: CloudDeploymentDao, clusterDao: C
       }
     }
     console.warn(
-      `[cloud-worker] Orphan detected: deployment ${d.id} (${d.namespace}) not present on cluster`,
+      `[cloud-worker] Orphan detected: deployment ${deployment.id} (${deployment.namespace}) not present on cluster`,
     )
     await deploymentDao.appendLog(
-      d.id,
-      `[reconcile] Namespace "${d.namespace}" no longer exists on the cluster`,
+      deployment.id,
+      `[reconcile] Namespace "${deployment.namespace}" no longer exists on the cluster`,
       'error',
     )
-    await deploymentDao.updateStatus(d.id, 'failed', 'orphaned-by-cluster')
+    await deploymentDao.updateStatus(deployment.id, 'failed', 'orphaned-by-cluster')
   }
 }
 
@@ -354,15 +363,7 @@ async function reconcileOrphans(deploymentDao: CloudDeploymentDao, clusterDao: C
  * `kubectl` is unavailable.
  */
 function listAllManagedNamespaces(): string[] | null {
-  try {
-    const out = execSync(
-      'kubectl get ns -l shadowob-cloud/managed=true -o jsonpath={.items[*].metadata.name}',
-      { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] },
-    ).trim()
-    return out.length > 0 ? out.split(/\s+/) : []
-  } catch {
-    return null
-  }
+  return listManagedNamespaces()
 }
 
 function sleep(ms: number) {
