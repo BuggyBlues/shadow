@@ -1,4 +1,5 @@
 import {
+  GlassPanel,
   SidebarContent,
   SidebarHeader,
   SidebarItem,
@@ -99,7 +100,7 @@ export function Sidebar() {
   return (
     <aside className="relative z-20 w-[248px] shrink-0 flex flex-col">
       <div className="flex flex-col h-full px-2.5 py-3">
-        <UISidebar className="glass-panel h-full w-full border-0 bg-transparent">
+        <GlassPanel as={UISidebar} className="h-full w-full border-0 bg-transparent">
           <SidebarHeader className="border-b-0 bg-transparent p-3">
             <div className="flex items-center justify-between gap-2">
               <Link to="/" className="flex min-w-0 items-center gap-3 rounded-[20px]">
@@ -133,7 +134,7 @@ export function Sidebar() {
               <SidebarSection key={section.id} section={section} />
             ))}
           </SidebarContent>
-        </UISidebar>
+        </GlassPanel>
       </div>
       <SettingsModal open={settingsOpen} onClose={closeSettings} initialTab={settingsTab} />
     </aside>

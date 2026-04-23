@@ -1,4 +1,4 @@
-import { Button, cn } from '@shadowob/ui'
+import { Button, cn, GlassPanel } from '@shadowob/ui'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from '@tanstack/react-router'
 import { useVirtualizer } from '@tanstack/react-virtual'
@@ -380,7 +380,7 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
   const virtualItems = virtualizer.getVirtualItems()
 
   return (
-    <div className="chat-panel glass-panel flex flex-1 min-h-0 flex-col overflow-hidden">
+    <GlassPanel className="chat-panel flex flex-1 min-h-0 flex-col overflow-hidden">
       {/* Header */}
       <div className="app-header flex items-center gap-3 px-4 md:px-6">
         <Button
@@ -708,7 +708,7 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
           </>
         )}
       </div>
-    </div>
+    </GlassPanel>
   )
 }
 

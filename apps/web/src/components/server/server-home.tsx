@@ -1,3 +1,4 @@
+import { GlassPanel } from '@shadowob/ui'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, Check, Copy, ExternalLink, Home, Settings } from 'lucide-react'
@@ -451,7 +452,7 @@ document.addEventListener('click', function(e) {
   }
 
   return (
-    <div className="flex-1 flex flex-col glass-panel overflow-hidden min-h-0">
+    <GlassPanel className="flex-1 flex flex-col overflow-hidden min-h-0">
       {/* Header bar */}
       <div className="desktop-drag-titlebar app-header px-4 flex items-center border-b border-border-subtle shrink-0">
         {/* Mobile back button — return to channel list */}
@@ -517,6 +518,6 @@ document.addEventListener('click', function(e) {
           />
         )}
       </div>
-    </div>
+    </GlassPanel>
   )
 }

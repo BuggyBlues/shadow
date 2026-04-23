@@ -1,4 +1,4 @@
-import { Badge, Button, Card, EmptyState, Search } from '@shadowob/ui'
+import { Badge, Button, Card, EmptyState, GlassCard, GlassPanel, Search } from '@shadowob/ui'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import {
@@ -379,7 +379,7 @@ export function StorePage() {
     >
       {/* Error — community unreachable (shouldn't happen since we fall back, but just in case) */}
       {isError && (
-        <div className="glass-card flex items-center gap-3 px-5 py-4 text-sm">
+        <GlassCard className="flex items-center gap-3 px-5 py-4 text-sm">
           <AlertCircle size={16} className="shrink-0 text-warning" />
           <span className="text-text-secondary">{t('store.communityUnavailable')}</span>
           <Button
@@ -391,7 +391,7 @@ export function StorePage() {
             <Settings size={12} className="mr-1" />
             {t('community.configure')}
           </Button>
-        </div>
+        </GlassCard>
       )}
       {/* Filter strip — colocated with cards */}
       <div className="flex flex-col gap-2">
@@ -455,7 +455,7 @@ export function StorePage() {
       )}
 
       {!isLoading && filtered.length === 0 && (
-        <div className="glass-panel p-6">
+        <GlassPanel className="p-6">
           <EmptyState
             icon={Package}
             title={t('store.noTemplatesFound')}
@@ -479,7 +479,7 @@ export function StorePage() {
               </Button>
             }
           />
-        </div>
+        </GlassPanel>
       )}
 
       {!isLoading && filtered.length > 0 && (

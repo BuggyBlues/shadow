@@ -1,3 +1,4 @@
+import { GlassPanel } from '@shadowob/ui'
 import type { ReactNode } from 'react'
 import { Breadcrumb, type BreadcrumbItem } from '@/components/Breadcrumb'
 import { cn } from '@/lib/utils'
@@ -29,7 +30,7 @@ export function PageShell({
     <div
       className={cn('mx-auto max-w-[1440px] p-6 md:px-8', narrow && 'max-w-[1280px]', className)}
     >
-      <section className="glass-panel p-6">
+      <GlassPanel as="section" className="p-6">
         {/* Title row */}
         <div
           className={cn(
@@ -50,7 +51,7 @@ export function PageShell({
         )}
 
         {headerContent}
-      </section>
+      </GlassPanel>
 
       {children && <div className={cn('mt-6', bodyClassName)}>{children}</div>}
     </div>

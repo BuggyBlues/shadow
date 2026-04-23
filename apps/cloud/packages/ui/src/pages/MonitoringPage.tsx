@@ -3,6 +3,8 @@ import {
   Button,
   Card,
   EmptyState,
+  GlassCard,
+  GlassSurface,
   NativeSelect,
   Search,
   Table,
@@ -375,7 +377,7 @@ function OverviewPanel({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <div className="glass-card p-4 space-y-4">
+        <GlassCard className="p-4 space-y-4">
           <div className="flex items-center gap-2">
             <Stethoscope size={16} style={{ color: 'var(--color-nf-cyan)' }} />
             <h2 className="text-sm font-black text-text-primary">
@@ -387,9 +389,9 @@ function OverviewPanel({
             issues.length > 0 ? (
               <div className="space-y-3">
                 {issues.slice(0, 4).map((check) => (
-                  <div
+                  <GlassSurface
                     key={check.name}
-                    className="glass-surface rounded-2xl border border-border-subtle px-4 py-3"
+                    className="rounded-2xl border border-border-subtle px-4 py-3"
                   >
                     <div className="flex items-center justify-between gap-3 mb-1">
                       <div className="flex items-center gap-2 min-w-0">
@@ -412,20 +414,20 @@ function OverviewPanel({
                       </Badge>
                     </div>
                     <p className="text-xs text-text-secondary">{check.message}</p>
-                  </div>
+                  </GlassSurface>
                 ))}
               </div>
             ) : (
-              <div className="glass-surface rounded-2xl border border-border-subtle px-4 py-4 text-sm text-text-secondary">
+              <GlassSurface className="rounded-2xl border border-border-subtle px-4 py-4 text-sm text-text-secondary">
                 {t('monitoring.allSystemsHealthy')}
-              </div>
+              </GlassSurface>
             )
           ) : (
             <div className="text-sm text-text-muted">{t('monitoring.runningHealthChecks')}</div>
           )}
-        </div>
+        </GlassCard>
 
-        <div className="glass-card p-4 space-y-4">
+        <GlassCard className="p-4 space-y-4">
           <div className="flex items-center gap-2">
             <DollarSign size={16} style={{ color: 'var(--color-nf-yellow)' }} />
             <h2 className="text-sm font-black text-text-primary">{t('monitoring.costSnapshot')}</h2>
@@ -447,11 +449,12 @@ function OverviewPanel({
               <div className="space-y-2">
                 {topCostNamespaces.length > 0 ? (
                   topCostNamespaces.map((item) => (
-                    <Link
+                    <GlassSurface
+                      as={Link}
                       key={item.namespace}
                       to="/deployments/$namespace"
                       params={{ namespace: item.namespace }}
-                      className="flex items-center justify-between gap-3 rounded-2xl px-4 py-3 border transition-colors hover:bg-bg-modifier-hover glass-surface border-border-subtle"
+                      className="flex items-center justify-between gap-3 rounded-2xl px-4 py-3 border transition-colors hover:bg-bg-modifier-hover border-border-subtle"
                     >
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate text-text-primary">
@@ -465,7 +468,7 @@ function OverviewPanel({
                       <span className="text-sm font-semibold text-green-400 shrink-0">
                         {formatUsdCost(item.totalUsd, i18n.language)}
                       </span>
-                    </Link>
+                    </GlassSurface>
                   ))
                 ) : (
                   <p className="text-sm text-text-muted">
@@ -477,9 +480,9 @@ function OverviewPanel({
           ) : (
             <p className="text-sm text-text-muted">{t('common.loading')}</p>
           )}
-        </div>
+        </GlassCard>
 
-        <div className="glass-card p-4 space-y-4">
+        <GlassCard className="p-4 space-y-4">
           <div className="flex items-center gap-2">
             <FolderOpen size={16} style={{ color: 'var(--color-nf-cyan)' }} />
             <h2 className="text-sm font-black text-text-primary">
@@ -488,30 +491,30 @@ function OverviewPanel({
           </div>
 
           <div className="grid grid-cols-3 gap-3">
-            <div className="glass-surface rounded-2xl p-4">
+            <GlassSurface className="rounded-2xl p-4">
               <div className="text-xs mb-1 text-text-muted">
                 {t('monitoring.configuredNamespaces')}
               </div>
               <div className="text-lg font-black text-text-primary">
                 {namespaces?.configured.length ?? 0}
               </div>
-            </div>
-            <div className="glass-surface rounded-2xl p-4">
+            </GlassSurface>
+            <GlassSurface className="rounded-2xl p-4">
               <div className="text-xs mb-1 text-text-muted">
                 {t('monitoring.discoveredNamespaces')}
               </div>
               <div className="text-lg font-black text-text-primary">
                 {namespaces?.discovered.length ?? 0}
               </div>
-            </div>
-            <div className="glass-surface rounded-2xl p-4">
+            </GlassSurface>
+            <GlassSurface className="rounded-2xl p-4">
               <div className="text-xs mb-1 text-text-muted">
                 {t('monitoring.trackedNamespaces')}
               </div>
               <div className="text-lg font-black text-text-primary">
                 {namespaces?.all.length ?? 0}
               </div>
-            </div>
+            </GlassSurface>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -523,11 +526,11 @@ function OverviewPanel({
               </Button>
             ))}
           </div>
-        </div>
+        </GlassCard>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-4">
-        <div className="glass-card p-4 space-y-4">
+        <GlassCard className="p-4 space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Activity size={16} style={{ color: 'var(--color-nf-cyan)' }} />
@@ -541,9 +544,9 @@ function OverviewPanel({
           </div>
 
           <ActivityList activities={activities} limit={6} />
-        </div>
+        </GlassCard>
 
-        <div className="glass-card p-4 space-y-4">
+        <GlassCard className="p-4 space-y-4">
           <div className="flex items-center gap-2">
             <Box size={16} style={{ color: 'var(--color-nf-cyan)' }} />
             <h2 className="text-sm font-black text-text-primary">
@@ -554,11 +557,12 @@ function OverviewPanel({
           {groupedDeployments.length > 0 ? (
             <div className="space-y-3">
               {groupedDeployments.map((group) => (
-                <Link
+                <GlassSurface
+                  as={Link}
                   key={group.namespace}
                   to="/deployments/$namespace"
                   params={{ namespace: group.namespace }}
-                  className="block rounded-2xl border px-4 py-3 transition-colors hover:bg-bg-modifier-hover glass-surface border-border-subtle"
+                  className="block rounded-2xl border px-4 py-3 transition-colors hover:bg-bg-modifier-hover border-border-subtle"
                 >
                   <div className="flex items-center justify-between gap-3 mb-2">
                     <p className="text-sm font-medium text-text-primary">{group.namespace}</p>
@@ -569,7 +573,7 @@ function OverviewPanel({
                   <p className="text-xs line-clamp-2 text-text-muted">
                     {group.deployments.map((deployment) => deployment.name).join(', ')}
                   </p>
-                </Link>
+                </GlassSurface>
               ))}
             </div>
           ) : (
@@ -579,7 +583,7 @@ function OverviewPanel({
               description={t('deployments.noDeploymentsYet')}
             />
           )}
-        </div>
+        </GlassCard>
       </div>
     </div>
   )
@@ -665,7 +669,7 @@ function CostsPanel({
             : null
 
           return (
-            <div key={item.namespace} className="glass-card p-4 space-y-4">
+            <GlassCard key={item.namespace} className="p-4 space-y-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -701,9 +705,9 @@ function CostsPanel({
                 detail.agents.length > 0 ? (
                   <div className="space-y-3">
                     {detail.agents.map((agent) => (
-                      <div
+                      <GlassSurface
                         key={`${detail.namespace}-${agent.agentName}`}
-                        className="glass-surface rounded-2xl border border-border-subtle px-4 py-3"
+                        className="rounded-2xl border border-border-subtle px-4 py-3"
                       >
                         <div className="flex items-start justify-between gap-3 mb-2">
                           <div className="min-w-0">
@@ -760,7 +764,7 @@ function CostsPanel({
                         {agent.message && (
                           <p className="text-xs text-yellow-500 mt-3">{agent.message}</p>
                         )}
-                      </div>
+                      </GlassSurface>
                     ))}
                   </div>
                 ) : (
@@ -773,7 +777,7 @@ function CostsPanel({
                   {loadingNamespaceCosts ? t('monitoring.loadingCostDetails') : t('common.loading')}
                 </p>
               )}
-            </div>
+            </GlassCard>
           )
         })}
       </div>

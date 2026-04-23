@@ -1,4 +1,4 @@
-import { Badge, Button, cn } from '@shadowob/ui'
+import { Badge, Button, cn, GlassPanel } from '@shadowob/ui'
 import {
   type InfiniteData,
   useInfiniteQuery,
@@ -740,8 +740,8 @@ export function ChatArea() {
 
   return (
     <div className="flex-1 flex min-w-0 h-full">
-      <div
-        className="flex-1 flex flex-col glass-panel chat-panel overflow-hidden min-w-0 h-full relative"
+      <GlassPanel
+        className="flex-1 flex flex-col chat-panel overflow-hidden min-w-0 h-full relative"
         onDrop={handleAreaDrop}
         onDragOver={handleAreaDragOver}
         onDragLeave={handleAreaDragLeave}
@@ -1023,7 +1023,7 @@ export function ChatArea() {
             onExternalFilesConsumed={() => setDroppedFiles([])}
           />
         )}
-      </div>
+      </GlassPanel>
 
       {/* File preview panel */}
       {previewFile && (

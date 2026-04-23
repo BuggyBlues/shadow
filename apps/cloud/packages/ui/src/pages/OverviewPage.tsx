@@ -1,4 +1,4 @@
-import { Badge, Button, Card } from '@shadowob/ui'
+import { Badge, Button, Card, GlassPanel } from '@shadowob/ui'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import {
@@ -300,13 +300,13 @@ export function OverviewPage() {
       }
     >
       {/* Quick Actions */}
-      <section className="glass-panel p-6">
+      <GlassPanel as="section" className="p-6">
         <h2 className="mb-3 text-sm font-bold flex items-center gap-2 text-text-secondary">
           <Zap size={13} />
           {t('overview.quickActions')}
         </h2>
         <QuickActions />
-      </section>
+      </GlassPanel>
 
       {/* Two column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
