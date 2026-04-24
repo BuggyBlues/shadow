@@ -154,6 +154,7 @@ afterAll(async () => {
       .where(eq(schema.users.id, userId))
       .catch(() => {})
   }
+
   await sql.end()
 })
 

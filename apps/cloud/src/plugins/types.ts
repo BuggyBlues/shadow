@@ -315,6 +315,9 @@ export interface PluginAPI {
   /** Emit an OpenClaw config fragment (merged with other plugin fragments) */
   onBuildConfig(fn: (ctx: PluginBuildContext) => PluginConfigFragment | void): void
 
+  /** Emit additional standing instructions to append to the agent prompt */
+  onBuildPrompt(fn: (ctx: PluginBuildContext) => string | void): void
+
   /** Emit environment variables to inject into the agent container */
   onBuildEnv(fn: (ctx: PluginBuildContext) => Record<string, string> | void): void
 
@@ -341,6 +344,7 @@ export interface PluginAPI {
 export interface PluginHooks {
   resolveAgent: Array<(agent: AgentDeployment, config: CloudConfig) => AgentDeployment>
   buildConfig: Array<(ctx: PluginBuildContext) => PluginConfigFragment | void>
+  buildPrompt: Array<(ctx: PluginBuildContext) => string | void>
   buildEnv: Array<(ctx: PluginBuildContext) => Record<string, string> | void>
   buildResources: Array<(ctx: PluginBuildContext) => Record<string, unknown>[]>
   validate: Array<(ctx: PluginBuildContext) => PluginValidationResult | void>

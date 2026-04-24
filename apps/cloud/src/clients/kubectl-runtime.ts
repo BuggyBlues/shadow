@@ -1,17 +1,15 @@
 /**
- * Lightweight kubectl wrapper used by the SaaS API to inspect K8s state for a
- * deployment without going through the cloud worker. Intentionally minimal:
- * `kubectl` must be installed in the server image, and a kubeconfig is either
- * provided per-call or read from the standard KUBECONFIG env var.
+ * Runtime kubectl helper set used by SaaS orchestration and APIs.
  *
- * SECURITY: kubeconfig content is written to a private temp file (mode 0600)
- * for the duration of each call and removed in the finally block. We never
- * log the content.
+ * This module supports both explicit kubeconfig content and ambient kubeconfig
+ * discovery from process env / local defaults. It also rewrites localhost
+ * kubeconfig endpoints for containerized runtime access where needed.
  */
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
+import { rewriteLoopbackKubeconfig } from '../services/deployment-runtime.service.js'
 
 export interface K8sPodSummary {
   name: string
@@ -25,33 +23,6 @@ export interface K8sExecResult {
   stdout: string
   stderr: string
   exitCode: number
-}
-
-function rewriteLoopbackKubeconfig(kubeconfigYaml: string, loopbackHost?: string): string {
-  const normalizedHost = loopbackHost?.trim()
-  if (!normalizedHost) return kubeconfigYaml
-
-  const lines = kubeconfigYaml.split(/\r?\n/)
-
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index]
-    const match = line?.match(/^([ \t]*server:\s*https?:\/\/)(127\.0\.0\.1|localhost)([:/].*)$/)
-    if (!match) continue
-
-    const serverPrefix = match[1] ?? ''
-    const serverSuffix = match[3] ?? ''
-    const indent = serverPrefix.match(/^[ \t]*/)?.[0] ?? ''
-    lines[index] = `${serverPrefix}${normalizedHost}${serverSuffix}`
-
-    const tlsServerNameLine = `${indent}tls-server-name: localhost`
-    const nextLine = lines[index + 1]
-    if (!nextLine?.trim().startsWith('tls-server-name:')) {
-      lines.splice(index + 1, 0, tlsServerNameLine)
-      index += 1
-    }
-  }
-
-  return lines.join('\n')
 }
 
 function isContainerizedRuntime(): boolean {
@@ -117,9 +88,8 @@ function createTempKubeconfig(
 } {
   const dir = mkdtempSync(join(tmpdir(), 'sc-saas-kube-'))
   const path = join(dir, 'kubeconfig')
-  const loopbackHost = process.env.KUBECONFIG_LOOPBACK_HOST?.trim()
   const rewritten = rewriteLoopback
-    ? rewriteLoopbackKubeconfig(kubeconfig, loopbackHost)
+    ? rewriteLoopbackKubeconfig(kubeconfig, process.env.KUBECONFIG_LOOPBACK_HOST)
     : kubeconfig
   writeFileSync(path, rewritten, { mode: 0o600 })
 
@@ -174,9 +144,6 @@ function isNamespaceNotFound(error: unknown): boolean {
   return error instanceof Error && /not found/i.test(error.message)
 }
 
-/**
- * List pods in a namespace.
- */
 export function listPods(namespace: string, kubeconfig?: string): K8sPodSummary[] {
   try {
     const out = execKubectl(['-n', namespace, 'get', 'pods', '-o', 'json'], kubeconfig)
@@ -200,12 +167,6 @@ export function listPods(namespace: string, kubeconfig?: string): K8sPodSummary[
   }
 }
 
-/**
- * Spawn a `kubectl logs -f` process. Caller must `kill()` on stream abort.
- * Note: the temp kubeconfig file is intentionally NOT removed while the
- * spawned process is alive — the caller closes the stream and we clean up
- * via the returned `cleanup()` function.
- */
 export function spawnPodLogStream(opts: {
   namespace: string
   pod: string
@@ -240,9 +201,6 @@ export function spawnPodLogStream(opts: {
   return { proc, cleanup }
 }
 
-/**
- * Read a snapshot of pod logs.
- */
 export function readPodLogs(opts: {
   namespace: string
   pod: string
@@ -258,9 +216,6 @@ export function readPodLogs(opts: {
   return execKubectl(args, opts.kubeconfig)
 }
 
-/**
- * Execute a command inside a pod and capture stdout/stderr.
- */
 export function execInPod(opts: {
   namespace: string
   pod: string
@@ -288,13 +243,6 @@ export function execInPod(opts: {
   })
 }
 
-/**
- * List all namespaces tagged as managed by Shadow Cloud on the *default*
- * cluster (KUBECONFIG). Supports both the legacy `managed-by=shadowob-cloud-cli`
- * label and the newer `shadowob-cloud/managed=true` label so reconcile and
- * cleanup remain backward-compatible across deployments. Returns `null` if
- * kubectl is not installed (so callers can degrade gracefully).
- */
 export function listManagedNamespaces(kubeconfig?: string): string[] | null {
   try {
     const out = execKubectl(['get', 'ns', '-o', 'json'], kubeconfig, 10_000)
@@ -322,10 +270,6 @@ export function listManagedNamespaces(kubeconfig?: string): string[] | null {
   }
 }
 
-/**
- * Check whether a namespace exists. Returns `null` when the cluster is not
- * reachable so callers can skip destructive or state-changing fallbacks.
- */
 export function namespaceExists(namespace: string, kubeconfig?: string): boolean | null {
   try {
     const out = execKubectl(
@@ -342,9 +286,6 @@ export function namespaceExists(namespace: string, kubeconfig?: string): boolean
   }
 }
 
-/**
- * Delete a namespace without waiting for termination to complete.
- */
 export function deleteNamespace(namespace: string, kubeconfig?: string): void {
   execKubectl(['delete', 'namespace', namespace, '--wait=false'], kubeconfig)
 }

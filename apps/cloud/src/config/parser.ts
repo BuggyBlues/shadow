@@ -20,6 +20,8 @@ import { resolveTemplates, type TemplateContext } from './template.js'
 // Re-export buildOpenClawConfig from its dedicated module
 export { buildOpenClawConfig } from './openclaw-builder.js'
 
+import { collectPluginBuildEnvVars } from './openclaw-builder.js'
+
 /**
  * Recursively resolve a Configuration from the registry, following the
  * `extends` chain. Child fields override parent fields (deep merge).
@@ -193,5 +195,25 @@ export async function resolveConfig(
     effectiveCtx.vaultSecrets = { ...vaultSecrets, ...effectiveCtx.vaultSecrets }
   }
 
-  return resolveTemplates(resolved, effectiveCtx)
+  const templated = resolveTemplates(resolved, effectiveCtx)
+
+  if (!templated.deployments?.agents?.length) return templated
+
+  return {
+    ...templated,
+    deployments: {
+      ...templated.deployments,
+      agents: templated.deployments.agents.map((agent) => {
+        const pluginEnvVars = collectPluginBuildEnvVars(agent, templated, cwd)
+        if (Object.keys(pluginEnvVars).length === 0) return agent
+        return {
+          ...agent,
+          env: {
+            ...(agent.env ?? {}),
+            ...pluginEnvVars,
+          },
+        }
+      }),
+    },
+  }
 }

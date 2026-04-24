@@ -36,6 +36,7 @@ function makeHooks(): PluginHooks {
   return {
     resolveAgent: [],
     buildConfig: [],
+    buildPrompt: [],
     buildEnv: [],
     buildResources: [],
     validate: [],
@@ -60,6 +61,7 @@ function makeAPI(
     },
     onResolveAgent: (fn) => hooks.resolveAgent.push(fn),
     onBuildConfig: (fn) => hooks.buildConfig.push(fn),
+    onBuildPrompt: (fn) => hooks.buildPrompt.push(fn),
     onBuildEnv: (fn) => hooks.buildEnv.push(fn),
     onBuildResources: (fn) => hooks.buildResources.push(fn),
     onValidate: (fn) => hooks.validate.push(fn),

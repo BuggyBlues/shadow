@@ -1,19 +1,28 @@
 /**
- * Cloud Worker — polls cloud_deployments and executes lifecycle actions.
+ * Cloud deployment processor — polls cloud_deployments and executes lifecycle actions.
  *
- * Runs as a separate container. Requires access to PostgreSQL and a reachable
+ * Runs in-process with the server. Requires access to PostgreSQL and a reachable
  * Kubernetes cluster via KUBECONFIG.
  */
-import { createContainer, extractCloudSaasRuntime, type ServiceContainer } from '@shadowob/cloud'
-import { CloudClusterDao } from './dao/cloud-cluster.dao'
-import { CloudDeploymentDao } from './dao/cloud-deployment.dao'
-import type { Database } from './db'
-import { db } from './db'
-import { resolveCloudSaasShadowRuntime } from './lib/cloud-saas-config'
-import { deleteNamespace, listManagedNamespaces, namespaceExists } from './lib/k8s-cli'
-import { decrypt } from './lib/kms'
+import {
+  createContainer,
+  deleteNamespace,
+  extractCloudSaasRuntime,
+  listManagedNamespaces,
+  namespaceExists,
+  resolveCloudSaasShadowRuntime,
+  type ServiceContainer,
+} from '@shadowob/cloud'
+import { CloudClusterDao } from '../dao/cloud-cluster.dao'
+import { CloudDeploymentDao } from '../dao/cloud-deployment.dao'
+import type { Database } from '../db'
+import { db } from '../db'
+import { decrypt } from './kms'
+import { logger } from './logger'
 
-const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS ?? 5000)
+const POLL_INTERVAL_MS = Number(
+  process.env.CLOUD_WORKER_POLL_INTERVAL_MS ?? process.env.POLL_INTERVAL_MS ?? 5000,
+)
 const RECONCILE_INTERVAL_MS = Number(process.env.RECONCILE_INTERVAL_MS ?? 60_000)
 
 type CloudDeploymentRecord = NonNullable<Awaited<ReturnType<CloudDeploymentDao['findByIdOnly']>>>
@@ -32,7 +41,33 @@ const runningDeploys = new Map<
   }
 >()
 
-async function main() {
+export type CloudDeploymentProcessorHandle = {
+  stop: () => Promise<void>
+}
+
+export function startCloudDeploymentProcessor(): CloudDeploymentProcessorHandle {
+  const enabled = process.env.ENABLE_CLOUD_DEPLOYMENT_PROCESSOR !== 'false'
+  if (!enabled) {
+    logger.info('Cloud deployment processor disabled (ENABLE_CLOUD_DEPLOYMENT_PROCESSOR=false)')
+    return {
+      stop: async () => {},
+    }
+  }
+
+  let stopped = false
+  const loopPromise = runLoop(() => stopped).catch((err) => {
+    logger.error({ err }, 'Cloud deployment processor stopped unexpectedly')
+  })
+
+  return {
+    stop: async () => {
+      stopped = true
+      await loopPromise
+    },
+  }
+}
+
+async function runLoop(isStopped: () => boolean): Promise<void> {
   const container = createContainer()
 
   const deploymentDao = new CloudDeploymentDao({
@@ -42,11 +77,11 @@ async function main() {
     db: db as Database,
   })
 
-  console.log('[cloud-worker] Started, polling every', POLL_INTERVAL_MS, 'ms')
+  logger.info({ pollIntervalMs: POLL_INTERVAL_MS }, 'Cloud deployment processor started')
 
   let lastReconcileAt = 0
 
-  while (true) {
+  while (!isStopped()) {
     try {
       // 1. Process pending deployments (deploy)
       const pending = await deploymentDao.listPending()
@@ -92,14 +127,19 @@ async function main() {
       if (now - lastReconcileAt >= RECONCILE_INTERVAL_MS) {
         lastReconcileAt = now
         await reconcileOrphans(deploymentDao, clusterDao).catch((err) => {
-          console.error('[cloud-worker] Reconcile error:', err)
+          logger.error({ err }, 'Cloud deployment reconcile error')
         })
       }
     } catch (err) {
-      console.error('[cloud-worker] Poll error:', err)
+      logger.error({ err }, 'Cloud deployment poll error')
     }
-    await sleep(POLL_INTERVAL_MS)
+
+    if (!isStopped()) {
+      await sleep(POLL_INTERVAL_MS)
+    }
   }
+
+  logger.info('Cloud deployment processor stopped')
 }
 
 async function withLockedDeployment(
@@ -167,7 +207,7 @@ async function processDeployment(
   clusterDao: CloudClusterDao,
   container: ServiceContainer,
 ) {
-  console.log(`[cloud-worker] Deploying ${deployment.id} (${deployment.name})`)
+  logger.info({ deploymentId: deployment.id, deploymentName: deployment.name }, 'Deploying stack')
   await deploymentDao.updateStatus(deployment.id, 'deploying')
   await deploymentDao.appendLog(deployment.id, `Starting deployment: ${deployment.name}`, 'info')
 
@@ -240,13 +280,14 @@ async function processDeployment(
       'info',
     )
     await deploymentDao.updateStatus(deployment.id, 'deployed')
-    console.log(
-      `[cloud-worker] Deployment ${deployment.id} completed (${result.agentCount} agents)`,
+    logger.info(
+      { deploymentId: deployment.id, agentCount: result.agentCount },
+      'Deployment completed',
     )
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     const cancelled = cancelToken.cancelled || /cancel/i.test(msg)
-    console.error(`[cloud-worker] Deployment ${deployment.id} failed:`, msg)
+    logger.error({ deploymentId: deployment.id, error: msg }, 'Deployment failed')
     await deploymentDao.appendLog(
       deployment.id,
       cancelled ? `Cancelled: ${msg}` : `Error: ${msg}`,
@@ -264,7 +305,7 @@ async function processDestroy(
   clusterDao: CloudClusterDao,
   container: ServiceContainer,
 ) {
-  console.log(`[cloud-worker] Destroying ${deployment.id} (${deployment.name})`)
+  logger.info({ deploymentId: deployment.id, deploymentName: deployment.name }, 'Destroying stack')
   await deploymentDao.appendLog(deployment.id, `Starting destroy: ${deployment.name}`, 'info')
 
   try {
@@ -304,10 +345,10 @@ async function processDestroy(
       'info',
     )
     await deploymentDao.updateStatus(deployment.id, 'destroyed')
-    console.log(`[cloud-worker] Destroy ${deployment.id} completed`)
+    logger.info({ deploymentId: deployment.id }, 'Destroy completed')
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    console.error(`[cloud-worker] Destroy ${deployment.id} failed:`, msg)
+    logger.error({ deploymentId: deployment.id, error: msg }, 'Destroy failed')
     await deploymentDao.appendLog(deployment.id, `Destroy error: ${msg}`, 'error')
     await deploymentDao.updateStatus(deployment.id, 'failed', `destroy: ${msg}`)
   }
@@ -315,9 +356,9 @@ async function processDestroy(
 
 /**
  * Honor a cancellation request:
- *   - If the deploy is running in this worker, signal cooperative cancel and
+ *   - If the deploy is running in this processor, signal cooperative cancel and
  *     ask the Pulumi stack to abort. processDeployment() will mark failed.
- *   - Otherwise (worker restarted, or cancellation arrived before the deploy
+ *   - Otherwise (server restarted, or cancellation arrived before the deploy
  *     was picked up), mark failed directly.
  */
 async function processCancel(deployment: CloudDeploymentRecord, deploymentDao: CloudDeploymentDao) {
@@ -326,11 +367,11 @@ async function processCancel(deployment: CloudDeploymentRecord, deploymentDao: C
     live.cancelled = true
     if (live.stack) {
       try {
-        console.log(`[cloud-worker] Cancelling Pulumi stack for ${deployment.id}`)
+        logger.info({ deploymentId: deployment.id }, 'Cancelling Pulumi stack')
         await live.stack.cancel()
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
-        console.error(`[cloud-worker] stack.cancel() failed for ${deployment.id}:`, msg)
+        logger.error({ deploymentId: deployment.id, error: msg }, 'stack.cancel() failed')
       }
     }
     await deploymentDao.appendLog(
@@ -342,10 +383,10 @@ async function processCancel(deployment: CloudDeploymentRecord, deploymentDao: C
   }
 
   // Not actively running here. The deploy may have been picked up by another
-  // worker (future), or never started, or already finished.
+  // process (future), or never started, or already finished.
   await deploymentDao.appendLog(
     deployment.id,
-    '[cancel] No live deploy found in this worker; marking failed',
+    '[cancel] No live deploy found in this processor; marking failed',
     'warn',
   )
   await deploymentDao.updateStatus(deployment.id, 'failed', 'cancelled by user')
@@ -389,8 +430,9 @@ async function reconcileOrphans(deploymentDao: CloudDeploymentDao, clusterDao: C
         /* ignore — fall through to mark orphan */
       }
     }
-    console.warn(
-      `[cloud-worker] Orphan detected: deployment ${deployment.id} (${deployment.namespace}) not present on cluster`,
+    logger.warn(
+      { deploymentId: deployment.id, namespace: deployment.namespace },
+      'Orphan detected: namespace missing on cluster',
     )
     await deploymentDao.appendLog(
       deployment.id,
@@ -412,8 +454,3 @@ function listAllManagedNamespaces(): string[] | null {
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
-
-main().catch((err) => {
-  console.error('[cloud-worker] Fatal:', err)
-  process.exit(1)
-})

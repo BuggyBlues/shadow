@@ -10,9 +10,30 @@ export {
   extractCloudSaasRuntime,
   prepareCloudSaasConfigSnapshot,
   redactCloudSaasConfigSnapshot,
+  resolveCloudSaasShadowRuntime,
   sanitizeCloudSaasDeployment,
   validateCloudSaasConfigSnapshot,
 } from './application/cloud-saas-config.js'
+export { loadCloudConfigSchema } from './application/config-schema.js'
+export { summarizeCloudConfigValidation } from './application/config-validation.js'
+export { extractRequiredEnvVars } from './application/template-env-refs.js'
+export {
+  type BillingUnit,
+  collectAgentUsage,
+  collectNamespaceCost,
+  summarizeCostOverview,
+} from './application/usage-cost.js'
+export {
+  deleteNamespace,
+  execInPod,
+  type K8sExecResult,
+  type K8sPodSummary,
+  listManagedNamespaces,
+  listPods,
+  namespaceExists,
+  readPodLogs,
+  spawnPodLogStream,
+} from './clients/kubectl-runtime.js'
 export { createCLI } from './interfaces/cli/index.js'
 export {
   type AgentCostSummary,

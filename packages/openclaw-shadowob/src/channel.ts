@@ -366,6 +366,7 @@ shadowPlugin.gateway = {
 const SHADOW_ACTIONS = [
   'send',
   'sendAttachment',
+  'send-interactive',
   'react',
   'edit',
   'delete',
@@ -457,6 +458,76 @@ shadowPlugin.actions = {
           action: 'sendAttachment',
           messageId: message.id,
           filename,
+        })
+      } catch (err) {
+        return textResult({ ok: false, error: err instanceof Error ? err.message : String(err) })
+      }
+    }
+
+    // send-interactive — post a message with metadata.interactive (buttons / select / form / approval)
+    if (action === 'send-interactive') {
+      try {
+        const client = new ShadowClient(account.serverUrl, account.token)
+        const to = (params.to as string) ?? ''
+        const kind = (params.kind as string) ?? 'buttons'
+        const prompt = (params.prompt as string) ?? (params.message as string) ?? ''
+        if (!to) return textResult({ ok: false, error: 'to is required' })
+        if (!['buttons', 'select', 'form', 'approval'].includes(kind)) {
+          return textResult({ ok: false, error: `unsupported interactive kind: ${kind}` })
+        }
+        const blockId = (params.blockId as string) ?? `ia_${Date.now().toString(36)}`
+        const block: Record<string, unknown> = {
+          id: blockId,
+          kind,
+          prompt: prompt || undefined,
+        }
+        // Pass-through optional shape fields. Server zod validates structure.
+        for (const k of [
+          'buttons',
+          'options',
+          'placeholder',
+          'fields',
+          'submitLabel',
+          'approvalCommentLabel',
+          'oneShot',
+        ]) {
+          if (params[k] !== undefined) block[k] = params[k]
+        }
+        const { channelId, threadId: parsedThreadId } = parseTarget(to)
+        const threadId = (params.threadId as string) ?? parsedThreadId
+        const replyToId = params.replyTo as string | undefined
+        const content = prompt && prompt.trim() ? prompt : '[interactive]'
+        let message
+        if (threadId) {
+          // sendToThread doesn't accept metadata; fall back to raw fetch via sendMessage if channel
+          // is also provided, otherwise note the limitation.
+          if (channelId) {
+            message = await client.sendMessage(channelId, content, {
+              threadId,
+              replyToId,
+              metadata: { interactive: block },
+            })
+          } else {
+            return textResult({
+              ok: false,
+              error:
+                'send-interactive requires a channel target (thread-only target not supported)',
+            })
+          }
+        } else if (channelId) {
+          message = await client.sendMessage(channelId, content, {
+            replyToId,
+            metadata: { interactive: block },
+          })
+        } else {
+          return textResult({ ok: false, error: 'Could not resolve target channel' })
+        }
+        return textResult({
+          ok: true,
+          action: 'send-interactive',
+          messageId: message.id,
+          blockId,
+          kind,
         })
       } catch (err) {
         return textResult({ ok: false, error: err instanceof Error ? err.message : String(err) })

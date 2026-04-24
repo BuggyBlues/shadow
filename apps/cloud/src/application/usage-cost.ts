@@ -1,5 +1,3 @@
-import { execInPod, type K8sPodSummary, listPods } from './k8s-cli'
-
 export type BillingUnit = 'usd' | 'shrimp'
 
 export interface ProviderUsageSummary {
@@ -52,6 +50,29 @@ export interface CostOverviewSummary {
     unavailableAgents: number
   }>
   generatedAt: string
+}
+
+export interface UsageCostPodSummary {
+  name: string
+  status: string
+  age: string
+}
+
+export interface UsageCostExecResult {
+  stdout: string
+  stderr: string
+  exitCode: number
+}
+
+export interface UsageCostRuntime {
+  listPods(namespace: string, kubeconfig?: string): UsageCostPodSummary[]
+  execInPod(opts: {
+    namespace: string
+    pod: string
+    command: string[]
+    kubeconfig?: string
+    timeout?: number
+  }): UsageCostExecResult
 }
 
 interface ParsedUsageSnapshot {
@@ -410,7 +431,7 @@ function formatUnavailableMessage(reason: string, model: string | null): string 
   return `${reason} Model: ${model}. OpenClaw did not receive usage details from the current provider for this pod.`
 }
 
-function preferRunningPods(pods: K8sPodSummary[], agentName: string): K8sPodSummary[] {
+function preferRunningPods(pods: UsageCostPodSummary[], agentName: string): UsageCostPodSummary[] {
   return pods
     .filter((pod) => pod.name.includes(agentName))
     .sort((left, right) => {
@@ -420,17 +441,28 @@ function preferRunningPods(pods: K8sPodSummary[], agentName: string): K8sPodSumm
     })
 }
 
-function collectAgentUsage(
-  namespace: string,
-  agentName: string,
-  kubeconfig?: string,
-): Omit<AgentCostSummary, 'billingAmount' | 'billingUnit'> {
-  const pods = listPods(namespace, kubeconfig)
-  const pod = preferRunningPods(pods, agentName)[0]
+function tryParseJson(value: string): unknown | null {
+  const trimmed = value.trim()
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return null
+  try {
+    return JSON.parse(trimmed)
+  } catch {
+    return null
+  }
+}
+
+export function collectAgentUsage(opts: {
+  namespace: string
+  agentName: string
+  runtime: UsageCostRuntime
+  kubeconfig?: string
+}): Omit<AgentCostSummary, 'billingAmount' | 'billingUnit'> {
+  const pods = opts.runtime.listPods(opts.namespace, opts.kubeconfig)
+  const pod = preferRunningPods(pods, opts.agentName)[0]
 
   if (!pod) {
     return {
-      agentName,
+      agentName: opts.agentName,
       podName: null,
       totalUsd: null,
       totalTokens: null,
@@ -443,11 +475,11 @@ function collectAgentUsage(
   let unavailableMessage: string | null = null
 
   for (const command of EXEC_CANDIDATES) {
-    const result = execInPod({
-      namespace,
+    const result = opts.runtime.execInPod({
+      namespace: opts.namespace,
       pod: pod.name,
       command,
-      kubeconfig,
+      kubeconfig: opts.kubeconfig,
       timeout: 15_000,
     })
 
@@ -458,7 +490,7 @@ function collectAgentUsage(
     const parsedJson = jsonCandidate ? parseUsageJson(jsonCandidate) : null
     if (parsedJson) {
       return {
-        agentName,
+        agentName: opts.agentName,
         podName: pod.name,
         totalUsd: parsedJson.totalUsd,
         totalTokens: parsedJson.totalTokens,
@@ -471,7 +503,7 @@ function collectAgentUsage(
     const parsedText = parseUsageText(result.stdout || result.stderr)
     if (parsedText) {
       return {
-        agentName,
+        agentName: opts.agentName,
         podName: pod.name,
         totalUsd: parsedText.totalUsd,
         totalTokens: parsedText.totalTokens,
@@ -489,7 +521,7 @@ function collectAgentUsage(
   }
 
   return {
-    agentName,
+    agentName: opts.agentName,
     podName: pod.name,
     totalUsd: null,
     totalTokens: null,
@@ -499,26 +531,22 @@ function collectAgentUsage(
   }
 }
 
-function tryParseJson(value: string): unknown | null {
-  const trimmed = value.trim()
-  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return null
-  try {
-    return JSON.parse(trimmed)
-  } catch {
-    return null
-  }
-}
-
 export function collectNamespaceCost(opts: {
   namespace: string
   agentNames: string[]
   billingAmount: number | null
   billingUnit: BillingUnit
+  runtime: UsageCostRuntime
   kubeconfig?: string
 }): NamespaceCostSummary {
   const agentNames = opts.agentNames.length > 0 ? opts.agentNames : [opts.namespace]
   const baseAgents = agentNames.map((agentName) =>
-    collectAgentUsage(opts.namespace, agentName, opts.kubeconfig),
+    collectAgentUsage({
+      namespace: opts.namespace,
+      agentName,
+      runtime: opts.runtime,
+      kubeconfig: opts.kubeconfig,
+    }),
   )
   const perAgentBilling =
     opts.billingAmount !== null && baseAgents.length > 0
@@ -540,6 +568,29 @@ export function collectNamespaceCost(opts: {
     agents,
     availableAgents: agents.filter((agent) => agent.source !== 'unavailable').length,
     unavailableAgents: agents.filter((agent) => agent.source === 'unavailable').length,
+    generatedAt: new Date().toISOString(),
+  }
+}
+
+export function summarizeCostOverview(
+  summaries: NamespaceCostSummary[],
+  billingUnit: BillingUnit,
+): CostOverviewSummary {
+  return {
+    totalUsd: sumNullable(summaries.map((summary) => summary.totalUsd)),
+    billingAmount: sumNullable(summaries.map((summary) => summary.billingAmount)),
+    billingUnit,
+    totalTokens: sumNullable(summaries.map((summary) => summary.totalTokens)),
+    namespaces: summaries.map((summary) => ({
+      namespace: summary.namespace,
+      totalUsd: summary.totalUsd,
+      billingAmount: summary.billingAmount,
+      billingUnit: summary.billingUnit,
+      totalTokens: summary.totalTokens,
+      agentCount: summary.agents.length,
+      availableAgents: summary.availableAgents,
+      unavailableAgents: summary.unavailableAgents,
+    })),
     generatedAt: new Date().toISOString(),
   }
 }

@@ -1,6 +1,11 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 
-import { buildOpenClawConfig, deepMerge, expandExtends } from '../../src/config/parser.js'
+import {
+  buildOpenClawConfig,
+  deepMerge,
+  expandExtends,
+  resolveConfig,
+} from '../../src/config/parser.js'
 import type { AgentConfiguration, CloudConfig, Configuration } from '../../src/config/schema.js'
 import { loadAllPlugins } from '../../src/plugins/loader.js'
 import { getPluginRegistry, resetPluginRegistry } from '../../src/plugins/registry.js'
@@ -13,13 +18,13 @@ beforeAll(async () => {
 describe('parser', () => {
   describe('deepMerge', () => {
     it('should merge flat objects', () => {
-      const result = deepMerge({ a: 1, b: 2 }, { b: 3, c: 4 })
+      const result = deepMerge<Record<string, unknown>>({ a: 1, b: 2 }, { b: 3, c: 4 })
       expect(result).toEqual({ a: 1, b: 3, c: 4 })
     })
 
     it('should recursively merge nested objects', () => {
-      const base = { nested: { a: 1, b: 2 } }
-      const override = { nested: { b: 3 } }
+      const base: Record<string, unknown> = { nested: { a: 1, b: 2 } }
+      const override: Record<string, unknown> = { nested: { b: 3 } }
       const result = deepMerge(base, override)
       expect(result).toEqual({ nested: { a: 1, b: 3 } })
     })
@@ -32,8 +37,8 @@ describe('parser', () => {
     })
 
     it('should not modify original objects', () => {
-      const base = { a: 1, nested: { x: 1 } }
-      const override = { nested: { y: 2 } }
+      const base: Record<string, unknown> = { a: 1, nested: { x: 1 } }
+      const override: Record<string, unknown> = { nested: { y: 2 } }
       deepMerge(base, override)
       expect(base).toEqual({ a: 1, nested: { x: 1 } })
     })
@@ -156,7 +161,6 @@ describe('parser', () => {
               id: 'openai',
               api: 'openai',
               baseUrl: 'https://api.openai.com/v1',
-              // biome-ignore lint/suspicious/noTemplateCurlyInString: OpenClaw template syntax
               apiKey: '${env:OPENAI_KEY}',
               models: [{ id: 'gpt-4o' }],
             },
@@ -412,7 +416,7 @@ describe('parser', () => {
                     memory: { enabled: true },
                     code: { enabled: true },
                     web: { fetch: { enabled: true } },
-                  },
+                  } as any,
                 },
               },
             },
@@ -441,7 +445,7 @@ describe('parser', () => {
                 openclaw: {
                   tools: {
                     code: { enabled: true },
-                  },
+                  } as any,
                 },
               },
             },
@@ -453,6 +457,111 @@ describe('parser', () => {
 
       expect(result.tools?.profile).toBe('coding')
       expect((result.tools as Record<string, unknown>)?.code).toBeUndefined()
+    })
+
+    it('should materialize plugin build env onto resolved agents instead of hidden config fields', async () => {
+      const originalAuthToken = process.env.ANTHROPIC_AUTH_TOKEN
+      const originalBaseUrl = process.env.ANTHROPIC_BASE_URL
+      const originalModel = process.env.ANTHROPIC_MODEL
+
+      process.env.ANTHROPIC_AUTH_TOKEN = 'sk-test-dashscope'
+      process.env.ANTHROPIC_BASE_URL = 'https://example.test/anthropic'
+      process.env.ANTHROPIC_MODEL = 'qwen3.6-plus'
+
+      try {
+        const config: CloudConfig = {
+          version: '1',
+          use: [{ plugin: 'model-provider' }],
+          deployments: {
+            agents: [
+              {
+                id: 'agent-1',
+                runtime: 'openclaw',
+                configuration: {},
+                env: { EXISTING_ENV: 'kept' },
+              },
+            ],
+          },
+        }
+
+        const resolved = await resolveConfig(config)
+        const resolvedAgent = resolved.deployments!.agents[0]!
+
+        expect(resolvedAgent.env).toMatchObject({
+          EXISTING_ENV: 'kept',
+          ANTHROPIC_AUTH_TOKEN: 'sk-test-dashscope',
+          ANTHROPIC_BASE_URL: 'https://example.test/anthropic',
+          ANTHROPIC_MODEL: 'qwen3.6-plus',
+        })
+
+        const openclawConfig = buildOpenClawConfig(resolvedAgent, resolved)
+        expect((openclawConfig as Record<string, unknown>)._pluginEnvVars).toBeUndefined()
+        expect(openclawConfig.models?.providers?.anthropic).toMatchObject({
+          apiKey: '${env:ANTHROPIC_AUTH_TOKEN}',
+          baseUrl: 'https://example.test/anthropic',
+        })
+      } finally {
+        if (originalAuthToken === undefined) {
+          delete process.env.ANTHROPIC_AUTH_TOKEN
+        } else {
+          process.env.ANTHROPIC_AUTH_TOKEN = originalAuthToken
+        }
+
+        if (originalBaseUrl === undefined) {
+          delete process.env.ANTHROPIC_BASE_URL
+        } else {
+          process.env.ANTHROPIC_BASE_URL = originalBaseUrl
+        }
+
+        if (originalModel === undefined) {
+          delete process.env.ANTHROPIC_MODEL
+        } else {
+          process.env.ANTHROPIC_MODEL = originalModel
+        }
+      }
+    })
+
+    it('should append agent-pack runtime guidance into workspace files', () => {
+      const config: CloudConfig = {
+        version: '1',
+        deployments: {
+          agents: [
+            {
+              id: 'strategy-agent',
+              runtime: 'openclaw',
+              identity: {
+                systemPrompt: 'Base prompt.',
+              },
+              use: [
+                {
+                  plugin: 'agent-pack',
+                  options: {
+                    packs: [
+                      {
+                        id: 'gstack',
+                        url: 'https://github.com/garrytan/gstack',
+                        mounts: [
+                          { kind: 'skills', from: 'openclaw/skills' },
+                          { kind: 'instructions', from: 'openclaw' },
+                        ],
+                      },
+                    ],
+                  },
+                },
+              ],
+              configuration: {},
+            },
+          ],
+        },
+      }
+
+      const result = buildOpenClawConfig(config.deployments!.agents[0], config)
+      const workspaceFiles = (result._workspaceFiles ?? {}) as Record<string, string>
+
+      expect(workspaceFiles['SOUL.md']).toContain('Base prompt.')
+      expect(workspaceFiles['SOUL.md']).toContain('Mounted Agent Packs')
+      expect(workspaceFiles['SOUL.md']).toContain('/agent-packs/gstack/skills')
+      expect(workspaceFiles['SOUL.md']).toContain('/agent-packs/gstack/instructions')
     })
   })
 })

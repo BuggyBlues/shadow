@@ -13,6 +13,7 @@ import { createApp } from './app'
 import { type AppContainer, createAppContainer } from './container'
 import { db } from './db'
 import { users } from './db/schema'
+import { startCloudDeploymentProcessor } from './lib/cloud-deployment-processor'
 import { randomFixedDigits } from './lib/id'
 import { verifyToken } from './lib/jwt'
 import { logger } from './lib/logger'
@@ -286,10 +287,14 @@ async function main() {
   // Start scheduled jobs
   startScheduledJobs(container)
 
+  // Start cloud deployment processor in-process
+  const cloudDeploymentProcessor = startCloudDeploymentProcessor()
+
   // Graceful shutdown
   const gracefulShutdown = async () => {
     logger.info('Shutting down gracefully...')
     stopScheduledJobs()
+    await cloudDeploymentProcessor.stop()
     io.close()
     const { closeRedisClient } = await import('./lib/redis')
     await closeRedisClient()

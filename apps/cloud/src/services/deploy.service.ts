@@ -66,6 +66,10 @@ export interface DestroyOptions {
   config?: CloudConfig
 }
 
+function resolveStackName(namespace: string, stack?: string): string {
+  return stack ?? `dev-${namespace}`
+}
+
 // ─── Service ────────────────────────────────────────────────────────────────
 
 export class DeployService {
@@ -110,6 +114,7 @@ export class DeployService {
     const config = await this.configService.parseFile(filePath)
 
     const namespace = options.namespace ?? config.deployments?.namespace ?? 'shadowob-cloud'
+    const stackName = resolveStackName(namespace, options.stack)
     const agents = config.deployments?.agents ?? []
 
     if (agents.length === 0) {
@@ -147,6 +152,10 @@ export class DeployService {
     const extraSecrets: Record<string, string> = {}
     const podFacingShadowUrl = options.k8sShadowUrl ?? options.shadowUrl
     if (podFacingShadowUrl) extraSecrets.SHADOW_SERVER_URL = podFacingShadowUrl
+    // Host-reachable URL for the cloud backend's provisioning API calls.
+    // When pod-facing URL differs (e.g. host.lima.internal vs localhost), the host
+    // can't resolve the pod-facing one, so we pass the host-side URL separately.
+    if (options.shadowUrl) extraSecrets.SHADOW_PROVISION_URL = options.shadowUrl
     if (options.shadowToken) extraSecrets.SHADOW_USER_TOKEN = options.shadowToken
 
     // 3. Resolve config (expand extends + templates)
@@ -201,7 +210,7 @@ export class DeployService {
               const { mergeProvisionState, saveProvisionState } = await import('../utils/state.js')
               const newState: import('../utils/state.js').ProvisionState = {
                 provisionedAt: new Date().toISOString(),
-                stackName: options.stack ?? 'dev',
+                stackName,
                 namespace,
                 plugins: provisionResults.states,
               }
@@ -257,7 +266,7 @@ export class DeployService {
     let stack: Awaited<ReturnType<typeof this.k8s.getOrCreateStack>>
     try {
       stack = await this.k8s.getOrCreateStack({
-        stackName: options.stack ?? 'dev',
+        stackName,
         config: resolved,
         namespace,
         shadowServerUrl: k8sShadowUrl,
@@ -274,7 +283,7 @@ export class DeployService {
         try {
           const tmpStack = await this.k8s
             .getOrCreateStack({
-              stackName: options.stack ?? 'dev',
+              stackName,
               config: resolved,
               namespace,
               shadowServerUrl: k8sShadowUrl,
@@ -306,7 +315,7 @@ export class DeployService {
         }
         // Retry
         stack = await this.k8s.getOrCreateStack({
-          stackName: options.stack ?? 'dev',
+          stackName,
           config: resolved,
           namespace,
           shadowServerUrl: k8sShadowUrl,
@@ -370,12 +379,13 @@ export class DeployService {
    */
   async destroy(options: DestroyOptions): Promise<void> {
     const namespace = options.namespace ?? 'shadowob-cloud'
+    const stackName = resolveStackName(namespace, options.stack)
 
     this.logger.step(`Destroying resources in namespace "${namespace}"...`)
 
     if (options.config) {
       const stack = await this.k8s.getOrCreateStack({
-        stackName: options.stack ?? 'dev',
+        stackName,
         config: options.config,
         namespace,
         kubeContext: options.k8sContext,

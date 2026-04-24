@@ -10,7 +10,14 @@
  */
 
 import { spawn, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { createServer } from 'node:http'
 import { join } from 'node:path'
 
@@ -137,7 +144,224 @@ function generateOpenClawConfig(mountedConfig) {
   return config
 }
 
-// ─── Extension Verification ─────────────────────────────────────────────────
+// ─── Pack Wiring (agent-pack env vars) ──────────────────────────────────────
+
+/**
+ * Read SHADOW_PACK_*_DIRS env vars produced by the cloud agent-pack plugin
+ * (apps/cloud/src/plugins/agent-pack/index.ts) and merge their contents into
+ * the OpenClaw config so the runtime actually consumes:
+ *
+ *   - agents/        → subagents (registered as additional agents.list[] entries
+ *                       and added to every primary agent's subagents.allowAgents)
+ *   - mcp/           → mcp.servers map (each *.json merged in)
+ *   - hooks/         → hooks.scripts list (paths only — runtime invocation
+ *                       semantics intentionally minimal until we standardize)
+ *   - instructions/  → appended to the primary agent's `instructions` field
+ *
+ * Other kinds (scripts/, files/) stay as env vars for direct use.
+ */
+function splitDirs(value) {
+  if (!value) return []
+  return value
+    .split(':')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .filter((p) => existsSync(p))
+}
+
+function listChildDirs(dir) {
+  try {
+    return readdirSync(dir, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => join(dir, d.name))
+  } catch {
+    return []
+  }
+}
+
+function listFiles(dir, suffix) {
+  try {
+    return readdirSync(dir, { withFileTypes: true })
+      .filter((d) => d.isFile() && d.name.endsWith(suffix))
+      .map((d) => join(dir, d.name))
+  } catch {
+    return []
+  }
+}
+
+function readMaybe(path) {
+  try {
+    return readFileSync(path, 'utf-8')
+  } catch {
+    return ''
+  }
+}
+
+function safeJson(path) {
+  try {
+    return JSON.parse(readFileSync(path, 'utf-8'))
+  } catch (err) {
+    console.warn(`[entrypoint] Failed to parse pack JSON ${path}:`, err.message)
+    return null
+  }
+}
+
+function deriveSubagentId(dir) {
+  // Use the immediate parent's name (= pack id) + child folder name
+  // → "<pack>-<child>" so collisions across packs are unlikely.
+  const parts = dir.split('/').filter(Boolean)
+  const child = parts[parts.length - 1] ?? 'subagent'
+  const pack = parts[parts.length - 3] ?? 'pack' // .../<pack>/agents/<child>
+  return `${pack}-${child}`.replace(/[^a-zA-Z0-9_-]/g, '-')
+}
+
+function loadSubagentDef(dir) {
+  // Look for AGENT.md, SKILL.md, or SOUL.md (all valid Claude-style descriptors).
+  const candidates = ['AGENT.md', 'SKILL.md', 'SOUL.md']
+  for (const f of candidates) {
+    const p = join(dir, f)
+    if (existsSync(p)) return readMaybe(p)
+  }
+  return ''
+}
+
+function mergeShadowPacks(config) {
+  const agentsDirs = splitDirs(process.env.SHADOW_PACK_AGENTS_DIRS)
+  const mcpDirs = splitDirs(process.env.SHADOW_PACK_MCP_DIRS)
+  const hooksDirs = splitDirs(process.env.SHADOW_PACK_HOOKS_DIRS)
+  const instructionsDirs = splitDirs(process.env.SHADOW_PACK_INSTRUCTIONS_DIRS)
+
+  if (
+    agentsDirs.length === 0 &&
+    mcpDirs.length === 0 &&
+    hooksDirs.length === 0 &&
+    instructionsDirs.length === 0
+  ) {
+    return config
+  }
+
+  // ── Subagents ──────────────────────────────────────────────────────────────
+  const newSubagents = []
+  const subagentIds = []
+  for (const dir of agentsDirs) {
+    for (const childDir of listChildDirs(dir)) {
+      const def = loadSubagentDef(childDir)
+      if (!def) continue
+      const id = deriveSubagentId(childDir)
+      newSubagents.push({
+        id,
+        runtime: { type: 'subagent' },
+        identity: { name: id },
+        instructions: def,
+      })
+      subagentIds.push(id)
+    }
+  }
+  if (newSubagents.length > 0) {
+    if (!config.agents) config.agents = {}
+    if (!Array.isArray(config.agents.list)) config.agents.list = []
+    // Avoid double-registration if entrypoint is invoked twice.
+    const existingIds = new Set(config.agents.list.map((a) => a.id))
+    for (const sa of newSubagents) {
+      if (!existingIds.has(sa.id)) config.agents.list.push(sa)
+    }
+    // Every primary (non-subagent) agent gets these subagents allowed.
+    for (const a of config.agents.list) {
+      if (a.runtime?.type === 'subagent') continue
+      if (!a.subagents) a.subagents = {}
+      const allow = new Set(a.subagents.allowAgents ?? [])
+      for (const id of subagentIds) allow.add(id)
+      a.subagents.allowAgents = [...allow]
+    }
+    console.log(`[entrypoint] Registered ${subagentIds.length} pack subagent(s)`)
+  }
+
+  // ── MCP servers ────────────────────────────────────────────────────────────
+  const mcpServers = {}
+  for (const dir of mcpDirs) {
+    for (const file of listFiles(dir, '.json')) {
+      const parsed = safeJson(file)
+      if (!parsed || typeof parsed !== 'object') continue
+      // Two accepted shapes:
+      //   1. Claude Desktop / mcp.json:  { mcpServers: { name: { command, args, env } } }
+      //   2. Single-server file:         { command, args, env, transport? } (name = filename)
+      if (parsed.mcpServers && typeof parsed.mcpServers === 'object') {
+        for (const [name, def] of Object.entries(parsed.mcpServers)) {
+          if (def && typeof def === 'object') mcpServers[name] = def
+        }
+      } else if (parsed.command) {
+        const name = file
+          .split('/')
+          .pop()
+          .replace(/\.json$/, '')
+        mcpServers[name] = parsed
+      }
+    }
+  }
+  if (Object.keys(mcpServers).length > 0) {
+    if (!config.mcp) config.mcp = {}
+    config.mcp.servers = { ...(config.mcp.servers ?? {}), ...mcpServers }
+    console.log(`[entrypoint] Merged ${Object.keys(mcpServers).length} MCP server(s) from packs`)
+  }
+
+  // ── Hooks ──────────────────────────────────────────────────────────────────
+  const hookScripts = []
+  for (const dir of hooksDirs) {
+    try {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (!entry.isFile()) continue
+        const p = join(dir, entry.name)
+        try {
+          // Only treat executable files as hooks
+          const mode = statSync(p).mode
+          if (mode & 0o111) hookScripts.push(p)
+        } catch {
+          // ignore
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+  if (hookScripts.length > 0) {
+    if (!config.hooks) config.hooks = {}
+    config.hooks.scripts = [...(config.hooks.scripts ?? []), ...hookScripts]
+    console.log(`[entrypoint] Registered ${hookScripts.length} pack hook script(s)`)
+  }
+
+  // ── Instructions append ────────────────────────────────────────────────────
+  const instructionChunks = []
+  for (const dir of instructionsDirs) {
+    for (const file of listFiles(dir, '.md')) {
+      const text = readMaybe(file).trim()
+      if (text) instructionChunks.push(`<!-- ${file} -->\n${text}`)
+    }
+    // Also look for direct files at the dir root (instructions plugin already
+    // copied the curated set into the parent; this catches the dir-level case).
+    for (const sub of listChildDirs(dir)) {
+      for (const file of listFiles(sub, '.md')) {
+        const text = readMaybe(file).trim()
+        if (text) instructionChunks.push(`<!-- ${file} -->\n${text}`)
+      }
+    }
+  }
+  if (instructionChunks.length > 0) {
+    if (!config.agents) config.agents = {}
+    if (!Array.isArray(config.agents.list) || config.agents.list.length === 0) {
+      config.agents.list = [{ id: process.env.AGENT_ID ?? 'default' }]
+    }
+    const appended = `\n\n--- agent-pack instructions ---\n${instructionChunks.join('\n\n')}`
+    for (const a of config.agents.list) {
+      if (a.runtime?.type === 'subagent') continue
+      a.instructions = `${a.instructions ?? ''}${appended}`
+    }
+    console.log(
+      `[entrypoint] Appended ${instructionChunks.length} pack instruction file(s) to primary agent(s)`,
+    )
+  }
+
+  return config
+}
 
 function verifyExtensions() {
   if (!existsSync(EXTENSIONS_DIR)) {
@@ -363,7 +587,8 @@ async function main() {
 
   // 1. Load config
   const mountedConfig = loadMountedConfig()
-  const openclawConfig = generateOpenClawConfig(mountedConfig)
+  const baseConfig = generateOpenClawConfig(mountedConfig)
+  const openclawConfig = mergeShadowPacks(baseConfig)
 
   // 2. Write config
   mkdirSync(OPENCLAW_STATE_DIR, { recursive: true })

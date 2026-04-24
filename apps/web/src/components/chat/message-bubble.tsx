@@ -68,8 +68,57 @@ export interface Message {
   author?: Author
   reactions?: ReactionGroup[]
   attachments?: Attachment[]
+  /** Optional metadata blob — includes interactive blocks (Phase 2). */
+  metadata?: {
+    interactive?: InteractiveBlock
+    interactiveResponse?: InteractiveResponseMetadata
+    [key: string]: unknown
+  }
   /** Optimistic send status — only set on client-side pending messages */
   sendStatus?: 'sending' | 'failed'
+}
+
+/** Phase 2 interactive block shape — mirrors server schema. */
+export interface InteractiveButtonItem {
+  id: string
+  label: string
+  style?: 'primary' | 'secondary' | 'destructive'
+  value?: string
+}
+export interface InteractiveSelectItem {
+  id: string
+  label: string
+  value: string
+}
+export interface InteractiveFormField {
+  id: string
+  kind: 'text' | 'textarea' | 'number' | 'checkbox' | 'select'
+  label: string
+  placeholder?: string
+  defaultValue?: string
+  required?: boolean
+  options?: InteractiveSelectItem[]
+  maxLength?: number
+  min?: number
+  max?: number
+}
+export interface InteractiveBlock {
+  id: string
+  kind: 'buttons' | 'select' | 'form' | 'approval'
+  prompt?: string
+  buttons?: InteractiveButtonItem[]
+  options?: InteractiveSelectItem[]
+  fields?: InteractiveFormField[]
+  submitLabel?: string
+  approvalCommentLabel?: string
+  oneShot?: boolean
+}
+export interface InteractiveResponseMetadata {
+  blockId: string
+  sourceMessageId: string
+  actionId: string
+  value: string
+  values?: Record<string, string>
 }
 
 export type { Attachment, Author, ReactionGroup }
@@ -669,6 +718,15 @@ function MessageBubbleInner({
           </div>
         )}
 
+        {/* Interactive block (Phase 2 POC — buttons / select) */}
+        {message.metadata?.interactive && (
+          <InteractiveBlockRenderer
+            block={message.metadata.interactive}
+            messageId={message.id}
+            disabled={message.sendStatus === 'sending'}
+          />
+        )}
+
         {/* Reactions */}
         {message.reactions && message.reactions.length > 0 && (
           <div className={`flex flex-wrap gap-1 mt-1.5 ${isDmOwn ? 'justify-end' : ''}`}>
@@ -1057,6 +1115,252 @@ function MessageBubbleInner({
           </>,
           document.body,
         )}
+    </div>
+  )
+}
+
+/**
+ * Phase 2 POC — renders interactive controls (buttons / select) attached to
+ * a message and POSTs the user's choice to the server, which echoes a
+ * follow-up reply that the buddy agent receives via normal chat flow.
+ */
+function InteractiveBlockRenderer({
+  block,
+  messageId,
+  disabled,
+}: {
+  block: InteractiveBlock
+  messageId: string
+  disabled?: boolean
+}) {
+  const [submitting, setSubmitting] = React.useState(false)
+  const [done, setDone] = React.useState<string | null>(null)
+  const [error, setError] = React.useState<string | null>(null)
+
+  const send = React.useCallback(
+    async (actionId: string, value: string, label: string, values?: Record<string, string>) => {
+      if (submitting || (block.oneShot !== false && done)) return
+      setSubmitting(true)
+      setError(null)
+      try {
+        await fetchApi(`/api/messages/${messageId}/interactive`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            blockId: block.id,
+            actionId,
+            value,
+            label,
+            ...(values ? { values } : {}),
+          }),
+        })
+        setDone(actionId)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed')
+      } finally {
+        setSubmitting(false)
+      }
+    },
+    [block.id, block.oneShot, done, messageId, submitting],
+  )
+
+  const isLocked = disabled || submitting || (block.oneShot !== false && done !== null)
+
+  return (
+    <div className="mt-2 flex flex-col gap-2 rounded-lg border border-border-subtle bg-black/5 dark:bg-white/5 p-3">
+      {block.prompt && (
+        <div className="text-sm text-text-secondary whitespace-pre-wrap">{block.prompt}</div>
+      )}
+
+      {block.kind === 'buttons' && block.buttons && (
+        <div className="flex flex-wrap gap-2">
+          {block.buttons.map((b) => {
+            const value = b.value ?? b.id
+            const isPicked = done === b.id
+            return (
+              <Button
+                key={b.id}
+                size="sm"
+                variant={
+                  b.style === 'destructive'
+                    ? 'danger'
+                    : b.style === 'primary' || isPicked
+                      ? 'primary'
+                      : 'outline'
+                }
+                disabled={isLocked && !isPicked}
+                onClick={() => send(b.id, value, b.label)}
+              >
+                {isPicked ? `✓ ${b.label}` : b.label}
+              </Button>
+            )
+          })}
+        </div>
+      )}
+
+      {block.kind === 'select' && block.options && (
+        <select
+          className="rounded-md border border-border-subtle bg-background px-2 py-1 text-sm"
+          disabled={isLocked}
+          defaultValue=""
+          onChange={(e) => {
+            const id = e.target.value
+            if (!id) return
+            const opt = block.options?.find((o) => o.id === id)
+            if (opt) send(opt.id, opt.value, opt.label)
+          }}
+        >
+          <option value="" disabled>
+            Choose…
+          </option>
+          {block.options.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      )}
+
+      {(block.kind === 'form' || block.kind === 'approval') && (
+        <InteractiveFormBody
+          block={block}
+          isLocked={isLocked}
+          onSubmit={(actionId, label, values) => send(actionId, actionId, label, values)}
+        />
+      )}
+
+      {error && <div className="text-xs text-danger">{error}</div>}
+    </div>
+  )
+}
+
+/**
+ * Renders a `kind: 'form' | 'approval'` block as a controlled mini-form.
+ * - 'form': renders fields + Submit button (single action 'submit').
+ * - 'approval': renders fields (typically a single comment textarea) + Approve / Reject pair.
+ */
+function InteractiveFormBody({
+  block,
+  isLocked,
+  onSubmit,
+}: {
+  block: InteractiveBlock
+  isLocked: boolean
+  onSubmit: (actionId: string, label: string, values: Record<string, string>) => void
+}) {
+  const initial = React.useMemo<Record<string, string>>(() => {
+    const out: Record<string, string> = {}
+    for (const f of block.fields ?? []) {
+      out[f.id] = f.defaultValue ?? (f.kind === 'checkbox' ? 'false' : '')
+    }
+    return out
+  }, [block.fields])
+  const [values, setValues] = React.useState<Record<string, string>>(initial)
+  const [touched, setTouched] = React.useState(false)
+
+  const setField = (id: string, v: string) => setValues((prev) => ({ ...prev, [id]: v }))
+
+  const missingRequired = (block.fields ?? []).some((f) => f.required && !values[f.id]?.trim())
+
+  const submit = (actionId: string, label: string) => {
+    setTouched(true)
+    if (missingRequired) return
+    onSubmit(actionId, label, values)
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {(block.fields ?? []).map((f) => {
+        const v = values[f.id] ?? ''
+        const showError = touched && f.required && !v.trim()
+        return (
+          <label key={f.id} className="flex flex-col gap-1 text-sm">
+            <span className="text-text-secondary">
+              {f.label}
+              {f.required ? <span className="text-danger ml-0.5">*</span> : null}
+            </span>
+            {f.kind === 'textarea' ? (
+              <textarea
+                className="rounded-md border border-border-subtle bg-background px-2 py-1 text-sm min-h-[60px]"
+                placeholder={f.placeholder}
+                maxLength={f.maxLength}
+                value={v}
+                disabled={isLocked}
+                onChange={(e) => setField(f.id, e.target.value)}
+              />
+            ) : f.kind === 'select' ? (
+              <select
+                className="rounded-md border border-border-subtle bg-background px-2 py-1 text-sm"
+                value={v}
+                disabled={isLocked}
+                onChange={(e) => setField(f.id, e.target.value)}
+              >
+                <option value="" disabled>
+                  Choose…
+                </option>
+                {(f.options ?? []).map((o) => (
+                  <option key={o.id} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            ) : f.kind === 'checkbox' ? (
+              <input
+                type="checkbox"
+                className="self-start"
+                checked={v === 'true'}
+                disabled={isLocked}
+                onChange={(e) => setField(f.id, e.target.checked ? 'true' : 'false')}
+              />
+            ) : (
+              <input
+                type={f.kind === 'number' ? 'number' : 'text'}
+                className="rounded-md border border-border-subtle bg-background px-2 py-1 text-sm"
+                placeholder={f.placeholder}
+                maxLength={f.maxLength}
+                min={f.min}
+                max={f.max}
+                value={v}
+                disabled={isLocked}
+                onChange={(e) => setField(f.id, e.target.value)}
+              />
+            )}
+            {showError && <span className="text-xs text-danger">Required</span>}
+          </label>
+        )
+      })}
+
+      <div className="flex flex-wrap gap-2 pt-1">
+        {block.kind === 'form' ? (
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={isLocked}
+            onClick={() => submit('submit', block.submitLabel ?? 'Submit')}
+          >
+            {block.submitLabel ?? 'Submit'}
+          </Button>
+        ) : (
+          <>
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={isLocked}
+              onClick={() => submit('approve', 'Approve')}
+            >
+              ✓ Approve
+            </Button>
+            <Button
+              size="sm"
+              variant="danger"
+              disabled={isLocked}
+              onClick={() => submit('reject', 'Reject')}
+            >
+              ✗ Reject
+            </Button>
+          </>
+        )}
+      </div>
     </div>
   )
 }

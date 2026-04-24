@@ -1,31 +1,27 @@
 import { zValidator } from '@hono/zod-validator'
+import {
+  type CostOverviewSummary,
+  collectNamespaceCost,
+  deleteNamespace,
+  execInPod,
+  extractRequiredEnvVars,
+  listManagedNamespaces,
+  listPods,
+  loadCloudConfigSchema,
+  type NamespaceCostSummary,
+  prepareCloudSaasConfigSnapshot,
+  readPodLogs,
+  sanitizeCloudSaasDeployment,
+  spawnPodLogStream,
+  summarizeCloudConfigValidation,
+  summarizeCostOverview,
+  validateCloudSaasConfigSnapshot,
+} from '@shadowob/cloud'
 import { eq, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { AppContainer } from '../container'
 import { cloudDeployments, cloudTemplates } from '../db/schema'
-import {
-  prepareCloudSaasConfigSnapshot,
-  sanitizeCloudSaasDeployment,
-  validateCloudSaasConfigSnapshot,
-} from '../lib/cloud-saas-config'
-import {
-  extractRequiredEnvVars,
-  loadCloudConfigSchema,
-  summarizeCloudConfigValidation,
-} from '../lib/cloud-saas-validation'
-import {
-  type CostOverviewSummary,
-  collectNamespaceCost,
-  type NamespaceCostSummary,
-} from '../lib/cloud-usage-cost'
-import {
-  deleteNamespace,
-  listManagedNamespaces,
-  listPods,
-  readPodLogs,
-  spawnPodLogStream,
-} from '../lib/k8s-cli'
 import { decrypt } from '../lib/kms'
 import { authMiddleware } from '../middleware/auth.middleware'
 
@@ -475,28 +471,13 @@ export function createCloudSaasHandler(container: AppContainer) {
           agentNames: getDeploymentAgentNames(deployment),
           billingAmount: deployment.monthlyCost ?? null,
           billingUnit: 'shrimp',
+          runtime: { listPods, execInPod },
           kubeconfig,
         })
       }),
     )
 
-    const overview: CostOverviewSummary = {
-      totalUsd: sumNullable(summaries.map((summary) => summary.totalUsd)),
-      billingAmount: sumNullable(summaries.map((summary) => summary.billingAmount)),
-      billingUnit: 'shrimp',
-      totalTokens: sumNullable(summaries.map((summary) => summary.totalTokens)),
-      namespaces: summaries.map((summary) => ({
-        namespace: summary.namespace,
-        totalUsd: summary.totalUsd,
-        billingAmount: summary.billingAmount,
-        billingUnit: summary.billingUnit,
-        totalTokens: summary.totalTokens,
-        agentCount: summary.agents.length,
-        availableAgents: summary.availableAgents,
-        unavailableAgents: summary.unavailableAgents,
-      })),
-      generatedAt: new Date().toISOString(),
-    }
+    const overview: CostOverviewSummary = summarizeCostOverview(summaries, 'shrimp')
 
     return c.json(overview)
   })
@@ -527,6 +508,7 @@ export function createCloudSaasHandler(container: AppContainer) {
       agentNames: getDeploymentAgentNames(deployment),
       billingAmount: deployment.monthlyCost ?? null,
       billingUnit: 'shrimp',
+      runtime: { listPods, execInPod },
       kubeconfig,
     })
 

@@ -1,10 +1,10 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { validateCloudSaasConfigSnapshot } from '@shadowob/cloud'
 import type { CloudActivityDao } from '../dao/cloud-activity.dao'
 import type { CloudClusterDao } from '../dao/cloud-cluster.dao'
 import type { CloudDeploymentDao } from '../dao/cloud-deployment.dao'
 import type { CloudTemplateDao } from '../dao/cloud-template.dao'
-import { validateCloudSaasConfigSnapshot } from '../lib/cloud-saas-config'
 import { decrypt, encrypt } from '../lib/kms'
 
 export class CloudService {

@@ -4,11 +4,27 @@ import type { AppContainer } from '../container'
 import { authMiddleware } from '../middleware/auth.middleware'
 import {
   createThreadSchema,
+  interactiveActionSchema,
   reactionSchema,
   sendMessageSchema,
   updateMessageSchema,
   updateThreadSchema,
 } from '../validators/message.schema'
+
+type InteractiveBlockLite = {
+  id: string
+  kind: string
+}
+
+function asInteractiveBlock(value: unknown): InteractiveBlockLite | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const record = value as Record<string, unknown>
+  if (typeof record.id !== 'string' || typeof record.kind !== 'string') return null
+  return {
+    id: record.id,
+    kind: record.kind,
+  }
+}
 
 export function createMessageHandler(container: AppContainer) {
   const messageHandler = new Hono()
@@ -57,7 +73,61 @@ export function createMessageHandler(container: AppContainer) {
     },
   )
 
-  // PATCH /api/messages/:id
+  // POST /api/messages/:id/interactive — handle a click on an interactive block.
+  // Posts a follow-up message into the same channel whose
+  // `metadata.interactiveResponse` carries the action so the buddy agent
+  // receives it through normal chat flow.
+  messageHandler.post(
+    '/messages/:id/interactive',
+    zValidator('json', interactiveActionSchema),
+    async (c) => {
+      const messageService = container.resolve('messageService')
+      const sourceId = c.req.param('id')
+      const input = c.req.valid('json')
+      const user = c.get('user')
+
+      const source = await messageService.getById(sourceId)
+      if (!source) return c.json({ ok: false, error: 'Source message not found' }, 404)
+      const block = asInteractiveBlock(source.metadata?.interactive)
+      if (!block) {
+        return c.json({ ok: false, error: 'Source message has no interactive block' }, 400)
+      }
+      if (block.id !== input.blockId) {
+        return c.json({ ok: false, error: 'blockId mismatch' }, 400)
+      }
+
+      const value = input.value ?? input.actionId
+      const label = input.label ?? input.actionId
+      const valuesSummary =
+        input.values && Object.keys(input.values).length > 0
+          ? ` ${JSON.stringify(input.values)}`
+          : ''
+      const echoContent = `[interactive] ${block.kind} → ${label} (${value})${valuesSummary}`
+
+      const message = await messageService.send(source.channelId, user.userId, {
+        content: echoContent,
+        replyToId: sourceId,
+        metadata: {
+          interactiveResponse: {
+            blockId: block.id,
+            sourceMessageId: sourceId,
+            actionId: input.actionId,
+            value,
+            ...(input.values ? { values: input.values } : {}),
+          },
+        },
+      })
+
+      try {
+        const io = container.resolve('io')
+        io.to(`channel:${source.channelId}`).emit('message:new', message)
+      } catch {
+        /* io not yet registered */
+      }
+
+      return c.json(message, 201)
+    },
+  )
   messageHandler.patch('/messages/:id', zValidator('json', updateMessageSchema), async (c) => {
     const messageService = container.resolve('messageService')
     const id = c.req.param('id')

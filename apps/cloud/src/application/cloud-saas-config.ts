@@ -54,6 +54,37 @@ function normalizeRuntimeEnvVars(envVars?: Record<string, string>): Record<strin
   return normalized
 }
 
+function isLoopbackShadowUrl(url?: string): boolean {
+  if (!url) return false
+
+  try {
+    const parsed = new URL(url)
+    return (
+      parsed.hostname === 'localhost' ||
+      parsed.hostname === '127.0.0.1' ||
+      parsed.hostname === '[::1]'
+    )
+  } catch {
+    return false
+  }
+}
+
+function resolveProvisionShadowUrl(
+  runtimeEnvVars: Record<string, string>,
+  processEnv: Record<string, string | undefined>,
+  fallbackShadowUrl?: string,
+): string | undefined {
+  const explicitProvisionUrl =
+    runtimeEnvVars.SHADOW_PROVISION_URL ?? processEnv.SHADOW_PROVISION_URL
+  if (explicitProvisionUrl) return explicitProvisionUrl
+
+  if (isLoopbackShadowUrl(fallbackShadowUrl)) {
+    return processEnv.SHADOW_SERVER_URL ?? fallbackShadowUrl
+  }
+
+  return fallbackShadowUrl
+}
+
 function redactUnknown(value: unknown, forceRedact = false): unknown {
   if (Array.isArray(value)) {
     return value.map((item) => redactUnknown(item, forceRedact))
@@ -140,9 +171,13 @@ export function resolveCloudSaasShadowRuntime(
   shadowToken?: string
 } {
   const runtimeEnvVars = normalizeRuntimeEnvVars(envVars)
-  const shadowUrl = runtimeEnvVars.SHADOW_SERVER_URL ?? processEnv.SHADOW_SERVER_URL
+  const runtimeShadowUrl = runtimeEnvVars.SHADOW_SERVER_URL ?? processEnv.SHADOW_SERVER_URL
+  const shadowUrl = resolveProvisionShadowUrl(runtimeEnvVars, processEnv, runtimeShadowUrl)
   const podShadowUrl =
-    runtimeEnvVars.SHADOW_AGENT_SERVER_URL ?? processEnv.SHADOW_AGENT_SERVER_URL ?? shadowUrl
+    runtimeEnvVars.SHADOW_AGENT_SERVER_URL ??
+    processEnv.SHADOW_AGENT_SERVER_URL ??
+    runtimeShadowUrl ??
+    shadowUrl
   const shadowToken = runtimeEnvVars.SHADOW_USER_TOKEN ?? processEnv.SHADOW_USER_TOKEN
 
   return { shadowUrl, podShadowUrl, shadowToken }

@@ -58,6 +58,12 @@ interface ProviderPreset {
   baseUrl?: string
   /** Env var name that holds the API key */
   envKey: string
+  /** Optional alias env vars (e.g. ANTHROPIC_AUTH_TOKEN) checked when envKey is empty */
+  envKeyAliases?: string[]
+  /** Env var name that overrides baseUrl (e.g. ANTHROPIC_BASE_URL for Anthropic-compatible gateways) */
+  baseUrlEnvKey?: string
+  /** Env var name that overrides the default model id (e.g. ANTHROPIC_MODEL) */
+  modelEnvKey?: string
   /**
    * Model catalog — models listed first get higher priority within this provider.
    * Tags on models represent capabilities; resolution picks the first model matching
@@ -76,6 +82,10 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     id: 'anthropic',
     api: 'anthropic-messages',
     envKey: 'ANTHROPIC_API_KEY',
+    // Claude Code / DashScope use ANTHROPIC_AUTH_TOKEN to feed an Anthropic-compatible gateway.
+    envKeyAliases: ['ANTHROPIC_AUTH_TOKEN'],
+    baseUrlEnvKey: 'ANTHROPIC_BASE_URL',
+    modelEnvKey: 'ANTHROPIC_MODEL',
     models: [
       { id: 'claude-sonnet-4-5', tags: ['default', 'vision'] },
       { id: 'claude-3-5-haiku-20241022', tags: ['flash'] },
@@ -85,6 +95,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     id: 'openai',
     api: 'openai-completions',
+    baseUrl: 'https://api.openai.com/v1',
     envKey: 'OPENAI_API_KEY',
     models: [
       { id: 'gpt-4o', tags: ['default', 'vision'] },
@@ -95,6 +106,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     id: 'gemini',
     api: 'google-generative-ai',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
     envKey: 'GEMINI_API_KEY',
     models: [
       { id: 'gemini-2.0-flash', tags: ['default', 'flash', 'vision'] },
@@ -104,6 +116,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     id: 'google',
     api: 'google-generative-ai',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
     envKey: 'GOOGLE_API_KEY',
     models: [
       { id: 'gemini-2.0-flash', tags: ['default', 'flash', 'vision'] },
@@ -167,8 +180,17 @@ export default definePlugin(manifest as PluginManifest, (api) => {
     const discoveredPresets: ProviderPreset[] = []
 
     for (const preset of PROVIDER_PRESETS) {
-      const keyValue = env[preset.envKey] ?? process.env[preset.envKey]
-      if (!keyValue) continue
+      // Resolve api key from canonical env var first, then from any aliases (e.g.
+      // ANTHROPIC_AUTH_TOKEN for Anthropic-compatible gateways like DashScope).
+      const candidateKeys = [preset.envKey, ...(preset.envKeyAliases ?? [])]
+      let resolvedKeyEnv: string | undefined
+      for (const k of candidateKeys) {
+        if (env[k] ?? process.env[k]) {
+          resolvedKeyEnv = k
+          break
+        }
+      }
+      if (!resolvedKeyEnv) continue
 
       // Skip 'google' if 'gemini' already added  (both use google-generative-ai)
       if (preset.id === 'google' && providers.gemini) continue
@@ -176,22 +198,50 @@ export default definePlugin(manifest as PluginManifest, (api) => {
       const entry: Record<string, unknown> = {
         api: preset.api,
         // Template syntax: resolved inside the container at runtime, not baked in.
-        apiKey: `\${env:${preset.envKey}}`,
+        apiKey: `\${env:${resolvedKeyEnv}}`,
         request: { allowPrivateNetwork: true },
         // Declare the model catalog so OpenClaw knows what models are available.
         models: preset.models.map((m) => ({ id: m.id, name: m.id })),
       }
-      if (preset.baseUrl) entry.baseUrl = preset.baseUrl
+
+      // Honor base-url override env var (e.g. ANTHROPIC_BASE_URL → DashScope endpoint).
+      const baseUrlOverride = preset.baseUrlEnvKey
+        ? (env[preset.baseUrlEnvKey] ?? process.env[preset.baseUrlEnvKey])
+        : undefined
+      const effectiveBaseUrl = baseUrlOverride ?? preset.baseUrl
+      if (effectiveBaseUrl) entry.baseUrl = effectiveBaseUrl
+
+      // Honor model override env var (e.g. ANTHROPIC_MODEL=qwen3.6-plus). When set,
+      // the override id is prepended to the model catalog and used for all tag
+      // resolutions for this provider.
+      const modelOverride = preset.modelEnvKey
+        ? (env[preset.modelEnvKey] ?? process.env[preset.modelEnvKey])
+        : undefined
+      let effectivePreset: ProviderPreset = preset
+      if (modelOverride) {
+        const overriddenModels: ModelEntry[] = [
+          { id: modelOverride, tags: [...ALL_TAGS] },
+          ...preset.models,
+        ]
+        ;(entry as { models: { id: string; name: string }[] }).models = overriddenModels.map(
+          (m) => ({
+            id: m.id,
+            name: m.id,
+          }),
+        )
+        effectivePreset = { ...preset, models: overriddenModels }
+      }
 
       providers[preset.id] = entry
-      discoveredPresets.push(preset)
+      discoveredPresets.push(effectivePreset)
     }
 
     // Custom OpenAI-compatible provider
     const customBaseUrl = env.OPENAI_COMPATIBLE_BASE_URL ?? process.env.OPENAI_COMPATIBLE_BASE_URL
     const customApiKey = env.OPENAI_COMPATIBLE_API_KEY ?? process.env.OPENAI_COMPATIBLE_API_KEY
     if (customBaseUrl && customApiKey) {
-      const customModelId = process.env.OPENAI_COMPATIBLE_MODEL_ID ?? 'default'
+      const customModelId =
+        env.OPENAI_COMPATIBLE_MODEL_ID ?? process.env.OPENAI_COMPATIBLE_MODEL_ID ?? 'default'
       providers.custom = {
         api: 'openai-completions',
         baseUrl: customBaseUrl,
@@ -246,9 +296,37 @@ export default definePlugin(manifest as PluginManifest, (api) => {
     return fragment
   })
 
+  // Propagate every detected provider env var (api key, base URL override, model
+  // override, plus aliases) into the container env so OpenClaw can resolve the
+  // `${env:VAR}` references baked into config.json at runtime.
+  api.onBuildEnv((ctx): Record<string, string> => {
+    const env = ctx.secrets as Record<string, string | undefined>
+    const out: Record<string, string> = {}
+    const candidates: string[] = []
+    for (const preset of PROVIDER_PRESETS) {
+      candidates.push(preset.envKey)
+      if (preset.envKeyAliases) candidates.push(...preset.envKeyAliases)
+      if (preset.baseUrlEnvKey) candidates.push(preset.baseUrlEnvKey)
+      if (preset.modelEnvKey) candidates.push(preset.modelEnvKey)
+    }
+    candidates.push(
+      'OPENAI_COMPATIBLE_BASE_URL',
+      'OPENAI_COMPATIBLE_API_KEY',
+      'OPENAI_COMPATIBLE_MODEL_ID',
+    )
+    for (const k of candidates) {
+      const v = env[k] ?? process.env[k]
+      if (v) out[k] = v
+    }
+    return out
+  })
+
   api.onValidate((ctx) => {
     const env = ctx.secrets as Record<string, string | undefined>
-    const knownKeys = [...PROVIDER_PRESETS.map((p) => p.envKey), 'OPENAI_COMPATIBLE_API_KEY']
+    const knownKeys = [
+      ...PROVIDER_PRESETS.flatMap((p) => [p.envKey, ...(p.envKeyAliases ?? [])]),
+      'OPENAI_COMPATIBLE_API_KEY',
+    ]
     const found = knownKeys.some((k) => env[k] ?? process.env[k])
     if (!found) {
       return {
@@ -258,7 +336,7 @@ export default definePlugin(manifest as PluginManifest, (api) => {
             path: 'use[model-provider]',
             message:
               'model-provider: no API keys detected. Set at least one of: ' +
-              'ANTHROPIC_API_KEY, OPENAI_API_KEY, DEEPSEEK_API_KEY, GEMINI_API_KEY, ' +
+              'ANTHROPIC_API_KEY (or ANTHROPIC_AUTH_TOKEN), OPENAI_API_KEY, DEEPSEEK_API_KEY, GEMINI_API_KEY, ' +
               'GROK_API_KEY, OPENROUTER_API_KEY, or OPENAI_COMPATIBLE_BASE_URL + OPENAI_COMPATIBLE_API_KEY',
             severity: 'warning',
           },
