@@ -21,21 +21,26 @@ export interface DeployOptions {
   filePath: string
   namespace?: string
   stack?: string
-  shadowUrl?: string
-  shadowToken?: string
   dryRun?: boolean
   skipProvision?: boolean
   outputDir?: string
   k8sContext?: string
   stateDir?: string
   imagePullPolicy?: 'Always' | 'IfNotPresent' | 'Never'
-  k8sShadowUrl?: string
   local?: boolean
   onOutput?: (out: string) => void
   /** Named cluster — resolves to kubeconfig in ~/.shadow-cloud/clusters/<name>.yaml */
   cluster?: string
   /** Explicit path to a kubeconfig file (overrides cluster and k8sContext) */
   kubeConfigPath?: string
+  /**
+   * Plugin-specific secrets merged into every plugin's provision context.
+   * Callers (CLI, HTTP task manager) are responsible for building this map
+   * using `resolveShadowExtraSecrets()` or equivalent before calling `up()`.
+   * Keeping this generic avoids leaking shadowob-specific field names into
+   * the deploy pipeline.
+   */
+  extraSecrets?: Record<string, string>
   /**
    * Optional callback invoked once the Pulumi Stack object exists.
    * Callers can store the reference and later invoke `stack.cancel()` to
@@ -146,17 +151,10 @@ export class DeployService {
       this.logger.warn('kubectl cannot reach a cluster. Use --local to auto-create a kind cluster.')
     }
 
-    // 2. Build extra secrets from CLI-provided credentials (passed directly to plugin lifecycle)
-    // The SHADOW_SERVER_URL injected into pod env must be reachable from inside the cluster, so
-    // prefer the pod-facing URL (k8sShadowUrl) over the worker-side provisioning URL (shadowUrl).
-    const extraSecrets: Record<string, string> = {}
-    const podFacingShadowUrl = options.k8sShadowUrl ?? options.shadowUrl
-    if (podFacingShadowUrl) extraSecrets.SHADOW_SERVER_URL = podFacingShadowUrl
-    // Host-reachable URL for the cloud backend's provisioning API calls.
-    // When pod-facing URL differs (e.g. host.lima.internal vs localhost), the host
-    // can't resolve the pod-facing one, so we pass the host-side URL separately.
-    if (options.shadowUrl) extraSecrets.SHADOW_PROVISION_URL = options.shadowUrl
-    if (options.shadowToken) extraSecrets.SHADOW_USER_TOKEN = options.shadowToken
+    // 2. Extra secrets supplied by the caller.
+    // These are merged into each plugin's provision context; the deploy service itself
+    // does not need to understand their contents.
+    const extraSecrets: Record<string, string> = options.extraSecrets ?? {}
 
     // 3. Resolve config (expand extends + templates)
     this.logger.step('Resolving config...')
@@ -225,20 +223,12 @@ export class DeployService {
       }
     }
 
-    const k8sShadowUrl =
-      options.k8sShadowUrl ??
-      process.env.SHADOW_AGENT_SERVER_URL ??
-      options.shadowUrl ??
-      process.env.K8S_SHADOW_URL ??
-      process.env.SHADOW_SERVER_URL
-
     // 4. Output manifests to directory if requested
     if (options.outputDir) {
       this.logger.step('Generating manifests...')
       const manifests = this.manifestService.build({
         config: resolved,
         namespace,
-        shadowServerUrl: k8sShadowUrl,
       })
 
       const outDir = resolve(options.outputDir)
@@ -269,7 +259,6 @@ export class DeployService {
         stackName,
         config: resolved,
         namespace,
-        shadowServerUrl: k8sShadowUrl,
         kubeContext: options.k8sContext,
         kubeConfigPath,
         imagePullPolicy: options.imagePullPolicy ?? 'IfNotPresent',
@@ -286,7 +275,6 @@ export class DeployService {
               stackName,
               config: resolved,
               namespace,
-              shadowServerUrl: k8sShadowUrl,
               kubeContext: options.k8sContext,
               kubeConfigPath,
               imagePullPolicy: options.imagePullPolicy ?? 'IfNotPresent',
@@ -318,7 +306,6 @@ export class DeployService {
           stackName,
           config: resolved,
           namespace,
-          shadowServerUrl: k8sShadowUrl,
           kubeContext: options.k8sContext,
           kubeConfigPath,
           imagePullPolicy: options.imagePullPolicy ?? 'IfNotPresent',

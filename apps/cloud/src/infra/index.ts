@@ -30,7 +30,6 @@ import { createSharedResources } from './shared.js'
 export interface InfraOptions {
   config: CloudConfig
   namespace: string
-  shadowServerUrl?: string
   /** kubectl context for K8s provider — defaults to KUBECONFIG_CONTEXT or 'rancher-desktop' */
   kubeContext?: string
   /** Path to a kubeconfig YAML file — takes precedence over kubeContext when set */
@@ -48,7 +47,7 @@ export interface InfraOptions {
  */
 export function createInfraProgram(options: InfraOptions) {
   return async () => {
-    const { config, namespace, shadowServerUrl, imagePullPolicy } = options
+    const { config, namespace, imagePullPolicy } = options
     const agents = config.deployments?.agents ?? []
 
     const outputs: Record<string, pulumi.Output<string>> = {}
@@ -76,12 +75,6 @@ export function createInfraProgram(options: InfraOptions) {
 
       // Build env vars from agent-level env (populated by plugin onProvision hooks)
       const env = { ...(agent.env ?? {}) }
-
-      // The k8s shadow URL (pod-shadow-url) must override the provision URL
-      // that onProvision wrote into agent.env.SHADOW_SERVER_URL.
-      if (shadowServerUrl) {
-        env.SHADOW_SERVER_URL = shadowServerUrl
-      }
 
       const runtimePackage = buildAgentRuntimePackage({
         agent,
@@ -146,31 +139,9 @@ export function createInfraProgram(options: InfraOptions) {
  * Returns plain objects that can be serialized to YAML/JSON.
  */
 export function buildManifests(options: InfraOptions) {
-  const {
-    config,
-    namespace,
-
-    shadowServerUrl,
-    imagePullPolicy = 'IfNotPresent',
-  } = options
+  const { config, namespace, imagePullPolicy = 'IfNotPresent' } = options
   const agents = config.deployments?.agents ?? []
   const manifests: Array<Record<string, unknown>> = []
-
-  // Determine extra egress ports (e.g. Shadow server on non-standard port)
-  const extraEgressPorts: number[] = []
-  if (shadowServerUrl) {
-    try {
-      const u = new URL(shadowServerUrl)
-      const port = u.port
-        ? Number(u.port)
-        : u.protocol === 'https:' || u.protocol === 'wss:'
-          ? 443
-          : 80
-      if (port && !Number.isNaN(port)) extraEgressPorts.push(port)
-    } catch {
-      // ignore malformed URL
-    }
-  }
 
   // Namespace
   manifests.push({
@@ -210,12 +181,6 @@ export function buildManifests(options: InfraOptions) {
   for (const agent of agents) {
     const agentName = agent.id
     const env = { ...(agent.env ?? {}) }
-
-    // The k8s shadow URL (pod-shadow-url) must override the provision URL
-    // that onProvision wrote into agent.env.SHADOW_SERVER_URL.
-    if (shadowServerUrl) {
-      env.SHADOW_SERVER_URL = shadowServerUrl
-    }
 
     const runtimePackage = buildAgentRuntimePackage({
       agent,
@@ -278,6 +243,22 @@ export function buildManifests(options: InfraOptions) {
       volumeMounts.push(vm as unknown as Record<string, unknown>)
     }
     initContainers = pluginK8s.initContainers as unknown as Array<Record<string, unknown>>
+
+    // Compute extra egress ports from plugin-declared URLs (used by NetworkPolicy)
+    const extraEgressPorts: number[] = []
+    for (const url of pluginK8s.egressUrls) {
+      try {
+        const u = new URL(url)
+        const port = u.port
+          ? Number(u.port)
+          : u.protocol === 'https:' || u.protocol === 'wss:'
+            ? 443
+            : 80
+        if (port && !Number.isNaN(port)) extraEgressPorts.push(port)
+      } catch {
+        // ignore malformed URL
+      }
+    }
 
     const envList = [
       ...baseEnvVars(agentName),

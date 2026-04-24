@@ -10,7 +10,6 @@ export {
   extractCloudSaasRuntime,
   prepareCloudSaasConfigSnapshot,
   redactCloudSaasConfigSnapshot,
-  resolveCloudSaasShadowRuntime,
   sanitizeCloudSaasDeployment,
   validateCloudSaasConfigSnapshot,
 } from './application/cloud-saas-config.js'

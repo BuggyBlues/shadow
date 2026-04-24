@@ -5,7 +5,6 @@
  * log lines, and allows later SSE subscribers to replay and follow progress.
  */
 
-import { resolveCloudSaasShadowRuntime } from '../../application/cloud-saas-config.js'
 import type { DeploymentDao } from '../../dao/deployment.dao.js'
 import type { DeploymentLogDao } from '../../dao/deployment-log.dao.js'
 import type { EnvVarDao } from '../../dao/envvar.dao.js'
@@ -143,7 +142,7 @@ export class DeployTaskManager {
 
   private async run(taskId: number, config: Record<string, unknown>): Promise<void> {
     const { envOverrides, templateConfig } = this.buildEnvOverrides(config)
-    const { shadowUrl, podShadowUrl, shadowToken } = resolveCloudSaasShadowRuntime(envOverrides)
+    const extraSecrets = envOverrides
 
     try {
       this.deploymentDao.update(taskId, {
@@ -161,9 +160,7 @@ export class DeployTaskManager {
         runtimeEnvVars: envOverrides,
         namespace: templateConfig.namespace as string | undefined,
         dryRun: templateConfig.dryRun as boolean | undefined,
-        shadowUrl,
-        shadowToken,
-        k8sShadowUrl: podShadowUrl,
+        extraSecrets,
         onOutput: (output: string) => {
           this.appendOutput(taskId, output)
         },

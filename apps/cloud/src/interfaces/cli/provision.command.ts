@@ -37,19 +37,15 @@ export function createProvisionCommand(container: ServiceContainer) {
 
         const config = await container.config.parseFile(filePath)
         const resolved = await container.config.resolve(config, filePath)
-        const shadowUrl = options.provisionUrl ?? process.env.SHADOW_SERVER_URL
-        const shadowToken = options.provisionToken ?? process.env.SHADOW_USER_TOKEN
+        const shadowUrl = options.provisionUrl
+        const shadowToken = options.provisionToken
 
         if (!shadowUrl) {
-          container.logger.error(
-            'Shadow server URL required (--provision-url or SHADOW_SERVER_URL)',
-          )
+          container.logger.error('Shadow server URL required (--provision-url)')
           process.exit(1)
         }
         if (!shadowToken) {
-          container.logger.error(
-            'Shadow user token required (--provision-token or SHADOW_USER_TOKEN)',
-          )
+          container.logger.error('Shadow user token required (--provision-token)')
           process.exit(1)
         }
 

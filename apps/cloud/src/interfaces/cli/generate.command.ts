@@ -17,49 +17,38 @@ export function createGenerateCommand(container: ServiceContainer) {
       .option('-f, --file <path>', 'Config file path', 'shadowob-cloud.json')
       .option('-o, --output <dir>', 'Output directory', '.shadowob-manifests')
       .option('-n, --namespace <ns>', 'Kubernetes namespace')
-      .option('--provision-url <url>', 'Shadow server URL (for NetworkPolicy egress)')
-      .action(
-        async (options: {
-          file: string
-          output: string
-          namespace?: string
-          provisionUrl?: string
-        }) => {
-          const filePath = resolve(options.file)
-          if (!existsSync(filePath)) {
-            container.logger.error(`Config file not found: ${filePath}`)
-            process.exit(1)
-          }
+      .action(async (options: { file: string; output: string; namespace?: string }) => {
+        const filePath = resolve(options.file)
+        if (!existsSync(filePath)) {
+          container.logger.error(`Config file not found: ${filePath}`)
+          process.exit(1)
+        }
 
-          const config = await container.config.parseFile(filePath)
-          const resolved = await container.config.resolve(config)
-          const namespace = options.namespace ?? config.deployments?.namespace ?? 'shadowob-cloud'
-          const shadowServerUrl = options.provisionUrl ?? process.env.SHADOW_SERVER_URL
+        const config = await container.config.parseFile(filePath)
+        const resolved = await container.config.resolve(config)
+        const namespace = options.namespace ?? config.deployments?.namespace ?? 'shadowob-cloud'
 
-          const manifests = container.manifest.build({
-            config: resolved,
-            namespace,
-            shadowServerUrl,
-          })
+        const manifests = container.manifest.build({
+          config: resolved,
+          namespace,
+        })
 
-          const outDir = resolve(options.output)
-          mkdirSync(outDir, { recursive: true })
+        const outDir = resolve(options.output)
+        mkdirSync(outDir, { recursive: true })
 
-          for (let i = 0; i < manifests.length; i++) {
-            const m = manifests[i]!
-            const kind = ((m.kind as string) ?? 'resource').toLowerCase()
-            const name =
-              ((m.metadata as Record<string, unknown>)?.name as string) ?? `resource-${i}`
-            writeFileSync(
-              resolve(outDir, `${name}-${kind}.json`),
-              `${JSON.stringify(m, null, 2)}\n`,
-              'utf-8',
-            )
-          }
+        for (let i = 0; i < manifests.length; i++) {
+          const m = manifests[i]!
+          const kind = ((m.kind as string) ?? 'resource').toLowerCase()
+          const name = ((m.metadata as Record<string, unknown>)?.name as string) ?? `resource-${i}`
+          writeFileSync(
+            resolve(outDir, `${name}-${kind}.json`),
+            `${JSON.stringify(m, null, 2)}\n`,
+            'utf-8',
+          )
+        }
 
-          container.logger.success(`Generated ${manifests.length} resource file(s) in ${outDir}`)
-        },
-      ),
+        container.logger.success(`Generated ${manifests.length} resource file(s) in ${outDir}`)
+      }),
   )
 
   cmd.addCommand(

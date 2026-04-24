@@ -32,7 +32,6 @@ export interface StackOptions {
   stackName: string
   config: CloudConfig
   namespace: string
-  shadowServerUrl?: string
   /** Directory to store Pulumi local state — defaults to ~/.shadowob/pulumi */
   stateDir?: string
   /** kubectl context for K8s provider */
@@ -100,7 +99,6 @@ export async function getOrCreateStack(options: StackOptions) {
   const infraOpts: InfraOptions = {
     config: options.config,
     namespace: options.namespace,
-    shadowServerUrl: options.shadowServerUrl,
     kubeContext: options.kubeContext ?? process.env.KUBECONFIG_CONTEXT ?? 'rancher-desktop',
     kubeConfigPath: options.kubeConfigPath,
     imagePullPolicy: options.imagePullPolicy ?? 'IfNotPresent',

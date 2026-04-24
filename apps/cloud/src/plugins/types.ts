@@ -270,6 +270,8 @@ export interface PluginK8sResult {
   envVars?: PluginK8sEnvVar[]
   labels?: Record<string, string>
   annotations?: Record<string, string>
+  /** External URLs this plugin needs egress access to (used by NetworkPolicy). */
+  egressUrls?: string[]
 }
 
 export interface PluginK8sContext {

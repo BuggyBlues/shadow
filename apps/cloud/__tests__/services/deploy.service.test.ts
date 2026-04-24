@@ -5,36 +5,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CloudConfig } from '../../src/config/schema.js'
 import { DeployService } from '../../src/services/deploy.service.js'
 
-const originalShadowAgentServerUrl = process.env.SHADOW_AGENT_SERVER_URL
-const originalShadowServerUrl = process.env.SHADOW_SERVER_URL
-
 describe('DeployService', () => {
   let tempDir: string
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), 'deploy-service-test-'))
-    process.env.SHADOW_SERVER_URL = 'http://server:3002'
-    process.env.SHADOW_AGENT_SERVER_URL = 'http://host.lima.internal:3002'
   })
 
   afterEach(() => {
     rmSync(tempDir, { recursive: true, force: true })
     vi.restoreAllMocks()
-
-    if (originalShadowAgentServerUrl === undefined) {
-      delete process.env.SHADOW_AGENT_SERVER_URL
-    } else {
-      process.env.SHADOW_AGENT_SERVER_URL = originalShadowAgentServerUrl
-    }
-
-    if (originalShadowServerUrl === undefined) {
-      delete process.env.SHADOW_SERVER_URL
-    } else {
-      process.env.SHADOW_SERVER_URL = originalShadowServerUrl
-    }
   })
 
-  it('prefers SHADOW_AGENT_SERVER_URL for pod-facing shadowServerUrl', async () => {
+  it('passes extraSecrets to the stack without Shadow-specific processing', async () => {
     const filePath = join(tempDir, 'shadowob-cloud.json')
     writeFileSync(filePath, JSON.stringify({ ok: true }), 'utf8')
 
@@ -84,17 +67,22 @@ describe('DeployService', () => {
       logger as never,
     )
 
+    // Callers (CLI/task-manager) resolve URLs via resolveShadowExtraSecrets before
+    // calling deploy.up(). Here we simulate that result: SHADOW_AGENT_SERVER_URL
+    // wins as pod-facing URL, provision URL stored under SHADOW_PROVISION_URL.
     await service.up({
       filePath,
-      shadowUrl: 'http://server:3002',
-      shadowToken: 'pat_test',
+      extraSecrets: {
+        SHADOW_SERVER_URL: 'http://host.lima.internal:3002',
+        SHADOW_PROVISION_URL: 'http://server:3002',
+        SHADOW_USER_TOKEN: 'pat_test',
+      },
       skipProvision: true,
     })
 
     expect(k8s.getOrCreateStack).toHaveBeenCalledWith(
       expect.objectContaining({
         stackName: 'dev-shadowob-cloud',
-        shadowServerUrl: 'http://host.lima.internal:3002',
       }),
     )
   })
@@ -151,8 +139,10 @@ describe('DeployService', () => {
 
     await service.up({
       filePath,
-      shadowUrl: 'http://server:3002',
-      shadowToken: 'pat_test',
+      extraSecrets: {
+        SHADOW_SERVER_URL: 'http://server:3002',
+        SHADOW_USER_TOKEN: 'pat_test',
+      },
       skipProvision: true,
     })
 

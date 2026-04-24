@@ -447,16 +447,14 @@ export function createDeployHandler(ctx: HandlerContext): Hono {
     try {
       const body = await c.req.json<{
         config: Record<string, unknown>
-        shadowUrl?: string
-        shadowToken?: string
+        envVars?: Record<string, string>
         dryRun?: boolean
       }>()
 
-      const shadowUrl = body.shadowUrl ?? process.env.SHADOW_SERVER_URL
-      const shadowToken = body.shadowToken ?? process.env.SHADOW_USER_TOKEN
+      const extraSecrets: Record<string, string> = body.envVars ?? {}
 
-      if (!shadowUrl || !shadowToken) {
-        return c.json({ error: 'shadowUrl and shadowToken are required' }, 400)
+      if (Object.keys(extraSecrets).length === 0) {
+        return c.json({ error: 'envVars with plugin credentials are required' }, 400)
       }
 
       const tmpFile = join(tmpdir(), `shadowob-provision-${Date.now()}.json`)
@@ -467,10 +465,6 @@ export function createDeployHandler(ctx: HandlerContext): Hono {
         const resolved = await ctx.container.config.resolve(config, tmpFile)
         const namespace = resolved.deployments?.namespace ?? 'shadowob-cloud'
         const agents = resolved.deployments?.agents ?? []
-        const extraSecrets: Record<string, string> = {
-          SHADOW_SERVER_URL: shadowUrl,
-          SHADOW_USER_TOKEN: shadowToken,
-        }
 
         const { executePluginProvisions, loadAllPlugins, getPluginRegistry } = await import(
           '../../../plugins/index.js'
@@ -529,7 +523,6 @@ export function createDeployHandler(ctx: HandlerContext): Hono {
       const body = await c.req.json<{
         config: Record<string, unknown>
         namespace?: string
-        shadowUrl?: string
       }>()
 
       const tmpFile = join(tmpdir(), `shadowob-gen-${Date.now()}.json`)
@@ -542,7 +535,6 @@ export function createDeployHandler(ctx: HandlerContext): Hono {
         const manifests = ctx.container.manifest.build({
           config: resolved,
           namespace: ns,
-          shadowServerUrl: body.shadowUrl,
         })
         return c.json({ manifests, count: manifests.length })
       } finally {

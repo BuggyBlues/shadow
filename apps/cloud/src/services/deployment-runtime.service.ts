@@ -12,14 +12,9 @@ export interface DeploymentRuntimeCluster {
 }
 
 export interface DeployFromSnapshotOptions
-  extends Omit<
-    DeployOptions,
-    'filePath' | 'k8sContext' | 'shadowUrl' | 'shadowToken' | 'cluster' | 'kubeConfigPath'
-  > {
+  extends Omit<DeployOptions, 'filePath' | 'k8sContext' | 'cluster' | 'kubeConfigPath'> {
   configSnapshot: unknown
   runtimeEnvVars?: Record<string, string>
-  shadowUrl?: string
-  shadowToken?: string
   cluster?: DeploymentRuntimeCluster | null
 }
 
@@ -144,8 +139,6 @@ export class DeploymentRuntimeService {
       configSnapshot: _configSnapshot,
       runtimeEnvVars: _runtimeEnvVars,
       cluster: _cluster,
-      shadowUrl,
-      shadowToken,
       ...deployOptions
     } = options
 
@@ -156,8 +149,6 @@ export class DeploymentRuntimeService {
           filePath: configPath,
           k8sContext: context.k8sContext,
           kubeConfigPath: context.kubeConfigPath,
-          shadowUrl,
-          shadowToken,
         }),
       )
     } finally {

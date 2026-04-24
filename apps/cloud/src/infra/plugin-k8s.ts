@@ -26,6 +26,8 @@ export interface CollectedK8sArtifacts {
   envVars: PluginK8sEnvVar[]
   labels: Record<string, string>
   annotations: Record<string, string>
+  /** External URLs plugins need egress access to (used to compute NetworkPolicy ports). */
+  egressUrls: string[]
 }
 
 /**
@@ -46,6 +48,7 @@ export function collectPluginK8sArtifacts(
     envVars: [],
     labels: {},
     annotations: {},
+    egressUrls: [],
   }
 
   const ctx: PluginK8sContext = { agent, config, namespace }
@@ -83,6 +86,9 @@ export function collectPluginK8sArtifacts(
     }
     if (artifacts.annotations) {
       Object.assign(result.annotations, artifacts.annotations)
+    }
+    if (artifacts.egressUrls?.length) {
+      result.egressUrls.push(...artifacts.egressUrls)
     }
   }
 

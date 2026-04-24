@@ -9,6 +9,9 @@ import { defineChannelPlugin } from '../helpers.js'
 import type {
   PluginBuildContext,
   PluginConfigFragment,
+  PluginK8sContext,
+  PluginK8sProvider,
+  PluginK8sResult,
   PluginManifest,
   PluginProvisionContext,
   PluginValidationError,
@@ -83,7 +86,7 @@ function buildShadowConfig(context: PluginBuildContext): PluginConfigFragment {
   }
 }
 
-export default defineChannelPlugin(manifest as PluginManifest, buildShadowConfig, (api) => {
+const shadowobPlugin = defineChannelPlugin(manifest as PluginManifest, buildShadowConfig, (api) => {
   api.onValidate((context) => {
     const errors: PluginValidationError[] = []
 
@@ -116,12 +119,14 @@ export default defineChannelPlugin(manifest as PluginManifest, buildShadowConfig
   })
 
   api.onProvision(async (context: PluginProvisionContext) => {
-    // Pod-facing URL — used as runtime env var inside the agent container
+    // Pod-facing URL — injected as SHADOW_SERVER_URL into the agent container env.
     const serverUrl = context.secrets.SHADOW_SERVER_URL
-    // Host-facing URL — used by cloud backend for the provisioning API calls.
-    // Falls back to pod-facing URL when not provided (e.g. CLI mode where they're equal).
-    const provisionUrl =
-      context.secrets.SHADOW_PROVISION_URL ?? process.env.SHADOW_PROVISION_URL ?? serverUrl
+    // Host-facing URL — used only for provisioning API calls (never reaches the pod).
+    // resolveShadowExtraSecrets sets this only when it differs from serverUrl (loopback
+    // dev case). When absent, provisioning is against the same URL as the pod uses.
+    // NOTE: process.env.SHADOW_PROVISION_URL is intentionally NOT read here — callers
+    // must pass it via extraSecrets so the value is explicit and testable.
+    const provisionUrl = context.secrets.SHADOW_PROVISION_URL ?? serverUrl
     const userToken = context.secrets.SHADOW_USER_TOKEN
     context.logger.dim(
       `  shadowob: provisionUrl=${provisionUrl} tokenLen=${userToken?.length ?? 0} tokenStart=${userToken?.slice(0, 10) ?? '(none)'}`,
@@ -173,3 +178,19 @@ export default defineChannelPlugin(manifest as PluginManifest, buildShadowConfig
     }
   })
 })
+
+// ── K8s provider ──────────────────────────────────────────────────────────────
+// Declares the Shadow server URL as an egress URL so the infra layer can open
+// the correct NetworkPolicy ports — without the infra layer knowing the var name.
+
+const shadowobK8sProvider: PluginK8sProvider = {
+  buildK8s(agent, _ctx: PluginK8sContext): PluginK8sResult | undefined {
+    const serverUrl = agent.env?.SHADOW_SERVER_URL
+    if (!serverUrl) return undefined
+    return { egressUrls: [serverUrl] }
+  },
+}
+
+shadowobPlugin.k8s = shadowobK8sProvider
+
+export default shadowobPlugin

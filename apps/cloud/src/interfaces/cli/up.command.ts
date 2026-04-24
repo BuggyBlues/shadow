@@ -57,15 +57,17 @@ export function createUpCommand(container: ServiceContainer) {
             filePath: options.file,
             namespace: options.namespace,
             stack: options.stack,
-            shadowUrl: options.provisionUrl,
-            shadowToken: options.shadowToken,
+            extraSecrets: {
+              ...(options.provisionUrl ? { SHADOW_SERVER_URL: options.provisionUrl } : {}),
+              ...(options.podShadowUrl ? { SHADOW_AGENT_SERVER_URL: options.podShadowUrl } : {}),
+              ...(options.shadowToken ? { SHADOW_USER_TOKEN: options.shadowToken } : {}),
+            },
             dryRun: options.dryRun,
             skipProvision: options.skipProvision,
             k8sContext: options.k8sContext,
             stateDir: options.stateDir,
             imagePullPolicy:
               (options.imagePullPolicy as 'Always' | 'IfNotPresent' | 'Never') ?? 'IfNotPresent',
-            k8sShadowUrl: options.podShadowUrl,
             local: options.local,
             cluster: options.cluster,
           })
