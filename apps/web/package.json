@@ -19,7 +19,7 @@
     "@shadowob/ui": "workspace:*",
     "@stripe/react-stripe-js": "^6.1.0",
     "@stripe/stripe-js": "^9.0.1",
-    "@tanstack/react-query": "^5.80.7",
+    "@tanstack/react-query": "^5.100.5",
     "@tanstack/react-router": "^1.168.2",
     "@tanstack/react-virtual": "^3.13.23",
     "clsx": "^2.1.1",
