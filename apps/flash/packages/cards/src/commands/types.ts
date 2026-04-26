@@ -258,6 +258,7 @@ export interface CommandContext {
   /** Animation manager */
   animationManager: {
     markAutoplay: (id: string) => void
+    clearAutoplay: (id: string) => void
     setHoveredCard: (id: string | null) => void
   }
   /** Constraint management for links */

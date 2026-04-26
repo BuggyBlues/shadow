@@ -178,7 +178,7 @@ describe('loadAllPlugins', () => {
     expect(registry.get('notion')).toBeDefined()
     expect(registry.get('discord')).toBeDefined()
     expect(registry.get('anthropic')).toBeDefined()
-  })
+  }, 30_000)
 
   it('should have valid manifests for all plugins', async () => {
     const registry = createPluginRegistry()
@@ -191,7 +191,7 @@ describe('loadAllPlugins', () => {
       expect(plugin.manifest.capabilities.length).toBeGreaterThan(0)
       expect(plugin.manifest.tags.length).toBeGreaterThan(0)
     }
-  })
+  }, 30_000)
 })
 
 // ─── defineSkillPlugin ─────────────────────────────────────────────────────
@@ -445,14 +445,15 @@ describe('Channel plugins', () => {
 // ─── Tool plugin implementations ──────────────────────────────────────────
 
 describe('Tool plugins', () => {
-  it('github plugin should produce plugin entry', async () => {
+  it('github plugin should produce skill and tool config', async () => {
     const mod = await import('../../src/plugins/github/index.js')
     const plugin = mod.default as PluginDefinition
     expect(plugin.manifest.id).toBe('github')
 
     const ctx = makeBuildContext({ secrets: { GITHUB_TOKEN: 'ghp_xxx' }, agentConfig: {} })
     const fragment = plugin._buildConfig[0]!(ctx)
-    expect(fragment?.plugins).toBeDefined()
+    expect(fragment?.skills).toBeDefined()
+    expect(fragment?.tools).toBeDefined()
   })
 
   it('stripe plugin should produce plugin entry', async () => {

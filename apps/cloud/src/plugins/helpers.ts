@@ -90,6 +90,9 @@ export function definePlugin(
     cli: collected.cli,
     mcp: collected.mcp,
     _hooks: hooks,
+    _buildConfig: hooks.buildConfig,
+    _buildEnv: hooks.buildEnv,
+    _validate: hooks.validate,
   }
 }
 

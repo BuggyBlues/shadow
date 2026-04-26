@@ -13,6 +13,7 @@ import type { ViewportData } from '../../components/viewportComponent'
 import { Visibility } from '../../components/visibilityComponent'
 import type { RenderConfig } from '../../constants'
 import type { SceneWorld } from '../../core/world'
+import { cardAssetPipeline } from '../../resources/assetPipeline'
 import type { GPUContext } from '../../resources/gpuContext'
 import {
   G_TIME,
@@ -62,6 +63,7 @@ export function gpuRenderSystem(
 ): void {
   const { device, queue, ctx: canvasCtx, pipeline, globalBuf, instanceBuf, bg0, bg1 } = gpuCtx
   const { dpr } = viewport
+  cardAssetPipeline.beginFrame('webgpu', time * 1000)
 
   const eids = [...scene.all()]
   eids.sort((a, b) => (RenderOrder.z[a] ?? 0) - (RenderOrder.z[b] ?? 0))
@@ -109,7 +111,8 @@ export function gpuRenderSystem(
     instData[base + I_RADIUS] = config.cardRadius * dpr
     instData[base + I_TEX_IDX] = gpuState.layerIndex
 
-    instData[base + I_HOVER] = Interaction.hovered[eid] ? 1.0 : 0.0
+    instData[base + I_HOVER] =
+      Interaction.hoverAmount[eid] ?? (Interaction.hovered[eid] ? 1.0 : 0.0)
     instData[base + I_ACTIVE] = Interaction.active[eid] ? 1.0 : 0.0
     instData[base + I_STREAMING] = Interaction.streaming[eid] ? 1.0 : 0.0
     instData[base + I_SELECTED] = Interaction.selected[eid] ? 1.0 : 0.0

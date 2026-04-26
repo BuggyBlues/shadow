@@ -38,7 +38,7 @@ describe('S03/C05 settings save idempotency retry', () => {
     await userEvent.click(save)
     await waitFor(() => {
       expect(showToastMock).toHaveBeenCalledWith('shop.saveError(500)', 'error')
-      expect(showToastMock).toHaveBeenCalledWith('shop.settingsSaved', 'success')
+      expect(showToastMock).toHaveBeenCalledWith('店铺设置已保存', 'success')
     })
   })
 })

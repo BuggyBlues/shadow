@@ -90,10 +90,55 @@ export type { CardPluginRegistry } from './registry'
 // ── Registry (singleton) ──
 export { registry } from './registry'
 // ── Renderer Facades ──
-export { CardRenderer } from './renderer/CardRenderer'
-export { DeskLoop } from './renderer/DeskLoop'
+export {
+  CardRenderer,
+  type CardRendererOptions,
+  type RenderBackend,
+  type RenderBackendPreference,
+} from './renderer/CardRenderer'
+export { DeskLoop, type DeskLoopOptions, type DeskLoopStats } from './renderer/DeskLoop'
 export { animationManager } from './resources/animationManager'
+export {
+  type AnimationRuntimeKind,
+  AnimationScheduler,
+  type AnimationSchedulerBudget,
+  type AnimationSchedulerFrame,
+  type AnimationSchedulerStats,
+  type AnimationTickRequest,
+  animationScheduler,
+} from './resources/animationScheduler'
+export {
+  type ArtLayerRect,
+  artLayerManager,
+  type StaticArtLayer,
+} from './resources/artLayerManager'
+export {
+  type AssetFrameInfo,
+  type AssetMemoryBudget,
+  type AssetPipelinePlugin,
+  type AssetPipelineStats,
+  CardAssetPipeline,
+  type CardFaceBackend,
+  type CardFaceBackendId,
+  type CompressedTextureCandidate,
+  type CompressedTextureFormat,
+  cardAssetPipeline,
+  type TextureColorSpace,
+  type TextureUploadBackend,
+  type TextureUploadBudget,
+  type TextureUploadRequest,
+} from './resources/assetPipeline'
 export { type CanvasSetupResult, setupCanvas } from './resources/canvasManager'
+export {
+  paintCardFaceBase,
+  paintCardFacePatch,
+} from './resources/cardFaceMaterial'
+export {
+  type CompressedImageMeta,
+  type ImageAssetMeta,
+  type ResolvedImageAsset,
+  resolveImageAssetSource,
+} from './resources/compressedTexturePipeline'
 export { type DeskInputCallbacks, DeskInputHandler } from './resources/deskInputHandler'
 export {
   createGLContext,
@@ -110,24 +155,60 @@ export {
   resizeGPUContext,
 } from './resources/gpuContext'
 export {
+  Ktx2Runtime,
+  type Ktx2RuntimeStats,
+  ktx2Runtime,
+  type WebGLCompressedTextureSupport,
+} from './resources/ktx2Runtime'
+export {
   createPhysicsWorld,
   destroyPhysicsWorld,
   type PhysicsWorld,
 } from './resources/physicsWorld'
+export {
+  getSharedPixiRuntime,
+  resetSharedPixiRuntime,
+  type SharedPixiRuntime,
+} from './resources/pixiRuntime'
+export {
+  runtimeIsActive,
+  runtimeIsPrewarm,
+  runtimeShouldPrepare,
+} from './resources/runtimeState'
+export {
+  CardSpatialIndex,
+  type CardSpatialItem,
+  type SpatialIndexStats,
+} from './resources/spatialIndex'
 // ── Resources ──
 export {
   type CardTextureInfo,
   cardHash,
   clearAllTextures,
   getCachedTexture,
+  getTextureCacheStats,
   removeCachedTexture,
   setCachedTexture,
+  type TextureCacheStats,
+  trimTextureCache,
 } from './resources/textureCache'
 export {
   clearTextureCache,
   removeCardTexture,
   renderCardTexture,
 } from './resources/textureRenderer'
+export {
+  getSharedThreeRuntime,
+  resetSharedThreeRuntime,
+  type SharedThreeRuntime,
+} from './resources/threeRuntime'
+export {
+  createThreeSceneRuntime,
+  hasThreeScenePreset,
+  type SceneSetup,
+  THREE_SCENE_FACTORIES,
+  type ThreeSceneRuntimeOptions,
+} from './resources/threeScenePresets'
 export {
   centerViewportOnCards,
   createViewport,
@@ -146,6 +227,11 @@ export {
   drawConstraints,
   drawHighlight,
 } from './systems/render/constraintRenderSystem'
+export {
+  clearArtLayerTextures,
+  glArtLayerSystem,
+  removeArtLayerTexture,
+} from './systems/render/glArtLayerSystem'
 export { type GLDrawContext, glDrawSystem } from './systems/render/glDrawSystem'
 export { glRenderSystem, type RenderConfig } from './systems/render/glRenderSystem'
 // ── Render Systems ──
@@ -177,6 +263,8 @@ export { physicsStep, seedBodies, syncBodies } from './systems/scene/bodyLifecyc
 export { flipAnimationSystem } from './systems/scene/flipAnimationSystem'
 export { frustumCullSystem } from './systems/scene/frustumCullSystem'
 export { type InputState, inputSystem } from './systems/scene/inputSystem'
+export { runtimeActivationSystem } from './systems/scene/runtimeActivationSystem'
+export { runtimePrepareSystem } from './systems/scene/runtimePrepareSystem'
 export { sceneUpdateSystem } from './systems/scene/sceneUpdateSystem'
 // ── Types ──
 export type {

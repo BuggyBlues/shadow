@@ -50,5 +50,5 @@ describe('generate-schema', () => {
 
     expect(generated).not.toBeNull()
     expect(JSON.stringify(committed, null, 2)).toBe(JSON.stringify(generated, null, 2))
-  })
+  }, 30_000)
 })

@@ -4,21 +4,39 @@
 // RAF step, BEFORE the card render pass.  This ensures:
 //
 //  Three.js:  scenes are rendered synchronously inside tick(), so the
-//             canvas holds a fresh frame when threeSystem does drawImage.
-//             preserveDrawingBuffer: true prevents UA from clearing the
-//             WebGL buffer between the Three.js render and drawImage.
+//             canvas holds a fresh frame when the GPU compositor samples
+//             the dynamic runtime layer. preserveDrawingBuffer: true
+//             prevents UA from clearing the WebGL buffer between passes.
 //
-//  Lottie:    lottie-web drives its own RAF; its enterFrame event marks
-//             the card dirty so glTextureSystem forces a cache-bust.
+//  Lottie:    lottie-web drives its own RAF only while active; enterFrame
+//             requests are throttled through AnimationScheduler before the
+//             dynamic layer version is advanced.
 //
 //  Countdown: tick() detects the wall-clock second change and marks
 //             countdown cards dirty.
 //
-// glTextureSystem reads isDirty(id) → removeCachedTexture(id) → normal
-// runPipeline path → threeSystem/lottieSystem blits fresh canvas → upload.
+// glTextureSystem reads isDirty(id) only for true face invalidations. Dynamic
+// sources bump frameVersion and are uploaded by glAnimationLayerSystem.
 
+import type { Card } from '@shadowob/flash-types'
 import type { AnimationItem } from 'lottie-web'
 import * as THREE from 'three'
+import { resolveStyle } from '../components/styleComponent'
+import { CARD_H, CARD_W } from '../constants'
+import { CARD_PAD } from '../utils/canvasUtils'
+import {
+  type AnimationSchedulerBudget,
+  type AnimationSchedulerStats,
+  animationScheduler,
+} from './animationScheduler'
+import type { CompressedImageMeta } from './compressedTexturePipeline'
+import { getSharedPixiRuntime, resetSharedPixiRuntime, type SharedPixiRuntime } from './pixiRuntime'
+import {
+  getSharedThreeRuntime,
+  resetSharedThreeRuntime,
+  type SharedThreeRuntime,
+} from './threeRuntime'
+import { createThreeSceneRuntime, hasThreeScenePreset } from './threeScenePresets'
 
 // ─────────────────────────────────────
 // Types
@@ -36,11 +54,12 @@ export interface LottieState {
 export interface ThreeState {
   kind: 'three'
   canvas: HTMLCanvasElement
-  renderer: THREE.WebGLRenderer
   scene: THREE.Scene
   camera: THREE.PerspectiveCamera
   tick: (elapsed: number) => void
   startTime: number
+  w: number
+  h: number
 }
 
 export interface CountdownState {
@@ -69,6 +88,23 @@ export interface Live2DState {
 
 type AnimState = LottieState | ThreeState | CountdownState | ImageState | Live2DState
 
+export interface AnimationLayerRect {
+  x: number
+  y: number
+  w: number
+  h: number
+  radius?: number
+  fit?: 'fill' | 'contain' | 'cover'
+}
+
+export interface RuntimeAnimationLayer extends Required<AnimationLayerRect> {
+  cardId: string
+  source: TexImageSource
+  sourceW: number
+  sourceH: number
+  version: number
+}
+
 // ─────────────────────────────────────
 // AnimationManager
 // ─────────────────────────────────────
@@ -76,22 +112,36 @@ type AnimState = LottieState | ThreeState | CountdownState | ImageState | Live2D
 class AnimationManager {
   private states = new Map<string, AnimState>()
   private dirty = new Set<string>()
+  private frameVersion = new Map<string, number>()
+  private layerRects = new Map<string, Required<AnimationLayerRect>>()
   private mountEl: HTMLElement | null = null
   private lastSecond = -1
   /** Currently hovered card id — only this card (+ autoplay cards) animate */
   private hoveredCardId: string | null = null
-  /** Cards that always animate regardless of hover */
-  private autoplayIds = new Set<string>()
+  /** Cards that explicitly request autoplay through card metadata. */
+  private metaAutoplayIds = new Set<string>()
+  /** Cards manually activated by runtime commands such as /play. */
+  private manualAutoplayIds = new Set<string>()
+  /** Cards currently present and visible enough for animation work. */
+  private renderableIds: Set<string> | null = null
   // Shared PixiJS application — ONE WebGL context for all Live2D cards
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private pixiApp: any = null
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private pixiInitPromise: Promise<any> | null = null
-  /** Last render timestamp per live2d card — used for 30fps throttle on autoplay */
+  private pixiRuntime: SharedPixiRuntime | null = null
+  private threeRuntime: SharedThreeRuntime | null = null
+  /** Last render timestamp per live2d card — Live2D is sampled below the main RAF rate. */
   private _live2dLastRender = new Map<string, number>()
 
   setMountElement(el: HTMLElement) {
     this.mountEl = el
+  }
+
+  configureScheduler(budget: Partial<AnimationSchedulerBudget>): void {
+    animationScheduler.configure(budget)
+  }
+
+  getSchedulerStats(): AnimationSchedulerStats {
+    return animationScheduler.getStats()
   }
 
   /**
@@ -104,9 +154,10 @@ class AnimationManager {
     // Pause previously hovered lottie (unless autoplay)
     if (prev && prev !== cardId) {
       const s = this.states.get(prev)
-      if (s?.kind === 'lottie' && s.item && !this.autoplayIds.has(prev)) {
+      if (s?.kind === 'lottie' && s.item && !this.isAutoplayCard(prev)) {
         s.item.pause()
       }
+      if (s) this.markFrameDirty(prev)
     }
     // Resume newly hovered lottie
     if (cardId) {
@@ -114,34 +165,125 @@ class AnimationManager {
       if (s?.kind === 'lottie' && s.item) {
         s.item.play()
       }
-      // Mark dirty immediately so the card re-bakes on the very next frame
-      // (GIF / Three.js will also start animating via tick(), but the first
-      //  dirty mark ensures we don't skip a frame waiting for enterFrame events)
-      this.dirty.add(cardId)
+      if (s) this.markFrameDirty(cardId)
     }
   }
 
   /** Returns true if a card should animate this frame */
-  private isActive(cardId: string): boolean {
-    return this.hoveredCardId === cardId || this.autoplayIds.has(cardId)
+  isActive(cardId: string): boolean {
+    const renderable = this.renderableIds === null || this.renderableIds.has(cardId)
+    return renderable && (this.hoveredCardId === cardId || this.isAutoplayCard(cardId))
   }
 
-  /** Mark a card as always-active (autoplay) */
+  private isAutoplayCard(cardId: string): boolean {
+    return this.metaAutoplayIds.has(cardId) || this.manualAutoplayIds.has(cardId)
+  }
+
+  /** Mark a card as manually active (for commands like /play). */
   markAutoplay(cardId: string) {
-    this.autoplayIds.add(cardId)
+    this.manualAutoplayIds.add(cardId)
+  }
+
+  /** Clear command-driven autoplay without changing card metadata. */
+  clearAutoplay(cardId: string) {
+    this.manualAutoplayIds.delete(cardId)
+  }
+
+  /** Explicitly set metadata-driven autoplay state. */
+  setAutoplay(cardId: string, enabled: boolean) {
+    if (enabled) this.metaAutoplayIds.add(cardId)
+    else this.metaAutoplayIds.delete(cardId)
+  }
+
+  /** Update the cards that are worth animating on the next tick. */
+  setRenderableCards(cardIds: Iterable<string>): void {
+    this.renderableIds = new Set(cardIds)
+  }
+
+  private markFrameDirty(cardId: string): void {
+    this.frameVersion.set(cardId, (this.frameVersion.get(cardId) ?? 0) + 1)
+  }
+
+  private markRuntimePosterReady(cardId: string): void {
+    this.markFrameDirty(cardId)
+    this.dirty.add(cardId)
+  }
+
+  setLayerRect(cardId: string, rect: AnimationLayerRect): void {
+    this.layerRects.set(cardId, {
+      x: rect.x,
+      y: rect.y,
+      w: rect.w,
+      h: rect.h,
+      radius: rect.radius ?? 6,
+      fit: rect.fit ?? 'fill',
+    })
+  }
+
+  getRuntimeLayer(cardId: string): RuntimeAnimationLayer | null {
+    if (!this.isActive(cardId)) return null
+    const rect = this.layerRects.get(cardId)
+    if (!rect) return null
+
+    const state = this.states.get(cardId)
+    let source: TexImageSource | null = null
+    let sourceW = 0
+    let sourceH = 0
+
+    if (state?.kind === 'image' && state.animated && state.loaded) {
+      source = state.img
+      sourceW = state.img.naturalWidth
+      sourceH = state.img.naturalHeight
+    } else if (state?.kind === 'lottie' && state.canvas && !state.loading && !state.error) {
+      source = state.canvas
+      sourceW = state.canvas.width
+      sourceH = state.canvas.height
+    } else if (state?.kind === 'three') {
+      source = state.canvas
+      sourceW = state.canvas.width
+      sourceH = state.canvas.height
+    } else if (state?.kind === 'live2d' && !state.loading && !state.error) {
+      source = state.canvas
+      sourceW = state.canvas.width
+      sourceH = state.canvas.height
+    }
+
+    if (!source || sourceW <= 0 || sourceH <= 0) return null
+    return {
+      cardId,
+      source,
+      sourceW,
+      sourceH,
+      version: this.frameVersion.get(cardId) ?? 0,
+      ...rect,
+    }
   }
 
   // ── Unified tick — called by DeskLoop every RAF ───────────
 
   tick(timestamp: number): void {
+    animationScheduler.beginFrame(timestamp)
+
     // 1. Render all Three.js scenes — only when hovered or autoplay
     for (const [id, state] of this.states) {
       if (state.kind !== 'three') continue
       if (!this.isActive(id)) continue
+      const hovered = this.hoveredCardId === id
+      if (
+        !animationScheduler.shouldTick({
+          cardId: id,
+          kind: 'three',
+          hovered,
+          autoplay: this.isAutoplayCard(id),
+          timestamp,
+        })
+      ) {
+        continue
+      }
       const elapsed = timestamp - state.startTime
       state.tick(elapsed)
-      state.renderer.render(state.scene, state.camera)
-      this.dirty.add(id)
+      this.renderThreeFrame(state)
+      this.markFrameDirty(id)
     }
 
     // 2. Countdown: mark dirty when wall-clock second changes
@@ -155,17 +297,27 @@ class AnimationManager {
 
     // 3. Animated images (GIFs): mark dirty only when active
     for (const [id, state] of this.states) {
-      if (state.kind === 'image' && state.loaded && state.animated && this.isActive(id))
-        this.dirty.add(id)
+      if (state.kind === 'image' && state.loaded && state.animated && this.isActive(id)) {
+        const hovered = this.hoveredCardId === id
+        if (
+          animationScheduler.shouldMarkFrame({
+            cardId: id,
+            kind: 'gif',
+            hovered,
+            autoplay: this.isAutoplayCard(id),
+            timestamp,
+          })
+        ) {
+          this.markFrameDirty(id)
+        }
+      }
     }
 
     // 4. Live2D: render only when active
     // Drive Live2D animation updates manually (PIXI ticker is stopped; we own the clock).
-    // Then render each active model directly to the shared PIXI canvas (no RenderTexture
-    // extract → avoids gl.readPixels GPU stall). Autoplay-only cards are throttled to 30fps.
+    // Then render due active models directly to the shared PIXI canvas (no RenderTexture
+    // extract → avoids gl.readPixels GPU stall). Sampling stays below the main RAF rate.
     if (this.pixiApp) {
-      const renderer = this.pixiApp.renderer
-      const ticker = this.pixiApp.ticker
       const activeLive2D: [string, Live2DState][] = []
       for (const [id, state] of this.states) {
         if (
@@ -178,29 +330,30 @@ class AnimationManager {
           activeLive2D.push([id, state as Live2DState])
         }
       }
-      if (activeLive2D.length > 0) {
+      const dueLive2D: [string, Live2DState][] = []
+      for (const [id, state] of activeLive2D) {
+        const hovered = this.hoveredCardId === id
+        if (
+          !animationScheduler.shouldTick({
+            cardId: id,
+            kind: 'live2d',
+            hovered,
+            autoplay: this.isAutoplayCard(id),
+            timestamp,
+          })
+        ) {
+          continue
+        }
+        this._live2dLastRender.set(id, timestamp)
+        dueLive2D.push([id, state])
+      }
+
+      if (dueLive2D.length > 0) {
         // Tick PIXI Ticker manually so Live2D models update their skeletons/physics
-        ticker.update(timestamp)
-        for (const [id, state] of activeLive2D) {
-          // Throttle autoplay (non-hovered) cards to ~30fps to halve GPU work
-          if (this.autoplayIds.has(id) && this.hoveredCardId !== id) {
-            const last = this._live2dLastRender.get(id) ?? 0
-            if (timestamp - last < 32) continue
-            this._live2dLastRender.set(id, timestamp)
-          }
-          // Resize renderer to this card's dimensions and render directly to pixi canvas.
-          // drawImage from a WebGL canvas uses the GPU compositor path in Chrome/Firefox
-          // (avoids a CPU gl.readPixels stall unlike extract.canvas()).
-          renderer.resize(state.w, state.h)
-          renderer.clear()
-          const container = state.model._container ?? state.model
-          renderer.render(container)
-          const ctx2d = state.canvas.getContext('2d')
-          if (ctx2d) {
-            ctx2d.clearRect(0, 0, state.w, state.h)
-            ctx2d.drawImage(renderer.view, 0, 0)
-          }
-          this.dirty.add(id)
+        this.pixiRuntime?.tick(timestamp)
+        for (const [id, state] of dueLive2D) {
+          this.renderLive2DFrame(state)
+          this.markFrameDirty(id)
         }
       }
     }
@@ -228,9 +381,8 @@ class AnimationManager {
     loop = true,
     autoplay = false,
   ): HTMLCanvasElement | null {
-    // Track autoplay preference
-    if (autoplay) this.autoplayIds.add(cardId)
-    else this.autoplayIds.delete(cardId)
+    // Track metadata autoplay without clobbering command-driven /play state.
+    this.setAutoplay(cardId, autoplay)
 
     const existing = this.states.get(cardId)
     if (existing?.kind === 'lottie') {
@@ -280,12 +432,33 @@ class AnimationManager {
           state.loading = false
           // Start playing only if active
           if (this.isActive(cardId)) item.play()
-          this.dirty.add(cardId)
+          else {
+            try {
+              const posterFrame = Math.floor((item.totalFrames || 1) * 0.35)
+              item.goToAndStop(posterFrame, true)
+            } catch {
+              /* first-frame poster is best-effort */
+            }
+          }
+          this.markRuntimePosterReady(cardId)
         })
 
-        // Mark dirty on every rendered frame so glTextureSystem re-uploads
+        // Mark each rendered frame so the dynamic GPU layer can upload it.
         item.addEventListener('enterFrame', () => {
-          if (state.canvas) this.dirty.add(cardId)
+          if (state.canvas && this.isActive(cardId)) {
+            const timestamp = performance.now()
+            if (
+              animationScheduler.shouldMarkFrame({
+                cardId,
+                kind: 'lottie',
+                hovered: this.hoveredCardId === cardId,
+                autoplay: this.isAutoplayCard(cardId),
+                timestamp,
+              })
+            ) {
+              this.markFrameDirty(cardId)
+            }
+          }
         })
 
         item.addEventListener('error', () => {
@@ -318,21 +491,15 @@ class AnimationManager {
     cardId: string,
     w: number,
     h: number,
-    setupFn: (scene: THREE.Scene, camera: THREE.PerspectiveCamera) => void,
+    setupFn: (
+      scene: THREE.Scene,
+      camera: THREE.PerspectiveCamera,
+      renderer: THREE.WebGLRenderer,
+    ) => void,
     tickFn: (elapsed: number) => void,
   ): HTMLCanvasElement {
     const existing = this.states.get(cardId)
     if (existing?.kind === 'three') return existing.canvas
-
-    // Enforce WebGL context limit — browsers cap at ~8; keep 6 max
-    const threeCount = [...this.states.values()].filter((s) => s.kind === 'three').length
-    if (threeCount >= 6) {
-      // Return a tiny placeholder canvas rather than creating another WebGL context
-      const placeholder = document.createElement('canvas')
-      placeholder.width = w
-      placeholder.height = h
-      return placeholder
-    }
 
     const canvas = document.createElement('canvas')
     canvas.width = w
@@ -340,40 +507,32 @@ class AnimationManager {
     canvas.style.cssText = 'position:absolute;left:-9999px;pointer-events:none'
     this.mountEl?.appendChild(canvas)
 
-    // preserveDrawingBuffer: true ensures the canvas is readable after
-    // the WebGL frame is composited — critical for ctx.drawImage() in threeSystem
-    const renderer = new THREE.WebGLRenderer({
-      canvas,
-      antialias: true,
-      alpha: true,
-      preserveDrawingBuffer: true,
-    })
-    renderer.setSize(w, h, false)
-    renderer.setPixelRatio(1)
-    renderer.setClearColor(0x000000, 0)
+    const runtime = getSharedThreeRuntime(this.mountEl)
+    this.threeRuntime = runtime
 
     const scene = new THREE.Scene()
     const camera = new THREE.PerspectiveCamera(60, w / h, 0.1, 1000)
     camera.position.set(0, 0, 3)
 
-    setupFn(scene, camera)
+    setupFn(scene, camera, runtime.renderer)
 
     const state: ThreeState = {
       kind: 'three',
       canvas,
-      renderer,
       scene,
       camera,
       tick: tickFn,
       startTime: performance.now(),
+      w,
+      h,
     }
     this.states.set(cardId, state)
 
     // Render one static frame immediately so the card has a non-empty texture
     // on its first bake (before any hover/autoplay event).
     state.tick(0)
-    renderer.render(scene, camera)
-    this.dirty.add(cardId)
+    this.renderThreeFrame(state)
+    this.markRuntimePosterReady(cardId)
 
     return canvas
   }
@@ -381,6 +540,12 @@ class AnimationManager {
   getThreeCanvas(cardId: string): HTMLCanvasElement | null {
     const s = this.states.get(cardId)
     return s?.kind === 'three' ? s.canvas : null
+  }
+
+  private renderThreeFrame(state: ThreeState): void {
+    const runtime = this.threeRuntime ?? getSharedThreeRuntime(this.mountEl)
+    this.threeRuntime = runtime
+    runtime.renderToCanvas(state.scene, state.camera, state.canvas, state.w, state.h)
   }
 
   // ── Static / Animated Images ─────────────────────────────
@@ -395,8 +560,7 @@ class AnimationManager {
     animated = false,
     autoplay = false,
   ): HTMLImageElement | null {
-    if (animated && autoplay) this.autoplayIds.add(cardId)
-    else if (animated && !autoplay) this.autoplayIds.delete(cardId)
+    if (animated) this.setAutoplay(cardId, autoplay)
     const existing = this.states.get(cardId)
     if (existing?.kind === 'image') {
       return existing.loaded ? existing.img : null
@@ -409,7 +573,8 @@ class AnimationManager {
 
     img.onload = () => {
       state.loaded = true
-      this.dirty.add(cardId)
+      if (animated) this.markRuntimePosterReady(cardId)
+      else this.dirty.add(cardId)
     }
     img.onerror = () => {
       // Leave as loaded: false — systems should handle gracefully
@@ -489,7 +654,8 @@ class AnimationManager {
               }
             }
             state.loading = false
-            this.dirty.add(cardId)
+            this.renderLive2DFrame(state)
+            this.markRuntimePosterReady(cardId)
           })
           .catch(() => {
             state.error = true
@@ -506,54 +672,11 @@ class AnimationManager {
 
   /** Initialize (or return cached) shared PixiJS Application. */
   private _getPixiApp(): Promise<[any, any]> {
-    if (this.pixiInitPromise) return this.pixiInitPromise
-    this.pixiInitPromise = Promise.all([
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      import('pixi.js'),
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      import('pixi-live2d-display/cubism4').then((m: any) => m.Live2DModel),
-    ]).then(([PIXI, Live2DModel]) => {
-      // Fix CORS: pixi-live2d-display v0.4 uses the legacy PIXI.Loader internally.
-      // Without crossOrigin='anonymous', WebGL's texImage2D throws SecurityError for
-      // cross-origin CDN textures (tainted canvas).
-      // @ts-expect-error PIXI.Loader exists at runtime in pixi-live2d-display compat shim
-      if (PIXI.Loader?.shared) {
-        // @ts-expect-error legacy PIXI.Loader shim
-        PIXI.Loader.shared.pre((resource: any, next: any) => {
-          resource.crossOrigin = 'anonymous'
-          next()
-        })
-      }
-      // Also patch PIXI v7 Assets loader if present
-      if (PIXI.Assets?.setPreferences) {
-        PIXI.Assets.setPreferences({ crossOrigin: 'anonymous' })
-      }
-      Live2DModel.registerTicker(PIXI.Ticker)
-      if (!this.pixiApp) {
-        // 1×1 off-screen canvas — we render to RenderTextures, not this canvas
-        const offscreen = document.createElement('canvas')
-        offscreen.width = 1
-        offscreen.height = 1
-        offscreen.style.cssText = 'position:absolute;left:-9999px;pointer-events:none'
-        this.mountEl?.appendChild(offscreen)
-        this.pixiApp = new PIXI.Application({
-          view: offscreen,
-          width: 1,
-          height: 1,
-          backgroundAlpha: 0,
-          antialias: true,
-          resolution: 1,
-        })
-        // Stop PIXI's own RAF — DeskLoop owns the clock and calls ticker.update()
-        // manually each frame only when there are active Live2D cards.
-        // This prevents 60fps RAF work even when all cards are off-screen / idle.
-        this.pixiApp.ticker.stop()
-      }
-      return [PIXI, Live2DModel]
+    return getSharedPixiRuntime(this.mountEl).then((runtime) => {
+      this.pixiRuntime = runtime
+      this.pixiApp = runtime.app
+      return [runtime.PIXI, runtime.Live2DModel]
     })
-    return this.pixiInitPromise
   }
 
   getLive2DCanvas(cardId: string): HTMLCanvasElement | null {
@@ -582,6 +705,12 @@ class AnimationManager {
     }
   }
 
+  private renderLive2DFrame(state: Live2DState): void {
+    if (!this.pixiRuntime || !state.model || state.loading || state.error) return
+    const container = state.model._container ?? state.model
+    this.pixiRuntime.renderToCanvas(container, state.canvas, state.w, state.h)
+  }
+
   // ── Countdown ────────────────────────────────────────────
 
   registerCountdown(cardId: string) {
@@ -603,18 +732,30 @@ class AnimationManager {
     if (!meta) return
     switch (card.kind) {
       case 'gif':
-        if (typeof meta.src === 'string' && meta.src) {
+        if (
+          typeof meta.src === 'string' &&
+          meta.src &&
+          (meta.autoplay === true || meta.preload === true)
+        ) {
           this.registerImage(card.id, meta.src, true, meta.autoplay === true)
         }
         break
       case 'image':
-        if (typeof meta.src === 'string' && meta.src) {
-          this.registerImage(card.id, meta.src, false)
-        }
+        // Static image cards are owned by ArtLayerManager, not animation state.
         break
       case 'lottie':
-        if (typeof meta.src === 'string' && meta.src) {
+        if (
+          typeof meta.src === 'string' &&
+          meta.src &&
+          (meta.autoplay === true || meta.preload === true)
+        ) {
           this.registerLottie(card.id, meta.src, meta.loop !== false, meta.autoplay === true)
+        }
+        break
+      case 'threed':
+      case 'live2d':
+        if (meta.autoplay === true || meta.preload === true) {
+          this.prepareRuntimeCard(card as Pick<Card, 'id' | 'kind' | 'meta'>)
         }
         break
       case 'person':
@@ -625,17 +766,92 @@ class AnimationManager {
     }
   }
 
+  prepareRuntimeCard(card: Pick<Card, 'id' | 'kind' | 'meta'>): void {
+    const meta = card.meta as Record<string, unknown> | undefined | null
+    if (!meta) return
+    switch (card.kind) {
+      case 'gif':
+        if (typeof meta.src === 'string' && meta.src) {
+          this.registerImage(card.id, meta.src, true, meta.autoplay === true)
+        }
+        break
+      case 'lottie':
+        if (typeof meta.src === 'string' && meta.src) {
+          this.registerLottie(card.id, meta.src, meta.loop !== false, meta.autoplay === true)
+        }
+        break
+      case 'threed':
+        this.prepareThreeRuntimeCard(card.id, meta)
+        break
+      case 'live2d':
+        this.prepareLive2DRuntimeCard(card.id, meta)
+        break
+    }
+  }
+
+  private prepareThreeRuntimeCard(cardId: string, meta: Record<string, unknown>): void {
+    const sceneKey = typeof meta.scene === 'string' ? meta.scene : ''
+    if (!sceneKey || !hasThreeScenePreset(sceneKey)) return
+    if (this.states.get(cardId)?.kind === 'three') return
+
+    const contentW = CARD_W - CARD_PAD * 2
+    const w = Math.round(contentW * 2)
+    const h = Math.round(contentW * 1.1 * 2)
+    const style = resolveStyle('threed')
+    const runtime = createThreeSceneRuntime({
+      cardId,
+      sceneKey,
+      color: typeof meta.color === 'string' ? meta.color : style.accentColor,
+      color2: typeof meta.color2 === 'string' ? meta.color2 : '#ffffff',
+      wireframe: meta.wireframe === true,
+      textureMeta: {
+        ktx2: typeof meta.ktx2 === 'string' ? meta.ktx2 : undefined,
+        basis: typeof meta.basis === 'string' ? meta.basis : undefined,
+        fallbackSrc: typeof meta.fallbackSrc === 'string' ? meta.fallbackSrc : undefined,
+        compressed: parseCompressedImageMeta(meta.compressed),
+      },
+      onFrameDirty: () => {
+        const state = this.states.get(cardId)
+        if (state?.kind === 'three') this.renderThreeFrame(state)
+        this.markRuntimePosterReady(cardId)
+      },
+    })
+
+    this.registerThree(cardId, w, h, runtime.setup, runtime.tick)
+  }
+
+  private prepareLive2DRuntimeCard(cardId: string, meta: Record<string, unknown>): void {
+    const modelUrl = typeof meta.modelUrl === 'string' ? meta.modelUrl : ''
+    if (!modelUrl) return
+    if (this.states.get(cardId)?.kind === 'live2d') return
+
+    const contentW = CARD_W - CARD_PAD * 2
+    const viewH = Math.min(CARD_H - CARD_PAD * 2 - 8, contentW * 1.4)
+    this.registerLive2D(
+      cardId,
+      modelUrl,
+      Math.round(contentW * 1.5),
+      Math.round(viewH * 1.5),
+      meta.autoMotion !== false,
+    )
+  }
+
   // ── Lifecycle ────────────────────────────────────────────
 
   destroy(cardId: string) {
-    this.autoplayIds.delete(cardId)
+    this.metaAutoplayIds.delete(cardId)
+    this.manualAutoplayIds.delete(cardId)
+    animationScheduler.resetCard(cardId)
+    this.frameVersion.delete(cardId)
+    this.layerRects.delete(cardId)
+    this._live2dLastRender.delete(cardId)
     const state = this.states.get(cardId)
     if (!state) return
     if (state.kind === 'lottie') {
       state.item?.destroy()
       state.container.remove()
     } else if (state.kind === 'three') {
-      state.renderer.dispose()
+      disposeThreeState(state)
       state.canvas.remove()
     } else if (state.kind === 'image') {
       state.img.src = ''
@@ -659,6 +875,66 @@ class AnimationManager {
   destroyAll() {
     const ids = [...this.states.keys()]
     ids.forEach((id) => this.destroy(id))
+    this.renderableIds = null
+    animationScheduler.reset()
+    this.frameVersion.clear()
+    this.layerRects.clear()
+    this._live2dLastRender.clear()
+    this.pixiApp = null
+    this.pixiRuntime = null
+    this.threeRuntime = null
+    resetSharedPixiRuntime()
+    resetSharedThreeRuntime()
+  }
+}
+
+const MATERIAL_TEXTURE_KEYS = [
+  'map',
+  'normalMap',
+  'roughnessMap',
+  'metalnessMap',
+  'emissiveMap',
+  'alphaMap',
+  'aoMap',
+  'bumpMap',
+  'displacementMap',
+  'envMap',
+] as const
+
+function disposeThreeState(state: ThreeState): void {
+  state.scene.traverse((object) => {
+    const mesh = object as THREE.Mesh
+    mesh.geometry?.dispose()
+
+    const material = mesh.material
+    if (!material) return
+    const materials = Array.isArray(material) ? material : [material]
+    for (const item of materials) disposeThreeMaterial(item)
+  })
+}
+
+function disposeThreeMaterial(material: THREE.Material): void {
+  const record = material as THREE.Material &
+    Partial<Record<(typeof MATERIAL_TEXTURE_KEYS)[number], THREE.Texture>>
+  for (const key of MATERIAL_TEXTURE_KEYS) {
+    record[key]?.dispose()
+  }
+  material.dispose()
+}
+
+function parseCompressedImageMeta(value: unknown): CompressedImageMeta | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const source = value as Record<string, unknown>
+  const colorSpace =
+    source.colorSpace === 'srgb' || source.colorSpace === 'linear' ? source.colorSpace : undefined
+
+  return {
+    ktx2: typeof source.ktx2 === 'string' ? source.ktx2 : undefined,
+    basis: typeof source.basis === 'string' ? source.basis : undefined,
+    fallback: typeof source.fallback === 'string' ? source.fallback : undefined,
+    width: typeof source.width === 'number' ? source.width : undefined,
+    height: typeof source.height === 'number' ? source.height : undefined,
+    colorSpace,
   }
 }
 

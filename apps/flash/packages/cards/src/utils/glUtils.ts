@@ -69,9 +69,14 @@ export function updateTexture(
   gl: WebGLRenderingContext,
   tex: WebGLTexture,
   source: TexImageSource,
+  redefine = false,
 ) {
   gl.bindTexture(gl.TEXTURE_2D, tex)
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source)
+  if (redefine) {
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source)
+  } else {
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, source)
+  }
 }
 
 /** Create an orthographic projection matrix (mat3) for 2D rendering */

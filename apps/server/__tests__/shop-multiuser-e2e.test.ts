@@ -76,6 +76,8 @@ let orderA2Id: string // Buyer A entitlement order
 let orderB1Id: string // Buyer B physical order
 let orderBCancelId: string // Buyer B order to cancel
 
+const INITIAL_WALLET_BALANCE = 10000
+
 /* ── Helpers ── */
 
 async function req(
@@ -550,7 +552,7 @@ describe('5. Wallet setup', () => {
     expect(res.status).toBe(200)
     const w = await json<{ userId: string; balance: number }>(res)
     expect(w.userId).toBe(buyerAUserId)
-    expect(w.balance).toBe(0)
+    expect(w.balance).toBe(INITIAL_WALLET_BALANCE)
   })
 
   it('buyer A tops up 20000 虾币', async () => {
@@ -560,7 +562,7 @@ describe('5. Wallet setup', () => {
     })
     expect(res.status).toBe(200)
     const w = await json<{ balance: number }>(res)
-    expect(w.balance).toBe(20000)
+    expect(w.balance).toBe(INITIAL_WALLET_BALANCE + 20000)
   })
 
   it('buyer B tops up 15000 虾币', async () => {
@@ -571,7 +573,7 @@ describe('5. Wallet setup', () => {
     })
     expect(res.status).toBe(200)
     const w = await json<{ balance: number }>(res)
-    expect(w.balance).toBe(15000)
+    expect(w.balance).toBe(INITIAL_WALLET_BALANCE + 15000)
   })
 
   it('buyer A tops up again (accumulation)', async () => {
@@ -581,7 +583,7 @@ describe('5. Wallet setup', () => {
     })
     expect(res.status).toBe(200)
     const w = await json<{ balance: number }>(res)
-    expect(w.balance).toBe(25000)
+    expect(w.balance).toBe(INITIAL_WALLET_BALANCE + 25000)
   })
 
   it('transaction history shows topups', async () => {
@@ -1309,13 +1311,13 @@ describe('13. Financial audit', () => {
     const walletA = await json<{ balance: number }>(
       await req('GET', '/api/wallet', { token: buyerAToken }),
     )
-    expect(walletA.balance).toBe(25000 - 4198 - 500 - 99 + 500) // = 20703
+    expect(walletA.balance).toBe(INITIAL_WALLET_BALANCE + 25000 - 4198 - 500 - 99 + 500) // = 30703
 
     // Buyer B: 15000 + 5000 (extra topup) - 5197 (phone+case) - 199 (bundle) + 199 (refund)
     const walletB = await json<{ balance: number }>(
       await req('GET', '/api/wallet', { token: buyerBToken }),
     )
-    expect(walletB.balance).toBe(15000 + 5000 - 5197 - 199 + 199) // = 14803
+    expect(walletB.balance).toBe(INITIAL_WALLET_BALANCE + 15000 + 5000 - 5197 - 199 + 199) // = 24803
   })
 })
 

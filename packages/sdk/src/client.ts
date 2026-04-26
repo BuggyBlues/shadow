@@ -88,7 +88,20 @@ export class ShadowClient {
           `Shadow API ${init?.method ?? 'GET'} ${path} failed (${res.status}): ${message}`,
         )
       }
-      return res.json() as Promise<T>
+      const payload = (await res.json()) as unknown
+      if (
+        payload &&
+        typeof payload === 'object' &&
+        !Array.isArray(payload) &&
+        'ok' in payload &&
+        !('success' in payload)
+      ) {
+        return {
+          ...(payload as Record<string, unknown>),
+          success: Boolean((payload as { ok?: unknown }).ok),
+        } as T
+      }
+      return payload as T
     } finally {
       clearTimeout(timeout)
     }

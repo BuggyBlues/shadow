@@ -176,7 +176,7 @@ export function createDmHandler(container: AppContainer) {
       /* io not yet registered */
     }
 
-    return c.json({ ok: true })
+    return c.json({ ok: true, success: true })
   })
 
   // ── DM Reactions ─────────────────────────────────────

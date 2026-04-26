@@ -22,6 +22,19 @@ export interface CardTextureInfo {
   cardVersion: number
   /** LOD scale used when baking this texture (1 | 2 | 4 | 6). */
   lodScale: number
+  /** Approximate RGBA byte size of the baked face. */
+  byteSize: number
+  /** Last asset-pipeline frame that used this CPU-side face texture. */
+  lastTouchedFrame: number
+  /** Wall-clock timestamp used as a tie-breaker for LRU eviction. */
+  lastUsedAt: number
+  /** Face renderer backend that produced this texture. */
+  backend: 'canvas2d' | 'offscreen-canvas' | 'canvaskit' | 'external'
+}
+
+export interface TextureCacheStats {
+  entries: number
+  totalBytes: number
 }
 
 // ─────────────────────────────────────
@@ -69,4 +82,29 @@ export function removeCachedTexture(id: string): void {
 
 export function clearAllTextures(): void {
   _cache.clear()
+}
+
+export function getTextureCacheStats(): TextureCacheStats {
+  let totalBytes = 0
+  for (const info of _cache.values()) totalBytes += info.byteSize
+  return { entries: _cache.size, totalBytes }
+}
+
+export function trimTextureCache(activeIds: Set<string>, maxBytes: number): string[] {
+  let totalBytes = 0
+  for (const info of _cache.values()) totalBytes += info.byteSize
+  if (totalBytes <= maxBytes) return []
+
+  const candidates = [..._cache.entries()]
+    .filter(([id]) => !activeIds.has(id))
+    .sort(([, a], [, b]) => a.lastTouchedFrame - b.lastTouchedFrame || a.lastUsedAt - b.lastUsedAt)
+
+  const evicted: string[] = []
+  for (const [id, info] of candidates) {
+    if (totalBytes <= maxBytes) break
+    _cache.delete(id)
+    totalBytes -= info.byteSize
+    evicted.push(id)
+  }
+  return evicted
 }

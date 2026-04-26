@@ -2,10 +2,11 @@
 // Displays a calendar event with time, location, and attendees.
 
 import { canvasStore } from '../components/canvasComponent'
+import { cardDataStore } from '../components/cardDataComponent'
 import { advance, layoutStore, remainingH } from '../components/layoutComponent'
 import { eventMetaStore } from '../components/metaComponent'
 import { styleStore } from '../components/styleComponent'
-import { fontStr, hexAlpha, safeStr, truncText } from '../utils/canvasUtils'
+import { fontStr, hexAlpha, isDuplicateTitle, safeStr, truncText } from '../utils/canvasUtils'
 
 function formatEventTime(isoStr?: string): string {
   if (!isoStr) return ''
@@ -26,9 +27,10 @@ export function eventSystem(eid: number): boolean {
   const layout = layoutStore[eid]!
   const { padX, contentW } = layout
   const { accentColor } = styleStore[eid]!
+  const { card } = cardDataStore[eid]!
 
   // ── Calendar dot decoration ────────────────────────────
-  if (remainingH(layout) > 8) {
+  if (remainingH(layout) > 8 && !isDuplicateTitle(meta.title, card.title)) {
     const dotColor = meta.color || accentColor
     ctx.fillStyle = dotColor
     ctx.beginPath()

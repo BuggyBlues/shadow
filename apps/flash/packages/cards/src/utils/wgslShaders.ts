@@ -426,28 +426,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
 
     color = balatroVortex(cardPixelCoord, cardSize, time, c1_back, c2_back, c3_back);
 
-    // ── Ornate gold border ──
     let ct     = backUV - 0.5;
-    let margin = 0.05;
-    let bw     = 0.005;
-    let buv    = abs(ct);
-    let bx = smoothstep(0.5 - margin - bw, 0.5 - margin, buv.x)
-           * (1.0 - smoothstep(0.5 - margin, 0.5 - margin + bw, buv.x));
-    let by = smoothstep(0.5 - margin - bw, 0.5 - margin, buv.y)
-           * (1.0 - smoothstep(0.5 - margin, 0.5 - margin + bw, buv.y));
-    let borderMask = max(bx * step(buv.y, 0.5 - margin + bw), by * step(buv.x, 0.5 - margin + bw));
-
-    let margin2 = 0.08;
-    let bw2     = 0.003;
-    let bx2 = smoothstep(0.5 - margin2 - bw2, 0.5 - margin2, buv.x)
-            * (1.0 - smoothstep(0.5 - margin2, 0.5 - margin2 + bw2, buv.x));
-    let by2 = smoothstep(0.5 - margin2 - bw2, 0.5 - margin2, buv.y)
-            * (1.0 - smoothstep(0.5 - margin2, 0.5 - margin2 + bw2, buv.y));
-    let innerBorderMask = max(bx2 * step(buv.y, 0.5 - margin2 + bw2), by2 * step(buv.x, 0.5 - margin2 + bw2));
-
     let backGold = vec3f(0.85, 0.7, 0.35) * (0.9 + 0.1 * sin(time * 2.0 + ct.x * 10.0));
-    color += backGold * borderMask * 0.5;
-    color += backGold * 0.6 * innerBorderMask * 0.3;
 
     // ── Diamond emblem ──
     let diamond = abs(ct.x) * 1.8 + abs(ct.y);
@@ -497,40 +477,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     let texBlend = content.a * 0.92;
     color = mix(color, content.rgb, texBlend);
 
-    // ── 4. Ornate gold border ──
-    let borderMargin = 5.0;
-    let borderW      = 1.2;
-    let innerMargin  = 9.0;
-    let innerW       = 0.6;
-
-    let outerL = smoothstep(borderMargin + borderW, borderMargin, cp.x);
-    let outerR = smoothstep(cardSize.x - borderMargin - borderW, cardSize.x - borderMargin, cp.x);
-    let outerT = smoothstep(borderMargin + borderW, borderMargin, cp.y);
-    let outerB = smoothstep(cardSize.y - borderMargin - borderW, cardSize.y - borderMargin, cp.y);
-    let outerBorder = max(max(outerL, outerR), max(outerT, outerB));
-    let outerMask = min(
-      step(cp.x, borderMargin + borderW) + step(cardSize.x - borderMargin - borderW, cp.x)
-      + step(cp.y, borderMargin + borderW) + step(cardSize.y - borderMargin - borderW, cp.y),
-      1.0
-    );
-
-    let innerL = smoothstep(innerMargin + innerW, innerMargin, cp.x)
-               * (1.0 - smoothstep(innerMargin - innerW, innerMargin, cp.x));
-    let innerR = smoothstep(cardSize.x - innerMargin - innerW, cardSize.x - innerMargin, cp.x)
-               * (1.0 - smoothstep(cardSize.x - innerMargin, cardSize.x - innerMargin + innerW, cp.x));
-    let innerT = smoothstep(innerMargin + innerW, innerMargin, cp.y)
-               * (1.0 - smoothstep(innerMargin - innerW, innerMargin, cp.y));
-    let innerB = smoothstep(cardSize.y - innerMargin - innerW, cardSize.y - innerMargin, cp.y)
-               * (1.0 - smoothstep(cardSize.y - innerMargin, cardSize.y - innerMargin + innerW, cp.y));
-    let innerBorder = max(max(innerL, innerR), max(innerT, innerB));
-
-    let goldShimmer = 0.9 + 0.1 * sin(time * 1.5 + cp.x * 0.05 + cp.y * 0.03);
-    let goldColor   = vec3f(0.85, 0.70, 0.35) * goldShimmer;
-    let darkGold    = vec3f(0.65, 0.50, 0.25);
-
-    color = mix(color, goldColor, outerBorder * outerMask * 0.85);
-    color = mix(color, darkGold,  innerBorder * 0.5);
-
     // ── 5. Neon glow underlight ──
     let glowY   = smoothstep(0.12, 0.25, guv.y) * smoothstep(0.7, 0.5, guv.y);
     let glowX   = smoothstep(0.05, 0.15, guv.x) * smoothstep(0.95, 0.85, guv.x);
@@ -538,14 +484,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     let neonColor = mix(inst.tapeColor, vec3f(1.0), 0.3);
     color += neonColor * neonGlow;
 
-    // ── 6. Top accent band ──
-    let topBand = smoothstep(0.0, 1.5, cp.y) * (1.0 - smoothstep(2.5, 4.0, cp.y));
-    color = mix(color, inst.tapeColor * 0.7 + vec3f(0.3), topBand * 0.3);
-
-    // ── 7. Bottom ornamental line ──
-    let bottomLine = smoothstep(cardSize.y - 12.0, cardSize.y - 10.0, cp.y)
-                   * (1.0 - smoothstep(cardSize.y - 10.0, cardSize.y - 8.0, cp.y));
-    color = mix(color, darkGold, bottomLine * 0.35);
   }
 
   // ═══════════════════════════════════════════
@@ -575,15 +513,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
       let foilColor = mix(vec3f(1.0, 0.9, 0.6), inst.tapeColor + vec3f(0.3), 0.25);
       color += foilColor * foilStr * 0.2;
 
-      // 3. Gold border glow on hover
-      let borderGlowMask = min(
-        step(cp.x, 7.0) + step(cardSize.x - 7.0, cp.x)
-        + step(cp.y, 7.0) + step(cardSize.y - 7.0, cp.y),
-        1.0
-      );
-      let glowGold = vec3f(1.0, 0.85, 0.4);
-      color += glowGold * borderGlowMask * inst.hover * 0.3 * (0.8 + 0.2 * sin(time * 3.0));
-
       // 4. Polychrome color shift
       let polyPhase = euv.x * 2.5 + euv.y * 1.8 + time * 0.25;
       let polyShift = sin(polyPhase) * 0.5 + 0.5;
@@ -598,17 +527,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
       let specDist2 = length(euv - 0.5 - specPos);
       let specular = exp(-specDist2 * specDist2 * 20.0) * inst.hover * 0.5;
       color += vec3f(1.0, 0.98, 0.95) * specular;
-
-      // 6. Rainbow edge glow
-      let glowDist2    = abs(dist + 3.0) / 5.0;
-      let edgeGlow     = exp(-glowDist2 * glowDist2) * inst.hover * 0.8;
-      let rainbowAngle = atan2(cardLocal.y, cardLocal.x);
-      let rainbowColor = hsl2rgb(vec3f(
-        fract(rainbowAngle / (2.0 * PI) + time * 0.3),
-        0.9,
-        0.65
-      ));
-      color += edgeGlow * rainbowColor;
 
       // 7. Subtle Balatro vortex bleed on heavy hover
       if (inst.hover > 0.3) {
@@ -625,29 +543,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
   // ✦ BACK-SIDE HOVER EFFECTS
   // ═══════════════════════════════════════════
   if (showBack && inst.hover > 0.01) {
-    let backGlow      = abs(dist + 3.0) / 5.0;
-    let backEdge      = exp(-backGlow * backGlow) * 0.5;
-    let backAngle     = atan2(cardLocal.y, cardLocal.x);
-    let backGlowColor = hsl2rgb(vec3f(fract(backAngle / (2.0 * PI) + time * 0.4), 0.9, 0.65));
-    color += backEdge * backGlowColor * inst.hover;
-
     let backSpecPos  = mouseLocal * 0.3;
     let backUV2      = vec2f(1.0 - contentUV.x, contentUV.y);
     let backSpecDist = length(backUV2 - 0.5 - backSpecPos);
     let backSpec     = exp(-backSpecDist * backSpecDist * 15.0) * inst.hover * 0.3;
     color += vec3f(1.0, 0.98, 0.95) * backSpec;
-  }
-
-  // ── Active (dragging) ──
-  if (inst.active > 0.01) {
-    color     += smoothstep(0.0, 4.0, -dist) * inst.active * 0.06;
-    let dragGlow = abs(dist + 2.0) / 3.5;
-    let dragRing = exp(-dragGlow * dragGlow) * inst.active * 0.6;
-    let dragColor = mix(vec3f(0.9, 0.75, 0.35), inst.tapeColor, 0.4);
-    color += dragColor * dragRing;
-    let outerGlow = abs(dist + 5.0) / 6.0;
-    let outerRing = exp(-outerGlow * outerGlow) * inst.active * 0.25;
-    color += inst.tapeColor * outerRing;
   }
 
   // ── AI Streaming pulse ──
@@ -664,28 +564,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     let flipColor = hsl2rgb(vec3f(fract(time * 0.6), 0.85, 0.7));
     let edgeMask  = smoothstep(2.0, -2.0, dist) * (1.0 - smoothstep(-2.0, -7.0, dist));
     color += flipColor * flipGlow * edgeMask;
-  }
-
-  // ── Edge highlight (3-D depth) ──
-  let insetTop  = smoothstep(-0.5, 0.5, cp.y) * 0.012;
-  let insetSide = (smoothstep(-0.5, 0.5, cp.x) + smoothstep(-0.5, 0.5, cardSize.x - cp.x)) * 0.006;
-  color += vec3f(1.0, 0.95, 0.8) * (insetTop + insetSide);
-
-  // ── Idle breathing glow ──
-  if (!showBack) {
-    let breathe       = 0.5 + 0.5 * sin(time * 1.2 + inst.kindIndex * 0.5);
-    let edgeProximity = smoothstep(6.0, 0.0, abs(dist + 1.0));
-    let breatheColor  = mix(vec3f(0.8, 0.65, 0.3), inst.tapeColor, 0.3);
-    color += breatheColor * edgeProximity * breathe * 0.06 * (1.0 - inst.hover);
-  }
-
-  // ── Selected card glow ──
-  if (inst.selected > 0.01) {
-    let selGlow  = abs(dist + 2.0) / 4.0;
-    let selRing  = exp(-selGlow * selGlow) * inst.selected * 0.9;
-    let selColor = vec3f(0.3, 0.6, 1.0);
-    color += selColor * selRing;
-    color = mix(color, selColor, inst.selected * 0.06);
   }
 
   // ── Hidden state (filter mismatch) ──

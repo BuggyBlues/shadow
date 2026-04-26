@@ -12,17 +12,25 @@ import path from 'node:path'
 const ROOT = path.resolve(import.meta.dirname, '..')
 
 const WORKSPACE_DIRS = [
+  'apps/admin',
+  'apps/cloud',
+  'apps/cloud/packages/ui',
+  'apps/desktop',
+  'apps/flash',
+  'apps/flash/packages/cards',
+  'apps/flash/packages/types',
+  'apps/mobile',
+  'apps/playground',
   'apps/server',
   'apps/web',
-  'apps/admin',
-  'apps/desktop',
-  'apps/mobile',
+  'packages/cli',
+  'packages/oauth',
+  'packages/openclaw-shadowob',
   'packages/sdk',
   'packages/sdk-python',
   'packages/shared',
-  'packages/openclaw-shadowob',
   'packages/ui',
-  'packages/oauth',
+  'website',
 ]
 
 function getWorkspacePackages() {

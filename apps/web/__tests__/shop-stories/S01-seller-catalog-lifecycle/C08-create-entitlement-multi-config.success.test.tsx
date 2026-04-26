@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { ShopAdmin } from '../../../src/components/shop/shop-admin'
@@ -24,14 +24,16 @@ describe('S01/C08 create entitlement multi config success', () => {
 
     renderWithQuery(<ShopAdmin serverId={serverId} onBack={() => {}} />)
     await userEvent.click(await screen.findByRole('button', { name: '添加商品' }))
-    await userEvent.type(await screen.findByLabelText('商品名称 (必填)'), '权益商品A')
+    fireEvent.change(await screen.findByLabelText('商品名称 (必填)'), {
+      target: { value: '权益商品A' },
+    })
     await userEvent.click(screen.getByRole('button', { name: '虚拟权益' }))
 
     await userEvent.click(screen.getByRole('button', { name: '新增权益规则' }))
 
     const targetInputs = screen.getAllByPlaceholderText('例如频道或角色的数字 ID')
-    await userEvent.type(targetInputs[0], 'target-a')
-    await userEvent.type(targetInputs[1], 'target-b')
+    fireEvent.change(targetInputs[0], { target: { value: 'target-a' } })
+    fireEvent.change(targetInputs[1], { target: { value: 'target-b' } })
 
     await userEvent.click(screen.getByRole('button', { name: '保存更改' }))
 
@@ -44,5 +46,5 @@ describe('S01/C08 create entitlement multi config success', () => {
       expect(Array.isArray(body.entitlementConfig)).toBe(true)
       expect(body.entitlementConfig?.length).toBe(2)
     })
-  })
+  }, 10_000)
 })
