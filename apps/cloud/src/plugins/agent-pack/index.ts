@@ -50,6 +50,7 @@ import type {
   PluginValidationResult,
 } from '../types.js'
 import {
+  agentPackSlashCommandsIndexPath,
   buildAgentPackInitContainer,
   buildAgentPackSyncSidecar,
   DEFAULT_INSTRUCTION_FILES,
@@ -100,6 +101,16 @@ export interface AgentPackOptions {
   mountPath?: string
   poll?: string | number
   slashCommands?: {
+    /**
+     * Register discovered upstream commands with Shadow. Defaults to true for
+     * mounted packs so templates do not need to copy command metadata.
+     */
+    autoRegister?: boolean
+    /**
+     * Derive Shadow form interactions from upstream AskUserQuestion-style
+     * markdown. Defaults to true when autoRegister is enabled.
+     */
+    inferInteractions?: boolean
     rules?: PluginSlashCommandRule[]
   }
 }
@@ -335,7 +346,22 @@ const agentPackK8sProvider: PluginK8sProvider = {
     if (packs.length === 0) return undefined
 
     const mountPath = opts.mountPath ?? DEFAULT_MOUNT
-    const initContainer = buildAgentPackInitContainer(packs, mountPath, VOLUME_NAME)
+    const slashCommands = opts.slashCommands ?? {}
+    const autoRegisterSlashCommands = slashCommands.autoRegister ?? true
+    const slashCommandIndex = autoRegisterSlashCommands
+      ? {
+          enabled: true,
+          outputPath: agentPackSlashCommandsIndexPath(mountPath),
+          inferInteractions: slashCommands.inferInteractions ?? true,
+          rules: slashCommands.rules,
+        }
+      : undefined
+    const initContainer = buildAgentPackInitContainer(
+      packs,
+      mountPath,
+      VOLUME_NAME,
+      slashCommandIndex,
+    )
 
     // Aggregate per-kind directory lists so the agent runtime can consume
     // them via env vars (no schema change required in OpenClaw today).
@@ -383,6 +409,7 @@ const agentPackK8sProvider: PluginK8sProvider = {
       mountPath,
       volumeName: VOLUME_NAME,
       intervalSec: parsePollInterval(opts.poll),
+      slashCommandIndex,
     })
     if (sidecar) result.sidecars = [sidecar]
 
@@ -430,9 +457,24 @@ const plugin = definePlugin(manifest as PluginManifest, (api) => {
 
   api.onBuildRuntime((context: PluginBuildContext) => {
     const opts = readOptions(context.agent)
-    const rules = opts?.slashCommands?.rules?.filter((rule) => rule && typeof rule === 'object')
-    if (!rules?.length) return
-    return { slashCommands: { rules } }
+    if (!opts) return
+
+    const packs = resolvePacks(opts)
+    if (packs.length === 0) return
+
+    const slashCommands = opts.slashCommands ?? {}
+    const autoRegister = slashCommands.autoRegister ?? true
+    if (!autoRegister) return
+
+    return {
+      artifacts: [
+        {
+          kind: 'shadow.slashCommands',
+          path: agentPackSlashCommandsIndexPath(opts.mountPath ?? DEFAULT_MOUNT),
+          mediaType: 'application/json',
+        },
+      ],
+    }
   })
 
   api.onValidate((context: PluginBuildContext): PluginValidationResult | void => {

@@ -500,14 +500,17 @@ function mergeRuntimeExtensions(
     ...(target.openclaw?.manifestPatches ?? []),
     ...(fragment.openclaw?.manifestPatches ?? []),
   ]
-  const slashRules = [
-    ...(target.slashCommands?.rules ?? []),
-    ...(fragment.slashCommands?.rules ?? []),
-  ]
+  const artifacts = new Map<string, NonNullable<PluginRuntimeExtension['artifacts']>[number]>()
+  for (const artifact of target.artifacts ?? []) {
+    artifacts.set(artifact.kind, artifact)
+  }
+  for (const artifact of fragment.artifacts ?? []) {
+    artifacts.set(artifact.kind, artifact)
+  }
 
   return {
     ...(manifestPatches.length > 0 ? { openclaw: { manifestPatches } } : {}),
-    ...(slashRules.length > 0 ? { slashCommands: { rules: slashRules } } : {}),
+    ...(artifacts.size > 0 ? { artifacts: [...artifacts.values()] } : {}),
   }
 }
 

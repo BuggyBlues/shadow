@@ -99,6 +99,27 @@
       "poll": {
         "type": "string",
         "description": "Optional poll interval (e.g. '5m', '30s', '1h') for live refresh sidecar. Omit to disable."
+      },
+      "slashCommands": {
+        "type": "object",
+        "description": "Controls automatic Shadow slash command registration for mounted upstream commands and skills.",
+        "properties": {
+          "autoRegister": {
+            "type": "boolean",
+            "default": true,
+            "description": "Register discovered upstream commands with Shadow."
+          },
+          "inferInteractions": {
+            "type": "boolean",
+            "default": true,
+            "description": "Derive form interactions from upstream AskUserQuestion-style markdown."
+          },
+          "rules": {
+            "type": "array",
+            "description": "Optional generic command match rules for aliases or explicit interaction metadata.",
+            "items": { "type": "object" }
+          }
+        }
       }
     }
   },

@@ -25,7 +25,7 @@ Cloud Core 只做微内核：读取模板、加载插件、收集配置碎片、
 | `.claude/agents/*.md` | agents | 导入角色定义，供 Buddy prompt 和 OpenClaw runtime 使用 |
 | `.claude/hooks` / `hooks` | hooks | 作为 pack metadata 暴露，后续由支持 hooks 的 runtime 消费 |
 | `mcp*.json` / `.mcp*.json` | MCP | 作为运行时 MCP 配置候选项 |
-| `context/`、`scripts/`、`data_sources/` | resources | 作为 pack 附属资源同步进 runner |
+| `context/`、`scripts/`、`data_sources/` | resources | 作为 pack 附属资源同步进挂载目录 |
 
 这套规则能覆盖“标准插件”、“Claude workspace”、“单 skill 仓库”和“工程团队栈”四类常见项目。无法识别时，导入不会猜测执行逻辑，而是把仓库作为 resources 记录并在验证阶段暴露缺口。
 
@@ -33,10 +33,10 @@ Cloud Core 只做微内核：读取模板、加载插件、收集配置碎片、
 
 导入后的命令会走两层注册：
 
-1. Cloud runner 在启动时扫描 pack，把命令写入 Shadow agent config。
+1. `agent-pack` 插件的 init/sync 容器扫描 mounted pack，生成 `/agent-packs/.shadow/slash-commands.json`。
 2. Shadow Server 暴露 `GET /api/channels/:id/slash-commands`，供频道输入框补全。
 
-命令的交互行为由插件通过 `onBuildRuntime` 写入 `runtime-extensions.json`，或由上游命令 frontmatter 自带 `interaction` 声明。runner 只执行通用的规则合并，不允许在容器入口里写仓库名、命令名或表单字段特例。
+`agent-pack` 默认通过 `onBuildRuntime` 暴露标准 runtime artifact：`{ kind: "shadow.slashCommands", path: "/agent-packs/.shadow/slash-commands.json" }`。通用 runner 只把这个 artifact 路径传给 Shadow channel，不扫描 pack，也不内置 agent-pack 逻辑。命令识别和交互推断属于 agent-pack 插件：优先级是上游命令 frontmatter 自带 `interaction`、插件通用 rule、再从 AskUserQuestion 风格的 `**Ask:**` / `Q1:` markdown 自动生成表单。模板不复制 gstack 这类上游问题，容器入口也不允许写仓库名、命令名或表单字段特例。
 
 如果命令带 `interaction`，无参数触发时 Buddy 必须先发送交互组件，而不是直接进入纯聊天。典型链路是：
 
@@ -44,7 +44,7 @@ Cloud Core 只做微内核：读取模板、加载插件、收集配置碎片、
 2. Buddy 发送 `metadata.interactive` 表单消息。
 3. 用户提交表单，客户端调用 `POST /api/messages/:id/interactive`。
 4. Server 写入 `message_interactive_submissions`，再发一条带 `metadata.interactiveResponse` 的回显消息。
-5. Buddy 读取回显消息，结合源命令 prompt 和 `responsePrompt` 继续执行。
+5. Buddy 读取回显消息，通过源消息的 slash command metadata 回查本地命令索引，把上游命令 markdown、源 prompt、`responsePrompt` 和提交值一起交给 agent 继续执行。
 6. 客户端重新拉取源消息时，通过 `metadata.interactiveState.response` 渲染已提交状态并锁定控件。
 
 这里的关键约束是：锁定状态必须来自服务端提交记录，不能依赖 `localStorage`。这样刷新、跨端和多人协作都能看到一致状态。

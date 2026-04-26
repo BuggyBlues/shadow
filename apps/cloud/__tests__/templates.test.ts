@@ -135,6 +135,16 @@ function readAgentPackMounts(file: string): Array<{ kind: string; from: string }
   }))
 }
 
+function readFirstAgentPackOptions(file: string): Record<string, unknown> {
+  const content = readFlatTemplate(file)
+  const deployments = content.deployments as Record<string, unknown>
+  const agents = deployments.agents as Array<Record<string, unknown>>
+  const firstAgent = agents[0]!
+  const agentUse = (firstAgent.use ?? []) as Array<Record<string, unknown>>
+  const agentPack = agentUse.find((entry) => entry.plugin === 'agent-pack')!
+  return agentPack.options as Record<string, unknown>
+}
+
 describe('community pack template mounts', () => {
   it('gstack-buddy mounts the OpenClaw-native gstack artifacts', () => {
     expect(readAgentPackMounts('gstack-buddy.template.json')).toEqual(
@@ -143,6 +153,11 @@ describe('community pack template mounts', () => {
         { kind: 'instructions', from: 'openclaw' },
       ]),
     )
+  })
+
+  it('gstack-buddy relies on agent-pack slash command auto-discovery', () => {
+    const options = readFirstAgentPackOptions('gstack-buddy.template.json')
+    expect(options.slashCommands).toBeUndefined()
   })
 
   it('seomachine-buddy mounts Claude commands, agents, and context docs', () => {

@@ -68,9 +68,7 @@ function collectRegistrySecretEnv(
 }
 
 function hasRuntimeExtensions(extension: PluginRuntimeExtension): boolean {
-  return Boolean(
-    extension.openclaw?.manifestPatches?.length || extension.slashCommands?.rules?.length,
-  )
+  return Boolean(extension.openclaw?.manifestPatches?.length || extension.artifacts?.length)
 }
 
 export function buildAgentRuntimePackage(options: {

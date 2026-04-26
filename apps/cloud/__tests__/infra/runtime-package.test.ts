@@ -89,19 +89,6 @@ describe('buildAgentRuntimePackage', () => {
                 plugin: 'agent-pack',
                 options: {
                   packs: [{ id: 'gstack', url: 'https://github.com/garrytan/gstack' }],
-                  slashCommands: {
-                    rules: [
-                      {
-                        match: { packId: 'gstack', namePattern: 'office-hours$' },
-                        aliases: ['office-hour'],
-                        interaction: {
-                          kind: 'form',
-                          prompt: 'Fill the office-hours form.',
-                          fields: [{ id: 'pain', kind: 'textarea', label: 'Pain' }],
-                        },
-                      },
-                    ],
-                  },
                 },
               },
             ],
@@ -123,8 +110,11 @@ describe('buildAgentRuntimePackage', () => {
     expect(openclawConfig.plugins.load.paths).toContain('/app/extensions/shadowob')
     expect(openclawConfig.channels.shadowob.accounts['bot-1']).toBeDefined()
     expect(runtimeExtensions.openclaw.manifestPatches[0].extensionId).toBe('shadowob')
-    expect(runtimeExtensions.slashCommands.rules[0].match.packId).toBe('gstack')
-    expect(runtimeExtensions.slashCommands.rules[0].interaction.kind).toBe('form')
+    expect(runtimeExtensions.artifacts).toContainEqual({
+      kind: 'shadow.slashCommands',
+      path: '/agent-packs/.shadow/slash-commands.json',
+      mediaType: 'application/json',
+    })
   })
 })
 
