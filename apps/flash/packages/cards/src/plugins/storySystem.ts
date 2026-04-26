@@ -2,10 +2,11 @@
 // Displays a narrative/blog post with title, body, reading time, and chapters.
 
 import { canvasStore } from '../components/canvasComponent'
+import { cardDataStore } from '../components/cardDataComponent'
 import { advance, layoutStore, remainingH } from '../components/layoutComponent'
 import { storyMetaStore } from '../components/metaComponent'
 import { styleStore } from '../components/styleComponent'
-import { fontStr, hexAlpha, safeStr, truncText } from '../utils/canvasUtils'
+import { fontStr, hexAlpha, isDuplicateTitle, safeStr, truncText } from '../utils/canvasUtils'
 
 export function storySystem(eid: number): boolean {
   const meta = storyMetaStore[eid]
@@ -15,9 +16,10 @@ export function storySystem(eid: number): boolean {
   const layout = layoutStore[eid]!
   const { padX, contentW } = layout
   const { accentColor } = styleStore[eid]!
+  const { card } = cardDataStore[eid]!
 
   // ── Title ──────────────────────────────────────────────
-  if (remainingH(layout) > 13) {
+  if (!isDuplicateTitle(meta.title, card.title) && remainingH(layout) > 13) {
     ctx.font = fontStr(10.5, 'bold', '', '"Noto Sans SC", serif')
     ctx.fillStyle = accentColor
     ctx.textAlign = 'left'

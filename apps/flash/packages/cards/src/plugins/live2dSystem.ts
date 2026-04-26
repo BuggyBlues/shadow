@@ -1,7 +1,7 @@
 // ECS Content System — Live2D Virtual Character Card
 //
-// Renders a Live2D model (Cubism 4 / .model3.json) onto the card canvas
-// via PixiJS + pixi-live2d-display (dynamic import, code-split).
+// Draws a static poster/stage for a Live2D model. Runtime loading is owned by
+// ECS runtimePrepareSystem, and active frames are composited as a GPU layer.
 //
 // Interaction: when the card is hovered, the model tracks the pointer
 // position using interaction.mouseLocalX/Y → animationManager.focusLive2D().
@@ -16,7 +16,7 @@ import { advance, layoutStore, remainingH } from '../components/layoutComponent'
 import { live2dMetaStore } from '../components/metaComponent'
 import { styleStore } from '../components/styleComponent'
 import { animationManager } from '../resources/animationManager'
-import { fillRoundRect, fontStr, hexAlpha, safeStr } from '../utils/canvasUtils'
+import { fontStr, hexAlpha, safeStr } from '../utils/canvasUtils'
 
 export function live2dSystem(eid: number): boolean {
   const meta = live2dMetaStore[eid]
@@ -45,24 +45,25 @@ export function live2dSystem(eid: number): boolean {
     )
   }
 
-  // ── Autoplay: always animate live2d cards ──
-  animationManager.markAutoplay(card.id)
+  const autoplay = (meta as { autoplay?: boolean }).autoplay === true
+  animationManager.setAutoplay(card.id, autoplay)
+  animationManager.setLayerRect(card.id, {
+    x: vX,
+    y: vY,
+    w: viewW,
+    h: viewH,
+    radius: 8,
+    fit: 'fill',
+  })
 
-  // ── Get or create the Live2D render canvas ──────────────
-  let live2dCanvas = animationManager.getLive2DCanvas(card.id)
+  // ── Runtime canvas is prepared by ECS runtimePrepareSystem ──────────────
+  const live2dCanvas = animationManager.getLive2DCanvas(card.id)
 
   if (!live2dCanvas) {
-    const px = Math.round(viewW * 2)
-    const py = Math.round(viewH * 2)
-    animationManager.registerLive2D(card.id, modelUrl, px, py, meta.autoMotion !== false)
     // Show loading skeleton on first frame
     const isLoading = animationManager.isLive2DLoading(card.id)
 
     if (isLoading) {
-      // Skeleton placeholder
-      ctx.fillStyle = hexAlpha(accentColor, 0.04)
-      fillRoundRect(ctx, vX, vY, viewW, viewH, 8)
-
       // Animated loading arc
       const cx = vX + viewW / 2,
         cy = vY + viewH / 2
@@ -84,6 +85,16 @@ export function live2dSystem(eid: number): boolean {
       ctx.textAlign = 'center'
       ctx.textBaseline = 'top'
       ctx.fillText('Loading Live2D…', cx, cy + r + 8)
+    } else {
+      drawLive2DIdlePreview(
+        ctx,
+        vX,
+        vY,
+        viewW,
+        viewH,
+        accentColor,
+        safeStr(meta.name) || card.title,
+      )
     }
 
     advance(layout, viewH + 8)
@@ -102,14 +113,7 @@ export function live2dSystem(eid: number): boolean {
     return true
   }
 
-  // ── Blit Live2D canvas (transparent, direct render, no bg fill) ──
-  ctx.save()
-  ctx.beginPath()
-  ctx.roundRect(vX, vY, viewW, viewH, 8)
-  ctx.clip()
-
-  ctx.drawImage(live2dCanvas, vX, vY, viewW, viewH)
-  ctx.restore()
+  drawLive2DPoster(ctx, live2dCanvas, vX, vY, viewW, viewH)
 
   advance(layout, viewH + 8)
 
@@ -125,4 +129,61 @@ export function live2dSystem(eid: number): boolean {
   }
 
   return true
+}
+
+function drawLive2DIdlePreview(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  accentColor: string,
+  label: string,
+): void {
+  ctx.save()
+  ctx.beginPath()
+  ctx.roundRect(x, y, w, h, 8)
+  ctx.clip()
+
+  const cx = x + w / 2
+  const cy = y + h * 0.46
+  const r = Math.min(w, h) * 0.22
+  ctx.lineWidth = 2
+  ctx.strokeStyle = hexAlpha(accentColor, 0.42)
+  ctx.beginPath()
+  ctx.arc(cx, cy, r, -0.25, Math.PI * 1.36)
+  ctx.stroke()
+
+  ctx.strokeStyle = hexAlpha(accentColor, 0.16)
+  ctx.beginPath()
+  ctx.arc(cx, cy, r * 0.66, Math.PI * 0.15, Math.PI * 1.82)
+  ctx.stroke()
+
+  ctx.fillStyle = hexAlpha(accentColor, 0.28)
+  ctx.beginPath()
+  ctx.arc(cx, cy, Math.max(2, r * 0.06), 0, Math.PI * 2)
+  ctx.fill()
+
+  ctx.font = fontStr(7, 700, '', '"Noto Sans SC", sans-serif')
+  ctx.fillStyle = hexAlpha(accentColor, 0.56)
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'top'
+  ctx.fillText(label.slice(0, 22), cx, y + h - 18)
+  ctx.restore()
+}
+
+function drawLive2DPoster(
+  ctx: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+): void {
+  ctx.save()
+  ctx.beginPath()
+  ctx.roundRect(x, y, w, h, 8)
+  ctx.clip()
+  ctx.drawImage(canvas, x, y, w, h)
+  ctx.restore()
 }

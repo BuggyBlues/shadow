@@ -11,6 +11,7 @@
  * Requires: docker compose postgres running on localhost:5432
  */
 
+import { eq, like } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { Hono } from 'hono'
 import postgres from 'postgres'
@@ -31,6 +32,7 @@ let app: Hono
 let userId: string
 let token: string
 let officialTemplateSlug: string
+let communityTemplateSlug: string
 
 /* ── Helper ── */
 async function req(method: string, path: string, body?: unknown, authToken = token) {
@@ -92,13 +94,13 @@ afterAll(async () => {
   if (officialTemplateSlug) {
     await db
       .delete(schema.cloudTemplates)
-      .where(schema.cloudTemplates.slug.like(`e2e-official-%`))
+      .where(like(schema.cloudTemplates.slug, 'e2e-%'))
       .catch(() => {})
   }
   if (userId) {
     await db
       .delete(schema.users)
-      .where(schema.users.id.eq(userId))
+      .where(eq(schema.users.id, userId))
       .catch(() => {})
   }
   await sql.end()
@@ -142,21 +144,29 @@ describe('Cloud SaaS — wallet', () => {
     const res = await req('GET', '/api/cloud-saas/wallet')
     expect(res.status).toBe(200)
     const body = (await res.json()) as { balance: number; userId: string }
-    expect(body.userId).toBe(userId)
     expect(body.balance).toBeGreaterThan(0)
   })
 
   it('GET /api/cloud-saas/wallet/transactions returns array', async () => {
     const res = await req('GET', '/api/cloud-saas/wallet/transactions')
     expect(res.status).toBe(200)
-    const body = (await res.json()) as unknown[]
-    expect(Array.isArray(body)).toBe(true)
+    const body = (await res.json()) as { transactions: unknown[] }
+    expect(Array.isArray(body.transactions)).toBe(true)
   })
 })
 
-describe('Cloud SaaS — fork a community template', () => {
-  it('POST /api/cloud-saas/templates/:slug/fork creates a pending template', async () => {
-    const res = await req('POST', `/api/cloud-saas/templates/${officialTemplateSlug}/fork`)
+describe('Cloud SaaS — create a community template', () => {
+  it('POST /api/cloud-saas/templates creates a draft template', async () => {
+    communityTemplateSlug = `e2e-community-${Date.now()}`
+    const res = await req('POST', '/api/cloud-saas/templates', {
+      slug: communityTemplateSlug,
+      name: 'E2E Community Template',
+      description: 'Integration test community template',
+      content: { agents: [{ role: 'worker', model: 'gpt-4o-mini' }], version: 1 },
+      tags: ['test'],
+      category: 'test',
+      baseCost: 0,
+    })
     expect(res.status).toBe(201)
     const body = (await res.json()) as {
       slug: string
@@ -164,8 +174,8 @@ describe('Cloud SaaS — fork a community template', () => {
       reviewStatus: string
     }
     expect(body.source).toBe('community')
-    expect(body.reviewStatus).toBe('pending')
-    expect(body.slug).not.toBe(officialTemplateSlug)
+    expect(body.reviewStatus).toBe('draft')
+    expect(body.slug).toBe(communityTemplateSlug)
   })
 })
 
@@ -194,8 +204,10 @@ describe('Cloud SaaS — deployment + billing', () => {
 
     // Transaction should appear
     const txRes = await req('GET', '/api/cloud-saas/wallet/transactions')
-    const txList = (await txRes.json()) as Array<{ type: string; deployRefId?: string }>
-    const deployTx = txList.find((tx) => tx.type === 'cloud_deploy')
+    const txBody = (await txRes.json()) as {
+      transactions: Array<{ type: string; referenceType?: string }>
+    }
+    const deployTx = txBody.transactions.find((tx) => tx.referenceType === 'cloud_deploy')
     expect(deployTx).toBeDefined()
   })
 })

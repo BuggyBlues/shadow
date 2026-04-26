@@ -2,10 +2,12 @@
 // System — GPU Texture (bitECS, per-entity EID)
 // ══════════════════════════════════════════════════════════════
 
+import { Asset, assetBackendCode } from '../../components/assetComponent'
 import { cardDataStore } from '../../components/cardDataComponent'
 import type { GPUStateData } from '../../components/gpuStateComponent'
 import { gpuStateStore } from '../../components/gpuStateComponent'
 import { animationManager } from '../../resources/animationManager'
+import { cardAssetPipeline } from '../../resources/assetPipeline'
 import type { GPUContext } from '../../resources/gpuContext'
 import { allocateTextureLayer, GPU_TEX_H, GPU_TEX_W } from '../../resources/gpuContext'
 import { removeCachedTexture } from '../../resources/textureCache'
@@ -32,6 +34,12 @@ export function gpuTextureSystem(
 
   const lodScale = zoomToLodScale(zoom, dpr)
   const texInfo = renderCardTexture(card, cardW, cardH, lodScale)
+  const frame = cardAssetPipeline.currentFrame()
+  Asset.faceVersion[eid] = texInfo.cardVersion
+  Asset.faceLod[eid] = texInfo.lodScale
+  Asset.faceBytes[eid] = texInfo.byteSize
+  Asset.lastTouchedFrame[eid] = frame.frameId
+  Asset.backend[eid] = assetBackendCode(texInfo.backend)
 
   let gpuState = gpuStateStore[eid]
 
@@ -46,17 +54,30 @@ export function gpuTextureSystem(
   }
 
   const lodChanged = texInfo.lodScale !== gpuState.lastLod
-  if (
-    (texInfo.needsUpdate || gpuState.lastVersion !== texInfo.cardVersion || lodChanged) &&
-    zoomSettled
-  ) {
-    _uploadCanvas(gpuCtx, gpuState, texInfo.canvas as HTMLCanvasElement)
-    gpuState.lastVersion = texInfo.cardVersion
-    gpuState.lastLod = texInfo.lodScale
-  }
+  const needsUpload =
+    texInfo.needsUpdate || gpuState.lastVersion !== texInfo.cardVersion || lodChanged
+
+  Asset.uploadPending[eid] = needsUpload ? 1 : 0
+  Asset.gpuResident[eid] = gpuState.lastVersion >= 0 ? 1 : 0
+
+  if (!needsUpload || !zoomSettled) return
+
+  const canUpload = cardAssetPipeline.claimTextureUpload({
+    id: `${card.id}:face:webgpu`,
+    backend: 'webgpu',
+    bytes: GPU_TEX_W * GPU_TEX_H * 4,
+  })
+  if (!canUpload) return
+
+  _uploadCanvas(gpuCtx, gpuState, texInfo.canvas as CanvasImageSource)
+  gpuState.lastVersion = texInfo.cardVersion
+  gpuState.lastLod = texInfo.lodScale
+  Asset.uploadPending[eid] = 0
+  Asset.gpuResident[eid] = 1
+  Asset.lastUploadedFrame[eid] = frame.frameId
 }
 
-function _uploadCanvas(gpuCtx: GPUContext, state: GPUStateData, src: HTMLCanvasElement): void {
+function _uploadCanvas(gpuCtx: GPUContext, state: GPUStateData, src: CanvasImageSource): void {
   const sc = state.stagingCanvas
   const sCtx = sc.getContext('2d', { alpha: true })!
   sCtx.clearRect(0, 0, GPU_TEX_W, GPU_TEX_H)

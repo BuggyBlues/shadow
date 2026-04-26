@@ -549,7 +549,7 @@ function handlePlay(cmd: CardCommand<'play'>, ctx: CommandContext): CommandResul
 
 function handlePause(cmd: CardCommand<'pause'>, ctx: CommandContext): CommandResult {
   const { cardId } = cmd
-  // Remove from autoplay by setting hover to null
+  ctx.animationManager.clearAutoplay(cardId)
   ctx.animationManager.setHoveredCard(null)
   return { success: true }
 }

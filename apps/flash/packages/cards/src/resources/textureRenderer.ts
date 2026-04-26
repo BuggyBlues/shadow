@@ -8,6 +8,7 @@
 import type { Card } from '@shadowob/flash-types'
 import { bootstrapCards } from '../core/bootstrap'
 import { runPipeline } from '../core/world'
+import { cardAssetPipeline } from './assetPipeline'
 import { setupCanvas } from './canvasManager'
 import {
   type CardTextureInfo,
@@ -38,9 +39,13 @@ export function renderCardTexture(
   const cached = getCachedTexture(card.id)
   const version = cardHash(card)
   const requestedLod = lodScale ?? Math.min(Math.ceil(window.devicePixelRatio || 1), 2)
+  const backend = cardAssetPipeline.getFaceBackend(card.kind).id
+  const frame = cardAssetPipeline.currentFrame()
 
   if (cached && cached.cardVersion === version && cached.lodScale === requestedLod) {
     cached.needsUpdate = false
+    cached.lastTouchedFrame = frame.frameId
+    cached.lastUsedAt = performance.now()
     return cached
   }
 
@@ -51,11 +56,24 @@ export function renderCardTexture(
   runPipeline(ctx, card, width, height)
   ctx.restore()
 
+  const byteSize = canvas.width * canvas.height * 4
+  cardAssetPipeline.recordCardFaceBake({
+    cardId: card.id,
+    backend,
+    version,
+    lodScale: requestedLod,
+    bytes: byteSize,
+  })
+
   const info: CardTextureInfo = {
     canvas,
     needsUpdate: true,
     cardVersion: version,
     lodScale: requestedLod,
+    byteSize,
+    lastTouchedFrame: frame.frameId,
+    lastUsedAt: performance.now(),
+    backend,
   }
   setCachedTexture(card.id, info)
   return info

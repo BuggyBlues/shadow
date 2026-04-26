@@ -166,13 +166,15 @@ export function resolvePluginSecrets(
   if (!pluginInstanceConfig) {
     const useEntry = config.use?.find((e) => e.plugin === pluginId)
     if (useEntry?.options) {
-      for (const [, val] of Object.entries(useEntry.options)) {
+      for (const [key, val] of Object.entries(useEntry.options)) {
         if (typeof val === 'string') {
           const envMatch = val.match(/^\$\{env:(\w+)\}$/)
           if (envMatch?.[1]) {
             const envKey = envMatch[1]
             const envVal = processEnv[envKey]
-            if (envVal !== undefined) secretsMap[envKey] = envVal
+            if (envVal !== undefined) secretsMap[key] = envVal
+          } else if (/^[A-Z0-9_]+$/.test(key)) {
+            secretsMap[key] = val
           }
         }
       }

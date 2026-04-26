@@ -15,7 +15,12 @@ WORKDIR /workspace
 # Layer 1: Workspace manifests + lockfile (cached unless dependencies change)
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/admin/package.json ./apps/admin/
+COPY apps/cloud/package.json ./apps/cloud/
+COPY apps/cloud/packages/ui/package.json ./apps/cloud/packages/ui/
 COPY apps/desktop/package.json ./apps/desktop/
+COPY apps/flash/package.json ./apps/flash/
+COPY apps/flash/packages/cards/package.json ./apps/flash/packages/cards/
+COPY apps/flash/packages/types/package.json ./apps/flash/packages/types/
 COPY apps/mobile/package.json ./apps/mobile/
 COPY apps/playground/package.json ./apps/playground/
 COPY apps/server/package.json ./apps/server/
@@ -26,6 +31,7 @@ COPY packages/openclaw-shadowob/package.json ./packages/openclaw-shadowob/
 COPY packages/sdk/package.json ./packages/sdk/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/ui/package.json ./packages/ui/
+COPY website/package.json ./website/
 
 RUN pnpm install --frozen-lockfile --ignore-scripts
 

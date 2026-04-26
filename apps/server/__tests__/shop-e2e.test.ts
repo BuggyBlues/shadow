@@ -63,6 +63,8 @@ let orderId1: string
 let orderId2: string // for cancel test
 let orderNo1: string
 
+const INITIAL_WALLET_BALANCE = 10000
+
 /* ── Helper: make HTTP request through Hono ── */
 
 async function req(
@@ -550,7 +552,7 @@ describe('Wallet', () => {
     expect(res.status).toBe(200)
     const wallet = await json<{ id: string; balance: number; userId: string }>(res)
     expect(wallet.userId).toBe(buyerUserId)
-    expect(wallet.balance).toBe(0)
+    expect(wallet.balance).toBe(INITIAL_WALLET_BALANCE)
   })
 
   it('top up wallet', async () => {
@@ -560,7 +562,7 @@ describe('Wallet', () => {
     })
     expect(res.status).toBe(200)
     const wallet = await json<{ balance: number }>(res)
-    expect(wallet.balance).toBe(5000)
+    expect(wallet.balance).toBe(INITIAL_WALLET_BALANCE + 5000)
   })
 
   it('top up again and verify accumulation', async () => {
@@ -570,7 +572,7 @@ describe('Wallet', () => {
     })
     expect(res.status).toBe(200)
     const wallet = await json<{ balance: number }>(res)
-    expect(wallet.balance).toBe(6000)
+    expect(wallet.balance).toBe(INITIAL_WALLET_BALANCE + 6000)
   })
 
   it('check transaction history', async () => {

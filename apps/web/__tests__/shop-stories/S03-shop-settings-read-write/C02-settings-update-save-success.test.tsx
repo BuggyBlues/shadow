@@ -58,7 +58,7 @@ describe('S03/C02 settings update save success', () => {
     })
 
     await waitFor(() => {
-      expect(showToastMock).toHaveBeenCalledWith('shop.settingsSaved', 'success')
+      expect(showToastMock).toHaveBeenCalledWith('店铺设置已保存', 'success')
     })
   })
 })

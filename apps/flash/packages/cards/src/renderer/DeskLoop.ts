@@ -20,15 +20,43 @@ import {
   parseCommand,
   tickCommands,
 } from '../commands'
+import { CARD_SPACING_X, CARD_SPACING_Y } from '../constants'
 import { animationManager } from '../resources/animationManager'
+import { cardAssetPipeline } from '../resources/assetPipeline'
 import type { DeskInputCallbacks } from '../resources/deskInputHandler'
 import { DeskInputHandler } from '../resources/deskInputHandler'
+import { ktx2Runtime } from '../resources/ktx2Runtime'
 import { createPhysicsWorld, destroyPhysicsWorld } from '../resources/physicsWorld'
+import { getTextureCacheStats } from '../resources/textureCache'
 import { arenaStore } from '../systems/scene/arenaSystem'
 import { physicsStep, seedBodies, syncBodies } from '../systems/scene/bodyLifecycleSystem'
-import { CardRenderer } from './CardRenderer'
+import { CardRenderer, type CardRendererOptions, type RenderBackend } from './CardRenderer'
 
 export type { CardCommand, CommandName, CommandResult, DeskInputCallbacks }
+
+export interface DeskLoopStats {
+  fps: number
+  frameMs: number
+  physicsMs: number
+  renderMs: number
+  cardCount: number
+  backend: RenderBackend
+  dpr: number
+  textureCacheEntries: number
+  textureCacheBytes: number
+  assetUploads: number
+  assetUploadBytes: number
+  assetSkippedUploads: number
+  compressedTextureCandidates: number
+  ktx2TextureCacheEntries: number
+  animationTicks: number
+  animationFrameMarks: number
+  animationSkippedTicks: number
+}
+
+export interface DeskLoopOptions {
+  renderer?: CardRendererOptions
+}
 
 export class DeskLoop {
   private renderer: CardRenderer | null = null
@@ -40,6 +68,28 @@ export class DeskLoop {
   private initObserver: ResizeObserver | null = null
   private cards: Card[] = []
   private callbacks: DeskInputCallbacks = {}
+  private stats: DeskLoopStats = {
+    fps: 0,
+    frameMs: 0,
+    physicsMs: 0,
+    renderMs: 0,
+    cardCount: 0,
+    backend: 'pending',
+    dpr: 1,
+    textureCacheEntries: 0,
+    textureCacheBytes: 0,
+    assetUploads: 0,
+    assetUploadBytes: 0,
+    assetSkippedUploads: 0,
+    compressedTextureCandidates: 0,
+    ktx2TextureCacheEntries: 0,
+    animationTicks: 0,
+    animationFrameMarks: 0,
+    animationSkippedTicks: 0,
+  }
+  private statsWindowStart = 0
+  private statsFrames = 0
+  private options: DeskLoopOptions
   /** Constraint map for /link rope connections */
   private constraintsMap = new Map<string, Matter.Constraint>()
   /**
@@ -53,6 +103,10 @@ export class DeskLoop {
     onCardAdded?: (card: Card) => void
     onScanResult?: (cardId: string, nearby: Array<{ id: string; distance: number }>) => void
   } = {}
+
+  constructor(options: DeskLoopOptions = {}) {
+    this.options = options
+  }
 
   // ── Init ────────────────────────────────────────────────────
 
@@ -98,7 +152,7 @@ export class DeskLoop {
     this.cards = cards
 
     try {
-      this.renderer = new CardRenderer(canvas)
+      this.renderer = new CardRenderer(canvas, this.options.renderer)
       const w = container.clientWidth
       const h = container.clientHeight
       this.size = { w, h }
@@ -163,6 +217,67 @@ export class DeskLoop {
   }
   getConstraintsMap() {
     return this.constraintsMap
+  }
+
+  focusCards(cards: Card[]): void {
+    if (!this.renderer || cards.length === 0 || this.size.w <= 0 || this.size.h <= 0) return
+
+    const center = this.renderer.screenToWorld(this.size.w / 2, this.size.h / 2)
+    const cols = Math.max(1, Math.ceil(Math.sqrt(cards.length)))
+    const rows = Math.max(1, Math.ceil(cards.length / cols))
+    const gridW = (cols - 1) * CARD_SPACING_X
+    const gridH = (rows - 1) * CARD_SPACING_Y
+    const startX = center.x - gridW / 2
+    const startY = center.y - gridH / 2
+
+    cards.forEach((card, index) => {
+      const body = this.physicsWorld.bodiesMap.get(card.id)
+      if (!body) return
+      const col = index % cols
+      const row = Math.floor(index / cols)
+      Matter.Body.setPosition(body, {
+        x: startX + col * CARD_SPACING_X,
+        y: startY + row * CARD_SPACING_Y,
+      })
+      Matter.Body.setVelocity(body, { x: 0, y: 0 })
+      Matter.Body.setAngularVelocity(body, 0)
+      Matter.Body.setAngle(body, ((col - (cols - 1) / 2) / Math.max(1, cols)) * 0.12)
+    })
+
+    this.renderer.centerOnCards(this.physicsWorld.bodiesMap, this.size.w, this.size.h)
+    const zoom = this.renderer.getViewZoom()
+    if (zoom < 0.45 && cards.length <= 12) {
+      this.renderer.setViewZoom(0.45)
+      this.renderer.setViewOffset(
+        center.x - this.size.w / (2 * 0.45),
+        center.y - this.size.h / (2 * 0.45),
+      )
+    }
+  }
+
+  getStats(): DeskLoopStats {
+    const renderer = this.renderer
+    const textureCache = getTextureCacheStats()
+    const assetStats = cardAssetPipeline.getStats()
+    const assetFrame = assetStats.frame
+    const ktx2Stats = ktx2Runtime.getStats()
+    const animationFrame = animationManager.getSchedulerStats().frame
+    return {
+      ...this.stats,
+      cardCount: this.cards.length,
+      backend: renderer?.getBackend() ?? 'pending',
+      dpr: renderer?.getDpr() ?? this.stats.dpr,
+      textureCacheEntries: textureCache.entries,
+      textureCacheBytes: textureCache.totalBytes,
+      assetUploads: assetFrame.usedUploads,
+      assetUploadBytes: assetFrame.usedBytes,
+      assetSkippedUploads: assetFrame.skippedUploads,
+      compressedTextureCandidates: assetStats.compressedTextureCandidates,
+      ktx2TextureCacheEntries: ktx2Stats.cacheEntries,
+      animationTicks: animationFrame.usedTicks,
+      animationFrameMarks: animationFrame.usedFrameMarks,
+      animationSkippedTicks: animationFrame.skippedTicks,
+    }
   }
 
   updateSelectedCards(ids: Set<string>): void {
@@ -236,6 +351,7 @@ export class DeskLoop {
   private startLoop(): void {
     let lastTime = -1 // -1 = first frame sentinel
     const step = (time: number) => {
+      const frameStart = performance.now()
       // Tick animation manager FIRST so Three.js renders before card texture bake
       animationManager.tick(time)
       // Tick command animations (move, rotate, highlight, etc.)
@@ -245,14 +361,39 @@ export class DeskLoop {
       const raw = lastTime < 0 ? 0 : time - lastTime
       const delta = Math.min(raw, 16) // hard cap at 16ms (< 16.667 threshold)
       lastTime = time
+      const physicsStart = performance.now()
       physicsStep(this.physicsWorld.engine, delta)
+      const physicsMs = performance.now() - physicsStart
+      let renderMs = 0
       if (this.renderer) {
         const { w, h } = this.size
+        const renderStart = performance.now()
         this.renderer.render(this.cards, this.physicsWorld.bodiesMap, w, h)
+        renderMs = performance.now() - renderStart
       }
+      this.recordStats(time, performance.now() - frameStart, physicsMs, renderMs)
       this.rafId = requestAnimationFrame(step)
     }
     this.rafId = requestAnimationFrame(step)
+  }
+
+  private recordStats(time: number, frameMs: number, physicsMs: number, renderMs: number): void {
+    const smooth = (prev: number, next: number) => (prev === 0 ? next : prev * 0.85 + next * 0.15)
+    this.stats.frameMs = smooth(this.stats.frameMs, frameMs)
+    this.stats.physicsMs = smooth(this.stats.physicsMs, physicsMs)
+    this.stats.renderMs = smooth(this.stats.renderMs, renderMs)
+    this.stats.cardCount = this.cards.length
+    this.stats.backend = this.renderer?.getBackend() ?? 'pending'
+    this.stats.dpr = this.renderer?.getDpr() ?? this.stats.dpr
+
+    if (this.statsWindowStart === 0) this.statsWindowStart = time
+    this.statsFrames += 1
+    const elapsed = time - this.statsWindowStart
+    if (elapsed >= 500) {
+      this.stats.fps = Math.round((this.statsFrames * 1000) / elapsed)
+      this.statsFrames = 0
+      this.statsWindowStart = time
+    }
   }
 
   // ── Destroy ─────────────────────────────────────────────────

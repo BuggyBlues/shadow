@@ -350,6 +350,11 @@ export interface PluginDefinition {
 
   /** All registered hooks, collected during setup() */
   _hooks: PluginHooks
+
+  /** Legacy hook aliases kept for older callers/tests while runtime uses _hooks. */
+  _buildConfig: PluginHooks['buildConfig']
+  _buildEnv: PluginHooks['buildEnv']
+  _validate: PluginHooks['validate']
 }
 
 // ─── Plugin Registry ─────────────────────────────────────────────────────────

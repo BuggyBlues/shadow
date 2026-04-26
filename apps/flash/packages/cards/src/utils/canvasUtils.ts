@@ -41,6 +41,17 @@ export function truncText(
   return '…'
 }
 
+/** True when a plugin-local title would visually duplicate the global card header. */
+export function isDuplicateTitle(a?: string | null, b?: string | null): boolean {
+  const normalize = (value?: string | null) =>
+    safeStr(value)
+      .toLocaleLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, '')
+  const aa = normalize(a)
+  const bb = normalize(b)
+  return aa.length > 0 && aa === bb
+}
+
 /** Word-wrap text into lines that fit within maxWidth */
 export function wrapText(
   ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,

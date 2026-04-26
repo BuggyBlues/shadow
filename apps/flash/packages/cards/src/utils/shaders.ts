@@ -7,7 +7,7 @@
 //   ✦ ★ Enhanced Balatro-style holographic + foil + polychrome on hover ★
 //   ✦ ★ Balatro card hover: 3D perspective warp (vertex displacement) ★
 //   ✦ Proper natural shadow (soft, directional)
-//   ✦ Rainbow edge glow + specular highlights
+//   ✦ Cursor-following specular highlights
 // ══════════════════════════════════════════════════════════════
 
 export const CARD_VERTEX_SHADER = `
@@ -338,29 +338,9 @@ export const CARD_FRAGMENT_SHADER = `
 
       color = balatroVortex(cardPixelCoord, cardRes, u_time, c1_back, c2_back, c3_back);
 
-      // ── Ornate gold border frame on top of vortex ──
       vec2 ct = backUV - 0.5;
-      float margin = 0.05;
-      float bw = 0.005;
-      vec2 buv = abs(ct);
-      float bx = smoothstep(0.5 - margin - bw, 0.5 - margin, buv.x)
-               * (1.0 - smoothstep(0.5 - margin, 0.5 - margin + bw, buv.x));
-      float by = smoothstep(0.5 - margin - bw, 0.5 - margin, buv.y)
-               * (1.0 - smoothstep(0.5 - margin, 0.5 - margin + bw, buv.y));
-      float borderMask = max(bx * step(buv.y, 0.5 - margin + bw), by * step(buv.x, 0.5 - margin + bw));
-      // Inner secondary border
-      float margin2 = 0.08;
-      float bw2 = 0.003;
-      float bx2 = smoothstep(0.5 - margin2 - bw2, 0.5 - margin2, buv.x)
-                * (1.0 - smoothstep(0.5 - margin2, 0.5 - margin2 + bw2, buv.x));
-      float by2 = smoothstep(0.5 - margin2 - bw2, 0.5 - margin2, buv.y)
-                * (1.0 - smoothstep(0.5 - margin2, 0.5 - margin2 + bw2, buv.y));
-      float innerBorderMask = max(bx2 * step(buv.y, 0.5 - margin2 + bw2), by2 * step(buv.x, 0.5 - margin2 + bw2));
 
-      // Gold color with shimmer
       vec3 backGold = vec3(0.85, 0.7, 0.35) * (0.9 + 0.1 * sin(u_time * 2.0 + ct.x * 10.0));
-      color += backGold * borderMask * 0.5;
-      color += backGold * 0.6 * innerBorderMask * 0.3;
 
       // ── Center diamond emblem (larger, more ornate) ──
       float diamond = abs(ct.x) * 1.8 + abs(ct.y);
@@ -372,7 +352,7 @@ export const CARD_FRAGMENT_SHADER = `
     } else {
       // ══════════════════════════════════════════════
       // ★★★ CARD FRONT — BALATRO TAROT STYLE ★★★
-      // Aged parchment + gold border + constellation watermark
+      // Aged parchment + constellation watermark
       // ══════════════════════════════════════════════
 
       float kindF = u_kindIndex;
@@ -418,44 +398,6 @@ export const CARD_FRAGMENT_SHADER = `
       float texBlend = content.a * 0.92;
       color = mix(color, content.rgb, texBlend);
 
-      // ── 4. Ornate gold/metallic border frame ──
-      // Double border with inner and outer lines
-      float borderMargin = 5.0;
-      float borderW = 1.2;
-      float innerMargin = 9.0;
-      float innerW = 0.6;
-
-      // Outer ornate border
-      float outerL = smoothstep(borderMargin + borderW, borderMargin, cp.x);
-      float outerR = smoothstep(cardSize.x - borderMargin - borderW, cardSize.x - borderMargin, cp.x);
-      float outerT = smoothstep(borderMargin + borderW, borderMargin, cp.y);
-      float outerB = smoothstep(cardSize.y - borderMargin - borderW, cardSize.y - borderMargin, cp.y);
-      float outerBorder = max(max(outerL, outerR), max(outerT, outerB));
-      // Only draw on the edges (not filling the card)
-      float outerMask = step(cp.x, borderMargin + borderW) + step(cardSize.x - borderMargin - borderW, cp.x)
-                      + step(cp.y, borderMargin + borderW) + step(cardSize.y - borderMargin - borderW, cp.y);
-      outerMask = min(outerMask, 1.0);
-
-      // Inner thin border
-      float innerL = smoothstep(innerMargin + innerW, innerMargin, cp.x)
-                   * (1.0 - smoothstep(innerMargin - innerW, innerMargin, cp.x));
-      float innerR = smoothstep(cardSize.x - innerMargin - innerW, cardSize.x - innerMargin, cp.x)
-                   * (1.0 - smoothstep(cardSize.x - innerMargin, cardSize.x - innerMargin + innerW, cp.x));
-      float innerT = smoothstep(innerMargin + innerW, innerMargin, cp.y)
-                   * (1.0 - smoothstep(innerMargin - innerW, innerMargin, cp.y));
-      float innerB = smoothstep(cardSize.y - innerMargin - innerW, cardSize.y - innerMargin, cp.y)
-                   * (1.0 - smoothstep(cardSize.y - innerMargin, cardSize.y - innerMargin + innerW, cp.y));
-      float innerBorder = max(max(innerL, innerR), max(innerT, innerB));
-
-      // Gold color with slight shimmer
-      float goldShimmer = 0.9 + 0.1 * sin(u_time * 1.5 + cp.x * 0.05 + cp.y * 0.03);
-      vec3 goldColor = vec3(0.85, 0.70, 0.35) * goldShimmer;
-      vec3 darkGold = vec3(0.65, 0.50, 0.25);
-
-      // Apply borders
-      color = mix(color, goldColor, outerBorder * outerMask * 0.85);
-      color = mix(color, darkGold, innerBorder * 0.5);
-
       // ── 5. Neon glow text underlight (subtle neon underlight) ──
       // Faint colored glow under the content area
       float glowY = smoothstep(0.12, 0.25, guv.y) * smoothstep(0.7, 0.5, guv.y);
@@ -464,14 +406,6 @@ export const CARD_FRAGMENT_SHADER = `
       vec3 neonColor = mix(u_tapeColor, vec3(1.0), 0.3);
       color += neonColor * neonGlow;
 
-      // ── 6. Top accent band with kind color ──
-      float topBand = smoothstep(0.0, 1.5, cp.y) * (1.0 - smoothstep(2.5, 4.0, cp.y));
-      color = mix(color, u_tapeColor * 0.7 + vec3(0.3), topBand * 0.3);
-
-      // ── 7. Bottom ornamental line ──
-      float bottomLine = smoothstep(cardSize.y - 12.0, cardSize.y - 10.0, cp.y)
-                       * (1.0 - smoothstep(cardSize.y - 10.0, cardSize.y - 8.0, cp.y));
-      color = mix(color, darkGold, bottomLine * 0.35);
     }
 
     // ═══════════════════════════════════════════════
@@ -501,13 +435,6 @@ export const CARD_FRAGMENT_SHADER = `
       vec3 foilColor = mix(vec3(1.0, 0.9, 0.6), u_tapeColor + vec3(0.3), 0.25);
       color += foilColor * foilStr * 0.2;
 
-      // ── 3. Gold border glow on hover ──
-      float borderGlowMask = step(cp.x, 7.0) + step(cardSize.x - 7.0, cp.x)
-                           + step(cp.y, 7.0) + step(cardSize.y - 7.0, cp.y);
-      borderGlowMask = min(borderGlowMask, 1.0);
-      vec3 glowGold = vec3(1.0, 0.85, 0.4);
-      color += glowGold * borderGlowMask * u_hover * 0.3 * (0.8 + 0.2 * sin(u_time * 3.0));
-
       // ── 4. Polychrome color shift (oil-slick) ──
       float polyPhase = euv.x * 2.5 + euv.y * 1.8 + u_time * 0.25;
       float polyShift = sin(polyPhase) * 0.5 + 0.5;
@@ -523,17 +450,6 @@ export const CARD_FRAGMENT_SHADER = `
       float specular = exp(-specDist * specDist * 20.0) * u_hover * 0.5;
       color += vec3(1.0, 0.98, 0.95) * specular;
 
-      // ── 6. Rainbow edge glow (Balatro signature) ──
-      float glowDist = abs(dist + 3.0) / 5.0;
-      float edgeGlow = exp(-glowDist * glowDist) * u_hover * 0.8;
-      float rainbowAngle = atan(cardLocal.y, cardLocal.x);
-      vec3 rainbowColor = hsl2rgb(vec3(
-        fract(rainbowAngle / (2.0 * PI) + u_time * 0.3),
-        0.9,
-        0.65
-      ));
-      color += edgeGlow * rainbowColor;
-
       // ── 7. Subtle Balatro vortex bleed on hover (micro swirl in background) ──
       if (u_hover > 0.3) {
         vec2 microCoord = euv * cardSize * 0.3;
@@ -548,33 +464,12 @@ export const CARD_FRAGMENT_SHADER = `
     // ═══════════════════════════════════════════
 
     if (showBack && u_hover > 0.01) {
-      // Rainbow edge glow on back too
-      float backGlow = abs(dist + 3.0) / 5.0;
-      float backEdge = exp(-backGlow * backGlow) * 0.5;
-      float backAngle = atan(cardLocal.y, cardLocal.x);
-      vec3 backGlowColor = hsl2rgb(vec3(fract(backAngle / (2.0 * PI) + u_time * 0.4), 0.9, 0.65));
-      color += backEdge * backGlowColor * u_hover;
-
       // Specular highlight on back
       vec2 backSpecPos = u_mouseLocal * 0.3;
       vec2 backUV2 = vec2(1.0 - contentUV.x, contentUV.y);
       float backSpecDist = length(backUV2 - 0.5 - backSpecPos);
       float backSpec = exp(-backSpecDist * backSpecDist * 15.0) * u_hover * 0.3;
       color += vec3(1.0, 0.98, 0.95) * backSpec;
-    }
-
-    // ── Active (dragging) — arcane energy glow ──
-    if (u_active > 0.01) {
-      color += smoothstep(0.0, 4.0, -dist) * u_active * 0.06;
-      // Golden energy ring
-      float dragGlow = abs(dist + 2.0) / 3.5;
-      float dragRing = exp(-dragGlow * dragGlow) * u_active * 0.6;
-      vec3 dragColor = mix(vec3(0.9, 0.75, 0.35), u_tapeColor, 0.4);
-      color += dragColor * dragRing;
-      // Secondary outer glow
-      float outerGlow = abs(dist + 5.0) / 6.0;
-      float outerRing = exp(-outerGlow * outerGlow) * u_active * 0.25;
-      color += u_tapeColor * outerRing;
     }
 
     // ── AI Streaming pulse ──
@@ -593,29 +488,6 @@ export const CARD_FRAGMENT_SHADER = `
       color += flipColor * flipGlow * edgeMask;
     }
 
-    // ── Card edge highlight (3D depth) + idle breathing glow ──
-    float insetTop = smoothstep(-0.5, 0.5, cp.y) * 0.012;
-    float insetSide = (smoothstep(-0.5, 0.5, cp.x) + smoothstep(-0.5, 0.5, cardSize.x - cp.x)) * 0.006;
-    color += vec3(1.0, 0.95, 0.8) * (insetTop + insetSide);
-
-    // ── Idle breathing glow (subtle pulsing gold edge aura) ──
-    if (!showBack) {
-      float breathe = 0.5 + 0.5 * sin(u_time * 1.2 + u_kindIndex * 0.5);
-      float edgeProximity = smoothstep(6.0, 0.0, abs(dist + 1.0));
-      vec3 breatheColor = mix(vec3(0.8, 0.65, 0.3), u_tapeColor, 0.3);
-      color += breatheColor * edgeProximity * breathe * 0.06 * (1.0 - u_hover);
-    }
-
-    // ── Selected card — blue glow border ──
-    if (u_selected > 0.01) {
-      float selGlow = abs(dist + 2.0) / 4.0;
-      float selRing = exp(-selGlow * selGlow) * u_selected * 0.9;
-      vec3 selColor = vec3(0.3, 0.6, 1.0);
-      color += selColor * selRing;
-      // Subtle blue tint overlay
-      color = mix(color, selColor, u_selected * 0.06);
-    }
-
     // ── semi-hidden state (filter non-matching cards) — desaturate + reduce opacity ──
     if (u_hidden > 0.5) {
       float grayVal = dot(color, vec3(0.299, 0.587, 0.114));
@@ -625,5 +497,83 @@ export const CARD_FRAGMENT_SHADER = `
     } else {
       gl_FragColor = vec4(color * cardAlpha, cardAlpha);  // premultiplied
     }
+  }
+`
+
+export const ANIMATION_LAYER_VERTEX_SHADER = `
+  precision highp float;
+
+  attribute vec2 a_position;
+  attribute vec2 a_texCoord;
+
+  uniform mat3 u_projection;
+  uniform vec2 u_cardTranslate;
+  uniform float u_cardAngle;
+  uniform vec2 u_cardSize;
+  uniform vec2 u_layerOffset;
+  uniform vec2 u_layerSize;
+  uniform vec2 u_viewOffset;
+  uniform float u_viewZoom;
+  uniform float u_flipAngle;
+  uniform vec2 u_mouseLocal;
+  uniform float u_hover;
+  uniform float u_tiltStrength;
+  uniform vec4 u_uvRect;
+
+  varying vec2 v_texCoord;
+  varying vec2 v_layerPos;
+
+  void main() {
+    vec2 local = u_layerOffset + (a_position - 0.5) * u_layerSize;
+
+    float flipCos = cos(u_flipAngle);
+    local.x *= flipCos;
+
+    float tiltX = u_mouseLocal.x * u_tiltStrength * u_hover;
+    float tiltY = -u_mouseLocal.y * u_tiltStrength * u_hover;
+    vec2 normalizedPos = local / u_cardSize;
+    float edgeFactor = dot(normalizedPos, normalizedPos) * 2.0;
+    float zFactor = 1.0 + (normalizedPos.x * tiltX + normalizedPos.y * tiltY) * (1.0 + edgeFactor * 0.5);
+    local *= 1.0 + (1.0 - 1.0 / max(zFactor, 0.3)) * 0.25;
+    local *= 1.0 + u_hover * 0.12;
+
+    float c = cos(u_cardAngle);
+    float s = sin(u_cardAngle);
+    vec2 rotated = vec2(local.x * c - local.y * s, local.x * s + local.y * c);
+    vec2 screen = (rotated + u_cardTranslate - u_viewOffset) * u_viewZoom;
+
+    vec3 projected = u_projection * vec3(screen, 1.0);
+    gl_Position = vec4(projected.xy, 0.0, 1.0);
+
+    v_texCoord = mix(u_uvRect.xy, u_uvRect.zw, a_texCoord);
+    v_layerPos = a_position * u_layerSize;
+  }
+`
+
+export const ANIMATION_LAYER_FRAGMENT_SHADER = `
+  precision highp float;
+
+  varying vec2 v_texCoord;
+  varying vec2 v_layerPos;
+
+  uniform sampler2D u_layerTex;
+  uniform vec2 u_layerSize;
+  uniform float u_radius;
+  uniform float u_alpha;
+
+  float roundedBoxSDF(vec2 p, vec2 b, float r) {
+    vec2 q = abs(p) - b + vec2(r);
+    return length(max(q, 0.0)) - r;
+  }
+
+  void main() {
+    vec2 p = v_layerPos - u_layerSize * 0.5;
+    float dist = roundedBoxSDF(p, u_layerSize * 0.5, u_radius);
+    float mask = 1.0 - smoothstep(-1.0, 1.0, dist);
+    if (mask <= 0.01) discard;
+
+    vec4 c = texture2D(u_layerTex, v_texCoord);
+    float a = c.a * mask * u_alpha;
+    gl_FragColor = vec4(c.rgb * a, a);
   }
 `

@@ -11,6 +11,7 @@
 
 import type { Card } from '@shadowob/flash-types'
 import { addComponent } from 'bitecs'
+import { ASSET_BACKEND_NONE, Asset } from '../components/assetComponent'
 import { canvasStore } from '../components/canvasComponent'
 import { cardDataStore } from '../components/cardDataComponent'
 import { Flip } from '../components/flipComponent'
@@ -18,11 +19,13 @@ import { iconStore, resolveIcon } from '../components/iconComponent'
 import { Interaction } from '../components/interactionComponent'
 import { createLayout, layoutStore } from '../components/layoutComponent'
 import { RenderOrder } from '../components/renderOrderComponent'
+import { Runtime } from '../components/runtimeComponent'
 import { resolveShaderStyle, shaderStyleStore } from '../components/shaderStyleComponent'
 import { resolveStyle, styleStore } from '../components/styleComponent'
 import { Transform } from '../components/transformComponent'
 import { Visibility } from '../components/visibilityComponent'
 import { registry } from '../registry'
+import { paintCardFaceBase, paintCardFacePatch } from '../resources/cardFaceMaterial'
 import type { ContentSystem, DecoratorSystem } from '../types'
 import {
   allSceneEids,
@@ -84,10 +87,7 @@ export function runPipeline(
   const bgColor = renderDef?.bgColor ?? '#fdf8f0'
 
   if (!fullBleed) {
-    ctx.fillStyle = bgColor
-    ctx.beginPath()
-    ctx.roundRect(0, 0, width, height, 14)
-    ctx.fill()
+    paintCardFaceBase(ctx, width, height, bgColor)
   }
 
   if (!fullBleed) {
@@ -109,14 +109,7 @@ export function runPipeline(
       const shiftY = Math.round((availableH - contentH) * 0.35)
       if (shiftY > 3) {
         ctx.clearRect(0, contentTopY, width, availableH)
-        ctx.fillStyle = bgColor
-        // Use rounded bottom corners to avoid sharp corner artifacts where the
-        // vertical-centering repaint meets the card's rounded-corner clip region
-        const bottomRadius = 14
-        const remainingH = availableH - (height - contentTopY - availableH + availableH)
-        ctx.beginPath()
-        ctx.roundRect(0, contentTopY, width, availableH, [0, 0, bottomRadius, bottomRadius])
-        ctx.fill()
+        paintCardFacePatch(ctx, width, height, 0, contentTopY, width, availableH, bgColor)
         layout.cursorY = contentTopY + shiftY
         layout.contentStartY = layout.cursorY
         for (const sys of contentSystems) {
@@ -136,11 +129,13 @@ export function runPipeline(
 /** @internal Component tags used only in this module */
 const CCardData = {}
 const CShaderStyle = {}
+const CAssetState = Asset
 const CTransform = Transform
 const CInteraction = Interaction
 const CFlip = Flip
 const CVisibility = Visibility
 const CRenderOrder = RenderOrder
+const CRuntime = Runtime
 
 let _nextZ = 0
 
@@ -163,6 +158,7 @@ export class SceneWorld {
       Transform.height[eid] = cardH
 
       Interaction.hovered[eid] = 0
+      Interaction.hoverAmount[eid] = 0
       Interaction.active[eid] = 0
       Interaction.selected[eid] = 0
       Interaction.streaming[eid] = card.isStreaming ? 1 : 0
@@ -180,6 +176,23 @@ export class SceneWorld {
 
       RenderOrder.z[eid] = _nextZ++
 
+      Runtime.kind[eid] = 0
+      Runtime.active[eid] = 0
+      Runtime.autoplay[eid] = 0
+      Runtime.preload[eid] = 0
+      Runtime.prewarm[eid] = 0
+      Runtime.prepare[eid] = 0
+      Runtime.priority[eid] = 0
+
+      Asset.faceVersion[eid] = -1
+      Asset.faceLod[eid] = 0
+      Asset.faceBytes[eid] = 0
+      Asset.uploadPending[eid] = 0
+      Asset.gpuResident[eid] = 0
+      Asset.lastTouchedFrame[eid] = 0
+      Asset.lastUploadedFrame[eid] = 0
+      Asset.backend[eid] = ASSET_BACKEND_NONE
+
       // AoS object components
       cardDataStore[eid] = { card }
       shaderStyleStore[eid] = resolveShaderStyle(card.kind as any, card.priority)
@@ -190,6 +203,8 @@ export class SceneWorld {
       addComponent(sceneWorld, eid, CFlip)
       addComponent(sceneWorld, eid, CVisibility)
       addComponent(sceneWorld, eid, CRenderOrder)
+      addComponent(sceneWorld, eid, CRuntime)
+      addComponent(sceneWorld, eid, CAssetState)
       addComponent(sceneWorld, eid, CCardData)
       addComponent(sceneWorld, eid, CShaderStyle)
     } else {

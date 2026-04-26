@@ -37,6 +37,6 @@ describe('S05/C04 checkout success order created wallet updated', () => {
     await screen.findByText('商品A')
     fireEvent.click(screen.getAllByRole('checkbox')[1] as HTMLInputElement)
     await userEvent.click(screen.getByRole('button', { name: /去结算/ }))
-    await waitFor(() => expect(showToastMock).toHaveBeenCalledWith('shop.orderSuccess', 'success'))
+    await waitFor(() => expect(showToastMock).toHaveBeenCalledWith('下单成功！', 'success'))
   })
 })

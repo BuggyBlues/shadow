@@ -2,6 +2,17 @@
 // @shadowob/flash-cards — Components barrel export
 // ══════════════════════════════════════════════════════════════
 
+export {
+  ASSET_BACKEND_CANVAS2D,
+  ASSET_BACKEND_CANVASKIT,
+  ASSET_BACKEND_EXTERNAL,
+  ASSET_BACKEND_NONE,
+  ASSET_BACKEND_OFFSCREEN_CANVAS,
+  Asset,
+  type AssetData,
+  assetBackendCode,
+  CAsset,
+} from './assetComponent'
 export { type CanvasData, CCanvas, canvasStore } from './canvasComponent'
 export { type CardDataData, CCardData, cardDataStore } from './cardDataComponent'
 export {
@@ -120,6 +131,17 @@ export {
   webpageMetaStore,
 } from './metaComponent'
 export { CRenderOrder, RenderOrder, type RenderOrderData } from './renderOrderComponent'
+export {
+  CRuntime,
+  isDynamicRuntimeKind,
+  RUNTIME_GIF,
+  RUNTIME_LIVE2D,
+  RUNTIME_LOTTIE,
+  RUNTIME_NONE,
+  RUNTIME_THREE,
+  Runtime,
+  runtimeKindCode,
+} from './runtimeComponent'
 export {
   CShaderStyle,
   KIND_INDEX,

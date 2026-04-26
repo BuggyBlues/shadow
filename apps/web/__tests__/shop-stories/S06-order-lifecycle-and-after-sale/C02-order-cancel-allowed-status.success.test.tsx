@@ -60,7 +60,7 @@ describe('S06/C02 order cancel allowed status success', () => {
     })
 
     await waitFor(() => {
-      expect(showToastMock).toHaveBeenCalledWith('shop.orderCancelled', 'success')
+      expect(showToastMock).toHaveBeenCalledWith('订单已取消', 'success')
     })
   })
 })

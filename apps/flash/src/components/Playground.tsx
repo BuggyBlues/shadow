@@ -1,29 +1,25 @@
 // ══════════════════════════════════════════════════════════════
 // Playground — Mock-data card desk for QA / rendering tests
 //
-// Accessible at /?playground=1 (no router needed).
 // Features:
 //   • 120+ mock cards across all 20 CardKind types
 //   • Toolbar: add card, filter by kind, flip all, reset
-//   • Performance overlay: FPS, card count, backend (WebGPU/WebGL)
+//   • Performance overlay: FPS, frame cost, backend (WebGPU/WebGL)
 //   • Zero dependency on the real API/backend
 // ══════════════════════════════════════════════════════════════
 
 import {
   animationManager,
-  arenaEdgeHitTest,
   CARD_H,
-  CARD_RADIUS,
   CARD_W,
   DeskLoop,
+  type DeskLoopStats,
   drawArenas,
   drawConstraints,
-  getHighlight,
 } from '@shadowob/flash-cards'
+import type { Card, CardKind, CardPriority } from '@shadowob/flash-types'
 import type Matter from 'matter-js'
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-
-import type { Card, CardKind, CardPriority } from '../types'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 // ─────────────────────────────────────
 // Mock data factory
@@ -2331,17 +2327,41 @@ function buildMockDeck(): Card[] {
     // Total: rich kinds + 3D + stress
   ]
 }
+
+function updatePerfOverlay(root: HTMLElement, stats: DeskLoopStats) {
+  const fps = root.querySelector<HTMLElement>('#perf-fps')
+  const frame = root.querySelector<HTMLElement>('#perf-frame')
+  const render = root.querySelector<HTMLElement>('#perf-render')
+  const physics = root.querySelector<HTMLElement>('#perf-physics')
+  const dpr = root.querySelector<HTMLElement>('#perf-dpr')
+  const backend = root.querySelector<HTMLElement>('#perf-backend')
+
+  if (fps) {
+    fps.textContent = `FPS: ${stats.fps}`
+    fps.style.color = stats.fps >= 50 ? '#34D399' : stats.fps >= 30 ? '#FBBF24' : '#F87171'
+  }
+  if (frame) frame.textContent = `Frame: ${stats.frameMs.toFixed(1)}ms`
+  if (render) render.textContent = `Render: ${stats.renderMs.toFixed(1)}ms`
+  if (physics) physics.textContent = `Physics: ${stats.physicsMs.toFixed(1)}ms`
+  if (dpr) dpr.textContent = `DPR: ${stats.dpr.toFixed(1)}`
+  if (backend) {
+    backend.textContent = stats.backend.toUpperCase()
+    backend.style.color = stats.backend === 'webgpu' ? '#818CF8' : '#9CA3AF'
+  }
+}
 // ─────────────────────────────────────
 // Component
 // ─────────────────────────────────────
 
 export function Playground() {
+  const rootRef = useRef<HTMLDivElement>(null)
   const deskRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null)
   const deskLoopRef = useRef<DeskLoop | null>(null)
   const cardsRef = useRef<Card[]>([])
   const animMountRef = useRef<HTMLDivElement>(null)
+  const kindFilterRef = useRef<HTMLSelectElement>(null)
   const cmdInputRef = useRef<HTMLInputElement>(null)
   /** Ref for selectedArenaId — used in RAF loop to avoid stale closure */
   const selectedArenaIdRef = useRef<string | null>(null)
@@ -2349,20 +2369,20 @@ export function Playground() {
   const selectedCardIdsRef = useRef<Set<string>>(new Set())
   /** Hovered card id — updated via DeskLoop onHoverChange, read in overlay RAF */
   const hoveredCardIdRef = useRef<string | null>(null)
-
-  const [selectedCardIds, setSelectedCardIds] = useState<Set<string>>(new Set())
-  const [selectBox, setSelectBox] = useState<{
+  const visibleCardsRef = useRef<Card[]>([])
+  const marqueeRectRef = useRef<{
     x1: number
     y1: number
     x2: number
     y2: number
   } | null>(null)
+  const arenaListDirtyRef = useRef(true)
+  const showArenaPanelRef = useRef(false)
 
   const [cards, setCards] = useState<Card[]>(() => buildMockDeck())
   const [filterKind, setFilterKind] = useState<CardKind | 'all'>('all')
-  const [fps, setFps] = useState(0)
-  const [backend, setBackend] = useState<'webgpu' | 'webgl' | 'unknown'>('unknown')
-  const [linkingCardId] = useState<string | null>(null)
+  const lastFilterKindRef = useRef<CardKind | 'all'>('all')
+  const [selectionInfo, setSelectionInfo] = useState({ count: 0 })
   const [cmdInput, setCmdInput] = useState('')
   const [cmdResult, setCmdResult] = useState<{ ok: boolean; msg: string } | null>(null)
   const [suggestions, setSuggestions] = useState<string[]>([])
@@ -2380,12 +2400,37 @@ export function Playground() {
   >([])
   const [showArenaPanel, setShowArenaPanel] = useState(false)
   const [arenaForm, setArenaForm] = useState<{ kind: string; label: string } | null>(null)
-  const [selectedArenaId, setSelectedArenaId] = useState<string | null>(null)
+  const cmdInputStateRef = useRef(cmdInput)
+  const suggestionsRef = useRef(suggestions)
+  const suggestionIdxStateRef = useRef(suggestionIdx)
+  const arenaFormRef = useRef(arenaForm)
 
   cardsRef.current = cards
+  cmdInputStateRef.current = cmdInput
+  suggestionsRef.current = suggestions
+  suggestionIdxStateRef.current = suggestionIdx
+  arenaFormRef.current = arenaForm
+
+  useEffect(() => {
+    showArenaPanelRef.current = showArenaPanel
+  }, [showArenaPanel])
+
+  useEffect(() => {
+    const el = kindFilterRef.current
+    if (el && el.value !== filterKind) el.value = filterKind
+  }, [filterKind])
+
+  useEffect(() => {
+    const el = cmdInputRef.current
+    if (el && el.value !== cmdInput) el.value = cmdInput
+  }, [cmdInput])
 
   // ── Filtered card set passed to desk ──
-  const visibleCards = filterKind === 'all' ? cards : cards.filter((c) => c.kind === filterKind)
+  const visibleCards = useMemo(
+    () => (filterKind === 'all' ? cards : cards.filter((c) => c.kind === filterKind)),
+    [cards, filterKind],
+  )
+  visibleCardsRef.current = visibleCards
 
   // ── Wire AnimationManager to the hidden DOM mount ──
   useEffect(() => {
@@ -2399,7 +2444,7 @@ export function Playground() {
   useLayoutEffect(() => {
     if (!canvasRef.current || !deskRef.current) return
 
-    const loop = new DeskLoop()
+    const loop = new DeskLoop({ renderer: { backend: 'webgl' } })
     deskLoopRef.current = loop
     loop.mount(canvasRef.current, deskRef.current, visibleCards, {
       onCardTap: () => {},
@@ -2408,20 +2453,16 @@ export function Playground() {
       },
       onSelectionChange: (ids) => {
         selectedCardIdsRef.current = ids
-        setSelectedCardIds(ids)
-        loop.updateSelectedCards(ids)
-        const renderer = loop.getRenderer()
-        renderer?.setSelectedCards(ids)
       },
       onMarqueeChange: (rect) => {
-        setSelectBox(rect ? { x1: rect.x1, y1: rect.y1, x2: rect.x2, y2: rect.y2 } : null)
+        marqueeRectRef.current = rect
       },
       onArenaDelta: (arenaId, dwx, dwy) => {
         const arena = loop.arenaManager.get(arenaId)
         if (arena) {
           arena.x += dwx
           arena.y += dwy
-          refreshArenas()
+          arenaListDirtyRef.current = true
         }
       },
       onArenaResize: (arenaId, radius, hasHalfHeight) => {
@@ -2429,12 +2470,13 @@ export function Playground() {
         if (arena) {
           arena.radius = radius
           if (hasHalfHeight && arena.halfHeight !== undefined) arena.halfHeight = radius * 0.7
-          refreshArenas()
+          arenaListDirtyRef.current = true
         }
       },
       onArenaSelect: (arenaId) => {
-        selectArena(arenaId)
+        selectedArenaIdRef.current = arenaId
       },
+      getArenas: () => loop.arenaManager.getAll(),
       onLinkRequest: (fromId, toId) => {
         const result = loop.executeTextCommand(`/link ${fromId} ${toId}`)
         const ok = result?.success ?? false
@@ -2465,19 +2507,7 @@ export function Playground() {
       halfHeight: 220,
       label: 'Grid Arena',
     })
-
-    // Detect backend by polling renderer (WebGPU init is async)
-    const checkBackend = () => {
-      const renderer = loop.getRenderer()
-      if (renderer) {
-        setBackend(renderer.getBackend())
-        // If still webgl, check again after GPU init may complete
-        if (renderer.getBackend() === 'webgl') {
-          setTimeout(() => setBackend(loop.getRenderer()?.getBackend() ?? 'unknown'), 2000)
-        }
-      }
-    }
-    setTimeout(checkBackend, 200)
+    arenaListDirtyRef.current = true
 
     return () => {
       loop.destroy()
@@ -2490,7 +2520,13 @@ export function Playground() {
   useEffect(() => {
     const loop = deskLoopRef.current
     if (!loop) return
+    const filterChanged = lastFilterKindRef.current !== filterKind
+    lastFilterKindRef.current = filterKind
     loop.syncCards(visibleCards)
+
+    if (filterChanged && filterKind !== 'all') {
+      loop.focusCards(visibleCards)
+    }
 
     // If filtering to a subset, auto-center viewport on the visible cards after
     // a short delay so physics bodies have been placed before we check positions.
@@ -2508,11 +2544,12 @@ export function Playground() {
         if (body) visibleBodyMap.set(card.id, body)
       }
       // Check if any visible card is on-screen; if not, re-center
-      const vp = renderer['viewport'] as { offsetX: number; offsetY: number; zoom: number }
+      const offset = renderer.getViewOffset()
+      const zoom = renderer.getViewZoom()
       let anyOnScreen = false
       for (const [, body] of visibleBodyMap) {
-        const sx = (body.position.x - vp.offsetX) * vp.zoom
-        const sy = (body.position.y - vp.offsetY) * vp.zoom
+        const sx = (body.position.x - offset.x) * zoom
+        const sy = (body.position.y - offset.y) * zoom
         if (sx > -CARD_W && sx < w + CARD_W && sy > -CARD_H && sy < h + CARD_H) {
           anyOnScreen = true
           break
@@ -2522,8 +2559,8 @@ export function Playground() {
         renderer.centerOnCards(visibleBodyMap, w, h)
         // Clamp zoom so cards don't appear microscopic on small filtered sets.
         // Re-compute pan offset to keep the world center at screen center.
-        const vp2 = renderer['viewport'] as { zoom: number; offsetX: number; offsetY: number }
-        if (vp2.zoom < 0.45) {
+        const nextZoom = renderer.getViewZoom()
+        if (nextZoom < 0.45) {
           // Compute world center from body positions
           let minX = Infinity,
             minY = Infinity,
@@ -2539,13 +2576,12 @@ export function Playground() {
           const cy = (minY + maxY) / 2
           const clampedZoom = 0.45
           renderer.setViewZoom(clampedZoom)
-          vp2.offsetX = cx - w / (2 * clampedZoom)
-          vp2.offsetY = cy - h / (2 * clampedZoom)
+          renderer.setViewOffset(cx - w / (2 * clampedZoom), cy - h / (2 * clampedZoom))
         }
       }
     }, 80)
     return () => clearTimeout(timer)
-  }, [visibleCards])
+  }, [visibleCards, filterKind])
 
   // ── Auto-scroll log to bottom when new entries arrive ──
   useEffect(() => {
@@ -2569,19 +2605,20 @@ export function Playground() {
           loop?.executeTextCommand(`/trash ${id}`)
         })
         selectedCardIdsRef.current = new Set()
-        setSelectedCardIds(new Set())
+        setSelectionInfo({ count: 0 })
         loop?.getRenderer()?.setSelectedCards(new Set())
+        loop?.updateSelectedCards(new Set())
         setCards((prev) => prev.filter((c) => !ids.includes(c.id)))
         return
       }
 
       // Escape — cancel marquee + deselect all
       if (e.key === 'Escape') {
-        setSelectBox(null)
+        marqueeRectRef.current = null
         if (selectedCardIdsRef.current.size > 0) {
           const empty = new Set<string>()
           selectedCardIdsRef.current = empty
-          setSelectedCardIds(empty)
+          setSelectionInfo({ count: 0 })
           const loop = deskLoopRef.current
           loop?.getRenderer()?.setSelectedCards(empty)
           loop?.updateSelectedCards(empty)
@@ -2594,9 +2631,9 @@ export function Playground() {
         e.preventDefault()
         const loop = deskLoopRef.current
         if (!loop) return
-        const ids = new Set(cardsRef.current.map((c) => c.id))
+        const ids = new Set(visibleCardsRef.current.map((c) => c.id))
         selectedCardIdsRef.current = ids
-        setSelectedCardIds(ids)
+        setSelectionInfo({ count: ids.size })
         loop.getRenderer()?.setSelectedCards(ids)
         loop.updateSelectedCards(ids)
         return
@@ -2606,24 +2643,19 @@ export function Playground() {
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
-  // ── FPS tracker ──
+  // ── Runtime stats tracker ──
   useEffect(() => {
-    let frames = 0
-    let last = performance.now()
-    let raf = 0
-
-    const tick = () => {
-      frames++
-      const now = performance.now()
-      if (now - last >= 1000) {
-        setFps(frames)
-        frames = 0
-        last = now
-      }
-      raf = requestAnimationFrame(tick)
+    const root = rootRef.current
+    if (!root) return
+    const writeStats = () => {
+      const next = deskLoopRef.current?.getStats()
+      if (next) updatePerfOverlay(root, next)
     }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
+    writeStats()
+    const timer = window.setInterval(() => {
+      writeStats()
+    }, 250)
+    return () => window.clearInterval(timer)
   }, [])
 
   // ── Arena overlay RAF loop ──
@@ -2637,9 +2669,14 @@ export function Playground() {
       if (ctx && loop) {
         const w = canvas.clientWidth
         const h = canvas.clientHeight
-        canvas.width = w * devicePixelRatio
-        canvas.height = h * devicePixelRatio
-        ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0)
+        const dpr = loop.getRenderer()?.getDpr() ?? Math.min(window.devicePixelRatio || 1, 4)
+        const pixelW = Math.round(w * dpr)
+        const pixelH = Math.round(h * dpr)
+        if (canvas.width !== pixelW || canvas.height !== pixelH) {
+          canvas.width = pixelW
+          canvas.height = pixelH
+        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
         ctx.clearRect(0, 0, w, h)
         const arenas = loop.arenaManager.getAll()
         if (arenas.length > 0) {
@@ -2648,7 +2685,7 @@ export function Playground() {
             offsetX: renderer ? renderer.getViewOffset().x : 0,
             offsetY: renderer ? renderer.getViewOffset().y : 0,
             zoom: renderer ? renderer.getViewZoom() : 1,
-            dpr: devicePixelRatio,
+            dpr,
             screenW: w,
             screenH: h,
             zoomSettled: true,
@@ -2663,7 +2700,7 @@ export function Playground() {
             offsetX: renderer ? renderer.getViewOffset().x : 0,
             offsetY: renderer ? renderer.getViewOffset().y : 0,
             zoom: renderer ? renderer.getViewZoom() : 1,
-            dpr: devicePixelRatio,
+            dpr,
             screenW: canvas.clientWidth,
             screenH: canvas.clientHeight,
             zoomSettled: true,
@@ -2671,94 +2708,20 @@ export function Playground() {
           drawConstraints(ctx, constraintsMap, vp)
         }
 
-        // Draw selection rings and hover ring
-        const renderer2 = loop.getRenderer()
-        const bodiesMap = loop.getBodiesMap()
-        if (renderer2 && bodiesMap) {
-          const selectedIds = selectedCardIdsRef.current
-          const hoveredId = hoveredCardIdRef.current
-          const off2 = renderer2.getViewOffset()
-          const zoom2 = renderer2.getViewZoom()
-          for (const [cardId, body] of bodiesMap) {
-            const isSel = selectedIds.has(cardId)
-            const isHovered = cardId === hoveredId && !isSel
-            const hl = getHighlight(cardId)
-            if (!isSel && !isHovered && !hl) continue
-            const sx = (body.position.x - off2.x) * zoom2
-            const sy = (body.position.y - off2.y) * zoom2
-            const cw = CARD_W * zoom2
-            const ch = CARD_H * zoom2
-            const pad = 0
-            ctx.save()
-            ctx.translate(sx, sy)
-            ctx.rotate(body.angle)
-            // ── Highlight glow (from /highlight command) ──
-            if (hl) {
-              const t = performance.now()
-              const elapsed = t - hl.startTime
-              const progress = hl.duration > 0 ? Math.min(1, elapsed / hl.duration) : 0
-              let alpha = hl.duration > 0 ? 1 - progress : 1
-              if (hl.pulse) alpha *= 0.6 + 0.4 * Math.sin(elapsed / 200)
-              const hlColor = hl.color
-              ctx.shadowColor = hlColor
-              ctx.shadowBlur = 28
-              ctx.strokeStyle = hlColor
-              ctx.lineWidth = 3
-              ctx.globalAlpha = alpha * 0.9
-              const rx2 = CARD_RADIUS * zoom2
-              const l2 = -cw / 2 - 5,
-                t2 = -ch / 2 - 5,
-                rw2 = cw + 10,
-                rh2 = ch + 10
-              ctx.beginPath()
-              ctx.moveTo(l2 + rx2, t2)
-              ctx.lineTo(l2 + rw2 - rx2, t2)
-              ctx.arcTo(l2 + rw2, t2, l2 + rw2, t2 + rx2, rx2)
-              ctx.lineTo(l2 + rw2, t2 + rh2 - rx2)
-              ctx.arcTo(l2 + rw2, t2 + rh2, l2 + rw2 - rx2, t2 + rh2, rx2)
-              ctx.lineTo(l2 + rx2, t2 + rh2)
-              ctx.arcTo(l2, t2 + rh2, l2, t2 + rh2 - rx2, rx2)
-              ctx.lineTo(l2, t2 + rx2)
-              ctx.arcTo(l2, t2, l2 + rx2, t2, rx2)
-              ctx.closePath()
-              ctx.stroke()
-              ctx.globalAlpha = 1
-              ctx.shadowBlur = 0
-            }
-            // ── Selection / hover ring ──
-            if (isSel || isHovered) {
-              if (isSel) {
-                ctx.shadowColor = 'rgba(168,85,247,0.8)'
-                ctx.shadowBlur = 8
-                ctx.strokeStyle = 'rgba(168,85,247,1)'
-                ctx.lineWidth = 2
-              } else {
-                ctx.shadowColor = 'rgba(168,85,247,0.4)'
-                ctx.shadowBlur = 6
-                ctx.strokeStyle = 'rgba(168,85,247,0.55)'
-                ctx.lineWidth = 1.5
-              }
-              const rx = CARD_RADIUS * zoom2
-              ctx.beginPath()
-              // manual roundRect for broader browser support
-              const l = -cw / 2 - pad,
-                t = -ch / 2 - pad,
-                rw = cw + pad * 2,
-                rh = ch + pad * 2
-              ctx.moveTo(l + rx, t)
-              ctx.lineTo(l + rw - rx, t)
-              ctx.arcTo(l + rw, t, l + rw, t + rx, rx)
-              ctx.lineTo(l + rw, t + rh - rx)
-              ctx.arcTo(l + rw, t + rh, l + rw - rx, t + rh, rx)
-              ctx.lineTo(l + rx, t + rh)
-              ctx.arcTo(l, t + rh, l, t + rh - rx, rx)
-              ctx.lineTo(l, t + rx)
-              ctx.arcTo(l, t, l + rx, t, rx)
-              ctx.closePath()
-              ctx.stroke()
-            } // end isSel || isHovered
-            ctx.restore()
-          }
+        const marquee = marqueeRectRef.current
+        if (marquee) {
+          const x = Math.min(marquee.x1, marquee.x2)
+          const y = Math.min(marquee.y1, marquee.y2)
+          const width = Math.abs(marquee.x2 - marquee.x1)
+          const height = Math.abs(marquee.y2 - marquee.y1)
+          ctx.save()
+          ctx.setLineDash([6, 4])
+          ctx.lineWidth = 1.5
+          ctx.strokeStyle = 'rgba(168,85,247,0.86)'
+          ctx.fillStyle = 'rgba(168,85,247,0.08)'
+          ctx.fillRect(x, y, width, height)
+          ctx.strokeRect(x, y, width, height)
+          ctx.restore()
         }
       }
       animId = requestAnimationFrame(renderArenas)
@@ -2886,9 +2849,12 @@ export function Playground() {
   }
 
   const handleCmdChange = useCallback((val: string) => {
+    cmdInputStateRef.current = val
     setCmdInput(val)
+    suggestionIdxStateRef.current = -1
     setSuggestionIdx(-1)
     if (!val.trim()) {
+      suggestionsRef.current = []
       setSuggestions([])
       return
     }
@@ -2903,7 +2869,9 @@ export function Playground() {
 
     // Still typing the command name
     if (argIdx === 0) {
-      setSuggestions(ALL_COMMANDS.filter((c) => c.startsWith(lower)).slice(0, 8))
+      const next = ALL_COMMANDS.filter((c) => c.startsWith(lower)).slice(0, 8)
+      suggestionsRef.current = next
+      setSuggestions(next)
       return
     }
 
@@ -2934,7 +2902,9 @@ export function Playground() {
       (cmdStr === '/move-to' && argIdx === 1)
 
     if (isArenaArg) {
-      setSuggestions(arenaIds.filter((id) => id.toLowerCase().startsWith(partial)).slice(0, 6))
+      const next = arenaIds.filter((id) => id.toLowerCase().startsWith(partial)).slice(0, 6)
+      suggestionsRef.current = next
+      setSuggestions(next)
       return
     }
 
@@ -2945,7 +2915,9 @@ export function Playground() {
           (c) => c.id.toLowerCase().startsWith(partial) || c.title.toLowerCase().includes(partial),
         )
         .slice(0, 6)
-      setSuggestions(matchingCards.map((c) => c.id))
+      const next = matchingCards.map((c) => c.id)
+      suggestionsRef.current = next
+      setSuggestions(next)
       return
     }
 
@@ -2954,10 +2926,12 @@ export function Playground() {
     const hints = paramHints[hintIdx] ?? paramHints[paramHints.length - 1] ?? []
     const matchedHints = hints.filter((h) => h.toLowerCase().startsWith(partial)).slice(0, 6)
     if (matchedHints.length > 0) {
+      suggestionsRef.current = matchedHints
       setSuggestions(matchedHints)
       return
     }
 
+    suggestionsRef.current = []
     setSuggestions([])
   }, [])
 
@@ -2974,39 +2948,70 @@ export function Playground() {
     )
   }, [])
 
-  const executeCmd = useCallback(() => {
-    const loop = deskLoopRef.current
-    if (!loop || !cmdInput.trim()) return
-    const result = loop.executeTextCommand(cmdInput.trim())
-    const ok = result ? result.success : false
-    // For help command, show text in log (must be explicit check — && short-circuits to boolean)
-    const helpText: string | undefined =
-      (result?.success && (result as any).data?.text) || undefined
-    const msg =
-      helpText ??
-      (result
-        ? (result.error ?? (result.success ? '✓ Executed successfully' : '✗ Execution failed'))
-        : '✗ Unknown command')
-    setCmdResult({ ok, msg })
-    setCmdLog((prev) => [...prev, { ts: Date.now(), input: cmdInput.trim(), ok, msg }].slice(-50))
-    // For help, show inline
-    if (helpText) {
-      /* log is always visible */
-    }
-    // Push to command history
-    const trimmed = cmdInput.trim()
-    if (trimmed && cmdHistoryRef.current[cmdHistoryRef.current.length - 1] !== trimmed) {
-      cmdHistoryRef.current.push(trimmed)
-    }
-    historyIdxRef.current = -1
-    savedInputRef.current = ''
-    // Refresh arena list after command
-    refreshArenas()
-    setCmdInput('')
+  // ── Low-frequency React GUI sync ──
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const count = selectedCardIdsRef.current.size
+      setSelectionInfo((prev) => (prev.count === count ? prev : { count }))
+
+      if (arenaListDirtyRef.current || showArenaPanelRef.current) {
+        refreshArenas()
+        arenaListDirtyRef.current = false
+      }
+    }, 250)
+    return () => window.clearInterval(timer)
+  }, [refreshArenas])
+
+  const applyCommandSuggestion = useCallback((pick: string) => {
+    const parts = cmdInputStateRef.current.trim().split(/\s+/)
+    const next = pick.startsWith('/') ? `${pick} ` : `${parts.slice(0, -1).concat(pick).join(' ')} `
+    cmdInputStateRef.current = next
+    setCmdInput(next)
+    suggestionsRef.current = []
+    suggestionIdxStateRef.current = -1
     setSuggestions([])
-    const dismissDelay = helpText ? 8000 : 2500
-    setTimeout(() => setCmdResult(null), dismissDelay)
-  }, [cmdInput, refreshArenas])
+    setSuggestionIdx(-1)
+    cmdInputRef.current?.focus()
+  }, [])
+
+  const executeCmd = useCallback(
+    (rawInput?: string) => {
+      const loop = deskLoopRef.current
+      const input = (rawInput ?? cmdInputStateRef.current).trim()
+      if (!loop || !input) return
+      const result = loop.executeTextCommand(input)
+      const ok = result ? result.success : false
+      // For help command, show text in log (must be explicit check — && short-circuits to boolean)
+      const helpText: string | undefined =
+        (result?.success && (result as any).data?.text) || undefined
+      const msg =
+        helpText ??
+        (result
+          ? (result.error ?? (result.success ? '✓ Executed successfully' : '✗ Execution failed'))
+          : '✗ Unknown command')
+      setCmdResult({ ok, msg })
+      setCmdLog((prev) => [...prev, { ts: Date.now(), input, ok, msg }].slice(-50))
+      // For help, show inline
+      if (helpText) {
+        /* log is always visible */
+      }
+      // Push to command history
+      if (input && cmdHistoryRef.current[cmdHistoryRef.current.length - 1] !== input) {
+        cmdHistoryRef.current.push(input)
+      }
+      historyIdxRef.current = -1
+      savedInputRef.current = ''
+      // Refresh arena list after command
+      refreshArenas()
+      cmdInputStateRef.current = ''
+      setCmdInput('')
+      suggestionsRef.current = []
+      setSuggestions([])
+      const dismissDelay = helpText ? 8000 : 2500
+      setTimeout(() => setCmdResult(null), dismissDelay)
+    },
+    [refreshArenas],
+  )
 
   const createArena = useCallback(
     (kind: string, label: string) => {
@@ -3029,6 +3034,7 @@ export function Playground() {
         label,
       })
       refreshArenas()
+      arenaFormRef.current = null
       setArenaForm(null)
     },
     [refreshArenas],
@@ -3064,10 +3070,14 @@ export function Playground() {
     [refreshArenas],
   )
 
-  const selectArena = useCallback((id: string | null) => {
-    selectedArenaIdRef.current = id
-    setSelectedArenaId(id)
-  }, [])
+  const toggleArenaPanel = useCallback(() => {
+    refreshArenas()
+    setShowArenaPanel((prev) => {
+      const next = !prev
+      showArenaPanelRef.current = next
+      return next
+    })
+  }, [refreshArenas])
 
   /** Link or unlink the 2 currently selected cards */
   const linkSelected = useCallback(() => {
@@ -3084,63 +3094,107 @@ export function Playground() {
     setTimeout(() => setCmdResult(null), 2500)
   }, [])
 
-  // ── Arena pointer events — delegated to DeskInputHandler via FSM ──
-  const handleArenaPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    const loop = deskLoopRef.current
-    const renderer = loop?.getRenderer()
-    if (!loop || !renderer || !deskRef.current) return
-    const rect = deskRef.current.getBoundingClientRect()
-    const sx = e.clientX - rect.left
-    const sy = e.clientY - rect.top
-    const vp = renderer.getViewOffset()
-    const zoom = renderer.getViewZoom()
-    const wx = vp.x + sx / zoom
-    const wy = vp.y + sy / zoom
-    const viewport = {
-      offsetX: vp.x,
-      offsetY: vp.y,
-      zoom,
-      dpr: devicePixelRatio,
-      screenW: rect.width,
-      screenH: rect.height,
-      zoomSettled: true,
-    }
-    for (const arena of loop.arenaManager.getAll()) {
-      const hit = arenaEdgeHitTest(arena, sx, sy, viewport)
-      if (!hit) continue
-      e.stopPropagation()
-      ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
-      loop.handleArenaPointerDown(
-        arena.id,
-        hit,
-        wx,
-        wy,
-        sx,
-        sy,
-        arena.radius,
-        arena.halfHeight !== undefined,
-      )
-      return
-    }
-  }, [])
+  const handleCommandKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      const currentInput = cmdInputStateRef.current
+      const currentSuggestions = suggestionsRef.current
 
-  const handleArenaPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    const loop = deskLoopRef.current
-    const renderer = loop?.getRenderer()
-    if (!loop || !renderer || !deskRef.current) return
-    const rect = deskRef.current.getBoundingClientRect()
-    const sx = e.clientX - rect.left
-    const sy = e.clientY - rect.top
-    const vp = renderer.getViewOffset()
-    const zoom = renderer.getViewZoom()
-    const wx = vp.x + sx / zoom
-    const wy = vp.y + sy / zoom
-    loop.handleArenaPointerMove(wx, wy, sx, sy)
-  }, [])
+      if (currentSuggestions.length > 0) {
+        if (e.key === 'Enter' || e.key === 'Tab') {
+          const pick =
+            currentSuggestions[
+              suggestionIdxStateRef.current >= 0 ? suggestionIdxStateRef.current : 0
+            ]
+          applyCommandSuggestion(pick)
+          e.preventDefault()
+          return
+        }
+        if (e.key === 'ArrowDown') {
+          const next = Math.min(suggestionIdxStateRef.current + 1, currentSuggestions.length - 1)
+          suggestionIdxStateRef.current = next
+          setSuggestionIdx(next)
+          e.preventDefault()
+          return
+        }
+        if (e.key === 'ArrowUp') {
+          const next = Math.max(suggestionIdxStateRef.current - 1, -1)
+          suggestionIdxStateRef.current = next
+          setSuggestionIdx(next)
+          e.preventDefault()
+          return
+        }
+        if (e.key === 'Escape') {
+          suggestionsRef.current = []
+          suggestionIdxStateRef.current = -1
+          setSuggestions([])
+          setSuggestionIdx(-1)
+          e.preventDefault()
+          return
+        }
+      }
 
-  const handleArenaPointerUp = useCallback(() => {
-    deskLoopRef.current?.handleArenaPointerUp()
-  }, [])
+      if (e.key === 'Enter') {
+        executeCmd(currentInput)
+        e.preventDefault()
+        return
+      }
+
+      if (e.key === 'ArrowUp') {
+        const history = cmdHistoryRef.current
+        if (history.length === 0) return
+        if (historyIdxRef.current === -1) {
+          savedInputRef.current = currentInput
+          historyIdxRef.current = history.length - 1
+        } else if (historyIdxRef.current > 0) {
+          historyIdxRef.current--
+        }
+        const next = history[historyIdxRef.current]
+        cmdInputStateRef.current = next
+        setCmdInput(next)
+        suggestionsRef.current = []
+        setSuggestions([])
+        e.preventDefault()
+        return
+      }
+
+      if (e.key === 'ArrowDown') {
+        if (historyIdxRef.current === -1) return
+        const history = cmdHistoryRef.current
+        let next = ''
+        if (historyIdxRef.current < history.length - 1) {
+          historyIdxRef.current++
+          next = history[historyIdxRef.current]
+        } else {
+          historyIdxRef.current = -1
+          next = savedInputRef.current
+        }
+        cmdInputStateRef.current = next
+        setCmdInput(next)
+        suggestionsRef.current = []
+        setSuggestions([])
+        e.preventDefault()
+        return
+      }
+
+      if (e.key === 'Tab') {
+        handleCmdChange(currentInput)
+        e.preventDefault()
+        return
+      }
+
+      if (e.key === 'Escape') {
+        cmdInputStateRef.current = ''
+        suggestionsRef.current = []
+        suggestionIdxStateRef.current = -1
+        setSuggestions([])
+        setSuggestionIdx(-1)
+        setCmdInput('')
+        historyIdxRef.current = -1
+        savedInputRef.current = ''
+      }
+    },
+    [applyCommandSuggestion, executeCmd, handleCmdChange],
+  )
 
   const ALL_KINDS: (CardKind | 'all')[] = [
     'all',
@@ -3179,8 +3233,147 @@ export function Playground() {
     'tarot',
   ]
 
+  useEffect(() => {
+    const root = rootRef.current
+    if (!root) return
+
+    const dispatchGuiAction = (action: string, source: HTMLElement) => {
+      switch (action) {
+        case 'add-card':
+          addRandomCard()
+          break
+        case 'flip-all':
+          flipAllCards()
+          break
+        case 'reset-layout':
+          resetLayout()
+          break
+        case 'toggle-arenas':
+          toggleArenaPanel()
+          break
+        case 'link-selected':
+          linkSelected()
+          break
+        case 'cmd-execute':
+          executeCmd()
+          break
+        case 'arena-form-open':
+          arenaFormRef.current = { kind: 'magic-circle', label: '' }
+          setArenaForm(arenaFormRef.current)
+          break
+        case 'arena-form-cancel':
+          arenaFormRef.current = null
+          setArenaForm(null)
+          break
+        case 'arena-form-confirm': {
+          const form = arenaFormRef.current
+          if (form) createArena(form.kind, form.label || form.kind)
+          break
+        }
+        case 'arena-remove': {
+          const arenaId = source.dataset.arenaId
+          if (arenaId) removeArena(arenaId)
+          break
+        }
+        case 'arena-activate': {
+          const arenaId = source.dataset.arenaId
+          if (arenaId) activateArena(arenaId)
+          break
+        }
+      }
+    }
+
+    const onClick = (event: MouseEvent) => {
+      const target = event.target
+      if (!(target instanceof Element)) return
+      const actionEl = target.closest<HTMLElement>('[data-gui-action]')
+      if (!actionEl || !root.contains(actionEl)) return
+      const action = actionEl.dataset.guiAction
+      if (!action) return
+      event.preventDefault()
+      dispatchGuiAction(action, actionEl)
+    }
+
+    const onInput = (event: Event) => {
+      const target = event.target
+      if (!(target instanceof HTMLInputElement)) return
+      if (target.id === 'cmd-input') {
+        historyIdxRef.current = -1
+        handleCmdChange(target.value)
+        return
+      }
+      if (target.id === 'arena-label-input') {
+        const form = arenaFormRef.current
+        if (!form) return
+        const next = { ...form, label: target.value }
+        arenaFormRef.current = next
+        setArenaForm(next)
+      }
+    }
+
+    const onChange = (event: Event) => {
+      const target = event.target
+      if (target instanceof HTMLSelectElement && target.id === 'kind-filter') {
+        setFilterKind(target.value as CardKind | 'all')
+        return
+      }
+      if (target instanceof HTMLSelectElement && target.id === 'arena-kind-select') {
+        const form = arenaFormRef.current
+        if (!form) return
+        const next = { ...form, kind: target.value }
+        arenaFormRef.current = next
+        setArenaForm(next)
+      }
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target
+      if (target instanceof HTMLInputElement && target.id === 'cmd-input') {
+        handleCommandKeyDown(event)
+      }
+    }
+
+    const onMouseDown = (event: MouseEvent) => {
+      const target = event.target
+      if (!(target instanceof Element)) return
+      const suggestionEl = target.closest<HTMLElement>('[data-cmd-suggestion]')
+      if (!suggestionEl || !root.contains(suggestionEl)) return
+      const pick = suggestionEl.dataset.cmdSuggestion
+      if (!pick) return
+      event.preventDefault()
+      applyCommandSuggestion(pick)
+    }
+
+    root.addEventListener('click', onClick)
+    root.addEventListener('input', onInput)
+    root.addEventListener('change', onChange)
+    root.addEventListener('keydown', onKeyDown)
+    root.addEventListener('mousedown', onMouseDown)
+    return () => {
+      root.removeEventListener('click', onClick)
+      root.removeEventListener('input', onInput)
+      root.removeEventListener('change', onChange)
+      root.removeEventListener('keydown', onKeyDown)
+      root.removeEventListener('mousedown', onMouseDown)
+    }
+  }, [
+    activateArena,
+    addRandomCard,
+    applyCommandSuggestion,
+    createArena,
+    executeCmd,
+    flipAllCards,
+    handleCmdChange,
+    handleCommandKeyDown,
+    linkSelected,
+    removeArena,
+    resetLayout,
+    toggleArenaPanel,
+  ])
+
   return (
     <div
+      ref={rootRef}
       id="playground-root"
       style={{
         width: '100vw',
@@ -3230,9 +3423,9 @@ export function Playground() {
 
         {/* Kind filter */}
         <select
+          ref={kindFilterRef}
           id="kind-filter"
-          value={filterKind}
-          onChange={(e) => setFilterKind(e.target.value as CardKind | 'all')}
+          defaultValue={filterKind}
           style={{
             background: '#1E2028',
             color: '#E5E7EB',
@@ -3249,24 +3442,21 @@ export function Playground() {
           ))}
         </select>
 
-        <ToolBtn id="btn-add" onClick={addRandomCard} label="＋ Add Card" />
-        <ToolBtn id="btn-flip-all" onClick={flipAllCards} label="↩ Flip All" />
-        <ToolBtn id="btn-reset" onClick={resetLayout} label="↺ Reset" />
+        <ToolBtn id="btn-add" action="add-card" label="＋ Add Card" />
+        <ToolBtn id="btn-flip-all" action="flip-all" label="↩ Flip All" />
+        <ToolBtn id="btn-reset" action="reset-layout" label="↺ Reset" />
         <ToolBtn
           id="btn-arenas"
-          onClick={() => {
-            refreshArenas()
-            setShowArenaPanel((p) => !p)
-          }}
+          action="toggle-arenas"
           label={`⬡ Arena ${arenas.length > 0 ? `(${arenas.length})` : ''}`}
         />
-        {selectedCardIds.size > 0 && (
+        {selectionInfo.count > 0 && (
           <span style={{ fontSize: 12, color: '#9CA3AF', whiteSpace: 'nowrap' }}>
-            Selected {selectedCardIds.size}
+            Selected {selectionInfo.count}
           </span>
         )}
-        {selectedCardIds.size === 2 && (
-          <ToolBtn id="btn-link-selected" onClick={linkSelected} label="🔗 Link" />
+        {selectionInfo.count === 2 && (
+          <ToolBtn id="btn-link-selected" action="link-selected" label="🔗 Link" />
         )}
 
         {/* Spacer */}
@@ -3284,14 +3474,15 @@ export function Playground() {
           }}
         >
           <span id="perf-cards">Cards: {visibleCards.length}</span>
-          <span
-            id="perf-fps"
-            style={{ color: fps >= 50 ? '#34D399' : fps >= 30 ? '#FBBF24' : '#F87171' }}
-          >
-            FPS: {fps}
+          <span id="perf-fps" style={{ color: '#F87171' }}>
+            FPS: 0
           </span>
-          <span id="perf-backend" style={{ color: backend === 'webgpu' ? '#818CF8' : '#9CA3AF' }}>
-            {backend.toUpperCase()}
+          <span id="perf-frame">Frame: 0.0ms</span>
+          <span id="perf-render">Render: 0.0ms</span>
+          <span id="perf-physics">Physics: 0.0ms</span>
+          <span id="perf-dpr">DPR: 1.0</span>
+          <span id="perf-backend" style={{ color: '#9CA3AF' }}>
+            PENDING
           </span>
         </div>
       </div>
@@ -3329,10 +3520,8 @@ export function Playground() {
             {arenaForm ? (
               <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                 <input
-                  value={arenaForm.label}
-                  onChange={(e) =>
-                    setArenaForm((f) => (f ? { ...f, label: e.target.value } : null))
-                  }
+                  id="arena-label-input"
+                  defaultValue={arenaForm.label}
                   placeholder="Arena name"
                   style={{
                     background: '#1a1a2e',
@@ -3345,8 +3534,8 @@ export function Playground() {
                   }}
                 />
                 <select
-                  value={arenaForm.kind}
-                  onChange={(e) => setArenaForm((f) => (f ? { ...f, kind: e.target.value } : null))}
+                  id="arena-kind-select"
+                  defaultValue={arenaForm.kind}
                   style={{
                     background: '#1a1a2e',
                     border: '1px solid rgba(168,85,247,0.3)',
@@ -3361,7 +3550,8 @@ export function Playground() {
                   <option value="custom">custom</option>
                 </select>
                 <button
-                  onClick={() => createArena(arenaForm.kind, arenaForm.label || arenaForm.kind)}
+                  type="button"
+                  data-gui-action="arena-form-confirm"
                   style={{
                     background: 'rgba(168,85,247,0.25)',
                     border: '1px solid rgba(168,85,247,0.4)',
@@ -3375,7 +3565,8 @@ export function Playground() {
                   Confirm
                 </button>
                 <button
-                  onClick={() => setArenaForm(null)}
+                  type="button"
+                  data-gui-action="arena-form-cancel"
                   style={{
                     background: 'transparent',
                     border: '1px solid rgba(255,255,255,0.1)',
@@ -3391,7 +3582,8 @@ export function Playground() {
               </div>
             ) : (
               <button
-                onClick={() => setArenaForm({ kind: 'magic-circle', label: '' })}
+                type="button"
+                data-gui-action="arena-form-open"
                 style={{
                   background: 'rgba(168,85,247,0.15)',
                   border: '1px solid rgba(168,85,247,0.3)',
@@ -3443,7 +3635,9 @@ export function Playground() {
                 >
                   <span style={{ fontSize: 13, fontWeight: 600, color: '#E5E7EB' }}>{a.label}</span>
                   <button
-                    onClick={() => removeArena(a.id)}
+                    type="button"
+                    data-gui-action="arena-remove"
+                    data-arena-id={a.id}
                     style={{
                       background: 'transparent',
                       border: 'none',
@@ -3464,7 +3658,9 @@ export function Playground() {
                 </div>
                 <div style={{ fontSize: 11, color: '#9CA3AF' }}>{a.cardCount} cards</div>
                 <button
-                  onClick={() => activateArena(a.id)}
+                  type="button"
+                  data-gui-action="arena-activate"
+                  data-arena-id={a.id}
                   style={{
                     background: `${kindColor}22`,
                     border: `1px solid ${kindColor}55`,
@@ -3494,11 +3690,8 @@ export function Playground() {
       <div
         ref={deskRef}
         id="physics-desk"
+        className="physics-desk"
         style={{ flex: 1, position: 'relative', overflow: 'hidden' }}
-        onPointerDown={handleArenaPointerDown}
-        onPointerMove={handleArenaPointerMove}
-        onPointerUp={handleArenaPointerUp}
-        onPointerCancel={handleArenaPointerUp}
       >
         {/* Arena canvas — BEHIND cards (rendered first = lower z-index) */}
         <canvas
@@ -3510,7 +3703,7 @@ export function Playground() {
             width: '100%',
             height: '100%',
             pointerEvents: 'none',
-            zIndex: 0,
+            zIndex: 1,
           }}
         />
 
@@ -3523,38 +3716,20 @@ export function Playground() {
             inset: 0,
             width: '100%',
             height: '100%',
-            zIndex: 1,
+            zIndex: 2,
           }}
         />
 
-        {/* Arena interaction layer — transparent, pointerEvents none (handled by desk div) */}
+        {/* Arena interaction layer — transparent; hit testing lives in DeskInputHandler */}
         <div
           id="arena-interaction-layer"
-          style={{ position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none' }}
+          style={{ position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none' }}
         />
-
-        {/* Rubber-band selection box */}
-        {selectBox && (
-          <div
-            style={{
-              position: 'absolute',
-              pointerEvents: 'none',
-              zIndex: 10,
-              left: Math.min(selectBox.x1, selectBox.x2),
-              top: Math.min(selectBox.y1, selectBox.y2),
-              width: Math.abs(selectBox.x2 - selectBox.x1),
-              height: Math.abs(selectBox.y2 - selectBox.y1),
-              border: '1.5px dashed rgba(168,85,247,0.8)',
-              background: 'rgba(168,85,247,0.08)',
-              borderRadius: 3,
-            }}
-          />
-        )}
 
         {/* Delete button overlay */}
         <div
           id="card-action-layer"
-          style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 3 }}
+          style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 4 }}
         />
       </div>
 
@@ -3654,97 +3829,7 @@ export function Playground() {
           <input
             ref={cmdInputRef}
             id="cmd-input"
-            value={cmdInput}
-            onChange={(e) => {
-              handleCmdChange(e.target.value)
-              // Reset history navigation when user types
-              historyIdxRef.current = -1
-            }}
-            onKeyDown={(e) => {
-              // ── When autocomplete dropdown is open ──
-              if (suggestions.length > 0) {
-                if (e.key === 'Enter' || e.key === 'Tab') {
-                  // Tab-complete: apply selected (or first) suggestion
-                  const pick = suggestions[suggestionIdx >= 0 ? suggestionIdx : 0]
-                  const parts = cmdInput.trim().split(/\s+/)
-                  if (pick.startsWith('/')) {
-                    setCmdInput(pick + ' ')
-                  } else {
-                    parts[parts.length - 1] = pick
-                    setCmdInput(parts.join(' ') + ' ')
-                  }
-                  setSuggestions([])
-                  setSuggestionIdx(-1)
-                  e.preventDefault()
-                  return
-                }
-                if (e.key === 'ArrowDown') {
-                  setSuggestionIdx((i) => Math.min(i + 1, suggestions.length - 1))
-                  e.preventDefault()
-                  return
-                }
-                if (e.key === 'ArrowUp') {
-                  setSuggestionIdx((i) => Math.max(i - 1, -1))
-                  e.preventDefault()
-                  return
-                }
-                if (e.key === 'Escape') {
-                  setSuggestions([])
-                  setSuggestionIdx(-1)
-                  e.preventDefault()
-                  return
-                }
-              }
-
-              // ── No autocomplete open ──
-              if (e.key === 'Enter') {
-                executeCmd()
-                return
-              }
-
-              if (e.key === 'ArrowUp') {
-                const history = cmdHistoryRef.current
-                if (history.length === 0) return
-                if (historyIdxRef.current === -1) {
-                  savedInputRef.current = cmdInput
-                  historyIdxRef.current = history.length - 1
-                } else if (historyIdxRef.current > 0) {
-                  historyIdxRef.current--
-                }
-                setCmdInput(history[historyIdxRef.current])
-                setSuggestions([])
-                e.preventDefault()
-                return
-              }
-
-              if (e.key === 'ArrowDown') {
-                if (historyIdxRef.current === -1) return
-                const history = cmdHistoryRef.current
-                if (historyIdxRef.current < history.length - 1) {
-                  historyIdxRef.current++
-                  setCmdInput(history[historyIdxRef.current])
-                } else {
-                  historyIdxRef.current = -1
-                  setCmdInput(savedInputRef.current)
-                }
-                setSuggestions([])
-                e.preventDefault()
-                return
-              }
-
-              if (e.key === 'Tab' && suggestions.length === 0) {
-                // Trigger autocomplete lookup even if no suggestions showing
-                handleCmdChange(cmdInput)
-                e.preventDefault()
-              }
-
-              if (e.key === 'Escape') {
-                setSuggestions([])
-                setCmdInput('')
-                historyIdxRef.current = -1
-                savedInputRef.current = ''
-              }
-            }}
+            defaultValue={cmdInput}
             placeholder="/arena magic-circle  /flip <cardId>  /activate <arenaId>  /move-to <card> <arena>   ↑↓ History"
             autoComplete="off"
             spellCheck={false}
@@ -3774,7 +3859,8 @@ export function Playground() {
             </span>
           )}
           <button
-            onClick={executeCmd}
+            type="button"
+            data-gui-action="cmd-execute"
             style={{
               background: 'rgba(168,85,247,0.2)',
               border: '1px solid rgba(168,85,247,0.4)',
@@ -3812,19 +3898,7 @@ export function Playground() {
               return (
                 <div
                   key={s}
-                  onMouseDown={(e) => {
-                    e.preventDefault()
-                    const parts = cmdInput.trim().split(/\s+/)
-                    if (s.startsWith('/')) {
-                      setCmdInput(s + ' ')
-                    } else {
-                      parts[parts.length - 1] = s
-                      setCmdInput(parts.join(' ') + ' ')
-                    }
-                    setSuggestions([])
-                    setSuggestionIdx(-1)
-                    cmdInputRef.current?.focus()
-                  }}
+                  data-cmd-suggestion={s}
                   style={{
                     padding: '6px 12px',
                     fontSize: 12,
@@ -3892,11 +3966,12 @@ export function Playground() {
 // Helpers
 // ─────────────────────────────────────
 
-function ToolBtn({ id, onClick, label }: { id: string; onClick: () => void; label: string }) {
+function ToolBtn({ id, action, label }: { id: string; action: string; label: string }) {
   return (
     <button
       id={id}
-      onClick={onClick}
+      type="button"
+      data-gui-action={action}
       style={{
         background: 'rgba(255,255,255,0.07)',
         border: '1px solid rgba(255,255,255,0.12)',
@@ -3910,17 +3985,5 @@ function ToolBtn({ id, onClick, label }: { id: string; onClick: () => void; labe
     >
       {label}
     </button>
-  )
-}
-
-// ─────────────────────────────────────
-// Entry-point helper
-// ─────────────────────────────────────
-
-/** Returns true when the URL contains ?playground=1 */
-export function isPlaygroundMode(): boolean {
-  return (
-    typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).get('playground') === '1'
   )
 }

@@ -12,6 +12,8 @@ import { flipAnimationSystem } from './flipAnimationSystem'
 import { frustumCullSystem } from './frustumCullSystem'
 import type { InputState } from './inputSystem'
 import { inputSystem } from './inputSystem'
+import { runtimeActivationSystem } from './runtimeActivationSystem'
+import { runtimePrepareSystem } from './runtimePrepareSystem'
 
 export function sceneUpdateSystem(
   scene: SceneWorld,
@@ -23,6 +25,7 @@ export function sceneUpdateSystem(
   dt: number,
   cardW: number,
   cardH: number,
+  runtimePrewarmIds?: Set<string>,
 ): Set<string> {
   const activeIds = new Set<string>()
 
@@ -36,9 +39,11 @@ export function sceneUpdateSystem(
     const eid = scene.getOrCreate(card, cardW, cardH)
     scene.syncTransform(eid, body.position.x, body.position.y, body.angle)
 
-    inputSystem(eid, input, viewport)
+    inputSystem(eid, input, viewport, dt)
     flipAnimationSystem(eid, dt)
     frustumCullSystem(eid, viewport)
+    runtimeActivationSystem(eid, runtimePrewarmIds)
+    runtimePrepareSystem(eid)
   }
 
   // Phase 3: GC

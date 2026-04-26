@@ -116,7 +116,7 @@ export type InteractionEvent =
   | MatterStartDragEvent
   | MatterEndDragEvent
   | MatterInvalidDragEvent
-  // Arena pointer events (from React overlay)
+  // Arena pointer events (from the runtime input layer)
   | ArenaPointerDownEvent
   | ArenaPointerMoveEvent
   | ArenaPointerUpEvent

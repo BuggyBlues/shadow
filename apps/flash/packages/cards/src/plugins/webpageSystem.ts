@@ -2,10 +2,11 @@
 // Browser chrome mockup: address bar, title, favicon shape, description.
 
 import { canvasStore } from '../components/canvasComponent'
+import { cardDataStore } from '../components/cardDataComponent'
 import { advance, layoutStore, remainingH } from '../components/layoutComponent'
 import { webpageMetaStore } from '../components/metaComponent'
 import { styleStore } from '../components/styleComponent'
-import { fillRoundRect, fontStr, hexAlpha, safeStr, truncText } from '../utils/canvasUtils'
+import { fillRoundRect, fontStr, hexAlpha, isDuplicateTitle, safeStr } from '../utils/canvasUtils'
 
 export function webpageSystem(eid: number): boolean {
   const meta = webpageMetaStore[eid]
@@ -17,6 +18,7 @@ export function webpageSystem(eid: number): boolean {
   const layout = layoutStore[eid]!
   const { padX, contentW } = layout
   const { accentColor } = styleStore[eid]!
+  const { card } = cardDataStore[eid]!
 
   const availH = remainingH(layout)
   const frameH = Math.min(availH - 8, contentW * 1.05)
@@ -98,7 +100,7 @@ export function webpageSystem(eid: number): boolean {
 
   // Title
   const title = safeStr(meta.title)
-  if (title) {
+  if (title && !isDuplicateTitle(title, card.title)) {
     const titleY = fY + frameH - 24
     ctx.font = fontStr(8, 'bold', '', '"Noto Sans SC", sans-serif')
     ctx.fillStyle = accentColor

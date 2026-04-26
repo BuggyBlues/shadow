@@ -2,10 +2,11 @@
 // Displays a URL with title, description, source label, and tags.
 
 import { canvasStore } from '../components/canvasComponent'
+import { cardDataStore } from '../components/cardDataComponent'
 import { advance, layoutStore, remainingH } from '../components/layoutComponent'
 import { linkMetaStore } from '../components/metaComponent'
 import { styleStore } from '../components/styleComponent'
-import { fontStr, hexAlpha, safeStr, truncText } from '../utils/canvasUtils'
+import { fontStr, hexAlpha, isDuplicateTitle, safeStr, truncText } from '../utils/canvasUtils'
 
 function drawLinkIcon(
   ctx: CanvasRenderingContext2D,
@@ -44,9 +45,10 @@ export function linkSystem(eid: number): boolean {
   const layout = layoutStore[eid]!
   const { padX, contentW } = layout
   const { accentColor } = styleStore[eid]!
+  const { card } = cardDataStore[eid]!
 
   // ── Title row ─────────────────────────────────────────
-  if (remainingH(layout) > 12) {
+  if (remainingH(layout) > 12 && !isDuplicateTitle(meta.title, card.title)) {
     // Small icon
     const iconR = 6
     const iconX = padX + iconR + 1

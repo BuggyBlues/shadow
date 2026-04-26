@@ -211,6 +211,18 @@ export interface ProcessCardMeta {
 
 export interface ImageCardMeta {
   src?: string
+  ktx2?: string
+  basis?: string
+  fallbackSrc?: string
+  objectFit?: 'cover' | 'contain' | 'fill'
+  compressed?: {
+    ktx2?: string
+    basis?: string
+    fallback?: string
+    width?: number
+    height?: number
+    colorSpace?: 'srgb' | 'linear'
+  }
   alt?: string
   caption?: string
   width?: number
@@ -223,6 +235,7 @@ export interface GifCardMeta {
   caption?: string
   tags?: string[]
   autoplay?: boolean
+  preload?: boolean
 }
 
 export interface QrcodeCardMeta {
@@ -256,6 +269,7 @@ export interface LottieCardMeta {
   loop?: boolean
   palette?: string[]
   autoplay?: boolean
+  preload?: boolean
 }
 
 export interface WebpageCardMeta {
@@ -279,15 +293,29 @@ export interface Live2DCardMeta {
   name?: string
   background?: string
   autoMotion?: boolean
+  autoplay?: boolean
+  preload?: boolean
 }
 
 export interface ThreeDCardMeta {
   scene: 'cube' | 'torus' | 'particles' | 'dna' | 'earth' | 'galaxy' | string
   color?: string
   color2?: string
+  ktx2?: string
+  basis?: string
+  fallbackSrc?: string
+  compressed?: {
+    ktx2?: string
+    basis?: string
+    fallback?: string
+    width?: number
+    height?: number
+    colorSpace?: 'srgb' | 'linear'
+  }
   description?: string
   wireframe?: boolean
   autoplay?: boolean
+  preload?: boolean
 }
 
 export interface LinkCardMeta {

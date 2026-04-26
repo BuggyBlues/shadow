@@ -15,7 +15,9 @@
 import type { Card } from '@shadowob/flash-types'
 import Matter from 'matter-js'
 import type { CardRenderer } from '../renderer/CardRenderer'
-import type { InteractionAction, InteractionEvent } from './interactionFSM'
+import { arenaEdgeHitTest } from '../systems/render/arenaRenderSystem'
+import type { Arena } from '../systems/scene/arenaSystem'
+import type { InteractionAction, InteractionEvent, MouseDownEvent } from './interactionFSM'
 import { InteractionFSM, TAP_DELAY_MS } from './interactionFSM'
 import type { PhysicsWorld } from './physicsWorld'
 
@@ -44,11 +46,14 @@ export interface DeskInputCallbacks {
   onArenaResize?: (arenaId: string, radius: number, hasHalfHeight: boolean) => void
   /** Arena selected / deselected */
   onArenaSelect?: (arenaId: string | null) => void
+  /** Current arena snapshot for runtime-level hit testing */
+  getArenas?: () => Arena[]
   /** Quick-link request (Cmd+click second card) */
   onLinkRequest?: (fromId: string, toId: string) => void
 }
 
 type AnyFn = (...args: never[]) => void
+type ArenaHit = NonNullable<MouseDownEvent['hitArena']>
 
 export class DeskInputHandler {
   private container: HTMLDivElement
@@ -69,6 +74,7 @@ export class DeskInputHandler {
   // Screen position of last mousedown
   private mouseDownScreenX = 0
   private mouseDownScreenY = 0
+  private arenaWindowTracking = false
 
   // Live card list & selection (updated externally)
   private cardsRef: Card[] = []
@@ -134,6 +140,7 @@ export class DeskInputHandler {
       clearTimeout(this.zoomSettleTimer)
       this.zoomSettleTimer = null
     }
+    this.stopArenaWindowTracking()
     this.detachEvents()
   }
 
@@ -161,7 +168,7 @@ export class DeskInputHandler {
     this.attachMatterEvents()
   }
 
-  // ── Arena pointer events (called from Playground) ──────────
+  // ── Arena pointer events (imperative compatibility/testing) ─
 
   handleArenaPointerDown(
     arenaId: string,
@@ -219,6 +226,60 @@ export class DeskInputHandler {
   private screenCoords(e: MouseEvent | WheelEvent): { mx: number; my: number } {
     const rect = this.container.getBoundingClientRect()
     return { mx: e.clientX - rect.left, my: e.clientY - rect.top }
+  }
+
+  private screenToWorld(mx: number, my: number): { wx: number; wy: number } {
+    const off = this.renderer.getViewOffset()
+    const zoom = this.renderer.getViewZoom()
+    return { wx: off.x + mx / zoom, wy: off.y + my / zoom }
+  }
+
+  private hitTestArena(mx: number, my: number): ArenaHit | null {
+    const arenas = this.callbacks.getArenas?.()
+    if (!arenas?.length) return null
+
+    const rect = this.container.getBoundingClientRect()
+    const off = this.renderer.getViewOffset()
+    const zoom = this.renderer.getViewZoom()
+    const viewport = {
+      offsetX: off.x,
+      offsetY: off.y,
+      zoom,
+      dpr: this.renderer.getDpr(),
+      screenW: rect.width,
+      screenH: rect.height,
+      zoomSettled: true,
+    }
+
+    for (let i = arenas.length - 1; i >= 0; i--) {
+      const arena = arenas[i]
+      const zone = arenaEdgeHitTest(arena, mx, my, viewport)
+      if (!zone) continue
+      const { wx, wy } = this.screenToWorld(mx, my)
+      return {
+        arenaId: arena.id,
+        zone,
+        worldX: wx,
+        worldY: wy,
+        radius: arena.radius,
+        hasHalfHeight: arena.shape === 'rect',
+      }
+    }
+    return null
+  }
+
+  private startArenaWindowTracking(): void {
+    if (this.arenaWindowTracking) return
+    this.arenaWindowTracking = true
+    window.addEventListener('mousemove', this.handlerMouseMove)
+    window.addEventListener('mouseup', this.handlerMouseUp)
+  }
+
+  private stopArenaWindowTracking(): void {
+    if (!this.arenaWindowTracking) return
+    this.arenaWindowTracking = false
+    window.removeEventListener('mousemove', this.handlerMouseMove)
+    window.removeEventListener('mouseup', this.handlerMouseUp)
   }
 
   // ── Matter drag events ────────────────────────────────────
@@ -317,9 +378,11 @@ export class DeskInputHandler {
   private onMouseDown(e: MouseEvent): void {
     const { mx, my } = this.screenCoords(e)
     const s = this.fsm.getState()
+    const hitArena =
+      e.button === 0 && s.tag === 'IDLE' && !s.spaceHeld ? this.hitTestArena(mx, my) : null
 
     const hitCardId =
-      e.button === 0 && s.tag === 'IDLE' && !s.spaceHeld
+      !hitArena && e.button === 0 && s.tag === 'IDLE' && !s.spaceHeld
         ? this.renderer.hitTest(mx, my, this.cardsRef, this.physicsWorld.bodiesMap)
         : null
 
@@ -356,18 +419,25 @@ export class DeskInputHandler {
       screenY: my,
       button: e.button,
       hitCardId,
-      hitArena: null,
+      hitArena,
       shiftKey: e.shiftKey,
       metaKey: e.metaKey,
       ctrlKey: e.ctrlKey,
     }
 
     this.execute(this.fsm.dispatch(event))
+    if (hitArena) {
+      this.startArenaWindowTracking()
+      e.preventDefault()
+      e.stopImmediatePropagation()
+      return
+    }
     if (e.button === 1 || (e.button === 0 && s.tag === 'IDLE' && s.spaceHeld)) e.preventDefault()
   }
 
   private onMouseMove(e: MouseEvent): void {
     const { mx, my } = this.screenCoords(e)
+    this.renderer.setMousePosition(mx, my)
     const s = this.fsm.getState()
 
     if (s.tag === 'PAN') {
@@ -382,6 +452,21 @@ export class DeskInputHandler {
       s.lastY = my
       this.renderer.panBy(dx, dy)
       this.syncMatterViewport()
+      return
+    }
+
+    if (s.tag === 'ARENA_MOVE' || s.tag === 'ARENA_RESIZE') {
+      const { wx, wy } = this.screenToWorld(mx, my)
+      this.execute(
+        this.fsm.dispatch({
+          type: 'ARENA_POINTER_MOVE',
+          worldX: wx,
+          worldY: wy,
+          screenX: mx,
+          screenY: my,
+        }),
+      )
+      e.preventDefault()
       return
     }
 
@@ -414,6 +499,14 @@ export class DeskInputHandler {
 
   private onMouseUp(e: MouseEvent): void {
     const s = this.fsm.getState()
+    if (s.tag === 'ARENA_MOVE' || s.tag === 'ARENA_RESIZE') {
+      this.execute(this.fsm.dispatch({ type: 'ARENA_POINTER_UP' }))
+      this.stopArenaWindowTracking()
+      e.preventDefault()
+      e.stopImmediatePropagation()
+      return
+    }
+
     let panVx = 0,
       panVy = 0
     if (s.tag === 'PAN') {

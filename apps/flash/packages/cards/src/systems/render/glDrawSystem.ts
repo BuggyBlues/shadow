@@ -43,7 +43,10 @@ export function glDrawSystem(eid: number, ctx: GLDrawContext): void {
   gl.uniform2f(uniforms.u_size, renderW, renderH)
   gl.uniform1f(uniforms.u_radius, cardRadius * dpr)
 
-  gl.uniform1f(uniforms.u_hover, Interaction.hovered[eid] ? 1.0 : 0.0)
+  gl.uniform1f(
+    uniforms.u_hover,
+    Interaction.hoverAmount[eid] ?? (Interaction.hovered[eid] ? 1.0 : 0.0),
+  )
   gl.uniform1f(uniforms.u_active, Interaction.active[eid] ? 1.0 : 0.0)
   gl.uniform1f(uniforms.u_streaming, Interaction.streaming[eid] ? 1.0 : 0.0)
   gl.uniform1f(uniforms.u_selected, Interaction.selected[eid] ? 1.0 : 0.0)

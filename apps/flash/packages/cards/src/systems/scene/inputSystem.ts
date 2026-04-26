@@ -16,12 +16,23 @@ export interface InputState {
 }
 
 /** Sync per-entity interaction state from the central InputState. */
-export function inputSystem(eid: number, input: InputState, viewport: ViewportData): void {
+export function inputSystem(
+  eid: number,
+  input: InputState,
+  viewport: ViewportData,
+  dt: number,
+): void {
   const cardData = cardDataStore[eid]
   if (!cardData) return
   const { card } = cardData
 
   Interaction.hovered[eid] = input.hoveredId === card.id ? 1 : 0
+  const hoverTarget = Interaction.hovered[eid] ? 1 : 0
+  const hoverCurrent = Interaction.hoverAmount[eid] ?? hoverTarget
+  const hoverRate = hoverTarget > hoverCurrent ? 18 : 8
+  const hoverAmount = hoverCurrent + (hoverTarget - hoverCurrent) * (1 - Math.exp(-dt * hoverRate))
+  Interaction.hoverAmount[eid] =
+    Math.abs(hoverAmount - hoverTarget) < 0.001 ? hoverTarget : hoverAmount
   Interaction.active[eid] = input.activeId === card.id ? 1 : 0
   Interaction.selected[eid] = input.selectedIds.has(card.id) ? 1 : 0
   Interaction.streaming[eid] = card.isStreaming ? 1 : 0
@@ -38,7 +49,7 @@ export function inputSystem(eid: number, input: InputState, viewport: ViewportDa
     const ly = (dx * sin + dy * cos) / Transform.height[eid]
     Interaction.mouseLocalX[eid] = Math.max(-0.5, Math.min(0.5, lx))
     Interaction.mouseLocalY[eid] = Math.max(-0.5, Math.min(0.5, ly))
-  } else {
+  } else if (Interaction.hoverAmount[eid] <= 0.001) {
     Interaction.mouseLocalX[eid] = 0
     Interaction.mouseLocalY[eid] = 0
   }
