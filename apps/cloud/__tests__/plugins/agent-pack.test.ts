@@ -230,10 +230,11 @@ describe('agent-pack k8s helpers', () => {
       },
     ]
     const init = buildAgentPackInitContainer(packs, '/agent-packs', 'agent-packs')
-    expect(init.image).toBe('alpine/git:latest')
+    expect(init.image).toBe('node:22-alpine')
     expect(init.command[0]).toBe('/bin/sh')
     expect(init.command[1]).toBe('-c')
     const script = init.command[2]!
+    expect(script).toContain('apk add --no-cache git')
     expect(script).toContain('https://github.com/x/y')
     expect(script).toContain('https://github.com/a/b')
     expect(script).toContain('/agent-packs/marketingskills/skills')
@@ -340,5 +341,29 @@ describe('agent-pack k8s helpers', () => {
     const script = init.command[2]!
     expect(script).toContain('if [ -f "/tmp/agent-pack-src-cursor-rules/.cursorrules" ]')
     expect(script).toContain("-name '*.mdc'")
+  })
+
+  it('can append a plugin-owned slash command indexer to the init container', () => {
+    const packs: ResolvedPack[] = [
+      {
+        id: 'gstack',
+        url: 'https://github.com/x/y',
+        ref: 'main',
+        depth: 1,
+        mounts: [{ kind: 'skills', from: 'openclaw/skills' }],
+        instructionFiles: [],
+      },
+    ]
+    const init = buildAgentPackInitContainer(packs, '/agent-packs', 'agent-packs', {
+      enabled: true,
+      outputPath: '/agent-packs/.shadow/slash-commands.json',
+      inferInteractions: true,
+      rules: [],
+    })
+    const script = init.command[2]!
+    expect(script).toContain('/tmp/agent-pack-slash-indexer.mjs')
+    expect(script).toContain("--mount-path '/agent-packs'")
+    expect(script).toContain("--output '/agent-packs/.shadow/slash-commands.json'")
+    expect(script).toContain('Wrote ')
   })
 })

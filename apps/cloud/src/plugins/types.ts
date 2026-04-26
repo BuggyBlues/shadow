@@ -318,13 +318,22 @@ export interface PluginOpenClawManifestPatch {
   channelConfigs?: Record<string, unknown>
 }
 
+export type PluginRuntimeArtifactKind = 'shadow.slashCommands' | (string & {})
+
+export interface PluginRuntimeArtifact {
+  /** Stable consumer-facing artifact kind, e.g. "shadow.slashCommands". */
+  kind: PluginRuntimeArtifactKind
+  /** Runtime-readable absolute path produced by the plugin. */
+  path: string
+  /** Optional media type or format hint for future consumers. */
+  mediaType?: string
+}
+
 export interface PluginRuntimeExtension {
   openclaw?: {
     manifestPatches?: PluginOpenClawManifestPatch[]
   }
-  slashCommands?: {
-    rules?: PluginSlashCommandRule[]
-  }
+  artifacts?: PluginRuntimeArtifact[]
 }
 
 // ─── K8s Artifact Types ──────────────────────────────────────────────────────

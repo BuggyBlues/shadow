@@ -17,6 +17,10 @@
  */
 
 import type { PluginK8sInitContainer, PluginK8sSidecar } from '../types.js'
+import { AGENT_PACK_SLASH_INDEXER_SCRIPT } from './indexer-script.js'
+
+const AGENT_PACK_IMAGE = 'node:22-alpine'
+const SLASH_INDEXER_PATH = '/tmp/agent-pack-slash-indexer.mjs'
 
 /** Kinds of artifact a pack can contribute to an agent. */
 export type PackKind =
@@ -85,6 +89,13 @@ export interface ResolvedPack {
   instructionFiles: string[]
 }
 
+export interface SlashCommandIndexOptions {
+  enabled: boolean
+  outputPath: string
+  inferInteractions?: boolean
+  rules?: unknown[]
+}
+
 /**
  * Parse a duration string like "30s", "5m", "1h" into seconds.
  */
@@ -110,6 +121,35 @@ export function parsePollInterval(input: string | number | undefined): number {
  */
 export function sanitizeId(s: string): string {
   return s.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 63)
+}
+
+export function agentPackSlashCommandsIndexPath(mountPath: string): string {
+  return `${mountPath}/.shadow/slash-commands.json`
+}
+
+function shQuote(value: string): string {
+  return `'${value.replace(/'/g, "'\\''")}'`
+}
+
+function buildSlashCommandIndexSnippet(
+  mountPath: string,
+  options?: SlashCommandIndexOptions,
+): string {
+  if (!options?.enabled) return ''
+
+  const rulesJson = JSON.stringify(options.rules ?? [])
+  return [
+    `cat > ${SLASH_INDEXER_PATH} <<'SHADOW_AGENT_PACK_SLASH_INDEXER'`,
+    AGENT_PACK_SLASH_INDEXER_SCRIPT,
+    'SHADOW_AGENT_PACK_SLASH_INDEXER',
+    [
+      `node ${SLASH_INDEXER_PATH}`,
+      `--mount-path ${shQuote(mountPath)}`,
+      `--output ${shQuote(options.outputPath)}`,
+      `--infer-interactions ${options.inferInteractions === false ? 'false' : 'true'}`,
+      `--rules-json ${shQuote(rulesJson)}`,
+    ].join(' '),
+  ].join('\n')
 }
 
 /**
@@ -265,11 +305,18 @@ export function buildAgentPackInitContainer(
   packs: ResolvedPack[],
   mountPath: string,
   volumeName: string,
+  slashCommandIndex?: SlashCommandIndexOptions,
 ): PluginK8sInitContainer {
-  const script = packs.map((p) => buildPackCloneSnippet(p, mountPath)).join('\n')
+  const script = [
+    'apk add --no-cache git >/dev/null',
+    ...packs.map((p) => buildPackCloneSnippet(p, mountPath)),
+    buildSlashCommandIndexSnippet(mountPath, slashCommandIndex),
+  ]
+    .filter(Boolean)
+    .join('\n')
   return {
     name: 'agent-pack-clone',
-    image: 'alpine/git:latest',
+    image: AGENT_PACK_IMAGE,
     imagePullPolicy: 'IfNotPresent',
     command: ['/bin/sh', '-c', `set -e\n${script}`],
     volumeMounts: [{ name: volumeName, mountPath }],
@@ -288,15 +335,19 @@ export function buildAgentPackSyncSidecar(opts: {
   mountPath: string
   volumeName: string
   intervalSec: number
+  slashCommandIndex?: SlashCommandIndexOptions
 }): PluginK8sSidecar | undefined {
-  const { packs, mountPath, volumeName, intervalSec } = opts
+  const { packs, mountPath, volumeName, intervalSec, slashCommandIndex } = opts
   if (!intervalSec || intervalSec <= 0) return undefined
 
   const cloneAll = packs.map((p) => buildPackCloneSnippet(p, mountPath)).join('\n')
+  const indexCommands = buildSlashCommandIndexSnippet(mountPath, slashCommandIndex)
   const script = `
 set -e
+apk add --no-cache git >/dev/null
 RUN_SCRIPT() {
 ${cloneAll}
+${indexCommands}
 }
 while true; do
   RUN_SCRIPT || echo "[agent-pack-sync] iteration failed, will retry"
@@ -307,7 +358,7 @@ done
 
   return {
     name: 'agent-pack-sync',
-    image: 'alpine/git:latest',
+    image: AGENT_PACK_IMAGE,
     imagePullPolicy: 'IfNotPresent',
     command: ['/bin/sh', '-c', script],
     volumeMounts: [{ name: volumeName, mountPath }],

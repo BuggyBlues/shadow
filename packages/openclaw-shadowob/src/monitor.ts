@@ -395,6 +395,7 @@ async function buildInteractiveResponseContext(params: {
   message: ShadowMessage
   client: ShadowClient
   runtime: ShadowMonitorOptions['runtime']
+  slashCommands?: ShadowSlashCommand[]
 }) {
   const response = (
     params.message as {
@@ -422,6 +423,20 @@ async function buildInteractiveResponseContext(params: {
 
   const sourceInteractive = (source as { metadata?: { interactive?: unknown } } | null)?.metadata
     ?.interactive
+  const sourceSlashCommand = (source as { metadata?: { slashCommand?: unknown } } | null)?.metadata
+    ?.slashCommand
+  const sourceCommandName =
+    sourceSlashCommand &&
+    typeof sourceSlashCommand === 'object' &&
+    !Array.isArray(sourceSlashCommand)
+      ? (sourceSlashCommand as Record<string, unknown>).name
+      : undefined
+  const sourceCommand =
+    typeof sourceCommandName === 'string'
+      ? params.slashCommands?.find(
+          (command) => command.name.toLowerCase() === sourceCommandName.toLowerCase(),
+        )
+      : undefined
   const sourcePrompt =
     sourceInteractive && typeof sourceInteractive === 'object' && !Array.isArray(sourceInteractive)
       ? (sourceInteractive as Record<string, unknown>).prompt
@@ -440,6 +455,7 @@ async function buildInteractiveResponseContext(params: {
     typeof responsePrompt === 'string' && responsePrompt.trim()
       ? `Follow-up instruction: ${responsePrompt.trim()}`
       : '',
+    sourceCommand?.body ? `Source slash command definition:\n${sourceCommand.body}` : '',
     `Action: ${response.actionId ?? '(unknown)'}`,
     response.values ? `Submitted values:\n${JSON.stringify(response.values, null, 2)}` : '',
   ].filter(Boolean)
@@ -450,6 +466,7 @@ async function buildInteractiveResponseContext(params: {
       InteractiveResponse: response,
       ...(source ? { InteractiveSourceMessage: source.content } : {}),
       ...(sourceInteractive ? { InteractiveSourceBlock: sourceInteractive } : {}),
+      ...(sourceCommand ? { InteractiveSourceSlashCommand: sourceCommand } : {}),
     } as Record<string, unknown>,
   }
 }
@@ -842,6 +859,7 @@ async function processShadowMessage(params: {
     message,
     client: mediaClient,
     runtime,
+    slashCommands,
   })
 
   const slashCommandMatch = matchShadowSlashCommand(cleanBody, slashCommands)
