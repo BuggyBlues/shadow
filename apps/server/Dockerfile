@@ -42,6 +42,7 @@ RUN pnpm --filter @shadowob/shared build && \
 FROM node:22-alpine AS runner
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
+# hadolint ignore=DL3018
 RUN apk add --no-cache curl kubectl && \
     corepack enable && corepack prepare pnpm@10.19.0 --activate
 WORKDIR /app
