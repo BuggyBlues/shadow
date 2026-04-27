@@ -1,9 +1,9 @@
 /**
  * Shadow outbound adapter — sends messages & media to Shadow channels.
  *
- * Conforms to the OpenClaw SDK outbound pattern:
- *   - outbound.attachedResults.sendText  — send text and return messageId
- *   - outbound.base.sendMedia            — send media files
+ * Conforms to the current OpenClaw channel outbound pattern:
+ *   - outbound.sendText
+ *   - outbound.sendMedia
  */
 
 import type { ShadowMessage } from '@shadowob/sdk'
@@ -73,7 +73,7 @@ export function parseTarget(to: string): { channelId?: string; threadId?: string
   const parts = to.split(':')
   const prefix = parts[0]
   if (
-    (prefix === 'shadowob' || prefix === 'openclaw-shadowob' || prefix === 'shadow') &&
+    (prefix === 'shadowob' || prefix === 'openclaw-shadowob') &&
     parts[1] === 'channel' &&
     parts[2]
   ) {
@@ -83,7 +83,7 @@ export function parseTarget(to: string): { channelId?: string; threadId?: string
     }
   }
   if (
-    (prefix === 'shadowob' || prefix === 'openclaw-shadowob' || prefix === 'shadow') &&
+    (prefix === 'shadowob' || prefix === 'openclaw-shadowob') &&
     parts[1] === 'thread' &&
     parts[2]
   ) {
@@ -216,8 +216,7 @@ async function sendMediaToShadow(params: {
  * SDK-compliant outbound adapter.
  *
  * OpenClaw calls the top-level `sendText`/`sendMedia` functions for channel
- * delivery. The legacy `attachedResults` and `base` shapes remain for older
- * runtime builds and tests.
+ * delivery.
  */
 export const shadowOutbound = {
   deliveryMode: 'direct' as const,
@@ -269,56 +268,5 @@ export const shadowOutbound = {
       threadId: params.threadId,
       replyToMessageId: params.replyToId,
     })
-  },
-
-  attachedResults: {
-    sendText: async (params: {
-      cfg: OpenClawConfig
-      to: string
-      text: string
-      accountId?: string
-      replyToMessageId?: string
-      threadId?: string
-    }): Promise<{ messageId: string }> => {
-      const resolved = resolveClient(params.cfg, params.accountId)
-      if (!resolved) throw new Error('Shadow account not configured')
-
-      const sent = await sendTextChunks({
-        client: resolved.client,
-        to: params.to,
-        text: params.text,
-        threadId: params.threadId,
-        replyToMessageId: params.replyToMessageId,
-      })
-      return { messageId: sent.message.id }
-    },
-  },
-
-  base: {
-    sendMedia: async (params: {
-      cfg: OpenClawConfig
-      to: string
-      filePath?: string
-      mediaUrl?: string
-      mediaUrls?: string[]
-      text?: string
-      accountId?: string
-      threadId?: string
-      replyToMessageId?: string
-    }): Promise<void> => {
-      const resolved = resolveClient(params.cfg, params.accountId)
-      if (!resolved) throw new Error('Shadow account not configured')
-
-      await sendMediaToShadow({
-        client: resolved.client,
-        to: params.to,
-        filePath: params.filePath,
-        mediaUrl: params.mediaUrl,
-        mediaUrls: params.mediaUrls,
-        text: params.text,
-        threadId: params.threadId,
-        replyToMessageId: params.replyToMessageId,
-      })
-    },
   },
 }

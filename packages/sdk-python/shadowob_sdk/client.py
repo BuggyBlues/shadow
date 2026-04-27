@@ -389,6 +389,17 @@ class ShadowClient:
             data["values"] = values
         return self._post(f"/api/messages/{message_id}/interactive", json=data)
 
+    def get_interactive_state(
+        self, message_id: str, block_id: str | None = None
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {}
+        if block_id:
+            params["blockId"] = block_id
+        return self._get(
+            f"/api/messages/{message_id}/interactive-state",
+            params=params or None,
+        )
+
     def edit_message(self, message_id: str, content: str) -> dict[str, Any]:
         return self._patch(f"/api/messages/{message_id}", json={"content": content})
 

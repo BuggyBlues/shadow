@@ -123,6 +123,27 @@ export function createMessageHandler(container: AppContainer) {
     return c.json(result)
   })
 
+  // GET /api/messages/:id/interactive-state — fetch the current user's
+  // persisted state for rendering one-shot interactive blocks.
+  messageHandler.get('/messages/:id/interactive-state', async (c) => {
+    const messageService = container.resolve('messageService')
+    const sourceId = c.req.param('id')
+    const requestedBlockId = c.req.query('blockId')
+    const user = c.get('user')
+
+    const source = await messageService.getById(sourceId, user.userId)
+    if (!source) return c.json({ ok: false, error: 'Source message not found' }, 404)
+    const block = asInteractiveBlock(source.metadata?.interactive)
+    if (!block) {
+      return c.json({ ok: false, error: 'Source message has no interactive block' }, 400)
+    }
+    if (requestedBlockId && requestedBlockId !== block.id) {
+      return c.json({ ok: false, error: 'blockId mismatch' }, 400)
+    }
+
+    return c.json(await messageService.getInteractiveState(sourceId, block.id, user.userId))
+  })
+
   // POST /api/channels/:channelId/messages
   messageHandler.post(
     '/channels/:channelId/messages',

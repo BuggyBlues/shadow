@@ -66,10 +66,25 @@ export async function deliverShadowReply(params: {
 
     if (mediaUrls.length > 0) {
       const messageId = sentMessage?.id
+      let fallbackReplyToId = sentMessage?.id ?? replyToId
       for (const mediaUrl of mediaUrls) {
         runtime.log?.(`[reply] Uploading media: ${mediaUrl}`)
-        await client.uploadMediaFromUrl(mediaUrl, messageId)
-        runtime.log?.('[reply] Media uploaded successfully')
+        try {
+          await client.uploadMediaFromUrl(mediaUrl, messageId)
+          runtime.log?.('[reply] Media uploaded successfully')
+        } catch (err) {
+          runtime.error?.(
+            `[reply] Media upload failed for ${mediaUrl}; sending URL fallback: ${String(err)}`,
+          )
+          const metadata = newAgentChain ? { agentChain: newAgentChain } : undefined
+          const fallbackMessage = threadId
+            ? await client.sendToThread(threadId, mediaUrl, { metadata })
+            : await client.sendMessage(channelId, mediaUrl, {
+                replyToId: fallbackReplyToId,
+                metadata,
+              })
+          fallbackReplyToId = fallbackMessage.id
+        }
       }
     }
 
@@ -129,10 +144,22 @@ export async function deliverShadowDmReply(params: {
 
     if (mediaUrls.length > 0) {
       const messageId = sentMessage?.id
+      let fallbackReplyToId = sentMessage?.id ?? replyToId
       for (const mediaUrl of mediaUrls) {
         runtime.log?.(`[dm-reply] Uploading media: ${mediaUrl}`)
-        await client.uploadMediaFromUrl(mediaUrl, messageId)
-        runtime.log?.('[dm-reply] Media uploaded successfully')
+        try {
+          await client.uploadMediaFromUrl(mediaUrl, messageId)
+          runtime.log?.('[dm-reply] Media uploaded successfully')
+        } catch (err) {
+          runtime.error?.(
+            `[dm-reply] Media upload failed for ${mediaUrl}; sending URL fallback: ${String(err)}`,
+          )
+          const fallbackMessage = await client.sendDmMessage(dmChannelId, mediaUrl, {
+            replyToId: fallbackReplyToId,
+            metadata: newAgentChain ? { agentChain: newAgentChain } : undefined,
+          })
+          fallbackReplyToId = fallbackMessage.id
+        }
       }
     }
 

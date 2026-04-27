@@ -18,11 +18,41 @@ type MessageWithMetadata = {
   metadata?: Record<string, unknown> | null
 }
 
+type InteractiveSubmissionRecord = NonNullable<
+  Awaited<ReturnType<MessageDao['findInteractiveSubmission']>>
+>
+
 function getInteractiveBlockId(message: MessageWithMetadata): string | null {
   const interactive = message.metadata?.interactive
   if (!interactive || typeof interactive !== 'object' || Array.isArray(interactive)) return null
   const id = (interactive as Record<string, unknown>).id
   return typeof id === 'string' && id.trim() ? id : null
+}
+
+function buildInteractiveState(sourceMessageId: string, blockId: string) {
+  return {
+    sourceMessageId,
+    blockId,
+    submitted: false,
+  }
+}
+
+function buildSubmittedInteractiveState(submission: InteractiveSubmissionRecord) {
+  return {
+    sourceMessageId: submission.sourceMessageId,
+    blockId: submission.blockId,
+    submitted: true,
+    response: {
+      blockId: submission.blockId,
+      sourceMessageId: submission.sourceMessageId,
+      actionId: submission.actionId,
+      value: submission.value,
+      ...(submission.values ? { values: submission.values } : {}),
+      submissionId: submission.id,
+      responseMessageId: submission.responseMessageId,
+      submittedAt: submission.createdAt.toISOString(),
+    },
+  }
 }
 
 export class MessageService {
@@ -54,6 +84,17 @@ export class MessageService {
 
   async getInteractiveSubmission(sourceMessageId: string, blockId: string, userId: string) {
     return this.deps.messageDao.findInteractiveSubmission(sourceMessageId, blockId, userId)
+  }
+
+  async getInteractiveState(sourceMessageId: string, blockId: string, userId: string) {
+    const submission = await this.deps.messageDao.findInteractiveSubmission(
+      sourceMessageId,
+      blockId,
+      userId,
+    )
+    return submission
+      ? buildSubmittedInteractiveState(submission)
+      : buildInteractiveState(sourceMessageId, blockId)
   }
 
   async createInteractiveSubmission(
@@ -107,21 +148,7 @@ export class MessageService {
         ...message,
         metadata: {
           ...(message.metadata ?? {}),
-          interactiveState: {
-            sourceMessageId: submission.sourceMessageId,
-            blockId: submission.blockId,
-            submitted: true,
-            response: {
-              blockId: submission.blockId,
-              sourceMessageId: submission.sourceMessageId,
-              actionId: submission.actionId,
-              value: submission.value,
-              ...(submission.values ? { values: submission.values } : {}),
-              submissionId: submission.id,
-              responseMessageId: submission.responseMessageId,
-              submittedAt: submission.createdAt.toISOString(),
-            },
-          },
+          interactiveState: buildSubmittedInteractiveState(submission),
         },
       }
     })

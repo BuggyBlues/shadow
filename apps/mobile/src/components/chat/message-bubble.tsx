@@ -1091,13 +1091,35 @@ function InteractiveBlockRenderer({
   const { t } = useTranslation()
   const colors = useColors()
   const [submitting, setSubmitting] = useState(false)
+  const [serverResponse, setServerResponse] = useState<InteractiveResponseMetadata | null>(null)
+  const effectiveResponse = submittedResponse ?? serverResponse
   const [done, setDone] = useState<string | null>(submittedResponse?.actionId ?? null)
   const [error, setError] = useState<string | null>(null)
   const submittingRef = useRef(false)
 
   useEffect(() => {
-    if (submittedResponse?.actionId) setDone(submittedResponse.actionId)
-  }, [submittedResponse?.actionId])
+    if (submittedResponse) setServerResponse(null)
+  }, [submittedResponse])
+
+  useEffect(() => {
+    if (block.oneShot === false || submittedResponse?.actionId) return
+    let alive = true
+    const query = new URLSearchParams({ blockId: block.id }).toString()
+    fetchApi<{ submitted: boolean; response?: InteractiveResponseMetadata }>(
+      `/api/messages/${messageId}/interactive-state?${query}`,
+    )
+      .then((state) => {
+        if (alive && state.submitted && state.response) setServerResponse(state.response)
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [block.id, block.oneShot, messageId, submittedResponse?.actionId])
+
+  useEffect(() => {
+    if (effectiveResponse?.actionId) setDone(effectiveResponse.actionId)
+  }, [effectiveResponse?.actionId])
 
   const send = useCallback(
     async (actionId: string, value: string, label: string, values?: Record<string, string>) => {
@@ -1108,7 +1130,15 @@ function InteractiveBlockRenderer({
       if (block.oneShot !== false) setDone(actionId)
       setError(null)
       try {
-        await fetchApi(`/api/messages/${messageId}/interactive`, {
+        const result = await fetchApi<
+          | {
+              metadata?: {
+                interactiveResponse?: InteractiveResponseMetadata
+                interactiveState?: { response?: InteractiveResponseMetadata }
+              }
+            }
+          | { interactiveState?: { response?: InteractiveResponseMetadata } }
+        >(`/api/messages/${messageId}/interactive`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1119,6 +1149,18 @@ function InteractiveBlockRenderer({
             ...(values ? { values } : {}),
           }),
         })
+        const resultRecord = result as {
+          metadata?: {
+            interactiveResponse?: InteractiveResponseMetadata
+            interactiveState?: { response?: InteractiveResponseMetadata }
+          }
+          interactiveState?: { response?: InteractiveResponseMetadata }
+        }
+        const nextResponse =
+          resultRecord.metadata?.interactiveState?.response ??
+          resultRecord.metadata?.interactiveResponse ??
+          resultRecord.interactiveState?.response
+        if (nextResponse) setServerResponse(nextResponse)
         setDone(actionId)
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {})
       } catch (e) {
@@ -1133,7 +1175,8 @@ function InteractiveBlockRenderer({
     [block.id, block.oneShot, done, messageId, t],
   )
 
-  const isLocked = !!disabled || submitting || (block.oneShot !== false && done !== null)
+  const isLocked =
+    !!disabled || submitting || (block.oneShot !== false && (done !== null || !!effectiveResponse))
 
   const isFormLike = block.kind === 'form' || block.kind === 'approval'
 
@@ -1168,7 +1211,7 @@ function InteractiveBlockRenderer({
           block={block}
           isLocked={isLocked}
           colors={colors}
-          submittedValues={submittedResponse?.values}
+          submittedValues={effectiveResponse?.values}
           onSubmit={(actionId, label, values) => send(actionId, actionId, label, values)}
         />
       ) : (

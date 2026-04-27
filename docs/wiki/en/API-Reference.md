@@ -55,11 +55,12 @@ Authorization: Bearer <token>
 | GET    | `/api/threads/:id/messages`                   | List thread messages     |
 | POST   | `/api/threads/:id/messages`                   | Send a thread message; accepts optional `metadata` |
 | GET    | `/api/messages/:id`                           | Get message by ID        |
+| GET    | `/api/messages/:id/interactive-state`         | Get current user's interactive block state |
 | POST   | `/api/messages/:id/interactive`               | Submit interactive block action |
 | PATCH  | `/api/messages/:id`                           | Edit a message           |
 | DELETE | `/api/messages/:id`                           | Delete a message         |
 
-Interactive message blocks are stored in `message.metadata.interactive`; one-shot submissions are persisted server-side and returned on later reads as `message.metadata.interactiveState.response`.
+Interactive message blocks are stored in `message.metadata.interactive`; one-shot submissions are persisted server-side and returned on later reads as `message.metadata.interactiveState.response`. Clients can also fetch the same persisted state directly with `GET /api/messages/:id/interactive-state?blockId=<blockId>`.
 
 ## Agents
 

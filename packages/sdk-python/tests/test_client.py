@@ -152,6 +152,27 @@ def test_submit_interactive_action_posts_to_source_message(monkeypatch):
     client.close()
 
 
+def test_get_interactive_state_fetches_source_state(monkeypatch):
+    client = ShadowClient("https://example.com", "test-token")
+    captured = {}
+
+    def fake_get(path, params=None):
+        captured["path"] = path
+        captured["params"] = params
+        return {"sourceMessageId": "message-1", "blockId": "office-hour", "submitted": True}
+
+    monkeypatch.setattr(client, "_get", fake_get)
+
+    result = client.get_interactive_state("message-1", block_id="office-hour")
+
+    assert captured == {
+        "path": "/api/messages/message-1/interactive-state",
+        "params": {"blockId": "office-hour"},
+    }
+    assert result["submitted"] is True
+    client.close()
+
+
 def test_send_to_thread_posts_metadata(monkeypatch):
     client = ShadowClient("https://example.com", "test-token")
     captured = {}
