@@ -9,6 +9,7 @@ import type {
   ShadowFriendship,
   ShadowInteractiveActionInput,
   ShadowInteractiveActionResult,
+  ShadowInteractiveState,
   ShadowInviteCode,
   ShadowListing,
   ShadowMember,
@@ -583,6 +584,15 @@ export class ShadowClient {
       method: 'POST',
       body: JSON.stringify(input),
     })
+  }
+
+  async getInteractiveState(messageId: string, blockId?: string): Promise<ShadowInteractiveState> {
+    const params = new URLSearchParams()
+    if (blockId) params.set('blockId', blockId)
+    const query = params.toString()
+    return this.request<ShadowInteractiveState>(
+      `/api/messages/${messageId}/interactive-state${query ? `?${query}` : ''}`,
+    )
   }
 
   async editMessage(messageId: string, content: string): Promise<ShadowMessage> {

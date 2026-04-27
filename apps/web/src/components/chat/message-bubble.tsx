@@ -1153,15 +1153,41 @@ function InteractiveBlockRenderer({
   const queryClient = useQueryClient()
   const activeChannelId = useChatStore((s) => s.activeChannelId)
   const [submitting, setSubmitting] = React.useState(false)
+  const [serverResponse, setServerResponse] = React.useState<InteractiveResponseMetadata | null>(
+    null,
+  )
+  const effectiveResponse = submittedResponse ?? serverResponse
   const [done, setDone] = React.useState<string | null>(submittedResponse?.actionId ?? null)
   const [error, setError] = React.useState<string | null>(null)
   const submittingRef = React.useRef(false)
 
   React.useEffect(() => {
-    if (submittedResponse?.actionId) {
-      setDone(submittedResponse.actionId)
+    if (submittedResponse) {
+      setServerResponse(null)
     }
-  }, [submittedResponse?.actionId])
+  }, [submittedResponse])
+
+  React.useEffect(() => {
+    if (block.oneShot === false || submittedResponse?.actionId) return
+    let alive = true
+    const query = new URLSearchParams({ blockId: block.id }).toString()
+    fetchApi<InteractiveStateMetadata>(`/api/messages/${messageId}/interactive-state?${query}`)
+      .then((state) => {
+        if (alive && state.submitted && state.response) {
+          setServerResponse(state.response)
+        }
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [block.id, block.oneShot, messageId, submittedResponse?.actionId])
+
+  React.useEffect(() => {
+    if (effectiveResponse?.actionId) {
+      setDone(effectiveResponse.actionId)
+    }
+  }, [effectiveResponse?.actionId])
 
   const send = React.useCallback(
     async (actionId: string, value: string, label: string, values?: Record<string, string>) => {
@@ -1172,7 +1198,15 @@ function InteractiveBlockRenderer({
       if (block.oneShot !== false) setDone(actionId)
       setError(null)
       try {
-        await fetchApi(`/api/messages/${messageId}/interactive`, {
+        const result = await fetchApi<
+          | {
+              metadata?: {
+                interactiveResponse?: InteractiveResponseMetadata
+                interactiveState?: InteractiveStateMetadata
+              }
+            }
+          | { interactiveState?: InteractiveStateMetadata }
+        >(`/api/messages/${messageId}/interactive`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1183,6 +1217,18 @@ function InteractiveBlockRenderer({
             ...(values ? { values } : {}),
           }),
         })
+        const resultRecord = result as {
+          metadata?: {
+            interactiveResponse?: InteractiveResponseMetadata
+            interactiveState?: InteractiveStateMetadata
+          }
+          interactiveState?: InteractiveStateMetadata
+        }
+        const nextResponse =
+          resultRecord.metadata?.interactiveState?.response ??
+          resultRecord.metadata?.interactiveResponse ??
+          resultRecord.interactiveState?.response
+        if (nextResponse) setServerResponse(nextResponse)
         setDone(actionId)
         if (activeChannelId) {
           queryClient.invalidateQueries({ queryKey: ['messages', activeChannelId] })
@@ -1195,11 +1241,11 @@ function InteractiveBlockRenderer({
         setSubmitting(false)
       }
     },
-    [activeChannelId, block.id, block.oneShot, done, messageId, queryClient, submitting, t],
+    [activeChannelId, block.id, block.oneShot, done, messageId, queryClient, t],
   )
 
   const isLocked =
-    disabled || submitting || (block.oneShot !== false && (done !== null || !!submittedResponse))
+    disabled || submitting || (block.oneShot !== false && (done !== null || !!effectiveResponse))
 
   return (
     <div className="mt-2 flex flex-col gap-2 rounded-lg border border-border-subtle bg-black/5 dark:bg-white/5 p-3">
@@ -1267,7 +1313,7 @@ function InteractiveBlockRenderer({
         <InteractiveFormBody
           block={block}
           isLocked={isLocked}
-          submittedValues={submittedResponse?.values}
+          submittedValues={effectiveResponse?.values}
           onSubmit={(actionId, label, values) => send(actionId, actionId, label, values)}
         />
       )}

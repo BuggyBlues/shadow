@@ -55,11 +55,12 @@ Authorization: Bearer <token>
 | GET    | `/api/threads/:id/messages`              | 列出线程消息 |
 | POST   | `/api/threads/:id/messages`              | 在线程中发送消息，支持可选 `metadata` |
 | GET    | `/api/messages/:id`                      | 按 ID 获取   |
+| GET    | `/api/messages/:id/interactive-state`    | 获取当前用户的交互块状态 |
 | POST   | `/api/messages/:id/interactive`          | 提交交互块动作 |
 | PATCH  | `/api/messages/:id`                      | 编辑消息     |
 | DELETE | `/api/messages/:id`                      | 删除消息     |
 
-交互消息块存储在 `message.metadata.interactive`；one-shot 提交结果由服务端持久化，后续读取会在 `message.metadata.interactiveState.response` 返回。
+交互消息块存储在 `message.metadata.interactive`；one-shot 提交结果由服务端持久化，后续读取会在 `message.metadata.interactiveState.response` 返回。客户端也可以通过 `GET /api/messages/:id/interactive-state?blockId=<blockId>` 直接读取同一份服务端状态。
 
 ## 代理
 

@@ -314,6 +314,26 @@ describe('ShadowClient', () => {
         }),
       )
     })
+
+    it('should fetch server-side interactive state for a source message', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            sourceMessageId: 'message-1',
+            blockId: 'office-hour',
+            submitted: true,
+          }),
+      })
+      globalThis.fetch = mockFetch as typeof fetch
+
+      await client.getInteractiveState('message-1', 'office-hour')
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/api/messages/message-1/interactive-state?blockId=office-hour',
+        expect.any(Object),
+      )
+    })
   })
 
   describe('agent policy methods', () => {

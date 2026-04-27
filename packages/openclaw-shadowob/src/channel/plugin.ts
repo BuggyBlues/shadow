@@ -178,7 +178,7 @@ shadowPlugin.messaging = {
     threadId ? `shadowob:channel:${id}:thread:${threadId}` : `shadowob:channel:${id}`,
   resolveOutboundSessionRoute: ({ cfg, agentId, accountId, target, threadId }) => {
     const normalized = shadowPlugin.messaging?.normalizeTarget?.(target) ?? target
-    const match = normalized.match(/^(?:shadowob|openclaw-shadowob|shadow):(channel|thread):(.+)$/i)
+    const match = normalized.match(/^(?:shadowob|openclaw-shadowob):(channel|thread):(.+)$/i)
     if (!match) return null
     const kind = match[1]!
     const id = match[2]!
@@ -327,7 +327,7 @@ shadowPlugin.heartbeat = {
     const account = resolveAccount(cfg, accountId)
     if (!account.token?.trim()) return
     const normalized = shadowPlugin.messaging?.normalizeTarget?.(to) ?? to
-    const match = normalized.match(/^(?:shadowob|openclaw-shadowob|shadow):(channel|thread):(.+)$/i)
+    const match = normalized.match(/^(?:shadowob|openclaw-shadowob):(channel|thread):(.+)$/i)
     const channelId = match?.[1] === 'channel' ? match[2] : undefined
     const targetChannelId = channelId ?? (threadId ? undefined : normalized)
     if (!targetChannelId) return

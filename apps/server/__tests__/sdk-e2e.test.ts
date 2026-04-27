@@ -332,6 +332,10 @@ describe('ShadowClient REST API', () => {
     const formSent = await client.sendMessage(channelId, 'Form please', {
       metadata: { interactive: formBlock },
     })
+    const initialFormState = await client2.getInteractiveState(formSent.id, formBlock.id)
+    expect(initialFormState.submitted).toBe(false)
+    expect(initialFormState.blockId).toBe(formBlock.id)
+
     const formRes = await fetch(`${baseUrl}/api/messages/${formSent.id}/interactive`, {
       method: 'POST',
       headers: {
@@ -379,6 +383,11 @@ describe('ShadowClient REST API', () => {
       | undefined
     expect(interactiveState?.response?.values?.name).toBe('Alice')
     expect(interactiveState?.response?.responseMessageId).toBe(formEcho.id)
+
+    const fetchedFormState = await client2.getInteractiveState(formSent.id, formBlock.id)
+    expect(fetchedFormState.submitted).toBe(true)
+    expect(fetchedFormState.response?.values?.name).toBe('Alice')
+    expect(fetchedFormState.response?.responseMessageId).toBe(formEcho.id)
 
     const parent = await client.sendMessage(channelId, 'Thread parent')
     const thread = await client.createThread(channelId, 'Interactive thread', parent.id)

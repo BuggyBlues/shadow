@@ -3,8 +3,8 @@
  *
  * Tests for the @shadowob/openclaw-shadowob plugin:
  * 1. Plugin registration and metadata
- * 2. Config resolution (single + multi-account, with fallback keys)
- * 3. Outbound adapter (attachedResults.sendText, base.sendMedia)
+ * 2. Config resolution (single + multi-account)
+ * 3. Outbound adapter (sendText, sendMedia)
  * 4. Target normalization
  * 5. Monitor/gateway inbound flow
  */
@@ -51,7 +51,7 @@ describe('Shadow Config', () => {
       expect(ids).toHaveLength(2)
     })
 
-    it('should list accounts from legacy shadowob key', () => {
+    it('should list accounts from the official shadowob key', () => {
       const cfg = {
         channels: {
           shadowob: {
@@ -144,7 +144,7 @@ describe('Shadow Config', () => {
       expect(account!.serverUrl).toBe('https://shadowob.com')
     })
 
-    it('should fall back to legacy shadowob config key', () => {
+    it('should resolve the official shadowob config key', () => {
       const cfg = {
         channels: {
           shadowob: {
@@ -548,7 +548,7 @@ describe('Shadow Outbound', () => {
   it('should throw when account not configured (sendText)', async () => {
     const { shadowOutbound } = await import('../src/outbound.js')
     await expect(
-      shadowOutbound.attachedResults.sendText({
+      shadowOutbound.sendText({
         cfg: {},
         to: 'shadowob:channel:ch-123',
         text: 'Hello',
@@ -559,7 +559,7 @@ describe('Shadow Outbound', () => {
   it('should throw when account not configured (sendMedia)', async () => {
     const { shadowOutbound } = await import('../src/outbound.js')
     await expect(
-      shadowOutbound.base.sendMedia({
+      shadowOutbound.sendMedia({
         cfg: {},
         to: 'shadowob:channel:ch-123',
         mediaUrl: 'http://example.com/img.png',
@@ -577,10 +577,10 @@ describe('Shadow Outbound', () => {
     expect(parseTarget('shadowob:thread:xyz')).toEqual({ threadId: 'xyz' })
   })
 
-  it('should parse target with legacy shadowob prefix', async () => {
+  it('should parse target with openclaw-shadowob prefix', async () => {
     const { parseTarget } = await import('../src/outbound.js')
     expect(parseTarget('shadowob:channel:abc')).toEqual({ channelId: 'abc' })
-    expect(parseTarget('shadow:channel:abc')).toEqual({ channelId: 'abc' })
+    expect(parseTarget('openclaw-shadowob:channel:abc')).toEqual({ channelId: 'abc' })
   })
 
   it('should fallback to raw string as channel ID', async () => {

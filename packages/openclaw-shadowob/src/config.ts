@@ -23,7 +23,7 @@ export const DEFAULT_ACCOUNT_ID = 'default'
 /** Extract the raw shadow config block from OpenClaw config. */
 function getShadowBlock(cfg: OpenClawConfig): Record<string, unknown> | undefined {
   const channels = (cfg as Record<string, unknown>).channels as Record<string, unknown> | undefined
-  return (channels?.shadowob ?? channels?.['openclaw-shadowob'] ?? channels?.shadow) as
+  return (channels?.shadowob ?? channels?.['openclaw-shadowob']) as
     | Record<string, unknown>
     | undefined
 }
