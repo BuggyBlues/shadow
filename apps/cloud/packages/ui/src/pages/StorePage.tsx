@@ -8,7 +8,6 @@ import {
   Rocket,
   Settings,
   Sparkles,
-  Star,
   Users,
   Wifi,
   WifiOff,
@@ -18,17 +17,10 @@ import { useTranslation } from 'react-i18next'
 import { PageShell } from '@/components/PageShell'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useTypewriterPlaceholder } from '@/hooks/useTypewriterPlaceholder'
-import { type TemplateCatalogSummary, type TemplateCategoryId } from '@/lib/api'
+import { type TemplateCatalogSummary } from '@/lib/api'
 import { useApiClient } from '@/lib/api-context'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/stores/app'
-
-function getDifficultyLabel(
-  difficulty: TemplateCatalogSummary['difficulty'],
-  translate: (key: string, options?: Record<string, unknown>) => string,
-) {
-  return translate(`store.difficulties.${difficulty}`)
-}
 
 const CATEGORY_BANNER: Record<string, { bg: string; textColor: string }> = {
   devops: {
@@ -63,41 +55,6 @@ const CATEGORY_BANNER: Record<string, { bg: string; textColor: string }> = {
 const CATEGORY_BANNER_DEFAULT = {
   bg: 'bg-gradient-to-br from-primary/20 via-bg-secondary to-transparent',
   textColor: 'text-primary',
-}
-
-function FilterPill({
-  label,
-  count,
-  active,
-  onClick,
-}: {
-  label: string
-  count: number
-  active: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-2xl border px-3 py-1.5 text-xs font-bold transition-all duration-200 select-none',
-        active
-          ? 'border-primary/30 bg-primary/15 text-primary'
-          : 'border-border-subtle bg-transparent text-text-secondary hover:bg-bg-modifier-hover hover:text-text-primary',
-      )}
-    >
-      <span>{label}</span>
-      <span
-        className={cn(
-          'rounded-full px-1.5 py-px text-[11px] tabular-nums',
-          active ? 'bg-primary/20' : 'bg-bg-tertiary/80 text-text-muted',
-        )}
-      >
-        {count}
-      </span>
-    </button>
-  )
 }
 
 function CardMetric({
@@ -177,15 +134,6 @@ function StoreAppCard({
 
       {/* Body */}
       <div className="flex flex-col gap-3 p-4">
-        <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant="neutral" size="sm">
-            {categoryLabel}
-          </Badge>
-          <Badge variant="neutral" size="sm">
-            {getDifficultyLabel(template.difficulty, t)}
-          </Badge>
-        </div>
-
         <Link
           to="/store/$name"
           params={{ name: template.name }}
@@ -201,11 +149,6 @@ function StoreAppCard({
             icon={<Users size={11} className="text-primary" />}
             value={template.agentCount}
             label={t('store.agentCount', { count: template.agentCount })}
-          />
-          <CardMetric
-            icon={<Star size={11} className="text-warning" />}
-            value={`${template.popularity}%`}
-            label={t('store.popularity')}
           />
         </div>
 
@@ -232,10 +175,6 @@ export function StorePage() {
   const api = useApiClient()
   const openSettings = useAppStore((state) => state.openSettings)
   const [search, setSearch] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState<TemplateCategoryId | 'all'>('all')
-  const [selectedDifficulty, setSelectedDifficulty] = useState<
-    TemplateCatalogSummary['difficulty'] | 'all'
-  >('all')
   const debouncedSearch = useDebounce(search)
 
   // Use community catalog (with local fallback built into the backend)
@@ -260,36 +199,8 @@ export function StorePage() {
     [categories],
   )
 
-  const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: templates.length }
-
-    for (const template of templates) {
-      counts[template.category] = (counts[template.category] ?? 0) + 1
-    }
-
-    return counts
-  }, [templates])
-
-  const difficultyCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: templates.length }
-
-    for (const template of templates) {
-      counts[template.difficulty] = (counts[template.difficulty] ?? 0) + 1
-    }
-
-    return counts
-  }, [templates])
-
   const filtered = useMemo(() => {
     let list = templates
-
-    if (selectedDifficulty !== 'all') {
-      list = list.filter((template) => template.difficulty === selectedDifficulty)
-    }
-
-    if (selectedCategory !== 'all') {
-      list = list.filter((template) => template.category === selectedCategory)
-    }
 
     if (debouncedSearch) {
       const query = debouncedSearch.toLowerCase()
@@ -314,10 +225,7 @@ export function StorePage() {
         left.title.localeCompare(right.title) ||
         left.name.localeCompare(right.name),
     )
-  }, [categoryLabels, debouncedSearch, selectedCategory, selectedDifficulty, templates])
-
-  const hasFilters =
-    selectedCategory !== 'all' || selectedDifficulty !== 'all' || Boolean(search.trim())
+  }, [categoryLabels, debouncedSearch, templates])
 
   return (
     <PageShell
@@ -358,7 +266,7 @@ export function StorePage() {
       }
       bodyClassName="space-y-4"
     >
-      {/* Error — community unreachable (shouldn't happen since we fall back, but just in case) */}
+      {/* Error — community unreachable */}
       {isError && (
         <GlassCard className="flex items-center gap-3 px-5 py-4 text-sm">
           <AlertCircle size={16} className="shrink-0 text-warning" />
@@ -374,58 +282,19 @@ export function StorePage() {
           </Button>
         </GlassCard>
       )}
-      <GlassPanel className="space-y-5 p-4 md:p-5">
-        {/* Filter strip — colocated with cards */}
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap gap-1.5">
-            {(['all', 'beginner', 'intermediate', 'advanced'] as const).map((diff) => (
-              <FilterPill
-                key={diff}
-                label={diff === 'all' ? t('store.categories.all') : getDifficultyLabel(diff, t)}
-                count={difficultyCounts[diff] ?? 0}
-                active={selectedDifficulty === diff}
-                onClick={() => setSelectedDifficulty(diff)}
-              />
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {categories.map((category) => (
-              <FilterPill
-                key={category.id}
-                label={category.label}
-                count={categoryCounts[category.id] ?? 0}
-                active={selectedCategory === category.id}
-                onClick={() => setSelectedCategory(category.id as TemplateCategoryId | 'all')}
-              />
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-3">
+
+      <GlassPanel className="space-y-4 p-4 md:p-5">
+        {search.trim() && (
+          <div className="flex items-center justify-between gap-3">
             <p className="text-sm text-text-muted">
               {t('store.matchingTemplates', { count: filtered.length })}
-              {selectedDifficulty !== 'all'
-                ? ` · ${getDifficultyLabel(selectedDifficulty, t)}`
-                : ''}
-              {selectedCategory !== 'all'
-                ? ` · ${categoryLabels[selectedCategory] ?? selectedCategory}`
-                : ''}
-              {debouncedSearch ? ` · ${t('store.matchingQuery', { query: debouncedSearch })}` : ''}
+              {t('store.matchingQuery', { query: debouncedSearch })}
             </p>
-            {hasFilters && (
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  setSearch('')
-                  setSelectedCategory('all')
-                  setSelectedDifficulty('all')
-                }}
-              >
-                {t('store.clearFilters')}
-              </Button>
-            )}
+            <Button type="button" variant="secondary" size="sm" onClick={() => setSearch('')}>
+              {t('store.clearFilters')}
+            </Button>
           </div>
-        </div>
+        )}
 
         {isLoading && (
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
@@ -448,16 +317,7 @@ export function StorePage() {
                 : t('store.noTemplatesInCategory')
             }
             action={
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                onClick={() => {
-                  setSearch('')
-                  setSelectedCategory('all')
-                  setSelectedDifficulty('all')
-                }}
-              >
+              <Button type="button" variant="primary" size="sm" onClick={() => setSearch('')}>
                 {t('store.clearFilters')}
               </Button>
             }
