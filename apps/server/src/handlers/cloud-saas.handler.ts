@@ -152,6 +152,32 @@ function resolveI18nInObject(obj: unknown, i18nDict: Record<string, string>): un
   return obj
 }
 
+function localizeTemplateRecord<
+  T extends { name: string; description: string | null; content: unknown },
+>(template: T, locale: string): T {
+  const content = template.content as Record<string, unknown>
+  const i18nDict = resolveTemplateI18nDict(content, locale)
+  const resolvedName = resolveI18nValue(template.name, i18nDict)
+  const finalName =
+    resolvedName === template.name
+      ? (i18nDict.title ?? i18nDict.name ?? template.name)
+      : resolvedName
+  const resolvedDesc = template.description
+    ? resolveI18nValue(template.description, i18nDict)
+    : undefined
+  const finalDesc =
+    resolvedDesc === template.description
+      ? (i18nDict.description ?? template.description)
+      : (resolvedDesc ?? i18nDict.description)
+
+  return {
+    ...template,
+    name: finalName,
+    description: finalDesc ?? null,
+    content: resolveI18nInObject(content, i18nDict),
+  }
+}
+
 function providerProfileScope(profileId: string): string {
   return `${PROVIDER_PROFILE_SCOPE_PREFIX}${profileId}`
 }
@@ -795,35 +821,18 @@ export function createCloudSaasHandler(container: AppContainer) {
     if (category) {
       templates = templates.filter((t) => t.category === category)
     }
+    const localized = templates.map((t) => localizeTemplateRecord(t, locale))
     if (q) {
-      templates = templates.filter(
-        (t) =>
-          t.name.toLowerCase().includes(q) ||
-          (t.description ?? '').toLowerCase().includes(q) ||
-          (t.tags as string[] | null)?.some((tag) => tag.toLowerCase().includes(q)),
+      return c.json(
+        localized.filter(
+          (t) =>
+            t.slug.toLowerCase().includes(q) ||
+            t.name.toLowerCase().includes(q) ||
+            (t.description ?? '').toLowerCase().includes(q) ||
+            (t.tags as string[] | null)?.some((tag) => tag.toLowerCase().includes(q)),
+        ),
       )
     }
-    // Resolve ${i18n:...} placeholders in name, description, and content.
-    // If name/description are plain values (not i18n refs) and empty, fall back
-    // to the localized values from content.i18n[locale].
-    const localized = templates.map((t) => {
-      const content = t.content as Record<string, unknown>
-      const i18nDict = resolveTemplateI18nDict(content, locale)
-      // Resolve i18n placeholders; fall back to i18n dict for plain slug/null values
-      const resolvedName = resolveI18nValue(t.name, i18nDict)
-      const finalName = resolvedName === t.name ? (i18nDict.name ?? t.name) : resolvedName
-      const resolvedDesc = t.description ? resolveI18nValue(t.description, i18nDict) : undefined
-      const finalDesc =
-        resolvedDesc === t.description
-          ? (i18nDict.description ?? t.description)
-          : (resolvedDesc ?? i18nDict.description)
-      return {
-        ...t,
-        name: finalName,
-        description: finalDesc,
-        content: resolveI18nInObject(content, i18nDict),
-      }
-    })
     return c.json(localized)
   })
 
@@ -882,25 +891,7 @@ export function createCloudSaasHandler(container: AppContainer) {
     if (!isDeployableTemplateContent(template.content)) {
       return c.json({ ok: false, error: 'Template is not deployable' }, 422)
     }
-    // Resolve ${i18n:...} placeholders; fall back to i18n dict for plain slug/null
-    const content = template.content as Record<string, unknown>
-    const i18nDict = resolveTemplateI18nDict(content, locale)
-    const resolvedName = resolveI18nValue(template.name, i18nDict)
-    const finalName =
-      resolvedName === template.name ? (i18nDict.name ?? template.name) : resolvedName
-    const resolvedDesc = template.description
-      ? resolveI18nValue(template.description, i18nDict)
-      : undefined
-    const finalDesc =
-      resolvedDesc === template.description
-        ? (i18nDict.description ?? template.description)
-        : (resolvedDesc ?? i18nDict.description)
-    return c.json({
-      ...template,
-      name: finalName,
-      description: finalDesc,
-      content: resolveI18nInObject(content, i18nDict),
-    })
+    return c.json(localizeTemplateRecord(template, locale))
   })
 
   h.get('/templates/:slug/env-refs', async (c) => {

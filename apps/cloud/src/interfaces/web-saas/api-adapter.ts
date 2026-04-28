@@ -192,9 +192,9 @@ function toTemplateSummary(t: SaasTemplate) {
   const meta = getTemplateMeta(t)
   return {
     name: t.slug,
+    title: t.name || t.slug,
     namespace: meta.namespace,
     description: t.description ?? '',
-    teamName: 'Shadow Cloud',
     agentCount: meta.agentCount,
     tags: Array.isArray(t.tags) ? t.tags : [],
     category: (t.category as TemplateCategoryId) ?? 'demo',
@@ -270,9 +270,9 @@ export const saasApiAdapter: CloudApiClient & WalletApiExtension = {
       saasApi.templates.list({ locale }).then((rows) =>
         rows.map((t) => ({
           name: t.slug,
+          title: t.name || t.slug,
           namespace: getTemplateMeta(t).namespace,
           description: t.description ?? '',
-          teamName: 'Shadow Cloud',
           agentCount: getTemplateMeta(t).agentCount,
           tags: t.tags ?? [],
         })),
@@ -286,9 +286,9 @@ export const saasApiAdapter: CloudApiClient & WalletApiExtension = {
       saasApi.templates.list({ locale }).then((rows) =>
         rows.map((t) => ({
           name: t.slug,
+          title: t.name || t.slug,
           namespace: getTemplateMeta(t).namespace,
           description: t.description ?? '',
-          teamName: 'Shadow Cloud',
           agentCount: getTemplateMeta(t).agentCount,
           tags: t.tags ?? [],
         })),

@@ -188,11 +188,13 @@ export function StoreDetailPage() {
     )
   }
 
+  const displayTitle = detail?.title || name
+
   return (
     <TemplateDetailShell
-      breadcrumbItems={[{ label: t('store.title'), to: '/store' }, { label: name }]}
+      breadcrumbItems={[{ label: t('store.title'), to: '/store' }, { label: displayTitle }]}
       heroIcon={<span className="text-5xl">{detail?.emoji ?? '📦'}</span>}
-      title={name}
+      title={displayTitle}
       description={detail?.description ?? t('common.loading')}
       badges={
         detail ? (
@@ -280,9 +282,9 @@ export function StoreDetailPage() {
               <div className="flex items-center justify-between gap-3">
                 <span className="text-xs flex items-center gap-1.5 text-text-muted">
                   <Cpu size={12} />
-                  {t('storeDetail.team')}
+                  {t('storeDetail.templateSlug')}
                 </span>
-                <span className="text-sm text-text-primary">{detail.teamName}</span>
+                <code className="text-sm text-text-primary">{detail.name}</code>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <span className="text-xs flex items-center gap-1.5 text-text-muted">

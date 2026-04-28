@@ -238,7 +238,7 @@
     "memLimit": "Memory Limit",
     "requiredEnvVars": "Required Environment Variables",
     "noEnvVarsRequired": "No environment variables required.",
-    "team": "Team",
+    "templateSlug": "Template slug",
     "popularity": "Popularity",
     "file": "File",
     "updated": "Updated",

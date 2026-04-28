@@ -128,7 +128,8 @@ function StoreAppCard({
   categoryLabel: string
 }) {
   const { t } = useTranslation()
-  const summary = template.overview[0] ?? template.description
+  const displayTitle = template.title || template.name
+  const summary = template.description || template.overview[0]
   const bannerStyle = CATEGORY_BANNER[template.category] ?? CATEGORY_BANNER_DEFAULT
   const bannerWords = template.name.split('-').slice(0, 3)
 
@@ -188,9 +189,9 @@ function StoreAppCard({
         <Link
           to="/store/$name"
           params={{ name: template.name }}
-          className="line-clamp-1 text-[15px] font-extrabold tracking-[-0.02em] text-text-primary transition-colors hover:text-primary"
+          className="line-clamp-1 text-[15px] font-extrabold text-text-primary transition-colors hover:text-primary"
         >
-          {template.name}
+          {displayTitle}
         </Link>
 
         <p className="line-clamp-2 text-[13px] leading-5 text-text-secondary">{summary}</p>
@@ -297,8 +298,8 @@ export function StorePage() {
 
         return (
           template.name.toLowerCase().includes(query) ||
+          template.title.toLowerCase().includes(query) ||
           template.description.toLowerCase().includes(query) ||
-          template.teamName.toLowerCase().includes(query) ||
           categoryLabel.toLowerCase().includes(query) ||
           template.features.some((feature) => feature.toLowerCase().includes(query)) ||
           template.highlights.some((highlight) => highlight.toLowerCase().includes(query))
@@ -310,6 +311,7 @@ export function StorePage() {
       (left, right) =>
         Number(right.featured) - Number(left.featured) ||
         right.popularity - left.popularity ||
+        left.title.localeCompare(right.title) ||
         left.name.localeCompare(right.name),
     )
   }, [categoryLabels, debouncedSearch, selectedCategory, selectedDifficulty, templates])

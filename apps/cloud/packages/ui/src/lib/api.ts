@@ -21,8 +21,8 @@ export interface Pod {
 
 export interface Template {
   name: string
+  title: string
   description: string
-  teamName: string
   agentCount: number
   tags?: string[]
   namespace: string
