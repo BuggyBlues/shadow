@@ -20,7 +20,7 @@ FROM node:22-alpine AS builder
 
 WORKDIR /build
 
-ARG OPENCLAW_VERSION=latest
+ARG OPENCLAW_VERSION=2026.4.24
 ARG SHADOWOB_OPENCLAW_PLUGIN_VERSION=latest
 
 # git is required by some npm packages during install
