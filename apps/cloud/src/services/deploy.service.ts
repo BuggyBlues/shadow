@@ -10,7 +10,7 @@ import { dirname, resolve } from 'node:path'
 import { loadKubeconfigPath } from '../cluster/kubeconfig.js'
 import type { CloudConfig } from '../config/schema.js'
 import type { Logger } from '../utils/logger.js'
-import { loadProvisionState } from '../utils/state.js'
+import { loadProvisionState, type ProvisionState } from '../utils/state.js'
 import type { ConfigService } from './config.service.js'
 import type { K8sService } from './k8s.service.js'
 import type { ManifestService } from './manifest.service.js'
@@ -49,6 +49,17 @@ export interface DeployOptions {
    * returns `true`, the deploy aborts before performing further side-effects.
    */
   isCancelled?: () => boolean
+  /**
+   * Initial provision state supplied by SaaS/database callers. CLI callers
+   * still use the on-disk state file next to the config.
+   */
+  initialProvisionState?: ProvisionState | null
+  /**
+   * Called whenever plugin provisioning produces a new durable state snapshot.
+   * SaaS uses this to persist Shadow server/channel/buddy IDs before Pulumi
+   * starts mutating Kubernetes.
+   */
+  onProvisionState?: (state: ProvisionState) => void | Promise<void>
 }
 
 export interface DeployResult {
@@ -57,6 +68,7 @@ export interface DeployResult {
   config: CloudConfig
   manifests?: Array<Record<string, unknown>>
   outputs?: Record<string, unknown>
+  provisionState?: ProvisionState
 }
 
 export interface DestroyOptions {
@@ -137,6 +149,8 @@ export class DeployService {
     // We pass it explicitly rather than mutating process.cwd() so concurrent
     // invocations don't interfere with each other.
     const configCwd = dirname(filePath)
+    let currentProvisionState: ProvisionState | null =
+      options.initialProvisionState ?? loadProvisionState(filePath, options.stateDir)
 
     // 1. Parse config
     this.logger.step('Parsing config...')
@@ -149,7 +163,12 @@ export class DeployService {
 
     if (agents.length === 0) {
       this.logger.warn('No agents defined in deployments.agents')
-      return { namespace, agentCount: 0, config }
+      return {
+        namespace,
+        agentCount: 0,
+        config,
+        provisionState: currentProvisionState ?? undefined,
+      }
     }
 
     this.logger.info(`Deploying ${agents.length} agent(s) to namespace "${namespace}"`)
@@ -211,7 +230,6 @@ export class DeployService {
       try {
         const { executePluginProvisions, getPluginRegistry } = await import('../plugins/index.js')
         for (const agent of agents) {
-          const existingState = loadProvisionState(filePath, options.stateDir)
           const provisionResults = await executePluginProvisions(
             agent,
             resolved,
@@ -219,7 +237,7 @@ export class DeployService {
             this.logger,
             options.dryRun,
             extraSecrets,
-            existingState,
+            currentProvisionState,
           )
           if (provisionResults.errors.length > 0) {
             for (const e of provisionResults.errors) {
@@ -234,20 +252,24 @@ export class DeployService {
             if (resolvedAgent) {
               resolvedAgent.env = { ...(resolvedAgent.env ?? {}), ...provisionResults.secrets }
             }
+          }
 
-            // Persist provision state for future dedup
-            if (!options.dryRun && Object.keys(provisionResults.states).length > 0) {
-              const { mergeProvisionState, saveProvisionState } = await import('../utils/state.js')
-              const newState: import('../utils/state.js').ProvisionState = {
-                provisionedAt: new Date().toISOString(),
-                stackName,
-                namespace,
-                plugins: provisionResults.states,
-              }
-              const merged = mergeProvisionState(existingState, newState)
-              const statePath = saveProvisionState(filePath, merged, options.stateDir)
-              this.logger.dim(`  State saved: ${statePath}`)
+          // Persist provision state for future dedup. This is deliberately
+          // independent of secrets so plugins that provision IDs but no runtime
+          // credentials are still durable.
+          if (!options.dryRun && Object.keys(provisionResults.states).length > 0) {
+            const { mergeProvisionState, saveProvisionState } = await import('../utils/state.js')
+            const newState: import('../utils/state.js').ProvisionState = {
+              provisionedAt: new Date().toISOString(),
+              stackName,
+              namespace,
+              plugins: provisionResults.states,
             }
+            const merged = mergeProvisionState(currentProvisionState, newState)
+            currentProvisionState = merged
+            const statePath = saveProvisionState(filePath, merged, options.stateDir)
+            this.logger.dim(`  State saved: ${statePath}`)
+            await options.onProvisionState?.(merged)
           }
         }
       } catch {
@@ -286,7 +308,13 @@ export class DeployService {
       }
 
       this.logger.success(`Manifests written to: ${outDir}`)
-      return { namespace, agentCount: agents.length, config: resolved, manifests }
+      return {
+        namespace,
+        agentCount: agents.length,
+        config: resolved,
+        manifests,
+        provisionState: currentProvisionState ?? undefined,
+      }
     }
 
     // 5. Deploy via Pulumi automation API
@@ -380,7 +408,12 @@ export class DeployService {
     if (options.dryRun) {
       this.logger.success('Preview complete')
       emit('Preview complete\n')
-      return { namespace, agentCount: agents.length, config: resolved }
+      return {
+        namespace,
+        agentCount: agents.length,
+        config: resolved,
+        provisionState: currentProvisionState ?? undefined,
+      }
     }
 
     this.logger.success('Deployment complete!')
@@ -400,6 +433,7 @@ export class DeployService {
       agentCount: agents.length,
       config: resolved,
       outputs: Object.fromEntries(Object.entries(outputs).map(([k, v]) => [k, v.value])),
+      provisionState: currentProvisionState ?? undefined,
     }
   }
 

@@ -1812,122 +1812,153 @@ export function createCloudSaasHandler(container: AppContainer) {
       const baseCost = template.baseCost ?? 0
       const monthlyCost = (TIER_COST[input.resourceTier] ?? 0) + baseCost
 
-      // Deduct Shrimp Coins
-      const walletService = container.resolve('walletService')
-      const deployRefId = crypto.randomUUID()
-      let charged = false
-      let deploymentId: string | null = null
+      // Get or use platform cluster, then reserve the namespace at the
+      // deployment-instance level. A template can be deployed multiple times,
+      // but each live instance must own a distinct namespace.
+      const clusterDao = container.resolve('cloudClusterDao')
+      const clusters = await clusterDao.listByUser(user.userId)
+      const platformCluster = clusters.find((cl) => cl.isPlatform) ?? null
+      const deploymentDao = container.resolve('cloudDeploymentDao')
+      const operationScope = {
+        userId: user.userId,
+        clusterId: platformCluster?.id ?? null,
+        namespace: input.namespace,
+      }
+      const namespaceLockAcquired = await deploymentDao.tryAcquireOperationLock(operationScope)
+      if (!namespaceLockAcquired) {
+        return c.json({ ok: false, error: 'Deployment namespace is currently busy' }, 409)
+      }
 
       try {
-        await walletService.debit(
-          user.userId,
-          monthlyCost,
-          deployRefId,
-          'cloud_deploy',
-          `部署 ${template.name} (${input.resourceTier})`,
-        )
-        charged = true
-
-        // Get or use platform cluster
-        const clusterDao = container.resolve('cloudClusterDao')
-        const clusters = await clusterDao.listByUser(user.userId)
-        const platformCluster = clusters.find((cl) => cl.isPlatform) ?? null
-
-        // Create deployment record
-        const deploymentDao = container.resolve('cloudDeploymentDao')
-        const deployment = await deploymentDao.create({
+        const existingInstance = await deploymentDao.findLatestCurrentInNamespace({
           userId: user.userId,
           clusterId: platformCluster?.id ?? null,
           namespace: input.namespace,
-          name: input.name,
-          agentCount: input.agentCount,
-          configSnapshot: storedConfigSnapshot,
         })
-
-        if (!deployment) {
-          throw new Error('Failed to create deployment')
+        if (existingInstance) {
+          return c.json(
+            {
+              ok: false,
+              error:
+                'A deployment already owns this namespace. Redeploy the existing instance or choose another namespace.',
+            },
+            409,
+          )
         }
-        deploymentId = deployment.id
 
-        // Set SaaS fields
-        const [updated] = await db
-          .update(cloudDeployments)
-          .set({
-            templateSlug: input.templateSlug,
-            resourceTier: input.resourceTier,
+        // Deduct Shrimp Coins
+        const walletService = container.resolve('walletService')
+        const deployRefId = crypto.randomUUID()
+        let charged = false
+        let deploymentId: string | null = null
+
+        try {
+          await walletService.debit(
+            user.userId,
             monthlyCost,
-            saasMode: true,
+            deployRefId,
+            'cloud_deploy',
+            `部署 ${template.name} (${input.resourceTier})`,
+          )
+          charged = true
+
+          // Create deployment record
+          const deployment = await deploymentDao.create({
+            userId: user.userId,
+            clusterId: platformCluster?.id ?? null,
+            namespace: input.namespace,
+            name: input.name,
+            agentCount: input.agentCount,
+            configSnapshot: storedConfigSnapshot,
           })
-          .where(eq(cloudDeployments.id, deployment.id))
-          .returning()
 
-        if (!updated) {
-          throw new Error('Failed to finalize deployment metadata')
-        }
-
-        // Increment template deploy_count
-        await db
-          .update(cloudTemplates)
-          .set({ deployCount: sql`${cloudTemplates.deployCount} + 1` })
-          .where(eq(cloudTemplates.slug, input.templateSlug))
-
-        const activityDao = container.resolve('cloudActivityDao')
-        await activityDao.log({
-          userId: user.userId,
-          type: 'deploy',
-          namespace: input.namespace,
-          meta: {
-            templateSlug: input.templateSlug,
-            resourceTier: input.resourceTier,
-            monthlyCost,
-          },
-        })
-
-        return c.json(sanitizeCloudSaasDeployment(updated), 201)
-      } catch (err) {
-        if (deploymentId) {
-          try {
-            const deploymentDao = container.resolve('cloudDeploymentDao')
-            await deploymentDao.updateStatus(
-              deploymentId,
-              'failed',
-              err instanceof Error ? err.message : 'Failed to create deployment',
-            )
-            await deploymentDao.appendLog(
-              deploymentId,
-              `[error] ${err instanceof Error ? err.message : String(err)}`,
-              'error',
-            )
-          } catch (cleanupErr) {
-            console.error('[cloud-saas] failed to persist deployment create error:', cleanupErr)
+          if (!deployment) {
+            throw new Error('Failed to create deployment')
           }
-        }
+          deploymentId = deployment.id
 
-        if (charged) {
-          try {
-            await walletService.refund(
-              user.userId,
+          // Set SaaS fields
+          const [updated] = await db
+            .update(cloudDeployments)
+            .set({
+              templateSlug: input.templateSlug,
+              resourceTier: input.resourceTier,
               monthlyCost,
-              deployRefId,
-              'cloud_deploy',
-              `部署退款 ${template.name} (${input.resourceTier})`,
-            )
-          } catch (refundErr) {
-            console.error('[cloud-saas] failed to refund wallet after create error:', refundErr)
-          }
-        }
+              saasMode: true,
+            })
+            .where(eq(cloudDeployments.id, deployment.id))
+            .returning()
 
-        const status =
-          typeof (err as { status?: number }).status === 'number'
-            ? (err as { status: number }).status
-            : 500
-        return c.json(
-          {
-            ok: false,
-            error: err instanceof Error ? err.message : 'Failed to create deployment',
-          },
-          { status: status as 400 | 404 | 409 | 422 | 500 },
-        )
+          if (!updated) {
+            throw new Error('Failed to finalize deployment metadata')
+          }
+
+          // Increment template deploy_count
+          await db
+            .update(cloudTemplates)
+            .set({ deployCount: sql`${cloudTemplates.deployCount} + 1` })
+            .where(eq(cloudTemplates.slug, input.templateSlug))
+
+          const activityDao = container.resolve('cloudActivityDao')
+          await activityDao.log({
+            userId: user.userId,
+            type: 'deploy',
+            namespace: input.namespace,
+            meta: {
+              templateSlug: input.templateSlug,
+              resourceTier: input.resourceTier,
+              monthlyCost,
+            },
+          })
+
+          return c.json(sanitizeCloudSaasDeployment(updated), 201)
+        } catch (err) {
+          if (deploymentId) {
+            try {
+              const deploymentDao = container.resolve('cloudDeploymentDao')
+              await deploymentDao.updateStatus(
+                deploymentId,
+                'failed',
+                err instanceof Error ? err.message : 'Failed to create deployment',
+              )
+              await deploymentDao.appendLog(
+                deploymentId,
+                `[error] ${err instanceof Error ? err.message : String(err)}`,
+                'error',
+              )
+            } catch (cleanupErr) {
+              console.error('[cloud-saas] failed to persist deployment create error:', cleanupErr)
+            }
+          }
+
+          if (charged) {
+            try {
+              await walletService.refund(
+                user.userId,
+                monthlyCost,
+                deployRefId,
+                'cloud_deploy',
+                `部署退款 ${template.name} (${input.resourceTier})`,
+              )
+            } catch (refundErr) {
+              console.error('[cloud-saas] failed to refund wallet after create error:', refundErr)
+            }
+          }
+
+          const status =
+            typeof (err as { status?: number }).status === 'number'
+              ? (err as { status: number }).status
+              : 500
+          return c.json(
+            {
+              ok: false,
+              error: err instanceof Error ? err.message : 'Failed to create deployment',
+            },
+            { status: status as 400 | 404 | 409 | 422 | 500 },
+          )
+        }
+      } finally {
+        await deploymentDao.releaseOperationLock(operationScope).catch(() => {})
       }
     },
   )
@@ -1942,15 +1973,48 @@ export function createCloudSaasHandler(container: AppContainer) {
     const dao = container.resolve('cloudDeploymentDao')
     const deployment = await dao.findById(id, user.userId)
     if (!deployment) return c.json({ ok: false, error: 'Deployment not found' }, 404)
-    await dao.updateStatus(id, 'destroying')
-    const activityDao = container.resolve('cloudActivityDao')
-    await activityDao.log({
-      userId: user.userId,
-      type: 'destroy',
-      namespace: deployment.namespace,
-      meta: { deploymentId: id },
-    })
-    return c.json({ ok: true })
+
+    if (!isVisibleDeploymentStatus(deployment.status)) {
+      return c.json(
+        { ok: false, error: `Cannot destroy deployment in status "${deployment.status}"` },
+        422,
+      )
+    }
+
+    const operationLockAcquired = await dao.tryAcquireOperationLock(deployment)
+    if (!operationLockAcquired) {
+      return c.json({ ok: false, error: 'Deployment namespace is currently busy' }, 409)
+    }
+
+    try {
+      const current = await dao.findLatestCurrentInNamespace({
+        userId: user.userId,
+        clusterId: deployment.clusterId,
+        namespace: deployment.namespace,
+      })
+      if (!current || current.id !== deployment.id) {
+        return c.json(
+          {
+            ok: false,
+            error:
+              'Cannot destroy a historical deployment. Destroy the current deployment instance.',
+          },
+          409,
+        )
+      }
+
+      await dao.updateStatus(id, 'destroying')
+      const activityDao = container.resolve('cloudActivityDao')
+      await activityDao.log({
+        userId: user.userId,
+        type: 'destroy',
+        namespace: deployment.namespace,
+        meta: { deploymentId: id },
+      })
+      return c.json({ ok: true })
+    } finally {
+      await dao.releaseOperationLock(deployment).catch(() => {})
+    }
   })
 
   /**
@@ -1990,6 +2054,9 @@ export function createCloudSaasHandler(container: AppContainer) {
     const dao = container.resolve('cloudDeploymentDao')
     const deployment = await dao.findById(id, user.userId)
     if (!deployment) return c.json({ ok: false, error: 'Deployment not found' }, 404)
+    if (deployment.status === 'destroyed') {
+      return c.json({ ok: false, error: 'Destroyed deployments cannot be redeployed' }, 422)
+    }
     if (
       deployment.status === 'pending' ||
       deployment.status === 'deploying' ||
@@ -1998,51 +2065,83 @@ export function createCloudSaasHandler(container: AppContainer) {
     ) {
       return c.json({ ok: false, error: 'Deployment is currently in progress' }, 422)
     }
-    if (!deployment.configSnapshot || typeof deployment.configSnapshot !== 'object') {
-      return c.json({ ok: false, error: 'Deployment has no config snapshot to redeploy' }, 422)
+    const operationLockAcquired = await dao.tryAcquireOperationLock(deployment)
+    if (!operationLockAcquired) {
+      return c.json({ ok: false, error: 'Deployment namespace is currently busy' }, 409)
     }
-
-    const next = await dao.create({
-      userId: user.userId,
-      clusterId: deployment.clusterId,
-      namespace: deployment.namespace,
-      name: deployment.name,
-      agentCount: deployment.agentCount,
-      configSnapshot: deployment.configSnapshot,
-    })
-    if (!next) {
-      return c.json({ ok: false, error: 'Failed to create redeployment' }, 500)
-    }
-
-    const db = container.resolve('db')
-    const [updated] = await db
-      .update(cloudDeployments)
-      .set({
-        templateSlug: deployment.templateSlug,
-        resourceTier: deployment.resourceTier,
-        monthlyCost: deployment.monthlyCost,
-        saasMode: deployment.saasMode,
-        updatedAt: new Date(),
+    try {
+      const current = await dao.findLatestCurrentInNamespace({
+        userId: user.userId,
+        clusterId: deployment.clusterId,
+        namespace: deployment.namespace,
       })
-      .where(eq(cloudDeployments.id, next.id))
-      .returning()
+      if (current && current.id !== deployment.id) {
+        return c.json(
+          {
+            ok: false,
+            error:
+              'Cannot redeploy a historical deployment. Redeploy the current deployment instance.',
+          },
+          409,
+        )
+      }
+      const activeOperation = await dao.findActiveOperationInNamespace({
+        userId: user.userId,
+        clusterId: deployment.clusterId,
+        namespace: deployment.namespace,
+        excludeId: deployment.id,
+      })
+      if (activeOperation) {
+        return c.json({ ok: false, error: 'Deployment namespace is currently busy' }, 409)
+      }
+      if (!deployment.configSnapshot || typeof deployment.configSnapshot !== 'object') {
+        return c.json({ ok: false, error: 'Deployment has no config snapshot to redeploy' }, 422)
+      }
 
-    await dao.appendLog(next.id, `[redeploy] Recreated from deployment ${deployment.id}`, 'info')
+      const next = await dao.create({
+        userId: user.userId,
+        clusterId: deployment.clusterId,
+        namespace: deployment.namespace,
+        name: deployment.name,
+        agentCount: deployment.agentCount,
+        configSnapshot: deployment.configSnapshot,
+      })
+      if (!next) {
+        return c.json({ ok: false, error: 'Failed to create redeployment' }, 500)
+      }
 
-    const activityDao = container.resolve('cloudActivityDao')
-    await activityDao.log({
-      userId: user.userId,
-      type: 'deploy',
-      namespace: deployment.namespace,
-      meta: {
-        deploymentId: next.id,
-        redeployFrom: deployment.id,
-        templateSlug: deployment.templateSlug,
-        resourceTier: deployment.resourceTier,
-      },
-    })
+      const db = container.resolve('db')
+      const [updated] = await db
+        .update(cloudDeployments)
+        .set({
+          templateSlug: deployment.templateSlug,
+          resourceTier: deployment.resourceTier,
+          monthlyCost: deployment.monthlyCost,
+          saasMode: deployment.saasMode,
+          updatedAt: new Date(),
+        })
+        .where(eq(cloudDeployments.id, next.id))
+        .returning()
 
-    return c.json(sanitizeCloudSaasDeployment(updated ?? next), 201)
+      await dao.appendLog(next.id, `[redeploy] Recreated from deployment ${deployment.id}`, 'info')
+
+      const activityDao = container.resolve('cloudActivityDao')
+      await activityDao.log({
+        userId: user.userId,
+        type: 'deploy',
+        namespace: deployment.namespace,
+        meta: {
+          deploymentId: next.id,
+          redeployFrom: deployment.id,
+          templateSlug: deployment.templateSlug,
+          resourceTier: deployment.resourceTier,
+        },
+      })
+
+      return c.json(sanitizeCloudSaasDeployment(updated ?? next), 201)
+    } finally {
+      await dao.releaseOperationLock(deployment).catch(() => {})
+    }
   })
 
   /**

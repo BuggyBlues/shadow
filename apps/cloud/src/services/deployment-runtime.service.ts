@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { homedir, tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import type { CloudConfig } from '../config/schema.js'
+import type { ProvisionState } from '../utils/state.js'
 import type { DeployOptions, DeployResult } from './deploy.service.js'
 import { DeployService } from './deploy.service.js'
 
@@ -22,6 +23,8 @@ export interface DeployFromSnapshotOptions
   shadowUrl?: string
   shadowToken?: string
   cluster?: DeploymentRuntimeCluster | null
+  provisionState?: ProvisionState | null
+  onProvisionState?: (state: ProvisionState) => void | Promise<void>
 }
 
 export interface DestroyRuntimeOptions {
@@ -146,6 +149,7 @@ export class DeploymentRuntimeService {
       configSnapshot: _configSnapshot,
       runtimeEnvVars: _runtimeEnvVars,
       cluster: _cluster,
+      provisionState: _provisionState,
       shadowUrl,
       shadowToken,
       ...deployOptions
@@ -160,6 +164,7 @@ export class DeploymentRuntimeService {
           k8sContext: context.k8sContext,
           kubeConfigPath: context.kubeConfigPath,
           runtimeEnvVars: context.runtimeEnvVars,
+          initialProvisionState: options.provisionState ?? null,
           shadowUrl,
           shadowToken,
         }),

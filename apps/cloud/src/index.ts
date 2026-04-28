@@ -6,6 +6,7 @@
  */
 
 export {
+  attachCloudSaasProvisionState,
   CLOUD_SAAS_RUNTIME_KEY,
   extractCloudSaasRuntime,
   prepareCloudSaasConfigSnapshot,

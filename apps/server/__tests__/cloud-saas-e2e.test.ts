@@ -13,7 +13,7 @@
 
 import { randomUUID } from 'node:crypto'
 import { createServer } from 'node:http'
-import { extractCloudSaasRuntime } from '@shadowob/cloud'
+import { attachCloudSaasProvisionState, extractCloudSaasRuntime } from '@shadowob/cloud'
 import { eq, like } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { Hono } from 'hono'
@@ -999,6 +999,83 @@ describe('Cloud SaaS — deployment + billing', () => {
         balance: number
       }
       expect(walletAfter.balance).toBe(walletBefore.balance)
+    } finally {
+      await db
+        .delete(schema.cloudDeployments)
+        .where(eq(schema.cloudDeployments.namespace, namespace))
+        .catch(() => {})
+    }
+  })
+
+  it('guards deployment instances by namespace and preserves provision state on redeploy', async () => {
+    const namespace = uniqueName('e2e-instance-ns')
+    const provisionState = {
+      provisionedAt: '2026-04-28T00:00:00.000Z',
+      namespace,
+      plugins: {
+        shadowob: {
+          servers: { main: 'server-1' },
+          channels: { general: 'channel-1' },
+          buddies: {
+            'strategy-buddy': {
+              agentId: 'agent-1',
+              userId: 'bot-user-1',
+              token: 'agent-token-1',
+            },
+          },
+        },
+      },
+    }
+
+    try {
+      const [existing] = await db
+        .insert(schema.cloudDeployments)
+        .values({
+          userId,
+          namespace,
+          name: `${namespace}-agent`,
+          status: 'deployed',
+          agentCount: 1,
+          configSnapshot: attachCloudSaasProvisionState(
+            makeConfigSnapshot('redeploy-state-secret'),
+            provisionState,
+          ),
+          templateSlug: officialTemplateSlug,
+          resourceTier: 'lightweight',
+          monthlyCost: 500,
+          saasMode: true,
+        })
+        .returning()
+
+      const duplicateRes = await req('POST', '/api/cloud-saas/deployments', {
+        namespace,
+        name: `${namespace}-duplicate`,
+        templateSlug: officialTemplateSlug,
+        resourceTier: 'lightweight',
+        configSnapshot: makeConfigSnapshot('duplicate-secret'),
+      })
+      expect(duplicateRes.status).toBe(409)
+
+      const redeployRes = await req('POST', `/api/cloud-saas/deployments/${existing!.id}/redeploy`)
+      expect(redeployRes.status).toBe(201)
+      const redeployed = (await redeployRes.json()) as { id: string }
+      const [storedRedeploy] = await db
+        .select()
+        .from(schema.cloudDeployments)
+        .where(eq(schema.cloudDeployments.id, redeployed.id))
+        .limit(1)
+
+      const runtime = extractCloudSaasRuntime(storedRedeploy?.configSnapshot)
+      expect(runtime.provisionState?.plugins.shadowob).toEqual(provisionState.plugins.shadowob)
+
+      const redeployAgainRes = await req(
+        'POST',
+        `/api/cloud-saas/deployments/${existing!.id}/redeploy`,
+      )
+      expect(redeployAgainRes.status).toBe(409)
+
+      const destroyOldRes = await req('DELETE', `/api/cloud-saas/deployments/${existing!.id}`)
+      expect(destroyOldRes.status).toBe(409)
     } finally {
       await db
         .delete(schema.cloudDeployments)

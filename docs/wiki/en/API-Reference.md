@@ -73,6 +73,20 @@ Interactive message blocks are stored in `message.metadata.interactive`; one-sho
 | GET    | `/api/agents/:id/slash-commands`              | List registered commands |
 | GET    | `/api/channels/:id/slash-commands`            | List commands available in a channel |
 
+## Cloud SaaS Deployments
+
+| Method | Endpoint                                      | Description              |
+|--------|-----------------------------------------------|--------------------------|
+| GET    | `/api/cloud-saas/deployments`                 | List current deployment instances; add `includeHistory=1` to include historical attempts |
+| POST   | `/api/cloud-saas/deployments`                 | Create a new deployment instance; live namespaces are unique per user and cluster |
+| GET    | `/api/cloud-saas/deployments/:id`             | Get a deployment attempt |
+| DELETE | `/api/cloud-saas/deployments/:id`             | Destroy the current deployment instance |
+| POST   | `/api/cloud-saas/deployments/:id/redeploy`    | Enqueue a new attempt for the current deployment instance |
+| POST   | `/api/cloud-saas/deployments/:id/cancel`      | Request cancellation of a pending or deploying attempt |
+| GET    | `/api/cloud-saas/deployments/:id/logs`        | Stream deployment logs |
+
+Deployment rows are attempt history; the stable deployment instance is identified by user, cluster, and namespace. Creating a second live instance in the same namespace, redeploying a historical attempt, destroying a historical attempt, or mutating a namespace while another operation is active returns `409`.
+
 ## Cloud SaaS Provider Profiles
 
 | Method | Endpoint                                      | Description              |
@@ -83,13 +97,10 @@ Interactive message blocks are stored in `message.metadata.interactive`; one-sho
 | POST   | `/api/cloud-saas/provider-profiles/:id/test`  | Test provider credentials |
 | POST   | `/api/cloud-saas/provider-profiles/:id/models/refresh` | Discover and persist provider models |
 | DELETE | `/api/cloud-saas/provider-profiles/:id`       | Delete a provider profile |
-| GET    | `/api/cloud-saas/provider-routing`            | Read the LLM routing policy and routable models |
-| PUT    | `/api/cloud-saas/provider-routing`            | Update the LLM routing policy, limits, and fallback chain |
-| POST   | `/api/cloud-saas/provider-routing/resolve`    | Resolve a selector or tags to a concrete model route |
 
-Provider profile secrets are stored through the Cloud env var KMS path. Phase 1 supports API-key provider profiles only. Templates using the `model-provider` plugin receive matching runtime secrets and model metadata, including user-defined tags such as `default`, `fast`, `reasoning`, `vision`, and `tools`. Routing policy also persists token/cost threshold rules with alert-only or hard-limit behavior for the future proxy.
+Provider profile secrets are stored through the Cloud env var KMS path. Phase 1 supports API-key provider profiles only. Templates using the `model-provider` plugin receive matching runtime secrets and model metadata, including user-defined tags such as `default`, `fast`, `reasoning`, `vision`, and `tools`.
 
-The LLM Gateway management APIs above do not yet expose a public `/v1/chat/completions` proxy token or base URL. That runtime gateway is a later server feature; current profiles are used for encrypted storage, model discovery, routing policy, and deployment-time injection.
+The LLM Gateway management APIs above do not expose a public `/v1/chat/completions` proxy token or base URL. Current profiles are used for encrypted storage, model discovery, model tags, and deployment-time injection.
 
 ## File Upload
 
