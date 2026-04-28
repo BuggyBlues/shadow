@@ -31,7 +31,7 @@ function findRuntimeDepsChunk() {
     (name) => name.startsWith('bundled-runtime-deps-') && name.endsWith('.js'),
   )
   if (!chunk) {
-    throw new Error(`OpenClaw bundled runtime deps chunk not found in ${distDir}`)
+    return null
   }
   return join(distDir, chunk)
 }
@@ -42,7 +42,18 @@ async function main() {
     mkdirSync(stageDir, { recursive: true })
   }
 
-  const runtimeDeps = await import(pathToFileURL(findRuntimeDepsChunk()).href)
+  const runtimeDepsChunk = findRuntimeDepsChunk()
+  if (!runtimeDepsChunk) {
+    console.warn(
+      `[runtime-deps] OpenClaw bundled runtime deps chunk not found in ${join(
+        packageRoot,
+        'dist',
+      )}; skipping build-time prewarm`,
+    )
+    return
+  }
+
+  const runtimeDeps = await import(pathToFileURL(runtimeDepsChunk).href)
   const config = loadConfig()
   const scan = runtimeDeps.c({
     packageRoot,
