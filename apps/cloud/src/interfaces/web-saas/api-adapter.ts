@@ -159,6 +159,38 @@ function expandDeploymentRows(deployment: SaasDeployment): Deployment[] {
   }))
 }
 
+function isActiveDeployment(row: SaasDeployment): boolean {
+  return (
+    row.status === 'pending' ||
+    row.status === 'deploying' ||
+    row.status === 'cancelling' ||
+    row.status === 'destroying'
+  )
+}
+
+function deploymentTaskUrl(id: string): string {
+  return `/cloud/deploy-tasks/${encodeURIComponent(id)}`
+}
+
+function toDeployTaskItem(deployment: SaasDeployment) {
+  return {
+    task: {
+      id: deployment.id,
+      namespace: deployment.namespace,
+      templateSlug: deployment.templateSlug,
+      version: null,
+      status: deployment.status,
+      config: deployment.configSnapshot ?? {},
+      agentCount: deployment.agentCount,
+      error: deployment.errorMessage,
+      createdAt: deployment.createdAt,
+      updatedAt: deployment.updatedAt,
+    },
+    url: deploymentTaskUrl(deployment.id),
+    active: isActiveDeployment(deployment),
+  }
+}
+
 function filterPodsByAgent(
   pods: Array<{
     name: string
@@ -175,7 +207,7 @@ function filterPodsByAgent(
       ? pods.filter(
           (pod) =>
             pod.name.includes(agent) ||
-            pod.containers.some(
+            (pod.containers ?? []).some(
               (containerName) => containerName === agent || containerName.includes(agent),
             ),
         )
@@ -444,13 +476,6 @@ export const saasApiAdapter: CloudApiClient & WalletApiExtension = {
         const ns = [...new Set(rows.map((d) => d.namespace))]
         return { configured: ns, discovered: [], all: ns }
       }),
-    scale: async (namespace: string, _id: string, agentCount: number) => {
-      const deployment = await resolveDeploymentByNamespace(namespace)
-      if (!deployment) return { ok: true }
-      const updated = await saasApi.deployments.scale(deployment.id, agentCount)
-      syncDeploymentCache([updated])
-      return { ok: true }
-    },
     costs: () => saasApi.deployments.costs(),
     namespaceCosts: async (namespace: string) => {
       const deployment = await resolveDeploymentByNamespace(namespace)
@@ -483,7 +508,7 @@ export const saasApiAdapter: CloudApiClient & WalletApiExtension = {
       }
       return `${BASE}/deployments/${encodeURIComponent(
         deployment.id,
-      )}/pod-logs?agent=${encodeURIComponent(agent)}`
+      )}/pod-logs?agent=${encodeURIComponent(agent)}&container=openclaw`
     },
     logsHistory: async (namespace: string, agent: string, page = 1, limit = 200) => {
       const deployment = await resolveDeploymentByNamespace(namespace)
@@ -572,33 +597,32 @@ export const saasApiAdapter: CloudApiClient & WalletApiExtension = {
     },
   },
 
-  // ── Deploy Tasks (stubs — no saas equivalent) ────────────────────────────
+  // ── Deploy Tasks (SaaS deployment rows are durable task history) ─────────
   deployTasks: {
-    list: () => Promise.resolve({ tasks: [] }),
-    get: async (id: number | string) => ({
-      task: {
-        id: Number(id),
-        namespace: '',
-        templateSlug: null,
-        version: null,
-        status: 'failed',
-        config: {},
-        agentCount: 0,
-        error: 'Deploy tasks are not available in SaaS mode.',
-        createdAt: now(),
-        updatedAt: now(),
-      },
-      url: '',
-      active: false,
-    }),
-    streamUrl: (_id: number | string) => '',
-    redeploy: async (_id: number | string) =>
-      new Response(JSON.stringify({ ok: false }), {
-        status: 501,
+    list: () =>
+      saasApi.deployments.list({ limit: 100, offset: 0, includeHistory: true }).then((rows) => ({
+        tasks: rows.map(toDeployTaskItem),
+      })),
+    get: (id: number | string) =>
+      saasApi.deployments.get(String(id)).then((deployment) => toDeployTaskItem(deployment)),
+    streamUrl: (id: number | string) => saasApi.deployments.logsUrl(String(id)),
+    redeploy: async (id: number | string) => {
+      const deployment = await saasApi.deployments.redeploy(String(id))
+      deploymentCacheById.set(deployment.id, deployment)
+      deploymentCacheByNamespace.set(deployment.namespace, deployment)
+      return new Response(JSON.stringify({ id: deployment.id, ok: true }), {
+        status: 200,
         headers: { 'Content-Type': 'application/json' },
-      }),
-    redeployToTaskId: (_id: number | string) => Promise.resolve(0),
-    redeployUrl: (_id: number | string) => '',
+      })
+    },
+    redeployToTaskId: async (id: number | string) => {
+      const deployment = await saasApi.deployments.redeploy(String(id))
+      deploymentCacheById.set(deployment.id, deployment)
+      deploymentCacheByNamespace.set(deployment.namespace, deployment)
+      return deployment.id
+    },
+    redeployUrl: (id: number | string) =>
+      `${BASE}/deployments/${encodeURIComponent(String(id))}/redeploy`,
   },
 
   // ── Env Vars (global scope in SaaS — stubs) ──────────────────────────────

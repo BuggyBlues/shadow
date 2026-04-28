@@ -317,6 +317,17 @@ describe('Cloud SaaS — deployment listing', () => {
         name: string
       }>
       expect(body[0]).toMatchObject({ namespace, name: `${namespace}-new` })
+
+      const historyRes = await req(
+        'GET',
+        '/api/cloud-saas/deployments?includeHistory=1&limit=10&offset=0',
+      )
+      expect(historyRes.status).toBe(200)
+      const history = (await historyRes.json()) as Array<{ namespace: string; name: string }>
+      expect(history.filter((row) => row.namespace === namespace).map((row) => row.name)).toEqual([
+        `${namespace}-new`,
+        `${namespace}-old`,
+      ])
     } finally {
       await db
         .delete(schema.cloudDeployments)
@@ -518,6 +529,10 @@ describe('Cloud SaaS — deployment + billing', () => {
         name: uniqueName('e2e-provider-profile-deploy'),
         templateSlug: officialTemplateSlug,
         resourceTier: 'lightweight',
+        envVars: {
+          ANTHROPIC_API_KEY: 'stale-explicit-key',
+          ANTHROPIC_BASE_URL: 'https://api.anthropic.com/v1',
+        },
         configSnapshot: {
           ...makeConfigSnapshot('provider-profile-secret'),
           use: [
@@ -566,6 +581,79 @@ describe('Cloud SaaS — deployment + billing', () => {
       } else {
         process.env.SHADOW_SERVER_URL = previousShadowServerUrl
       }
+    }
+  })
+
+  it('tests anthropic-compatible profiles through a configured model when model listing is unavailable', async () => {
+    const providerServer = createServer((request, response) => {
+      const url = new URL(request.url ?? '/', 'http://mock.local')
+      if (url.pathname === '/apps/anthropic/models') {
+        expect(request.headers['x-api-key']).toBe('mock-anthropic-key')
+        response.writeHead(404, { 'Content-Type': 'application/json' })
+        response.end(JSON.stringify({ error: 'models endpoint unavailable' }))
+        return
+      }
+      if (url.pathname === '/apps/anthropic/messages') {
+        expect(request.method).toBe('POST')
+        expect(request.headers['x-api-key']).toBe('mock-anthropic-key')
+        expect(request.headers['anthropic-version']).toBe('2023-06-01')
+        let body = ''
+        request.on('data', (chunk) => {
+          body += chunk
+        })
+        request.on('end', () => {
+          const parsed = JSON.parse(body) as { model: string }
+          expect(parsed.model).toBe('qwen3.6-plus')
+          response.writeHead(200, { 'Content-Type': 'application/json' })
+          response.end(
+            JSON.stringify({
+              id: 'msg_test',
+              type: 'message',
+              role: 'assistant',
+              content: [{ type: 'text', text: 'ok' }],
+            }),
+          )
+        })
+        return
+      }
+
+      response.writeHead(404)
+      response.end()
+    })
+    await new Promise<void>((resolve) => providerServer.listen(0, '127.0.0.1', resolve))
+
+    try {
+      const address = providerServer.address()
+      const port = typeof address === 'object' && address ? address.port : 0
+      const profileRes = await req('PUT', '/api/cloud-saas/provider-profiles', {
+        providerId: 'anthropic',
+        name: 'Anthropic Compatible Gateway',
+        config: {
+          baseUrl: `http://127.0.0.1:${port}/apps/anthropic`,
+          apiFormat: 'anthropic',
+          authType: 'api_key',
+          models: [{ id: 'qwen3.6-plus', tags: ['default'] }],
+        },
+        envVars: { ANTHROPIC_API_KEY: 'mock-anthropic-key' },
+      })
+      expect(profileRes.status).toBe(200)
+      const profileBody = (await profileRes.json()) as {
+        profile: { id: string }
+      }
+
+      const testRes = await req(
+        'POST',
+        `/api/cloud-saas/provider-profiles/${profileBody.profile.id}/test`,
+      )
+      expect(testRes.status).toBe(200)
+      const testBody = (await testRes.json()) as { ok: boolean; status?: number; message: string }
+      expect(testBody).toMatchObject({
+        ok: true,
+        status: 200,
+        message: 'Connection succeeded',
+      })
+    } finally {
+      await new Promise<void>((resolve) => providerServer.close(() => resolve()))
     }
   })
 
@@ -816,7 +904,7 @@ describe('Cloud SaaS — deployment + billing', () => {
     expect(deployTx).toBeDefined()
   })
 
-  it('GET /api/cloud-saas/deployments/costs and /:id/costs return Shrimp billing summaries', async () => {
+  it('GET /api/cloud-saas/deployments/costs and /:id/costs return token usage summaries', async () => {
     const namespace = uniqueName('e2e-costs-ns')
     const createRes = await req('POST', '/api/cloud-saas/deployments', {
       namespace,
@@ -827,10 +915,7 @@ describe('Cloud SaaS — deployment + billing', () => {
     })
 
     expect(createRes.status).toBe(201)
-    const deployment = (await createRes.json()) as {
-      id: string
-      monthlyCost: number | null
-    }
+    const deployment = (await createRes.json()) as { id: string }
 
     const namespaceCostsRes = await req('GET', `/api/cloud-saas/deployments/${deployment.id}/costs`)
     expect(namespaceCostsRes.status).toBe(200)
@@ -841,11 +926,11 @@ describe('Cloud SaaS — deployment + billing', () => {
       agents: Array<{ billingAmount: number | null; billingUnit: string }>
     }
     expect(namespaceCosts.namespace).toBe(namespace)
-    expect(namespaceCosts.billingUnit).toBe('shrimp')
-    expect(namespaceCosts.billingAmount).toBe(deployment.monthlyCost)
+    expect(namespaceCosts.billingUnit).toBe('usd')
+    expect(namespaceCosts.billingAmount).toBe(null)
     expect(Array.isArray(namespaceCosts.agents)).toBe(true)
     expect(namespaceCosts.agents.length).toBeGreaterThan(0)
-    expect(namespaceCosts.agents.every((agent) => agent.billingUnit === 'shrimp')).toBe(true)
+    expect(namespaceCosts.agents.every((agent) => agent.billingUnit === 'usd')).toBe(true)
 
     const overviewRes = await req('GET', '/api/cloud-saas/deployments/costs')
     expect(overviewRes.status).toBe(200)
@@ -857,11 +942,69 @@ describe('Cloud SaaS — deployment + billing', () => {
         billingAmount: number | null
       }>
     }
-    expect(overview.billingUnit).toBe('shrimp')
+    expect(overview.billingUnit).toBe('usd')
     const matchingNamespace = overview.namespaces.find((item) => item.namespace === namespace)
     expect(matchingNamespace).toBeDefined()
-    expect(matchingNamespace?.billingUnit).toBe('shrimp')
-    expect(matchingNamespace?.billingAmount).toBe(deployment.monthlyCost)
+    expect(matchingNamespace?.billingUnit).toBe('usd')
+    expect(matchingNamespace?.billingAmount).toBe(null)
+  })
+
+  it('POST /api/cloud-saas/deployments/:id/redeploy creates a durable history entry without charging again', async () => {
+    const namespace = uniqueName('e2e-redeploy-ns')
+    const walletBefore = (await (await req('GET', '/api/cloud-saas/wallet')).json()) as {
+      balance: number
+    }
+
+    try {
+      const [existing] = await db
+        .insert(schema.cloudDeployments)
+        .values({
+          userId,
+          namespace,
+          name: `${namespace}-agent`,
+          status: 'deployed',
+          agentCount: 1,
+          configSnapshot: makeConfigSnapshot('redeploy-secret'),
+          templateSlug: officialTemplateSlug,
+          resourceTier: 'lightweight',
+          monthlyCost: 500,
+          saasMode: true,
+        })
+        .returning()
+
+      const redeployRes = await req('POST', `/api/cloud-saas/deployments/${existing!.id}/redeploy`)
+      expect(redeployRes.status).toBe(201)
+      const redeployed = (await redeployRes.json()) as {
+        id: string
+        namespace: string
+        status: string
+      }
+      expect(redeployed.id).not.toBe(existing!.id)
+      expect(redeployed.namespace).toBe(namespace)
+      expect(redeployed.status).toBe('pending')
+
+      const historyRes = await req(
+        'GET',
+        '/api/cloud-saas/deployments?includeHistory=1&limit=10&offset=0',
+      )
+      const history = (await historyRes.json()) as Array<{ id: string; namespace: string }>
+      expect(history.filter((row) => row.namespace === namespace).map((row) => row.id)).toContain(
+        existing!.id,
+      )
+      expect(history.filter((row) => row.namespace === namespace).map((row) => row.id)).toContain(
+        redeployed.id,
+      )
+
+      const walletAfter = (await (await req('GET', '/api/cloud-saas/wallet')).json()) as {
+        balance: number
+      }
+      expect(walletAfter.balance).toBe(walletBefore.balance)
+    } finally {
+      await db
+        .delete(schema.cloudDeployments)
+        .where(eq(schema.cloudDeployments.namespace, namespace))
+        .catch(() => {})
+    }
   })
 
   it('POST /api/cloud-saas/deployments/:id/cancel marks a pending deployment as cancelling', async () => {

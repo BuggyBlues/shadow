@@ -142,6 +142,17 @@ function primarySecretKey(catalog: ProviderCatalogEntry | undefined): string {
   return catalog?.provider.envKey ?? ''
 }
 
+function profileSecretValue(
+  profile: ProviderProfile,
+  catalog: ProviderCatalogEntry | undefined,
+): string {
+  const keys = [catalog?.provider.envKey, ...(catalog?.provider.envKeyAliases ?? [])].filter(
+    (key): key is string => Boolean(key),
+  )
+  const match = profile.envVars.find((envVar) => keys.includes(envVar.key))
+  return match?.maskedValue ?? ''
+}
+
 function statusText(result: ProviderTestResult | undefined): string | null {
   return result?.message ?? result?.error ?? null
 }
@@ -317,7 +328,8 @@ export function ProviderProfilesPage() {
       const catalog = catalogById.get(state.providerId)
       const envVars: Record<string, string> = {}
       const secretKey = primarySecretKey(catalog)
-      if (secretKey && state.apiKey.trim()) envVars[secretKey] = state.apiKey.trim()
+      const apiKey = state.apiKey.trim()
+      if (secretKey && apiKey && !isMaskedPlaceholder(apiKey)) envVars[secretKey] = apiKey
 
       const config: Record<string, unknown> = {}
       const baseUrl = state.baseUrl.trim()
@@ -385,7 +397,7 @@ export function ProviderProfilesPage() {
       id: profile.id,
       providerId: profile.providerId,
       name: profile.name,
-      apiKey: '',
+      apiKey: profileSecretValue(profile, catalogById.get(profile.providerId)),
       baseUrl: profileBaseUrl(profile),
       apiFormat: profileApiFormat(profile, catalogById.get(profile.providerId)),
       authType: 'api_key',
@@ -417,7 +429,7 @@ export function ProviderProfilesPage() {
     id: profile.id,
     providerId: profile.providerId,
     name: profile.name,
-    apiKey: '',
+    apiKey: profileSecretValue(profile, catalogById.get(profile.providerId)),
     baseUrl: profileBaseUrl(profile),
     apiFormat: profileApiFormat(profile, catalogById.get(profile.providerId)),
     authType: 'api_key',
@@ -446,16 +458,16 @@ export function ProviderProfilesPage() {
   }
 
   const hasRequiredModel = Boolean(form && serializeModels(form.models).length > 0)
+  const hasCredential = Boolean(form?.apiKey.trim())
   const submitDisabled =
     saveProfile.isPending ||
     !form?.providerId ||
     !form.name.trim() ||
     !selectedCatalog ||
+    !hasCredential ||
     !hasRequiredModel
   const providerModelCount = (profile: ProviderProfile) => profileModels(profile).length
-  const shouldShowBaseUrlInBasic = Boolean(
-    form && (selectedCatalog?.provider.id === 'custom' || form.baseUrl.trim()),
-  )
+  const currentProviderName = providerDisplayName(selectedCatalog, form?.providerId)
 
   return (
     <PageShell
@@ -750,90 +762,109 @@ export function ProviderProfilesPage() {
                 ) : undefined
               }
             />
-            <ModalBody className="space-y-5 py-5">
-              <section className="space-y-3">
-                <div>
-                  <h3 className="text-sm font-black text-text-primary">
-                    {t('providers.basicTitle')}
-                  </h3>
-                  <p className="text-xs text-text-muted">{t('providers.basicDescription')}</p>
-                </div>
-
-                {(!connectDialogOpen || form.id) && (
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div>
-                      <label
-                        htmlFor="provider-profile-provider"
-                        className="mb-1 block text-xs font-bold"
-                      >
-                        {t('providers.provider')}
-                      </label>
-                      <NativeSelect
-                        id="provider-profile-provider"
-                        value={form.providerId}
-                        disabled={Boolean(form.id)}
-                        onChange={(event) => {
-                          const providerId = event.target.value
-                          const shouldRefreshDefaultName =
-                            !form.name || defaultProfileNames.has(form.name)
-                          setForm({
-                            ...form,
-                            providerId,
-                            name: shouldRefreshDefaultName
-                              ? defaultProfileName(providerId)
-                              : form.name,
-                            apiFormat: catalogApiFormat(catalogById.get(providerId)),
-                          })
-                        }}
-                      >
-                        <option value="">{t('providers.selectProvider')}</option>
-                        {catalogs.map((catalog) => (
-                          <option key={catalog.provider.id} value={catalog.provider.id}>
-                            {catalog.provider.id}
-                          </option>
-                        ))}
-                      </NativeSelect>
-                    </div>
-
-                    <div>
-                      <label
-                        htmlFor="provider-profile-name"
-                        className="mb-1 block text-xs font-bold"
-                      >
-                        {t('providers.profileName')}
-                      </label>
-                      <Input
-                        id="provider-profile-name"
-                        value={form.name}
-                        onChange={(event) => setForm({ ...form, name: event.target.value })}
-                        placeholder={t('providers.profileNamePlaceholder')}
-                      />
-                    </div>
+            <ModalBody className="space-y-4 py-5">
+              <section className="rounded-2xl border border-border-subtle/45 bg-bg-secondary/15 p-4">
+                <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-black uppercase text-primary">
+                      {t('providers.connectionTitle')}
+                    </p>
+                    <h3 className="mt-1 truncate text-lg font-black text-text-primary">
+                      {currentProviderName}
+                    </h3>
+                    <p className="mt-1 text-xs text-text-muted">
+                      {t('providers.connectionDescription')}
+                    </p>
                   </div>
-                )}
-
-                <div>
-                  <label
-                    htmlFor="provider-profile-api-key"
-                    className="mb-1 block text-xs font-bold"
-                  >
-                    {primarySecretKey(selectedCatalog) || t('providers.apiKey')}
+                  <label className="flex min-h-10 shrink-0 items-center gap-2 rounded-full border border-border-subtle/60 bg-bg-primary/25 px-3 text-xs font-black text-text-primary">
+                    <span>
+                      {form.enabled
+                        ? t('providers.profileStatusEnabled')
+                        : t('providers.profileStatusDisabled')}
+                    </span>
+                    <Switch
+                      checked={form.enabled}
+                      onCheckedChange={(enabled) => setForm({ ...form, enabled })}
+                    />
                   </label>
-                  <SecretInput
-                    id="provider-profile-api-key"
-                    value={form.apiKey}
-                    onChange={(event) => setForm({ ...form, apiKey: event.target.value })}
-                    placeholder={
-                      form.id
-                        ? t('providers.apiKeyEditPlaceholder')
-                        : t('providers.apiKeyPlaceholder')
-                    }
-                    autoComplete="new-password"
-                    data-bwignore="true"
-                  />
                 </div>
 
-                {shouldShowBaseUrlInBasic && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label
+                      htmlFor="provider-profile-provider"
+                      className="mb-1 block text-xs font-bold"
+                    >
+                      {t('providers.provider')}
+                    </label>
+                    <NativeSelect
+                      id="provider-profile-provider"
+                      value={form.providerId}
+                      disabled={Boolean(form.id)}
+                      onChange={(event) => {
+                        const providerId = event.target.value
+                        const shouldRefreshDefaultName =
+                          !form.name || defaultProfileNames.has(form.name)
+                        const catalog = catalogById.get(providerId)
+                        setForm({
+                          ...form,
+                          providerId,
+                          name: shouldRefreshDefaultName
+                            ? defaultProfileName(providerId)
+                            : form.name,
+                          baseUrl: catalog?.provider.baseUrl ?? '',
+                          apiFormat: catalogApiFormat(catalog),
+                          models: form.models.length ? form.models : [modelFromCatalog(catalog)],
+                        })
+                      }}
+                    >
+                      <option value="">{t('providers.selectProvider')}</option>
+                      {catalogs.map((catalog) => (
+                        <option key={catalog.provider.id} value={catalog.provider.id}>
+                          {catalog.provider.id}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                  </div>
+
+                  <div>
+                    <label htmlFor="provider-profile-name" className="mb-1 block text-xs font-bold">
+                      {t('providers.profileName')}
+                    </label>
+                    <Input
+                      id="provider-profile-name"
+                      value={form.name}
+                      onChange={(event) => setForm({ ...form, name: event.target.value })}
+                      placeholder={t('providers.profileNamePlaceholder')}
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <div className="mb-1 flex items-center justify-between gap-3">
+                      <label htmlFor="provider-profile-api-key" className="block text-xs font-bold">
+                        {primarySecretKey(selectedCatalog) || t('providers.apiKey')}
+                      </label>
+                      {isMaskedPlaceholder(form.apiKey) && (
+                        <span className="text-[11px] font-bold text-success">
+                          {t('providers.keySaved')}
+                        </span>
+                      )}
+                    </div>
+                    <SecretInput
+                      id="provider-profile-api-key"
+                      value={form.apiKey}
+                      onChange={(event) => setForm({ ...form, apiKey: event.target.value })}
+                      placeholder={
+                        form.id
+                          ? t('providers.apiKeyEditPlaceholder')
+                          : t('providers.apiKeyPlaceholder')
+                      }
+                      autoComplete="new-password"
+                      data-bwignore="true"
+                    />
+                    <p className="mt-1 text-xs text-text-muted">{t('providers.apiKeyHelp')}</p>
+                  </div>
+
                   <div>
                     <label
                       htmlFor="provider-profile-base-url"
@@ -849,271 +880,8 @@ export function ProviderProfilesPage() {
                         selectedCatalog?.provider.baseUrl ?? t('providers.baseUrlPlaceholder')
                       }
                     />
+                    <p className="mt-1 text-xs text-text-muted">{t('providers.baseUrlHelp')}</p>
                   </div>
-                )}
-
-                <section className="space-y-3 rounded-2xl border border-border-subtle/45 bg-bg-secondary/15 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <h3 className="text-sm font-black text-text-primary">
-                        {t('providers.modelsTitle')}
-                        <span className="ml-1 text-danger">*</span>
-                      </h3>
-                      <p className="text-xs text-text-muted">{t('providers.modelsDescription')}</p>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="xs"
-                      onClick={() =>
-                        setForm({
-                          ...form,
-                          models: [...form.models, emptyModel()],
-                        })
-                      }
-                    >
-                      <Plus size={12} />
-                      {t('providers.addModel')}
-                    </Button>
-                  </div>
-                  {selectedCatalog?.provider.models.length ? (
-                    <datalist id="provider-profile-model-options">
-                      {selectedCatalog.provider.models.map((model) => (
-                        <option key={model.id} value={model.id}>
-                          {model.name ?? model.id}
-                        </option>
-                      ))}
-                    </datalist>
-                  ) : null}
-                  {form.models.length === 0 ? (
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-border-subtle/50 bg-bg-primary/10 px-4 py-3 text-sm font-bold text-text-muted transition-colors hover:border-primary/40 hover:text-primary"
-                      onClick={() =>
-                        setForm({
-                          ...form,
-                          models: [modelFromCatalog(selectedCatalog)],
-                        })
-                      }
-                    >
-                      <Plus size={14} />
-                      {t('providers.addFirstModel')}
-                    </button>
-                  ) : (
-                    <div className="space-y-3">
-                      {form.models.map((model, index) => (
-                        <div
-                          key={model.clientId}
-                          className="rounded-2xl border border-border-subtle/35 bg-bg-primary/15 p-3"
-                        >
-                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-                            <Input
-                              value={model.id}
-                              onChange={(event) => {
-                                const models = [...form.models]
-                                models[index] = {
-                                  ...model,
-                                  id: event.target.value,
-                                }
-                                setForm({ ...form, models })
-                              }}
-                              placeholder={t('providers.modelIdPlaceholder')}
-                              list="provider-profile-model-options"
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-12 w-12 self-end"
-                              title={t('common.delete')}
-                              onClick={() =>
-                                setForm({
-                                  ...form,
-                                  models: form.models.filter(
-                                    (item) => item.clientId !== model.clientId,
-                                  ),
-                                })
-                              }
-                            >
-                              <Trash2 size={15} />
-                            </Button>
-                          </div>
-
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {MODEL_TAGS.map((tag) => {
-                              const active = model.tags.includes(tag)
-                              return (
-                                <button
-                                  key={tag}
-                                  type="button"
-                                  className={cn(
-                                    'rounded-full border px-3 py-1 text-[11px] font-black uppercase transition-colors',
-                                    active
-                                      ? 'border-primary/50 bg-primary/15 text-primary'
-                                      : 'border-border-subtle text-text-muted hover:border-primary/40 hover:text-primary',
-                                  )}
-                                  onClick={() => {
-                                    const tags = active
-                                      ? model.tags.filter((item) => item !== tag)
-                                      : [...model.tags, tag]
-                                    const models = [...form.models]
-                                    models[index] = { ...model, tags }
-                                    setForm({ ...form, models })
-                                  }}
-                                >
-                                  {t(`providers.modelTags.${tag}`)}
-                                </button>
-                              )
-                            })}
-                          </div>
-
-                          <details className="mt-3 border-t border-border-subtle/35 pt-3">
-                            <summary className="cursor-pointer text-xs font-black text-text-muted">
-                              {t('providers.modelDetails')}
-                            </summary>
-                            <div className="mt-3 space-y-3">
-                              <Input
-                                value={model.name}
-                                onChange={(event) => {
-                                  const models = [...form.models]
-                                  models[index] = {
-                                    ...model,
-                                    name: event.target.value,
-                                  }
-                                  setForm({ ...form, models })
-                                }}
-                                placeholder={t('providers.modelNamePlaceholder')}
-                              />
-                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                <Input
-                                  type="number"
-                                  min={1}
-                                  value={model.contextWindow}
-                                  onChange={(event) => {
-                                    const models = [...form.models]
-                                    models[index] = {
-                                      ...model,
-                                      contextWindow: event.target.value,
-                                    }
-                                    setForm({ ...form, models })
-                                  }}
-                                  placeholder={t('providers.contextWindowPlaceholder')}
-                                />
-                                <Input
-                                  type="number"
-                                  min={1}
-                                  value={model.maxTokens}
-                                  onChange={(event) => {
-                                    const models = [...form.models]
-                                    models[index] = {
-                                      ...model,
-                                      maxTokens: event.target.value,
-                                    }
-                                    setForm({ ...form, models })
-                                  }}
-                                  placeholder={t('providers.maxTokensPlaceholder')}
-                                />
-                              </div>
-                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  step="0.000001"
-                                  value={model.inputCost}
-                                  onChange={(event) => {
-                                    const models = [...form.models]
-                                    models[index] = {
-                                      ...model,
-                                      inputCost: event.target.value,
-                                    }
-                                    setForm({ ...form, models })
-                                  }}
-                                  placeholder={t('providers.inputCostPlaceholder')}
-                                />
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  step="0.000001"
-                                  value={model.outputCost}
-                                  onChange={(event) => {
-                                    const models = [...form.models]
-                                    models[index] = {
-                                      ...model,
-                                      outputCost: event.target.value,
-                                    }
-                                    setForm({ ...form, models })
-                                  }}
-                                  placeholder={t('providers.outputCostPlaceholder')}
-                                />
-                              </div>
-                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                                {(['vision', 'tools', 'reasoning'] as const).map((capability) => (
-                                  <label
-                                    key={capability}
-                                    className="flex h-12 items-center justify-between rounded-2xl border border-border-subtle/60 bg-bg-primary/35 px-3 text-xs font-bold text-text-secondary"
-                                  >
-                                    <span>{t(`providers.capabilities.${capability}`)}</span>
-                                    <Switch
-                                      checked={model[capability]}
-                                      onCheckedChange={(checked) => {
-                                        const models = [...form.models]
-                                        models[index] = {
-                                          ...model,
-                                          [capability]: checked,
-                                        }
-                                        setForm({ ...form, models })
-                                      }}
-                                    />
-                                  </label>
-                                ))}
-                              </div>
-                            </div>
-                          </details>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {!hasRequiredModel && (
-                    <p className="text-xs font-bold text-danger">{t('providers.modelRequired')}</p>
-                  )}
-                </section>
-
-                <label className="flex min-h-12 items-center justify-between rounded-2xl border border-border-subtle/45 bg-bg-secondary/15 px-4 py-2 text-sm font-bold">
-                  <span className="text-text-primary">{t('providers.enabled')}</span>
-                  <Switch
-                    checked={form.enabled}
-                    onCheckedChange={(enabled) => setForm({ ...form, enabled })}
-                  />
-                </label>
-              </section>
-
-              <details className="rounded-2xl border border-border-subtle/45 bg-bg-secondary/15 p-4">
-                <summary className="cursor-pointer text-sm font-black text-text-primary">
-                  {t('providers.advancedTitle')}
-                  <span className="ml-2 text-xs font-semibold text-text-muted">
-                    {t('providers.advancedDescription')}
-                  </span>
-                </summary>
-
-                <div className="mt-4 space-y-4">
-                  {!shouldShowBaseUrlInBasic && (
-                    <div>
-                      <label
-                        htmlFor="provider-profile-base-url-advanced"
-                        className="mb-1 block text-xs font-bold"
-                      >
-                        {t('providers.baseUrl')}
-                      </label>
-                      <Input
-                        id="provider-profile-base-url-advanced"
-                        value={form.baseUrl}
-                        onChange={(event) => setForm({ ...form, baseUrl: event.target.value })}
-                        placeholder={
-                          selectedCatalog?.provider.baseUrl ?? t('providers.baseUrlPlaceholder')
-                        }
-                      />
-                    </div>
-                  )}
 
                   <div>
                     <label
@@ -1138,7 +906,235 @@ export function ProviderProfilesPage() {
                     </NativeSelect>
                   </div>
                 </div>
-              </details>
+              </section>
+
+              <section className="space-y-3 rounded-2xl border border-border-subtle/45 bg-bg-secondary/15 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-black text-text-primary">
+                      {t('providers.modelsTitle')}
+                      <span className="ml-1 text-danger">*</span>
+                    </h3>
+                    <p className="text-xs text-text-muted">{t('providers.modelsDescription')}</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="xs"
+                    onClick={() =>
+                      setForm({
+                        ...form,
+                        models: [...form.models, emptyModel()],
+                      })
+                    }
+                  >
+                    <Plus size={12} />
+                    {t('providers.addModel')}
+                  </Button>
+                </div>
+                {selectedCatalog?.provider.models.length ? (
+                  <datalist id="provider-profile-model-options">
+                    {selectedCatalog.provider.models.map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {model.name ?? model.id}
+                      </option>
+                    ))}
+                  </datalist>
+                ) : null}
+                {form.models.length === 0 ? (
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-border-subtle/50 bg-bg-primary/10 px-4 py-3 text-sm font-bold text-text-muted transition-colors hover:border-primary/40 hover:text-primary"
+                    onClick={() =>
+                      setForm({
+                        ...form,
+                        models: [modelFromCatalog(selectedCatalog)],
+                      })
+                    }
+                  >
+                    <Plus size={14} />
+                    {t('providers.addFirstModel')}
+                  </button>
+                ) : (
+                  <div className="space-y-3">
+                    {form.models.map((model, index) => (
+                      <div
+                        key={model.clientId}
+                        className="rounded-2xl border border-border-subtle/35 bg-bg-primary/15 p-3"
+                      >
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                          <Input
+                            value={model.id}
+                            onChange={(event) => {
+                              const models = [...form.models]
+                              models[index] = {
+                                ...model,
+                                id: event.target.value,
+                              }
+                              setForm({ ...form, models })
+                            }}
+                            placeholder={t('providers.modelIdPlaceholder')}
+                            list="provider-profile-model-options"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-12 w-12 self-end"
+                            title={t('common.delete')}
+                            onClick={() =>
+                              setForm({
+                                ...form,
+                                models: form.models.filter(
+                                  (item) => item.clientId !== model.clientId,
+                                ),
+                              })
+                            }
+                          >
+                            <Trash2 size={15} />
+                          </Button>
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {MODEL_TAGS.map((tag) => {
+                            const active = model.tags.includes(tag)
+                            return (
+                              <button
+                                key={tag}
+                                type="button"
+                                className={cn(
+                                  'rounded-full border px-3 py-1 text-[11px] font-black uppercase transition-colors',
+                                  active
+                                    ? 'border-primary/50 bg-primary/15 text-primary'
+                                    : 'border-border-subtle text-text-muted hover:border-primary/40 hover:text-primary',
+                                )}
+                                onClick={() => {
+                                  const tags = active
+                                    ? model.tags.filter((item) => item !== tag)
+                                    : [...model.tags, tag]
+                                  const models = [...form.models]
+                                  models[index] = { ...model, tags }
+                                  setForm({ ...form, models })
+                                }}
+                              >
+                                {t(`providers.modelTags.${tag}`)}
+                              </button>
+                            )
+                          })}
+                        </div>
+
+                        <details className="mt-3 border-t border-border-subtle/35 pt-3">
+                          <summary className="cursor-pointer text-xs font-black text-text-muted">
+                            {t('providers.modelDetails')}
+                          </summary>
+                          <div className="mt-3 space-y-3">
+                            <Input
+                              value={model.name}
+                              onChange={(event) => {
+                                const models = [...form.models]
+                                models[index] = {
+                                  ...model,
+                                  name: event.target.value,
+                                }
+                                setForm({ ...form, models })
+                              }}
+                              placeholder={t('providers.modelNamePlaceholder')}
+                            />
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                              <Input
+                                type="number"
+                                min={1}
+                                value={model.contextWindow}
+                                onChange={(event) => {
+                                  const models = [...form.models]
+                                  models[index] = {
+                                    ...model,
+                                    contextWindow: event.target.value,
+                                  }
+                                  setForm({ ...form, models })
+                                }}
+                                placeholder={t('providers.contextWindowPlaceholder')}
+                              />
+                              <Input
+                                type="number"
+                                min={1}
+                                value={model.maxTokens}
+                                onChange={(event) => {
+                                  const models = [...form.models]
+                                  models[index] = {
+                                    ...model,
+                                    maxTokens: event.target.value,
+                                  }
+                                  setForm({ ...form, models })
+                                }}
+                                placeholder={t('providers.maxTokensPlaceholder')}
+                              />
+                            </div>
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.000001"
+                                value={model.inputCost}
+                                onChange={(event) => {
+                                  const models = [...form.models]
+                                  models[index] = {
+                                    ...model,
+                                    inputCost: event.target.value,
+                                  }
+                                  setForm({ ...form, models })
+                                }}
+                                placeholder={t('providers.inputCostPlaceholder')}
+                              />
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.000001"
+                                value={model.outputCost}
+                                onChange={(event) => {
+                                  const models = [...form.models]
+                                  models[index] = {
+                                    ...model,
+                                    outputCost: event.target.value,
+                                  }
+                                  setForm({ ...form, models })
+                                }}
+                                placeholder={t('providers.outputCostPlaceholder')}
+                              />
+                            </div>
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                              {(['vision', 'tools', 'reasoning'] as const).map((capability) => (
+                                <label
+                                  key={capability}
+                                  className="flex h-12 items-center justify-between rounded-2xl border border-border-subtle/60 bg-bg-primary/35 px-3 text-xs font-bold text-text-secondary"
+                                >
+                                  <span>{t(`providers.capabilities.${capability}`)}</span>
+                                  <Switch
+                                    checked={model[capability]}
+                                    onCheckedChange={(checked) => {
+                                      const models = [...form.models]
+                                      models[index] = {
+                                        ...model,
+                                        [capability]: checked,
+                                      }
+                                      setForm({ ...form, models })
+                                    }}
+                                  />
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        </details>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {!hasRequiredModel && (
+                  <p className="text-xs font-bold text-danger">{t('providers.modelRequired')}</p>
+                )}
+              </section>
+
+              <p className="text-xs text-text-muted">{t('providers.modelTagHint')}</p>
             </ModalBody>
             <ModalFooter>
               <ModalButtonGroup>

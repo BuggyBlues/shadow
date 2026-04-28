@@ -257,10 +257,14 @@ export const saasApi = {
 
   // Deployments
   deployments: {
-    list: (params: { limit?: number; offset?: number } = {}) =>
-      get<SaasDeployment[]>(
-        `/deployments?limit=${params.limit ?? 100}&offset=${params.offset ?? 0}`,
-      ),
+    list: (params: { limit?: number; offset?: number; includeHistory?: boolean } = {}) => {
+      const qs = new URLSearchParams({
+        limit: String(params.limit ?? 100),
+        offset: String(params.offset ?? 0),
+      })
+      if (params.includeHistory) qs.set('includeHistory', '1')
+      return get<SaasDeployment[]>(`/deployments?${qs.toString()}`)
+    },
     get: (id: string) => get<SaasDeployment>(`/deployments/${encodeURIComponent(id)}`),
     create: (data: {
       namespace: string
@@ -272,13 +276,11 @@ export const saasApi = {
       envVars?: Record<string, string>
     }) => post<SaasDeployment>('/deployments', data),
     delete: (id: string) => del<{ ok: boolean }>(`/deployments/${encodeURIComponent(id)}`),
+    redeploy: (id: string) =>
+      post<SaasDeployment>(`/deployments/${encodeURIComponent(id)}/redeploy`, {}),
     costs: () => get<CostOverviewSummary>('/deployments/costs'),
     namespaceCosts: (id: string) =>
       get<NamespaceCostSummary>(`/deployments/${encodeURIComponent(id)}/costs`),
-    scale: (id: string, agentCount: number) =>
-      post<SaasDeployment>(`/deployments/${encodeURIComponent(id)}/scale`, {
-        agentCount,
-      }),
     logsUrl: (id: string) => `${BASE}/deployments/${encodeURIComponent(id)}/logs`,
     logsHistory: (
       id: string,

@@ -218,7 +218,7 @@ export interface ConfigFile {
 }
 
 export interface DeployTask {
-  id: number
+  id: number | string
   namespace: string
   templateSlug: string | null
   version: number | null
@@ -354,7 +354,7 @@ async function postRaw(path: string, body: unknown): Promise<Response> {
   return res
 }
 
-async function extractTaskIdFromSse(response: Response): Promise<number | null> {
+async function extractTaskIdFromSse(response: Response): Promise<number | string | null> {
   const reader = response.body?.getReader()
   if (!reader) return null
 
@@ -378,6 +378,10 @@ async function extractTaskIdFromSse(response: Response): Promise<number | null> 
           if (Number.isFinite(taskId)) {
             void reader.cancel()
             return taskId
+          }
+          if (typeof payload.id === 'string' && payload.id.trim().length > 0) {
+            void reader.cancel()
+            return payload.id
           }
         }
       } catch {
@@ -408,11 +412,6 @@ export const api = {
       ),
     logsUrl: (namespace: string, id: string) =>
       `${BASE}/deployments/${encodeURIComponent(namespace)}/${encodeURIComponent(id)}/logs`,
-    scale: (namespace: string, id: string, replicas: number) =>
-      post<{ ok: boolean }>(
-        `/deployments/${encodeURIComponent(namespace)}/${encodeURIComponent(id)}/scale`,
-        { replicas },
-      ),
     costs: () => get<CostOverviewSummary>('/deployments/costs'),
     namespaceCosts: (namespace: string) =>
       get<NamespaceCostSummary>(`/deployments/${encodeURIComponent(namespace)}/costs`),

@@ -24,17 +24,22 @@ export {
   type BillingUnit,
   collectAgentUsage,
   collectNamespaceCost,
+  OPENCLAW_USAGE_COMMANDS,
+  parseOpenClawUsageOutput,
   summarizeCostOverview,
 } from './application/usage-cost.js'
 export {
   deleteNamespace,
   execInPod,
+  execInPodAsync,
   type K8sExecResult,
   type K8sPodSummary,
   listManagedNamespaces,
   listPods,
+  listPodsAsync,
   namespaceExists,
   readPodLogs,
+  readPodLogsAsync,
   spawnPodLogStream,
 } from './clients/kubectl-runtime.js'
 export { createCLI } from './interfaces/cli/index.js'
