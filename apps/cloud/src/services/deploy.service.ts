@@ -92,6 +92,13 @@ function buildEffectiveEnv(envVars?: Record<string, string>): Record<string, str
   }
 }
 
+function summarizeK8sTarget(options: DeployOptions, kubeConfigPath: string | undefined): string {
+  const cluster = options.cluster ?? 'ambient'
+  const context = options.k8sContext ?? process.env.KUBECONFIG_CONTEXT ?? 'rancher-desktop'
+  const kubeconfig = kubeConfigPath ?? process.env.KUBECONFIG ?? '~/.kube/config'
+  return `Kubernetes target: cluster=${cluster} context=${context} kubeconfig=${kubeconfig}`
+}
+
 // ─── Service ────────────────────────────────────────────────────────────────
 
 export class DeployService {
@@ -121,9 +128,9 @@ export class DeployService {
     const kubeConfigPath =
       options.kubeConfigPath ?? (options.cluster ? loadKubeconfigPath(options.cluster) : undefined)
 
-    if (!existsSync(filePath)) {
-      throw new Error(`Config file not found: ${filePath}`)
-    }
+    const k8sTargetSummary = summarizeK8sTarget(options, kubeConfigPath)
+    this.logger.info(k8sTargetSummary)
+    emit(`${k8sTargetSummary}\n`)
 
     // The directory containing the config file is used as the working directory
     // for resolving relative paths (e.g. gitagent path) throughout the pipeline.

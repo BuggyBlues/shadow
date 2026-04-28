@@ -348,7 +348,7 @@ function buildGatewayConfig(
   const { host: gwHost, ...restGateway } = userGateway as OpenClawGatewayConfig & { host?: string }
   const gateway = {
     mode: 'local' as const,
-    port: 3100,
+    port: 3101,
     bind: 'lan',
     auth: { mode: 'token' as const },
     ...existing,

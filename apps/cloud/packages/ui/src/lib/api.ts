@@ -147,65 +147,6 @@ export interface ProviderProfile {
   updatedAt?: string
 }
 
-export interface LlmRoutableModel extends LlmProviderModel {
-  ref: string
-  providerId: string
-  profileId: string
-  profileName: string
-  enabled: boolean
-}
-
-export interface LlmRouteAssignment {
-  selector: string
-  primary?: string
-  fallbacks: string[]
-}
-
-export interface LlmLimitRule {
-  id: string
-  metric: 'tokens' | 'cost'
-  threshold: number
-  period: 'day' | 'month'
-  blockRequests: boolean
-  enabled: boolean
-  triggered: number
-}
-
-export interface LlmRoutingPolicy {
-  enabled: boolean
-  defaultRoute: LlmRouteAssignment
-  complexity: Record<'simple' | 'standard' | 'complex' | 'reasoning', LlmRouteAssignment>
-  limits: {
-    requestsPerMinute: number
-    concurrentRequests: number
-    monthlyBudgetUsd?: number
-  }
-  fallback: {
-    enabled: boolean
-    statusCodes: number[]
-  }
-  rules: LlmLimitRule[]
-}
-
-export interface LlmProviderRoutingState {
-  policy: LlmRoutingPolicy
-  models: LlmRoutableModel[]
-  summary: {
-    profiles: number
-    enabledProfiles: number
-    models: number
-    enabledModels: number
-  }
-}
-
-export interface LlmRoutingResolveResult {
-  route: 'default' | 'simple' | 'standard' | 'complex' | 'reasoning'
-  selector: string
-  model: LlmRoutableModel | null
-  fallbacks: LlmRoutableModel[]
-  reason: 'primary' | 'tag_match' | 'default' | 'unresolved'
-}
-
 export interface ProviderTestResult {
   ok: boolean
   status?: number | null
@@ -672,14 +613,6 @@ export const api = {
       fetch(`${BASE}/provider-profiles/${encodeURIComponent(id)}`, { method: 'DELETE' }).then((r) =>
         r.json(),
       ) as Promise<{ ok: boolean }>,
-  },
-
-  providerRouting: {
-    get: () => get<LlmProviderRoutingState>('/provider-routing'),
-    put: (policy: LlmRoutingPolicy) =>
-      put<{ ok: boolean; policy: LlmRoutingPolicy }>('/provider-routing', { policy }),
-    resolve: (data: { selector?: string; tags?: string[] }) =>
-      post<{ ok: boolean; resolved: LlmRoutingResolveResult }>('/provider-routing/resolve', data),
   },
 
   activity: {

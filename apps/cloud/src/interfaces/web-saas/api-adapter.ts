@@ -54,6 +54,35 @@ type TemplateDeployments = {
 
 const deploymentCacheByNamespace = new Map<string, SaasDeployment>()
 const deploymentCacheById = new Map<string, SaasDeployment>()
+const VISIBLE_DEPLOYMENT_STATUSES = new Set<SaasDeployment['status']>([
+  'pending',
+  'deploying',
+  'cancelling',
+  'deployed',
+  'destroying',
+])
+
+function deploymentSortTime(row: SaasDeployment): number {
+  return Date.parse(row.updatedAt || row.createdAt || '') || 0
+}
+
+function isVisibleDeployment(row: SaasDeployment): boolean {
+  return VISIBLE_DEPLOYMENT_STATUSES.has(row.status)
+}
+
+function newestVisibleDeploymentsByNamespace(rows: SaasDeployment[]): SaasDeployment[] {
+  const byNamespace = new Map<string, SaasDeployment>()
+  for (const row of rows) {
+    if (!isVisibleDeployment(row)) continue
+    const existing = byNamespace.get(row.namespace)
+    if (!existing || deploymentSortTime(row) >= deploymentSortTime(existing)) {
+      byNamespace.set(row.namespace, row)
+    }
+  }
+  return [...byNamespace.values()].sort(
+    (left, right) => deploymentSortTime(right) - deploymentSortTime(left),
+  )
+}
 
 function syncDeploymentCache(rows: SaasDeployment[]) {
   for (const row of rows) {
@@ -62,17 +91,18 @@ function syncDeploymentCache(rows: SaasDeployment[]) {
   }
 }
 
-async function listSaasDeployments(): Promise<SaasDeployment[]> {
-  const rows = await saasApi.deployments.list()
+function replaceDeploymentCache(rows: SaasDeployment[]) {
+  deploymentCacheByNamespace.clear()
+  deploymentCacheById.clear()
   syncDeploymentCache(rows)
-  return rows.filter(
-    (row) =>
-      row.status === 'pending' ||
-      row.status === 'deploying' ||
-      row.status === 'cancelling' ||
-      row.status === 'deployed' ||
-      row.status === 'destroying',
+}
+
+async function listSaasDeployments(): Promise<SaasDeployment[]> {
+  const rows = newestVisibleDeploymentsByNamespace(
+    await saasApi.deployments.list({ limit: 100, offset: 0 }),
   )
+  replaceDeploymentCache(rows)
+  return rows
 }
 
 async function resolveDeploymentByNamespace(namespace: string): Promise<SaasDeployment | null> {
@@ -107,7 +137,12 @@ function getDeploymentAgentEntries(
 
   if (mapped.length > 0) return mapped
 
-  return [{ name: deployment.name, replicas: Math.max(deployment.agentCount ?? 1, 1) }]
+  return [
+    {
+      name: deployment.name,
+      replicas: Math.max(deployment.agentCount ?? 1, 1),
+    },
+  ]
 }
 
 function expandDeploymentRows(deployment: SaasDeployment): Deployment[] {
@@ -347,7 +382,10 @@ export const saasApiAdapter: CloudApiClient & WalletApiExtension = {
         .then((t) => ({ name: t.slug, slug: t.slug })),
     delete: (name: string) => saasApi.templates.delete(name),
     versions: (_name: string) =>
-      Promise.resolve({ current: 1, versions: [{ version: 1, createdAt: now(), current: true }] }),
+      Promise.resolve({
+        current: 1,
+        versions: [{ version: 1, createdAt: now(), current: true }],
+      }),
     restoreVersion: (_name: string, _version: number) =>
       Promise.resolve({ ok: true, restoredVersion: _version }),
     share: (name: string) =>
@@ -391,7 +429,11 @@ export const saasApiAdapter: CloudApiClient & WalletApiExtension = {
             },
           },
         })
-        .then((template) => ({ ok: true, name: template.slug, source: data.url })),
+        .then((template) => ({
+          ok: true,
+          name: template.slug,
+          source: data.url,
+        })),
   },
 
   // ── Deployments ──────────────────────────────────────────────────────────
@@ -439,7 +481,9 @@ export const saasApiAdapter: CloudApiClient & WalletApiExtension = {
       if (!deployment) {
         return `${BASE}/deployments/${encodeURIComponent(namespace)}/logs`
       }
-      return `${BASE}/deployments/${encodeURIComponent(deployment.id)}/pod-logs?agent=${encodeURIComponent(agent)}`
+      return `${BASE}/deployments/${encodeURIComponent(
+        deployment.id,
+      )}/pod-logs?agent=${encodeURIComponent(agent)}`
     },
     logsHistory: async (namespace: string, agent: string, page = 1, limit = 200) => {
       const deployment = await resolveDeploymentByNamespace(namespace)
@@ -455,7 +499,11 @@ export const saasApiAdapter: CloudApiClient & WalletApiExtension = {
         }
       }
 
-      return saasApi.deployments.logsHistory(deployment.id, { agent, page, limit })
+      return saasApi.deployments.logsHistory(deployment.id, {
+        agent,
+        page,
+        limit,
+      })
     },
     env: {
       list: async (namespace: string, mode: 'effective' | 'scoped' = 'effective') => {
@@ -584,12 +632,6 @@ export const saasApiAdapter: CloudApiClient & WalletApiExtension = {
     delete: (id) => saasApi.providerProfiles.delete(id),
   },
 
-  providerRouting: {
-    get: () => saasApi.providerRouting.get(),
-    put: (policy) => saasApi.providerRouting.put(policy),
-    resolve: (data) => saasApi.providerRouting.resolve(data),
-  },
-
   // ── Doctor (saas: no local infra checks — return empty healthy result) ────
   doctor: () =>
     Promise.resolve({
@@ -619,7 +661,10 @@ export const saasApiAdapter: CloudApiClient & WalletApiExtension = {
     return { ok: true }
   },
 
-  rollback: async (options: { namespace: string }) => ({ ok: true, namespace: options.namespace }),
+  rollback: async (options: { namespace: string }) => ({
+    ok: true,
+    namespace: options.namespace,
+  }),
 
   // ── Activity ─────────────────────────────────────────────────────────────
   activity: {
@@ -650,7 +695,9 @@ export const saasApiAdapter: CloudApiClient & WalletApiExtension = {
       manifests: [],
       count: 0,
     }),
-    openclawConfig: async (_options: { config: unknown; agentId: string }) => ({ config: {} }),
+    openclawConfig: async (_options: { config: unknown; agentId: string }) => ({
+      config: {},
+    }),
   },
 
   images: async () => [],

@@ -43,7 +43,10 @@ async function put<T>(path: string, body: unknown): Promise<T> {
 }
 
 async function del<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, { method: 'DELETE', headers: getAuthHeaders() })
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  })
   if (!res.ok) throw new Error(`DELETE ${path} failed: ${res.status}`)
   return res.json() as Promise<T>
 }
@@ -186,65 +189,6 @@ export interface SaasProviderProfile {
   updatedAt?: string
 }
 
-export interface SaasLlmRoutableModel extends SaasLlmProviderModel {
-  ref: string
-  providerId: string
-  profileId: string
-  profileName: string
-  enabled: boolean
-}
-
-export interface SaasLlmRouteAssignment {
-  selector: string
-  primary?: string
-  fallbacks: string[]
-}
-
-export interface SaasLlmLimitRule {
-  id: string
-  metric: 'tokens' | 'cost'
-  threshold: number
-  period: 'day' | 'month'
-  blockRequests: boolean
-  enabled: boolean
-  triggered: number
-}
-
-export interface SaasLlmRoutingPolicy {
-  enabled: boolean
-  defaultRoute: SaasLlmRouteAssignment
-  complexity: Record<'simple' | 'standard' | 'complex' | 'reasoning', SaasLlmRouteAssignment>
-  limits: {
-    requestsPerMinute: number
-    concurrentRequests: number
-    monthlyBudgetUsd?: number
-  }
-  fallback: {
-    enabled: boolean
-    statusCodes: number[]
-  }
-  rules: SaasLlmLimitRule[]
-}
-
-export interface SaasLlmProviderRoutingState {
-  policy: SaasLlmRoutingPolicy
-  models: SaasLlmRoutableModel[]
-  summary: {
-    profiles: number
-    enabledProfiles: number
-    models: number
-    enabledModels: number
-  }
-}
-
-export interface SaasLlmRoutingResolveResult {
-  route: 'default' | 'simple' | 'standard' | 'complex' | 'reasoning'
-  selector: string
-  model: SaasLlmRoutableModel | null
-  fallbacks: SaasLlmRoutableModel[]
-  reason: 'primary' | 'tag_match' | 'default' | 'unresolved'
-}
-
 export interface SaasProviderTestResult {
   ok: boolean
   status?: number | null
@@ -313,9 +257,9 @@ export const saasApi = {
 
   // Deployments
   deployments: {
-    list: (params?: { limit?: number; offset?: number }) =>
+    list: (params: { limit?: number; offset?: number } = {}) =>
       get<SaasDeployment[]>(
-        `/deployments${params ? `?limit=${params.limit ?? 50}&offset=${params.offset ?? 0}` : ''}`,
+        `/deployments?limit=${params.limit ?? 100}&offset=${params.offset ?? 0}`,
       ),
     get: (id: string) => get<SaasDeployment>(`/deployments/${encodeURIComponent(id)}`),
     create: (data: {
@@ -332,7 +276,9 @@ export const saasApi = {
     namespaceCosts: (id: string) =>
       get<NamespaceCostSummary>(`/deployments/${encodeURIComponent(id)}/costs`),
     scale: (id: string, agentCount: number) =>
-      post<SaasDeployment>(`/deployments/${encodeURIComponent(id)}/scale`, { agentCount }),
+      post<SaasDeployment>(`/deployments/${encodeURIComponent(id)}/scale`, {
+        agentCount,
+      }),
     logsUrl: (id: string) => `${BASE}/deployments/${encodeURIComponent(id)}/logs`,
     logsHistory: (
       id: string,
@@ -374,7 +320,7 @@ export const saasApi = {
       get<{
         items: SaasDeployment[]
         _orphans?: string[]
-      }>(`/deployments?includeOrphans=1`),
+      }>(`/deployments?includeOrphans=1&limit=100&offset=0`),
     claimOrphan: (namespace: string) =>
       post<{ ok: boolean; deployment: SaasDeployment }>(
         `/deployments/orphans/${encodeURIComponent(namespace)}/claim`,
@@ -389,10 +335,18 @@ export const saasApi = {
     list: (deploymentId: string) =>
       get<SaasEnvVar[]>(`/envvars/${encodeURIComponent(deploymentId)}`),
     update: (deploymentId: string, vars: Array<{ key: string; value: string }>) =>
-      put<{ ok: boolean }>(`/envvars/${encodeURIComponent(deploymentId)}`, { vars }),
+      put<{ ok: boolean }>(`/envvars/${encodeURIComponent(deploymentId)}`, {
+        vars,
+      }),
     getOne: (deploymentId: string, key: string) =>
       get<{
-        envVar: { scope: string; key: string; value: string; isSecret: boolean; groupName: string }
+        envVar: {
+          scope: string
+          key: string
+          value: string
+          isSecret: boolean
+          groupName: string
+        }
       }>(`/envvars/${encodeURIComponent(deploymentId)}/${encodeURIComponent(key)}`),
     delete: (deploymentId: string, key: string) =>
       del<{ ok: boolean }>(
@@ -405,17 +359,20 @@ export const saasApi = {
   // recharge flow (window event 'shadow:open-recharge') instead.
   wallet: {
     get: () => get<SaasWallet>('/wallet'),
-    transactions: (params?: { limit?: number; offset?: number }) =>
-      get<{ transactions: SaasTransaction[]; total: number; limit: number; offset: number }>(
-        `/wallet/transactions${params ? `?limit=${params.limit ?? 50}&offset=${params.offset ?? 0}` : ''}`,
-      ),
+    transactions: (params: { limit?: number; offset?: number } = {}) =>
+      get<{
+        transactions: SaasTransaction[]
+        total: number
+        limit: number
+        offset: number
+      }>(`/wallet/transactions?limit=${params.limit ?? 50}&offset=${params.offset ?? 0}`),
   },
 
   // Activity
   activity: {
-    list: (params?: { limit?: number; offset?: number }) =>
+    list: (params: { limit?: number; offset?: number } = {}) =>
       get<SaasActivityEntry[]>(
-        `/activity${params ? `?limit=${params.limit ?? 50}&offset=${params.offset ?? 0}` : ''}`,
+        `/activity?limit=${params.limit ?? 50}&offset=${params.offset ?? 0}`,
       ),
   },
 
@@ -438,10 +395,21 @@ export const saasApi = {
       })),
     getOne: (key: string) =>
       get<{
-        envVar: { scope: string; key: string; value: string; isSecret: boolean; groupName: string }
+        envVar: {
+          scope: string
+          key: string
+          value: string
+          isSecret: boolean
+          groupName: string
+        }
       }>(`/global-envvars/${encodeURIComponent(key)}`),
     upsert: (key: string, value: string, isSecret?: boolean, groupName?: string) =>
-      put<{ ok: boolean }>('/global-envvars', { key, value, isSecret, groupName }),
+      put<{ ok: boolean }>('/global-envvars', {
+        key,
+        value,
+        isSecret,
+        groupName,
+      }),
     delete: (key: string) => del<{ ok: boolean }>(`/global-envvars/${encodeURIComponent(key)}`),
     createGroup: (name: string) =>
       post<{ ok: boolean; name: string }>('/global-envvars/groups', { name }),
@@ -473,15 +441,5 @@ export const saasApi = {
         }
       >(`/provider-profiles/${encodeURIComponent(id)}/models/refresh`, {}),
     delete: (id: string) => del<{ ok: boolean }>(`/provider-profiles/${encodeURIComponent(id)}`),
-  },
-  providerRouting: {
-    get: () => get<SaasLlmProviderRoutingState>('/provider-routing'),
-    put: (policy: SaasLlmRoutingPolicy) =>
-      put<{ ok: boolean; policy: SaasLlmRoutingPolicy }>('/provider-routing', { policy }),
-    resolve: (data: { selector?: string; tags?: string[] }) =>
-      post<{ ok: boolean; resolved: SaasLlmRoutingResolveResult }>(
-        '/provider-routing/resolve',
-        data,
-      ),
   },
 }

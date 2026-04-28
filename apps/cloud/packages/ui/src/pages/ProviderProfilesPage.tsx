@@ -10,10 +10,6 @@ import {
   Badge,
   Button,
   Card,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
   EmptyState,
   Input,
   Modal,
@@ -25,44 +21,27 @@ import {
   NativeSelect,
   SecretInput,
   Switch,
-  Tabs,
-  TabsList,
-  TabsTrigger,
 } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  ArrowDownUp,
   ArrowLeft,
-  Bell,
   CheckCircle,
   ChevronRight,
-  Gauge,
   Globe2,
-  Info,
   KeyRound,
   Loader2,
-  Mail,
-  MoreVertical,
   Pencil,
   Plus,
   RefreshCw,
-  Route,
   ShieldCheck,
   TestTube2,
   Trash2,
   XCircle,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PageShell } from '@/components/PageShell'
-import type {
-  LlmLimitRule,
-  LlmRouteAssignment,
-  LlmRoutingPolicy,
-  ProviderCatalogEntry,
-  ProviderProfile,
-  ProviderTestResult,
-} from '@/lib/api'
+import type { ProviderCatalogEntry, ProviderProfile, ProviderTestResult } from '@/lib/api'
 import { useApiClient } from '@/lib/api-context'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/stores/toast'
@@ -93,18 +72,7 @@ interface ProviderProfileModelFormState {
   reasoning: boolean
 }
 
-interface LimitRuleFormState {
-  id?: string
-  metric: 'tokens' | 'cost'
-  threshold: string
-  period: 'day' | 'month'
-  blockRequests: boolean
-}
-
 const MODEL_TAGS = ['default', 'fast', 'flash', 'reasoning', 'vision', 'tools'] as const
-const ROUTE_IDS = ['default', 'simple', 'standard', 'complex', 'reasoning'] as const
-const COMPLEXITY_ROUTE_IDS = ['simple', 'standard', 'complex', 'reasoning'] as const
-const ROUTING_MODES = ['default', 'taskSpecific', 'custom'] as const
 
 const EMPTY_FORM: ProviderProfileFormState = {
   providerId: '',
@@ -117,20 +85,17 @@ const EMPTY_FORM: ProviderProfileFormState = {
   enabled: true,
 }
 
-const EMPTY_RULE_FORM: LimitRuleFormState = {
-  metric: 'tokens',
-  threshold: '',
-  period: 'day',
-  blockRequests: false,
-}
-
 function defaultProfileName(providerId: string): string {
   return providerId ? `${providerId}-default` : ''
 }
 
+function isMaskedPlaceholder(value: string): boolean {
+  return /^[*•●∙·]{3,}$/u.test(value.trim())
+}
+
 function profileBaseUrl(profile: ProviderProfile): string {
   const value = profile.config.baseUrl
-  return typeof value === 'string' ? value : ''
+  return typeof value === 'string' && !isMaskedPlaceholder(value) ? value : ''
 }
 
 function catalogApiFormat(
@@ -201,48 +166,17 @@ function emptyModel(): ProviderProfileModelFormState {
   }
 }
 
-function makeLimitRuleId(): string {
-  return globalThis.crypto?.randomUUID?.() ?? `rule-${Date.now()}-${Math.random()}`
-}
-
-function limitRuleForm(rule?: LlmLimitRule): LimitRuleFormState {
-  if (!rule) return EMPTY_RULE_FORM
+function modelFromCatalog(
+  catalog: ProviderCatalogEntry | undefined,
+): ProviderProfileModelFormState {
+  const model =
+    catalog?.provider.models.find((item) => item.tags?.includes('default')) ??
+    catalog?.provider.models[0]
   return {
-    id: rule.id,
-    metric: rule.metric,
-    threshold: String(rule.threshold),
-    period: rule.period,
-    blockRequests: rule.blockRequests,
-  }
-}
-
-function serializeLimitRule(form: LimitRuleFormState): LlmLimitRule {
-  return {
-    id: form.id ?? makeLimitRuleId(),
-    metric: form.metric,
-    threshold: Number(form.threshold) || 0,
-    period: form.period,
-    blockRequests: form.blockRequests,
-    enabled: true,
-    triggered: 0,
-  }
-}
-
-function formatThreshold(rule: LlmLimitRule): string {
-  const value = Number.isInteger(rule.threshold)
-    ? String(rule.threshold)
-    : rule.threshold.toLocaleString(undefined, { maximumFractionDigits: 2 })
-  return rule.metric === 'cost' ? `$${value}` : value
-}
-
-function alertEmail(): string {
-  const token = localStorage.getItem('accessToken')
-  if (!token) return 'admin@shadowob.app'
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1] ?? '')) as { email?: unknown }
-    return typeof payload.email === 'string' && payload.email ? payload.email : 'admin@shadowob.app'
-  } catch {
-    return 'admin@shadowob.app'
+    ...emptyModel(),
+    id: model?.id ?? '',
+    name: model?.name ?? '',
+    tags: model?.tags?.length ? model.tags : ['default'],
   }
 }
 
@@ -349,11 +283,7 @@ export function ProviderProfilesPage() {
   const [form, setForm] = useState<ProviderProfileFormState | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<ProviderProfile | null>(null)
   const [testResults, setTestResults] = useState<Record<string, ProviderTestResult>>({})
-  const [activeTab, setActiveTab] = useState('providers')
-  const [policyDraft, setPolicyDraft] = useState<LlmRoutingPolicy | null>(null)
   const [connectDialogOpen, setConnectDialogOpen] = useState(false)
-  const [routingMode, setRoutingMode] = useState<(typeof ROUTING_MODES)[number]>('default')
-  const [ruleForm, setRuleForm] = useState<LimitRuleFormState | null>(null)
 
   const { data: catalogData, isLoading: isCatalogLoading } = useQuery({
     queryKey: ['provider-catalogs'],
@@ -363,11 +293,6 @@ export function ProviderProfilesPage() {
   const { data: profileData, isLoading: isProfilesLoading } = useQuery({
     queryKey: ['provider-profiles'],
     queryFn: api.providerProfiles.list,
-  })
-
-  const { data: routingData, isLoading: isRoutingLoading } = useQuery({
-    queryKey: ['provider-routing'],
-    queryFn: api.providerRouting.get,
   })
 
   const catalogs = catalogData?.providers ?? []
@@ -387,10 +312,6 @@ export function ProviderProfilesPage() {
   )
   const customCatalog = catalogs.find((catalog) => catalog.provider.id === 'custom')
 
-  useEffect(() => {
-    if (routingData?.policy) setPolicyDraft(routingData.policy)
-  }, [routingData?.policy])
-
   const saveProfile = useMutation({
     mutationFn: (state: ProviderProfileFormState) => {
       const catalog = catalogById.get(state.providerId)
@@ -399,11 +320,12 @@ export function ProviderProfilesPage() {
       if (secretKey && state.apiKey.trim()) envVars[secretKey] = state.apiKey.trim()
 
       const config: Record<string, unknown> = {}
-      if (state.baseUrl.trim()) config.baseUrl = state.baseUrl.trim()
+      const baseUrl = state.baseUrl.trim()
+      if (baseUrl && !isMaskedPlaceholder(baseUrl)) config.baseUrl = baseUrl
       config.apiFormat = state.apiFormat
       config.authType = 'api_key'
       const models = serializeModels(state.models)
-      if (models.length > 0) config.models = models
+      config.models = models
 
       return api.providerProfiles.upsert({
         id: state.id,
@@ -451,23 +373,11 @@ export function ProviderProfilesPage() {
   const refreshModels = useMutation({
     mutationFn: (profile: ProviderProfile) => api.providerProfiles.refreshModels(profile.id),
     onSuccess: async (result) => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['provider-profiles'] }),
-        queryClient.invalidateQueries({ queryKey: ['provider-routing'] }),
-      ])
+      await queryClient.invalidateQueries({ queryKey: ['provider-profiles'] })
       if (result.ok) toast.success(t('providers.modelsRefreshed'))
       else toast.error(result.message ?? t('providers.modelsRefreshFailed'))
     },
     onError: () => toast.error(t('providers.modelsRefreshFailed')),
-  })
-
-  const saveRouting = useMutation({
-    mutationFn: (policy: LlmRoutingPolicy) => api.providerRouting.put(policy),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['provider-routing'] })
-      toast.success(t('providers.routingSaved'))
-    },
-    onError: () => toast.error(t('providers.routingSaveFailed')),
   })
 
   const toggleProfile = (profile: ProviderProfile) => {
@@ -491,12 +401,14 @@ export function ProviderProfilesPage() {
 
   const openCreate = (providerId?: string) => {
     const nextProviderId = providerId ?? catalogs[0]?.provider.id ?? ''
+    const catalog = catalogById.get(nextProviderId)
     setForm({
       ...EMPTY_FORM,
       providerId: nextProviderId,
       name: defaultProfileName(nextProviderId),
-      apiFormat: catalogApiFormat(catalogById.get(nextProviderId)),
+      apiFormat: catalogApiFormat(catalog),
       authType: 'api_key',
+      models: [modelFromCatalog(catalog)],
     })
     setConnectDialogOpen(true)
   }
@@ -533,95 +445,13 @@ export function ProviderProfilesPage() {
     setConnectDialogOpen(true)
   }
 
+  const hasRequiredModel = Boolean(form && serializeModels(form.models).length > 0)
   const submitDisabled =
-    saveProfile.isPending || !form?.providerId || !form.name.trim() || !selectedCatalog
-  const availableModels = routingData?.models ?? []
-  const accountEmail = useMemo(alertEmail, [])
-  const firstEnabledProfile = profiles.find((profile) => profile.enabled)
-
-  const routeAssignment = (
-    policy: LlmRoutingPolicy,
-    route: (typeof ROUTE_IDS)[number],
-  ): LlmRouteAssignment => (route === 'default' ? policy.defaultRoute : policy.complexity[route])
-
-  const updateRoute = (
-    route: (typeof ROUTE_IDS)[number],
-    updater: (assignment: LlmRouteAssignment) => LlmRouteAssignment,
-  ) => {
-    setPolicyDraft((current) => {
-      if (!current) return current
-      if (route === 'default') return { ...current, defaultRoute: updater(current.defaultRoute) }
-      return {
-        ...current,
-        complexity: {
-          ...current.complexity,
-          [route]: updater(current.complexity[route]),
-        },
-      }
-    })
-  }
-
-  const updatePolicy = (updater: (policy: LlmRoutingPolicy) => LlmRoutingPolicy) => {
-    setPolicyDraft((current) => (current ? updater(current) : current))
-  }
-
-  const addFallbackModel = (route: (typeof ROUTE_IDS)[number]) => {
-    updateRoute(route, (current) => {
-      const candidate = availableModels.find(
-        (model) => model.ref !== current.primary && !current.fallbacks.includes(model.ref),
-      )
-      if (!candidate) return current
-      return { ...current, fallbacks: [...current.fallbacks, candidate.ref].slice(0, 5) }
-    })
-  }
-
-  const updateFallbackModel = (
-    route: (typeof ROUTE_IDS)[number],
-    index: number,
-    modelRef: string,
-  ) => {
-    updateRoute(route, (current) => {
-      const fallbacks = [...current.fallbacks]
-      if (modelRef) fallbacks[index] = modelRef
-      else fallbacks.splice(index, 1)
-      return { ...current, fallbacks: fallbacks.filter(Boolean).slice(0, 5) }
-    })
-  }
-
-  const saveRule = () => {
-    if (!ruleForm || !policyDraft) return
-    const rule = serializeLimitRule(ruleForm)
-    if (rule.threshold <= 0) return
-    const existing = policyDraft.rules ?? []
-    const rules = ruleForm.id
-      ? existing.map((item) =>
-          item.id === rule.id
-            ? { ...rule, triggered: item.triggered, enabled: item.enabled }
-            : item,
-        )
-      : [...existing, rule]
-    const nextPolicy = { ...policyDraft, rules }
-    setPolicyDraft(nextPolicy)
-    saveRouting.mutate(nextPolicy)
-    setRuleForm(null)
-  }
-
-  const deleteRule = (ruleId: string) => {
-    if (!policyDraft) return
-    const nextPolicy = {
-      ...policyDraft,
-      rules: (policyDraft.rules ?? []).filter((rule) => rule.id !== ruleId),
-    }
-    setPolicyDraft(nextPolicy)
-    saveRouting.mutate(nextPolicy)
-  }
-
-  const modelLabel = (ref: string | undefined) => {
-    if (!ref) return t('providers.autoSelect')
-    const model = availableModels.find((item) => item.ref === ref)
-    return model ? `${model.profileName} / ${model.name ?? model.id}` : ref
-  }
-
+    saveProfile.isPending ||
+    !form?.providerId ||
+    !form.name.trim() ||
+    !selectedCatalog ||
+    !hasRequiredModel
   const providerModelCount = (profile: ProviderProfile) => profileModels(profile).length
   const shouldShowBaseUrlInBasic = Boolean(
     form && (selectedCatalog?.provider.id === 'custom' || form.baseUrl.trim()),
@@ -664,640 +494,146 @@ export function ProviderProfilesPage() {
         </div>
       }
     >
-      <Tabs value={activeTab} onChange={setActiveTab}>
-        <TabsList className="mb-5 flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-2xl">
-          <TabsTrigger value="providers" className="gap-2">
-            <KeyRound size={14} />
-            {t('providers.tabs.providers')}
-          </TabsTrigger>
-          <TabsTrigger value="routing" className="gap-2">
-            <Route size={14} />
-            {t('providers.tabs.routing')}
-          </TabsTrigger>
-          <TabsTrigger value="limits" className="gap-2">
-            <Gauge size={14} />
-            {t('providers.tabs.limits')}
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-
-      {activeTab === 'providers' && (
-        <>
-          {isCatalogLoading || isProfilesLoading ? (
-            <div className="flex items-center justify-center py-20 text-sm text-text-muted">
-              <Loader2 size={18} className="mr-2 animate-spin" />
-              {t('common.loading')}
-            </div>
-          ) : profiles.length === 0 ? (
-            <Card variant="glass">
-              <EmptyState
-                icon={KeyRound}
-                title={t('providers.noProfiles')}
-                description={t('providers.noProfilesDescription')}
-                action={
-                  <Button type="button" variant="primary" size="sm" onClick={openConnectDialog}>
-                    <Plus size={14} />
-                    {t('providers.addProvider')}
-                  </Button>
-                }
-              />
-            </Card>
-          ) : (
-            <div className="space-y-3">
-              {profiles.map((profile) => {
-                const catalog = catalogById.get(profile.providerId)
-                const result = testResults[profile.id]
-                const isTesting = testProfile.isPending && testProfile.variables?.id === profile.id
-                const isRefreshing =
-                  refreshModels.isPending && refreshModels.variables?.id === profile.id
-                return (
-                  <Card key={profile.id} variant="glass" className="p-4">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex min-w-0 items-start gap-3">
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-sm font-black text-primary">
-                          {providerInitial(catalog, profile.providerId)}
-                        </span>
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="truncate text-base font-black text-text-primary">
-                              {profile.name}
-                            </h3>
-                            <Badge variant={profile.enabled ? 'success' : 'neutral'} size="sm">
-                              {profile.enabled ? t('providers.enabled') : t('providers.disabled')}
-                            </Badge>
-                          </div>
-                          <p className="mt-1 text-sm text-text-muted">
-                            {catalog?.pluginName ?? profile.providerId}
-                          </p>
-                          <div className="mt-2 flex flex-wrap gap-2 text-xs text-text-muted">
-                            <span className="rounded-full border border-border-subtle/60 bg-bg-secondary/35 px-2.5 py-1">
-                              {profile.envVars.length > 0
-                                ? t('providers.keySaved')
-                                : t('providers.noSecretValue')}
-                            </span>
-                            <span className="rounded-full border border-border-subtle/60 bg-bg-secondary/35 px-2.5 py-1">
-                              {t('providers.modelsCount', {
-                                count: providerModelCount(profile),
-                              })}
-                            </span>
-                          </div>
-                        </div>
+      {isCatalogLoading || isProfilesLoading ? (
+        <div className="flex items-center justify-center py-20 text-sm text-text-muted">
+          <Loader2 size={18} className="mr-2 animate-spin" />
+          {t('common.loading')}
+        </div>
+      ) : profiles.length === 0 ? (
+        <Card variant="glass">
+          <EmptyState
+            icon={KeyRound}
+            title={t('providers.noProfiles')}
+            description={t('providers.noProfilesDescription')}
+            action={
+              <Button type="button" variant="primary" size="sm" onClick={openConnectDialog}>
+                <Plus size={14} />
+                {t('providers.addProvider')}
+              </Button>
+            }
+          />
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {profiles.map((profile) => {
+            const catalog = catalogById.get(profile.providerId)
+            const result = testResults[profile.id]
+            const isTesting = testProfile.isPending && testProfile.variables?.id === profile.id
+            const isRefreshing =
+              refreshModels.isPending && refreshModels.variables?.id === profile.id
+            return (
+              <Card key={profile.id} variant="glass" className="p-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-sm font-black text-primary">
+                      {providerInitial(catalog, profile.providerId)}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="truncate text-base font-black text-text-primary">
+                          {profile.name}
+                        </h3>
+                        <Badge variant={profile.enabled ? 'success' : 'neutral'} size="sm">
+                          {profile.enabled ? t('providers.enabled') : t('providers.disabled')}
+                        </Badge>
                       </div>
-
-                      <div className="flex shrink-0 flex-wrap items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="xs"
-                          onClick={() => testProfile.mutate(profile)}
-                          disabled={isTesting || !profile.enabled}
-                          title={t('providers.testConnection')}
-                        >
-                          {isTesting ? (
-                            <Loader2 size={13} className="animate-spin" />
-                          ) : (
-                            <TestTube2 size={13} />
-                          )}
-                          {t('providers.testConnectionShort')}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="xs"
-                          onClick={() => refreshModels.mutate(profile)}
-                          disabled={isRefreshing || !profile.enabled}
-                          title={t('providers.refreshModels')}
-                        >
-                          {isRefreshing ? (
-                            <Loader2 size={13} className="animate-spin" />
-                          ) : (
-                            <RefreshCw size={13} />
-                          )}
-                          {t('providers.refreshModelsShort')}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="xs"
-                          onClick={() => openEdit(profile)}
-                          title={t('common.edit')}
-                        >
-                          <Pencil size={13} />
-                          {t('common.edit')}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="xs"
-                          className="text-danger/70 hover:text-danger"
-                          onClick={() => setDeleteTarget(profile)}
-                          title={t('common.delete')}
-                        >
-                          <Trash2 size={13} />
-                          {t('common.delete')}
-                        </Button>
-                        <Switch
-                          checked={profile.enabled}
-                          onCheckedChange={() => toggleProfile(profile)}
-                          disabled={saveProfile.isPending}
-                        />
+                      <p className="mt-1 text-sm text-text-muted">
+                        {catalog?.pluginName ?? profile.providerId}
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs text-text-muted">
+                        <span className="rounded-full border border-border-subtle/60 bg-bg-secondary/35 px-2.5 py-1">
+                          {profile.envVars.length > 0
+                            ? t('providers.keySaved')
+                            : t('providers.noSecretValue')}
+                        </span>
+                        <span className="rounded-full border border-border-subtle/60 bg-bg-secondary/35 px-2.5 py-1">
+                          {t('providers.modelsCount', { count: providerModelCount(profile) })}
+                        </span>
                       </div>
                     </div>
+                  </div>
 
-                    {result && (
-                      <div
-                        className={cn(
-                          'mt-4 flex items-start gap-2 rounded-xl border px-3 py-2 text-xs',
-                          result.ok
-                            ? 'border-success/25 bg-success/8 text-success'
-                            : 'border-danger/25 bg-danger/8 text-danger',
-                        )}
-                      >
-                        {result.ok ? (
-                          <CheckCircle size={13} className="mt-0.5 shrink-0" />
-                        ) : (
-                          <XCircle size={13} className="mt-0.5 shrink-0" />
-                        )}
-                        <span className="min-w-0 break-words">{statusText(result)}</span>
-                      </div>
-                    )}
-                  </Card>
-                )
-              })}
-            </div>
-          )}
-        </>
-      )}
-
-      {activeTab === 'routing' && (
-        <Card variant="glass" className="p-6">
-          {isRoutingLoading || !policyDraft ? (
-            <div className="flex items-center justify-center py-16 text-sm text-text-muted">
-              <Loader2 size={18} className="mr-2 animate-spin" />
-              {t('common.loading')}
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border-subtle/35 pb-5">
-                <div>
-                  <h2 className="text-3xl font-black text-text-primary">
-                    {t('providers.routingTitle')}
-                  </h2>
-                  <p className="mt-1 text-sm text-text-muted">
-                    {t('providers.routingManifestDescription', {
-                      count: routingData?.summary.enabledProfiles ?? 0,
-                    })}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    loading={refreshModels.isPending}
-                    disabled={profiles.filter((profile) => profile.enabled).length === 0}
-                    onClick={() => {
-                      for (const profile of profiles.filter((item) => item.enabled)) {
-                        refreshModels.mutate(profile)
-                      }
-                    }}
-                  >
-                    <RefreshCw size={14} />
-                    {t('providers.refreshModels')}
-                  </Button>
-                  <Button type="button" variant="primary" size="sm" onClick={openConnectDialog}>
-                    <Plus size={14} />
-                    {t('providers.connectProvidersAction')}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    loading={saveRouting.isPending}
-                    onClick={() => policyDraft && saveRouting.mutate(policyDraft)}
-                  >
-                    {t('providers.saveRouting')}
-                  </Button>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <p className="inline-flex items-center gap-2 text-sm font-bold text-text-muted">
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-md text-primary">
-                    {providerInitial(
-                      catalogById.get(firstEnabledProfile?.providerId ?? ''),
-                      firstEnabledProfile?.providerId,
-                    )}
-                  </span>
-                  {t('providers.connectionCount', {
-                    count: routingData?.summary.enabledProfiles ?? 0,
-                  })}
-                </p>
-                <a
-                  href="#routing-help"
-                  className="inline-flex items-center gap-1 text-xs font-semibold italic text-text-muted hover:text-primary"
-                >
-                  {t('providers.howRoutingWorks')}
-                  <Info size={13} />
-                </a>
-              </div>
-
-              <div className="inline-flex rounded-xl bg-bg-secondary/45 p-1">
-                {ROUTING_MODES.map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    className={cn(
-                      'inline-flex h-9 items-center gap-2 rounded-lg px-4 text-sm font-black transition-colors',
-                      routingMode === mode
-                        ? 'bg-bg-primary text-text-primary shadow-[var(--shadow-soft)]'
-                        : 'text-text-muted hover:text-text-primary',
-                    )}
-                    onClick={() => setRoutingMode(mode)}
-                  >
-                    <span
-                      className={cn(
-                        'h-2 w-2 rounded-full',
-                        routingMode === mode ? 'bg-primary' : 'bg-border-subtle',
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => testProfile.mutate(profile)}
+                      disabled={isTesting || !profile.enabled}
+                      title={t('providers.testConnection')}
+                    >
+                      {isTesting ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        <TestTube2 size={13} />
                       )}
+                      {t('providers.testConnectionShort')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => refreshModels.mutate(profile)}
+                      disabled={isRefreshing || !profile.enabled}
+                      title={t('providers.refreshModels')}
+                    >
+                      {isRefreshing ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        <RefreshCw size={13} />
+                      )}
+                      {t('providers.refreshModelsShort')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => openEdit(profile)}
+                      title={t('common.edit')}
+                    >
+                      <Pencil size={13} />
+                      {t('common.edit')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      className="text-danger/70 hover:text-danger"
+                      onClick={() => setDeleteTarget(profile)}
+                      title={t('common.delete')}
+                    >
+                      <Trash2 size={13} />
+                      {t('common.delete')}
+                    </Button>
+                    <Switch
+                      checked={profile.enabled}
+                      onCheckedChange={() => toggleProfile(profile)}
+                      disabled={saveProfile.isPending}
                     />
-                    {t(`providers.routingModes.${mode}`)}
-                  </button>
-                ))}
-              </div>
-
-              {routingMode === 'default' ? (
-                <>
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="max-w-3xl text-sm text-text-muted">
-                      {t('providers.routeByComplexityDescription')}
-                    </p>
-                    <label className="inline-flex items-center gap-3 text-sm font-bold text-text-primary">
-                      {t('providers.routeByComplexity')}
-                      <Switch
-                        checked={policyDraft.enabled}
-                        onCheckedChange={(enabled) =>
-                          updatePolicy((policy) => ({ ...policy, enabled }))
-                        }
-                      />
-                    </label>
                   </div>
-
-                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
-                    {COMPLEXITY_ROUTE_IDS.map((route) => {
-                      const assignment = routeAssignment(policyDraft, route)
-                      return (
-                        <div
-                          key={route}
-                          className="flex min-h-[300px] flex-col rounded-2xl border border-border-subtle/50 bg-bg-secondary/20 p-4"
-                        >
-                          <h3 className="text-base font-black text-text-primary">
-                            {t(`providers.routes.${route}`)}
-                          </h3>
-
-                          <div className="mt-3 rounded-xl border border-border-subtle/45 bg-bg-primary/25 p-3">
-                            <div className="mb-2 flex items-center gap-2">
-                              <ArrowDownUp size={13} className="text-text-muted" />
-                              <Badge variant={assignment.primary ? 'success' : 'neutral'} size="sm">
-                                {assignment.primary ? t('providers.manual') : t('providers.auto')}
-                              </Badge>
-                            </div>
-                            <NativeSelect
-                              value={assignment.primary ?? ''}
-                              onChange={(event) =>
-                                updateRoute(route, (current) => ({
-                                  ...current,
-                                  primary: event.target.value || undefined,
-                                }))
-                              }
-                            >
-                              <option value="">{t('providers.autoSelect')}</option>
-                              {availableModels.map((model) => (
-                                <option key={model.ref} value={model.ref}>
-                                  {modelLabel(model.ref)}
-                                </option>
-                              ))}
-                            </NativeSelect>
-                            <Input
-                              className="mt-2"
-                              value={assignment.selector}
-                              onChange={(event) =>
-                                updateRoute(route, (current) => ({
-                                  ...current,
-                                  selector: event.target.value,
-                                }))
-                              }
-                              placeholder={t('providers.selectorPlaceholder')}
-                            />
-                          </div>
-
-                          <div className="flex flex-1 flex-col items-center justify-center gap-3 py-8 text-center">
-                            {assignment.fallbacks.length === 0 ? (
-                              <>
-                                <ArrowDownUp size={24} className="text-text-muted/50" />
-                                <div>
-                                  <p className="text-sm font-black text-text-muted">
-                                    {t('providers.noFallbacks')}
-                                  </p>
-                                  <p className="mt-1 text-xs text-text-muted">
-                                    {t('providers.noFallbacksDescription')}
-                                  </p>
-                                </div>
-                              </>
-                            ) : (
-                              <div className="w-full space-y-2">
-                                {assignment.fallbacks.map((fallback, index) => (
-                                  <NativeSelect
-                                    key={`${fallback}-${index}`}
-                                    value={fallback}
-                                    onChange={(event) =>
-                                      updateFallbackModel(route, index, event.target.value)
-                                    }
-                                  >
-                                    <option value="">
-                                      {t('providers.fallbackSlot', { index: index + 1 })}
-                                    </option>
-                                    {availableModels
-                                      .filter((model) => model.ref !== assignment.primary)
-                                      .map((model) => (
-                                        <option key={model.ref} value={model.ref}>
-                                          {modelLabel(model.ref)}
-                                        </option>
-                                      ))}
-                                  </NativeSelect>
-                                ))}
-                              </div>
-                            )}
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              size="xs"
-                              onClick={() => addFallbackModel(route)}
-                              disabled={
-                                availableModels.length === 0 || assignment.fallbacks.length >= 5
-                              }
-                            >
-                              <ArrowDownUp size={13} />
-                              {t('providers.addFallback')}
-                            </Button>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </>
-              ) : (
-                <div className="rounded-2xl border border-border-subtle/45 bg-bg-secondary/15 p-10 text-center">
-                  <p className="text-lg font-black text-text-primary">
-                    {t(`providers.routingModeTitles.${routingMode}`)}
-                  </p>
-                  <p className="mx-auto mt-2 max-w-2xl text-sm text-text-muted">
-                    {t(`providers.routingModeDescriptions.${routingMode}`)}
-                  </p>
-                </div>
-              )}
-
-              <div id="routing-help" className="border-t border-border-subtle/35 pt-4 text-right">
-                <span className="text-xs text-text-muted">{t('providers.setupInstructions')}</span>
-              </div>
-            </div>
-          )}
-        </Card>
-      )}
-
-      {activeTab === 'limits' && (
-        <Card variant="glass" className="p-6">
-          {isRoutingLoading || !policyDraft ? (
-            <div className="flex items-center justify-center py-16 text-sm text-text-muted">
-              <Loader2 size={18} className="mr-2 animate-spin" />
-              {t('common.loading')}
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border-subtle/35 pb-5">
-                <div>
-                  <h2 className="text-3xl font-black text-text-primary">
-                    {t('providers.limitsTitle')}
-                  </h2>
-                  <p className="mt-1 text-sm text-text-muted">
-                    {t('providers.limitsManifestDescription', {
-                      count: routingData?.summary.enabledProfiles ?? 0,
-                    })}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  onClick={() => setRuleForm(EMPTY_RULE_FORM)}
-                >
-                  <Plus size={14} />
-                  {t('providers.createRule')}
-                </Button>
-              </div>
-
-              <div className="flex items-start gap-4 rounded-2xl border border-primary/35 bg-primary/5 p-5">
-                <Info size={20} className="mt-0.5 shrink-0 text-primary" />
-                <div>
-                  <p className="text-base font-black text-text-primary">
-                    {t('providers.connectProviderForHardLimits')}
-                  </p>
-                  <p className="mt-2 max-w-4xl text-sm leading-7 text-text-muted">
-                    {t('providers.connectProviderForHardLimitsDescription')}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4 rounded-2xl border border-border-subtle/45 bg-bg-secondary/15 p-5">
-                <Mail size={22} className="shrink-0 text-primary" />
-                <div>
-                  <p className="text-base font-black text-text-primary">
-                    {t('providers.emailAlerts')}
-                  </p>
-                  <p className="mt-1 text-sm text-text-muted">
-                    {t('providers.emailAlertsDescription', { email: accountEmail })}
-                  </p>
-                </div>
-              </div>
-
-              <div className="overflow-hidden rounded-2xl border border-border-subtle/45 bg-bg-secondary/15">
-                <div className="p-5">
-                  <h3 className="text-base font-black text-text-primary">
-                    {t('providers.rulesTitle')}
-                  </h3>
                 </div>
 
-                {(policyDraft.rules ?? []).length === 0 ? (
-                  <div className="flex min-h-64 flex-col items-center justify-center px-6 py-16 text-center">
-                    <p className="text-2xl font-black text-text-primary">
-                      {t('providers.noRulesYet')}
-                    </p>
-                    <p className="mt-4 max-w-2xl text-lg text-text-muted">
-                      {t('providers.noRulesYetDescription')}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto border-t border-border-subtle/35">
-                    <table className="w-full min-w-[720px] text-left text-sm">
-                      <thead className="text-text-muted">
-                        <tr>
-                          <th className="px-6 py-4 font-black">{t('providers.ruleType')}</th>
-                          <th className="px-6 py-4 font-black">{t('providers.ruleThreshold')}</th>
-                          <th className="px-6 py-4 font-black">{t('providers.ruleTriggered')}</th>
-                          <th className="px-6 py-4 text-right font-black">
-                            {t('providers.ruleActions')}
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(policyDraft.rules ?? []).map((rule) => (
-                          <tr key={rule.id} className="border-t border-border-subtle/35">
-                            <td className="px-6 py-5">
-                              <Bell size={18} className="text-text-primary" />
-                            </td>
-                            <td className="px-6 py-5 text-lg text-text-primary">
-                              <span className="font-mono">{formatThreshold(rule)}</span>
-                              <span className="ml-2 text-text-muted">
-                                {t(`providers.ruleMetrics.${rule.metric}`)}{' '}
-                                {t(`providers.rulePeriods.inline.${rule.period}`)}
-                              </span>
-                            </td>
-                            <td className="px-6 py-5 font-mono text-lg text-text-primary">
-                              {rule.triggered}
-                            </td>
-                            <td className="px-6 py-5 text-right">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button type="button" variant="ghost" size="icon">
-                                    <MoreVertical size={16} />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem
-                                    onClick={() => setRuleForm(limitRuleForm(rule))}
-                                  >
-                                    <Pencil size={15} />
-                                    {t('common.edit')}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    variant="danger"
-                                    onClick={() => deleteRule(rule.id)}
-                                  >
-                                    <Trash2 size={15} />
-                                    {t('common.delete')}
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                {result && (
+                  <div
+                    className={cn(
+                      'mt-4 flex items-start gap-2 rounded-xl border px-3 py-2 text-xs',
+                      result.ok
+                        ? 'border-success/25 bg-success/8 text-success'
+                        : 'border-danger/25 bg-danger/8 text-danger',
+                    )}
+                  >
+                    {result.ok ? (
+                      <CheckCircle size={13} className="mt-0.5 shrink-0" />
+                    ) : (
+                      <XCircle size={13} className="mt-0.5 shrink-0" />
+                    )}
+                    <span className="min-w-0 break-words">{statusText(result)}</span>
                   </div>
                 )}
-              </div>
-
-              <details className="rounded-2xl border border-border-subtle/45 bg-bg-secondary/15 p-4">
-                <summary className="cursor-pointer text-sm font-black text-text-primary">
-                  {t('providers.advancedLimits')}
-                </summary>
-                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-                  <Input
-                    type="number"
-                    min={1}
-                    value={policyDraft.limits.requestsPerMinute}
-                    onChange={(event) =>
-                      updatePolicy((policy) => ({
-                        ...policy,
-                        limits: {
-                          ...policy.limits,
-                          requestsPerMinute: Number(event.target.value) || 1,
-                        },
-                      }))
-                    }
-                    label={t('providers.requestsPerMinute')}
-                  />
-                  <Input
-                    type="number"
-                    min={1}
-                    value={policyDraft.limits.concurrentRequests}
-                    onChange={(event) =>
-                      updatePolicy((policy) => ({
-                        ...policy,
-                        limits: {
-                          ...policy.limits,
-                          concurrentRequests: Number(event.target.value) || 1,
-                        },
-                      }))
-                    }
-                    label={t('providers.concurrentRequests')}
-                  />
-                  <Input
-                    type="number"
-                    min={0}
-                    value={policyDraft.limits.monthlyBudgetUsd ?? ''}
-                    onChange={(event) =>
-                      updatePolicy((policy) => ({
-                        ...policy,
-                        limits: {
-                          ...policy.limits,
-                          monthlyBudgetUsd: Number(event.target.value) || undefined,
-                        },
-                      }))
-                    }
-                    label={t('providers.monthlyBudgetUsd')}
-                  />
-                </div>
-                <div className="mt-4 flex items-center justify-between gap-4 border-t border-border-subtle/35 pt-4">
-                  <div>
-                    <h3 className="text-sm font-black text-text-primary">
-                      {t('providers.fallbackPolicy')}
-                    </h3>
-                    <p className="text-xs text-text-muted">
-                      {t('providers.fallbackPolicyDescription')}
-                    </p>
-                  </div>
-                  <Switch
-                    checked={policyDraft.fallback.enabled}
-                    onCheckedChange={(enabled) =>
-                      updatePolicy((policy) => ({
-                        ...policy,
-                        fallback: { ...policy.fallback, enabled },
-                      }))
-                    }
-                  />
-                </div>
-                <Input
-                  className="mt-3"
-                  value={policyDraft.fallback.statusCodes.join(', ')}
-                  onChange={(event) =>
-                    updatePolicy((policy) => ({
-                      ...policy,
-                      fallback: {
-                        ...policy.fallback,
-                        statusCodes: event.target.value
-                          .split(',')
-                          .map((value) => Number(value.trim()))
-                          .filter((value) => value >= 400 && value <= 599),
-                      },
-                    }))
-                  }
-                  placeholder="408, 429, 500, 502, 503, 504"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="mt-4"
-                  loading={saveRouting.isPending}
-                  onClick={() => policyDraft && saveRouting.mutate(policyDraft)}
-                >
-                  {t('providers.saveRouting')}
-                </Button>
-              </details>
-            </div>
-          )}
-        </Card>
+              </Card>
+            )
+          })}
+        </div>
       )}
 
       {connectDialogOpen && !form && (
@@ -1516,6 +852,232 @@ export function ProviderProfilesPage() {
                   </div>
                 )}
 
+                <section className="space-y-3 rounded-2xl border border-border-subtle/45 bg-bg-secondary/15 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-black text-text-primary">
+                        {t('providers.modelsTitle')}
+                        <span className="ml-1 text-danger">*</span>
+                      </h3>
+                      <p className="text-xs text-text-muted">{t('providers.modelsDescription')}</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="xs"
+                      onClick={() =>
+                        setForm({
+                          ...form,
+                          models: [...form.models, emptyModel()],
+                        })
+                      }
+                    >
+                      <Plus size={12} />
+                      {t('providers.addModel')}
+                    </Button>
+                  </div>
+                  {selectedCatalog?.provider.models.length ? (
+                    <datalist id="provider-profile-model-options">
+                      {selectedCatalog.provider.models.map((model) => (
+                        <option key={model.id} value={model.id}>
+                          {model.name ?? model.id}
+                        </option>
+                      ))}
+                    </datalist>
+                  ) : null}
+                  {form.models.length === 0 ? (
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-border-subtle/50 bg-bg-primary/10 px-4 py-3 text-sm font-bold text-text-muted transition-colors hover:border-primary/40 hover:text-primary"
+                      onClick={() =>
+                        setForm({
+                          ...form,
+                          models: [modelFromCatalog(selectedCatalog)],
+                        })
+                      }
+                    >
+                      <Plus size={14} />
+                      {t('providers.addFirstModel')}
+                    </button>
+                  ) : (
+                    <div className="space-y-3">
+                      {form.models.map((model, index) => (
+                        <div
+                          key={model.clientId}
+                          className="rounded-2xl border border-border-subtle/35 bg-bg-primary/15 p-3"
+                        >
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                            <Input
+                              value={model.id}
+                              onChange={(event) => {
+                                const models = [...form.models]
+                                models[index] = {
+                                  ...model,
+                                  id: event.target.value,
+                                }
+                                setForm({ ...form, models })
+                              }}
+                              placeholder={t('providers.modelIdPlaceholder')}
+                              list="provider-profile-model-options"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-12 w-12 self-end"
+                              title={t('common.delete')}
+                              onClick={() =>
+                                setForm({
+                                  ...form,
+                                  models: form.models.filter(
+                                    (item) => item.clientId !== model.clientId,
+                                  ),
+                                })
+                              }
+                            >
+                              <Trash2 size={15} />
+                            </Button>
+                          </div>
+
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {MODEL_TAGS.map((tag) => {
+                              const active = model.tags.includes(tag)
+                              return (
+                                <button
+                                  key={tag}
+                                  type="button"
+                                  className={cn(
+                                    'rounded-full border px-3 py-1 text-[11px] font-black uppercase transition-colors',
+                                    active
+                                      ? 'border-primary/50 bg-primary/15 text-primary'
+                                      : 'border-border-subtle text-text-muted hover:border-primary/40 hover:text-primary',
+                                  )}
+                                  onClick={() => {
+                                    const tags = active
+                                      ? model.tags.filter((item) => item !== tag)
+                                      : [...model.tags, tag]
+                                    const models = [...form.models]
+                                    models[index] = { ...model, tags }
+                                    setForm({ ...form, models })
+                                  }}
+                                >
+                                  {t(`providers.modelTags.${tag}`)}
+                                </button>
+                              )
+                            })}
+                          </div>
+
+                          <details className="mt-3 border-t border-border-subtle/35 pt-3">
+                            <summary className="cursor-pointer text-xs font-black text-text-muted">
+                              {t('providers.modelDetails')}
+                            </summary>
+                            <div className="mt-3 space-y-3">
+                              <Input
+                                value={model.name}
+                                onChange={(event) => {
+                                  const models = [...form.models]
+                                  models[index] = {
+                                    ...model,
+                                    name: event.target.value,
+                                  }
+                                  setForm({ ...form, models })
+                                }}
+                                placeholder={t('providers.modelNamePlaceholder')}
+                              />
+                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  value={model.contextWindow}
+                                  onChange={(event) => {
+                                    const models = [...form.models]
+                                    models[index] = {
+                                      ...model,
+                                      contextWindow: event.target.value,
+                                    }
+                                    setForm({ ...form, models })
+                                  }}
+                                  placeholder={t('providers.contextWindowPlaceholder')}
+                                />
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  value={model.maxTokens}
+                                  onChange={(event) => {
+                                    const models = [...form.models]
+                                    models[index] = {
+                                      ...model,
+                                      maxTokens: event.target.value,
+                                    }
+                                    setForm({ ...form, models })
+                                  }}
+                                  placeholder={t('providers.maxTokensPlaceholder')}
+                                />
+                              </div>
+                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  step="0.000001"
+                                  value={model.inputCost}
+                                  onChange={(event) => {
+                                    const models = [...form.models]
+                                    models[index] = {
+                                      ...model,
+                                      inputCost: event.target.value,
+                                    }
+                                    setForm({ ...form, models })
+                                  }}
+                                  placeholder={t('providers.inputCostPlaceholder')}
+                                />
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  step="0.000001"
+                                  value={model.outputCost}
+                                  onChange={(event) => {
+                                    const models = [...form.models]
+                                    models[index] = {
+                                      ...model,
+                                      outputCost: event.target.value,
+                                    }
+                                    setForm({ ...form, models })
+                                  }}
+                                  placeholder={t('providers.outputCostPlaceholder')}
+                                />
+                              </div>
+                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                                {(['vision', 'tools', 'reasoning'] as const).map((capability) => (
+                                  <label
+                                    key={capability}
+                                    className="flex h-12 items-center justify-between rounded-2xl border border-border-subtle/60 bg-bg-primary/35 px-3 text-xs font-bold text-text-secondary"
+                                  >
+                                    <span>{t(`providers.capabilities.${capability}`)}</span>
+                                    <Switch
+                                      checked={model[capability]}
+                                      onCheckedChange={(checked) => {
+                                        const models = [...form.models]
+                                        models[index] = {
+                                          ...model,
+                                          [capability]: checked,
+                                        }
+                                        setForm({ ...form, models })
+                                      }}
+                                    />
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          </details>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {!hasRequiredModel && (
+                    <p className="text-xs font-bold text-danger">{t('providers.modelRequired')}</p>
+                  )}
+                </section>
+
                 <label className="flex min-h-12 items-center justify-between rounded-2xl border border-border-subtle/45 bg-bg-secondary/15 px-4 py-2 text-sm font-bold">
                   <span className="text-text-primary">{t('providers.enabled')}</span>
                   <Switch
@@ -1575,202 +1137,6 @@ export function ProviderProfilesPage() {
                       <option value="gemini">{t('providers.apiFormats.gemini')}</option>
                     </NativeSelect>
                   </div>
-
-                  <section className="space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <h3 className="text-sm font-black text-text-primary">
-                          {t('providers.modelsTitle')}
-                        </h3>
-                        <p className="text-xs text-text-muted">
-                          {t('providers.modelsDescription')}
-                        </p>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="xs"
-                        onClick={() => setForm({ ...form, models: [...form.models, emptyModel()] })}
-                      >
-                        <Plus size={12} />
-                        {t('providers.addModel')}
-                      </Button>
-                    </div>
-                    {selectedCatalog?.provider.models.length ? (
-                      <datalist id="provider-profile-model-options">
-                        {selectedCatalog.provider.models.map((model) => (
-                          <option key={model.id} value={model.id}>
-                            {model.name ?? model.id}
-                          </option>
-                        ))}
-                      </datalist>
-                    ) : null}
-                    {form.models.length === 0 ? (
-                      <button
-                        type="button"
-                        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-border-subtle/50 bg-bg-primary/10 px-4 py-3 text-sm font-bold text-text-muted transition-colors hover:border-primary/40 hover:text-primary"
-                        onClick={() => setForm({ ...form, models: [emptyModel()] })}
-                      >
-                        <Plus size={14} />
-                        {t('providers.addFirstModel')}
-                      </button>
-                    ) : (
-                      <div className="space-y-3">
-                        {form.models.map((model, index) => (
-                          <div
-                            key={model.clientId}
-                            className="rounded-2xl border border-border-subtle/35 bg-bg-primary/15 p-3"
-                          >
-                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-                              <Input
-                                value={model.id}
-                                onChange={(event) => {
-                                  const models = [...form.models]
-                                  models[index] = { ...model, id: event.target.value }
-                                  setForm({ ...form, models })
-                                }}
-                                placeholder={t('providers.modelIdPlaceholder')}
-                                list="provider-profile-model-options"
-                              />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-12 w-12 self-end"
-                                title={t('common.delete')}
-                                onClick={() =>
-                                  setForm({
-                                    ...form,
-                                    models: form.models.filter(
-                                      (item) => item.clientId !== model.clientId,
-                                    ),
-                                  })
-                                }
-                              >
-                                <Trash2 size={15} />
-                              </Button>
-                            </div>
-
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {MODEL_TAGS.map((tag) => {
-                                const active = model.tags.includes(tag)
-                                return (
-                                  <button
-                                    key={tag}
-                                    type="button"
-                                    className={cn(
-                                      'rounded-full border px-3 py-1 text-[11px] font-black uppercase transition-colors',
-                                      active
-                                        ? 'border-primary/50 bg-primary/15 text-primary'
-                                        : 'border-border-subtle text-text-muted hover:border-primary/40 hover:text-primary',
-                                    )}
-                                    onClick={() => {
-                                      const tags = active
-                                        ? model.tags.filter((item) => item !== tag)
-                                        : [...model.tags, tag]
-                                      const models = [...form.models]
-                                      models[index] = { ...model, tags }
-                                      setForm({ ...form, models })
-                                    }}
-                                  >
-                                    {t(`providers.modelTags.${tag}`)}
-                                  </button>
-                                )
-                              })}
-                            </div>
-
-                            <details className="mt-3 border-t border-border-subtle/35 pt-3">
-                              <summary className="cursor-pointer text-xs font-black text-text-muted">
-                                {t('providers.modelDetails')}
-                              </summary>
-                              <div className="mt-3 space-y-3">
-                                <Input
-                                  value={model.name}
-                                  onChange={(event) => {
-                                    const models = [...form.models]
-                                    models[index] = { ...model, name: event.target.value }
-                                    setForm({ ...form, models })
-                                  }}
-                                  placeholder={t('providers.modelNamePlaceholder')}
-                                />
-                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                  <Input
-                                    type="number"
-                                    min={1}
-                                    value={model.contextWindow}
-                                    onChange={(event) => {
-                                      const models = [...form.models]
-                                      models[index] = {
-                                        ...model,
-                                        contextWindow: event.target.value,
-                                      }
-                                      setForm({ ...form, models })
-                                    }}
-                                    placeholder={t('providers.contextWindowPlaceholder')}
-                                  />
-                                  <Input
-                                    type="number"
-                                    min={1}
-                                    value={model.maxTokens}
-                                    onChange={(event) => {
-                                      const models = [...form.models]
-                                      models[index] = { ...model, maxTokens: event.target.value }
-                                      setForm({ ...form, models })
-                                    }}
-                                    placeholder={t('providers.maxTokensPlaceholder')}
-                                  />
-                                </div>
-                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                  <Input
-                                    type="number"
-                                    min={0}
-                                    step="0.000001"
-                                    value={model.inputCost}
-                                    onChange={(event) => {
-                                      const models = [...form.models]
-                                      models[index] = { ...model, inputCost: event.target.value }
-                                      setForm({ ...form, models })
-                                    }}
-                                    placeholder={t('providers.inputCostPlaceholder')}
-                                  />
-                                  <Input
-                                    type="number"
-                                    min={0}
-                                    step="0.000001"
-                                    value={model.outputCost}
-                                    onChange={(event) => {
-                                      const models = [...form.models]
-                                      models[index] = { ...model, outputCost: event.target.value }
-                                      setForm({ ...form, models })
-                                    }}
-                                    placeholder={t('providers.outputCostPlaceholder')}
-                                  />
-                                </div>
-                                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                                  {(['vision', 'tools', 'reasoning'] as const).map((capability) => (
-                                    <label
-                                      key={capability}
-                                      className="flex h-12 items-center justify-between rounded-2xl border border-border-subtle/60 bg-bg-primary/35 px-3 text-xs font-bold text-text-secondary"
-                                    >
-                                      <span>{t(`providers.capabilities.${capability}`)}</span>
-                                      <Switch
-                                        checked={model[capability]}
-                                        onCheckedChange={(checked) => {
-                                          const models = [...form.models]
-                                          models[index] = { ...model, [capability]: checked }
-                                          setForm({ ...form, models })
-                                        }}
-                                      />
-                                    </label>
-                                  ))}
-                                </div>
-                              </div>
-                            </details>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </section>
                 </div>
               </details>
             </ModalBody>
@@ -1794,97 +1160,6 @@ export function ProviderProfilesPage() {
         </Modal>
       )}
 
-      {ruleForm && (
-        <Modal open onClose={() => setRuleForm(null)}>
-          <ModalContent size="md">
-            <ModalHeader
-              title={ruleForm.id ? t('providers.editRule') : t('providers.createRuleTitle')}
-              subtitle={t('providers.createRuleDescription')}
-            />
-            <ModalBody className="space-y-5 py-5">
-              <div>
-                <label htmlFor="provider-rule-metric" className="mb-2 block text-sm font-bold">
-                  {t('providers.ruleMetric')}
-                </label>
-                <NativeSelect
-                  id="provider-rule-metric"
-                  value={ruleForm.metric}
-                  onChange={(event) =>
-                    setRuleForm({
-                      ...ruleForm,
-                      metric: event.target.value as LimitRuleFormState['metric'],
-                    })
-                  }
-                >
-                  <option value="tokens">{t('providers.ruleMetrics.tokens')}</option>
-                  <option value="cost">{t('providers.ruleMetrics.cost')}</option>
-                </NativeSelect>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="provider-rule-threshold" className="mb-2 block text-sm font-bold">
-                    {t('providers.ruleThreshold')}
-                  </label>
-                  <Input
-                    id="provider-rule-threshold"
-                    type="number"
-                    min={0}
-                    value={ruleForm.threshold}
-                    onChange={(event) =>
-                      setRuleForm({ ...ruleForm, threshold: event.target.value })
-                    }
-                    placeholder={t('providers.ruleThresholdPlaceholder')}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="provider-rule-period" className="mb-2 block text-sm font-bold">
-                    {t('providers.rulePeriod')}
-                  </label>
-                  <NativeSelect
-                    id="provider-rule-period"
-                    value={ruleForm.period}
-                    onChange={(event) =>
-                      setRuleForm({
-                        ...ruleForm,
-                        period: event.target.value as LimitRuleFormState['period'],
-                      })
-                    }
-                  >
-                    <option value="day">{t('providers.rulePeriods.day')}</option>
-                    <option value="month">{t('providers.rulePeriods.month')}</option>
-                  </NativeSelect>
-                </div>
-              </div>
-
-              <label className="flex min-h-12 items-center justify-between rounded-2xl border border-border-subtle/45 bg-bg-secondary/15 px-4 py-2 text-sm font-bold">
-                <span className="text-text-primary">{t('providers.blockRequests')}</span>
-                <Switch
-                  checked={ruleForm.blockRequests}
-                  onCheckedChange={(blockRequests) => setRuleForm({ ...ruleForm, blockRequests })}
-                />
-              </label>
-            </ModalBody>
-            <ModalFooter>
-              <ModalButtonGroup>
-                <Button type="button" variant="ghost" onClick={() => setRuleForm(null)}>
-                  {t('common.cancel')}
-                </Button>
-                <Button
-                  type="button"
-                  variant="primary"
-                  loading={saveRouting.isPending}
-                  disabled={!ruleForm.threshold || Number(ruleForm.threshold) <= 0}
-                  onClick={saveRule}
-                >
-                  {ruleForm.id ? t('common.save') : t('providers.createRule')}
-                </Button>
-              </ModalButtonGroup>
-            </ModalFooter>
-          </ModalContent>
-        </Modal>
-      )}
-
       <AlertDialog
         open={Boolean(deleteTarget)}
         onOpenChange={(open) => {
@@ -1895,7 +1170,9 @@ export function ProviderProfilesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>{t('providers.deleteTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t('providers.deleteDescription', { name: deleteTarget?.name ?? '' })}
+              {t('providers.deleteDescription', {
+                name: deleteTarget?.name ?? '',
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

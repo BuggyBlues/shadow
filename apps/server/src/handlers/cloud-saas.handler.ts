@@ -2,10 +2,8 @@ import { randomUUID } from 'node:crypto'
 import { zValidator } from '@hono/zod-validator'
 import {
   type CostOverviewSummary,
-  collectNamespaceCost,
   collectRuntimeEnvRequirements,
   deleteNamespace,
-  execInPod,
   extractRequiredEnvVars,
   listManagedNamespaces,
   listPods,
@@ -20,7 +18,7 @@ import {
   summarizeCostOverview,
   validateCloudSaasConfigSnapshot,
 } from '@shadowob/cloud'
-import { eq, sql } from 'drizzle-orm'
+import { and, desc, eq, ne, sql } from 'drizzle-orm'
 import { type Context, Hono } from 'hono'
 import { z } from 'zod'
 import type { AppContainer } from '../container'
@@ -28,16 +26,10 @@ import { cloudDeployments, cloudTemplates } from '../db/schema'
 import { decrypt, encrypt } from '../lib/kms'
 import { authMiddleware } from '../middleware/auth.middleware'
 import {
-  DEFAULT_LLM_ROUTING_POLICY,
   type LlmProviderApiFormat,
-  type LlmRoutableModel,
-  type LlmRoutingPolicy,
-  makeModelRef,
   normalizeLlmProviderConfig,
   normalizeLlmProviderModels,
-  normalizeLlmRoutingPolicy,
   parseDiscoveredModelsFromResponse,
-  resolveLlmRoute,
 } from '../services/llm-provider-platform'
 
 // ─── Resource tier cost map (Shrimp Coins / month) ──────────────────────────
@@ -58,10 +50,10 @@ const PROVIDER_PROFILE_META_KEYS = {
 } as const
 const PROVIDER_PROFILE_META_KEY_SET = new Set<string>(Object.values(PROVIDER_PROFILE_META_KEYS))
 const PROVIDER_PROFILE_MODELS_ENV_KEY = 'SHADOW_PROVIDER_PROFILE_MODELS_JSON'
-const PROVIDER_ROUTING_SCOPE = 'provider-routing:default'
-const PROVIDER_ROUTING_POLICY_KEY = 'SHADOW_PROVIDER_ROUTING_POLICY_JSON'
 const PROVIDER_MODEL_TAGS = ['default', 'fast', 'flash', 'reasoning', 'vision', 'tools'] as const
 const PROVIDER_MODEL_TAG_SET = new Set<string>(PROVIDER_MODEL_TAGS)
+
+type CloudDeploymentRow = typeof cloudDeployments.$inferSelect
 
 type ProviderCatalogView = Awaited<ReturnType<typeof listProviderCatalogs>>[number]['provider']
 
@@ -91,6 +83,17 @@ type ProviderProfileModelView = {
     tools?: boolean
     reasoning?: boolean
   }
+}
+
+type ProviderRuntimeProfile = {
+  id: string
+  providerId: string
+  name: string
+  provider: ProviderCatalogView
+  values: Map<string, string>
+  apiKey: { key: string; value: string }
+  baseUrl: string
+  models: ProviderProfileModelView[]
 }
 
 function getPrimarySchema(): Record<string, unknown> {
@@ -204,6 +207,51 @@ function parseProviderProfileConfig(value: string | undefined): Record<string, u
       : {}
   } catch {
     return {}
+  }
+}
+
+function isMaskedPlaceholderValue(value: unknown): boolean {
+  return typeof value === 'string' && /^[*•●∙·]{3,}$/u.test(value.trim())
+}
+
+function isValidHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+function normalizeProviderBaseUrlValue(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  if (isMaskedPlaceholderValue(value)) return undefined
+  const normalized = normalizeBaseUrl(value)
+  if (!normalized) return undefined
+  return isValidHttpUrl(normalized) ? normalized : undefined
+}
+
+function safeDecryptProviderValue(value: string, scope: string, key: string): string | null {
+  try {
+    return decrypt(value)
+  } catch (err) {
+    console.warn(
+      `[cloud-saas] ignoring unreadable provider env value scope=${scope} key=${key}:`,
+      err instanceof Error ? err.message : err,
+    )
+    return null
+  }
+}
+
+function safeDecryptEnvValue(value: string, scope: string, key: string): string | null {
+  try {
+    return decrypt(value)
+  } catch (err) {
+    console.warn(
+      `[cloud-saas] ignoring unreadable env value scope=${scope} key=${key}:`,
+      err instanceof Error ? err.message : err,
+    )
+    return null
   }
 }
 
@@ -334,20 +382,58 @@ function providerProfileBaseUrl(
   values: Map<string, string>,
   config: Record<string, unknown>,
 ): string | undefined {
-  const configBaseUrl = config.baseUrl
+  const configBaseUrl = normalizeProviderBaseUrlValue(config.baseUrl)
   const envBaseUrl = provider.baseUrlEnvKey ? values.get(provider.baseUrlEnvKey) : undefined
   return normalizeBaseUrl(
-    typeof configBaseUrl === 'string' && configBaseUrl.trim()
-      ? configBaseUrl
-      : envBaseUrl || defaultProviderBaseUrl(provider),
+    configBaseUrl ?? normalizeProviderBaseUrlValue(envBaseUrl) ?? defaultProviderBaseUrl(provider),
   )
+}
+
+function sanitizeStoredProviderProfileConfig(
+  config: Record<string, unknown>,
+): Record<string, unknown> {
+  const normalized = normalizeLlmProviderConfig(config)
+  const baseUrl = normalizeProviderBaseUrlValue(config.baseUrl)
+  return {
+    ...(baseUrl ? { baseUrl } : {}),
+    ...(normalized.apiFormat ? { apiFormat: normalized.apiFormat } : {}),
+    ...(normalized.authType ? { authType: normalized.authType } : {}),
+    ...(normalized.discoveredAt ? { discoveredAt: normalized.discoveredAt } : {}),
+    models: normalizeProviderProfileModels(config),
+  }
+}
+
+function validateProviderProfileConfigForSave(
+  config: Record<string, unknown> | undefined,
+): { ok: true; config: Record<string, unknown> } | { ok: false; error: string } {
+  const raw = config ?? {}
+  const baseUrlValue = typeof raw.baseUrl === 'string' ? raw.baseUrl.trim() : ''
+  if (
+    baseUrlValue &&
+    !isMaskedPlaceholderValue(baseUrlValue) &&
+    !normalizeProviderBaseUrlValue(baseUrlValue)
+  ) {
+    return { ok: false, error: 'Invalid Base URL' }
+  }
+
+  const sanitized = sanitizeStoredProviderProfileConfig(raw)
+  if (normalizeProviderProfileModels(sanitized).length === 0) {
+    return { ok: false, error: 'At least one model is required' }
+  }
+
+  return { ok: true, config: sanitized }
 }
 
 async function testProviderConnection(
   provider: ProviderCatalogView,
   values: Map<string, string>,
   config: Record<string, unknown>,
-): Promise<{ ok: boolean; status?: number; message: string; checkedAt: string }> {
+): Promise<{
+  ok: boolean
+  status?: number
+  message: string
+  checkedAt: string
+}> {
   const checkedAt = new Date().toISOString()
   const apiKey = firstProviderApiKey(provider, values)
   if (!apiKey) {
@@ -376,7 +462,12 @@ async function testProviderConnection(
 
     const response = await fetch(url, { headers, signal: controller.signal })
     if (response.ok) {
-      return { ok: true, status: response.status, message: 'Connection succeeded', checkedAt }
+      return {
+        ok: true,
+        status: response.status,
+        message: 'Connection succeeded',
+        checkedAt,
+      }
     }
     const body = await response.text().catch(() => '')
     return {
@@ -412,7 +503,12 @@ async function discoverProviderProfileModels(
   provider: ProviderCatalogView,
   values: Map<string, string>,
   config: Record<string, unknown>,
-): Promise<{ ok: boolean; status?: number; message: string; models: ProviderProfileModelView[] }> {
+): Promise<{
+  ok: boolean
+  status?: number
+  message: string
+  models: ProviderProfileModelView[]
+}> {
   const apiKey = firstProviderApiKey(provider, values)
   const apiFormat = providerProfileApiFormat(provider, config)
   const baseUrl = providerProfileBaseUrl(provider, values, config)
@@ -469,20 +565,6 @@ async function discoverProviderProfileModels(
   }
 }
 
-function buildRoutableModels(profiles: ProviderProfileView[]): LlmRoutableModel[] {
-  return profiles.flatMap((profile) => {
-    const config = normalizeLlmProviderConfig(profile.config)
-    return (config.models ?? []).map((model) => ({
-      ...model,
-      ref: makeModelRef(profile.id, model.id),
-      providerId: profile.providerId,
-      profileId: profile.id,
-      profileName: profile.name,
-      enabled: profile.enabled,
-    }))
-  })
-}
-
 function collectProviderProfileIds(
   value: unknown,
   out = new Set<string>(),
@@ -511,6 +593,67 @@ function collectProviderProfileIds(
 
   for (const child of Object.values(record)) collectProviderProfileIds(child, out, depth + 1)
   return out
+}
+
+function collectModelProviderSelectors(
+  value: unknown,
+  out = new Set<string>(),
+  depth = 0,
+): Set<string> {
+  if (depth > 32 || !value || typeof value !== 'object') return out
+
+  if (Array.isArray(value)) {
+    for (const item of value) collectModelProviderSelectors(item, out, depth + 1)
+    return out
+  }
+
+  const record = value as Record<string, unknown>
+  if (record.plugin === 'model-provider') {
+    const options = record.options as Record<string, unknown> | undefined
+    for (const key of ['selector', 'tag', 'model']) {
+      const value = options?.[key]
+      if (typeof value === 'string' && value.trim()) out.add(value.trim().toLowerCase())
+    }
+  }
+
+  for (const child of Object.values(record)) collectModelProviderSelectors(child, out, depth + 1)
+  return out
+}
+
+function providerModelMatchesSelector(
+  model: ProviderProfileModelView,
+  profileId: string,
+  selector: string,
+): boolean {
+  const normalized = selector.trim().toLowerCase()
+  if (!normalized) return false
+  if (model.id.toLowerCase() === normalized) return true
+  if (`${profileId}/${model.id}`.toLowerCase() === normalized) return true
+  return (model.tags ?? []).some((tag) => tag.toLowerCase() === normalized)
+}
+
+function selectRuntimeProviderProfiles(
+  profiles: ProviderRuntimeProfile[],
+  selectors: string[],
+): ProviderRuntimeProfile[] {
+  if (profiles.length === 0) return []
+  const wanted = selectors.length > 0 ? selectors : ['default']
+  const selected = new Map<string, ProviderRuntimeProfile>()
+
+  for (const selector of wanted) {
+    const match =
+      profiles.find((profile) =>
+        profile.models.some((model) => providerModelMatchesSelector(model, profile.id, selector)),
+      ) ??
+      profiles.find((profile) =>
+        profile.models.some((model) => providerModelMatchesSelector(model, profile.id, 'default')),
+      ) ??
+      profiles[0]
+
+    if (match) selected.set(match.id, match)
+  }
+
+  return [...selected.values()]
 }
 
 type DeploymentAgentConfig = {
@@ -548,6 +691,42 @@ function getDeploymentAgentNames(deployment: {
   return [deployment.name]
 }
 
+function buildBillingOnlyNamespaceCost(deployment: {
+  namespace: string
+  name: string
+  agentCount?: number | null
+  monthlyCost?: number | null
+  configSnapshot?: unknown
+}): NamespaceCostSummary {
+  const agentNames = getDeploymentAgentNames(deployment)
+  const billingAmount = deployment.monthlyCost ?? null
+  const perAgentBilling =
+    billingAmount !== null && agentNames.length > 0 ? billingAmount / agentNames.length : null
+  const agents = agentNames.map((agentName) => ({
+    agentName,
+    podName: null,
+    totalUsd: null,
+    billingAmount: perAgentBilling,
+    billingUnit: 'shrimp' as const,
+    totalTokens: null,
+    providers: [],
+    source: 'unavailable' as const,
+    message: 'Live pod usage is collected asynchronously; this response avoids blocking APIs.',
+  }))
+
+  return {
+    namespace: deployment.namespace,
+    totalUsd: null,
+    billingAmount,
+    billingUnit: 'shrimp',
+    totalTokens: null,
+    agents,
+    availableAgents: 0,
+    unavailableAgents: agents.length,
+    generatedAt: new Date().toISOString(),
+  }
+}
+
 function sumNullable(values: Array<number | null>): number | null {
   const filtered = values.filter((value): value is number => value !== null)
   return filtered.length > 0 ? filtered.reduce((sum, value) => sum + value, 0) : null
@@ -571,13 +750,92 @@ function isVisibleDeploymentStatus(status: string): boolean {
   )
 }
 
-function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+function newestVisibleDeploymentsByNamespace<
+  T extends {
+    namespace: string
+    status: string
+    updatedAt?: Date | null
+    createdAt?: Date | null
+  },
+>(rows: T[]): T[] {
+  const byNamespace = new Map<string, T>()
+  for (const row of rows) {
+    if (!isVisibleDeploymentStatus(row.status)) continue
+    const existing = byNamespace.get(row.namespace)
+    const rowTime = (row.updatedAt ?? row.createdAt)?.getTime?.() ?? 0
+    const existingTime = (existing?.updatedAt ?? existing?.createdAt)?.getTime?.() ?? 0
+    if (!existing || rowTime >= existingTime) {
+      byNamespace.set(row.namespace, row)
+    }
+  }
+  return [...byNamespace.values()].sort((left, right) => {
+    const leftTime = (left.updatedAt ?? left.createdAt)?.getTime?.() ?? 0
+    const rightTime = (right.updatedAt ?? right.createdAt)?.getTime?.() ?? 0
+    return rightTime - leftTime
+  })
 }
 
-function getBearerToken(authHeader: string | undefined): string | undefined {
-  const match = authHeader?.match(/^Bearer\s+(.+)$/i)
-  return match?.[1]?.trim() || undefined
+async function reconcileUserDeploymentRowsWithCluster(
+  container: AppContainer,
+  userId: string,
+  rows: CloudDeploymentRow[],
+): Promise<CloudDeploymentRow[]> {
+  const namespaces = listManagedNamespaces()
+  if (namespaces === null || namespaces.length === 0) return rows
+
+  const present = new Set(namespaces)
+  const rowsByNamespace = new Map<string, CloudDeploymentRow[]>()
+  for (const row of rows) {
+    const scoped = rowsByNamespace.get(row.namespace) ?? []
+    scoped.push(row)
+    rowsByNamespace.set(row.namespace, scoped)
+  }
+
+  const db = container.resolve('db')
+  const dao = container.resolve('cloudDeploymentDao')
+  const nextRows = [...rows]
+
+  for (const namespace of present) {
+    const scoped = rowsByNamespace.get(namespace) ?? []
+    if (scoped.some((row) => isVisibleDeploymentStatus(row.status))) continue
+
+    const candidate = scoped
+      .filter(
+        (row) =>
+          row.status === 'failed' &&
+          (row.errorMessage === 'orphaned-by-cluster' ||
+            row.errorMessage?.includes('Namespace') ||
+            row.errorMessage?.includes('orphan')),
+      )
+      .sort((left, right) => {
+        const leftTime = (left.updatedAt ?? left.createdAt)?.getTime?.() ?? 0
+        const rightTime = (right.updatedAt ?? right.createdAt)?.getTime?.() ?? 0
+        return rightTime - leftTime
+      })[0]
+    if (!candidate) continue
+
+    const [updated] = await db
+      .update(cloudDeployments)
+      .set({ status: 'deployed', errorMessage: null, updatedAt: new Date() })
+      .where(and(eq(cloudDeployments.id, candidate.id), eq(cloudDeployments.userId, userId)))
+      .returning()
+    if (!updated) continue
+
+    await dao.appendLog(
+      updated.id,
+      `[reconcile] Namespace "${namespace}" exists on the cluster; restored deployment row after server restart`,
+      'info',
+    )
+    const index = nextRows.findIndex((row) => row.id === updated.id)
+    if (index >= 0) nextRows[index] = updated
+    else nextRows.unshift(updated)
+  }
+
+  return nextRows
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function requestOrigin(c: Context): string | undefined {
@@ -585,6 +843,18 @@ function requestOrigin(c: Context): string | undefined {
   if (!host) return undefined
   const proto = c.req.header('x-forwarded-proto') ?? 'http'
   return `${proto}://${host}`
+}
+
+function getBearerToken(authHeader: string | undefined): string | undefined {
+  const match = authHeader?.match(/^Bearer\s+(.+)$/i)
+  return match?.[1]?.trim() || undefined
+}
+
+function addProviderManagedEnvKeys(keys: Set<string>, provider: ProviderCatalogView): void {
+  keys.add(provider.envKey)
+  for (const alias of provider.envKeyAliases ?? []) keys.add(alias)
+  if (provider.baseUrlEnvKey) keys.add(provider.baseUrlEnvKey)
+  if (provider.modelEnvKey) keys.add(provider.modelEnvKey)
 }
 
 export function createCloudSaasHandler(container: AppContainer) {
@@ -622,7 +892,11 @@ export function createCloudSaasHandler(container: AppContainer) {
 
     const profiles: ProviderProfileView[] = []
     for (const [scope, scopedVars] of byScope) {
-      const values = new Map(scopedVars.map((v) => [v.key, decrypt(v.encryptedValue)]))
+      const values = new Map<string, string>()
+      for (const variable of scopedVars) {
+        const decrypted = safeDecryptProviderValue(variable.encryptedValue, scope, variable.key)
+        if (decrypted !== null) values.set(variable.key, decrypted)
+      }
       const fallbackId = scope.slice(PROVIDER_PROFILE_SCOPE_PREFIX.length)
       const id = values.get(PROVIDER_PROFILE_META_KEYS.id) ?? fallbackId
       const providerId = values.get(PROVIDER_PROFILE_META_KEYS.providerId) ?? ''
@@ -636,7 +910,9 @@ export function createCloudSaasHandler(container: AppContainer) {
         name,
         scope,
         enabled,
-        config: parseProviderProfileConfig(values.get(PROVIDER_PROFILE_META_KEYS.configJson)),
+        config: sanitizeStoredProviderProfileConfig(
+          parseProviderProfileConfig(values.get(PROVIDER_PROFILE_META_KEYS.configJson)),
+        ),
         envVars: scopedVars
           .filter((v) => !isProviderProfileMetaKey(v.key))
           .map((v) => ({
@@ -655,27 +931,65 @@ export function createCloudSaasHandler(container: AppContainer) {
     return profiles.sort((a, b) => a.name.localeCompare(b.name))
   }
 
-  async function readProviderRoutingPolicy(userId: string): Promise<LlmRoutingPolicy> {
-    const envDao = container.resolve('cloudEnvVarDao')
-    const vars = await envDao.listByUser(userId, PROVIDER_ROUTING_SCOPE)
-    const found = vars.find((entry) => entry.key === PROVIDER_ROUTING_POLICY_KEY)
-    if (!found) return DEFAULT_LLM_ROUTING_POLICY
-    return normalizeLlmRoutingPolicy(parseProviderProfileConfig(decrypt(found.encryptedValue)))
-  }
-
-  async function writeProviderRoutingPolicy(
+  async function readProviderRuntimeProfiles(
     userId: string,
-    policy: LlmRoutingPolicy,
-  ): Promise<LlmRoutingPolicy> {
+    profileIds?: string[],
+  ): Promise<ProviderRuntimeProfile[]> {
+    const requestedIds =
+      profileIds && profileIds.length > 0
+        ? new Set(profileIds.map(normalizeProviderProfileId))
+        : null
     const envDao = container.resolve('cloudEnvVarDao')
-    const normalized = normalizeLlmRoutingPolicy(policy)
-    await envDao.upsertScoped({
-      userId,
-      scope: PROVIDER_ROUTING_SCOPE,
-      key: PROVIDER_ROUTING_POLICY_KEY,
-      encryptedValue: encrypt(JSON.stringify(normalized)),
-    })
-    return normalized
+    const vars = await envDao.listByUser(userId)
+    const catalogs = (await listProviderCatalogs()).map((entry) => entry.provider)
+    const byScope = new Map<string, typeof vars>()
+    for (const variable of vars) {
+      if (!variable.scope.startsWith(PROVIDER_PROFILE_SCOPE_PREFIX)) continue
+      const scoped = byScope.get(variable.scope) ?? []
+      scoped.push(variable)
+      byScope.set(variable.scope, scoped)
+    }
+
+    const profiles: ProviderRuntimeProfile[] = []
+    for (const [scope, scopedVars] of byScope) {
+      const values = new Map<string, string>()
+      for (const variable of scopedVars) {
+        const decrypted = safeDecryptProviderValue(variable.encryptedValue, scope, variable.key)
+        if (decrypted !== null) values.set(variable.key, decrypted)
+      }
+
+      const fallbackId = scope.slice(PROVIDER_PROFILE_SCOPE_PREFIX.length)
+      const id = normalizeProviderProfileId(values.get(PROVIDER_PROFILE_META_KEYS.id) ?? fallbackId)
+      if (!id || (requestedIds && !requestedIds.has(id))) continue
+      if (!parseProviderProfileEnabled(values.get(PROVIDER_PROFILE_META_KEYS.enabled))) continue
+
+      const providerId = values.get(PROVIDER_PROFILE_META_KEYS.providerId) ?? ''
+      const provider = catalogs.find((catalog) => catalog.id === providerId)
+      if (!provider) continue
+
+      const rawConfig = parseProviderProfileConfig(
+        values.get(PROVIDER_PROFILE_META_KEYS.configJson),
+      )
+      const config = sanitizeStoredProviderProfileConfig(rawConfig)
+      const apiKey = firstProviderApiKey(provider, values)
+      const baseUrl = providerProfileBaseUrl(provider, values, config)
+      const models = normalizeProviderProfileModels(config)
+      if (!apiKey || !baseUrl || models.length === 0) continue
+
+      const name = values.get(PROVIDER_PROFILE_META_KEYS.name) ?? providerId
+      profiles.push({
+        id,
+        providerId,
+        name,
+        provider,
+        values,
+        apiKey,
+        baseUrl,
+        models,
+      })
+    }
+
+    return profiles.sort((a, b) => a.name.localeCompare(b.name))
   }
 
   async function resolveCreateRuntimeEnvVars(
@@ -700,13 +1014,14 @@ export function createCloudSaasHandler(container: AppContainer) {
       (value) => value === '__SAVED__',
     )
     const runtimeEnvRequirements = await collectRuntimeEnvRequirements(configSnapshot)
+    const usesModelProvider = configUsesPlugin(configSnapshot, 'model-provider')
     const explicitProviderProfileIds = [...collectProviderProfileIds(configSnapshot)]
       .map(normalizeProviderProfileId)
       .filter(Boolean)
     const providerProfileIds =
       explicitProviderProfileIds.length > 0
         ? explicitProviderProfileIds
-        : configUsesPlugin(configSnapshot, 'model-provider')
+        : usesModelProvider
           ? (await readProviderProfiles(userId))
               .filter((profile) => profile.enabled)
               .map((p) => p.id)
@@ -722,26 +1037,71 @@ export function createCloudSaasHandler(container: AppContainer) {
       providerProfileIds.length > 0
         ? (await listProviderCatalogs()).map((entry) => entry.provider)
         : []
+    const providerManagedEnvKeys = new Set<string>([PROVIDER_PROFILE_MODELS_ENV_KEY])
+    for (const provider of providerCatalogs)
+      addProviderManagedEnvKeys(providerManagedEnvKeys, provider)
+
+    if (usesModelProvider && providerProfileIds.length > 0) {
+      const runtimeProfiles = await readProviderRuntimeProfiles(userId, providerProfileIds)
+      const selectors = [...collectModelProviderSelectors(configSnapshot)]
+      const selectedProfiles = selectRuntimeProviderProfiles(runtimeProfiles, selectors)
+      if (selectedProfiles.length === 0) {
+        const err = new Error('No enabled provider profile matches the requested model selector')
+        ;(err as { status?: number }).status = 422
+        throw err
+      }
+
+      for (const profile of selectedProfiles) {
+        providerProfileValues.set(profile.apiKey.key, profile.apiKey.value)
+        if (profile.provider.baseUrlEnvKey) {
+          providerProfileValues.set(profile.provider.baseUrlEnvKey, profile.baseUrl)
+        }
+        for (const [key, value] of profile.values) {
+          if (isProviderProfileMetaKey(key)) continue
+          if (key === profile.apiKey.key) continue
+          providerProfileValues.set(key, value)
+        }
+        providerProfileModelSets.push({
+          providerId: profile.providerId,
+          profileId: profile.id,
+          models: profile.models,
+        })
+      }
+    }
+
     if (needsSavedLookup || runtimeEnvRequirements.length > 0 || providerProfileIds.length > 0) {
       const envDao = container.resolve('cloudEnvVarDao')
       const globalVars = await envDao.listByUser(userId, 'global')
       for (const variable of globalVars) {
-        savedValues.set(variable.key, decrypt(variable.encryptedValue))
+        const decrypted = safeDecryptEnvValue(variable.encryptedValue, 'global', variable.key)
+        if (decrypted !== null) savedValues.set(variable.key, decrypted)
       }
       for (const profileId of providerProfileIds) {
+        if (usesModelProvider) continue
         const scopedVars = await envDao.listByUser(userId, providerProfileScope(profileId))
-        const values = new Map(scopedVars.map((v) => [v.key, decrypt(v.encryptedValue)]))
+        const scope = providerProfileScope(profileId)
+        const values = new Map<string, string>()
+        for (const variable of scopedVars) {
+          const decrypted = safeDecryptProviderValue(variable.encryptedValue, scope, variable.key)
+          if (decrypted !== null) values.set(variable.key, decrypted)
+        }
         const providerId = values.get(PROVIDER_PROFILE_META_KEYS.providerId)
         if (!parseProviderProfileEnabled(values.get(PROVIDER_PROFILE_META_KEYS.enabled))) continue
         const provider = providerCatalogs.find((catalog) => catalog.id === providerId)
-        const config = parseProviderProfileConfig(values.get(PROVIDER_PROFILE_META_KEYS.configJson))
-        const baseUrl = config.baseUrl
-        if (provider?.baseUrlEnvKey && typeof baseUrl === 'string' && baseUrl.trim()) {
+        const config = sanitizeStoredProviderProfileConfig(
+          parseProviderProfileConfig(values.get(PROVIDER_PROFILE_META_KEYS.configJson)),
+        )
+        const baseUrl = provider ? providerProfileBaseUrl(provider, values, config) : undefined
+        if (provider?.baseUrlEnvKey && baseUrl) {
           providerProfileValues.set(provider.baseUrlEnvKey, baseUrl)
         }
         const models = normalizeProviderProfileModels(config)
         if (provider && models.length > 0) {
-          providerProfileModelSets.push({ providerId: provider.id, profileId, models })
+          providerProfileModelSets.push({
+            providerId: provider.id,
+            profileId,
+            models,
+          })
         }
         const model = config.modelId ?? config.defaultModel ?? config.model
         if (provider?.modelEnvKey && typeof model === 'string' && model.trim()) {
@@ -764,6 +1124,14 @@ export function createCloudSaasHandler(container: AppContainer) {
     const explicitKeys = new Set(Object.keys(inputEnvVars ?? {}))
     for (const key of runtimeEnvRequirements) {
       if (explicitKeys.has(key)) continue
+      if (
+        usesModelProvider &&
+        providerProfileIds.length > 0 &&
+        providerManagedEnvKeys.has(key) &&
+        !providerProfileValues.has(key)
+      ) {
+        continue
+      }
       const value =
         providerProfileValues.get(key) ?? savedValues.get(key) ?? nonEmptyProcessEnv(key)
       if (value !== undefined) envVars[key] = value
@@ -799,7 +1167,10 @@ export function createCloudSaasHandler(container: AppContainer) {
       return c.json(summarizeCloudConfigValidation(config))
     } catch (err) {
       return c.json(
-        { ok: false, error: err instanceof Error ? err.message : 'Invalid request' },
+        {
+          ok: false,
+          error: err instanceof Error ? err.message : 'Invalid request',
+        },
         400,
       )
     }
@@ -843,12 +1214,12 @@ export function createCloudSaasHandler(container: AppContainer) {
   h.get('/templates/mine', async (c) => {
     const user = c.get('user') as { userId: string }
     const db = container.resolve('db')
-    const { eq, and, ne } = await import('drizzle-orm')
     const templates = await db
       .select()
       .from(cloudTemplates)
       .where(and(eq(cloudTemplates.authorId, user.userId), ne(cloudTemplates.source, 'official')))
-      .orderBy(cloudTemplates.updatedAt)
+      .orderBy(desc(cloudTemplates.updatedAt))
+      .limit(100)
     return c.json(templates)
   })
 
@@ -904,7 +1275,10 @@ export function createCloudSaasHandler(container: AppContainer) {
     if (!isDeployableTemplateContent(template.content)) {
       return c.json({ ok: false, error: 'Template is not deployable' }, 422)
     }
-    return c.json({ template: slug, requiredEnvVars: extractRequiredEnvVars(template.content) })
+    return c.json({
+      template: slug,
+      requiredEnvVars: extractRequiredEnvVars(template.content),
+    })
   })
 
   /**
@@ -999,7 +1373,9 @@ export function createCloudSaasHandler(container: AppContainer) {
         .update(cloudTemplates)
         .set({
           ...(input.name !== undefined && { name: input.name }),
-          ...(input.description !== undefined && { description: input.description }),
+          ...(input.description !== undefined && {
+            description: input.description,
+          }),
           ...(input.content !== undefined && { content: input.content }),
           ...(input.tags !== undefined && { tags: input.tags }),
           ...(input.category !== undefined && { category: input.category }),
@@ -1094,17 +1470,23 @@ export function createCloudSaasHandler(container: AppContainer) {
       .select()
       .from(cloudDeployments)
       .where(eq(cloudDeployments.userId, user.userId))
-      .orderBy(cloudDeployments.createdAt)
+      .orderBy(desc(cloudDeployments.updatedAt))
       .limit(limit)
       .offset(offset)
 
-    const sanitizedRows = rows.map((row) => sanitizeCloudSaasDeployment(row))
+    const reconciledRows = await reconcileUserDeploymentRowsWithCluster(
+      container,
+      user.userId,
+      rows,
+    )
+    const visibleRows = newestVisibleDeploymentsByNamespace(reconciledRows)
+    const sanitizedRows = visibleRows.map((row) => sanitizeCloudSaasDeployment(row))
 
     if (!includeOrphans) {
       return c.json(sanitizedRows)
     }
 
-    const known = new Set(rows.map((r) => r.namespace))
+    const known = new Set(visibleRows.map((row) => row.namespace))
     // Reconcile only against the platform default cluster — BYOK clusters
     // would require iterating users' clusters and decrypting each kubeconfig,
     // which is too heavy for a list endpoint. Orphans on BYOK are detected
@@ -1125,22 +1507,10 @@ export function createCloudSaasHandler(container: AppContainer) {
       .select()
       .from(cloudDeployments)
       .where(eq(cloudDeployments.userId, user.userId))
-      .orderBy(cloudDeployments.createdAt)
+      .orderBy(desc(cloudDeployments.updatedAt))
 
-    const visibleRows = rows.filter((row) => isVisibleDeploymentStatus(row.status))
-    const summaries = await Promise.all(
-      visibleRows.map(async (deployment) => {
-        const kubeconfig = (await resolveKubeconfig(deployment)) ?? undefined
-        return collectNamespaceCost({
-          namespace: deployment.namespace,
-          agentNames: getDeploymentAgentNames(deployment),
-          billingAmount: deployment.monthlyCost ?? null,
-          billingUnit: 'shrimp',
-          runtime: { listPods, execInPod },
-          kubeconfig,
-        })
-      }),
-    )
+    const visibleRows = newestVisibleDeploymentsByNamespace(rows)
+    const summaries = visibleRows.map(buildBillingOnlyNamespaceCost)
 
     const overview: CostOverviewSummary = summarizeCostOverview(summaries, 'shrimp')
 
@@ -1167,15 +1537,7 @@ export function createCloudSaasHandler(container: AppContainer) {
     const deployment = await dao.findById(id, user.userId)
     if (!deployment) return c.json({ ok: false, error: 'Deployment not found' }, 404)
 
-    const kubeconfig = (await resolveKubeconfig(deployment)) ?? undefined
-    const summary: NamespaceCostSummary = collectNamespaceCost({
-      namespace: deployment.namespace,
-      agentNames: getDeploymentAgentNames(deployment),
-      billingAmount: deployment.monthlyCost ?? null,
-      billingUnit: 'shrimp',
-      runtime: { listPods, execInPod },
-      kubeconfig,
-    })
+    const summary: NamespaceCostSummary = buildBillingOnlyNamespaceCost(deployment)
 
     return c.json(summary)
   })
@@ -1304,7 +1666,11 @@ export function createCloudSaasHandler(container: AppContainer) {
           userId: user.userId,
           type: 'deploy',
           namespace: input.namespace,
-          meta: { templateSlug: input.templateSlug, resourceTier: input.resourceTier, monthlyCost },
+          meta: {
+            templateSlug: input.templateSlug,
+            resourceTier: input.resourceTier,
+            monthlyCost,
+          },
         })
 
         return c.json(sanitizeCloudSaasDeployment(updated), 201)
@@ -1384,7 +1750,10 @@ export function createCloudSaasHandler(container: AppContainer) {
     if (!deployment) return c.json({ ok: false, error: 'Deployment not found' }, 404)
     if (deployment.status !== 'pending' && deployment.status !== 'deploying') {
       return c.json(
-        { ok: false, error: `Cannot cancel deployment in status "${deployment.status}"` },
+        {
+          ok: false,
+          error: `Cannot cancel deployment in status "${deployment.status}"`,
+        },
         422,
       )
     }
@@ -1484,7 +1853,14 @@ export function createCloudSaasHandler(container: AppContainer) {
             while (!c.req.raw.signal.aborted) {
               const logs = await dao.getLogs(id)
               for (const log of logs.slice(sentCount)) {
-                send({ level: log.level, message: log.message, createdAt: log.createdAt }, 'log')
+                send(
+                  {
+                    level: log.level,
+                    message: log.message,
+                    createdAt: log.createdAt,
+                  },
+                  'log',
+                )
               }
               sentCount = logs.length
 
@@ -1514,7 +1890,9 @@ export function createCloudSaasHandler(container: AppContainer) {
             }
           } catch (err) {
             send(
-              { error: err instanceof Error ? err.message : 'Failed to stream deployment logs' },
+              {
+                error: err instanceof Error ? err.message : 'Failed to stream deployment logs',
+              },
               'error',
             )
           } finally {
@@ -1575,12 +1953,15 @@ export function createCloudSaasHandler(container: AppContainer) {
     const vars = await envDao.listByUser(user.userId, deploymentId)
     const found = vars.find((v) => v.key === key)
     if (!found) return c.json({ ok: false, error: 'Not found' }, 404)
-    const { decrypt } = await import('../lib/kms')
+    const value = safeDecryptEnvValue(found.encryptedValue, deploymentId, found.key)
+    if (value === null) {
+      return c.json({ ok: false, error: 'Env var cannot be decrypted' }, 422)
+    }
     return c.json({
       envVar: {
         scope: deploymentId,
         key: found.key,
-        value: decrypt(found.encryptedValue),
+        value,
         isSecret: true,
         groupName: found.groupId ? (groupNames.get(found.groupId) ?? 'default') : 'default',
       },
@@ -1662,7 +2043,13 @@ export function createCloudSaasHandler(container: AppContainer) {
           hasMore: allLines.length >= requestedTail,
         })
       } catch (err) {
-        return c.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, 500)
+        return c.json(
+          {
+            ok: false,
+            error: err instanceof Error ? err.message : String(err),
+          },
+          500,
+        )
       }
     }
 
@@ -1832,7 +2219,10 @@ export function createCloudSaasHandler(container: AppContainer) {
     // Bypass the normal "pending → deploying → deployed" pipeline.
     await dao.updateStatus(created.id, 'deployed')
     await dao.appendLog(created.id, '[reconcile] Adopted orphan namespace', 'info')
-    return c.json({ ok: true, deployment: sanitizeCloudSaasDeployment(created) })
+    return c.json({
+      ok: true,
+      deployment: sanitizeCloudSaasDeployment(created),
+    })
   })
 
   /**
@@ -2064,12 +2454,15 @@ export function createCloudSaasHandler(container: AppContainer) {
     const vars = await envDao.listByUser(user.userId, 'global')
     const found = vars.find((v) => v.key === key)
     if (!found) return c.json({ ok: false, error: 'Not found' }, 404)
-    const { decrypt } = await import('../lib/kms')
+    const value = safeDecryptEnvValue(found.encryptedValue, 'global', found.key)
+    if (value === null) {
+      return c.json({ ok: false, error: 'Env var cannot be decrypted' }, 422)
+    }
     return c.json({
       envVar: {
         scope: 'global',
         key: found.key,
-        value: decrypt(found.encryptedValue),
+        value,
         isSecret: true,
         groupName: found.groupId ? (groupNames.get(found.groupId) ?? 'default') : 'default',
       },
@@ -2104,70 +2497,6 @@ export function createCloudSaasHandler(container: AppContainer) {
   })
 
   /**
-   * GET /api/cloud-saas/provider-routing
-   * Return the Manifest-inspired route policy plus routable models.
-   */
-  h.get('/provider-routing', async (c) => {
-    const user = c.get('user') as { userId: string }
-    const [profiles, policy] = await Promise.all([
-      readProviderProfiles(user.userId),
-      readProviderRoutingPolicy(user.userId),
-    ])
-    const models = buildRoutableModels(profiles)
-    return c.json({
-      policy,
-      models,
-      summary: {
-        profiles: profiles.length,
-        enabledProfiles: profiles.filter((profile) => profile.enabled).length,
-        models: models.length,
-        enabledModels: models.filter((model) => model.enabled).length,
-      },
-    })
-  })
-
-  /**
-   * PUT /api/cloud-saas/provider-routing
-   * Persist the global provider route policy.
-   */
-  h.put('/provider-routing', zValidator('json', z.object({ policy: z.unknown() })), async (c) => {
-    const user = c.get('user') as { userId: string }
-    const input = c.req.valid('json')
-    const policy = await writeProviderRoutingPolicy(
-      user.userId,
-      normalizeLlmRoutingPolicy(input.policy),
-    )
-    return c.json({ ok: true, policy })
-  })
-
-  /**
-   * POST /api/cloud-saas/provider-routing/resolve
-   * Resolve a selector/tag request against saved profiles and policy.
-   */
-  h.post(
-    '/provider-routing/resolve',
-    zValidator(
-      'json',
-      z.object({
-        selector: z.string().max(120).optional(),
-        tags: z.array(z.string().min(1).max(80)).max(8).optional(),
-      }),
-    ),
-    async (c) => {
-      const user = c.get('user') as { userId: string }
-      const input = c.req.valid('json')
-      const [profiles, policy] = await Promise.all([
-        readProviderProfiles(user.userId),
-        readProviderRoutingPolicy(user.userId),
-      ])
-      return c.json({
-        ok: true,
-        resolved: resolveLlmRoute(policy, buildRoutableModels(profiles), input),
-      })
-    },
-  )
-
-  /**
    * PUT /api/cloud-saas/provider-profiles
    * Upsert a provider profile into the encrypted env store.
    */
@@ -2192,6 +2521,10 @@ export function createCloudSaasHandler(container: AppContainer) {
       if (!providerExists) {
         return c.json({ ok: false, error: 'Unknown provider' }, 422)
       }
+      const normalizedConfig = validateProviderProfileConfigForSave(input.config)
+      if (!normalizedConfig.ok) {
+        return c.json({ ok: false, error: normalizedConfig.error }, 422)
+      }
 
       const profileId =
         normalizeProviderProfileId(input.id ?? `${input.providerId}-${randomUUID().slice(0, 8)}`) ||
@@ -2202,7 +2535,7 @@ export function createCloudSaasHandler(container: AppContainer) {
         [PROVIDER_PROFILE_META_KEYS.id]: profileId,
         [PROVIDER_PROFILE_META_KEYS.providerId]: input.providerId,
         [PROVIDER_PROFILE_META_KEYS.name]: input.name,
-        [PROVIDER_PROFILE_META_KEYS.configJson]: JSON.stringify(input.config ?? {}),
+        [PROVIDER_PROFILE_META_KEYS.configJson]: JSON.stringify(normalizedConfig.config),
         [PROVIDER_PROFILE_META_KEYS.enabled]: String(input.enabled ?? true),
       }
 
@@ -2245,7 +2578,12 @@ export function createCloudSaasHandler(container: AppContainer) {
       return c.json({ ok: false, error: 'Provider profile not found' }, 404)
     }
 
-    const values = new Map(scopedVars.map((v) => [v.key, decrypt(v.encryptedValue)]))
+    const scope = providerProfileScope(profileId)
+    const values = new Map<string, string>()
+    for (const variable of scopedVars) {
+      const decrypted = safeDecryptProviderValue(variable.encryptedValue, scope, variable.key)
+      if (decrypted !== null) values.set(variable.key, decrypted)
+    }
     if (!parseProviderProfileEnabled(values.get(PROVIDER_PROFILE_META_KEYS.enabled))) {
       return c.json({
         ok: false,
@@ -2281,7 +2619,11 @@ export function createCloudSaasHandler(container: AppContainer) {
       return c.json({ ok: false, error: 'Provider profile not found' }, 404)
     }
 
-    const values = new Map(scopedVars.map((v) => [v.key, decrypt(v.encryptedValue)]))
+    const values = new Map<string, string>()
+    for (const variable of scopedVars) {
+      const decrypted = safeDecryptProviderValue(variable.encryptedValue, scope, variable.key)
+      if (decrypted !== null) values.set(variable.key, decrypted)
+    }
     const providerId = values.get(PROVIDER_PROFILE_META_KEYS.providerId)
     const provider = (await listProviderCatalogs())
       .map((entry) => entry.provider)

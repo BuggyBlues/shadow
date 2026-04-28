@@ -130,7 +130,7 @@ function withKubeconfig<T>(kubeconfig: string | undefined, fn: (kubeArgs: string
   }
 }
 
-function execKubectl(args: string[], kubeconfig?: string, timeout = 15_000): string {
+function execKubectl(args: string[], kubeconfig?: string, timeout = 3_000): string {
   return withKubeconfig(kubeconfig, (kubeArgs) =>
     execFileSync('kubectl', [...kubeArgs, ...args], {
       encoding: 'utf-8',
@@ -208,12 +208,13 @@ export function readPodLogs(opts: {
   tail?: number
   timestamps?: boolean
   kubeconfig?: string
+  timeout?: number
 }): string {
   const args = ['logs', '-n', opts.namespace, opts.pod]
   if (opts.container) args.push('-c', opts.container)
   if (opts.tail !== undefined) args.push(`--tail=${opts.tail}`)
   if (opts.timestamps) args.push('--timestamps')
-  return execKubectl(args, opts.kubeconfig)
+  return execKubectl(args, opts.kubeconfig, opts.timeout)
 }
 
 export function execInPod(opts: {

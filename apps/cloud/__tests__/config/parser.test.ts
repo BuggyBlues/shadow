@@ -601,6 +601,7 @@ describe('parser', () => {
         const openclawConfig = buildOpenClawConfig(resolvedAgent, resolved)
         expect(openclawConfig.models?.providers?.anthropic).toMatchObject({
           apiKey: '${env:ANTHROPIC_API_KEY}',
+          baseUrl: 'https://api.anthropic.com/v1',
         })
       } finally {
         if (originalAnthropicKey === undefined) {

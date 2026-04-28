@@ -4,21 +4,11 @@
 
 import { randomUUID } from 'node:crypto'
 import { Hono } from 'hono'
-import {
-  DEFAULT_LLM_ROUTING_POLICY,
-  type LlmRoutableModel,
-  type LlmRoutingPolicy,
-  makeModelRef,
-  normalizeLlmProviderConfig,
-  normalizeLlmRoutingPolicy,
-  resolveLlmRoute,
-} from '../../../application/llm-provider-platform.js'
+import { normalizeLlmProviderConfig } from '../../../application/llm-provider-platform.js'
 import { listProviderCatalogs } from '../../../application/provider-catalogs.js'
 import type { HandlerContext } from './types.js'
 
 const PROVIDER_PROFILE_SCOPE_PREFIX = 'provider:'
-const PROVIDER_ROUTING_SCOPE = 'provider-routing:default'
-const PROVIDER_ROUTING_POLICY_KEY = 'SHADOW_PROVIDER_ROUTING_POLICY_JSON'
 const META_KEYS = {
   id: 'SHADOW_PROVIDER_PROFILE_ID',
   providerId: 'SHADOW_PROVIDER_ID',
@@ -88,39 +78,6 @@ function readProfiles(ctx: HandlerContext) {
     .sort((left, right) => left.name.localeCompare(right.name))
 }
 
-type LocalProviderProfile = ReturnType<typeof readProfiles>[number]
-
-function buildRoutableModels(profiles: LocalProviderProfile[]): LlmRoutableModel[] {
-  return profiles.flatMap((profile) => {
-    const config = normalizeLlmProviderConfig(profile.config)
-    return (config.models ?? []).map((model) => ({
-      ...model,
-      ref: makeModelRef(profile.id, model.id),
-      providerId: profile.providerId,
-      profileId: profile.id,
-      profileName: profile.name,
-      enabled: profile.enabled,
-    }))
-  })
-}
-
-function readRoutingPolicy(ctx: HandlerContext): LlmRoutingPolicy {
-  const value = ctx.envVarDao.getValue(PROVIDER_ROUTING_SCOPE, PROVIDER_ROUTING_POLICY_KEY)
-  if (!value) return DEFAULT_LLM_ROUTING_POLICY
-  return normalizeLlmRoutingPolicy(parseConfig(value))
-}
-
-function writeRoutingPolicy(ctx: HandlerContext, policy: unknown): LlmRoutingPolicy {
-  const normalized = normalizeLlmRoutingPolicy(policy)
-  ctx.envVarDao.upsert(
-    PROVIDER_ROUTING_SCOPE,
-    PROVIDER_ROUTING_POLICY_KEY,
-    JSON.stringify(normalized),
-    true,
-  )
-  return normalized
-}
-
 export function createProviderProfileHandler(ctx: HandlerContext): Hono {
   const app = new Hono()
 
@@ -135,39 +92,6 @@ export function createProviderProfileHandler(ctx: HandlerContext): Hono {
   })
 
   app.get('/provider-profiles', (c) => c.json({ profiles: readProfiles(ctx) }))
-
-  app.get('/provider-routing', (c) => {
-    const profiles = readProfiles(ctx)
-    const policy = readRoutingPolicy(ctx)
-    const models = buildRoutableModels(profiles)
-    return c.json({
-      policy,
-      models,
-      summary: {
-        profiles: profiles.length,
-        enabledProfiles: profiles.filter((profile) => profile.enabled).length,
-        models: models.length,
-        enabledModels: models.filter((model) => model.enabled).length,
-      },
-    })
-  })
-
-  app.put('/provider-routing', async (c) => {
-    const body = await c.req.json<{ policy?: unknown }>()
-    const policy = writeRoutingPolicy(ctx, body.policy)
-    return c.json({ ok: true, policy })
-  })
-
-  app.post('/provider-routing/resolve', async (c) => {
-    const body = await c.req.json<{ selector?: string; tags?: string[] }>()
-    return c.json({
-      ok: true,
-      resolved: resolveLlmRoute(readRoutingPolicy(ctx), buildRoutableModels(readProfiles(ctx)), {
-        selector: body.selector,
-        tags: body.tags,
-      }),
-    })
-  })
 
   app.put('/provider-profiles', async (c) => {
     const body = await c.req.json<{

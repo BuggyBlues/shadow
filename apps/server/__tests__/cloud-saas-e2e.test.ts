@@ -234,6 +234,98 @@ describe('Cloud SaaS — wallet', () => {
   })
 })
 
+describe('Cloud SaaS — env vars', () => {
+  it('GET /api/cloud-saas/global-envvars tolerates unreadable legacy values', async () => {
+    const [legacyUser] = await db
+      .insert(schema.users)
+      .values({
+        email: `saas-legacy-env-${Date.now()}@example.com`,
+        displayName: 'Legacy Env User',
+        username: uniqueName('saas-legacy-env'),
+        passwordHash: 'test-hash',
+      })
+      .returning()
+    const legacyUserId = legacyUser!.id
+    const legacyToken = signAccessToken({
+      userId: legacyUserId,
+      email: legacyUser!.email,
+      username: legacyUser!.username,
+    })
+
+    try {
+      await db.insert(schema.cloudEnvVars).values({
+        userId: legacyUserId,
+        scope: 'global',
+        key: 'BROKEN_LEGACY_KEY',
+        encryptedValue: 'not-valid-ciphertext',
+      })
+
+      const listRes = await req('GET', '/api/cloud-saas/global-envvars', undefined, legacyToken)
+      expect(listRes.status).toBe(200)
+      const listBody = (await listRes.json()) as {
+        envVars: Array<{ key: string }>
+      }
+      expect(listBody.envVars.some((entry) => entry.key === 'BROKEN_LEGACY_KEY')).toBe(true)
+
+      const getRes = await req(
+        'GET',
+        '/api/cloud-saas/global-envvars/BROKEN_LEGACY_KEY',
+        undefined,
+        legacyToken,
+      )
+      expect(getRes.status).toBe(422)
+    } finally {
+      await db
+        .delete(schema.users)
+        .where(eq(schema.users.id, legacyUserId))
+        .catch(() => {})
+    }
+  })
+})
+
+describe('Cloud SaaS — deployment listing', () => {
+  it('GET /api/cloud-saas/deployments returns newest records first', async () => {
+    const namespace = uniqueName('e2e-list-order')
+    try {
+      await db.insert(schema.cloudDeployments).values([
+        {
+          userId,
+          namespace,
+          name: `${namespace}-old`,
+          status: 'failed',
+          agentCount: 1,
+          configSnapshot: makeConfigSnapshot('old-secret'),
+          createdAt: new Date('2099-01-01T00:00:00.000Z'),
+          updatedAt: new Date('2099-01-01T00:00:00.000Z'),
+        },
+        {
+          userId,
+          namespace,
+          name: `${namespace}-new`,
+          status: 'deployed',
+          agentCount: 1,
+          configSnapshot: makeConfigSnapshot('new-secret'),
+          createdAt: new Date('2099-01-02T00:00:00.000Z'),
+          updatedAt: new Date('2099-01-02T00:00:00.000Z'),
+        },
+      ])
+
+      const res = await req('GET', '/api/cloud-saas/deployments?limit=2&offset=0')
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as Array<{
+        namespace: string
+        name: string
+      }>
+      expect(body[0]).toMatchObject({ namespace, name: `${namespace}-new` })
+    } finally {
+      await db
+        .delete(schema.cloudDeployments)
+        .where(eq(schema.cloudDeployments.namespace, namespace))
+        .catch(() => {})
+    }
+  })
+})
+
 describe('Cloud SaaS — create a community template', () => {
   it('POST /api/cloud-saas/templates creates a draft community template', async () => {
     const slug = uniqueName('e2e-community-template')
@@ -372,88 +464,112 @@ describe('Cloud SaaS — deployment + billing', () => {
     expect(runtime.DEEPSEEK_API_KEY).toBe('saved-deepseek-key')
   })
 
-  it('stores provider profiles and injects the selected profile during deploy', async () => {
-    const catalogsRes = await req('GET', '/api/cloud-saas/provider-catalogs')
-    expect(catalogsRes.status).toBe(200)
-    const catalogs = (await catalogsRes.json()) as {
-      providers: Array<{ provider: { id: string } }>
-    }
-    const providerIds = catalogs.providers.map((entry) => entry.provider.id)
-    expect(providerIds).toContain('anthropic')
-    expect(providerIds).toContain('qwen')
-    expect(providerIds).toContain('minimax')
-    expect(providerIds).toContain('moonshot')
-    expect(providerIds).toContain('zai')
+  it('stores provider profiles and injects selected real provider env during deploy', async () => {
+    const previousShadowServerUrl = process.env.SHADOW_SERVER_URL
+    process.env.SHADOW_SERVER_URL = 'http://server.test:3002'
 
-    const profileRes = await req('PUT', '/api/cloud-saas/provider-profiles', {
-      providerId: 'anthropic',
-      name: 'Anthropic Test',
-      config: {
-        baseUrl: 'https://anthropic-proxy.example.test',
-        models: [
-          {
-            id: 'claude-profile-model',
-            name: 'Claude Profile Model',
-            tags: ['default', 'reasoning'],
-            contextWindow: 200000,
-            maxTokens: 8192,
-          },
-        ],
-      },
-      envVars: { ANTHROPIC_API_KEY: 'profile-anthropic-key' },
-    })
-    expect(profileRes.status).toBe(200)
-    const profileBody = (await profileRes.json()) as { profile: { id: string; providerId: string } }
-    expect(profileBody.profile.providerId).toBe('anthropic')
+    try {
+      const catalogsRes = await req('GET', '/api/cloud-saas/provider-catalogs')
+      expect(catalogsRes.status).toBe(200)
+      const catalogs = (await catalogsRes.json()) as {
+        providers: Array<{ provider: { id: string } }>
+      }
+      const providerIds = catalogs.providers.map((entry) => entry.provider.id)
+      expect(providerIds).toContain('anthropic')
+      expect(providerIds).toContain('qwen')
+      expect(providerIds).toContain('minimax')
+      expect(providerIds).toContain('moonshot')
+      expect(providerIds).toContain('zai')
 
-    const listRes = await req('GET', '/api/cloud-saas/provider-profiles')
-    expect(listRes.status).toBe(200)
-    const listBody = (await listRes.json()) as {
-      profiles: Array<{ id: string; envVars: unknown[] }>
-    }
-    expect(
-      listBody.profiles.find((profile) => profile.id === profileBody.profile.id)?.envVars,
-    ).toHaveLength(1)
-
-    const createRes = await req('POST', '/api/cloud-saas/deployments', {
-      namespace: uniqueName('e2e-provider-profile-ns'),
-      name: uniqueName('e2e-provider-profile-deploy'),
-      templateSlug: officialTemplateSlug,
-      resourceTier: 'lightweight',
-      configSnapshot: {
-        ...makeConfigSnapshot('provider-profile-secret'),
-        use: [{ plugin: 'model-provider', options: { profileId: profileBody.profile.id } }],
-      },
-    })
-
-    expect(createRes.status).toBe(201)
-    const deployment = (await createRes.json()) as { id: string }
-    const [stored] = await db
-      .select()
-      .from(schema.cloudDeployments)
-      .where(eq(schema.cloudDeployments.id, deployment.id))
-      .limit(1)
-
-    const runtime = extractCloudSaasRuntime(stored?.configSnapshot).envVars
-    expect(runtime.ANTHROPIC_API_KEY).toBe('profile-anthropic-key')
-    expect(runtime.ANTHROPIC_BASE_URL).toBe('https://anthropic-proxy.example.test')
-    expect(JSON.parse(runtime.SHADOW_PROVIDER_PROFILE_MODELS_JSON)).toMatchObject([
-      {
+      const profileRes = await req('PUT', '/api/cloud-saas/provider-profiles', {
         providerId: 'anthropic',
-        profileId: profileBody.profile.id,
-        models: [
-          {
-            id: 'claude-profile-model',
-            tags: ['default', 'reasoning'],
-            contextWindow: 200000,
-            maxTokens: 8192,
-          },
-        ],
-      },
-    ])
+        name: 'Anthropic Test',
+        config: {
+          baseUrl: 'https://anthropic-proxy.example.test',
+          models: [
+            {
+              id: 'claude-profile-model',
+              name: 'Claude Profile Model',
+              tags: ['default', 'reasoning'],
+              contextWindow: 200000,
+              maxTokens: 8192,
+            },
+          ],
+        },
+        envVars: { ANTHROPIC_API_KEY: 'profile-anthropic-key' },
+      })
+      expect(profileRes.status).toBe(200)
+      const profileBody = (await profileRes.json()) as {
+        profile: { id: string; providerId: string }
+      }
+      expect(profileBody.profile.providerId).toBe('anthropic')
+
+      const listRes = await req('GET', '/api/cloud-saas/provider-profiles')
+      expect(listRes.status).toBe(200)
+      const listBody = (await listRes.json()) as {
+        profiles: Array<{ id: string; envVars: unknown[] }>
+      }
+      expect(
+        listBody.profiles.find((profile) => profile.id === profileBody.profile.id)?.envVars,
+      ).toHaveLength(1)
+
+      const createRes = await req('POST', '/api/cloud-saas/deployments', {
+        namespace: uniqueName('e2e-provider-profile-ns'),
+        name: uniqueName('e2e-provider-profile-deploy'),
+        templateSlug: officialTemplateSlug,
+        resourceTier: 'lightweight',
+        configSnapshot: {
+          ...makeConfigSnapshot('provider-profile-secret'),
+          use: [
+            {
+              plugin: 'model-provider',
+              options: { profileId: profileBody.profile.id },
+            },
+          ],
+        },
+      })
+
+      expect(createRes.status).toBe(201)
+      const deployment = (await createRes.json()) as { id: string }
+      const [stored] = await db
+        .select()
+        .from(schema.cloudDeployments)
+        .where(eq(schema.cloudDeployments.id, deployment.id))
+        .limit(1)
+
+      const runtime = extractCloudSaasRuntime(stored?.configSnapshot).envVars
+      expect(runtime.ANTHROPIC_API_KEY).toBe('profile-anthropic-key')
+      expect(runtime.ANTHROPIC_BASE_URL).toBe('https://anthropic-proxy.example.test')
+      expect(runtime.OPENAI_COMPATIBLE_BASE_URL).toBeUndefined()
+      expect(runtime.OPENAI_COMPATIBLE_API_KEY).toBeUndefined()
+      expect(runtime.OPENAI_COMPATIBLE_MODEL_ID).toBeUndefined()
+      const modelSets = JSON.parse(runtime.SHADOW_PROVIDER_PROFILE_MODELS_JSON ?? '[]') as Array<{
+        providerId: string
+        profileId: string
+        models: Array<{ id: string; tags?: string[] }>
+      }>
+      expect(modelSets).toEqual([
+        {
+          providerId: 'anthropic',
+          profileId: profileBody.profile.id,
+          models: [
+            expect.objectContaining({
+              id: 'claude-profile-model',
+              tags: ['default', 'reasoning'],
+            }),
+          ],
+        },
+      ])
+    } finally {
+      if (previousShadowServerUrl === undefined) {
+        delete process.env.SHADOW_SERVER_URL
+      } else {
+        process.env.SHADOW_SERVER_URL = previousShadowServerUrl
+      }
+    }
   })
 
-  it('refreshes provider models and resolves Manifest-style routing policy', async () => {
+  it('refreshes provider models and deploys the profile selected by model tag', async () => {
     const modelServer = createServer((request, response) => {
       const url = new URL(request.url ?? '/', 'http://mock.local')
       if (url.pathname === '/v1/models') {
@@ -497,11 +613,14 @@ describe('Cloud SaaS — deployment + billing', () => {
           baseUrl,
           apiFormat: 'openai',
           authType: 'api_key',
+          models: [{ id: 'seed-model', tags: ['default'] }],
         },
         envVars: { OPENAI_API_KEY: 'mock-openai-key' },
       })
       expect(profileRes.status).toBe(200)
-      const profileBody = (await profileRes.json()) as { profile: { id: string } }
+      const profileBody = (await profileRes.json()) as {
+        profile: { id: string }
+      }
 
       const refreshRes = await req(
         'POST',
@@ -526,11 +645,14 @@ describe('Cloud SaaS — deployment + billing', () => {
         config: {
           baseUrl: `http://127.0.0.1:${port}/gemini`,
           authType: 'api_key',
+          models: [{ id: 'models/gemini-seed', tags: ['default'] }],
         },
         envVars: { GOOGLE_AI_API_KEY: 'mock-gemini-key' },
       })
       expect(geminiProfileRes.status).toBe(200)
-      const geminiProfileBody = (await geminiProfileRes.json()) as { profile: { id: string } }
+      const geminiProfileBody = (await geminiProfileRes.json()) as {
+        profile: { id: string }
+      }
       const geminiRefreshRes = await req(
         'POST',
         `/api/cloud-saas/provider-profiles/${geminiProfileBody.profile.id}/models/refresh`,
@@ -549,93 +671,89 @@ describe('Cloud SaaS — deployment + billing', () => {
       })
       expect(geminiRefreshBody.models[0]?.tags).toContain('fast')
 
-      const routingRes = await req('GET', '/api/cloud-saas/provider-routing')
-      expect(routingRes.status).toBe(200)
-      const routingBody = (await routingRes.json()) as {
-        policy: {
-          defaultRoute: { selector: string; fallbacks: string[] }
-          complexity: { reasoning: { selector: string; primary?: string; fallbacks: string[] } }
-        }
-        models: Array<{ ref: string; id: string }>
-      }
-      const fastRef = routingBody.models.find((model) => model.id === 'mock-fast-mini')?.ref
-      const reasoningRef = routingBody.models.find((model) => model.id === 'mock-reasoning-r1')?.ref
-      expect(fastRef).toBe(`${profileBody.profile.id}/mock-fast-mini`)
-      expect(reasoningRef).toBe(`${profileBody.profile.id}/mock-reasoning-r1`)
-
-      const policy = {
-        ...routingBody.policy,
-        defaultRoute: {
-          selector: 'fast',
-          primary: fastRef,
-          fallbacks: reasoningRef ? [reasoningRef] : [],
+      const createRes = await req('POST', '/api/cloud-saas/deployments', {
+        namespace: uniqueName('e2e-provider-selector-ns'),
+        name: uniqueName('e2e-provider-selector-deploy'),
+        templateSlug: officialTemplateSlug,
+        resourceTier: 'lightweight',
+        configSnapshot: {
+          ...makeConfigSnapshot('provider-selector-secret'),
+          use: [
+            {
+              plugin: 'model-provider',
+              options: { profileId: profileBody.profile.id, selector: 'reasoning' },
+            },
+          ],
         },
-        complexity: {
-          ...routingBody.policy.complexity,
-          reasoning: {
-            selector: 'reasoning',
-            primary: reasoningRef,
-            fallbacks: fastRef ? [fastRef] : [],
-          },
-        },
-        limits: {
-          requestsPerMinute: 30,
-          concurrentRequests: 3,
-          monthlyBudgetUsd: 25,
-        },
-        fallback: {
-          enabled: true,
-          statusCodes: [429, 500, 502, 503],
-        },
-        rules: [
-          {
-            id: 'rule-tokens-day',
-            metric: 'tokens',
-            threshold: 123,
-            period: 'day',
-            blockRequests: false,
-            enabled: true,
-            triggered: 0,
-          },
-        ],
-        enabled: true,
-      }
-      const saveRoutingRes = await req('PUT', '/api/cloud-saas/provider-routing', { policy })
-      expect(saveRoutingRes.status).toBe(200)
-
-      const savedRoutingRes = await req('GET', '/api/cloud-saas/provider-routing')
-      expect(savedRoutingRes.status).toBe(200)
-      const savedRoutingBody = (await savedRoutingRes.json()) as {
-        policy: { rules: Array<{ id: string; metric: string; threshold: number; period: string }> }
-      }
-      expect(savedRoutingBody.policy.rules[0]).toMatchObject({
-        id: 'rule-tokens-day',
-        metric: 'tokens',
-        threshold: 123,
-        period: 'day',
       })
-
-      const resolveFastRes = await req('POST', '/api/cloud-saas/provider-routing/resolve', {
-        selector: 'default',
-      })
-      expect(resolveFastRes.status).toBe(200)
-      const resolveFastBody = (await resolveFastRes.json()) as {
-        resolved: { model: { ref: string }; fallbacks: Array<{ ref: string }> }
-      }
-      expect(resolveFastBody.resolved.model.ref).toBe(fastRef)
-      expect(resolveFastBody.resolved.fallbacks[0]?.ref).toBe(reasoningRef)
-
-      const resolveReasoningRes = await req('POST', '/api/cloud-saas/provider-routing/resolve', {
-        selector: 'reasoning',
-      })
-      expect(resolveReasoningRes.status).toBe(200)
-      const resolveReasoningBody = (await resolveReasoningRes.json()) as {
-        resolved: { model: { ref: string }; fallbacks: Array<{ ref: string }> }
-      }
-      expect(resolveReasoningBody.resolved.model.ref).toBe(reasoningRef)
-      expect(resolveReasoningBody.resolved.fallbacks[0]?.ref).toBe(fastRef)
+      expect(createRes.status).toBe(201)
+      const deployment = (await createRes.json()) as { id: string }
+      const [stored] = await db
+        .select()
+        .from(schema.cloudDeployments)
+        .where(eq(schema.cloudDeployments.id, deployment.id))
+        .limit(1)
+      const runtime = extractCloudSaasRuntime(stored?.configSnapshot).envVars
+      expect(runtime.OPENAI_API_KEY).toBe('mock-openai-key')
+      expect(runtime.OPENAI_COMPATIBLE_BASE_URL).toBeUndefined()
+      const modelSets = JSON.parse(runtime.SHADOW_PROVIDER_PROFILE_MODELS_JSON ?? '[]') as Array<{
+        providerId: string
+        profileId: string
+        models: Array<{ id: string; tags?: string[] }>
+      }>
+      expect(modelSets).toEqual([
+        {
+          providerId: 'openai',
+          profileId: profileBody.profile.id,
+          models: [
+            expect.objectContaining({ id: 'mock-fast-mini', tags: ['fast'] }),
+            expect.objectContaining({ id: 'mock-reasoning-r1', tags: ['reasoning'] }),
+          ],
+        },
+      ])
     } finally {
       await new Promise<void>((resolve) => modelServer.close(() => resolve()))
+    }
+  })
+
+  it('GET /api/cloud-saas/provider-profiles ignores unreadable legacy provider values', async () => {
+    const [legacyUser] = await db
+      .insert(schema.users)
+      .values({
+        email: `saas-legacy-provider-${Date.now()}@example.com`,
+        displayName: 'Legacy Provider User',
+        username: uniqueName('saas-legacy-provider'),
+        passwordHash: 'test-hash',
+      })
+      .returning()
+    const legacyUserId = legacyUser!.id
+    const legacyToken = signAccessToken({
+      userId: legacyUserId,
+      email: legacyUser!.email,
+      username: legacyUser!.username,
+    })
+
+    try {
+      await db.insert(schema.cloudEnvVars).values([
+        {
+          userId: legacyUserId,
+          scope: 'provider:legacy-bad-profile',
+          key: 'SHADOW_PROVIDER_ID',
+          encryptedValue: 'not-valid-ciphertext',
+        },
+      ])
+
+      const res = await req('GET', '/api/cloud-saas/provider-profiles', undefined, legacyToken)
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as {
+        profiles: unknown[]
+      }
+      expect(body.profiles).toEqual([])
+    } finally {
+      await db
+        .delete(schema.users)
+        .where(eq(schema.users.id, legacyUserId))
+        .catch(() => {})
     }
   })
 
@@ -709,7 +827,10 @@ describe('Cloud SaaS — deployment + billing', () => {
     })
 
     expect(createRes.status).toBe(201)
-    const deployment = (await createRes.json()) as { id: string; monthlyCost: number | null }
+    const deployment = (await createRes.json()) as {
+      id: string
+      monthlyCost: number | null
+    }
 
     const namespaceCostsRes = await req('GET', `/api/cloud-saas/deployments/${deployment.id}/costs`)
     expect(namespaceCostsRes.status).toBe(200)
@@ -730,7 +851,11 @@ describe('Cloud SaaS — deployment + billing', () => {
     expect(overviewRes.status).toBe(200)
     const overview = (await overviewRes.json()) as {
       billingUnit: string
-      namespaces: Array<{ namespace: string; billingUnit: string; billingAmount: number | null }>
+      namespaces: Array<{
+        namespace: string
+        billingUnit: string
+        billingAmount: number | null
+      }>
     }
     expect(overview.billingUnit).toBe('shrimp')
     const matchingNamespace = overview.namespaces.find((item) => item.namespace === namespace)
@@ -753,7 +878,10 @@ describe('Cloud SaaS — deployment + billing', () => {
 
     const cancelRes = await req('POST', `/api/cloud-saas/deployments/${deployment.id}/cancel`)
     expect(cancelRes.status).toBe(200)
-    const cancelBody = (await cancelRes.json()) as { ok: boolean; status: string }
+    const cancelBody = (await cancelRes.json()) as {
+      ok: boolean
+      status: string
+    }
     expect(cancelBody.ok).toBe(true)
     expect(cancelBody.status).toBe('cancelling')
 

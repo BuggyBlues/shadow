@@ -670,8 +670,8 @@
     "leaveEmptyKeep": "留空保持当前值"
   },
   "providers": {
-    "title": "LLM 网关",
-    "description": "保存一次模型 Key，部署 Buddy 时自动使用。",
+    "title": "模型提供商",
+    "description": "管理部署 Buddy 时使用的提供商 Key、模型和模型 Tag。",
     "tabs": {
       "providers": "连接",
       "routing": "高级路由",
@@ -696,7 +696,7 @@
     "localProviderSubtitle": "本地模型服务",
     "createProfile": "添加提供商",
     "editProfile": "编辑提供商",
-    "profileDialogDescription": "填写 Key 后保存即可。进阶设置可先不改。",
+    "profileDialogDescription": "填写 Key，至少添加一个模型，然后保存。",
     "encryptionActive": "Key 已加密",
     "encryptionDescription": "只会在测试连接和部署时解密。",
     "enabledProfiles": "个已启用",
@@ -731,8 +731,9 @@
     "configuredModels": "已配置模型",
     "modelNotPinned": "未固定",
     "modelsNotConfigured": "尚未配置模型",
-    "modelsTitle": "手动模型",
-    "modelsDescription": "通常保存后点“刷新模型”即可。兼容服务无法发现时再手动添加。",
+    "modelsTitle": "模型",
+    "modelsDescription": "至少填写一个部署时要使用的模型 ID。",
+    "modelRequired": "至少需要一个模型。",
     "addModel": "添加模型",
     "addFirstModel": "添加第一个模型",
     "modelIdPlaceholder": "输入任意兼容模型 ID",
@@ -800,6 +801,8 @@
     "saveRouting": "保存路由",
     "routingSaved": "路由策略已保存",
     "routingSaveFailed": "保存路由策略失败",
+    "routingLoadFailed": "路由配置加载失败",
+    "routingLoadFailedDescription": "无法读取模型路由和预算配置，请稍后重试。",
     "routes": {
       "default": "默认",
       "simple": "简单",
@@ -823,6 +826,7 @@
     "limitsTitle": "限额",
     "limitsDescription": "第一期先保存未来代理执行与计费看板需要的接口契约。",
     "limitsManifestDescription": "{{count}} › token 或成本超过阈值时通知或阻止请求",
+    "limitsLoadFailed": "预算配置加载失败",
     "createRule": "创建规则",
     "createRuleTitle": "创建规则",
     "editRule": "编辑规则",
@@ -1153,6 +1157,17 @@
     "txAmount": "金额",
     "txBalance": "余额",
     "txDate": "时间",
-    "page": "第 {{current}} / {{total}} 页"
+    "page": "第 {{current}} / {{total}} 页",
+    "txTypes": {
+      "topup": "充值",
+      "purchase": "消费",
+      "refund": "退款",
+      "reward": "奖励",
+      "transfer": "转账",
+      "adjustment": "调整",
+      "settlement": "结算",
+      "cloud_deploy": "部署",
+      "cloud_hourly": "用量计费"
+    }
   }
 }

@@ -153,11 +153,49 @@ describe('buildManifests', () => {
 
     const container = deployment.spec.template.spec.containers[0]
     expect(container.env).toEqual(expect.arrayContaining([{ name: 'PUBLIC_FLAG', value: '1' }]))
+    expect(container.env).toEqual(
+      expect.arrayContaining([
+        { name: 'OPENCLAW_HEALTH_PORT', value: '3102' },
+        { name: 'OPENCLAW_GATEWAY_PORT', value: '3101' },
+      ]),
+    )
     expect(container.env).not.toEqual(
       expect.arrayContaining([{ name: 'INTERNAL_SECRET', value: 'top-secret' }]),
     )
     expect(container.envFrom).toEqual(
       expect.arrayContaining([{ secretRef: { name: 'agent-1-secrets' } }]),
     )
+    expect(container.ports).toEqual([{ containerPort: 3102, name: 'health' }])
+    expect(container.startupProbe.httpGet).toMatchObject({ path: '/live', port: 3102 })
+    expect(container.readinessProbe.httpGet).toMatchObject({ path: '/ready', port: 3102 })
+  })
+
+  it('marks generated resources for repeatable Pulumi ownership and fast service creation', () => {
+    const config: CloudConfig = {
+      version: '1',
+      deployments: {
+        agents: [
+          {
+            id: 'agent-1',
+            runtime: 'openclaw',
+            configuration: {},
+          },
+        ],
+      },
+    }
+
+    const manifests = buildManifests({ config, namespace: 'test-runtime-package' })
+    const managedKinds = ['Namespace', 'ConfigMap', 'Secret', 'Deployment', 'Service']
+
+    for (const kind of managedKinds) {
+      const manifest = manifests.find((item) => item.kind === kind)!
+      expect(manifest.metadata.annotations).toMatchObject({ 'pulumi.com/patchForce': 'true' })
+    }
+
+    const service = manifests.find((item) => item.kind === 'Service')!
+    expect(service.metadata.annotations).toMatchObject({ 'pulumi.com/skipAwait': 'true' })
+    expect(service.spec.ports).toEqual([
+      { name: 'health', port: 3100, targetPort: 3102, protocol: 'TCP' },
+    ])
   })
 })

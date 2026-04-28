@@ -9,10 +9,12 @@ import { useApiClient } from '@/lib/api-context'
 type WalletApi = {
   wallet?: {
     get: () => Promise<{ balance: number }>
-    transactions: (params?: {
-      limit?: number
-      offset?: number
-    }) => Promise<{ transactions: Transaction[]; total: number; limit: number; offset: number }>
+    transactions: (params?: { limit?: number; offset?: number }) => Promise<{
+      transactions: Transaction[]
+      total: number
+      limit: number
+      offset: number
+    }>
   }
 }
 
@@ -25,14 +27,6 @@ type Transaction = {
   referenceType: string | null
   note: string | null
   createdAt: string
-}
-
-const TX_TYPE_LABELS: Record<string, string> = {
-  topup: '充值',
-  purchase: '消费',
-  refund: '退款',
-  settlement: '结算',
-  cloud_deploy: '部署',
 }
 
 const PAGE_SIZE = 20
@@ -143,7 +137,9 @@ export function WalletPage() {
                     <tr key={tx.id} className="hover:bg-bg-secondary/50 transition-colors">
                       <td className="px-4 py-2.5">
                         <Badge variant={tx.amount > 0 ? 'success' : 'warning'} className="text-xs">
-                          {TX_TYPE_LABELS[tx.type] ?? tx.type}
+                          {t(`wallet.txTypes.${tx.type}`, {
+                            defaultValue: tx.type,
+                          })}
                         </Badge>
                       </td>
                       <td className="px-4 py-2.5 text-text-secondary max-w-[200px] truncate">
@@ -177,7 +173,10 @@ export function WalletPage() {
             {totalPages > 1 && (
               <div className="flex items-center justify-between mt-4">
                 <span className="text-xs text-text-muted">
-                  {t('wallet.page', { current: currentPage, total: totalPages })}
+                  {t('wallet.page', {
+                    current: currentPage,
+                    total: totalPages,
+                  })}
                 </span>
                 <div className="flex gap-2">
                   <Button

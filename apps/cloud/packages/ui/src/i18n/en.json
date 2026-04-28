@@ -670,8 +670,8 @@
     "leaveEmptyKeep": "Leave empty to keep current value"
   },
   "providers": {
-    "title": "LLM Gateway",
-    "description": "Connect model keys once. Cloud will use them when deploying Buddies.",
+    "title": "Model providers",
+    "description": "Manage provider keys, models, and tags used during Buddy deployments.",
     "tabs": {
       "providers": "Connections",
       "routing": "Advanced routing",
@@ -696,7 +696,7 @@
     "localProviderSubtitle": "Local model server",
     "createProfile": "Add provider",
     "editProfile": "Edit provider",
-    "profileDialogDescription": "Paste a key, save, and deploy. Advanced settings are optional.",
+    "profileDialogDescription": "Paste a key, add at least one model, and save.",
     "encryptionActive": "Keys are encrypted",
     "encryptionDescription": "They are only decrypted for tests and deployments.",
     "enabledProfiles": "enabled",
@@ -731,8 +731,9 @@
     "configuredModels": "Configured models",
     "modelNotPinned": "Not pinned",
     "modelsNotConfigured": "No models configured",
-    "modelsTitle": "Manual models",
-    "modelsDescription": "Usually use Refresh models after saving. Add models here only for compatible services.",
+    "modelsTitle": "Models",
+    "modelsDescription": "Enter at least one model ID to use during deployments.",
+    "modelRequired": "At least one model is required.",
     "addModel": "Add model",
     "addFirstModel": "Add the first model",
     "modelIdPlaceholder": "Enter any compatible model ID",
@@ -800,6 +801,8 @@
     "saveRouting": "Save routing",
     "routingSaved": "Routing policy saved",
     "routingSaveFailed": "Failed to save routing policy",
+    "routingLoadFailed": "Failed to load routing",
+    "routingLoadFailedDescription": "Could not read model routing and budget settings. Please retry.",
     "routes": {
       "default": "Default",
       "simple": "Simple",
@@ -823,6 +826,7 @@
     "limitsTitle": "Limits",
     "limitsDescription": "Phase 1 stores the contract used by future proxy enforcement and billing dashboards.",
     "limitsManifestDescription": "{{count}} › Get notified or block requests when token or cost thresholds are exceeded",
+    "limitsLoadFailed": "Failed to load budget",
     "createRule": "Create rule",
     "createRuleTitle": "Create rule",
     "editRule": "Edit rule",
@@ -1153,6 +1157,17 @@
     "txAmount": "Amount",
     "txBalance": "Balance",
     "txDate": "Date",
-    "page": "Page {{current}} / {{total}}"
+    "page": "Page {{current}} / {{total}}",
+    "txTypes": {
+      "topup": "Top-up",
+      "purchase": "Purchase",
+      "refund": "Refund",
+      "reward": "Reward",
+      "transfer": "Transfer",
+      "adjustment": "Adjustment",
+      "settlement": "Settlement",
+      "cloud_deploy": "Deployment",
+      "cloud_hourly": "Usage billing"
+    }
   }
 }

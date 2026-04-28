@@ -7,6 +7,7 @@ import type { DeployOptions, DeployResult } from './deploy.service.js'
 import { DeployService } from './deploy.service.js'
 
 export interface DeploymentRuntimeCluster {
+  id?: string | null
   name?: string | null
   kubeconfig?: string | null
 }
@@ -155,6 +156,7 @@ export class DeploymentRuntimeService {
         this.deployService.up({
           ...deployOptions,
           filePath: configPath,
+          cluster: options.cluster?.name ?? undefined,
           k8sContext: context.k8sContext,
           kubeConfigPath: context.kubeConfigPath,
           runtimeEnvVars: context.runtimeEnvVars,

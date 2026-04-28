@@ -12,7 +12,10 @@
 export const HEALTH_PORT = 3100
 
 /** OpenClaw runner gateway port — separate from health for in-container CLI tools. */
-export const OPENCLAW_GATEWAY_PORT = HEALTH_PORT + 1
+export const OPENCLAW_GATEWAY_PORT = 3101
+
+/** OpenClaw runner health server port. */
+export const OPENCLAW_HEALTH_PORT = 3102
 
 /** Home directory for the non-root openclaw user (UID 1000) */
 export const HOME_DIR = '/home/openclaw'
@@ -28,6 +31,16 @@ export const CONFIG_MOUNT_PATH = '/etc/openclaw'
 
 /** Git clone init container image */
 export const GIT_INIT_IMAGE = 'alpine/git:latest'
+
+/** Pulumi annotations applied to managed resources for repeatable updates. */
+export const PULUMI_MANAGED_ANNOTATIONS = {
+  'pulumi.com/patchForce': 'true',
+} as const
+
+/** Services do not need endpoint readiness during creation. */
+export const PULUMI_SKIP_AWAIT_ANNOTATIONS = {
+  'pulumi.com/skipAwait': 'true',
+} as const
 
 /** Default container images per runtime */
 export const DEFAULT_IMAGES: Record<string, string> = {
@@ -64,6 +77,19 @@ export const STARTUP_PROBE = {
   failureThreshold: 60,
 } as const
 
+export function healthPortForRuntime(runtime?: string): number {
+  return runtime === 'openclaw' ? OPENCLAW_HEALTH_PORT : HEALTH_PORT
+}
+
+export function probesForRuntime(runtime?: string) {
+  const port = healthPortForRuntime(runtime)
+  return {
+    livenessProbe: { ...LIVENESS_PROBE, httpGet: { ...LIVENESS_PROBE.httpGet, port } },
+    readinessProbe: { ...READINESS_PROBE, httpGet: { ...READINESS_PROBE.httpGet, port } },
+    startupProbe: { ...STARTUP_PROBE, httpGet: { ...STARTUP_PROBE.httpGet, port } },
+  } as const
+}
+
 /** Standard volume mounts for every agent container */
 export function baseVolumeMounts() {
   return [
@@ -96,7 +122,7 @@ export function baseEnvVars(agentName: string, runtime?: string) {
   if (runtime === 'openclaw') {
     return [
       ...common,
-      { name: 'OPENCLAW_HEALTH_PORT', value: String(HEALTH_PORT) },
+      { name: 'OPENCLAW_HEALTH_PORT', value: String(OPENCLAW_HEALTH_PORT) },
       { name: 'OPENCLAW_GATEWAY_PORT', value: String(OPENCLAW_GATEWAY_PORT) },
     ]
   }

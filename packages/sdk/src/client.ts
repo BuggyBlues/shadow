@@ -7,9 +7,6 @@ import type {
   ShadowCloudProviderCatalog,
   ShadowCloudProviderModel,
   ShadowCloudProviderProfile,
-  ShadowCloudProviderRoutingState,
-  ShadowCloudRoutingPolicy,
-  ShadowCloudRoutingResolveResult,
   ShadowContract,
   ShadowDmChannel,
   ShadowFriendship,
@@ -1709,29 +1706,6 @@ export class ShadowClient {
   async deleteCloudProviderProfile(profileId: string): Promise<{ ok: boolean; success?: boolean }> {
     return this.request(`/api/cloud-saas/provider-profiles/${encodeURIComponent(profileId)}`, {
       method: 'DELETE',
-    })
-  }
-
-  async getCloudProviderRouting(): Promise<ShadowCloudProviderRoutingState> {
-    return this.request('/api/cloud-saas/provider-routing')
-  }
-
-  async updateCloudProviderRouting(
-    policy: ShadowCloudRoutingPolicy,
-  ): Promise<{ ok: boolean; success?: boolean; policy: ShadowCloudRoutingPolicy }> {
-    return this.request('/api/cloud-saas/provider-routing', {
-      method: 'PUT',
-      body: JSON.stringify({ policy }),
-    })
-  }
-
-  async resolveCloudProviderRoute(data: {
-    selector?: string
-    tags?: string[]
-  }): Promise<{ ok: boolean; success?: boolean; resolved: ShadowCloudRoutingResolveResult }> {
-    return this.request('/api/cloud-saas/provider-routing/resolve', {
-      method: 'POST',
-      body: JSON.stringify(data),
     })
   }
 

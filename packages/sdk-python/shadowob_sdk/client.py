@@ -893,22 +893,6 @@ class ShadowClient:
     def delete_cloud_provider_profile(self, profile_id: str) -> dict[str, Any]:
         return self._delete(f"/api/cloud-saas/provider-profiles/{profile_id}")
 
-    def get_cloud_provider_routing(self) -> dict[str, Any]:
-        return self._get("/api/cloud-saas/provider-routing")
-
-    def update_cloud_provider_routing(self, policy: dict[str, Any]) -> dict[str, Any]:
-        return self._put("/api/cloud-saas/provider-routing", json={"policy": policy})
-
-    def resolve_cloud_provider_route(
-        self, *, selector: str | None = None, tags: list[str] | None = None
-    ) -> dict[str, Any]:
-        payload: dict[str, Any] = {}
-        if selector is not None:
-            payload["selector"] = selector
-        if tags is not None:
-            payload["tags"] = tags
-        return self._post("/api/cloud-saas/provider-routing/resolve", json=payload)
-
     def get_entitlements(self, server_id: str) -> list[dict[str, Any]]:
         return self._get(f"/api/servers/{server_id}/shop/entitlements")
 

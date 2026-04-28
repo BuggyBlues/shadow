@@ -13,9 +13,10 @@ import {
   DEFAULT_IMAGES,
   DEFAULT_RESOURCES,
   HEALTH_PORT,
-  LIVENESS_PROBE,
-  READINESS_PROBE,
-  STARTUP_PROBE,
+  healthPortForRuntime,
+  PULUMI_MANAGED_ANNOTATIONS,
+  PULUMI_SKIP_AWAIT_ANNOTATIONS,
+  probesForRuntime,
 } from './constants.js'
 import { createNetworking } from './networking.js'
 import { collectPluginK8sArtifacts } from './plugin-k8s.js'
@@ -73,6 +74,7 @@ export function createInfraProgram(options: InfraOptions) {
 
     for (const agent of agents) {
       const agentName = agent.id
+      const healthPort = healthPortForRuntime(agent.runtime)
 
       // Build env vars from agent-level env (populated by plugin onProvision hooks)
       const env = { ...(agent.env ?? {}) }
@@ -128,6 +130,7 @@ export function createInfraProgram(options: InfraOptions) {
         agentName,
         namespace,
         port: HEALTH_PORT,
+        targetPort: healthPort,
         provider,
         resourceOptions: namespaceResourceOptions,
       })
@@ -179,6 +182,7 @@ export function buildManifests(options: InfraOptions) {
     metadata: {
       name: namespace,
       labels: { app: 'shadowob-cloud', 'managed-by': 'shadowob-cloud-cli' },
+      annotations: PULUMI_MANAGED_ANNOTATIONS,
     },
   })
 
@@ -194,6 +198,7 @@ export function buildManifests(options: InfraOptions) {
         name: 'shared-workspace',
         namespace,
         labels: { app: 'shadowob-cloud', 'managed-by': 'shadowob-cloud-cli' },
+        annotations: PULUMI_MANAGED_ANNOTATIONS,
       },
       spec: {
         accessModes: [ws.accessMode ?? 'ReadWriteOnce'],
@@ -230,6 +235,7 @@ export function buildManifests(options: InfraOptions) {
         name: `${agentName}-config`,
         namespace,
         labels: { app: 'shadowob-cloud', agent: agentName },
+        annotations: PULUMI_MANAGED_ANNOTATIONS,
       },
       data: runtimePackage.configData,
     })
@@ -241,6 +247,7 @@ export function buildManifests(options: InfraOptions) {
         name: `${agentName}-secrets`,
         namespace,
         labels: { app: 'shadowob-cloud', agent: agentName },
+        annotations: PULUMI_MANAGED_ANNOTATIONS,
       },
       type: 'Opaque',
       stringData: runtimePackage.secretData,
@@ -248,6 +255,8 @@ export function buildManifests(options: InfraOptions) {
 
     // Deployment
     const image = agent.image ?? DEFAULT_IMAGES[agent.runtime] ?? DEFAULT_IMAGES.openclaw
+    const healthPort = healthPortForRuntime(agent.runtime)
+    const { livenessProbe, readinessProbe, startupProbe } = probesForRuntime(agent.runtime)
 
     // Build volume mounts and volumes from shared constants
     const volumeMounts: Array<Record<string, unknown>> = baseVolumeMounts()
@@ -271,6 +280,22 @@ export function buildManifests(options: InfraOptions) {
 
     // Collect K8s artifacts from all plugins (init containers, volumes, env vars, labels)
     const pluginK8s = collectPluginK8sArtifacts(agent, config, namespace)
+    for (const configMap of pluginK8s.configMaps) {
+      manifests.push({
+        apiVersion: 'v1',
+        kind: 'ConfigMap',
+        metadata: {
+          name: configMap.name,
+          namespace,
+          labels: configMap.labels,
+          annotations: {
+            ...PULUMI_MANAGED_ANNOTATIONS,
+            ...configMap.annotations,
+          },
+        },
+        data: configMap.data,
+      })
+    }
     for (const vol of pluginK8s.volumes) {
       volumes.push({ name: vol.name, ...vol.spec })
     }
@@ -298,16 +323,16 @@ export function buildManifests(options: InfraOptions) {
         name: agentName,
         namespace,
         labels: { app: 'shadowob-cloud', agent: agentName, runtime: agent.runtime },
-        // P1: Version annotations for rollback tracking
-        ...(agent.version
-          ? {
-              annotations: {
+        annotations: {
+          ...PULUMI_MANAGED_ANNOTATIONS,
+          ...(agent.version
+            ? {
                 'shadowob-cloud/agent-version': agent.version,
                 'shadowob-cloud/deployed-at': new Date().toISOString(),
                 ...(agent.changelog ? { 'shadowob-cloud/changelog': agent.changelog } : {}),
-              },
-            }
-          : {}),
+              }
+            : {}),
+        },
       },
       spec: {
         replicas: agent.replicas ?? 1,
@@ -321,15 +346,15 @@ export function buildManifests(options: InfraOptions) {
                 name: agent.runtime,
                 image,
                 imagePullPolicy,
-                ports: [{ containerPort: HEALTH_PORT, name: 'health' }],
+                ports: [{ containerPort: healthPort, name: 'health' }],
                 env: envList,
                 envFrom: [{ secretRef: { name: `${agentName}-secrets` } }],
                 volumeMounts,
                 resources: agent.resources ?? DEFAULT_RESOURCES,
                 securityContext: buildContainerSecurityContext(),
-                livenessProbe: LIVENESS_PROBE,
-                readinessProbe: READINESS_PROBE,
-                startupProbe: STARTUP_PROBE,
+                livenessProbe,
+                readinessProbe,
+                startupProbe,
               },
               // Plugin-contributed helper containers (e.g. gitagent git-pull loop)
               ...pluginK8s.sidecars.map((sc) => ({
@@ -360,17 +385,21 @@ export function buildManifests(options: InfraOptions) {
         name: `${agentName}-svc`,
         namespace,
         labels: { app: 'shadowob-cloud', agent: agentName },
+        annotations: {
+          ...PULUMI_MANAGED_ANNOTATIONS,
+          ...PULUMI_SKIP_AWAIT_ANNOTATIONS,
+        },
       },
       spec: {
         selector: { app: 'shadowob-cloud', agent: agentName },
-        ports: [{ name: 'health', port: HEALTH_PORT, targetPort: HEALTH_PORT, protocol: 'TCP' }],
+        ports: [{ name: 'health', port: HEALTH_PORT, targetPort: healthPort, protocol: 'TCP' }],
         type: 'ClusterIP',
       },
     })
 
     // NetworkPolicy — restrict traffic based on agent networking config
     manifests.push(
-      buildNetworkPolicy(agentName, namespace, HEALTH_PORT, extraEgressPorts, agent.networking),
+      buildNetworkPolicy(agentName, namespace, healthPort, extraEgressPorts, agent.networking),
     )
 
     // Add plugin-generated K8s resources (Ingress, CronJob, etc.)
