@@ -13,19 +13,22 @@ import { shadowMessageToolSchemaProperties } from './typebox-schema.js'
 
 const SHADOW_DISCOVERED_ACTIONS = [
   'send',
-  'sendAttachment',
+  'send-interactive',
+  'upload-file',
   'react',
   'edit',
   'delete',
-  'update-homepage',
-  'get-server',
 ] as const
 
-const SHADOW_HANDLED_ACTIONS = [
-  ...SHADOW_DISCOVERED_ACTIONS,
-  'send-interactive',
-  'get-connection-status',
-] as const
+const SHADOW_HANDLED_ACTIONS = [...SHADOW_DISCOVERED_ACTIONS, 'get-connection-status'] as const
+
+const SHADOW_ACTION_ALIASES: Record<string, (typeof SHADOW_HANDLED_ACTIONS)[number]> = {
+  uploadFile: 'upload-file',
+  sendFile: 'upload-file',
+  'send-file': 'upload-file',
+  sendMedia: 'upload-file',
+  'send-media': 'upload-file',
+}
 
 type ShadowActionResult = {
   content: Array<{ type: 'text'; text: string }>
@@ -44,15 +47,23 @@ function textResult(value: Record<string, unknown>): ShadowActionResult {
   }
 }
 
-function readNullableHtml(params: Record<string, unknown>) {
-  if (params.html === null || params.homepageHtml === null || params.homepage_html === null) {
-    return null
-  }
+function normalizeShadowAction(action: string): string {
+  return SHADOW_ACTION_ALIASES[action] ?? action
+}
+
+function readAttachmentSource(params: Record<string, unknown>) {
   return (
-    (params.html as string | undefined) ??
-    (params.homepageHtml as string | undefined) ??
-    (params.homepage_html as string | undefined) ??
-    null
+    firstString(
+      params.media,
+      params.mediaUrl,
+      params.mediaURL,
+      params.url,
+      params.path,
+      params.filePath,
+      params.file,
+      params.fileUrl,
+      params.fileURL,
+    ) ?? ''
   )
 }
 
@@ -66,20 +77,28 @@ export const shadowMessageActions = {
         properties: shadowMessageToolSchemaProperties,
       },
       mediaSourceParams: {
-        sendAttachment: ['media', 'path', 'filePath', 'buffer'],
+        'upload-file': [
+          'media',
+          'mediaUrl',
+          'url',
+          'path',
+          'filePath',
+          'file',
+          'fileUrl',
+          'buffer',
+        ],
       },
     }) as unknown as ReturnType<
       NonNullable<import('openclaw/plugin-sdk').ChannelPlugin['actions']>['describeMessageTool']
     >,
 
   messageActionTargetAliases: {
+    'upload-file': { aliases: ['recipient', 'to', 'channelId'] },
     'send-interactive': { aliases: ['recipient'] },
-    'get-server': { aliases: ['serverId', 'server_id', 'server'] },
-    'update-homepage': { aliases: ['serverId', 'server_id', 'server'] },
   } as Record<string, { aliases: string[] }>,
 
   supportsAction: ({ action }: { action: string }): boolean =>
-    (SHADOW_HANDLED_ACTIONS as readonly string[]).includes(action),
+    (SHADOW_HANDLED_ACTIONS as readonly string[]).includes(normalizeShadowAction(action)),
 
   handleAction: async (ctx: ChannelMessageActionContext) => {
     const account = getAccountConfig(ctx.cfg, ctx.accountId ?? DEFAULT_ACCOUNT_ID)
@@ -87,7 +106,8 @@ export const shadowMessageActions = {
       return textResult({ ok: false, error: 'Shadow account not configured' })
     }
 
-    const action = String(ctx.action)
+    const requestedAction = String(ctx.action)
+    const action = normalizeShadowAction(requestedAction)
     const { params } = ctx
 
     if (action === 'send') {
@@ -128,19 +148,19 @@ export const shadowMessageActions = {
       }
     }
 
-    if (action === 'sendAttachment') {
+    if (action === 'upload-file') {
       try {
         const client = new ShadowClient(account.serverUrl, account.token)
         const to = readMessageTarget(params)
-        const text = (params.message as string) ?? (params.caption as string) ?? ''
+        if (!to) return textResult({ ok: false, error: 'target is required' })
+        const text = firstString(params.message, params.content, params.text, params.caption) ?? ''
         const filename = (params.filename as string) || 'file'
         const contentType =
           (params.contentType as string) ||
           (params.mimeType as string) ||
           'application/octet-stream'
         const base64Buffer = params.buffer as string | undefined
-        const mediaUrl =
-          (params.media as string) ?? (params.path as string) ?? (params.filePath as string) ?? ''
+        const mediaUrl = readAttachmentSource(params)
 
         const { channelId, threadId: parsedThreadId, dmChannelId } = parseTarget(to)
         const threadId = (params.threadId as string) ?? parsedThreadId
@@ -189,7 +209,8 @@ export const shadowMessageActions = {
 
         return textResult({
           ok: true,
-          action: 'sendAttachment',
+          action: requestedAction,
+          canonicalAction: 'upload-file',
           messageId: message.id,
           filename,
         })
@@ -280,49 +301,6 @@ export const shadowMessageActions = {
 
     if (action === 'pin' || action === 'unpin') {
       return textResult({ ok: false, error: `${action} is not yet supported for Shadow channels` })
-    }
-
-    if (action === 'get-server') {
-      const serverId =
-        (params.serverId as string) ??
-        (params.server_id as string) ??
-        (params.server as string) ??
-        ''
-      if (!serverId) {
-        return textResult({ ok: false, error: 'serverId is required' })
-      }
-      try {
-        const client = new ShadowClient(account.serverUrl, account.token)
-        const server = await client.getServer(serverId)
-        return textResult({ ok: true, action: 'get-server', server })
-      } catch (err) {
-        return textResult({ ok: false, error: String(err) })
-      }
-    }
-
-    if (action === 'update-homepage') {
-      const serverId =
-        (params.serverId as string) ??
-        (params.server_id as string) ??
-        (params.server as string) ??
-        ''
-      const html = readNullableHtml(params)
-      if (!serverId) {
-        return textResult({ ok: false, error: 'serverId is required' })
-      }
-      try {
-        const client = new ShadowClient(account.serverUrl, account.token)
-        const result = await client.updateServerHomepage(serverId, html)
-        return textResult({
-          ok: true,
-          action: 'update-homepage',
-          serverId: result.id,
-          slug: result.slug,
-          homepageHtml: result.homepageHtml ? `(${result.homepageHtml.length} chars)` : null,
-        })
-      } catch (err) {
-        return textResult({ ok: false, error: String(err) })
-      }
     }
 
     if (action === 'get-connection-status') {

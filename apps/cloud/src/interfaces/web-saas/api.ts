@@ -95,8 +95,16 @@ export interface SaasDeployment {
   resourceTier: ResourceTier | null
   monthlyCost: number | null
   saasMode: boolean
+  shadowServerId?: string | null
   createdAt: string
   updatedAt: string
+  blockedBy?: {
+    id: string
+    status: SaasDeployment['status']
+    namespace: string
+    createdAt: string | null
+    updatedAt: string | null
+  } | null
 }
 
 export interface SaasEnvVar {
@@ -275,7 +283,10 @@ export const saasApi = {
       configSnapshot: Record<string, unknown>
       envVars?: Record<string, string>
     }) => post<SaasDeployment>('/deployments', data),
-    delete: (id: string) => del<{ ok: boolean }>(`/deployments/${encodeURIComponent(id)}`),
+    delete: (id: string) =>
+      del<{ ok: boolean; taskId?: string; status?: SaasDeployment['status'] }>(
+        `/deployments/${encodeURIComponent(id)}`,
+      ),
     redeploy: (id: string) =>
       post<SaasDeployment>(`/deployments/${encodeURIComponent(id)}/redeploy`, {}),
     costs: () => get<CostOverviewSummary>('/deployments/costs'),
@@ -297,7 +308,7 @@ export const saasApi = {
       )
     },
     cancel: (id: string) =>
-      post<{ ok: boolean; status?: 'cancelling' }>(
+      post<{ ok: boolean; status?: SaasDeployment['status'] }>(
         `/deployments/${encodeURIComponent(id)}/cancel`,
         {},
       ),

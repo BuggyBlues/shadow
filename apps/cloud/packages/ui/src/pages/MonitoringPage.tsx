@@ -42,8 +42,8 @@ import { type ReactNode, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DashboardLoadingState } from '@/components/DashboardState'
 import { DashboardTabsList } from '@/components/DashboardTabsList'
+import { MetricCardContent, MetricCardWrapper } from '@/components/MetricCard'
 import { PageShell } from '@/components/PageShell'
-import { StatCard } from '@/components/StatCard'
 import { StatsGrid } from '@/components/StatsGrid'
 import { StatusDot, type StatusType } from '@/components/StatusDot'
 import { useDebounce } from '@/hooks/useDebounce'
@@ -683,39 +683,54 @@ function CostsPanel({
   return (
     <div className="space-y-6">
       <StatsGrid className="mb-0 grid-cols-1 md:grid-cols-2 xl:grid-cols-5">
-        <StatCard
-          label={t('deployments.totalCost')}
-          value={formatDisplayCost(overview, {
-            locale: i18n.language,
-            shrimpUnitLabel: t('deploy.shrimpCoins'),
-          })}
-          icon={<DollarSign size={13} />}
-          color="green"
-        />
-        <StatCard
-          label={t('deployments.totalTokens')}
-          value={formatTokenCount(overview.totalTokens, i18n.language)}
-          icon={<Activity size={13} />}
-          color="purple"
-        />
-        <StatCard
-          label={t('monitoring.namespaces')}
-          value={overview.namespaces.length}
-          icon={<FolderOpen size={13} />}
-          color="purple"
-        />
-        <StatCard
-          label={t('deployments.availableAgents')}
-          value={availableAgents}
-          icon={<CheckCircle size={13} />}
-          color="blue"
-        />
-        <StatCard
-          label={t('deployments.unavailableAgents')}
-          value={unavailableAgents}
-          icon={<XCircle size={13} />}
-          color={unavailableAgents > 0 ? 'yellow' : 'default'}
-        />
+        <MetricCardWrapper>
+          <MetricCardContent
+            label={t('deployments.totalCost')}
+            value={formatDisplayCost(overview, {
+              locale: i18n.language,
+              shrimpUnitLabel: t('deploy.shrimpCoins'),
+            })}
+            icon={<DollarSign size={13} />}
+            iconClassName="text-success"
+            valueClassName="text-success"
+          />
+        </MetricCardWrapper>
+        <MetricCardWrapper>
+          <MetricCardContent
+            label={t('deployments.totalTokens')}
+            value={formatTokenCount(overview.totalTokens, i18n.language)}
+            icon={<Activity size={13} />}
+            iconClassName="text-accent"
+            valueClassName="text-accent"
+          />
+        </MetricCardWrapper>
+        <MetricCardWrapper>
+          <MetricCardContent
+            label={t('monitoring.namespaces')}
+            value={overview.namespaces.length}
+            icon={<FolderOpen size={13} />}
+            iconClassName="text-accent"
+            valueClassName="text-accent"
+          />
+        </MetricCardWrapper>
+        <MetricCardWrapper>
+          <MetricCardContent
+            label={t('deployments.availableAgents')}
+            value={availableAgents}
+            icon={<CheckCircle size={13} />}
+            iconClassName="text-primary"
+            valueClassName="text-primary"
+          />
+        </MetricCardWrapper>
+        <MetricCardWrapper>
+          <MetricCardContent
+            label={t('deployments.unavailableAgents')}
+            value={unavailableAgents}
+            icon={<XCircle size={13} />}
+            iconClassName={unavailableAgents > 0 ? 'text-warning' : 'text-text-muted'}
+            valueClassName={unavailableAgents > 0 ? 'text-warning' : 'text-text-muted'}
+          />
+        </MetricCardWrapper>
       </StatsGrid>
 
       <div className="text-xs text-text-muted">
@@ -1098,51 +1113,88 @@ export function MonitoringPage() {
       headerContent={
         <div className="space-y-4">
           <StatsGrid className="grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
-            <StatCard
-              label={t('monitoring.healthScore')}
-              value={doctor ? `${healthScore}%` : '—'}
-              icon={<Heart size={13} />}
-              color={healthScore >= 80 ? 'green' : healthScore >= 50 ? 'yellow' : 'red'}
-            />
-            <StatCard
-              label={t('monitoring.deployments')}
-              value={totalDeployments}
-              icon={<Box size={13} />}
-              color="blue"
-            />
-            <StatCard
-              label={t('monitoring.readyTotal')}
-              value={`${readyDeployments}/${totalDeployments}`}
-              icon={<CheckCircle size={13} />}
-              color={readyDeployments === totalDeployments ? 'green' : 'yellow'}
-            />
-            <StatCard
-              label={t('monitoring.namespaces')}
-              value={namespaceCount}
-              icon={<FolderOpen size={13} />}
-              color="purple"
-            />
-            <StatCard
-              label={t('deployments.totalCost')}
-              value={formatDisplayCost(costOverview ?? {}, {
-                locale: i18n.language,
-                shrimpUnitLabel: t('deploy.shrimpCoins'),
-              })}
-              icon={<DollarSign size={13} />}
-              color="green"
-            />
-            <StatCard
-              label={t('deployments.totalTokens')}
-              value={formatTokenCount(costOverview?.totalTokens ?? null, i18n.language)}
-              icon={<Activity size={13} />}
-              color="purple"
-            />
-            <StatCard
-              label={t('deployments.unavailableAgents')}
-              value={unavailableCostAgents}
-              icon={<AlertTriangle size={13} />}
-              color={unavailableCostAgents > 0 ? 'yellow' : 'default'}
-            />
+            <MetricCardWrapper>
+              <MetricCardContent
+                label={t('monitoring.healthScore')}
+                value={doctor ? `${healthScore}%` : '—'}
+                icon={<Heart size={13} />}
+                iconClassName={
+                  healthScore >= 80
+                    ? 'text-success'
+                    : healthScore >= 50
+                      ? 'text-warning'
+                      : 'text-danger'
+                }
+                valueClassName={
+                  healthScore >= 80
+                    ? 'text-success'
+                    : healthScore >= 50
+                      ? 'text-warning'
+                      : 'text-danger'
+                }
+              />
+            </MetricCardWrapper>
+            <MetricCardWrapper>
+              <MetricCardContent
+                label={t('monitoring.deployments')}
+                value={totalDeployments}
+                icon={<Box size={13} />}
+                iconClassName="text-primary"
+                valueClassName="text-primary"
+              />
+            </MetricCardWrapper>
+            <MetricCardWrapper>
+              <MetricCardContent
+                label={t('monitoring.readyTotal')}
+                value={`${readyDeployments}/${totalDeployments}`}
+                icon={<CheckCircle size={13} />}
+                iconClassName={
+                  readyDeployments === totalDeployments ? 'text-success' : 'text-warning'
+                }
+                valueClassName={
+                  readyDeployments === totalDeployments ? 'text-success' : 'text-warning'
+                }
+              />
+            </MetricCardWrapper>
+            <MetricCardWrapper>
+              <MetricCardContent
+                label={t('monitoring.namespaces')}
+                value={namespaceCount}
+                icon={<FolderOpen size={13} />}
+                iconClassName="text-accent"
+                valueClassName="text-accent"
+              />
+            </MetricCardWrapper>
+            <MetricCardWrapper>
+              <MetricCardContent
+                label={t('deployments.totalCost')}
+                value={formatDisplayCost(costOverview ?? {}, {
+                  locale: i18n.language,
+                  shrimpUnitLabel: t('deploy.shrimpCoins'),
+                })}
+                icon={<DollarSign size={13} />}
+                iconClassName="text-success"
+                valueClassName="text-success"
+              />
+            </MetricCardWrapper>
+            <MetricCardWrapper>
+              <MetricCardContent
+                label={t('deployments.totalTokens')}
+                value={formatTokenCount(costOverview?.totalTokens ?? null, i18n.language)}
+                icon={<Activity size={13} />}
+                iconClassName="text-accent"
+                valueClassName="text-accent"
+              />
+            </MetricCardWrapper>
+            <MetricCardWrapper>
+              <MetricCardContent
+                label={t('deployments.unavailableAgents')}
+                value={unavailableCostAgents}
+                icon={<AlertTriangle size={13} />}
+                iconClassName={unavailableCostAgents > 0 ? 'text-warning' : 'text-text-muted'}
+                valueClassName={unavailableCostAgents > 0 ? 'text-warning' : 'text-text-muted'}
+              />
+            </MetricCardWrapper>
           </StatsGrid>
 
           <Tabs value={activeTab} onChange={setActiveTab}>

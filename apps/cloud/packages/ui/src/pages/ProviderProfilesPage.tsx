@@ -20,6 +20,11 @@ import {
   ModalHeader,
   NativeSelect,
   SecretInput,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Switch,
 } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -32,7 +37,6 @@ import {
   Loader2,
   Pencil,
   Plus,
-  RefreshCw,
   ShieldCheck,
   TestTube2,
   Trash2,
@@ -312,10 +316,6 @@ export function ProviderProfilesPage() {
     () => new Map(catalogs.map((catalog) => [catalog.provider.id, catalog])),
     [catalogs],
   )
-  const defaultProfileNames = useMemo(
-    () => new Set(catalogs.map((catalog) => defaultProfileName(catalog.provider.id))),
-    [catalogs],
-  )
   const selectedCatalog = form ? catalogById.get(form.providerId) : undefined
   const apiKeyCatalogs = useMemo(
     () => catalogs.filter((catalog) => catalog.provider.id !== 'custom'),
@@ -380,16 +380,6 @@ export function ProviderProfilesPage() {
       }))
       toast.error(t('providers.testFailed'))
     },
-  })
-
-  const refreshModels = useMutation({
-    mutationFn: (profile: ProviderProfile) => api.providerProfiles.refreshModels(profile.id),
-    onSuccess: async (result) => {
-      await queryClient.invalidateQueries({ queryKey: ['provider-profiles'] })
-      if (result.ok) toast.success(t('providers.modelsRefreshed'))
-      else toast.error(result.message ?? t('providers.modelsRefreshFailed'))
-    },
-    onError: () => toast.error(t('providers.modelsRefreshFailed')),
   })
 
   const toggleProfile = (profile: ProviderProfile) => {
@@ -466,14 +456,13 @@ export function ProviderProfilesPage() {
     !selectedCatalog ||
     !hasCredential ||
     !hasRequiredModel
-  const providerModelCount = (profile: ProviderProfile) => profileModels(profile).length
-  const currentProviderName = providerDisplayName(selectedCatalog, form?.providerId)
+  const providerModelNames = (profile: ProviderProfile) =>
+    profileModels(profile).map((model) => model.id)
 
   return (
     <PageShell
       breadcrumb={[]}
       title={t('providers.title')}
-      description={t('providers.description')}
       narrow
       actions={
         <Button
@@ -526,20 +515,14 @@ export function ProviderProfilesPage() {
           />
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {profiles.map((profile) => {
-            const catalog = catalogById.get(profile.providerId)
             const result = testResults[profile.id]
             const isTesting = testProfile.isPending && testProfile.variables?.id === profile.id
-            const isRefreshing =
-              refreshModels.isPending && refreshModels.variables?.id === profile.id
             return (
-              <Card key={profile.id} variant="glass" className="p-4">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex min-w-0 items-start gap-3">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-sm font-black text-primary">
-                      {providerInitial(catalog, profile.providerId)}
-                    </span>
+              <Card key={profile.id} variant="glass" className="flex h-full flex-col p-4">
+                <div className="border-b border-border-subtle/60 pb-3">
+                  <div className="cardHeader flex min-w-0 items-start gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="truncate text-base font-black text-text-primary">
@@ -549,23 +532,67 @@ export function ProviderProfilesPage() {
                           {profile.enabled ? t('providers.enabled') : t('providers.disabled')}
                         </Badge>
                       </div>
-                      <p className="mt-1 text-sm text-text-muted">
-                        {catalog?.pluginName ?? profile.providerId}
+                    </div>
+                    <div className="ml-auto mt-1 flex shrink-0 items-center gap-2 sm:mt-0">
+                      <Switch
+                        id={`provider-profile-enabled-${profile.id}`}
+                        checked={profile.enabled}
+                        onCheckedChange={() => toggleProfile(profile)}
+                        disabled={saveProfile.isPending}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="cardContent mt-3">
+                  <div className="grid grid-cols-1 gap-2">
+                    <div className="rounded-lg border border-border-subtle/50 bg-bg-secondary/30 px-2.5 py-2 text-xs">
+                      <p className="truncate text-sm font-semibold text-text-primary">
+                        {(() => {
+                          const modelNames = providerModelNames(profile)
+                          return t('providers.modelsCount', {
+                            count: modelNames.length,
+                            modelList:
+                              modelNames.length > 0
+                                ? modelNames.join(', ')
+                                : t('providers.modelsNotConfigured'),
+                          })
+                        })()}
                       </p>
-                      <div className="mt-2 flex flex-wrap gap-2 text-xs text-text-muted">
-                        <span className="rounded-full border border-border-subtle/60 bg-bg-secondary/35 px-2.5 py-1">
-                          {profile.envVars.length > 0
-                            ? t('providers.keySaved')
-                            : t('providers.noSecretValue')}
-                        </span>
-                        <span className="rounded-full border border-border-subtle/60 bg-bg-secondary/35 px-2.5 py-1">
-                          {t('providers.modelsCount', { count: providerModelCount(profile) })}
-                        </span>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {providerModelNames(profile).map((name) => (
+                          <span
+                            key={`${profile.id}-${name}`}
+                            className="rounded-full border border-border-subtle/60 bg-bg-primary/10 px-2 py-0.5 text-[11px] leading-tight text-text-muted"
+                          >
+                            {name}
+                          </span>
+                        ))}
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  {result && (
+                    <div
+                      className={cn(
+                        'mt-3 flex items-start gap-2 rounded-xl border px-3 py-2 text-xs',
+                        result.ok
+                          ? 'border-success/25 bg-success/8 text-success'
+                          : 'border-danger/25 bg-danger/8 text-danger',
+                      )}
+                    >
+                      {result.ok ? (
+                        <CheckCircle size={13} className="mt-0.5 shrink-0" />
+                      ) : (
+                        <XCircle size={13} className="mt-0.5 shrink-0" />
+                      )}
+                      <span className="min-w-0 break-words">{statusText(result)}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="cardFooter mt-auto pt-3">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
                     <Button
                       type="button"
                       variant="ghost"
@@ -573,6 +600,7 @@ export function ProviderProfilesPage() {
                       onClick={() => testProfile.mutate(profile)}
                       disabled={isTesting || !profile.enabled}
                       title={t('providers.testConnection')}
+                      className="flex items-center justify-center gap-2"
                     >
                       {isTesting ? (
                         <Loader2 size={13} className="animate-spin" />
@@ -585,23 +613,9 @@ export function ProviderProfilesPage() {
                       type="button"
                       variant="ghost"
                       size="xs"
-                      onClick={() => refreshModels.mutate(profile)}
-                      disabled={isRefreshing || !profile.enabled}
-                      title={t('providers.refreshModels')}
-                    >
-                      {isRefreshing ? (
-                        <Loader2 size={13} className="animate-spin" />
-                      ) : (
-                        <RefreshCw size={13} />
-                      )}
-                      {t('providers.refreshModelsShort')}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="xs"
                       onClick={() => openEdit(profile)}
                       title={t('common.edit')}
+                      className="flex items-center justify-center gap-2"
                     >
                       <Pencil size={13} />
                       {t('common.edit')}
@@ -610,38 +624,15 @@ export function ProviderProfilesPage() {
                       type="button"
                       variant="ghost"
                       size="xs"
-                      className="text-danger/70 hover:text-danger"
+                      className="flex items-center justify-center gap-2 text-danger/70 hover:text-danger"
                       onClick={() => setDeleteTarget(profile)}
                       title={t('common.delete')}
                     >
                       <Trash2 size={13} />
                       {t('common.delete')}
                     </Button>
-                    <Switch
-                      checked={profile.enabled}
-                      onCheckedChange={() => toggleProfile(profile)}
-                      disabled={saveProfile.isPending}
-                    />
                   </div>
                 </div>
-
-                {result && (
-                  <div
-                    className={cn(
-                      'mt-4 flex items-start gap-2 rounded-xl border px-3 py-2 text-xs',
-                      result.ok
-                        ? 'border-success/25 bg-success/8 text-success'
-                        : 'border-danger/25 bg-danger/8 text-danger',
-                    )}
-                  >
-                    {result.ok ? (
-                      <CheckCircle size={13} className="mt-0.5 shrink-0" />
-                    ) : (
-                      <XCircle size={13} className="mt-0.5 shrink-0" />
-                    )}
-                    <span className="min-w-0 break-words">{statusText(result)}</span>
-                  </div>
-                )}
               </Card>
             )
           })}
@@ -752,7 +743,6 @@ export function ProviderProfilesPage() {
                       provider: providerDisplayName(selectedCatalog, form.providerId),
                     })
               }
-              subtitle={t('providers.profileDialogDescription')}
               action={
                 !form.id && connectDialogOpen ? (
                   <Button type="button" variant="ghost" size="xs" onClick={backToProviderList}>
@@ -769,64 +759,17 @@ export function ProviderProfilesPage() {
                     <p className="text-xs font-black uppercase text-primary">
                       {t('providers.connectionTitle')}
                     </p>
-                    <h3 className="mt-1 truncate text-lg font-black text-text-primary">
-                      {currentProviderName}
-                    </h3>
-                    <p className="mt-1 text-xs text-text-muted">
-                      {t('providers.connectionDescription')}
-                    </p>
                   </div>
-                  <label className="flex min-h-10 shrink-0 items-center gap-2 rounded-full border border-border-subtle/60 bg-bg-primary/25 px-3 text-xs font-black text-text-primary">
-                    <span>
-                      {form.enabled
-                        ? t('providers.profileStatusEnabled')
-                        : t('providers.profileStatusDisabled')}
-                    </span>
+                  <div className="flex min-h-10 shrink-0 items-center rounded-full border border-border-subtle/60 bg-bg-primary/25 px-3">
                     <Switch
                       checked={form.enabled}
                       onCheckedChange={(enabled) => setForm({ ...form, enabled })}
+                      aria-label={form.enabled ? t('common.enabled') : t('common.disabled')}
                     />
-                  </label>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div>
-                    <label
-                      htmlFor="provider-profile-provider"
-                      className="mb-1 block text-xs font-bold"
-                    >
-                      {t('providers.provider')}
-                    </label>
-                    <NativeSelect
-                      id="provider-profile-provider"
-                      value={form.providerId}
-                      disabled={Boolean(form.id)}
-                      onChange={(event) => {
-                        const providerId = event.target.value
-                        const shouldRefreshDefaultName =
-                          !form.name || defaultProfileNames.has(form.name)
-                        const catalog = catalogById.get(providerId)
-                        setForm({
-                          ...form,
-                          providerId,
-                          name: shouldRefreshDefaultName
-                            ? defaultProfileName(providerId)
-                            : form.name,
-                          baseUrl: catalog?.provider.baseUrl ?? '',
-                          apiFormat: catalogApiFormat(catalog),
-                          models: form.models.length ? form.models : [modelFromCatalog(catalog)],
-                        })
-                      }}
-                    >
-                      <option value="">{t('providers.selectProvider')}</option>
-                      {catalogs.map((catalog) => (
-                        <option key={catalog.provider.id} value={catalog.provider.id}>
-                          {catalog.provider.id}
-                        </option>
-                      ))}
-                    </NativeSelect>
-                  </div>
-
                   <div>
                     <label htmlFor="provider-profile-name" className="mb-1 block text-xs font-bold">
                       {t('providers.profileName')}
@@ -837,50 +780,6 @@ export function ProviderProfilesPage() {
                       onChange={(event) => setForm({ ...form, name: event.target.value })}
                       placeholder={t('providers.profileNamePlaceholder')}
                     />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <div className="mb-1 flex items-center justify-between gap-3">
-                      <label htmlFor="provider-profile-api-key" className="block text-xs font-bold">
-                        {primarySecretKey(selectedCatalog) || t('providers.apiKey')}
-                      </label>
-                      {isMaskedPlaceholder(form.apiKey) && (
-                        <span className="text-[11px] font-bold text-success">
-                          {t('providers.keySaved')}
-                        </span>
-                      )}
-                    </div>
-                    <SecretInput
-                      id="provider-profile-api-key"
-                      value={form.apiKey}
-                      onChange={(event) => setForm({ ...form, apiKey: event.target.value })}
-                      placeholder={
-                        form.id
-                          ? t('providers.apiKeyEditPlaceholder')
-                          : t('providers.apiKeyPlaceholder')
-                      }
-                      autoComplete="new-password"
-                      data-bwignore="true"
-                    />
-                    <p className="mt-1 text-xs text-text-muted">{t('providers.apiKeyHelp')}</p>
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="provider-profile-base-url"
-                      className="mb-1 block text-xs font-bold"
-                    >
-                      {t('providers.baseUrl')}
-                    </label>
-                    <Input
-                      id="provider-profile-base-url"
-                      value={form.baseUrl}
-                      onChange={(event) => setForm({ ...form, baseUrl: event.target.value })}
-                      placeholder={
-                        selectedCatalog?.provider.baseUrl ?? t('providers.baseUrlPlaceholder')
-                      }
-                    />
-                    <p className="mt-1 text-xs text-text-muted">{t('providers.baseUrlHelp')}</p>
                   </div>
 
                   <div>
@@ -905,10 +804,47 @@ export function ProviderProfilesPage() {
                       <option value="gemini">{t('providers.apiFormats.gemini')}</option>
                     </NativeSelect>
                   </div>
+
+                  <div>
+                    <label
+                      htmlFor="provider-profile-base-url"
+                      className="mb-1 block text-xs font-bold"
+                    >
+                      {t('providers.baseUrl')}
+                    </label>
+                    <Input
+                      id="provider-profile-base-url"
+                      value={form.baseUrl}
+                      onChange={(event) => setForm({ ...form, baseUrl: event.target.value })}
+                      placeholder={
+                        selectedCatalog?.provider.baseUrl ?? t('providers.baseUrlPlaceholder')
+                      }
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <div className="mb-1 flex items-center justify-between gap-3">
+                      <label htmlFor="provider-profile-api-key" className="block text-xs font-bold">
+                        {primarySecretKey(selectedCatalog) || t('providers.apiKey')}
+                      </label>
+                    </div>
+                    <SecretInput
+                      id="provider-profile-api-key"
+                      value={form.apiKey}
+                      onChange={(event) => setForm({ ...form, apiKey: event.target.value })}
+                      placeholder={
+                        form.id
+                          ? t('providers.apiKeyEditPlaceholder')
+                          : t('providers.apiKeyPlaceholder')
+                      }
+                      autoComplete="new-password"
+                      data-bwignore="true"
+                    />
+                  </div>
                 </div>
               </section>
 
-              <section className="space-y-3 rounded-2xl border border-border-subtle/45 bg-bg-secondary/15 p-4">
+              <section className="space-y-3 rounded-2xl border border-border-subtle/45 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-black text-text-primary">
@@ -960,9 +896,9 @@ export function ProviderProfilesPage() {
                     {form.models.map((model, index) => (
                       <div
                         key={model.clientId}
-                        className="rounded-2xl border border-border-subtle/35 bg-bg-primary/15 p-3"
+                        className="rounded-xl border border-border-subtle/45 p-3"
                       >
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                        <div className="mb-2 flex flex-nowrap items-center gap-2">
                           <Input
                             value={model.id}
                             onChange={(event) => {
@@ -975,12 +911,37 @@ export function ProviderProfilesPage() {
                             }}
                             placeholder={t('providers.modelIdPlaceholder')}
                             list="provider-profile-model-options"
+                            className="min-w-0 flex-1"
                           />
+                          <span className="w-56 shrink-0">
+                            <Select
+                              value={model.tags[0] ?? ''}
+                              onValueChange={(value) => {
+                                const models = [...form.models]
+                                models[index] = {
+                                  ...model,
+                                  tags: [value],
+                                }
+                                setForm({ ...form, models })
+                              }}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder={t('providers.modelTag')} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {MODEL_TAGS.map((tag) => (
+                                  <SelectItem key={tag} value={tag}>
+                                    {t(`providers.modelTags.${tag}`)}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </span>
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-12 w-12 self-end"
+                            className="h-10 w-10 shrink-0 rounded-lg text-danger/75 hover:bg-danger/10 hover:text-danger"
                             title={t('common.delete')}
                             onClick={() =>
                               setForm({
@@ -991,39 +952,11 @@ export function ProviderProfilesPage() {
                               })
                             }
                           >
-                            <Trash2 size={15} />
+                            <Trash2 size={14} />
                           </Button>
                         </div>
-
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {MODEL_TAGS.map((tag) => {
-                            const active = model.tags.includes(tag)
-                            return (
-                              <button
-                                key={tag}
-                                type="button"
-                                className={cn(
-                                  'rounded-full border px-3 py-1 text-[11px] font-black uppercase transition-colors',
-                                  active
-                                    ? 'border-primary/50 bg-primary/15 text-primary'
-                                    : 'border-border-subtle text-text-muted hover:border-primary/40 hover:text-primary',
-                                )}
-                                onClick={() => {
-                                  const tags = active
-                                    ? model.tags.filter((item) => item !== tag)
-                                    : [...model.tags, tag]
-                                  const models = [...form.models]
-                                  models[index] = { ...model, tags }
-                                  setForm({ ...form, models })
-                                }}
-                              >
-                                {t(`providers.modelTags.${tag}`)}
-                              </button>
-                            )
-                          })}
-                        </div>
-
-                        <details className="mt-3 border-t border-border-subtle/35 pt-3">
+                        <div className="mt-3 h-px bg-gradient-to-r from-transparent via-border-subtle/20 to-transparent" />
+                        <details className="pt-3">
                           <summary className="cursor-pointer text-xs font-black text-text-muted">
                             {t('providers.modelDetails')}
                           </summary>
@@ -1133,8 +1066,6 @@ export function ProviderProfilesPage() {
                   <p className="text-xs font-bold text-danger">{t('providers.modelRequired')}</p>
                 )}
               </section>
-
-              <p className="text-xs text-text-muted">{t('providers.modelTagHint')}</p>
             </ModalBody>
             <ModalFooter>
               <ModalButtonGroup>

@@ -121,21 +121,6 @@ function imageExists(imageRef) {
 }
 
 function buildSmokeImage() {
-  if (!process.argv.includes('--skip-package-build')) {
-    for (const packageName of [
-      '@shadowob/shared',
-      '@shadowob/sdk',
-      '@shadowob/openclaw-shadowob',
-    ]) {
-      const buildPackage = spawnSync('pnpm', ['--filter', packageName, 'build'], {
-        cwd: root,
-        env: process.env,
-        stdio: 'inherit',
-      })
-      if (buildPackage.status !== 0) process.exit(buildPackage.status ?? 1)
-    }
-  }
-
   const args = ['build', '-t', image, '-f', 'apps/cloud/images/openclaw-runner/Dockerfile', '.']
   if (process.env.SHADOW_SMOKE_DOCKER_NO_CACHE === '1') {
     args.splice(1, 0, '--no-cache')
@@ -319,6 +304,51 @@ async function createSmokeChannel(session, owner, label) {
       isPrivate: false,
     },
   })
+}
+
+async function ensureSmokeSession(session, owner) {
+  const servers = await requestJson(session.origin, '/api/servers', { token: owner.accessToken })
+  let server = servers.find(
+    (item) => item.id === session.server?.id || item.slug === session.server?.slug,
+  )
+  if (!server) {
+    const suffix = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+    server = await requestJson(session.origin, '/api/servers', {
+      method: 'POST',
+      token: owner.accessToken,
+      body: {
+        name: 'OpenClaw Smoke',
+        slug: `openclaw-smoke-${suffix}`.slice(0, 64),
+        description: 'OpenClaw Shadow smoke test server',
+        isPublic: false,
+      },
+    })
+  }
+
+  let channels = await requestJson(session.origin, `/api/servers/${server.id}/channels`, {
+    token: owner.accessToken,
+  })
+  let general = channels.find((channel) => channel.type === 'text')
+  if (!general) {
+    general = await createSmokeChannel({ ...session, server }, owner, 'general')
+    channels = [general, ...channels]
+  }
+
+  const refreshed = {
+    ...session,
+    server,
+    channels: {
+      ...session.channels,
+      generalId: general.id,
+      announcementsId:
+        session.channels?.announcementsId &&
+        channels.some((channel) => channel.id === session.channels.announcementsId)
+          ? session.channels.announcementsId
+          : general.id,
+    },
+  }
+  await writeJson(sessionPath, refreshed).catch(() => {})
+  return refreshed
 }
 
 async function sendDmMessage(session, owner, dmChannelId, body) {
@@ -798,7 +828,7 @@ async function runThreadSmoke(session, owner, agent, marker) {
 async function runMediaOutboundSmoke(session, owner, agent, marker, container) {
   const channelExpected = `${marker}_OUTBOUND_CHANNEL_ATTACHMENT`
   const channelStartedAt = Date.now()
-  const channelResult = runShadowAction(container, 'sendAttachment', {
+  const channelResult = runShadowAction(container, 'upload-file', {
     target: `shadowob:channel:${session.channels.generalId}`,
     message: channelExpected,
     filename: `shadow-outbound-${marker.toLowerCase()}.txt`,
@@ -806,7 +836,7 @@ async function runMediaOutboundSmoke(session, owner, agent, marker, container) {
     buffer: Buffer.from(`outbound channel attachment ${marker}`, 'utf8').toString('base64'),
   })
   if (!channelResult?.ok) {
-    throw new Error(`Channel sendAttachment action failed: ${JSON.stringify(channelResult)}`)
+    throw new Error(`Channel upload-file action failed: ${JSON.stringify(channelResult)}`)
   }
   const channelMessage = await waitForBotReply(
     session,
@@ -821,7 +851,7 @@ async function runMediaOutboundSmoke(session, owner, agent, marker, container) {
   const dm = await createDmChannel(session, owner, agent.botUser.id)
   const dmExpected = `${marker}_OUTBOUND_DM_ATTACHMENT`
   const dmStartedAt = Date.now()
-  const dmResult = runShadowAction(container, 'sendAttachment', {
+  const dmResult = runShadowAction(container, 'upload-file', {
     target: `shadowob:dm:${dm.id}`,
     message: dmExpected,
     filename: `shadow-dm-outbound-${marker.toLowerCase()}.txt`,
@@ -829,7 +859,7 @@ async function runMediaOutboundSmoke(session, owner, agent, marker, container) {
     buffer: Buffer.from(`outbound DM attachment ${marker}`, 'utf8').toString('base64'),
   })
   if (!dmResult?.ok) {
-    throw new Error(`DM sendAttachment action failed: ${JSON.stringify(dmResult)}`)
+    throw new Error(`DM upload-file action failed: ${JSON.stringify(dmResult)}`)
   }
   const dmMessage = await waitForDmMessage(
     session,
@@ -1010,7 +1040,17 @@ function runShadowAction(container, action, params, accountId = 'default') {
   const code = `
     import fs from 'node:fs/promises'
     import { shadowPlugin } from '/app/extensions/shadowob/dist/index.js'
-    const cfg = JSON.parse(await fs.readFile('/home/openclaw/.openclaw/openclaw.json', 'utf8'))
+    const cfgPaths = ['/tmp/openclaw/config/openclaw.json', '/home/openclaw/.openclaw/openclaw.json']
+    let cfg = null
+    for (const cfgPath of cfgPaths) {
+      try {
+        cfg = JSON.parse(await fs.readFile(cfgPath, 'utf8'))
+        break
+      } catch (error) {
+        if (error?.code !== 'ENOENT') throw error
+      }
+    }
+    if (!cfg) throw new Error('OpenClaw config file not found')
     const result = await shadowPlugin.actions.handleAction({
       action: ${JSON.stringify(action)},
       accountId: ${JSON.stringify(accountId)},
@@ -1026,6 +1066,57 @@ function runShadowAction(container, action, params, accountId = 'default') {
     .map((line) => line.trim())
     .filter(Boolean)
   return JSON.parse(lines.at(-1) ?? 'null')
+}
+
+function runActionSurfaceSmoke(container) {
+  const code = `
+    import { shadowPlugin } from '/app/extensions/shadowob/dist/index.js'
+    const discovery = shadowPlugin.actions.describeMessageTool({ cfg: {} })
+    const promptHints = shadowPlugin.agentPrompt?.messageToolHints?.({ cfg: {} }) ?? []
+    const supports = Object.fromEntries(
+      ['send', 'send-interactive', 'upload-file', 'sendAttachment', 'get-server', 'update-homepage']
+        .map((action) => [action, shadowPlugin.actions.supportsAction({ action })])
+    )
+    console.log(JSON.stringify({
+      actions: discovery.actions,
+      mediaSourceParams: discovery.mediaSourceParams,
+      supports,
+      promptHints,
+    }))
+  `
+  const output = dockerExec(container, ['node', '--input-type=module', '-e', code])
+  const lines = output
+    .trim()
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+  const surface = JSON.parse(lines.at(-1) ?? 'null')
+  const actions = new Set(surface?.actions ?? [])
+  const promptText = (surface?.promptHints ?? []).join('\n')
+  for (const action of ['send', 'send-interactive', 'upload-file']) {
+    if (!actions.has(action)) throw new Error(`Expected action ${action} to be discovered`)
+    if (surface?.supports?.[action] !== true) throw new Error(`Expected action ${action} support`)
+  }
+  for (const action of ['sendAttachment', 'get-server', 'update-homepage']) {
+    if (actions.has(action)) throw new Error(`Removed action ${action} was still discovered`)
+    if (surface?.supports?.[action] !== false) {
+      throw new Error(`Removed action ${action} was still supported`)
+    }
+    if (promptText.includes(action)) {
+      throw new Error(`Removed action ${action} was still present in prompt hints`)
+    }
+  }
+  if (promptText.toLowerCase().includes('homepage')) {
+    throw new Error('Homepage management prompt hints were still present')
+  }
+  if (surface?.mediaSourceParams?.sendAttachment) {
+    throw new Error('sendAttachment media source params were still present')
+  }
+  return {
+    actions: [...actions],
+    fileAction: 'upload-file',
+    removedActions: ['sendAttachment', 'get-server', 'update-homepage'],
+  }
 }
 
 async function runCronSmoke(session, owner, marker, container) {
@@ -1085,6 +1176,7 @@ async function main() {
 
   if (isolated) {
     setupOwner = await login(session.origin, session.owner.email, session.owner.password)
+    session = await ensureSmokeSession(session, setupOwner)
     const channel = await createSmokeChannel(session, setupOwner, [...suites].join('-') || 'basic')
     session = {
       ...session,
@@ -1348,6 +1440,7 @@ async function main() {
     if (!suites.has('health')) {
       await waitForLog(getCapturedLogs, /\[config\] Monitoring [1-9]\d* channel\(s\)/, 90_000)
       const marker = `SMOKE_${Date.now().toString(36).toUpperCase()}`
+      result.features.actionSurface = runActionSurfaceSmoke(containerName)
       const heartbeat = await waitForHeartbeat(session, owner, agent.agentId, Date.now() - 30_000)
       result.features.heartbeat = {
         status: heartbeat.status,

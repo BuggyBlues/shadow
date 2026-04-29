@@ -10,7 +10,7 @@ import {
   Terminal,
   XCircle,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DangerConfirmDialog } from '@/components/DangerConfirmDialog'
 import { DashboardEmptyState } from '@/components/DashboardEmptyState'
@@ -19,11 +19,13 @@ import { DashboardTaskCard } from '@/components/DashboardTaskCard'
 import { PageShell } from '@/components/PageShell'
 import { StatCard } from '@/components/StatCard'
 import { StatsGrid } from '@/components/StatsGrid'
-import { api } from '@/lib/api'
+import { useApiClient } from '@/lib/api-context'
+import { canRequestTaskCancel, isTaskActive } from '@/lib/deploy-task-state'
 import { formatTimestamp } from '@/lib/utils'
+import { useToast } from '@/stores/toast'
 
 function getStatusVariant(status: string): 'neutral' | 'success' | 'warning' | 'danger' | 'info' {
-  if (status === 'deployed') return 'success'
+  if (status === 'deployed' || status === 'destroyed') return 'success'
   if (status === 'failed') return 'danger'
   if (status === 'running' || status === 'deploying' || status === 'destroying') return 'info'
   if (status === 'pending' || status === 'cancelling') return 'warning'
@@ -31,10 +33,13 @@ function getStatusVariant(status: string): 'neutral' | 'success' | 'warning' | '
 }
 
 export function DeploymentTasksPage() {
+  const api = useApiClient()
   const { t } = useTranslation()
+  const toast = useToast()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [rollbackNs, setRollbackNs] = useState<string | null>(null)
+  const [cancelTaskId, setCancelTaskId] = useState<number | string | null>(null)
   const { data, isLoading } = useQuery({
     queryKey: ['deploy-tasks'],
     queryFn: api.deployTasks.list,
@@ -50,6 +55,19 @@ export function DeploymentTasksPage() {
     },
   })
 
+  const cancelMutation = useMutation({
+    mutationFn: (taskId: number | string) => api.deployTasks.cancel(taskId),
+    onSuccess: () => {
+      setCancelTaskId(null)
+      toast.warning(t('deployTask.cancelRequested'))
+      queryClient.invalidateQueries({ queryKey: ['deploy-tasks'] })
+      queryClient.invalidateQueries({ queryKey: ['deployments'] })
+    },
+    onError: () => {
+      toast.error(t('deployTask.cancelFailed'))
+    },
+  })
+
   const handleRedeploy = async (taskId: number | string) => {
     const nextTaskId = await api.deployTasks.redeployToTaskId(taskId)
     if (!nextTaskId) return
@@ -57,9 +75,18 @@ export function DeploymentTasksPage() {
   }
 
   const tasks = data?.tasks ?? []
+  const cancelTarget = tasks.find((item) => item.task.id === cancelTaskId)
+  const canCancelTarget =
+    cancelTaskId !== null && cancelTarget ? canRequestTaskCancel(cancelTarget.task.status) : false
+
+  useEffect(() => {
+    if (cancelTaskId !== null && cancelTarget && !canRequestTaskCancel(cancelTarget.task.status)) {
+      setCancelTaskId(null)
+    }
+  }, [cancelTaskId, cancelTarget])
 
   const summary = useMemo(() => {
-    const running = tasks.filter((item) => item.active || item.task.status === 'running').length
+    const running = tasks.filter((item) => item.active || isTaskActive(item.task.status)).length
     const deployed = tasks.filter((item) => item.task.status === 'deployed').length
     const failed = tasks.filter((item) => item.task.status === 'failed').length
 
@@ -135,13 +162,8 @@ export function DeploymentTasksPage() {
 
           {tasks.map(({ task, url, active }) => {
             const absoluteUrl = new URL(url, window.location.origin).toString()
-            const running =
-              active ||
-              task.status === 'running' ||
-              task.status === 'pending' ||
-              task.status === 'deploying' ||
-              task.status === 'cancelling' ||
-              task.status === 'destroying'
+            const running = active || isTaskActive(task.status)
+            const cancellable = canRequestTaskCancel(task.status)
 
             return (
               <div key={task.id} className="space-y-2">
@@ -160,17 +182,52 @@ export function DeploymentTasksPage() {
                       <span>
                         {t('deployTask.template')}: {task.templateSlug ?? '—'}
                       </span>
+                      {task.blockedBy && (
+                        <>
+                          <span>·</span>
+                          <span>
+                            {t('deployTask.blockedBy')}: #{task.blockedBy.id}
+                          </span>
+                        </>
+                      )}
                     </>
                   }
                   error={task.error}
                   actions={
                     <>
+                      {task.blockedBy && (
+                        <Button asChild variant="secondary" size="sm">
+                          <Link
+                            to="/deploy-tasks/$taskId"
+                            params={{ taskId: String(task.blockedBy.id) }}
+                          >
+                            <Terminal size={12} />
+                            {t('deployTask.openBlockingTask')}
+                          </Link>
+                        </Button>
+                      )}
                       <Button asChild variant="ghost" size="sm">
                         <Link to="/deploy-tasks/$taskId" params={{ taskId: String(task.id) }}>
                           <Terminal size={12} />
                           {t('deployTask.openTask')}
                         </Link>
                       </Button>
+                      {cancellable && (
+                        <Button
+                          type="button"
+                          variant="danger"
+                          size="sm"
+                          disabled={!cancellable || cancelMutation.isPending}
+                          onClick={() => setCancelTaskId(task.id)}
+                        >
+                          {cancelMutation.isPending && cancelTaskId === task.id ? (
+                            <Loader2 size={12} className="animate-spin" />
+                          ) : (
+                            <XCircle size={12} />
+                          )}
+                          {t('deployTask.cancelTask')}
+                        </Button>
+                      )}
                       {(task.status === 'deployed' || task.status === 'failed') && (
                         <Button
                           type="button"
@@ -225,6 +282,23 @@ export function DeploymentTasksPage() {
         onConfirm={() => {
           if (rollbackNs) {
             rollbackMutation.mutate(rollbackNs)
+          }
+        }}
+      />
+
+      <DangerConfirmDialog
+        open={canCancelTarget}
+        onOpenChange={(open) => {
+          if (!open) setCancelTaskId(null)
+        }}
+        title={t('deployTask.cancelTask')}
+        description={t('deployTask.cancelTaskDescription')}
+        confirmText={t('deployTask.cancelTask')}
+        cancelText={t('common.cancel')}
+        loading={cancelMutation.isPending}
+        onConfirm={() => {
+          if (canCancelTarget && cancelTaskId !== null && !cancelMutation.isPending) {
+            cancelMutation.mutate(cancelTaskId)
           }
         }}
       />

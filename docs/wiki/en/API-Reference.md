@@ -85,7 +85,7 @@ Interactive message blocks are stored in `message.metadata.interactive`; one-sho
 | POST   | `/api/cloud-saas/deployments/:id/cancel`      | Request cancellation of a pending or deploying attempt |
 | GET    | `/api/cloud-saas/deployments/:id/logs`        | Stream deployment logs |
 
-Deployment rows are attempt history; the stable deployment instance is identified by user, cluster, and namespace. Creating a second live instance in the same namespace, redeploying a historical attempt, destroying a historical attempt, or mutating a namespace while another operation is active returns `409`.
+Deployment rows are attempt history; the stable deployment instance is identified by user, cluster, and namespace. `GET /api/cloud-saas/deployments` and `GET /api/cloud-saas/deployments/:id` include `blockedBy` when an earlier active task is holding the namespace queue, and `shadowServerId` when the completed deployment provisioned a Shadow server through the shadowob plugin. Creating a second live instance in the same namespace, redeploying a historical attempt, destroying a historical attempt, or mutating a namespace while another operation is active returns `409`.
 
 ## Cloud SaaS Provider Profiles
 

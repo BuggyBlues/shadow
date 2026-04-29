@@ -240,4 +240,68 @@ describe('DeployService', () => {
       }),
     )
   })
+
+  it('destroys through the Pulumi stack with the selected kubeconfig', async () => {
+    const config: CloudConfig = {
+      version: '1.0.0',
+      deployments: {
+        namespace: 'qa-destroy',
+        agents: [
+          {
+            id: 'buddy-agent',
+            runtime: 'openclaw',
+            configuration: { openclaw: {} },
+          },
+        ],
+      },
+    } as CloudConfig
+
+    const stack = { cancel: vi.fn().mockResolvedValue(undefined) }
+    const k8s = {
+      getOrCreateStack: vi.fn().mockResolvedValue(stack),
+      destroyStack: vi.fn().mockResolvedValue(undefined),
+    }
+    const logger = {
+      step: vi.fn(),
+      success: vi.fn(),
+    }
+    const service = new DeployService({} as never, {} as never, k8s as never, logger as never)
+
+    await service.destroy({
+      namespace: 'qa-destroy',
+      stack: 'saas-qa-destroy',
+      k8sContext: 'byok-context',
+      kubeConfigPath: '/tmp/byok-kubeconfig.yaml',
+      config,
+    })
+
+    expect(k8s.getOrCreateStack).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stackName: 'saas-qa-destroy',
+        namespace: 'qa-destroy',
+        kubeContext: 'byok-context',
+        kubeConfigPath: '/tmp/byok-kubeconfig.yaml',
+        config,
+      }),
+    )
+    expect(k8s.destroyStack).toHaveBeenCalledWith(stack, expect.any(Object))
+  })
+
+  it('refuses destroy without a Pulumi config snapshot', async () => {
+    const k8s = {
+      getOrCreateStack: vi.fn(),
+      destroyStack: vi.fn(),
+    }
+    const logger = {
+      step: vi.fn(),
+      success: vi.fn(),
+    }
+    const service = new DeployService({} as never, {} as never, k8s as never, logger as never)
+
+    await expect(service.destroy({ namespace: 'qa-destroy' })).rejects.toThrow(
+      'without a Pulumi config snapshot',
+    )
+    expect(k8s.getOrCreateStack).not.toHaveBeenCalled()
+    expect(k8s.destroyStack).not.toHaveBeenCalled()
+  })
 })

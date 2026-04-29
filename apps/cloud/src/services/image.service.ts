@@ -78,7 +78,6 @@ export class ImageService {
     const localTag = this.getLocalTag(name, tag)
 
     this.logger.step(`Building ${name} (tag: ${intoK8s ? localTag : remoteTag})...`)
-    await this.prepareBuildContext(name)
 
     const buildArgs: string[] = ['-t', intoK8s ? localTag : remoteTag]
     if (intoK8s) buildArgs.push('-t', remoteTag)
@@ -126,17 +125,6 @@ export class ImageService {
     const repoRoot = resolve(this.imagesDir, '../../..')
     const localShadowobPlugin = resolve(repoRoot, 'packages', 'openclaw-shadowob', 'package.json')
     return existsSync(localShadowobPlugin) ? repoRoot : resolve(this.imagesDir, name)
-  }
-
-  private async prepareBuildContext(name: string): Promise<void> {
-    if (name !== 'openclaw-runner') return
-
-    const repoRoot = resolve(this.imagesDir, '../../..')
-    const localShadowobPlugin = resolve(repoRoot, 'packages', 'openclaw-shadowob', 'package.json')
-    if (!existsSync(localShadowobPlugin)) return
-
-    this.logger.step('Building local @shadowob/openclaw-shadowob package for runner image...')
-    await this.spawnProcess('pnpm', ['--filter', '@shadowob/openclaw-shadowob', 'build'], repoRoot)
   }
 
   private dockerBuild(args: string[]): Promise<void> {

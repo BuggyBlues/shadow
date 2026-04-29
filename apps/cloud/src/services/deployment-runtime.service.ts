@@ -32,6 +32,8 @@ export interface DestroyRuntimeOptions {
   stack?: string
   cluster?: DeploymentRuntimeCluster | null
   configSnapshot?: unknown
+  onStackReady?: (stack: { cancel: () => Promise<void> }) => void
+  isCancelled?: () => boolean
 }
 
 interface ResolvedRuntimeContext {
@@ -189,6 +191,8 @@ export class DeploymentRuntimeService {
         k8sContext: context.k8sContext,
         kubeConfigPath: context.kubeConfigPath,
         config: configSnapshot,
+        onStackReady: options.onStackReady,
+        isCancelled: options.isCancelled,
       }),
     )
   }

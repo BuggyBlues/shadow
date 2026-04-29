@@ -44,6 +44,15 @@ export class DeployTaskManager {
 
   private activeTaskIds = new Set<number>()
 
+  private cancelTokens = new Map<
+    number,
+    {
+      cancelled: boolean
+      stack?: { cancel: () => Promise<void> }
+      cancelSignalled?: boolean
+    }
+  >()
+
   constructor(
     private container: ServiceContainer,
     private deploymentDao: DeploymentDao,
@@ -70,6 +79,34 @@ export class DeployTaskManager {
 
   isActive(taskId: number): boolean {
     return this.activeTaskIds.has(taskId)
+  }
+
+  async cancel(taskId: number): Promise<{ ok: boolean; status?: string; error?: string }> {
+    const task = this.deploymentDao.findById(taskId)
+    if (!task) return { ok: false, error: 'Deployment task not found' }
+
+    if (!this.activeTaskIds.has(taskId)) {
+      if (task.status === 'pending' || task.status === 'running' || task.status === 'cancelling') {
+        this.deploymentDao.update(taskId, { status: 'failed', error: 'cancelled by user' })
+        this.appendLog(taskId, '[cancel] Task was not running; marked cancelled')
+        return { ok: true, status: 'failed' }
+      }
+      return { ok: false, error: `Cannot cancel deployment in status "${task.status}"` }
+    }
+
+    const token = this.cancelTokens.get(taskId)
+    if (!token) return { ok: true, status: 'cancelling' }
+
+    token.cancelled = true
+    this.deploymentDao.update(taskId, { status: 'cancelling' })
+    this.appendLog(taskId, '[cancel] User requested cancellation')
+    if (token.stack && !token.cancelSignalled) {
+      token.cancelSignalled = true
+      await token.stack.cancel().catch((err) => {
+        this.appendLog(taskId, `[cancel] Failed to signal Pulumi cancellation: ${String(err)}`)
+      })
+    }
+    return { ok: true, status: 'cancelling' }
   }
 
   subscribe(taskId: number, listener: DeployTaskListener): () => void {
@@ -144,6 +181,11 @@ export class DeployTaskManager {
   private async run(taskId: number, config: Record<string, unknown>): Promise<void> {
     const { envOverrides, templateConfig } = this.buildEnvOverrides(config)
     const { shadowUrl, podShadowUrl, shadowToken } = resolveCloudSaasShadowRuntime(envOverrides)
+    const cancelToken = { cancelled: false } as {
+      cancelled: boolean
+      stack?: { cancel: () => Promise<void> }
+    }
+    this.cancelTokens.set(taskId, cancelToken)
 
     try {
       this.deploymentDao.update(taskId, {
@@ -167,7 +209,15 @@ export class DeployTaskManager {
         onOutput: (output: string) => {
           this.appendOutput(taskId, output)
         },
+        onStackReady: (stack: { cancel: () => Promise<void> }) => {
+          cancelToken.stack = stack
+        },
+        isCancelled: () => cancelToken.cancelled,
       })
+
+      if (cancelToken.cancelled) {
+        throw new Error('Deployment cancelled by user')
+      }
 
       this.deploymentDao.update(taskId, {
         namespace: result.namespace ?? (config.namespace as string) ?? 'shadowob-cloud',
@@ -188,11 +238,16 @@ export class DeployTaskManager {
       this.emit(taskId, { type: 'done', data: doneEvent })
     } catch (error) {
       const message = (error as Error).message
-      this.deploymentDao.update(taskId, { status: 'failed', error: message })
-      this.appendLog(taskId, `Error: ${message}`)
+      const cancelled = cancelToken.cancelled || /cancel/i.test(message)
+      this.deploymentDao.update(taskId, {
+        status: 'failed',
+        error: cancelled ? 'cancelled by user' : message,
+      })
+      this.appendLog(taskId, cancelled ? `Cancelled: ${message}` : `Error: ${message}`)
       this.emit(taskId, { type: 'done', data: { exitCode: 1, error: message } })
     } finally {
       this.activeTaskIds.delete(taskId)
+      this.cancelTokens.delete(taskId)
     }
   }
 }

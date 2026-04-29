@@ -26,6 +26,8 @@ export function PageShell({
   narrow,
   bodyClassName = 'space-y-6',
 }: PageShellProps) {
+  const hasTitleRow = Boolean(title) || Boolean(actions)
+
   return (
     <div
       className={cn(
@@ -38,17 +40,19 @@ export function PageShell({
 
       <GlassPanel as="section" className="p-5 md:p-6">
         {/* Title row */}
-        <div
-          className={cn(
-            'flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between',
-            (description || headerContent) && 'mb-3 md:mb-4',
-          )}
-        >
-          <h1 className="text-[1.875rem] font-extrabold tracking-[-0.03em] text-text-primary md:text-[2.125rem]">
-            {title}
-          </h1>
-          {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
-        </div>
+        {hasTitleRow ? (
+          <div
+            className={cn(
+              'flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between',
+              (description || headerContent) && 'mb-3 md:mb-4',
+            )}
+          >
+            <h1 className="text-[1.875rem] font-extrabold tracking-[-0.03em] text-text-primary md:text-[2.125rem]">
+              {title}
+            </h1>
+            {actions && <div className="ml-auto flex shrink-0 items-center gap-2">{actions}</div>}
+          </div>
+        ) : null}
 
         {description && (
           <p className={cn('text-sm leading-6 text-text-muted', headerContent && 'mb-4')}>

@@ -114,6 +114,21 @@ shadowPlugin.configSchema = {
       token: { type: 'string', description: 'Agent JWT token' },
       serverUrl: { type: 'string', description: 'Shadow server URL' },
       enabled: { type: 'boolean' },
+      capabilities: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          inlineButtons: {
+            anyOf: [
+              { type: 'string', enum: ['off', 'dm', 'group', 'all', 'allowlist'] },
+              { type: 'boolean' },
+            ],
+          },
+          uploadFile: { type: 'boolean' },
+          interactive: { type: 'boolean' },
+          forms: { type: 'boolean' },
+        },
+      },
       accounts: {
         type: 'object',
         additionalProperties: {
@@ -122,6 +137,10 @@ shadowPlugin.configSchema = {
             token: { type: 'string' },
             serverUrl: { type: 'string' },
             enabled: { type: 'boolean' },
+            capabilities: {
+              type: 'object',
+              additionalProperties: true,
+            },
           },
           required: ['token', 'serverUrl'],
         },

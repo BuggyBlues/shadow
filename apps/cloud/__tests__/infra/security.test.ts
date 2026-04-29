@@ -15,11 +15,11 @@ describe('buildSecurityContext', () => {
 })
 
 describe('buildContainerSecurityContext', () => {
-  it('drops ALL capabilities', () => {
+  it('drops ALL capabilities while keeping OpenClaw runtime files writable', () => {
     const ctx = buildContainerSecurityContext()
     expect(ctx.capabilities?.drop).toContain('ALL')
     expect(ctx.allowPrivilegeEscalation).toBe(false)
-    expect(ctx.readOnlyRootFilesystem).toBe(true)
+    expect(ctx.readOnlyRootFilesystem).toBe(false)
   })
 })
 

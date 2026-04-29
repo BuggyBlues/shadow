@@ -8,7 +8,6 @@ import { createHash } from 'node:crypto'
 import {
   attachCloudSaasProvisionState,
   createContainer,
-  deleteNamespace,
   extractCloudSaasRuntime,
   listManagedNamespaces,
   namespaceExists,
@@ -26,9 +25,31 @@ const POLL_INTERVAL_MS = Number(
   process.env.CLOUD_WORKER_POLL_INTERVAL_MS ?? process.env.POLL_INTERVAL_MS ?? 5000,
 )
 const RECONCILE_INTERVAL_MS = Number(process.env.RECONCILE_INTERVAL_MS ?? 60_000)
+const DEFAULT_DESTROY_VERIFY_TIMEOUT_MS = 600_000
+const QUEUE_WAIT_LOG_INTERVAL_MS = Number(process.env.CLOUD_QUEUE_WAIT_LOG_INTERVAL_MS ?? 30_000)
 
 type CloudDeploymentRecord = NonNullable<Awaited<ReturnType<CloudDeploymentDao['findByIdOnly']>>>
 type DeploymentStatus = CloudDeploymentRecord['status']
+type RunningOperationToken = {
+  cancelled: boolean
+  stack?: { cancel: () => Promise<void> }
+  cancelSignalled?: boolean
+}
+type NamespaceDeletionWaitResult = 'deleted' | 'cancelled' | 'timeout'
+type NamespaceExistsFn = (namespace: string, kubeconfig?: string) => boolean | null
+type CloudDeploymentProcessorRuntime = {
+  deploymentDao: CloudDeploymentDao
+  clusterDao: CloudClusterDao
+  container: ServiceContainer
+  lastReconcileAt: number
+}
+
+export type CloudDeploymentProcessorTickResult = {
+  pending: number
+  destroying: number
+  cancelling: number
+  reconciled: boolean
+}
 
 function extractKubeContext(kubeconfigYaml: string): string | undefined {
   const match = kubeconfigYaml.match(/current-context:\s*(\S+)/)
@@ -49,21 +70,98 @@ function resolveDeploymentStackName(deployment: CloudDeploymentRecord): string {
   return `saas-${namespace}-${clusterHash}`
 }
 
+function resolveDestroyVerifyTimeoutMs(): number {
+  const raw = Number(process.env.CLOUD_DESTROY_VERIFY_TIMEOUT_MS)
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_DESTROY_VERIFY_TIMEOUT_MS
+}
+
 /**
  * In-process registry of currently-running deploy operations.
  * Keyed by deployment.id. Used to wire cancellation requests to the live
  * Pulumi stack so we can call stack.cancel().
  */
-const runningDeploys = new Map<
-  string,
-  {
-    cancelled: boolean
-    stack?: { cancel: () => Promise<void> }
+const runningOperations = new Map<string, RunningOperationToken>()
+
+const queueWaitLogThrottle = new Map<string, { key: string; loggedAt: number }>()
+
+async function signalRunningOperationCancel(
+  deploymentId: string,
+  token: RunningOperationToken,
+  reason: string,
+): Promise<boolean> {
+  token.cancelled = true
+  if (!token.stack || token.cancelSignalled) return true
+
+  token.cancelSignalled = true
+  try {
+    logger.info({ deploymentId, reason }, 'Cancelling Pulumi stack')
+    await token.stack.cancel()
+    return true
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    logger.error({ deploymentId, error: msg }, 'stack.cancel() failed')
+    return false
   }
->()
+}
+
+export async function requestCloudDeploymentCancellation(deploymentId: string): Promise<boolean> {
+  const token = runningOperations.get(deploymentId)
+  if (!token) return false
+  await signalRunningOperationCancel(deploymentId, token, 'user request')
+  return true
+}
+
+function watchCancellationRequest(
+  deployment: CloudDeploymentRecord,
+  deploymentDao: CloudDeploymentDao,
+  token: RunningOperationToken,
+): () => void {
+  const interval = setInterval(() => {
+    if (token.cancelled) return
+
+    void (async () => {
+      const latest = await deploymentDao.findByIdOnly(deployment.id).catch(() => null)
+      if (latest?.status === 'cancelling') {
+        await signalRunningOperationCancel(
+          deployment.id,
+          token,
+          'deployment status changed to cancelling',
+        )
+      }
+    })()
+  }, 2_000)
+
+  return () => clearInterval(interval)
+}
 
 export type CloudDeploymentProcessorHandle = {
   stop: () => Promise<void>
+}
+
+function createProcessorRuntime(options?: {
+  database?: Database
+  container?: ServiceContainer
+}): CloudDeploymentProcessorRuntime {
+  const database = options?.database ?? (db as Database)
+  return {
+    container: options?.container ?? createContainer(),
+    deploymentDao: new CloudDeploymentDao({ db: database }),
+    clusterDao: new CloudClusterDao({ db: database }),
+    lastReconcileAt: 0,
+  }
+}
+
+export async function processCloudDeploymentQueueOnce(options?: {
+  database?: Database
+  container?: ServiceContainer
+  reconcile?: boolean
+  deploymentIds?: string[]
+}): Promise<CloudDeploymentProcessorTickResult> {
+  const runtime = createProcessorRuntime(options)
+  return processCloudDeploymentQueueTick(runtime, {
+    reconcile: options?.reconcile ?? true,
+    deploymentIds: options?.deploymentIds,
+  })
 }
 
 export function startCloudDeploymentProcessor(): CloudDeploymentProcessorHandle {
@@ -89,68 +187,13 @@ export function startCloudDeploymentProcessor(): CloudDeploymentProcessorHandle 
 }
 
 async function runLoop(isStopped: () => boolean): Promise<void> {
-  const container = createContainer()
-
-  const deploymentDao = new CloudDeploymentDao({
-    db: db as Database,
-  })
-  const clusterDao = new CloudClusterDao({
-    db: db as Database,
-  })
+  const runtime = createProcessorRuntime()
 
   logger.info({ pollIntervalMs: POLL_INTERVAL_MS }, 'Cloud deployment processor started')
 
-  let lastReconcileAt = 0
-
   while (!isStopped()) {
     try {
-      // 1. Process pending deployments (deploy)
-      const pending = await deploymentDao.listPending()
-      for (const deployment of pending) {
-        await withLockedDeployment(
-          deployment.id,
-          ['pending'],
-          deploymentDao,
-          async (latestDeployment) => {
-            await processDeployment(latestDeployment, deploymentDao, clusterDao, container)
-          },
-        )
-      }
-
-      // 2. Process destroying deployments
-      const destroying = await deploymentDao.listDestroying()
-      for (const deployment of destroying) {
-        await withLockedDeployment(
-          deployment.id,
-          ['destroying'],
-          deploymentDao,
-          async (latestDeployment) => {
-            await processDestroy(latestDeployment, deploymentDao, clusterDao, container)
-          },
-        )
-      }
-
-      // 3. Honor cancel requests
-      const cancelling = await deploymentDao.listCancelling()
-      for (const deployment of cancelling) {
-        await withLockedDeployment(
-          deployment.id,
-          ['cancelling'],
-          deploymentDao,
-          async (latestDeployment) => {
-            await processCancel(latestDeployment, deploymentDao)
-          },
-        )
-      }
-
-      // 4. Periodic orphan reconcile
-      const now = Date.now()
-      if (now - lastReconcileAt >= RECONCILE_INTERVAL_MS) {
-        lastReconcileAt = now
-        await reconcileOrphans(deploymentDao, clusterDao).catch((err) => {
-          logger.error({ err }, 'Cloud deployment reconcile error')
-        })
-      }
+      await processCloudDeploymentQueueTick(runtime, { reconcile: true })
     } catch (err) {
       logger.error({ err }, 'Cloud deployment poll error')
     }
@@ -161,6 +204,95 @@ async function runLoop(isStopped: () => boolean): Promise<void> {
   }
 
   logger.info('Cloud deployment processor stopped')
+}
+
+async function processCloudDeploymentQueueTick(
+  runtime: CloudDeploymentProcessorRuntime,
+  options: { reconcile: boolean; deploymentIds?: string[] },
+): Promise<CloudDeploymentProcessorTickResult> {
+  const { deploymentDao, clusterDao, container } = runtime
+  const deploymentIdFilter = options.deploymentIds ? new Set(options.deploymentIds) : null
+  const includeDeployment = (deployment: CloudDeploymentRecord) =>
+    !deploymentIdFilter || deploymentIdFilter.has(deployment.id)
+
+  const pending = (await deploymentDao.listPending()).filter(includeDeployment)
+  for (const deployment of pending) {
+    await withLockedDeployment(
+      deployment.id,
+      ['pending'],
+      deploymentDao,
+      async (latestDeployment) => {
+        await processDeployment(latestDeployment, deploymentDao, clusterDao, container)
+      },
+    )
+  }
+
+  const destroying = (await deploymentDao.listDestroying()).filter(includeDeployment)
+  for (const deployment of destroying) {
+    await withLockedDeployment(
+      deployment.id,
+      ['destroying'],
+      deploymentDao,
+      async (latestDeployment) => {
+        await processDestroy(latestDeployment, deploymentDao, clusterDao, container)
+      },
+    )
+  }
+
+  const cancelling = (await deploymentDao.listCancelling()).filter(includeDeployment)
+  for (const deployment of cancelling) {
+    await withWorkerLockedDeployment(
+      deployment.id,
+      ['cancelling'],
+      deploymentDao,
+      async (latestDeployment) => {
+        await processCancel(latestDeployment, deploymentDao)
+      },
+    )
+  }
+
+  let reconciled = false
+  const now = Date.now()
+  if (options.reconcile && now - runtime.lastReconcileAt >= RECONCILE_INTERVAL_MS) {
+    runtime.lastReconcileAt = now
+    reconciled = true
+    await reconcileOrphans(deploymentDao, clusterDao).catch((err) => {
+      logger.error({ err }, 'Cloud deployment reconcile error')
+    })
+  }
+
+  return {
+    pending: pending.length,
+    destroying: destroying.length,
+    cancelling: cancelling.length,
+    reconciled,
+  }
+}
+
+async function withWorkerLockedDeployment(
+  deploymentId: string,
+  expectedStatuses: readonly DeploymentStatus[],
+  deploymentDao: CloudDeploymentDao,
+  run: (deployment: CloudDeploymentRecord) => Promise<void>,
+): Promise<void> {
+  const acquired = await deploymentDao.tryAcquireWorkerLock(deploymentId)
+  if (!acquired) {
+    return
+  }
+
+  try {
+    const latest = await deploymentDao.findByIdOnly(deploymentId)
+    if (!latest || !expectedStatuses.includes(latest.status)) {
+      return
+    }
+    await run(latest)
+  } finally {
+    try {
+      await deploymentDao.releaseWorkerLock(deploymentId)
+    } catch {
+      // best effort unlock
+    }
+  }
 }
 
 async function withLockedDeployment(
@@ -182,6 +314,7 @@ async function withLockedDeployment(
 
     const operationLockAcquired = await deploymentDao.tryAcquireOperationLock(latest)
     if (!operationLockAcquired) {
+      await appendQueueWaitLog(latest, deploymentDao)
       return
     }
 
@@ -207,6 +340,41 @@ async function withLockedDeployment(
   }
 }
 
+async function appendQueueWaitLog(
+  deployment: CloudDeploymentRecord,
+  deploymentDao: CloudDeploymentDao,
+): Promise<void> {
+  const blocker = await deploymentDao.findActiveOperationInNamespace({
+    userId: deployment.userId,
+    namespace: deployment.namespace,
+    clusterId: deployment.clusterId,
+    excludeId: deployment.id,
+  })
+  const throttleKey = blocker ? `${blocker.id}:${blocker.status}` : 'operation-lock'
+  const previous = queueWaitLogThrottle.get(deployment.id)
+  const now = Date.now()
+  if (previous?.key === throttleKey && now - previous.loggedAt < QUEUE_WAIT_LOG_INTERVAL_MS) {
+    return
+  }
+
+  queueWaitLogThrottle.set(deployment.id, { key: throttleKey, loggedAt: now })
+
+  if (blocker) {
+    await deploymentDao.appendLog(
+      deployment.id,
+      `[queue] Waiting for task ${blocker.id} (${blocker.status}) in namespace "${deployment.namespace}" to finish`,
+      'info',
+    )
+    return
+  }
+
+  await deploymentDao.appendLog(
+    deployment.id,
+    `[queue] Waiting for namespace "${deployment.namespace}" operation lock to be released`,
+    'info',
+  )
+}
+
 async function resolveClusterRuntime(
   clusterId: string | null,
   clusterDao: CloudClusterDao,
@@ -225,21 +393,44 @@ async function resolveClusterRuntime(
   }
 }
 
-async function waitForNamespaceDeletion(
+async function sleepUnlessCancelled(ms: number, isCancelled?: () => boolean): Promise<boolean> {
+  const startedAt = Date.now()
+
+  while (Date.now() - startedAt < ms) {
+    if (isCancelled?.()) return false
+    await sleep(Math.min(250, ms - (Date.now() - startedAt)))
+  }
+
+  return !isCancelled?.()
+}
+
+export async function waitForNamespaceDeletion(
   namespace: string,
   kubeconfig?: string,
-  timeoutMs = 180_000,
-  intervalMs = 4_000,
-): Promise<boolean> {
+  options: {
+    timeoutMs?: number
+    intervalMs?: number
+    isCancelled?: () => boolean
+    exists?: NamespaceExistsFn
+  } = {},
+): Promise<NamespaceDeletionWaitResult> {
+  const timeoutMs = options.timeoutMs ?? 180_000
+  const intervalMs = options.intervalMs ?? 4_000
+  const namespaceExistsFn = options.exists ?? namespaceExists
   const startedAt = Date.now()
 
   while (Date.now() - startedAt < timeoutMs) {
-    const exists = namespaceExists(namespace, kubeconfig)
-    if (exists === false) return true
-    await sleep(intervalMs)
+    if (options.isCancelled?.()) return 'cancelled'
+
+    const exists = namespaceExistsFn(namespace, kubeconfig)
+    if (exists === false) return 'deleted'
+
+    const remainingMs = timeoutMs - (Date.now() - startedAt)
+    const slept = await sleepUnlessCancelled(Math.min(intervalMs, remainingMs), options.isCancelled)
+    if (!slept) return 'cancelled'
   }
 
-  return false
+  return options.isCancelled?.() ? 'cancelled' : 'timeout'
 }
 
 async function processDeployment(
@@ -250,26 +441,26 @@ async function processDeployment(
 ) {
   logger.info({ deploymentId: deployment.id, deploymentName: deployment.name }, 'Deploying stack')
 
-  const newer = await deploymentDao.findNewerCurrentInNamespace(deployment)
-  if (newer) {
-    const message = `Superseded by newer deployment ${newer.id}; skipping stale deploy for namespace "${deployment.namespace}"`
-    await deploymentDao.appendLog(deployment.id, message, 'warn')
-    await deploymentDao.updateStatus(deployment.id, 'failed', 'superseded-by-newer-deployment')
-    logger.warn({ deploymentId: deployment.id, newerDeploymentId: newer.id }, message)
-    return
-  }
-
-  await deploymentDao.updateStatus(deployment.id, 'deploying')
-  await deploymentDao.appendLog(deployment.id, `Starting deployment: ${deployment.name}`, 'info')
-
-  // Register in the runningDeploys map so that a /cancel request mid-flight
-  // can find this deploy and call stack.cancel() on it.
-  const cancelToken: { cancelled: boolean; stack?: { cancel: () => Promise<void> } } = {
-    cancelled: false,
-  }
-  runningDeploys.set(deployment.id, cancelToken)
+  const cancelToken: RunningOperationToken = { cancelled: false }
+  let stopWatchingCancellation = () => {}
 
   try {
+    const newer = await deploymentDao.findNewerCurrentInNamespace(deployment)
+    if (newer) {
+      const message = `Superseded by newer deployment ${newer.id}; skipping stale deploy for namespace "${deployment.namespace}"`
+      await deploymentDao.appendLog(deployment.id, message, 'warn')
+      await deploymentDao.updateStatus(deployment.id, 'failed', 'superseded-by-newer-deployment')
+      logger.warn({ deploymentId: deployment.id, newerDeploymentId: newer.id }, message)
+      return
+    }
+
+    await deploymentDao.updateStatus(deployment.id, 'deploying')
+    await deploymentDao.appendLog(deployment.id, `Starting deployment: ${deployment.name}`, 'info')
+
+    // Register once the task is claimed so /cancel can signal the live stack.
+    runningOperations.set(deployment.id, cancelToken)
+    stopWatchingCancellation = watchCancellationRequest(deployment, deploymentDao, cancelToken)
+
     const cluster = await resolveClusterRuntime(deployment.clusterId, clusterDao)
     const stackName = resolveDeploymentStackName(deployment)
     if (cluster) {
@@ -363,7 +554,7 @@ async function processDeployment(
     if (result.provisionState && !provisionStatePersisted) {
       await persistProvisionState(result.provisionState)
     }
-    await deploymentDao.updateStatus(deployment.id, 'deployed')
+    await deploymentDao.markDeployed(deployment.id, result.agentCount)
     logger.info(
       { deploymentId: deployment.id, agentCount: result.agentCount },
       'Deployment completed',
@@ -379,7 +570,9 @@ async function processDeployment(
     )
     await deploymentDao.updateStatus(deployment.id, 'failed', cancelled ? 'cancelled by user' : msg)
   } finally {
-    runningDeploys.delete(deployment.id)
+    stopWatchingCancellation()
+    runningOperations.delete(deployment.id)
+    queueWaitLogThrottle.delete(deployment.id)
   }
 }
 
@@ -391,6 +584,9 @@ async function processDestroy(
 ) {
   logger.info({ deploymentId: deployment.id, deploymentName: deployment.name }, 'Destroying stack')
   await deploymentDao.appendLog(deployment.id, `Starting destroy: ${deployment.name}`, 'info')
+  const cancelToken: RunningOperationToken = { cancelled: false }
+  runningOperations.set(deployment.id, cancelToken)
+  const stopWatchingCancellation = watchCancellationRequest(deployment, deploymentDao, cancelToken)
 
   try {
     const newer = await deploymentDao.findNewerCurrentInNamespace(deployment)
@@ -404,33 +600,57 @@ async function processDestroy(
 
     const cluster = await resolveClusterRuntime(deployment.clusterId, clusterDao)
     const { configSnapshot } = extractCloudSaasRuntime(deployment.configSnapshot)
+    if (!configSnapshot) {
+      throw new Error('No config snapshot found for this deployment. Cannot run Pulumi destroy.')
+    }
+
     const clusterKubeconfig = cluster?.kubeconfig
     const stackName = resolveDeploymentStackName(deployment)
+    await deploymentDao.appendLog(deployment.id, `Pulumi stack: ${stackName}`, 'info')
+    await deploymentDao.appendLog(
+      deployment.id,
+      `Running Pulumi destroy for namespace "${deployment.namespace}"`,
+      'info',
+    )
 
     await container.deploymentRuntime.destroy({
       namespace: deployment.namespace,
       stack: stackName,
       cluster,
       configSnapshot,
+      onStackReady: (stack: { cancel: () => Promise<void> }) => {
+        cancelToken.stack = stack
+      },
+      isCancelled: () => cancelToken.cancelled,
     })
 
-    let namespaceDeleted = await waitForNamespaceDeletion(
-      deployment.namespace,
-      clusterKubeconfig,
-      30_000,
-    )
-    if (!namespaceDeleted) {
-      await deploymentDao.appendLog(
-        deployment.id,
-        `Namespace "${deployment.namespace}" still exists after stack destroy; issuing direct namespace delete`,
-        'warn',
-      )
-      deleteNamespace(deployment.namespace, clusterKubeconfig)
-      namespaceDeleted = await waitForNamespaceDeletion(deployment.namespace, clusterKubeconfig)
+    if (cancelToken.cancelled) {
+      throw new Error('Destroy cancelled by user')
     }
 
-    if (!namespaceDeleted) {
-      throw new Error(`Namespace "${deployment.namespace}" still exists after destroy`)
+    await deploymentDao.appendLog(
+      deployment.id,
+      `Pulumi destroy finished; verifying namespace "${deployment.namespace}" is gone`,
+      'info',
+    )
+
+    const namespaceDeletionResult = await waitForNamespaceDeletion(
+      deployment.namespace,
+      clusterKubeconfig,
+      {
+        timeoutMs: resolveDestroyVerifyTimeoutMs(),
+        isCancelled: () => cancelToken.cancelled,
+      },
+    )
+
+    if (namespaceDeletionResult === 'cancelled') {
+      throw new Error('Destroy cancelled by user')
+    }
+
+    if (namespaceDeletionResult !== 'deleted') {
+      throw new Error(
+        `Namespace "${deployment.namespace}" still exists after Pulumi destroy verification timed out`,
+      )
     }
 
     await deploymentDao.appendLog(
@@ -442,9 +662,22 @@ async function processDestroy(
     logger.info({ deploymentId: deployment.id }, 'Destroy completed')
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
+    const cancelled = cancelToken.cancelled || /cancel/i.test(msg)
     logger.error({ deploymentId: deployment.id, error: msg }, 'Destroy failed')
-    await deploymentDao.appendLog(deployment.id, `Destroy error: ${msg}`, 'error')
-    await deploymentDao.updateStatus(deployment.id, 'failed', `destroy: ${msg}`)
+    await deploymentDao.appendLog(
+      deployment.id,
+      cancelled ? `Destroy cancelled: ${msg}` : `Destroy error: ${msg}`,
+      cancelled ? 'warn' : 'error',
+    )
+    await deploymentDao.updateStatus(
+      deployment.id,
+      'failed',
+      cancelled ? 'cancelled by user' : `destroy: ${msg}`,
+    )
+  } finally {
+    stopWatchingCancellation()
+    runningOperations.delete(deployment.id)
+    queueWaitLogThrottle.delete(deployment.id)
   }
 }
 
@@ -456,21 +689,12 @@ async function processDestroy(
  *     was picked up), mark failed directly.
  */
 async function processCancel(deployment: CloudDeploymentRecord, deploymentDao: CloudDeploymentDao) {
-  const live = runningDeploys.get(deployment.id)
+  const live = runningOperations.get(deployment.id)
   if (live) {
-    live.cancelled = true
-    if (live.stack) {
-      try {
-        logger.info({ deploymentId: deployment.id }, 'Cancelling Pulumi stack')
-        await live.stack.cancel()
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
-        logger.error({ deploymentId: deployment.id, error: msg }, 'stack.cancel() failed')
-      }
-    }
+    await signalRunningOperationCancel(deployment.id, live, 'worker cancellation pass')
     await deploymentDao.appendLog(
       deployment.id,
-      '[cancel] Signal sent to in-progress deploy',
+      '[cancel] Signal sent to in-progress operation',
       'warn',
     )
     return
@@ -489,8 +713,8 @@ async function processCancel(deployment: CloudDeploymentRecord, deploymentDao: C
 /**
  * Orphan reconcile.
  *
- * For every "live" deployment in the DB (status ∈ {deployed, deploying, cancelling}),
- * verify that the corresponding K8s namespace exists. If not, mark the
+ * For every deployed namespace in the DB, verify that the corresponding K8s
+ * namespace exists. If not, mark the
  * deployment as failed with a clear reason so it shows up in the UI for the
  * user to take action.
  */

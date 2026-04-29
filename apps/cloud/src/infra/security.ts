@@ -2,7 +2,7 @@
  * K8s security — SecurityContext and NetworkPolicy generation.
  *
  * Every agent deployment gets:
- * - SecurityContext: runAsNonRoot, readOnlyRootFilesystem, drop ALL capabilities
+ * - SecurityContext: runAsNonRoot, drop ALL capabilities, keep filesystem writable
  * - NetworkPolicy: default deny-all, allow egress 443 (LLM API) + 53 (DNS)
  */
 
@@ -30,7 +30,7 @@ export function buildSecurityContext() {
 export function buildContainerSecurityContext() {
   return {
     allowPrivilegeEscalation: false,
-    readOnlyRootFilesystem: true,
+    readOnlyRootFilesystem: false,
     runAsNonRoot: true,
     runAsUser: 1000,
     capabilities: {

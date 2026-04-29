@@ -103,7 +103,7 @@ export async function getOrCreateStack(options: StackOptions) {
     shadowServerUrl: options.shadowServerUrl,
     kubeContext: options.kubeContext ?? process.env.KUBECONFIG_CONTEXT ?? 'rancher-desktop',
     kubeConfigPath: options.kubeConfigPath,
-    imagePullPolicy: options.imagePullPolicy ?? 'IfNotPresent',
+    imagePullPolicy: options.imagePullPolicy,
   }
 
   const stateDir = options.stateDir ?? getDefaultStateDir()
@@ -236,7 +236,7 @@ export async function destroyStack(
   stack: automation.Stack,
   options?: { onOutput?: (out: string) => void },
 ) {
-  return stack.destroy({ onOutput: options?.onOutput })
+  return stack.destroy({ onOutput: options?.onOutput, refresh: true })
 }
 
 /**

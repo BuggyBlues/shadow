@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, inArray, isNull, ne } from 'drizzle-orm'
 import { type Database, workerLockClient } from '../db'
 import { cloudDeploymentLogs, cloudDeployments } from '../db/schema'
 
@@ -123,7 +123,7 @@ export class CloudDeploymentDao {
       .select()
       .from(cloudDeployments)
       .where(and(...filters))
-      .orderBy(desc(cloudDeployments.updatedAt), desc(cloudDeployments.createdAt))
+      .orderBy(desc(cloudDeployments.createdAt), desc(cloudDeployments.updatedAt))
       .limit(1)
     return result[0] ?? null
   }
@@ -144,7 +144,7 @@ export class CloudDeploymentDao {
       .select()
       .from(cloudDeployments)
       .where(and(...filters))
-      .orderBy(desc(cloudDeployments.updatedAt), desc(cloudDeployments.createdAt))
+      .orderBy(asc(cloudDeployments.createdAt), asc(cloudDeployments.updatedAt))
       .limit(1)
     return result[0] ?? null
   }
@@ -158,7 +158,7 @@ export class CloudDeploymentDao {
           this.namespaceScopeWhere(deployment),
           inArray(cloudDeployments.status, [...CURRENT_INSTANCE_STATUSES]),
           ne(cloudDeployments.id, deployment.id),
-          sql`${cloudDeployments.createdAt} > ${deployment.createdAt}`,
+          gt(cloudDeployments.createdAt, deployment.createdAt),
         ),
       )
       .orderBy(desc(cloudDeployments.createdAt))
@@ -202,8 +202,13 @@ export class CloudDeploymentDao {
     clusterId?: string | null
     namespace: string
     name: string
+    status?: CloudDeploymentStatus
     agentCount?: number
     configSnapshot?: unknown
+    templateSlug?: string | null
+    resourceTier?: string | null
+    monthlyCost?: number | null
+    saasMode?: boolean
   }) {
     const result = await this.db
       .insert(cloudDeployments)
@@ -214,7 +219,11 @@ export class CloudDeploymentDao {
         name: data.name,
         agentCount: data.agentCount ?? 0,
         configSnapshot: data.configSnapshot ?? null,
-        status: 'pending',
+        status: data.status ?? 'pending',
+        templateSlug: data.templateSlug ?? null,
+        resourceTier: data.resourceTier ?? null,
+        monthlyCost: data.monthlyCost ?? null,
+        saasMode: data.saasMode ?? false,
       })
       .returning()
     return result[0]
@@ -235,6 +244,20 @@ export class CloudDeploymentDao {
     const result = await this.db
       .update(cloudDeployments)
       .set({ status, errorMessage: errorMessage ?? null, updatedAt: new Date() })
+      .where(eq(cloudDeployments.id, id))
+      .returning()
+    return result[0] ?? null
+  }
+
+  async markDeployed(id: string, agentCount: number) {
+    const result = await this.db
+      .update(cloudDeployments)
+      .set({
+        status: 'deployed' as CloudDeploymentStatus,
+        agentCount,
+        errorMessage: null,
+        updatedAt: new Date(),
+      })
       .where(eq(cloudDeployments.id, id))
       .returning()
     return result[0] ?? null

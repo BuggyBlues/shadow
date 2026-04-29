@@ -78,6 +78,8 @@ export interface DestroyOptions {
   k8sContext?: string
   kubeConfigPath?: string
   config?: CloudConfig
+  onStackReady?: (stack: { cancel: () => Promise<void> }) => void
+  isCancelled?: () => boolean
 }
 
 function resolveStackName(namespace: string, stack?: string): string {
@@ -330,7 +332,7 @@ export class DeployService {
         shadowServerUrl: k8sShadowUrl,
         kubeContext: options.k8sContext,
         kubeConfigPath,
-        imagePullPolicy: options.imagePullPolicy ?? 'IfNotPresent',
+        imagePullPolicy: options.imagePullPolicy,
       })
     } catch (err) {
       const msg = (err as Error).message ?? ''
@@ -347,7 +349,7 @@ export class DeployService {
               shadowServerUrl: k8sShadowUrl,
               kubeContext: options.k8sContext,
               kubeConfigPath,
-              imagePullPolicy: options.imagePullPolicy ?? 'IfNotPresent',
+              imagePullPolicy: options.imagePullPolicy,
             })
             .catch(() => null)
           if (tmpStack) {
@@ -379,7 +381,7 @@ export class DeployService {
           shadowServerUrl: k8sShadowUrl,
           kubeContext: options.k8sContext,
           kubeConfigPath,
-          imagePullPolicy: options.imagePullPolicy ?? 'IfNotPresent',
+          imagePullPolicy: options.imagePullPolicy,
         })
       } else {
         throw err
@@ -447,22 +449,41 @@ export class DeployService {
 
     this.logger.step(`Destroying resources in namespace "${namespace}"...`)
 
-    if (options.config) {
-      const stack = await this.k8s.getOrCreateStack({
-        stackName,
-        config: options.config,
-        namespace,
-        kubeContext: options.k8sContext,
-      })
-      await this.k8s.destroyStack(stack, {
-        onOutput: (out) => process.stdout.write(out),
-      })
-      this.logger.success('Destroy complete!')
-    } else {
-      // No Pulumi config — fallback to direct kubectl namespace deletion
-      this.logger.info(`No stack config; deleting namespace "${namespace}" directly...`)
-      this.k8s.deleteNamespace(namespace)
-      this.logger.success(`Namespace "${namespace}" deleted.`)
+    if (!options.config) {
+      throw new Error(
+        `Cannot destroy namespace "${namespace}" without a Pulumi config snapshot. ` +
+          'Destroy must run through the deployment stack state.',
+      )
     }
+
+    const stack = await this.k8s.getOrCreateStack({
+      stackName,
+      config: options.config,
+      namespace,
+      kubeContext: options.k8sContext,
+      kubeConfigPath: options.kubeConfigPath,
+    })
+
+    if (options.onStackReady) {
+      try {
+        options.onStackReady(stack as unknown as { cancel: () => Promise<void> })
+      } catch {
+        /* never let a callback throw kill the destroy */
+      }
+    }
+
+    if (options.isCancelled?.()) {
+      throw new Error('Destroy cancelled before stack destroy')
+    }
+
+    await this.k8s.destroyStack(stack, {
+      onOutput: (out) => process.stdout.write(out),
+    })
+
+    if (options.isCancelled?.()) {
+      throw new Error('Destroy cancelled by user')
+    }
+
+    this.logger.success('Destroy complete!')
   }
 }

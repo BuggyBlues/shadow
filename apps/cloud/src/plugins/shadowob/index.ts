@@ -41,6 +41,33 @@ const SHADOWOB_OPENCLAW_EXTENSION_ID = 'shadowob'
 const SHADOWOB_OPENCLAW_PLUGIN_ID = 'openclaw-shadowob'
 const SHADOWOB_OPENCLAW_EXTENSION_PATH = `/app/extensions/${SHADOWOB_OPENCLAW_EXTENSION_ID}`
 
+function shadowobChannelCapabilities(): Record<string, unknown> {
+  return {
+    inlineButtons: 'all',
+    uploadFile: true,
+    interactive: true,
+    forms: true,
+  }
+}
+
+function shadowobChannelCapabilitiesSchema(): Record<string, unknown> {
+  return {
+    type: 'object',
+    additionalProperties: true,
+    properties: {
+      inlineButtons: {
+        anyOf: [
+          { type: 'string', enum: ['off', 'dm', 'group', 'all', 'allowlist'] },
+          { type: 'boolean' },
+        ],
+      },
+      uploadFile: { type: 'boolean' },
+      interactive: { type: 'boolean' },
+      forms: { type: 'boolean' },
+    },
+  }
+}
+
 function shadowobOpenClawPluginConfig(): Pick<PluginConfigFragment, 'plugins'> {
   return {
     plugins: {
@@ -68,6 +95,7 @@ function shadowobChannelConfigMetadata(): Record<string, unknown> {
         buddyName: { type: 'string' },
         buddyDescription: { type: 'string' },
         replyToMode: { type: 'string', enum: ['first', 'all', 'off'] },
+        capabilities: shadowobChannelCapabilitiesSchema(),
         accountAgentMap: {
           type: 'object',
           additionalProperties: { type: 'string' },
@@ -85,6 +113,7 @@ function shadowobChannelConfigMetadata(): Record<string, unknown> {
               buddyName: { type: 'string' },
               buddyDescription: { type: 'string' },
               agentId: { type: 'string' },
+              capabilities: shadowobChannelCapabilitiesSchema(),
             },
           },
         },
@@ -132,6 +161,7 @@ function buildShadowConfig(context: PluginBuildContext): PluginConfigFragment {
       buddyName: buddy.name,
       ...(buddy.description ? { buddyDescription: buddy.description } : {}),
       ...(buddy.id ? { buddyId: buddy.id } : {}),
+      capabilities: shadowobChannelCapabilities(),
     }
 
     if (binding.replyPolicy) {
@@ -152,7 +182,13 @@ function buildShadowConfig(context: PluginBuildContext): PluginConfigFragment {
 
   return {
     ...pluginConfig,
-    channels: { shadowob: { enabled: true, accounts } },
+    channels: {
+      shadowob: {
+        enabled: true,
+        capabilities: shadowobChannelCapabilities(),
+        accounts,
+      },
+    },
     bindings: configBindings,
   }
 }

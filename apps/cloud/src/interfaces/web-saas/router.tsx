@@ -2,7 +2,7 @@
  * web-saas router — wraps routes that share pages from @/pages/* (packages/ui)
  * and injects the SaaS API adapter via ApiClientContext.
  *
- * LOCAL-ONLY pages (doctor, validate, config editor, images, runtimes, deploy-tasks)
+ * LOCAL-ONLY pages (doctor, validate, config editor, images, runtimes)
  * are NOT included — they don't apply in SaaS mode.
  */
 
@@ -11,6 +11,8 @@ import { Layout } from '@shadowob/cloud-ui/components/Layout'
 import { ApiClientContext } from '@shadowob/cloud-ui/lib/api-context'
 import { DeploymentNamespacePage } from '@shadowob/cloud-ui/pages/DeploymentNamespacePage'
 import { DeploymentsPage } from '@shadowob/cloud-ui/pages/DeploymentsPage'
+import { DeploymentTaskPage } from '@shadowob/cloud-ui/pages/DeploymentTaskPage'
+import { DeploymentTasksPage } from '@shadowob/cloud-ui/pages/DeploymentTasksPage'
 import { DeployWizardPage } from '@shadowob/cloud-ui/pages/DeployWizardPage'
 import { MonitoringPage } from '@shadowob/cloud-ui/pages/MonitoringPage'
 import { MyTemplateDetailPage } from '@shadowob/cloud-ui/pages/MyTemplateDetailPage'
@@ -96,6 +98,18 @@ const deploymentNamespaceRoute = createRoute({
   component: withErrorBoundary(DeploymentNamespacePage),
 })
 
+const deploymentTasksRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/deploy-tasks',
+  component: withErrorBoundary(DeploymentTasksPage),
+})
+
+const deploymentTaskRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/deploy-tasks/$taskId',
+  component: withErrorBoundary(DeploymentTaskPage),
+})
+
 // ── Monitoring ─────────────────────────────────────────────────────────────
 
 const monitoringRoute = createRoute({
@@ -149,6 +163,8 @@ const routeTree = rootRoute.addChildren([
   deployWizardRoute,
   deploymentsRoute,
   deploymentNamespaceRoute,
+  deploymentTasksRoute,
+  deploymentTaskRoute,
   monitoringRoute,
   myTemplatesRoute,
   myTemplateDetailRoute,

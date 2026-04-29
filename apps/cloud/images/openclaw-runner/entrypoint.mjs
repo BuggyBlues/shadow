@@ -3,13 +3,14 @@
  *
  * 1. Read agent config from ConfigMap (/etc/openclaw/config.json)
  * 2. Resolve ${env:VAR} references from environment
- * 3. Write OpenClaw config to ~/.openclaw/openclaw.json
+ * 3. Write generated OpenClaw config outside the mutable state directory
  * 4. Verify extensions are loaded
  * 5. Start OpenClaw gateway
  * 6. Forward signals for graceful shutdown
  */
 
 import { spawn, spawnSync } from 'node:child_process'
+import { randomBytes } from 'node:crypto'
 import {
   cpSync,
   createWriteStream,
@@ -27,10 +28,18 @@ const OPENCLAW_STATE_DIR = '/home/openclaw/.openclaw'
 const CONFIG_MOUNT = '/etc/openclaw'
 const EXTENSIONS_DIR = '/app/extensions'
 const RUNTIME_EXTENSIONS_PATH = join(CONFIG_MOUNT, 'runtime-extensions.json')
+const RUNTIME_CONFIG_DIR = process.env.OPENCLAW_RUNTIME_CONFIG_DIR || '/tmp/openclaw/config'
+const RUNTIME_CONFIG_PATH = join(RUNTIME_CONFIG_DIR, 'openclaw.json')
 const HEALTH_PORT = parseInt(process.env.OPENCLAW_HEALTH_PORT ?? '3100', 10)
 const OPENCLAW_HTTP_PORT = parseInt(
   process.env.OPENCLAW_GATEWAY_PORT ?? String(HEALTH_PORT + 1),
   10,
+)
+const OPENCLAW_GATEWAY_BIND = normalizeEnvString(process.env.OPENCLAW_GATEWAY_BIND) || 'loopback'
+const OPENCLAW_DISCOVERY_MDNS_MODE =
+  normalizeEnvString(process.env.OPENCLAW_DISCOVERY_MDNS_MODE) || 'off'
+const OPENCLAW_MEMORY_VECTOR_ENABLED = normalizeEnvString(
+  process.env.OPENCLAW_MEMORY_VECTOR_ENABLED,
 )
 const LOG_DIR = '/var/log/openclaw'
 const SHARED_WORKSPACE_PATH = process.env.SHARED_WORKSPACE_PATH ?? ''
@@ -38,6 +47,7 @@ const SKILLS_DIR = process.env.SKILLS_DIR ?? ''
 const RUNTIME_DEPS_WARM_SCRIPT = '/app/warm-runtime-deps.mjs'
 const DEFAULT_PLUGIN_STAGE_DIR = '/opt/openclaw-runtime-deps'
 let runtimeDepsStageDir = process.env.OPENCLAW_PLUGIN_STAGE_DIR || DEFAULT_PLUGIN_STAGE_DIR
+const OPENCLAW_VERSION = resolveOpenClawVersion()
 
 function installFileLogging() {
   try {
@@ -154,19 +164,34 @@ function generateOpenClawConfig(mountedConfig) {
     config.gateway = {}
   }
   config.gateway.port = OPENCLAW_HTTP_PORT
-  // Use "lan" bind (0.0.0.0) so the gateway is reachable from outside the container.
-  config.gateway.bind = 'lan'
+  config.gateway.bind = OPENCLAW_GATEWAY_BIND
   // Ensure gateway.mode is set — required by OpenClaw to start without cloud setup
   if (!config.gateway.mode) {
     config.gateway.mode = 'local'
   }
-  // LAN binding requires authentication — use token mode with auto-generated token.
   if (!config.gateway.auth) {
     config.gateway.auth = {}
   }
   if (!config.gateway.auth.mode || config.gateway.auth.mode === 'none') {
     config.gateway.auth.mode = 'token'
   }
+  if (
+    config.gateway.auth.mode === 'token' &&
+    (typeof config.gateway.auth.token !== 'string' || !config.gateway.auth.token.trim())
+  ) {
+    config.gateway.auth.token =
+      process.env.OPENCLAW_GATEWAY_TOKEN || randomBytes(24).toString('hex')
+  }
+  if (!config.gateway.controlUi || !isPlainObject(config.gateway.controlUi)) {
+    config.gateway.controlUi = {}
+  }
+  if (!Array.isArray(config.gateway.controlUi.allowedOrigins)) {
+    config.gateway.controlUi.allowedOrigins = [
+      `http://localhost:${OPENCLAW_HTTP_PORT}`,
+      `http://127.0.0.1:${OPENCLAW_HTTP_PORT}`,
+    ]
+  }
+  ensureDiscoveryConfigured(config)
 
   // Set up shared workspace path — makes the PVC mount discoverable by OpenClaw
   if (SHARED_WORKSPACE_PATH) {
@@ -189,8 +214,97 @@ function generateOpenClawConfig(mountedConfig) {
   }
 
   ensureBundledExtensionsConfigured(config)
+  ensureOpenClawBuiltInPluginsAllowed(config)
+  ensureBonjourPluginDisabled(config)
+  ensureCloudMemorySearchDefaults(config)
+  if (!config.meta || !isPlainObject(config.meta)) {
+    config.meta = {}
+  }
+  config.meta.lastTouchedVersion = OPENCLAW_VERSION
+  config.meta.lastTouchedAt = new Date().toISOString()
 
   return config
+}
+
+function resolveOpenClawVersion() {
+  try {
+    const pkg = JSON.parse(readFileSync('/app/node_modules/openclaw/package.json', 'utf-8'))
+    if (typeof pkg.version === 'string' && pkg.version.trim()) return pkg.version.trim()
+  } catch {
+    // Keep entrypoint bootable in tests that do not mount node_modules.
+  }
+  return 'shadow-cloud-openclaw-runner'
+}
+
+function ensureOpenClawBuiltInPluginsAllowed(config) {
+  if (!config.plugins || !isPlainObject(config.plugins)) return
+  if (!Array.isArray(config.plugins.allow) || config.plugins.allow.length === 0) return
+
+  const allow = new Set(config.plugins.allow.filter((value) => typeof value === 'string'))
+  allow.add('memory-core')
+  config.plugins.allow = [...allow]
+}
+
+function ensureDiscoveryConfigured(config) {
+  if (!config.discovery || !isPlainObject(config.discovery)) config.discovery = {}
+  if (!config.discovery.mdns || !isPlainObject(config.discovery.mdns)) config.discovery.mdns = {}
+  config.discovery.mdns.mode = OPENCLAW_DISCOVERY_MDNS_MODE
+}
+
+function ensureBonjourPluginDisabled(config) {
+  if (!config.plugins || !isPlainObject(config.plugins)) config.plugins = {}
+  if (!config.plugins.entries || !isPlainObject(config.plugins.entries)) {
+    config.plugins.entries = {}
+  }
+  const existing = config.plugins.entries.bonjour
+  config.plugins.entries.bonjour = isPlainObject(existing)
+    ? { ...existing, enabled: false }
+    : { enabled: false }
+}
+
+function ensureCloudMemorySearchDefaults(config) {
+  if (!config.agents || !isPlainObject(config.agents)) config.agents = {}
+  if (!config.agents.defaults || !isPlainObject(config.agents.defaults)) {
+    config.agents.defaults = {}
+  }
+  const defaults = config.agents.defaults
+  if (!defaults.memorySearch || !isPlainObject(defaults.memorySearch)) {
+    defaults.memorySearch = {}
+  }
+  if (!defaults.memorySearch.store || !isPlainObject(defaults.memorySearch.store)) {
+    defaults.memorySearch.store = {}
+  }
+  if (!defaults.memorySearch.store.vector || !isPlainObject(defaults.memorySearch.store.vector)) {
+    defaults.memorySearch.store.vector = {}
+  }
+  if (OPENCLAW_MEMORY_VECTOR_ENABLED) {
+    defaults.memorySearch.store.vector.enabled = OPENCLAW_MEMORY_VECTOR_ENABLED !== 'false'
+  } else if (typeof defaults.memorySearch.store.vector.enabled !== 'boolean') {
+    defaults.memorySearch.store.vector.enabled = true
+  }
+  if (
+    defaults.memorySearch.store.vector.enabled !== false &&
+    typeof defaults.memorySearch.store.vector.extensionPath !== 'string'
+  ) {
+    const extensionPath = resolveSqliteVecExtensionPath()
+    if (extensionPath) defaults.memorySearch.store.vector.extensionPath = extensionPath
+  }
+}
+
+function normalizeEnvString(value) {
+  return typeof value === 'string' && value.trim() ? value.trim() : ''
+}
+
+function resolveSqliteVecExtensionPath() {
+  const os = process.platform === 'win32' ? 'windows' : process.platform
+  const suffix =
+    process.platform === 'win32' ? 'dll' : process.platform === 'darwin' ? 'dylib' : 'so'
+  const packageName = `sqlite-vec-${os}-${process.arch}`
+  const candidates = [
+    join('/app/node_modules', packageName, `vec0.${suffix}`),
+    join('/app/node_modules/openclaw/node_modules', packageName, `vec0.${suffix}`),
+  ]
+  return candidates.find((candidate) => existsSync(candidate)) ?? ''
 }
 
 function listChildDirs(dir) {
@@ -561,11 +675,10 @@ function findGatewayEntry() {
   return 'openclaw' // Fallback to PATH
 }
 
-function startGateway(_healthServer) {
+function startGateway(_healthServer, configPath) {
   clearStaleRuntimeDependencyLocks()
 
   const entry = findGatewayEntry()
-  const configPath = join(OPENCLAW_STATE_DIR, 'openclaw.json')
   const gatewayPort = OPENCLAW_HTTP_PORT
 
   console.log(`[entrypoint] Starting OpenClaw gateway: ${entry}`)
@@ -664,7 +777,7 @@ function startGateway(_healthServer) {
         `[entrypoint] Gateway crashed (${gatewayRestarts}/${MAX_GATEWAY_RESTARTS}), restarting in ${RESTART_DELAY_MS}ms...`,
       )
       setTimeout(() => {
-        startGateway(_healthServer)
+        startGateway(_healthServer, configPath)
       }, RESTART_DELAY_MS)
     } else {
       console.log('[entrypoint] Gateway exceeded max restarts, shutting down container')
@@ -677,19 +790,19 @@ function startGateway(_healthServer) {
 
 // ─── Signal Handling ────────────────────────────────────────────────────────
 
-function setupSignalHandlers(proc) {
+function setupSignalHandlers() {
   const shutdown = (signal) => {
     console.log(`[entrypoint] Received ${signal}, shutting down...`)
     gatewayHealthy = false
 
-    if (proc && !proc.killed) {
-      proc.kill('SIGTERM')
+    if (gatewayProcess && !gatewayProcess.killed) {
+      gatewayProcess.kill('SIGTERM')
 
       // Force kill after 10s
       setTimeout(() => {
-        if (!proc.killed) {
+        if (gatewayProcess && !gatewayProcess.killed) {
           console.log('[entrypoint] Force killing gateway...')
-          proc.kill('SIGKILL')
+          gatewayProcess.kill('SIGKILL')
         }
         process.exit(0)
       }, 10_000)
@@ -719,9 +832,11 @@ async function main() {
     isPlainObject(openclawConfig.channels?.shadowob) &&
     openclawConfig.channels.shadowob.enabled !== false
 
-  // 2. Write config
+  // 2. Write config. Keep generated config out of ~/.openclaw so OpenClaw's
+  // state/config writer cannot clobber it and trigger a gateway reload loop.
   mkdirSync(OPENCLAW_STATE_DIR, { recursive: true })
-  const configPath = join(OPENCLAW_STATE_DIR, 'openclaw.json')
+  mkdirSync(RUNTIME_CONFIG_DIR, { recursive: true })
+  const configPath = RUNTIME_CONFIG_PATH
   writeFileSync(configPath, JSON.stringify(openclawConfig, null, 2), 'utf-8')
   console.log(`[entrypoint] Config written to ${configPath}`)
 
@@ -756,6 +871,8 @@ async function main() {
       `[entrypoint] ⚠ openclaw setup exited ${setupResult.status}: ${stderr || '(no output)'}`,
     )
   }
+  writeFileSync(configPath, JSON.stringify(openclawConfig, null, 2), 'utf-8')
+  console.log('[entrypoint] Runtime config restored after setup')
 
   // 2e. Overlay workspace files from ConfigMap (SOUL.md, AGENTS.md, etc.)
   // These are agent-specific files generated by the cloud config builder that
@@ -796,10 +913,10 @@ async function main() {
   warmBundledPluginRuntimeDeps(configPath)
 
   // 4. Start gateway
-  const proc = startGateway(healthServer)
+  startGateway(healthServer, configPath)
 
   // 5. Setup signal handlers
-  setupSignalHandlers(proc)
+  setupSignalHandlers()
 }
 
 main().catch((err) => {

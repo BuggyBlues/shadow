@@ -21,11 +21,7 @@ export function createUpCommand(container: ServiceContainer) {
       'kubectl context (default: rancher-desktop or KUBECONFIG_CONTEXT)',
     )
     .option('--state-dir <dir>', 'Subdirectory for provision state (default: .shadowob)')
-    .option(
-      '--image-pull-policy <policy>',
-      'imagePullPolicy: Always|IfNotPresent|Never',
-      'IfNotPresent',
-    )
+    .option('--image-pull-policy <policy>', 'imagePullPolicy: Always|IfNotPresent|Never')
     .option(
       '--pod-shadow-url <url>',
       'Shadow server URL as seen from inside K8s pods (e.g. http://host.lima.internal:3002)',
@@ -63,8 +59,7 @@ export function createUpCommand(container: ServiceContainer) {
             skipProvision: options.skipProvision,
             k8sContext: options.k8sContext,
             stateDir: options.stateDir,
-            imagePullPolicy:
-              (options.imagePullPolicy as 'Always' | 'IfNotPresent' | 'Never') ?? 'IfNotPresent',
+            imagePullPolicy: options.imagePullPolicy as 'Always' | 'IfNotPresent' | 'Never',
             k8sShadowUrl: options.podShadowUrl,
             local: options.local,
             cluster: options.cluster,

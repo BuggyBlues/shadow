@@ -3,8 +3,8 @@
  * for the subset of endpoints used by shared packages/ui pages.
  *
  * Pages that use LOCAL-ONLY features (doctor, validate, images, runtimes,
- * config, deploy-tasks, etc.) are NOT included in the web-saas router and
- * therefore never call those methods.
+ * config editor, etc.) are NOT included in the web-saas router and therefore
+ * never call those methods.
  *
  * Only the intersection of shared pages is wired here.
  */
@@ -62,8 +62,8 @@ const VISIBLE_DEPLOYMENT_STATUSES = new Set<SaasDeployment['status']>([
   'destroying',
 ])
 
-function deploymentSortTime(row: SaasDeployment): number {
-  return Date.parse(row.updatedAt || row.createdAt || '') || 0
+function deploymentCreatedTime(row: SaasDeployment): number {
+  return Date.parse(row.createdAt || row.updatedAt || '') || 0
 }
 
 function isVisibleDeployment(row: SaasDeployment): boolean {
@@ -75,12 +75,12 @@ function newestVisibleDeploymentsByNamespace(rows: SaasDeployment[]): SaasDeploy
   for (const row of rows) {
     if (!isVisibleDeployment(row)) continue
     const existing = byNamespace.get(row.namespace)
-    if (!existing || deploymentSortTime(row) >= deploymentSortTime(existing)) {
+    if (!existing || deploymentCreatedTime(row) >= deploymentCreatedTime(existing)) {
       byNamespace.set(row.namespace, row)
     }
   }
   return [...byNamespace.values()].sort(
-    (left, right) => deploymentSortTime(right) - deploymentSortTime(left),
+    (left, right) => deploymentCreatedTime(right) - deploymentCreatedTime(left),
   )
 }
 
@@ -169,10 +169,32 @@ function isActiveDeployment(row: SaasDeployment): boolean {
 }
 
 function deploymentTaskUrl(id: string): string {
-  return `/cloud/deploy-tasks/${encodeURIComponent(id)}`
+  return `/app/cloud/deploy-tasks/${encodeURIComponent(id)}`
 }
 
-function toDeployTaskItem(deployment: SaasDeployment) {
+function findBlockingTask(
+  deployment: SaasDeployment,
+  rows: SaasDeployment[],
+): SaasDeployment | null {
+  if (!isActiveDeployment(deployment)) return null
+
+  const queuedAt = deploymentCreatedTime(deployment)
+  const blockers = rows
+    .filter(
+      (row) =>
+        row.id !== deployment.id &&
+        row.namespace === deployment.namespace &&
+        row.clusterId === deployment.clusterId &&
+        isActiveDeployment(row) &&
+        deploymentCreatedTime(row) <= queuedAt,
+    )
+    .sort((left, right) => deploymentCreatedTime(left) - deploymentCreatedTime(right))
+
+  return blockers[0] ?? null
+}
+
+function toDeployTaskItem(deployment: SaasDeployment, rows: SaasDeployment[] = []) {
+  const blocker = deployment.blockedBy ?? findBlockingTask(deployment, rows)
   return {
     task: {
       id: deployment.id,
@@ -185,6 +207,15 @@ function toDeployTaskItem(deployment: SaasDeployment) {
       error: deployment.errorMessage,
       createdAt: deployment.createdAt,
       updatedAt: deployment.updatedAt,
+      blockedBy: blocker
+        ? {
+            id: blocker.id,
+            status: blocker.status,
+            namespace: blocker.namespace,
+            createdAt: blocker.createdAt,
+            updatedAt: blocker.updatedAt,
+          }
+        : null,
     },
     url: deploymentTaskUrl(deployment.id),
     active: isActiveDeployment(deployment),
@@ -394,10 +425,23 @@ export const saasApiAdapter: CloudApiClient & WalletApiExtension = {
         reviewNote: t.reviewNote ?? null,
         source: t.source as 'official' | 'community' | undefined,
       })),
-    save: (name: string, content: unknown, _templateSlug?: string) =>
-      saasApi.templates
-        .update(name, { content: content as Record<string, unknown> })
-        .then(() => ({ ok: true })),
+    save: async (name: string, content: unknown, _templateSlug?: string) => {
+      try {
+        await saasApi.templates.update(name, { content: content as Record<string, unknown> })
+        return { ok: true }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        if (!message.includes('failed: 404')) throw err
+
+        const slug = slugifyTemplateName(name) || 'template'
+        await saasApi.templates.create({
+          slug,
+          name,
+          content: content as Record<string, unknown>,
+        })
+        return { ok: true }
+      }
+    },
     fork: (sourceTemplate: string, newName?: string) =>
       saasApi.templates
         .get(sourceTemplate)
@@ -601,10 +645,15 @@ export const saasApiAdapter: CloudApiClient & WalletApiExtension = {
   deployTasks: {
     list: () =>
       saasApi.deployments.list({ limit: 100, offset: 0, includeHistory: true }).then((rows) => ({
-        tasks: rows.map(toDeployTaskItem),
+        tasks: rows.map((row) => toDeployTaskItem(row, rows)),
       })),
-    get: (id: number | string) =>
-      saasApi.deployments.get(String(id)).then((deployment) => toDeployTaskItem(deployment)),
+    get: async (id: number | string) => {
+      const [deployment, rows] = await Promise.all([
+        saasApi.deployments.get(String(id)),
+        saasApi.deployments.list({ limit: 100, offset: 0, includeHistory: true }),
+      ])
+      return toDeployTaskItem(deployment, rows)
+    },
     streamUrl: (id: number | string) => saasApi.deployments.logsUrl(String(id)),
     redeploy: async (id: number | string) => {
       const deployment = await saasApi.deployments.redeploy(String(id))
@@ -623,6 +672,7 @@ export const saasApiAdapter: CloudApiClient & WalletApiExtension = {
     },
     redeployUrl: (id: number | string) =>
       `${BASE}/deployments/${encodeURIComponent(String(id))}/redeploy`,
+    cancel: (id: number | string) => saasApi.deployments.cancel(String(id)),
   },
 
   // ── Env Vars (global scope in SaaS — stubs) ──────────────────────────────
@@ -679,10 +729,14 @@ export const saasApiAdapter: CloudApiClient & WalletApiExtension = {
     if (!namespace) return { ok: true }
     const deployment = await resolveDeploymentByNamespace(namespace)
     if (!deployment) return { ok: true }
-    await saasApi.deployments.delete(deployment.id)
-    deploymentCacheByNamespace.delete(namespace)
-    deploymentCacheById.delete(deployment.id)
-    return { ok: true }
+    const result = await saasApi.deployments.delete(deployment.id)
+    if (result.taskId) {
+      const destroyTask = await saasApi.deployments.get(String(result.taskId)).catch(() => null)
+      if (destroyTask) {
+        syncDeploymentCache([destroyTask])
+      }
+    }
+    return result
   },
 
   rollback: async (options: { namespace: string }) => ({
@@ -784,6 +838,7 @@ export const saasApiAdapter: CloudApiClient & WalletApiExtension = {
       id: deployment.id,
       status: deployment.status,
       errorMessage: deployment.errorMessage,
+      shadowServerId: deployment.shadowServerId,
     }
   },
 

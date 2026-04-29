@@ -85,7 +85,7 @@ Authorization: Bearer <token>
 | POST   | `/api/cloud-saas/deployments/:id/cancel` | 请求取消 pending / deploying 状态的尝试 |
 | GET    | `/api/cloud-saas/deployments/:id/logs`   | 流式读取部署日志 |
 
-部署表记录的是历史尝试；稳定的部署实例由用户、集群和命名空间共同确定。重复创建同一存活命名空间、对历史尝试执行重新部署或销毁、或者在命名空间已有操作运行时继续变更，都会返回 `409`。
+部署表记录的是历史尝试；稳定的部署实例由用户、集群和命名空间共同确定。`GET /api/cloud-saas/deployments` 和 `GET /api/cloud-saas/deployments/:id` 会在前置活跃任务占用命名空间队列时返回 `blockedBy`，并在部署通过 shadowob 插件创建了 Shadow 服务器后返回 `shadowServerId`。重复创建同一存活命名空间、对历史尝试执行重新部署或销毁、或者在命名空间已有操作运行时继续变更，都会返回 `409`。
 
 ## Cloud SaaS 模型供应商 Profiles
 

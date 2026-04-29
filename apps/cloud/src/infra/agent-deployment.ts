@@ -16,6 +16,7 @@ import {
   PULUMI_MANAGED_ANNOTATIONS,
   probesForRuntime,
 } from './constants.js'
+import { resolveImagePullPolicy } from './image-pull-policy.js'
 import { collectPluginK8sArtifacts } from './plugin-k8s.js'
 import { buildContainerSecurityContext, buildSecurityContext } from './security.js'
 
@@ -33,8 +34,8 @@ export interface AgentDeploymentOptions {
    * Image pull policy.
    * Use 'IfNotPresent' for locally built images (Rancher Desktop / local K8s).
    * Use 'Always' for registry images that may be updated.
-   * Defaults to 'IfNotPresent' when image tag is 'latest' or contains 'local',
-   * otherwise 'IfNotPresent'.
+   * Defaults to 'Always' for mutable registry tags such as latest, and
+   * 'IfNotPresent' for local or immutable tags.
    */
   imagePullPolicy?: 'Always' | 'IfNotPresent' | 'Never'
   /** Shared workspace PVC name (when enabled) */
@@ -67,8 +68,7 @@ export function createAgentDeployment(options: AgentDeploymentOptions) {
   const healthPort = healthPortForRuntime(agent.runtime)
   const { livenessProbe, readinessProbe, startupProbe } = probesForRuntime(agent.runtime)
 
-  // Default to IfNotPresent — works for local builds (Rancher Desktop) and cached registry images
-  const imagePullPolicy = options.imagePullPolicy ?? 'IfNotPresent'
+  const imagePullPolicy = resolveImagePullPolicy(options.imagePullPolicy, image)
 
   // Merge user-provided env with runtime adapter env
   const runtimeEnv = getRuntime(agent.runtime).extraEnv(agent)
