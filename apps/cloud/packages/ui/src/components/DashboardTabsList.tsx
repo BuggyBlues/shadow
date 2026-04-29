@@ -1,5 +1,6 @@
 import { TabsList, TabsTrigger } from '@shadowob/ui'
 import type { ReactNode } from 'react'
+import { cn } from '@/lib/utils'
 
 export interface TabItem {
   id: string
@@ -10,11 +11,17 @@ export interface TabItem {
 
 interface DashboardTabsListProps {
   tabs: TabItem[]
+  className?: string
 }
 
-export function DashboardTabsList({ tabs }: DashboardTabsListProps) {
+export function DashboardTabsList({ tabs, className }: DashboardTabsListProps) {
   return (
-    <TabsList className="flex h-auto w-full flex-nowrap justify-start gap-1 border-[var(--glass-line)] bg-white/[0.03] shadow-[inset_0_1px_0_var(--glass-line-soft)] overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+    <TabsList
+      className={cn(
+        'flex h-auto flex-nowrap justify-start gap-1 border-[var(--glass-line)] bg-white/[0.03] shadow-[inset_0_1px_0_var(--glass-line-soft)] overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden',
+        className,
+      )}
+    >
       {tabs.map((tab) => (
         <TabsTrigger
           key={tab.id}

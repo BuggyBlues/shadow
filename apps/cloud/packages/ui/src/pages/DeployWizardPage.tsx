@@ -1,4 +1,17 @@
-import { Badge, Button, Checkbox, GlassPanel, Input, SecretInput } from '@shadowob/ui'
+import {
+  Badge,
+  Button,
+  Checkbox,
+  GlassPanel,
+  Input,
+  Modal,
+  ModalBody,
+  ModalButtonGroup,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  SecretInput,
+} from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import {
@@ -1040,6 +1053,7 @@ function StepDeploy({
   const api = useApiClient()
   const { t, i18n } = useTranslation()
   const logRef = useRef<HTMLDivElement>(null)
+  const shouldAutoScrollLogRef = useRef(true)
   const toast = useToast()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -1048,7 +1062,7 @@ function StepDeploy({
   const { lines, status, error: sseError, connect, startFetch, disconnect, clear } = useSSEStream()
   const [deployStarted, setDeployStarted] = useState(false)
   const [deploySuccess, setDeploySuccess] = useState<boolean | null>(null)
-  const [taskInfo, setTaskInfo] = useState<{ id: number; url: string } | null>(null)
+  const [taskInfo, setTaskInfo] = useState<{ id: number | string; url: string } | null>(null)
   const [activeDeploymentId, setActiveDeploymentId] = useState<string | null>(null)
   const [deploymentStatus, setDeploymentStatus] = useState<
     | 'pending'
@@ -1061,6 +1075,8 @@ function StepDeploy({
     | null
   >(null)
   const [cancelRequested, setCancelRequested] = useState(false)
+  const [successModalOpen, setSuccessModalOpen] = useState(false)
+  const [shadowServerId, setShadowServerId] = useState<string | null>(null)
   const terminalHandledRef = useRef(false)
   const { data: detailData } = useQuery({
     queryKey: ['template-detail', name, i18n.language],
@@ -1122,16 +1138,24 @@ function StepDeploy({
         | 'destroying'
         | 'destroyed'
       errorMessage?: string | null
+      shadowServerId?: string | null
     }>
     deploymentLogsUrlFn?: (deploymentId: string) => string
     cancelDeploymentFn?: (deploymentId: string) => Promise<{ ok: boolean; status?: string }>
   }
 
-  // Auto-scroll log
+  const handleLogScroll = useCallback(() => {
+    const el = logRef.current
+    if (!el) return
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    shouldAutoScrollLogRef.current = distanceFromBottom < 64
+  }, [])
+
+  // Follow new log output only while the user is still reading near the bottom.
   useEffect(() => {
-    if (logRef.current) {
-      logRef.current.scrollTop = logRef.current.scrollHeight
-    }
+    const el = logRef.current
+    if (!el || !shouldAutoScrollLogRef.current) return
+    el.scrollTop = el.scrollHeight
   }, [lines.length])
 
   const finalizeSuccessfulDeployment = useCallback(async () => {
@@ -1139,6 +1163,7 @@ function StepDeploy({
     terminalHandledRef.current = true
     setDeploySuccess(true)
     setDeploymentStatus('deployed')
+    setSuccessModalOpen(true)
 
     const envEntries = Object.entries(config.envVars).filter(
       ([, v]) => v && v !== '__SAVED__' && v.trim() !== '',
@@ -1165,7 +1190,6 @@ function StepDeploy({
     queryClient.invalidateQueries({ queryKey: ['namespace-costs', targetNamespace] })
     queryClient.invalidateQueries({ queryKey: ['cost-overview'] })
     queryClient.invalidateQueries({ queryKey: ['deployment-cost-overview'] })
-    toast.success(t('deploy.successfullyDeployed', { name }))
   }, [
     addActivity,
     addRecentDeploy,
@@ -1173,9 +1197,7 @@ function StepDeploy({
     config.envVars,
     name,
     queryClient,
-    t,
     targetNamespace,
-    toast,
   ])
 
   const finalizeFailedDeployment = useCallback(
@@ -1230,6 +1252,9 @@ function StepDeploy({
           if (!current || cancelled) return
 
           setDeploymentStatus(current.status)
+          if (current.shadowServerId) {
+            setShadowServerId(current.shadowServerId)
+          }
 
           if (current.status === 'deployed') {
             await finalizeSuccessfulDeployment()
@@ -1288,6 +1313,9 @@ function StepDeploy({
     setActiveDeploymentId(null)
     setDeploymentStatus(null)
     setCancelRequested(false)
+    setSuccessModalOpen(false)
+    setShadowServerId(null)
+    shouldAutoScrollLogRef.current = true
     disconnect()
     clear()
 
@@ -1340,6 +1368,10 @@ function StepDeploy({
         }
 
         setActiveDeploymentId(result.deploymentId)
+        setTaskInfo({
+          id: result.deploymentId,
+          url: `/app/cloud/deploy-tasks/${encodeURIComponent(result.deploymentId)}`,
+        })
         setDeploymentStatus(result.status ?? 'pending')
         return
       } else {
@@ -1426,6 +1458,9 @@ function StepDeploy({
     setActiveDeploymentId(null)
     setDeploymentStatus(null)
     setCancelRequested(false)
+    setSuccessModalOpen(false)
+    setShadowServerId(null)
+    shouldAutoScrollLogRef.current = true
   }
 
   const isDeploying =
@@ -1435,6 +1470,16 @@ function StepDeploy({
   const isCancelling = deploymentStatus === 'cancelling'
   const isDone = deploySuccess === true
   const isError = deploySuccess === false
+  const openSuccessTarget = () => {
+    if (shadowServerId) {
+      window.location.assign(`/app/servers/${encodeURIComponent(shadowServerId)}`)
+      return
+    }
+    navigate({
+      to: '/deployments/$namespace',
+      params: { namespace: targetNamespace },
+    })
+  }
 
   return (
     <div className="space-y-6">
@@ -1594,11 +1639,11 @@ function StepDeploy({
           {/* Status bar */}
           <div
             className={cn(
-              'flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between',
-              isDone && 'bg-success/8 border-success/25',
-              isError && 'bg-danger/8 border-danger/25',
-              isCancelling && 'bg-warning/8 border-warning/25',
-              isDeploying && 'bg-primary/8 border-primary/25',
+              'flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between',
+              isDone && 'border-success/20 bg-success/8',
+              isError && 'border-danger/20 bg-danger/8',
+              isCancelling && 'border-warning/20 bg-warning/8',
+              isDeploying && 'border-primary/20 bg-primary/8',
             )}
           >
             <div className="flex items-center gap-3">
@@ -1684,8 +1729,8 @@ function StepDeploy({
           )}
 
           {/* Log viewer */}
-          <div className="bg-bg-deep border border-border-subtle rounded-lg overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-border-subtle bg-bg-secondary/50">
+          <div className="overflow-hidden rounded-xl border border-border-subtle/35 bg-bg-deep/95 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+            <div className="flex items-center justify-between border-b border-border-subtle/30 bg-bg-secondary/30 px-4 py-2.5">
               <span className="text-xs text-text-muted font-medium">
                 {t('deploy.deploymentLog')}
               </span>
@@ -1698,7 +1743,8 @@ function StepDeploy({
             </div>
             <div
               ref={logRef}
-              className="min-h-[16rem] max-h-[28rem] overflow-auto p-4 font-mono text-xs text-text-secondary space-y-1"
+              onScroll={handleLogScroll}
+              className="h-[min(42vh,30rem)] min-h-[18rem] overflow-auto p-4 font-mono text-xs text-text-secondary space-y-1 overscroll-contain"
             >
               {lines.length === 0 && isDeploying && (
                 <span className="text-text-muted">{t('deploy.initializingDeployment')}</span>
@@ -1717,59 +1763,65 @@ function StepDeploy({
             </div>
           )}
 
-          {/* Post-deploy actions */}
           {isDone && (
-            <div className="text-center py-8">
-              <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-4">
-                <CheckCircle2 size={32} className="text-success" />
-              </div>
-              <h3 className="text-xl font-semibold text-success mb-2">
-                {t('deploy.deploymentSuccessful')}
-              </h3>
-              <p className="text-sm text-text-secondary mb-8">
-                {t('deploy.agentRunningInNamespace', { namespace: targetNamespace })}
-              </p>
-
-              {/* What's Next cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left max-w-2xl mx-auto">
-                <Button
-                  onClick={() => {
-                    if (!taskInfo) return
-                    navigate({
-                      to: '/deploy-tasks/$taskId',
-                      params: { taskId: String(taskInfo.id) },
-                    })
-                  }}
-                  variant="ghost"
-                  className="h-auto rounded-lg border border-border-subtle bg-bg-secondary/50 p-4 transition-colors group hover:bg-bg-secondary"
-                >
-                  <Server size={20} className="text-text-secondary mb-2" />
-                  <div className="text-sm font-medium text-text-secondary group-hover:text-text-primary">
-                    {t('deployTask.openTask')}
+            <Modal open={successModalOpen} onClose={() => setSuccessModalOpen(false)}>
+              <ModalContent size="md" className="border-success/20">
+                <ModalHeader
+                  icon={<CheckCircle2 size={20} className="text-success" />}
+                  title={t('deploy.deploymentSuccessful')}
+                  subtitle={t(
+                    shadowServerId
+                      ? 'deploy.shadowServerReadyDescription'
+                      : 'deploy.namespaceReadyDescription',
+                    { namespace: targetNamespace },
+                  )}
+                  closeLabel={t('common.close')}
+                />
+                <ModalBody className="space-y-4">
+                  <div className="rounded-2xl border border-border-subtle/45 bg-bg-secondary/25 px-4 py-3">
+                    <p className="text-xs font-medium text-text-muted">{t('deploy.namespace')}</p>
+                    <p className="mt-1 font-mono text-sm text-text-primary">{targetNamespace}</p>
                   </div>
-                  <p className="text-xs text-text-muted mt-1">
-                    {t('deployTask.openTaskDescription')}
-                  </p>
-                </Button>
-                <Button
-                  onClick={() =>
-                    navigate({
-                      to: '/deployments/$namespace',
-                      params: { namespace: targetNamespace },
-                    })
-                  }
-                  variant="ghost"
-                >
-                  <Activity size={20} className="text-text-secondary mb-2" />
-                  <div className="text-sm font-medium text-text-secondary group-hover:text-text-primary">
-                    {t('deploy.openNamespace')}
-                  </div>
-                  <p className="text-xs text-text-muted mt-1">
-                    {t('deploy.openNamespaceDescription')}
-                  </p>
-                </Button>
-              </div>
-            </div>
+                  {taskInfo && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigate({
+                          to: '/deploy-tasks/$taskId',
+                          params: { taskId: String(taskInfo.id) },
+                        })
+                      }
+                      className="flex w-full items-center gap-3 rounded-2xl border border-border-subtle/45 bg-bg-secondary/20 px-4 py-3 text-left transition-colors hover:border-primary/25 hover:bg-primary/5"
+                    >
+                      <Server size={18} className="text-text-muted" />
+                      <span>
+                        <span className="block text-sm font-semibold text-text-primary">
+                          {t('deployTask.openTask')}
+                        </span>
+                        <span className="block text-xs text-text-muted">
+                          {t('deployTask.openTaskDescription')}
+                        </span>
+                      </span>
+                    </button>
+                  )}
+                </ModalBody>
+                <ModalFooter>
+                  <ModalButtonGroup>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setSuccessModalOpen(false)}
+                    >
+                      {t('common.close')}
+                    </Button>
+                    <Button type="button" variant="primary" onClick={openSuccessTarget}>
+                      <FolderOpen size={14} />
+                      {shadowServerId ? t('deploy.openShadowServer') : t('deploy.openNamespace')}
+                    </Button>
+                  </ModalButtonGroup>
+                </ModalFooter>
+              </ModalContent>
+            </Modal>
           )}
           {isError && (
             <div className="flex items-center gap-3">
@@ -1812,9 +1864,9 @@ export function DeployWizardPage() {
 
   return (
     <div className="mx-auto max-w-4xl">
-      <GlassPanel className="overflow-hidden p-0">
+      <GlassPanel className="overflow-hidden border border-border-subtle/35 p-0 shadow-[0_24px_90px_rgba(0,0,0,0.28)]">
         {/* Sticky top header */}
-        <div className="sticky top-0 z-20 border-b border-border-subtle/70 bg-bg-base/72 backdrop-blur-[16px]">
+        <div className="sticky top-0 z-20 border-b border-border-subtle/35 bg-bg-base/60 backdrop-blur-[16px]">
           <div className="px-4 py-4 md:px-6">
             <Breadcrumb
               items={[
@@ -1842,12 +1894,12 @@ export function DeployWizardPage() {
                       disabled={!isClickable}
                       onClick={() => isClickable && setCurrentStep(index)}
                       className={cn(
-                        'group rounded-xl border border-border-subtle/45 px-3 py-2 text-left transition-colors',
+                        'group rounded-xl border border-border-subtle/28 px-3 py-2 text-left transition-colors',
                         isClickable ? 'cursor-pointer' : 'cursor-default',
                         status === 'active' &&
-                          'border-primary/35 bg-primary/10 shadow-[0_0_0_1px_rgba(0,243,255,0.08)_inset]',
+                          'border-primary/30 bg-primary/10 shadow-[0_0_0_1px_rgba(0,243,255,0.05)_inset]',
                         status === 'completed' &&
-                          'border-success/28 bg-success/8 hover:border-success/40 hover:bg-success/12',
+                          'border-success/22 bg-success/8 hover:border-success/35 hover:bg-success/12',
                         status === 'upcoming' && 'bg-bg-secondary/40 text-text-muted',
                       )}
                     >

@@ -709,15 +709,20 @@ export function DeploymentDetailPage() {
 
   const destroyMutation = useMutation({
     mutationFn: () => api.destroy({ namespace }),
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['deployments'] })
-      toast.success(t('deploymentDetail.destroySuccess', { namespace }))
+      queryClient.invalidateQueries({ queryKey: ['deploy-tasks'] })
+      toast.success(t('deployments.destroyQueued', { namespace }))
       addActivity({
         type: 'destroy',
-        title: t('deploymentDetail.destroyActivityTitle', { namespace }),
+        title: t('deploymentDetail.destroyQueuedActivityTitle', { namespace }),
         namespace,
       })
-      navigate({ to: '/deployments' })
+      if (result.taskId) {
+        navigate({ to: '/deploy-tasks/$taskId', params: { taskId: String(result.taskId) } })
+      } else {
+        navigate({ to: '/deployments' })
+      }
     },
     onError: () => toast.error(t('deployments.destroyNamespaceFailed')),
   })
@@ -725,7 +730,13 @@ export function DeploymentDetailPage() {
   const handleRedeploy = async () => {
     // Find the latest task for this namespace
     const tasksResp = await api.deployTasks.list()
-    const nsTasks = tasksResp.tasks.filter((t) => t.task.namespace === namespace)
+    const nsTasks = tasksResp.tasks
+      .filter((t) => t.task.namespace === namespace)
+      .sort((left, right) => {
+        const leftTime = Date.parse(left.task.createdAt ?? left.task.updatedAt ?? '') || 0
+        const rightTime = Date.parse(right.task.createdAt ?? right.task.updatedAt ?? '') || 0
+        return rightTime - leftTime
+      })
     const latest = nsTasks[0]
     if (!latest) {
       toast.error(t('deployments.noTaskToRedeploy'))

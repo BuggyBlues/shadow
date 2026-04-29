@@ -2,7 +2,11 @@ import {
   Badge,
   Button,
   Card,
-  NativeSelect,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Table,
   TableBody,
   TableCell,
@@ -37,13 +41,13 @@ import { useTranslation } from 'react-i18next'
 import { Breadcrumb } from '@/components/Breadcrumb'
 import { DangerConfirmDialog } from '@/components/DangerConfirmDialog'
 import { DashboardEmptyState } from '@/components/DashboardEmptyState'
-import { DashboardNamespaceCard } from '@/components/DashboardNamespaceCard'
 import { DashboardTabsList } from '@/components/DashboardTabsList'
 import { EnvVarEditorDialog } from '@/components/EnvVarEditorDialog'
 import { LogsPanel } from '@/components/LogsPanel'
-import { StatCard } from '@/components/StatCard'
+import { MetricCardContent, MetricCardWrapper } from '@/components/MetricCard'
+import { PageShell } from '@/components/PageShell'
+import { StatsGrid } from '@/components/StatsGrid'
 import { StatusBadge } from '@/components/StatusBadge'
-import { StatusDot } from '@/components/StatusDot'
 import { ToolbarActionButton } from '@/components/ToolbarActionButton'
 import { useSSEStream } from '@/hooks/useSSEStream'
 import {
@@ -97,79 +101,6 @@ function getProviderMetricDisplay(
     primary: usdText,
     secondary: tokenText ?? usageText,
   }
-}
-
-function AgentCard({
-  deployment,
-  selected,
-  onSelect,
-  onOpenLogs,
-}: {
-  deployment: Deployment
-  selected: boolean
-  onSelect: () => void
-  onOpenLogs: () => void
-}) {
-  const { t } = useTranslation()
-  const ready = isDeploymentReady(deployment.ready)
-
-  return (
-    <div
-      className={cn(
-        'min-w-0 rounded-xl border p-4 transition-colors',
-        selected
-          ? 'border-primary/60 bg-primary/10'
-          : 'border-border-subtle bg-bg-secondary hover:border-border-dim',
-      )}
-    >
-      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <button
-          type="button"
-          onClick={onSelect}
-          className={cn(
-            'flex min-w-0 flex-1 items-start gap-3 rounded-xl border px-3 py-3 text-left transition-colors',
-            selected
-              ? 'border-primary/50 bg-primary/8'
-              : 'border-border-subtle/70 bg-bg-base/30 hover:border-border-dim',
-          )}
-        >
-          <StatusDot status={ready ? 'success' : 'warning'} pulse={!ready} />
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="min-w-0 truncate text-sm font-mono text-text-primary">
-                {deployment.name}
-              </p>
-              {selected && (
-                <Badge variant="info" size="sm">
-                  {t('deployments.currentSelection')}
-                </Badge>
-              )}
-            </div>
-            <p className="mt-1 text-xs text-text-muted">{getAge(deployment.age)}</p>
-          </div>
-        </button>
-
-        <Button
-          type="button"
-          onClick={onOpenLogs}
-          variant="ghost"
-          size="sm"
-          className="self-start whitespace-normal normal-case tracking-normal transition-[background-color,border-color,color,box-shadow,transform] duration-[160ms] ease active:translate-y-[0.5px] focus-visible:outline-none"
-        >
-          {t('deployments.tabLogs')}
-        </Button>
-      </div>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <StatusBadge
-          dotStatus={ready ? 'success' : 'warning'}
-          pulse={!ready}
-          badgeVariant={ready ? 'success' : 'warning'}
-          badgeText={deployment.ready}
-        />
-      </div>
-    </div>
-  )
 }
 
 function PodsPanel({
@@ -254,30 +185,39 @@ function PodsPanel({
   )
 }
 
-function NamespaceLogsTab({ namespace, agent }: { namespace: string; agent: string | null }) {
+function NamespaceLogsTab({
+  namespace,
+  agent,
+  deployments,
+  onSelectAgent,
+}: {
+  namespace: string
+  agent: string | null
+  deployments: Deployment[]
+  onSelectAgent: (agent: string) => void
+}) {
   const api = useApiClient()
   const { t } = useTranslation()
   const logRef = useRef<HTMLDivElement>(null)
-  const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState(200)
   const { lines, status, error, connect, disconnect, clear } = useSSEStream({
     maxLines: 4000,
   })
+  const [logMode, setLogMode] = useState<'recent' | 'live'>('recent')
+  const isLiveMode = logMode === 'live'
 
   const {
     data: history,
     isLoading,
     refetch,
   } = useQuery({
-    queryKey: ['deployment-log-history', namespace, agent, page, limit],
-    queryFn: () => api.deployments.logsHistory(namespace, agent ?? '', page, limit),
-    enabled: Boolean(agent),
+    queryKey: ['deployment-log-history', namespace, logMode],
+    queryFn: () => api.deployments.logsHistory(namespace, ''),
+    enabled: logMode === 'recent' && deployments.length > 0,
   })
 
   useEffect(() => {
     disconnect()
     clear()
-    setPage(1)
   }, [agent, namespace, disconnect, clear])
 
   useEffect(() => {
@@ -291,7 +231,6 @@ function NamespaceLogsTab({ namespace, agent }: { namespace: string; agent: stri
     () => lines.map((line) => (line.startsWith('i18n:') ? t(line.slice(5)) : line)),
     [lines, t],
   )
-
   const handleConnect = () => {
     if (!agent) return
     connect(api.deployments.logsUrl(namespace, agent))
@@ -299,7 +238,10 @@ function NamespaceLogsTab({ namespace, agent }: { namespace: string; agent: stri
 
   const handleDownload = () => {
     const historyLines = history?.lines ?? []
-    const content = [...historyLines, '', '--- LIVE ---', ...liveLines].join('\n')
+    const content =
+      logMode === 'recent'
+        ? historyLines.join('\n')
+        : [...historyLines, '', '--- LIVE ---', ...liveLines].join('\n')
     const blob = new Blob([content], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
@@ -309,133 +251,132 @@ function NamespaceLogsTab({ namespace, agent }: { namespace: string; agent: stri
     URL.revokeObjectURL(url)
   }
 
-  if (!agent) {
+  if (deployments.length === 0) {
     return (
       <DashboardEmptyState
         icon={FileText}
-        title={t('deployments.noAgentSelected')}
-        description={t('deployments.selectAgentForLogs')}
+        title={t('deployments.noDeploymentsInNamespace')}
+        description={t('deployments.noDeploymentsInNamespaceDescription', { namespace })}
       />
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-semibold text-text-primary">{t('deployments.recentLogs')}</h3>
-          <p className="text-xs text-text-muted">
-            {t('deployments.logsHistoryDescription', { agent })}
-          </p>
+    <div className="space-y-6 min-w-0">
+      <div className="flex items-start justify-between gap-3">
+        <div className="shrink-0">
+          <Tabs value={logMode} onChange={(value) => setLogMode(value as 'recent' | 'live')}>
+            <DashboardTabsList
+              className="w-fit"
+              tabs={[
+                { id: 'recent', label: t('deployments.recentLogs') },
+                { id: 'live', label: t('deployments.liveLogs') },
+              ]}
+            />
+          </Tabs>
         </div>
-        <div className="flex items-center gap-2">
-          <NativeSelect
-            value={String(limit)}
-            onChange={(event) => {
-              setLimit(Number(event.target.value))
-              setPage(1)
-            }}
-          >
-            {[100, 200, 500].map((value) => (
-              <option key={value} value={value}>
-                {t('deployments.linesPerPage', { count: value })}
-              </option>
-            ))}
-          </NativeSelect>
-          <ToolbarActionButton
-            type="button"
-            onClick={() => refetch()}
-            variant="ghost"
-            icon={<RefreshCw size={12} />}
-            label={t('common.refresh')}
-          />
-          <ToolbarActionButton
-            type="button"
-            onClick={handleDownload}
-            variant="ghost"
-            icon={<Download size={12} />}
-            label={t('deploy.download')}
-          />
-        </div>
-      </div>
 
-      <LogsPanel
-        headerLeft={
-          <>
-            <span className="font-medium text-text-secondary">{agent}</span>
-            {history?.podName ? <span> · {history.podName}</span> : null}
-            <span> · {t('deployments.pageLabel', { page })}</span>
-          </>
-        }
-        headerRight={
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
-              disabled={page === 1}
-              variant="ghost"
-              size="sm"
-            >
-              {t('deployments.newerLogs')}
-            </Button>
-            <Button
-              type="button"
-              onClick={() => setPage((current) => current + 1)}
-              disabled={!history?.hasMore}
-              variant="ghost"
-              size="sm"
-            >
-              {t('deployments.olderLogs')}
-            </Button>
-          </div>
-        }
-        lines={isLoading ? [] : (history?.lines ?? [])}
-        emptyText={isLoading ? t('common.loading') : t('deployments.noLogsYet')}
-      />
-
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-semibold text-text-primary">{t('deployments.liveLogs')}</h3>
-            <p className="text-xs text-text-muted">{t('deployments.liveLogsDescription')}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            {(liveLines.length > 0 || connected) && (
-              <Button
-                type="button"
-                onClick={() => {
-                  disconnect()
-                  clear()
+        <div className="ml-auto flex shrink-0 flex-col justify-end gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {isLiveMode ? (
+              <Select
+                value={agent ?? ''}
+                onValueChange={(value) => {
+                  onSelectAgent(value)
                 }}
-                variant="ghost"
-                size="sm"
               >
-                {t('common.clearAll')}
-              </Button>
-            )}
+                <SelectTrigger className="w-[240px]">
+                  <SelectValue placeholder={t('deployments.agentSelector')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {deployments.map((deployment) => (
+                    <SelectItem
+                      key={`${deployment.namespace}/${deployment.name}`}
+                      value={deployment.name}
+                    >
+                      {deployment.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
+
+            {!isLiveMode ? (
+              <ToolbarActionButton
+                type="button"
+                onClick={() => refetch()}
+                variant="ghost"
+                icon={<RefreshCw size={12} />}
+                label={t('common.refresh')}
+              />
+            ) : null}
+
             <ToolbarActionButton
               type="button"
-              onClick={handleConnect}
-              variant={connected ? 'secondary' : 'ghost'}
-              icon={<RefreshCw size={12} className={connected ? 'animate-spin' : ''} />}
-              label={connected ? t('deployments.streaming') : t('deployments.connectLogs')}
+              onClick={handleDownload}
+              variant="ghost"
+              icon={<Download size={12} />}
+              label={t('deploy.download')}
             />
           </div>
         </div>
-
-        {error && (
-          <div className="text-xs text-red-400 bg-red-900/20 border border-red-900/30 rounded-lg px-4 py-2">
-            {error}
-          </div>
-        )}
-
-        <LogsPanel
-          headerLeft={`${namespace}/${agent}`}
-          lines={liveLines}
-          emptyText={connected ? t('deployments.waitingForLogs') : t('deployments.connectLiveLogs')}
-          bodyRef={logRef}
-        />
       </div>
+
+      {logMode === 'recent' ? (
+        <LogsPanel
+          headerLeft={
+            <>
+              <span className="font-medium text-text-secondary">{namespace}</span>
+              {history?.podName ? <span> · {history.podName}</span> : null}
+            </>
+          }
+          lines={isLoading ? [] : (history?.lines ?? [])}
+          emptyText={isLoading ? t('common.loading') : t('deployments.noLogsYet')}
+          bodyClassName="h-80 max-h-80 min-h-80 overflow-auto"
+        />
+      ) : (
+        <>
+          {error && (
+            <div className="text-xs text-red-400 bg-red-900/20 border border-red-900/30 rounded-lg px-4 py-2">
+              {error}
+            </div>
+          )}
+
+          <LogsPanel
+            headerLeft={`${namespace}/${agent}`}
+            headerRight={
+              <>
+                {(liveLines.length > 0 || connected) && (
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      disconnect()
+                      clear()
+                    }}
+                    variant="ghost"
+                    size="sm"
+                  >
+                    {t('common.clearAll')}
+                  </Button>
+                )}
+                <ToolbarActionButton
+                  type="button"
+                  onClick={handleConnect}
+                  variant={connected ? 'secondary' : 'primary'}
+                  icon={<RefreshCw size={12} className={connected ? 'animate-spin' : ''} />}
+                  label={connected ? t('deployments.streaming') : t('deployments.connectLogs')}
+                />
+              </>
+            }
+            lines={liveLines}
+            emptyText={
+              connected ? t('deployments.waitingForLogs') : t('deployments.connectLiveLogs')
+            }
+            bodyRef={logRef}
+            bodyClassName="h-80 max-h-80 min-h-80 overflow-auto"
+          />
+        </>
+      )}
     </div>
   )
 }
@@ -726,32 +667,44 @@ function NamespaceCostTab({ namespace }: { namespace: string }) {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label={t('deployments.tokenCost')}
-          value={formatUsdCost(data.totalUsd, i18n.language)}
-          icon={<DollarSign size={13} />}
-          color="green"
-        />
-        <StatCard
-          label={t('deployments.totalTokens')}
-          value={formatTokenCount(data.totalTokens, i18n.language)}
-          icon={<Terminal size={13} />}
-          color="purple"
-        />
-        <StatCard
-          label={t('deployments.availableAgents')}
-          value={data.availableAgents}
-          icon={<CheckCircle size={13} />}
-          color="blue"
-        />
-        <StatCard
-          label={t('deployments.unavailableAgents')}
-          value={data.unavailableAgents}
-          icon={<XCircle size={13} />}
-          color={data.unavailableAgents > 0 ? 'yellow' : 'default'}
-        />
-      </div>
+      <StatsGrid className="mb-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCardWrapper>
+          <MetricCardContent
+            label={t('deployments.tokenCost')}
+            value={formatUsdCost(data.totalUsd, i18n.language)}
+            icon={<DollarSign size={13} />}
+            iconClassName="text-success"
+            valueClassName="text-success"
+          />
+        </MetricCardWrapper>
+        <MetricCardWrapper>
+          <MetricCardContent
+            label={t('deployments.totalTokens')}
+            value={formatTokenCount(data.totalTokens, i18n.language)}
+            icon={<Terminal size={13} />}
+            iconClassName="text-accent"
+            valueClassName="text-accent"
+          />
+        </MetricCardWrapper>
+        <MetricCardWrapper>
+          <MetricCardContent
+            label={t('deployments.availableAgents')}
+            value={data.availableAgents}
+            icon={<CheckCircle size={13} />}
+            iconClassName="text-primary"
+            valueClassName="text-primary"
+          />
+        </MetricCardWrapper>
+        <MetricCardWrapper>
+          <MetricCardContent
+            label={t('deployments.unavailableAgents')}
+            value={data.unavailableAgents}
+            icon={<XCircle size={13} />}
+            iconClassName={data.unavailableAgents > 0 ? 'text-warning' : 'text-text-muted'}
+            valueClassName={data.unavailableAgents > 0 ? 'text-warning' : 'text-text-muted'}
+          />
+        </MetricCardWrapper>
+      </StatsGrid>
 
       <div className="text-xs text-text-muted">
         {t('deployments.generatedAt')}: {formatTimestamp(data.generatedAt)}
@@ -759,10 +712,7 @@ function NamespaceCostTab({ namespace }: { namespace: string }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {data.agents.map((agent) => (
-          <div
-            key={agent.agentName}
-            className="min-w-0 rounded-xl border border-border-subtle bg-bg-secondary p-5"
-          >
+          <Card variant="glass" key={agent.agentName} className="min-w-0 p-5">
             <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
@@ -774,7 +724,7 @@ function NamespaceCostTab({ namespace }: { namespace: string }) {
                 <p className="text-xs text-text-muted mt-1">{agent.podName ?? t('common.none')}</p>
               </div>
               <div className="min-w-0 text-left md:max-w-[14rem] md:text-right">
-                <p className="break-words text-lg font-semibold leading-tight text-green-400">
+                <p className="break-words text-lg font-semibold leading-tight text-success">
                   {formatDisplayCost(agent, {
                     locale: i18n.language,
                     shrimpUnitLabel: t('deploy.shrimpCoins'),
@@ -817,9 +767,9 @@ function NamespaceCostTab({ namespace }: { namespace: string }) {
             )}
 
             {agent.message && (
-              <p className="text-xs text-yellow-500 mt-3">{translateCostMessage(agent.message)}</p>
+              <p className="text-xs text-warning mt-3">{translateCostMessage(agent.message)}</p>
             )}
-          </div>
+          </Card>
         ))}
       </div>
     </div>
@@ -843,36 +793,36 @@ function NamespaceInfoTab({
 
   return (
     <div className="space-y-6">
-      <div className="bg-bg-secondary border border-border-subtle rounded-lg divide-y divide-border-subtle">
-        <div className="px-5 py-3 flex items-center justify-between">
+      <Card variant="glass" className="overflow-hidden p-0">
+        <div className="px-5 py-3 flex items-center justify-between border-b border-border-subtle">
           <span className="text-xs text-text-muted">{t('deployments.namespaceLabel')}</span>
           <span className="text-sm font-mono text-text-secondary">{namespace}</span>
         </div>
-        <div className="px-5 py-3 flex items-center justify-between">
+        <div className="px-5 py-3 flex items-center justify-between border-b border-border-subtle">
           <span className="text-xs text-text-muted">{t('deployments.agents')}</span>
           <span className="text-sm text-text-secondary">{deployments.length}</span>
         </div>
-        <div className="px-5 py-3 flex items-center justify-between">
+        <div className="px-5 py-3 flex items-center justify-between border-b border-border-subtle">
           <span className="text-xs text-text-muted">{t('deployments.readyAgents')}</span>
-          <span className="text-sm text-green-400">{readyAgents}</span>
+          <span className="text-sm text-success">{readyAgents}</span>
         </div>
-        <div className="px-5 py-3 flex items-center justify-between">
+        <div className="px-5 py-3 flex items-center justify-between border-b border-border-subtle">
           <span className="text-xs text-text-muted">{t('deployments.currentAgent')}</span>
           <span className="text-sm font-mono text-text-secondary">{agent ?? t('common.none')}</span>
         </div>
-        <div className="px-5 py-3 flex items-center justify-between">
+        <div className="px-5 py-3 flex items-center justify-between border-b border-border-subtle">
           <span className="text-xs text-text-muted">{t('deployments.selectedPods')}</span>
           <span className="text-sm text-text-secondary">{pods?.length ?? 0}</span>
         </div>
         <div className="px-5 py-3 flex items-center justify-between">
           <span className="text-xs text-text-muted">{t('deployments.totalRestarts')}</span>
           <span
-            className={cn('text-sm', totalRestarts > 0 ? 'text-yellow-400' : 'text-text-secondary')}
+            className={cn('text-sm', totalRestarts > 0 ? 'text-warning' : 'text-text-secondary')}
           >
             {totalRestarts}
           </span>
         </div>
-      </div>
+      </Card>
     </div>
   )
 }
@@ -944,8 +894,8 @@ export function DeploymentNamespacePage() {
     return (deployTasksQuery.data?.tasks ?? [])
       .filter((item) => item.task.namespace === namespace)
       .sort((left, right) => {
-        const leftTime = Date.parse(left.task.updatedAt ?? left.task.createdAt ?? '') || 0
-        const rightTime = Date.parse(right.task.updatedAt ?? right.task.createdAt ?? '') || 0
+        const leftTime = Date.parse(left.task.createdAt ?? left.task.updatedAt ?? '') || 0
+        const rightTime = Date.parse(right.task.createdAt ?? right.task.updatedAt ?? '') || 0
         return rightTime - leftTime
       })[0]
   }, [deployTasksQuery.data?.tasks, namespace])
@@ -969,15 +919,20 @@ export function DeploymentNamespacePage() {
 
   const destroyMutation = useMutation({
     mutationFn: () => api.destroy({ namespace }),
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['deployments'] })
-      toast.success(t('clusters.destroyed') + ` ${namespace}`)
+      queryClient.invalidateQueries({ queryKey: ['deploy-tasks'] })
+      toast.success(t('deployments.destroyQueued', { namespace }))
       addActivity({
         type: 'destroy',
-        title: `Destroyed namespace ${namespace}`,
+        title: t('deploymentDetail.destroyQueuedActivityTitle', { namespace }),
         namespace,
       })
-      navigate({ to: '/deployments' })
+      if (result.taskId) {
+        navigate({ to: '/deploy-tasks/$taskId', params: { taskId: String(result.taskId) } })
+      } else {
+        navigate({ to: '/deployments' })
+      }
     },
     onError: () => toast.error(t('deployments.destroyNamespaceFailed')),
   })
@@ -1010,165 +965,154 @@ export function DeploymentNamespacePage() {
 
   if (!isLoading && namespaceDeployments.length === 0) {
     return (
-      <div className="mx-auto max-w-[1280px] space-y-6 p-6 md:px-8">
-        <Breadcrumb
-          items={[{ label: t('deployments.title'), to: '/deployments' }, { label: namespace }]}
-          className="mb-4"
-        />
+      <PageShell
+        breadcrumb={[{ label: t('deployments.title'), to: '/deployments' }, { label: namespace }]}
+        title={namespace}
+        actions={
+          <Button asChild variant="primary" size="sm">
+            <Link to="/store">
+              <Rocket size={14} />
+              {t('clusters.browseAgentStore')}
+            </Link>
+          </Button>
+        }
+        narrow
+      >
         <DashboardEmptyState
           icon={FolderOpen}
           title={t('deployments.noDeploymentsInNamespace')}
           description={t('deployments.noDeploymentsInNamespaceDescription', {
             namespace,
           })}
-          action={
-            <Button asChild variant="primary" size="sm">
-              <Link to="/store">
-                <Rocket size={14} />
-                {t('clusters.browseAgentStore')}
-              </Link>
-            </Button>
-          }
+          action={null}
         />
-      </div>
+      </PageShell>
     )
   }
 
   return (
-    <div className="mx-auto max-w-[1280px] space-y-6 p-6 md:px-8">
-      <Breadcrumb
-        items={[{ label: t('deployments.title'), to: '/deployments' }, { label: namespace }]}
-        className="mb-4"
-      />
-
-      <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
-        <div>
-          <h1 className="font-extrabold tracking-[-0.03em] text-text-primary font-mono text-3xl">
-            {namespace}
-          </h1>
-          <p className="mt-1 text-sm leading-7 text-text-muted">
-            {t('deployments.namespaceDescription')}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            onClick={() => {
-              void refetch()
-              void queryClient.invalidateQueries({
-                queryKey: ['namespace-costs', namespace],
-              })
-            }}
-            variant="ghost"
-            size="sm"
-            className="transition-[background-color,border-color,color,box-shadow,transform] duration-[160ms] ease active:translate-y-[0.5px] focus-visible:outline-none"
-          >
-            <RefreshCw size={12} />
-            {t('common.refresh')}
-          </Button>
-          <Button
-            type="button"
-            onClick={() => redeployMutation.mutate()}
-            disabled={!latestTask || redeployMutation.isPending}
-            variant="primary"
-            size="sm"
-            className="transition-[background-color,border-color,color,box-shadow,transform] duration-[160ms] ease active:translate-y-[0.5px] focus-visible:outline-none"
-          >
-            {redeployMutation.isPending ? (
-              <Loader2 size={12} className="animate-spin" />
-            ) : (
-              <Rocket size={12} />
-            )}
-            {t('deployTask.redeploy')}
-          </Button>
-          <Button
-            type="button"
-            onClick={() => setDestroyOpen(true)}
-            variant="ghost"
-            size="sm"
-            className="transition-[background-color,border-color,color,box-shadow,transform] duration-[160ms] ease active:translate-y-[0.5px] focus-visible:outline-none"
-          >
-            <Trash2 size={12} />
-            {t('clusters.destroy')}
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard
-          label={t('deployments.agents')}
-          value={namespaceDeployments.length}
-          icon={<Box size={13} />}
-        />
-        <StatCard
-          label={t('deployments.readyAgents')}
-          value={readyAgents}
-          icon={<CheckCircle size={13} />}
-          color="green"
-        />
-        <StatCard
-          label={t('deployments.selectedPods')}
-          value={selectedPods.length}
-          icon={<Server size={13} />}
-          color="blue"
-        />
-        <StatCard
-          label={t('deployments.tokenCost')}
-          value={formatUsdCost(namespaceCostQuery.data?.totalUsd ?? null, i18n.language)}
-          icon={<DollarSign size={13} />}
-          color="purple"
-        />
-      </div>
-
-      <DashboardNamespaceCard
-        className="mb-6"
-        headerLeft={
-          <div>
-            <h2 className="text-sm font-semibold text-text-primary">
-              {t('deployments.agentSelector')}
-            </h2>
-            <p className="text-xs text-text-muted">{t('deployments.agentSelectorDescription')}</p>
+    <PageShell
+      breadcrumb={[]}
+      title=""
+      description={null}
+      headerContent={
+        <>
+          <div className="mb-3">
+            <Breadcrumb
+              items={[{ label: t('deployments.title'), to: '/deployments' }, { label: namespace }]}
+            />
           </div>
-        }
-        rows={
-          <div className="p-5">
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
-              {namespaceDeployments.map((deployment) => (
-                <AgentCard
-                  key={`${deployment.namespace}/${deployment.name}`}
-                  deployment={deployment}
-                  selected={selectedAgent === deployment.name}
-                  onSelect={() => setSelectedAgent(deployment.name)}
-                  onOpenLogs={() => {
-                    setSelectedAgent(deployment.name)
-                    setActiveTab('logs')
-                  }}
-                />
-              ))}
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h1 className="text-[1.875rem] font-extrabold tracking-[-0.03em] text-text-primary md:text-[2.125rem]">
+              {namespace}
+            </h1>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                onClick={() => {
+                  void refetch()
+                  void queryClient.invalidateQueries({
+                    queryKey: ['namespace-costs', namespace],
+                  })
+                }}
+                variant="ghost"
+                size="sm"
+              >
+                <RefreshCw size={12} />
+                {t('common.refresh')}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => redeployMutation.mutate()}
+                disabled={!latestTask || redeployMutation.isPending}
+                variant="primary"
+                size="sm"
+              >
+                {redeployMutation.isPending ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Rocket size={12} />
+                )}
+                {t('deployTask.redeploy')}
+              </Button>
+              <Button type="button" onClick={() => setDestroyOpen(true)} variant="ghost" size="sm">
+                <Trash2 size={12} />
+                {t('clusters.destroy')}
+              </Button>
             </div>
           </div>
-        }
-      />
+          <StatsGrid className="mb-4 md:mb-5 grid-cols-2 md:grid-cols-4">
+            <MetricCardWrapper>
+              <MetricCardContent
+                label={t('deployments.agents')}
+                value={namespaceDeployments.length}
+                icon={<Box size={13} />}
+                iconClassName="text-text-primary"
+                valueClassName="text-text-primary"
+              />
+            </MetricCardWrapper>
+            <MetricCardWrapper>
+              <MetricCardContent
+                label={t('deployments.readyAgents')}
+                value={readyAgents}
+                icon={<CheckCircle size={13} />}
+                iconClassName="text-success"
+                valueClassName="text-success"
+              />
+            </MetricCardWrapper>
+            <MetricCardWrapper>
+              <MetricCardContent
+                label={t('deployments.selectedPods')}
+                value={selectedPods.length}
+                icon={<Server size={13} />}
+                iconClassName="text-primary"
+                valueClassName="text-primary"
+              />
+            </MetricCardWrapper>
+            <MetricCardWrapper>
+              <MetricCardContent
+                label={t('deployments.tokenCost')}
+                value={formatUsdCost(namespaceCostQuery.data?.totalUsd ?? null, i18n.language)}
+                icon={<DollarSign size={13} />}
+                iconClassName="text-accent"
+                valueClassName="text-accent"
+              />
+            </MetricCardWrapper>
+          </StatsGrid>
 
-      <Tabs value={activeTab} onChange={setActiveTab}>
-        <DashboardTabsList tabs={tabs} />
-      </Tabs>
-
-      <div className="min-h-[38vh]">
-        {activeTab === 'agents' && (
-          <PodsPanel namespace={namespace} agent={selectedAgent} enabled={!isLoading} />
-        )}
-        {activeTab === 'logs' && <NamespaceLogsTab namespace={namespace} agent={selectedAgent} />}
-        {activeTab === 'env' && <NamespaceEnvironmentTab namespace={namespace} />}
-        {activeTab === 'cost' && <NamespaceCostTab namespace={namespace} />}
-        {activeTab === 'info' && (
-          <NamespaceInfoTab
-            namespace={namespace}
-            agent={selectedAgent}
-            deployments={namespaceDeployments}
-            pods={selectedPodsQuery.data}
-          />
-        )}
+          <div className="mt-1">
+            <Tabs value={activeTab} onChange={setActiveTab}>
+              <DashboardTabsList tabs={tabs} />
+            </Tabs>
+          </div>
+        </>
+      }
+      narrow
+    >
+      <div className="space-y-6">
+        <div className="min-h-[38vh]">
+          {activeTab === 'agents' && (
+            <PodsPanel namespace={namespace} agent={selectedAgent} enabled={!isLoading} />
+          )}
+          {activeTab === 'logs' && (
+            <NamespaceLogsTab
+              namespace={namespace}
+              agent={selectedAgent}
+              deployments={namespaceDeployments}
+              onSelectAgent={setSelectedAgent}
+            />
+          )}
+          {activeTab === 'env' && <NamespaceEnvironmentTab namespace={namespace} />}
+          {activeTab === 'cost' && <NamespaceCostTab namespace={namespace} />}
+          {activeTab === 'info' && (
+            <NamespaceInfoTab
+              namespace={namespace}
+              agent={selectedAgent}
+              deployments={namespaceDeployments}
+              pods={selectedPodsQuery.data}
+            />
+          )}
+        </div>
       </div>
 
       <DangerConfirmDialog
@@ -1181,6 +1125,6 @@ export function DeploymentNamespacePage() {
         loading={destroyMutation.isPending}
         onConfirm={() => destroyMutation.mutate()}
       />
-    </div>
+    </PageShell>
   )
 }

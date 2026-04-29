@@ -109,6 +109,16 @@ describe('buildAgentRuntimePackage', () => {
 
     expect(openclawConfig.plugins.load.paths).toContain('/app/extensions/shadowob')
     expect(openclawConfig.channels.shadowob.accounts['bot-1']).toBeDefined()
+    expect(openclawConfig.channels.shadowob.capabilities).toMatchObject({
+      inlineButtons: 'all',
+      uploadFile: true,
+      interactive: true,
+      forms: true,
+    })
+    expect(openclawConfig.channels.shadowob.accounts['bot-1'].capabilities).toMatchObject({
+      inlineButtons: 'all',
+      uploadFile: true,
+    })
     expect(runtimeExtensions.openclaw.manifestPatches[0].extensionId).toBe('shadowob')
     expect(runtimeExtensions.artifacts).toContainEqual({
       kind: 'shadow.slashCommands',
@@ -171,9 +181,69 @@ describe('buildManifests', () => {
     expect(deployment.spec.template.metadata.annotations).toMatchObject({
       'shadowob.cloud/runner-image': 'ghcr.io/buggyblues/openclaw-runner:latest',
     })
+    expect(container.imagePullPolicy).toBe('Always')
     expect(
       deployment.spec.template.metadata.annotations['shadowob.cloud/runtime-package-hash'],
     ).toMatch(/^[a-f0-9]{64}$/)
+  })
+
+  it('keeps immutable and local runner images cacheable unless explicitly overridden', () => {
+    const baseAgent = {
+      id: 'agent-1',
+      runtime: 'openclaw' as const,
+      configuration: {},
+    }
+    const pinned = buildManifests({
+      namespace: 'pull-policy-pinned',
+      config: {
+        version: '1',
+        deployments: {
+          agents: [
+            {
+              ...baseAgent,
+              image: 'ghcr.io/buggyblues/openclaw-runner:20260429-0911',
+            },
+          ],
+        },
+      },
+    })
+    const local = buildManifests({
+      namespace: 'pull-policy-local',
+      config: {
+        version: '1',
+        deployments: {
+          agents: [
+            {
+              ...baseAgent,
+              image: 'shadowob/openclaw-runner:latest',
+            },
+          ],
+        },
+      },
+    })
+    const explicit = buildManifests({
+      namespace: 'pull-policy-explicit',
+      imagePullPolicy: 'IfNotPresent',
+      config: {
+        version: '1',
+        deployments: {
+          agents: [baseAgent],
+        },
+      },
+    })
+
+    expect(
+      pinned.find((manifest) => manifest.kind === 'Deployment')!.spec.template.spec.containers[0]
+        .imagePullPolicy,
+    ).toBe('IfNotPresent')
+    expect(
+      local.find((manifest) => manifest.kind === 'Deployment')!.spec.template.spec.containers[0]
+        .imagePullPolicy,
+    ).toBe('IfNotPresent')
+    expect(
+      explicit.find((manifest) => manifest.kind === 'Deployment')!.spec.template.spec.containers[0]
+        .imagePullPolicy,
+    ).toBe('IfNotPresent')
   })
 
   it('changes the pod-template package hash when runtime config changes', () => {

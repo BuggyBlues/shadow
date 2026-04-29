@@ -13,7 +13,13 @@
 
 import { randomUUID } from 'node:crypto'
 import { createServer } from 'node:http'
-import { attachCloudSaasProvisionState, extractCloudSaasRuntime } from '@shadowob/cloud'
+import {
+  attachCloudSaasProvisionState,
+  type DeployFromSnapshotOptions,
+  type DeployResult,
+  extractCloudSaasRuntime,
+  type ServiceContainer,
+} from '@shadowob/cloud'
 import { eq, like } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { Hono } from 'hono'
@@ -23,6 +29,7 @@ import { type AppContainer, createAppContainer } from '../src/container'
 import type { Database } from '../src/db'
 import * as schema from '../src/db/schema'
 import { createCloudSaasHandler } from '../src/handlers/cloud-saas.handler'
+import { processCloudDeploymentQueueOnce } from '../src/lib/cloud-deployment-processor'
 import { signAccessToken } from '../src/lib/jwt'
 
 process.env.KMS_MASTER_KEY = process.env.KMS_MASTER_KEY ?? 'a'.repeat(64)
@@ -65,6 +72,34 @@ function makeConfigSnapshot(secret = 'super-secret'): Record<string, unknown> {
     },
     apiKey: secret,
   }
+}
+
+function createFakeCloudWorkerContainer(): ServiceContainer {
+  return {
+    deploymentRuntime: {
+      deployFromSnapshot: async (options: DeployFromSnapshotOptions): Promise<DeployResult> => {
+        options.onStackReady?.({ cancel: async () => {} })
+        options.onOutput?.('[test] fake pulumi deploy output\n')
+        return {
+          namespace: options.namespace,
+          agentCount: 1,
+          config: options.configSnapshot as DeployResult['config'],
+          provisionState: {
+            provisionedAt: new Date().toISOString(),
+            namespace: options.namespace,
+            plugins: {
+              shadowob: {
+                servers: {
+                  main: 'server-from-provision-state',
+                },
+              },
+            },
+          },
+        }
+      },
+      destroy: async () => {},
+    },
+  } as unknown as ServiceContainer
 }
 
 /* ── Helper ── */
@@ -134,7 +169,10 @@ beforeAll(async () => {
       description: 'Invalid deploy config template for integration tests',
       source: 'official',
       reviewStatus: 'approved',
-      content: { agents: [{ role: 'worker', model: 'gpt-4o-mini' }], version: 1 },
+      content: {
+        agents: [{ role: 'worker', model: 'gpt-4o-mini' }],
+        version: 1,
+      },
       tags: ['test'],
       category: 'test',
       baseCost: 0,
@@ -323,11 +361,611 @@ describe('Cloud SaaS — deployment listing', () => {
         '/api/cloud-saas/deployments?includeHistory=1&limit=10&offset=0',
       )
       expect(historyRes.status).toBe(200)
-      const history = (await historyRes.json()) as Array<{ namespace: string; name: string }>
+      const history = (await historyRes.json()) as Array<{
+        namespace: string
+        name: string
+      }>
       expect(history.filter((row) => row.namespace === namespace).map((row) => row.name)).toEqual([
         `${namespace}-new`,
         `${namespace}-old`,
       ])
+    } finally {
+      await db
+        .delete(schema.cloudDeployments)
+        .where(eq(schema.cloudDeployments.namespace, namespace))
+        .catch(() => {})
+    }
+  })
+})
+
+describe('Cloud SaaS — deployment state consistency', () => {
+  it('keeps create, duplicate create, cancel, detail, and current list in one consistent state', async () => {
+    const namespace = uniqueName('e2e-state-create')
+
+    try {
+      const createRes = await req('POST', '/api/cloud-saas/deployments', {
+        namespace,
+        name: `${namespace}-agent`,
+        templateSlug: officialTemplateSlug,
+        resourceTier: 'lightweight',
+        configSnapshot: makeConfigSnapshot('state-create-secret'),
+      })
+      expect(createRes.status).toBe(201)
+      const created = (await createRes.json()) as {
+        id: string
+        namespace: string
+        status: string
+      }
+      expect(created).toMatchObject({ namespace, status: 'pending' })
+
+      const pendingDetailRes = await req('GET', `/api/cloud-saas/deployments/${created.id}`)
+      expect(pendingDetailRes.status).toBe(200)
+      const pendingDetail = (await pendingDetailRes.json()) as {
+        id: string
+        status: string
+      }
+      expect(pendingDetail).toMatchObject({
+        id: created.id,
+        status: 'pending',
+      })
+
+      const pendingListRes = await req('GET', '/api/cloud-saas/deployments?limit=100&offset=0')
+      expect(pendingListRes.status).toBe(200)
+      const pendingList = (await pendingListRes.json()) as Array<{
+        id: string
+        namespace: string
+        status: string
+      }>
+      expect(pendingList.filter((row) => row.namespace === namespace)).toEqual([
+        expect.objectContaining({ id: created.id, status: 'pending' }),
+      ])
+
+      const duplicateRes = await req('POST', '/api/cloud-saas/deployments', {
+        namespace,
+        name: `${namespace}-duplicate`,
+        templateSlug: officialTemplateSlug,
+        resourceTier: 'lightweight',
+        configSnapshot: makeConfigSnapshot('state-duplicate-secret'),
+      })
+      expect(duplicateRes.status).toBe(409)
+
+      const cancelRes = await req('POST', `/api/cloud-saas/deployments/${created.id}/cancel`)
+      expect(cancelRes.status).toBe(200)
+      const cancelled = (await cancelRes.json()) as {
+        ok: boolean
+        status: string
+      }
+      expect(cancelled).toMatchObject({ ok: true, status: 'failed' })
+
+      const cancelledDetailRes = await req('GET', `/api/cloud-saas/deployments/${created.id}`)
+      expect(cancelledDetailRes.status).toBe(200)
+      const cancelledDetail = (await cancelledDetailRes.json()) as {
+        id: string
+        status: string
+        errorMessage: string | null
+      }
+      expect(cancelledDetail).toMatchObject({
+        id: created.id,
+        status: 'failed',
+        errorMessage: 'cancelled by user',
+      })
+
+      const cancelledListRes = await req('GET', '/api/cloud-saas/deployments?limit=100&offset=0')
+      expect(cancelledListRes.status).toBe(200)
+      const cancelledList = (await cancelledListRes.json()) as Array<{
+        id: string
+        namespace: string
+        status: string
+      }>
+      expect(cancelledList.some((row) => row.namespace === namespace)).toBe(false)
+
+      const historyRes = await req(
+        'GET',
+        '/api/cloud-saas/deployments?includeHistory=1&limit=100&offset=0',
+      )
+      expect(historyRes.status).toBe(200)
+      const history = (await historyRes.json()) as Array<{
+        id: string
+        namespace: string
+      }>
+      expect(history.filter((row) => row.namespace === namespace).map((row) => row.id)).toEqual([
+        created.id,
+      ])
+    } finally {
+      await db
+        .delete(schema.cloudDeployments)
+        .where(eq(schema.cloudDeployments.namespace, namespace))
+        .catch(() => {})
+    }
+  })
+
+  it('claims an unblocked pending deployment through the worker and keeps API state consistent', async () => {
+    const namespace = uniqueName('e2e-state-worker')
+
+    try {
+      const createRes = await req('POST', '/api/cloud-saas/deployments', {
+        namespace,
+        name: `${namespace}-agent`,
+        templateSlug: officialTemplateSlug,
+        resourceTier: 'lightweight',
+        configSnapshot: makeConfigSnapshot('state-worker-secret'),
+      })
+      expect(createRes.status).toBe(201)
+      const created = (await createRes.json()) as {
+        id: string
+        namespace: string
+        status: string
+      }
+      expect(created).toMatchObject({ namespace, status: 'pending' })
+
+      const tick = await processCloudDeploymentQueueOnce({
+        database: db,
+        container: createFakeCloudWorkerContainer(),
+        reconcile: false,
+        deploymentIds: [created.id],
+      })
+      expect(tick.pending).toBe(1)
+
+      const detailRes = await req('GET', `/api/cloud-saas/deployments/${created.id}`)
+      expect(detailRes.status).toBe(200)
+      const detail = (await detailRes.json()) as {
+        id: string
+        namespace: string
+        status: string
+        agentCount: number
+        shadowServerId?: string | null
+        blockedBy?: unknown
+      }
+      expect(detail).toMatchObject({
+        id: created.id,
+        namespace,
+        status: 'deployed',
+        agentCount: 1,
+        shadowServerId: 'server-from-provision-state',
+      })
+      expect(detail.blockedBy).toBeNull()
+
+      const logs = await db
+        .select()
+        .from(schema.cloudDeploymentLogs)
+        .where(eq(schema.cloudDeploymentLogs.deploymentId, created.id))
+      expect(logs.some((log) => log.message.includes('[queue] Deployment queued'))).toBe(true)
+      expect(logs.some((log) => log.message.includes('Starting deployment'))).toBe(true)
+      expect(logs.some((log) => log.message.includes('fake pulumi deploy output'))).toBe(true)
+      expect(logs.some((log) => log.message.includes('Deployment complete'))).toBe(true)
+    } finally {
+      await db
+        .delete(schema.cloudDeployments)
+        .where(eq(schema.cloudDeployments.namespace, namespace))
+        .catch(() => {})
+    }
+  })
+
+  it('keeps destroy as a durable current task while the old deployment remains queryable history', async () => {
+    const namespace = uniqueName('e2e-state-destroy')
+    const deployedAt = new Date(Date.now() - 60_000)
+
+    try {
+      const [current] = await db
+        .insert(schema.cloudDeployments)
+        .values({
+          userId,
+          namespace,
+          name: `${namespace}-agent`,
+          status: 'deployed',
+          agentCount: 1,
+          configSnapshot: makeConfigSnapshot('state-destroy-secret'),
+          templateSlug: officialTemplateSlug,
+          resourceTier: 'lightweight',
+          monthlyCost: 500,
+          saasMode: true,
+          createdAt: deployedAt,
+          updatedAt: deployedAt,
+        })
+        .returning()
+      expect(current).toBeDefined()
+
+      const destroyRes = await req('DELETE', `/api/cloud-saas/deployments/${current!.id}`)
+      expect(destroyRes.status).toBe(200)
+      const destroyBody = (await destroyRes.json()) as {
+        ok: boolean
+        taskId: string
+        status: string
+      }
+      expect(destroyBody.ok).toBe(true)
+      expect(destroyBody.taskId).not.toBe(current!.id)
+      expect(destroyBody.status).toBe('destroying')
+
+      const currentListRes = await req('GET', '/api/cloud-saas/deployments?limit=100&offset=0')
+      expect(currentListRes.status).toBe(200)
+      const currentList = (await currentListRes.json()) as Array<{
+        id: string
+        namespace: string
+        status: string
+      }>
+      expect(currentList.filter((row) => row.namespace === namespace)).toEqual([
+        expect.objectContaining({
+          id: destroyBody.taskId,
+          status: 'destroying',
+        }),
+      ])
+
+      const historyRes = await req(
+        'GET',
+        '/api/cloud-saas/deployments?includeHistory=1&limit=100&offset=0',
+      )
+      expect(historyRes.status).toBe(200)
+      const history = (await historyRes.json()) as Array<{
+        id: string
+        namespace: string
+        status: string
+      }>
+      expect(history.filter((row) => row.namespace === namespace).map((row) => row.id)).toEqual([
+        destroyBody.taskId,
+        current!.id,
+      ])
+
+      const destroyDetailRes = await req('GET', `/api/cloud-saas/deployments/${destroyBody.taskId}`)
+      expect(destroyDetailRes.status).toBe(200)
+      const destroyDetail = (await destroyDetailRes.json()) as {
+        id: string
+        namespace: string
+        status: string
+      }
+      expect(destroyDetail).toMatchObject({
+        id: destroyBody.taskId,
+        namespace,
+        status: 'destroying',
+      })
+
+      const oldDetailRes = await req('GET', `/api/cloud-saas/deployments/${current!.id}`)
+      expect(oldDetailRes.status).toBe(200)
+      const oldDetail = (await oldDetailRes.json()) as {
+        id: string
+        status: string
+      }
+      expect(oldDetail).toMatchObject({ id: current!.id, status: 'deployed' })
+
+      const secondDestroyRes = await req('DELETE', `/api/cloud-saas/deployments/${current!.id}`)
+      expect(secondDestroyRes.status).toBe(200)
+      const secondDestroy = (await secondDestroyRes.json()) as {
+        ok: boolean
+        taskId: string
+      }
+      expect(secondDestroy).toMatchObject({
+        ok: true,
+        taskId: destroyBody.taskId,
+      })
+
+      const redeployOldRes = await req(
+        'POST',
+        `/api/cloud-saas/deployments/${current!.id}/redeploy`,
+      )
+      expect(redeployOldRes.status).toBe(409)
+
+      const logs = await db
+        .select()
+        .from(schema.cloudDeploymentLogs)
+        .where(eq(schema.cloudDeploymentLogs.deploymentId, destroyBody.taskId))
+      expect(logs.some((log) => log.message.includes('Queued Pulumi destroy'))).toBe(true)
+    } finally {
+      await db
+        .delete(schema.cloudDeployments)
+        .where(eq(schema.cloudDeployments.namespace, namespace))
+        .catch(() => {})
+    }
+  })
+
+  it('records the blocking task when destroy is queued behind an older active operation', async () => {
+    const namespace = uniqueName('e2e-state-blocked-destroy')
+    const blockerAt = new Date(Date.now() - 120_000)
+    const deployedAt = new Date(Date.now() - 60_000)
+
+    try {
+      const [blocker] = await db
+        .insert(schema.cloudDeployments)
+        .values({
+          userId,
+          namespace,
+          name: `${namespace}-blocker`,
+          status: 'deploying',
+          agentCount: 1,
+          configSnapshot: makeConfigSnapshot('state-blocker-secret'),
+          templateSlug: officialTemplateSlug,
+          resourceTier: 'lightweight',
+          monthlyCost: 500,
+          saasMode: true,
+          createdAt: blockerAt,
+          updatedAt: blockerAt,
+        })
+        .returning()
+      const [current] = await db
+        .insert(schema.cloudDeployments)
+        .values({
+          userId,
+          namespace,
+          name: `${namespace}-current`,
+          status: 'deployed',
+          agentCount: 1,
+          configSnapshot: makeConfigSnapshot('state-blocked-destroy-secret'),
+          templateSlug: officialTemplateSlug,
+          resourceTier: 'lightweight',
+          monthlyCost: 500,
+          saasMode: true,
+          createdAt: deployedAt,
+          updatedAt: deployedAt,
+        })
+        .returning()
+
+      const destroyRes = await req('DELETE', `/api/cloud-saas/deployments/${current!.id}`)
+      expect(destroyRes.status).toBe(200)
+      const destroyBody = (await destroyRes.json()) as {
+        taskId: string
+        status: string
+      }
+      expect(destroyBody.status).toBe('destroying')
+
+      const logs = await db
+        .select()
+        .from(schema.cloudDeploymentLogs)
+        .where(eq(schema.cloudDeploymentLogs.deploymentId, destroyBody.taskId))
+      expect(
+        logs.some((log) => log.message.includes('[queue]') && log.message.includes(blocker!.id)),
+      ).toBe(true)
+
+      const detailRes = await req('GET', `/api/cloud-saas/deployments/${destroyBody.taskId}`)
+      expect(detailRes.status).toBe(200)
+      const detail = (await detailRes.json()) as {
+        id: string
+        blockedBy?: { id: string; status: string; namespace: string } | null
+      }
+      expect(detail.blockedBy).toMatchObject({
+        id: blocker!.id,
+        status: 'deploying',
+        namespace,
+      })
+
+      const currentListRes = await req('GET', '/api/cloud-saas/deployments?limit=100&offset=0')
+      expect(currentListRes.status).toBe(200)
+      const currentList = (await currentListRes.json()) as Array<{
+        id: string
+        namespace: string
+        status: string
+      }>
+      expect(currentList.filter((row) => row.namespace === namespace)).toEqual([
+        expect.objectContaining({
+          id: destroyBody.taskId,
+          status: 'destroying',
+        }),
+      ])
+    } finally {
+      await db
+        .delete(schema.cloudDeployments)
+        .where(eq(schema.cloudDeployments.namespace, namespace))
+        .catch(() => {})
+    }
+  })
+
+  it('cancels a stale active blocker without waiting for the namespace operation lock', async () => {
+    const namespace = uniqueName('e2e-state-cancel-blocker')
+    const blockerAt = new Date(Date.now() - 120_000)
+    const currentAt = new Date(Date.now() - 60_000)
+
+    try {
+      const [blocker] = await db
+        .insert(schema.cloudDeployments)
+        .values({
+          userId,
+          namespace,
+          name: `${namespace}-blocker`,
+          status: 'deploying',
+          agentCount: 1,
+          configSnapshot: makeConfigSnapshot('cancel-blocker-secret'),
+          templateSlug: officialTemplateSlug,
+          resourceTier: 'lightweight',
+          monthlyCost: 500,
+          saasMode: true,
+          createdAt: blockerAt,
+          updatedAt: blockerAt,
+        })
+        .returning()
+      const [current] = await db
+        .insert(schema.cloudDeployments)
+        .values({
+          userId,
+          namespace,
+          name: `${namespace}-current`,
+          status: 'deployed',
+          agentCount: 1,
+          configSnapshot: makeConfigSnapshot('cancel-blocker-current-secret'),
+          templateSlug: officialTemplateSlug,
+          resourceTier: 'lightweight',
+          monthlyCost: 500,
+          saasMode: true,
+          createdAt: currentAt,
+          updatedAt: currentAt,
+        })
+        .returning()
+
+      const destroyRes = await req('DELETE', `/api/cloud-saas/deployments/${current!.id}`)
+      expect(destroyRes.status).toBe(200)
+      const destroyBody = (await destroyRes.json()) as { taskId: string }
+
+      const cancelBlockerRes = await req(
+        'POST',
+        `/api/cloud-saas/deployments/${blocker!.id}/cancel`,
+      )
+      expect(cancelBlockerRes.status).toBe(200)
+      const cancelBlocker = (await cancelBlockerRes.json()) as {
+        ok: boolean
+        status: string
+      }
+      expect(cancelBlocker).toMatchObject({ ok: true, status: 'failed' })
+
+      const blockerDetailRes = await req('GET', `/api/cloud-saas/deployments/${blocker!.id}`)
+      expect(blockerDetailRes.status).toBe(200)
+      const blockerDetail = (await blockerDetailRes.json()) as {
+        status: string
+        errorMessage: string | null
+      }
+      expect(blockerDetail).toMatchObject({
+        status: 'failed',
+        errorMessage: 'cancelled by user',
+      })
+
+      const destroyDetailRes = await req('GET', `/api/cloud-saas/deployments/${destroyBody.taskId}`)
+      expect(destroyDetailRes.status).toBe(200)
+      const destroyDetail = (await destroyDetailRes.json()) as {
+        status: string
+        blockedBy?: { id: string } | null
+      }
+      expect(destroyDetail.status).toBe('destroying')
+      expect(destroyDetail.blockedBy).toBeNull()
+
+      const cancelDestroyRes = await req(
+        'POST',
+        `/api/cloud-saas/deployments/${destroyBody.taskId}/cancel`,
+      )
+      expect(cancelDestroyRes.status).toBe(200)
+      const cancelDestroy = (await cancelDestroyRes.json()) as {
+        ok: boolean
+        status: string
+      }
+      expect(cancelDestroy).toMatchObject({ ok: true, status: 'failed' })
+
+      const redeployRes = await req('POST', `/api/cloud-saas/deployments/${current!.id}/redeploy`)
+      expect(redeployRes.status).toBe(201)
+      const redeployed = (await redeployRes.json()) as { namespace: string; status: string }
+      expect(redeployed).toMatchObject({ namespace, status: 'pending' })
+    } finally {
+      await db
+        .delete(schema.cloudDeployments)
+        .where(eq(schema.cloudDeployments.namespace, namespace))
+        .catch(() => {})
+    }
+  })
+
+  it('cancels a queued task so it no longer contributes to namespace deadlock', async () => {
+    const namespace = uniqueName('e2e-state-cancel-queued')
+    const blockerAt = new Date(Date.now() - 120_000)
+    const queuedAt = new Date(Date.now() - 60_000)
+
+    try {
+      const [blocker] = await db
+        .insert(schema.cloudDeployments)
+        .values({
+          userId,
+          namespace,
+          name: `${namespace}-blocker`,
+          status: 'deploying',
+          agentCount: 1,
+          configSnapshot: makeConfigSnapshot('cancel-queued-blocker-secret'),
+          templateSlug: officialTemplateSlug,
+          resourceTier: 'lightweight',
+          monthlyCost: 500,
+          saasMode: true,
+          createdAt: blockerAt,
+          updatedAt: blockerAt,
+        })
+        .returning()
+      const [queued] = await db
+        .insert(schema.cloudDeployments)
+        .values({
+          userId,
+          namespace,
+          name: `${namespace}-queued`,
+          status: 'pending',
+          agentCount: 1,
+          configSnapshot: makeConfigSnapshot('cancel-queued-secret'),
+          templateSlug: officialTemplateSlug,
+          resourceTier: 'lightweight',
+          monthlyCost: 500,
+          saasMode: true,
+          createdAt: queuedAt,
+          updatedAt: queuedAt,
+        })
+        .returning()
+
+      const queuedDetailRes = await req('GET', `/api/cloud-saas/deployments/${queued!.id}`)
+      expect(queuedDetailRes.status).toBe(200)
+      const queuedDetail = (await queuedDetailRes.json()) as {
+        blockedBy?: { id: string; status: string } | null
+      }
+      expect(queuedDetail.blockedBy).toMatchObject({ id: blocker!.id, status: 'deploying' })
+
+      const cancelQueuedRes = await req('POST', `/api/cloud-saas/deployments/${queued!.id}/cancel`)
+      expect(cancelQueuedRes.status).toBe(200)
+      const cancelQueued = (await cancelQueuedRes.json()) as {
+        ok: boolean
+        status: string
+      }
+      expect(cancelQueued).toMatchObject({ ok: true, status: 'failed' })
+
+      const cancelledQueuedRes = await req('GET', `/api/cloud-saas/deployments/${queued!.id}`)
+      expect(cancelledQueuedRes.status).toBe(200)
+      const cancelledQueued = (await cancelledQueuedRes.json()) as {
+        status: string
+        errorMessage: string | null
+        blockedBy?: unknown
+      }
+      expect(cancelledQueued).toMatchObject({
+        status: 'failed',
+        errorMessage: 'cancelled by user',
+      })
+      expect(cancelledQueued.blockedBy).toBeNull()
+    } finally {
+      await db
+        .delete(schema.cloudDeployments)
+        .where(eq(schema.cloudDeployments.namespace, namespace))
+        .catch(() => {})
+    }
+  })
+
+  it('hides destroyed namespaces from the current list without breaking history or detail lookup', async () => {
+    const namespace = uniqueName('e2e-state-destroyed')
+
+    try {
+      const [destroyed] = await db
+        .insert(schema.cloudDeployments)
+        .values({
+          userId,
+          namespace,
+          name: `${namespace}-agent`,
+          status: 'destroyed',
+          agentCount: 1,
+          configSnapshot: makeConfigSnapshot('state-destroyed-secret'),
+          templateSlug: officialTemplateSlug,
+          resourceTier: 'lightweight',
+          monthlyCost: 500,
+          saasMode: true,
+        })
+        .returning()
+
+      const currentListRes = await req('GET', '/api/cloud-saas/deployments?limit=100&offset=0')
+      expect(currentListRes.status).toBe(200)
+      const currentList = (await currentListRes.json()) as Array<{
+        namespace: string
+      }>
+      expect(currentList.some((row) => row.namespace === namespace)).toBe(false)
+
+      const historyRes = await req(
+        'GET',
+        '/api/cloud-saas/deployments?includeHistory=1&limit=100&offset=0',
+      )
+      expect(historyRes.status).toBe(200)
+      const history = (await historyRes.json()) as Array<{
+        id: string
+        namespace: string
+        status: string
+      }>
+      expect(history.filter((row) => row.namespace === namespace)).toEqual([
+        expect.objectContaining({ id: destroyed!.id, status: 'destroyed' }),
+      ])
+
+      const detailRes = await req('GET', `/api/cloud-saas/deployments/${destroyed!.id}`)
+      expect(detailRes.status).toBe(200)
+      const detail = (await detailRes.json()) as { id: string; status: string }
+      expect(detail).toMatchObject({ id: destroyed!.id, status: 'destroyed' })
     } finally {
       await db
         .delete(schema.cloudDeployments)
@@ -358,6 +996,111 @@ describe('Cloud SaaS — create a community template', () => {
     expect(body.source).toBe('community')
     expect(body.reviewStatus).toBe('draft')
     expect(body.slug).toBe(slug)
+  })
+
+  it('lets the author read env refs and deploy their own draft template', async () => {
+    const slug = uniqueName('e2e-owned-draft-template')
+    const namespace = uniqueName('e2e-owned-draft-ns')
+    let otherUserId: string | null = null
+
+    try {
+      const createRes = await req('POST', '/api/cloud-saas/templates', {
+        slug,
+        name: 'E2E Owned Draft Template',
+        description: 'Draft template owned by integration test user',
+        content: makeConfigSnapshot('${env:OPENAI_API_KEY}'),
+        tags: ['test'],
+        category: 'test',
+        baseCost: 0,
+      })
+      expect(createRes.status).toBe(201)
+
+      const detailRes = await req('GET', `/api/cloud-saas/templates/${slug}`)
+      expect(detailRes.status).toBe(200)
+      const detail = (await detailRes.json()) as {
+        slug: string
+        reviewStatus: string
+        authorId: string
+      }
+      expect(detail).toMatchObject({
+        slug,
+        reviewStatus: 'draft',
+        authorId: userId,
+      })
+
+      const envRefsRes = await req('GET', `/api/cloud-saas/templates/${slug}/env-refs`)
+      expect(envRefsRes.status).toBe(200)
+      const envRefs = (await envRefsRes.json()) as { requiredEnvVars: string[] }
+      expect(envRefs.requiredEnvVars).toContain('OPENAI_API_KEY')
+
+      const deployRes = await req('POST', '/api/cloud-saas/deployments', {
+        namespace,
+        name: `${namespace}-agent`,
+        templateSlug: slug,
+        resourceTier: 'lightweight',
+        configSnapshot: makeConfigSnapshot('owned-draft-secret'),
+      })
+      expect(deployRes.status).toBe(201)
+      const deployment = (await deployRes.json()) as {
+        namespace: string
+        templateSlug: string
+        status: string
+      }
+      expect(deployment).toMatchObject({
+        namespace,
+        templateSlug: slug,
+        status: 'pending',
+      })
+
+      const [otherUser] = await db
+        .insert(schema.users)
+        .values({
+          email: `saas-other-template-${Date.now()}@example.com`,
+          displayName: 'Other Template User',
+          username: uniqueName('saas-other-template'),
+          passwordHash: 'test-hash',
+        })
+        .returning()
+      otherUserId = otherUser!.id
+      const otherToken = signAccessToken({
+        userId: otherUser!.id,
+        email: otherUser!.email,
+        username: otherUser!.username,
+      })
+
+      const otherDetailRes = await req(
+        'GET',
+        `/api/cloud-saas/templates/${slug}`,
+        undefined,
+        otherToken,
+      )
+      expect(otherDetailRes.status).toBe(404)
+
+      const otherDeployRes = await req(
+        'POST',
+        '/api/cloud-saas/deployments',
+        {
+          namespace: uniqueName('e2e-other-owned-draft-ns'),
+          name: 'other-owned-draft-agent',
+          templateSlug: slug,
+          resourceTier: 'lightweight',
+          configSnapshot: makeConfigSnapshot('other-draft-secret'),
+        },
+        otherToken,
+      )
+      expect(otherDeployRes.status).toBe(404)
+    } finally {
+      await db
+        .delete(schema.cloudDeployments)
+        .where(eq(schema.cloudDeployments.namespace, namespace))
+        .catch(() => {})
+      if (otherUserId) {
+        await db
+          .delete(schema.users)
+          .where(eq(schema.users.id, otherUserId))
+          .catch(() => {})
+      }
+    }
   })
 })
 
@@ -646,7 +1389,11 @@ describe('Cloud SaaS — deployment + billing', () => {
         `/api/cloud-saas/provider-profiles/${profileBody.profile.id}/test`,
       )
       expect(testRes.status).toBe(200)
-      const testBody = (await testRes.json()) as { ok: boolean; status?: number; message: string }
+      const testBody = (await testRes.json()) as {
+        ok: boolean
+        status?: number
+        message: string
+      }
       expect(testBody).toMatchObject({
         ok: true,
         status: 200,
@@ -769,7 +1516,10 @@ describe('Cloud SaaS — deployment + billing', () => {
           use: [
             {
               plugin: 'model-provider',
-              options: { profileId: profileBody.profile.id, selector: 'reasoning' },
+              options: {
+                profileId: profileBody.profile.id,
+                selector: 'reasoning',
+              },
             },
           ],
         },
@@ -795,7 +1545,10 @@ describe('Cloud SaaS — deployment + billing', () => {
           profileId: profileBody.profile.id,
           models: [
             expect.objectContaining({ id: 'mock-fast-mini', tags: ['fast'] }),
-            expect.objectContaining({ id: 'mock-reasoning-r1', tags: ['reasoning'] }),
+            expect.objectContaining({
+              id: 'mock-reasoning-r1',
+              tags: ['reasoning'],
+            }),
           ],
         },
       ])
@@ -987,7 +1740,10 @@ describe('Cloud SaaS — deployment + billing', () => {
         'GET',
         '/api/cloud-saas/deployments?includeHistory=1&limit=10&offset=0',
       )
-      const history = (await historyRes.json()) as Array<{ id: string; namespace: string }>
+      const history = (await historyRes.json()) as Array<{
+        id: string
+        namespace: string
+      }>
       expect(history.filter((row) => row.namespace === namespace).map((row) => row.id)).toContain(
         existing!.id,
       )
@@ -1084,6 +1840,63 @@ describe('Cloud SaaS — deployment + billing', () => {
     }
   })
 
+  it('DELETE /api/cloud-saas/deployments/:id enqueues a durable Pulumi destroy task', async () => {
+    const namespace = uniqueName('e2e-destroy-ns')
+
+    try {
+      const [existing] = await db
+        .insert(schema.cloudDeployments)
+        .values({
+          userId,
+          namespace,
+          name: `${namespace}-agent`,
+          status: 'deployed',
+          agentCount: 1,
+          configSnapshot: makeConfigSnapshot('destroy-secret'),
+          templateSlug: officialTemplateSlug,
+          resourceTier: 'lightweight',
+          monthlyCost: 500,
+          saasMode: true,
+        })
+        .returning()
+
+      const destroyRes = await req('DELETE', `/api/cloud-saas/deployments/${existing!.id}`)
+      expect(destroyRes.status).toBe(200)
+      const destroyBody = (await destroyRes.json()) as {
+        ok: boolean
+        taskId: string
+        status: string
+      }
+      expect(destroyBody.ok).toBe(true)
+      expect(destroyBody.taskId).not.toBe(existing!.id)
+      expect(destroyBody.status).toBe('destroying')
+
+      const detailRes = await req('GET', `/api/cloud-saas/deployments/${destroyBody.taskId}`)
+      expect(detailRes.status).toBe(200)
+      const detail = (await detailRes.json()) as {
+        id: string
+        namespace: string
+        status: string
+        configSnapshot: unknown
+      }
+      expect(detail.id).toBe(destroyBody.taskId)
+      expect(detail.namespace).toBe(namespace)
+      expect(detail.status).toBe('destroying')
+      expect(detail.configSnapshot).toBeTruthy()
+
+      const logs = await db
+        .select()
+        .from(schema.cloudDeploymentLogs)
+        .where(eq(schema.cloudDeploymentLogs.deploymentId, destroyBody.taskId))
+      expect(logs.some((log) => log.message.includes('Queued Pulumi destroy'))).toBe(true)
+    } finally {
+      await db
+        .delete(schema.cloudDeployments)
+        .where(eq(schema.cloudDeployments.namespace, namespace))
+        .catch(() => {})
+    }
+  })
+
   it('POST /api/cloud-saas/deployments/:id/cancel marks a pending deployment as cancelling', async () => {
     const createRes = await req('POST', '/api/cloud-saas/deployments', {
       namespace: uniqueName('e2e-cancel-ns'),
@@ -1103,12 +1916,12 @@ describe('Cloud SaaS — deployment + billing', () => {
       status: string
     }
     expect(cancelBody.ok).toBe(true)
-    expect(cancelBody.status).toBe('cancelling')
+    expect(cancelBody.status).toBe('failed')
 
     const detailRes = await req('GET', `/api/cloud-saas/deployments/${deployment.id}`)
     expect(detailRes.status).toBe(200)
-    const detail = (await detailRes.json()) as { status: string }
-    expect(detail.status).toBe('cancelling')
+    const detail = (await detailRes.json()) as { status: string; errorMessage: string | null }
+    expect(detail).toMatchObject({ status: 'failed', errorMessage: 'cancelled by user' })
   })
 
   it('POST /api/cloud-saas/deployments rejects invalid config without charging wallet', async () => {

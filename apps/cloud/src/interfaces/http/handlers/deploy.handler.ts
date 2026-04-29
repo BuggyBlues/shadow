@@ -242,6 +242,17 @@ export function createDeployHandler(ctx: HandlerContext): Hono {
     })
   })
 
+  app.post('/deploy-tasks/:id/cancel', async (c) => {
+    const taskId = parseTaskId(c.req.param('id'))
+    if (!taskId) return c.json({ error: 'Invalid task id' }, 400)
+
+    const result = await ctx.deployTaskManager.cancel(taskId)
+    if (!result.ok) {
+      return c.json({ ok: false, error: result.error ?? 'Unable to cancel deployment task' }, 422)
+    }
+    return c.json({ ok: true, status: result.status })
+  })
+
   // ── Redeploy ─────────────────────────────────────────────────────────
 
   app.post('/deploy-tasks/:id/redeploy', async (c) => {
@@ -368,9 +379,14 @@ export function createDeployHandler(ctx: HandlerContext): Hono {
 
   app.post('/destroy', async (c) => {
     try {
-      const body = await c.req.json<{ namespace?: string; stack?: string }>()
+      const body = await c.req.json<{ namespace?: string; stack?: string; config?: unknown }>()
       const ns = body.namespace ?? ctx.namespaces[0] ?? 'shadowob-cloud'
-      await ctx.container.deploymentRuntime.destroy({ namespace: ns, stack: body.stack })
+      const storedConfig = ctx.configDao.findByName('current')?.content
+      await ctx.container.deploymentRuntime.destroy({
+        namespace: ns,
+        stack: body.stack,
+        configSnapshot: body.config ?? storedConfig,
+      })
       return c.json({ ok: true, namespace: ns })
     } catch (err) {
       return c.json({ error: (err as Error).message }, 500)

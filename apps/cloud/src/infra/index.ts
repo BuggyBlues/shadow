@@ -20,6 +20,7 @@ import {
   probesForRuntime,
 } from './constants.js'
 import { stableHash } from './hash.js'
+import { resolveImagePullPolicy } from './image-pull-policy.js'
 import { createNetworking } from './networking.js'
 import { collectPluginK8sArtifacts } from './plugin-k8s.js'
 import { buildAgentRuntimePackage } from './runtime-package.js'
@@ -40,7 +41,8 @@ export interface InfraOptions {
   kubeConfigPath?: string
   /**
    * Image pull policy for all agent containers.
-   * Default: 'IfNotPresent' — works for local Docker builds (Rancher Desktop).
+   * Default: 'Always' for mutable registry tags such as latest, and
+   * 'IfNotPresent' for local or immutable tags.
    */
   imagePullPolicy?: 'Always' | 'IfNotPresent' | 'Never'
 }
@@ -119,7 +121,7 @@ export function createInfraProgram(options: InfraOptions) {
         secretName: configRes.secretName,
         extraEnv: runtimePackage.plainEnv,
         provider,
-        imagePullPolicy: imagePullPolicy ?? 'IfNotPresent',
+        imagePullPolicy,
         sharedWorkspacePvcName,
         sharedWorkspaceMountPath,
         skillsInstallDir,
@@ -161,13 +163,7 @@ export function createInfraProgram(options: InfraOptions) {
  * Returns plain objects that can be serialized to YAML/JSON.
  */
 export function buildManifests(options: InfraOptions) {
-  const {
-    config,
-    namespace,
-
-    shadowServerUrl,
-    imagePullPolicy = 'IfNotPresent',
-  } = options
+  const { config, namespace, shadowServerUrl, imagePullPolicy } = options
   const agents = config.deployments?.agents ?? []
   const manifests: Array<Record<string, unknown>> = []
 
@@ -267,6 +263,7 @@ export function buildManifests(options: InfraOptions) {
 
     // Deployment
     const image = agent.image ?? DEFAULT_IMAGES[agent.runtime] ?? DEFAULT_OPENCLAW_RUNNER_IMAGE
+    const resolvedImagePullPolicy = resolveImagePullPolicy(imagePullPolicy, image)
     const runtimePackageHash = stableHash({
       configData: runtimePackage.configData,
       secretData: runtimePackage.secretData,
@@ -369,7 +366,7 @@ export function buildManifests(options: InfraOptions) {
               {
                 name: agent.runtime,
                 image,
-                imagePullPolicy,
+                imagePullPolicy: resolvedImagePullPolicy,
                 ports: [{ containerPort: healthPort, name: 'health' }],
                 env: envList,
                 envFrom: [{ secretRef: { name: `${agentName}-secrets` } }],

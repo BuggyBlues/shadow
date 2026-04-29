@@ -13,6 +13,13 @@ export type ShadowAccountConfig = {
   token: string
   serverUrl: string
   enabled?: boolean
+  capabilities?: {
+    inlineButtons?: 'off' | 'dm' | 'group' | 'all' | 'allowlist' | boolean
+    uploadFile?: boolean
+    interactive?: boolean
+    forms?: boolean
+    [key: string]: unknown
+  }
   agentId?: string
   /** Buddy display name — injected by cloud parser for AI context */
   buddyName?: string

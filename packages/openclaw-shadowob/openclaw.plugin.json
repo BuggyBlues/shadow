@@ -68,6 +68,32 @@
             "type": "string",
             "enum": ["first", "all", "off"]
           },
+          "capabilities": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "inlineButtons": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": ["off", "dm", "group", "all", "allowlist"]
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              },
+              "uploadFile": {
+                "type": "boolean"
+              },
+              "interactive": {
+                "type": "boolean"
+              },
+              "forms": {
+                "type": "boolean"
+              }
+            }
+          },
           "accountAgentMap": {
             "type": "object",
             "additionalProperties": {
@@ -100,6 +126,10 @@
                 },
                 "agentId": {
                   "type": "string"
+                },
+                "capabilities": {
+                  "type": "object",
+                  "additionalProperties": true
                 }
               }
             }

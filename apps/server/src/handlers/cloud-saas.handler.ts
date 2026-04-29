@@ -5,6 +5,7 @@ import {
   collectRuntimeEnvRequirements,
   deleteNamespace,
   execInPodAsync,
+  extractCloudSaasRuntime,
   extractRequiredEnvVars,
   listManagedNamespaces,
   listPodsAsync,
@@ -26,6 +27,7 @@ import { type Context, Hono } from 'hono'
 import { z } from 'zod'
 import type { AppContainer } from '../container'
 import { cloudDeployments, cloudTemplates } from '../db/schema'
+import { requestCloudDeploymentCancellation } from '../lib/cloud-deployment-processor'
 import { decrypt, encrypt } from '../lib/kms'
 import { authMiddleware } from '../middleware/auth.middleware'
 import {
@@ -55,8 +57,6 @@ const PROVIDER_PROFILE_META_KEY_SET = new Set<string>(Object.values(PROVIDER_PRO
 const PROVIDER_PROFILE_MODELS_ENV_KEY = 'SHADOW_PROVIDER_PROFILE_MODELS_JSON'
 const PROVIDER_MODEL_TAGS = ['default', 'fast', 'flash', 'reasoning', 'vision', 'tools'] as const
 const PROVIDER_MODEL_TAG_SET = new Set<string>(PROVIDER_MODEL_TAGS)
-
-type CloudDeploymentRow = typeof cloudDeployments.$inferSelect
 
 type ProviderCatalogView = Awaited<ReturnType<typeof listProviderCatalogs>>[number]['provider']
 
@@ -99,6 +99,8 @@ type ProviderRuntimeProfile = {
   models: ProviderProfileModelView[]
 }
 
+type CloudTemplateRecord = typeof cloudTemplates.$inferSelect
+
 function getPrimarySchema(): Record<string, unknown> {
   return loadCloudConfigSchema()
 }
@@ -110,6 +112,14 @@ function isDeployableTemplateContent(content: unknown): boolean {
   } catch {
     return false
   }
+}
+
+function isTemplateOwnedByUser(template: CloudTemplateRecord, userId: string): boolean {
+  return template.authorId === userId || template.submittedByUserId === userId
+}
+
+function canUseTemplate(template: CloudTemplateRecord, userId: string): boolean {
+  return template.reviewStatus === 'approved' || isTemplateOwnedByUser(template, userId)
 }
 
 function nonEmptyProcessEnv(key: string): string | undefined {
@@ -932,6 +942,83 @@ function isVisibleDeploymentStatus(status: string): boolean {
   )
 }
 
+function isActiveDeploymentStatus(status: string): boolean {
+  return (
+    status === 'pending' ||
+    status === 'deploying' ||
+    status === 'cancelling' ||
+    status === 'destroying'
+  )
+}
+
+type BlockingDeploymentRow = {
+  id: string
+  clusterId?: string | null
+  namespace: string
+  status: string
+  updatedAt?: Date | null
+  createdAt?: Date | null
+}
+
+function deploymentCreatedTime(row: { createdAt?: Date | null; updatedAt?: Date | null }): number {
+  return (row.createdAt ?? row.updatedAt)?.getTime?.() ?? 0
+}
+
+function findBlockingDeployment<T extends BlockingDeploymentRow>(
+  deployment: T,
+  rows: T[],
+): T | null {
+  if (!isActiveDeploymentStatus(deployment.status)) return null
+
+  const queuedAt = deploymentCreatedTime(deployment)
+  return (
+    rows
+      .filter(
+        (row) =>
+          row.id !== deployment.id &&
+          row.namespace === deployment.namespace &&
+          (row.clusterId ?? null) === (deployment.clusterId ?? null) &&
+          isActiveDeploymentStatus(row.status) &&
+          deploymentCreatedTime(row) <= queuedAt,
+      )
+      .sort((left, right) => deploymentCreatedTime(left) - deploymentCreatedTime(right))[0] ?? null
+  )
+}
+
+function sanitizeCloudSaasDeploymentWithBlocker<
+  T extends Parameters<typeof sanitizeCloudSaasDeployment>[0] & BlockingDeploymentRow,
+>(deployment: T, rows: T[]) {
+  const blocker = findBlockingDeployment(deployment, rows)
+  const shadowServerId = extractShadowServerId(deployment.configSnapshot)
+  return {
+    ...sanitizeCloudSaasDeployment(deployment),
+    shadowServerId,
+    blockedBy: blocker
+      ? {
+          id: blocker.id,
+          namespace: blocker.namespace,
+          status: blocker.status,
+          createdAt: blocker.createdAt?.toISOString?.() ?? null,
+          updatedAt: blocker.updatedAt?.toISOString?.() ?? null,
+        }
+      : null,
+  }
+}
+
+function extractShadowServerId(configSnapshot: unknown): string | null {
+  const { provisionState } = extractCloudSaasRuntime(configSnapshot)
+  const shadowob = provisionState?.plugins?.shadowob
+  if (!shadowob || typeof shadowob !== 'object' || Array.isArray(shadowob)) return null
+
+  const servers = shadowob.servers
+  if (!servers || typeof servers !== 'object' || Array.isArray(servers)) return null
+
+  for (const value of Object.values(servers)) {
+    if (typeof value === 'string' && value.trim()) return value
+  }
+  return null
+}
+
 function newestVisibleDeploymentsByNamespace<
   T extends {
     namespace: string
@@ -944,76 +1031,17 @@ function newestVisibleDeploymentsByNamespace<
   for (const row of rows) {
     if (!isVisibleDeploymentStatus(row.status)) continue
     const existing = byNamespace.get(row.namespace)
-    const rowTime = (row.updatedAt ?? row.createdAt)?.getTime?.() ?? 0
-    const existingTime = (existing?.updatedAt ?? existing?.createdAt)?.getTime?.() ?? 0
+    const rowTime = deploymentCreatedTime(row)
+    const existingTime = existing ? deploymentCreatedTime(existing) : 0
     if (!existing || rowTime >= existingTime) {
       byNamespace.set(row.namespace, row)
     }
   }
   return [...byNamespace.values()].sort((left, right) => {
-    const leftTime = (left.updatedAt ?? left.createdAt)?.getTime?.() ?? 0
-    const rightTime = (right.updatedAt ?? right.createdAt)?.getTime?.() ?? 0
+    const leftTime = deploymentCreatedTime(left)
+    const rightTime = deploymentCreatedTime(right)
     return rightTime - leftTime
   })
-}
-
-async function reconcileUserDeploymentRowsWithCluster(
-  container: AppContainer,
-  userId: string,
-  rows: CloudDeploymentRow[],
-): Promise<CloudDeploymentRow[]> {
-  const namespaces = listManagedNamespaces()
-  if (namespaces === null || namespaces.length === 0) return rows
-
-  const present = new Set(namespaces)
-  const rowsByNamespace = new Map<string, CloudDeploymentRow[]>()
-  for (const row of rows) {
-    const scoped = rowsByNamespace.get(row.namespace) ?? []
-    scoped.push(row)
-    rowsByNamespace.set(row.namespace, scoped)
-  }
-
-  const db = container.resolve('db')
-  const dao = container.resolve('cloudDeploymentDao')
-  const nextRows = [...rows]
-
-  for (const namespace of present) {
-    const scoped = rowsByNamespace.get(namespace) ?? []
-    if (scoped.some((row) => isVisibleDeploymentStatus(row.status))) continue
-
-    const candidate = scoped
-      .filter(
-        (row) =>
-          row.status === 'failed' &&
-          (row.errorMessage === 'orphaned-by-cluster' ||
-            row.errorMessage?.includes('Namespace') ||
-            row.errorMessage?.includes('orphan')),
-      )
-      .sort((left, right) => {
-        const leftTime = (left.updatedAt ?? left.createdAt)?.getTime?.() ?? 0
-        const rightTime = (right.updatedAt ?? right.createdAt)?.getTime?.() ?? 0
-        return rightTime - leftTime
-      })[0]
-    if (!candidate) continue
-
-    const [updated] = await db
-      .update(cloudDeployments)
-      .set({ status: 'deployed', errorMessage: null, updatedAt: new Date() })
-      .where(and(eq(cloudDeployments.id, candidate.id), eq(cloudDeployments.userId, userId)))
-      .returning()
-    if (!updated) continue
-
-    await dao.appendLog(
-      updated.id,
-      `[reconcile] Namespace "${namespace}" exists on the cluster; restored deployment row after server restart`,
-      'info',
-    )
-    const index = nextRows.findIndex((row) => row.id === updated.id)
-    if (index >= 0) nextRows[index] = updated
-    else nextRows.unshift(updated)
-  }
-
-  return nextRows
 }
 
 function delay(ms: number) {
@@ -1442,11 +1470,12 @@ export function createCloudSaasHandler(container: AppContainer) {
    * Get a single approved template by slug.
    */
   h.get('/templates/:slug', async (c) => {
+    const user = c.get('user') as { userId: string }
     const slug = c.req.param('slug')
     const locale = c.req.query('locale') ?? 'en'
     const dao = container.resolve('cloudTemplateDao')
     const template = await dao.findBySlug(slug)
-    if (!template || template.reviewStatus !== 'approved') {
+    if (!template || !canUseTemplate(template, user.userId)) {
       return c.json({ ok: false, error: 'Template not found' }, 404)
     }
     if (!isDeployableTemplateContent(template.content)) {
@@ -1456,10 +1485,11 @@ export function createCloudSaasHandler(container: AppContainer) {
   })
 
   h.get('/templates/:slug/env-refs', async (c) => {
+    const user = c.get('user') as { userId: string }
     const slug = c.req.param('slug')
     const dao = container.resolve('cloudTemplateDao')
     const template = await dao.findBySlug(slug)
-    if (!template || template.reviewStatus !== 'approved') {
+    if (!template || !canUseTemplate(template, user.userId)) {
       return c.json({ ok: false, error: 'Template not found' }, 404)
     }
     if (!isDeployableTemplateContent(template.content)) {
@@ -1665,14 +1695,9 @@ export function createCloudSaasHandler(container: AppContainer) {
       .limit(limit)
       .offset(offset)
 
-    const reconciledRows = await reconcileUserDeploymentRowsWithCluster(
-      container,
-      user.userId,
-      rows,
-    )
-    const visibleRows = newestVisibleDeploymentsByNamespace(reconciledRows)
-    const sanitizedRows = (includeHistory ? reconciledRows : visibleRows).map((row) =>
-      sanitizeCloudSaasDeployment(row),
+    const visibleRows = newestVisibleDeploymentsByNamespace(rows)
+    const sanitizedRows = (includeHistory ? rows : visibleRows).map((row) =>
+      sanitizeCloudSaasDeploymentWithBlocker(row, rows),
     )
 
     if (!includeOrphans) {
@@ -1730,7 +1755,18 @@ export function createCloudSaasHandler(container: AppContainer) {
     const dao = container.resolve('cloudDeploymentDao')
     const deployment = await dao.findById(id, user.userId)
     if (!deployment) return c.json({ ok: false, error: 'Deployment not found' }, 404)
-    return c.json(sanitizeCloudSaasDeployment(deployment))
+    const rows = await container
+      .resolve('db')
+      .select()
+      .from(cloudDeployments)
+      .where(
+        and(
+          eq(cloudDeployments.userId, user.userId),
+          eq(cloudDeployments.namespace, deployment.namespace),
+        ),
+      )
+      .orderBy(desc(cloudDeployments.createdAt))
+    return c.json(sanitizeCloudSaasDeploymentWithBlocker(deployment, rows))
   })
 
   h.get('/deployments/:id/costs', async (c) => {
@@ -1778,7 +1814,7 @@ export function createCloudSaasHandler(container: AppContainer) {
       // Verify template exists
       const templateDao = container.resolve('cloudTemplateDao')
       const template = await templateDao.findBySlug(input.templateSlug)
-      if (!template || template.reviewStatus !== 'approved') {
+      if (!template || !canUseTemplate(template, user.userId)) {
         return c.json({ ok: false, error: 'Template not found or not approved' }, 404)
       }
       if (!isDeployableTemplateContent(template.content)) {
@@ -1893,6 +1929,12 @@ export function createCloudSaasHandler(container: AppContainer) {
             throw new Error('Failed to finalize deployment metadata')
           }
 
+          await deploymentDao.appendLog(
+            deployment.id,
+            `[queue] Deployment queued for namespace "${input.namespace}"`,
+            'info',
+          )
+
           // Increment template deploy_count
           await db
             .update(cloudTemplates)
@@ -1965,7 +2007,7 @@ export function createCloudSaasHandler(container: AppContainer) {
 
   /**
    * DELETE /api/cloud-saas/deployments/:id
-   * Delete a SaaS deployment.
+   * Enqueue a Pulumi destroy task for the current deployment instance.
    */
   h.delete('/deployments/:id', async (c) => {
     const user = c.get('user') as { userId: string }
@@ -1974,54 +2016,105 @@ export function createCloudSaasHandler(container: AppContainer) {
     const deployment = await dao.findById(id, user.userId)
     if (!deployment) return c.json({ ok: false, error: 'Deployment not found' }, 404)
 
-    if (!isVisibleDeploymentStatus(deployment.status)) {
+    if (deployment.status === 'destroyed') {
       return c.json(
         { ok: false, error: `Cannot destroy deployment in status "${deployment.status}"` },
         422,
       )
     }
 
-    const operationLockAcquired = await dao.tryAcquireOperationLock(deployment)
-    if (!operationLockAcquired) {
-      return c.json({ ok: false, error: 'Deployment namespace is currently busy' }, 409)
-    }
-
-    try {
-      const current = await dao.findLatestCurrentInNamespace({
-        userId: user.userId,
-        clusterId: deployment.clusterId,
-        namespace: deployment.namespace,
-      })
-      if (!current || current.id !== deployment.id) {
-        return c.json(
-          {
-            ok: false,
-            error:
-              'Cannot destroy a historical deployment. Destroy the current deployment instance.',
-          },
-          409,
-        )
+    const latestCurrent = await dao.findLatestCurrentInNamespace({
+      userId: user.userId,
+      clusterId: deployment.clusterId,
+      namespace: deployment.namespace,
+    })
+    const current = latestCurrent ?? (deployment.status === 'failed' ? deployment : null)
+    if (!current || current.id !== deployment.id) {
+      if (current?.status === 'destroying') {
+        return c.json({ ok: true, taskId: current.id, status: current.status })
       }
-
-      await dao.updateStatus(id, 'destroying')
-      const activityDao = container.resolve('cloudActivityDao')
-      await activityDao.log({
-        userId: user.userId,
-        type: 'destroy',
-        namespace: deployment.namespace,
-        meta: { deploymentId: id },
-      })
-      return c.json({ ok: true })
-    } finally {
-      await dao.releaseOperationLock(deployment).catch(() => {})
+      return c.json(
+        {
+          ok: false,
+          error: 'Cannot destroy a historical deployment. Destroy the current deployment instance.',
+        },
+        409,
+      )
     }
+
+    if (current.status === 'destroying') {
+      return c.json({ ok: true, taskId: current.id, status: current.status })
+    }
+
+    if (!isVisibleDeploymentStatus(current.status) && current.status !== 'failed') {
+      return c.json(
+        { ok: false, error: `Cannot destroy deployment in status "${current.status}"` },
+        422,
+      )
+    }
+
+    if (!current.configSnapshot || typeof current.configSnapshot !== 'object') {
+      return c.json(
+        { ok: false, error: 'Deployment has no Pulumi config snapshot to destroy' },
+        422,
+      )
+    }
+
+    const destroyTask = await dao.create({
+      userId: user.userId,
+      clusterId: current.clusterId,
+      namespace: current.namespace,
+      name: current.name,
+      status: 'destroying',
+      agentCount: current.agentCount,
+      configSnapshot: current.configSnapshot,
+      templateSlug: current.templateSlug,
+      resourceTier: current.resourceTier,
+      monthlyCost: current.monthlyCost,
+      saasMode: current.saasMode,
+    })
+    if (!destroyTask) {
+      return c.json({ ok: false, error: 'Failed to create destroy task' }, 500)
+    }
+
+    await dao.appendLog(
+      destroyTask.id,
+      `[destroy] Queued Pulumi destroy for deployment ${current.id} in namespace "${current.namespace}"`,
+      'info',
+    )
+
+    const blocker = await dao.findActiveOperationInNamespace({
+      userId: user.userId,
+      clusterId: current.clusterId,
+      namespace: current.namespace,
+      excludeId: destroyTask.id,
+    })
+    if (blocker) {
+      await dao.appendLog(
+        destroyTask.id,
+        `[queue] Waiting for task ${blocker.id} (${blocker.status}) before destroy starts`,
+        'info',
+      )
+    }
+
+    const activityDao = container.resolve('cloudActivityDao')
+    await activityDao.log({
+      userId: user.userId,
+      type: 'destroy',
+      namespace: current.namespace,
+      meta: { deploymentId: current.id, taskId: destroyTask.id },
+    })
+
+    return c.json({ ok: true, taskId: destroyTask.id, status: destroyTask.status })
   })
 
   /**
    * POST /api/cloud-saas/deployments/:id/cancel
-   * Request cancellation of an in-progress deploy.
-   * Worker watches for status='cancelling' and SIGTERMs the deploy subprocess.
-   * Allowed when status ∈ {pending, deploying}; otherwise 422.
+   * Request cancellation of an active deploy/destroy task.
+   *
+   * Cancellation must not wait for the namespace operation lock, because the
+   * task being cancelled may be the one holding that lock and blocking the
+   * rest of the namespace queue.
    */
   h.post('/deployments/:id/cancel', async (c) => {
     const user = c.get('user') as { userId: string }
@@ -2029,7 +2122,31 @@ export function createCloudSaasHandler(container: AppContainer) {
     const dao = container.resolve('cloudDeploymentDao')
     const deployment = await dao.findById(id, user.userId)
     if (!deployment) return c.json({ ok: false, error: 'Deployment not found' }, 404)
-    if (deployment.status !== 'pending' && deployment.status !== 'deploying') {
+
+    if (deployment.status === 'cancelling') {
+      const signalled = await requestCloudDeploymentCancellation(id)
+      if (signalled) {
+        await dao.appendLog(id, '[cancel] Cancellation signal re-sent to running operation', 'warn')
+      } else {
+        const acquired = await dao.tryAcquireWorkerLock(id)
+        if (acquired) {
+          try {
+            await dao.appendLog(id, '[cancel] No live operation found; marking cancelled', 'warn')
+            await dao.updateStatus(id, 'failed', 'cancelled by user')
+            return c.json({ ok: true, status: 'failed' })
+          } finally {
+            await dao.releaseWorkerLock(id).catch(() => {})
+          }
+        }
+      }
+      return c.json({ ok: true, status: 'cancelling' })
+    }
+
+    if (
+      deployment.status !== 'pending' &&
+      deployment.status !== 'deploying' &&
+      deployment.status !== 'destroying'
+    ) {
       return c.json(
         {
           ok: false,
@@ -2038,9 +2155,30 @@ export function createCloudSaasHandler(container: AppContainer) {
         422,
       )
     }
+
     await dao.updateStatus(id, 'cancelling')
     await dao.appendLog(id, '[cancel] User requested cancellation', 'warn')
-    return c.json({ ok: true, status: 'cancelling' })
+    const signalled = await requestCloudDeploymentCancellation(id)
+    if (signalled) {
+      return c.json({ ok: true, status: 'cancelling' })
+    }
+
+    const acquired = await dao.tryAcquireWorkerLock(id)
+    if (!acquired) {
+      return c.json({ ok: true, status: 'cancelling' })
+    }
+
+    try {
+      await dao.appendLog(
+        id,
+        '[cancel] Task was not running; marking cancelled immediately',
+        'warn',
+      )
+      await dao.updateStatus(id, 'failed', 'cancelled by user')
+      return c.json({ ok: true, status: 'failed' })
+    } finally {
+      await dao.releaseWorkerLock(id).catch(() => {})
+    }
   })
 
   /**
@@ -2124,6 +2262,11 @@ export function createCloudSaasHandler(container: AppContainer) {
         .returning()
 
       await dao.appendLog(next.id, `[redeploy] Recreated from deployment ${deployment.id}`, 'info')
+      await dao.appendLog(
+        next.id,
+        `[queue] Redeploy queued for namespace "${deployment.namespace}"`,
+        'info',
+      )
 
       const activityDao = container.resolve('cloudActivityDao')
       await activityDao.log({

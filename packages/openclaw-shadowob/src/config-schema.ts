@@ -4,15 +4,28 @@
 
 import { z } from 'zod'
 
+const ShadowCapabilitiesSchema = z
+  .object({
+    inlineButtons: z
+      .union([z.enum(['off', 'dm', 'group', 'all', 'allowlist']), z.boolean()])
+      .optional(),
+    uploadFile: z.boolean().optional(),
+    interactive: z.boolean().optional(),
+    forms: z.boolean().optional(),
+  })
+  .passthrough()
+
 const ShadowAccountSchema = z.object({
   token: z.string().min(1),
   serverUrl: z.string().url().default('https://shadowob.com'),
   enabled: z.boolean().optional(),
+  capabilities: ShadowCapabilitiesSchema.optional(),
 })
 
 const ShadowConfigBaseSchema = z.object({
   name: z.string().optional(),
   enabled: z.boolean().optional(),
+  capabilities: ShadowCapabilitiesSchema.optional(),
 })
 
 const SimplifiedSchema = z.intersection(ShadowConfigBaseSchema, ShadowAccountSchema)

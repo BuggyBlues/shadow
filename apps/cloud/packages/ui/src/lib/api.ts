@@ -228,6 +228,13 @@ export interface DeployTask {
   error: string | null
   createdAt: string | null
   updatedAt: string | null
+  blockedBy?: {
+    id: number | string
+    status: string
+    namespace: string
+    createdAt?: string | null
+    updatedAt: string | null
+  } | null
 }
 
 export interface DeployTaskListItem {
@@ -547,12 +554,17 @@ export const api = {
       const response = await postRaw(`/deploy-tasks/${encodeURIComponent(String(id))}/redeploy`, {})
       return extractTaskIdFromSse(response)
     },
+    cancel: (id: number | string) =>
+      post<{
+        ok: boolean
+        status?: string
+      }>(`/deploy-tasks/${encodeURIComponent(String(id))}/cancel`, {}),
     redeployUrl: (id: number | string) =>
       `${BASE}/deploy-tasks/${encodeURIComponent(String(id))}/redeploy`,
   },
 
   destroy: (options: { namespace?: string; stack?: string }) =>
-    post<{ ok: boolean }>('/destroy', options),
+    post<{ ok: boolean; taskId?: number | string; status?: string }>('/destroy', options),
 
   rollback: (options: { namespace: string }) =>
     post<{ ok: boolean; namespace: string }>('/rollback', options),

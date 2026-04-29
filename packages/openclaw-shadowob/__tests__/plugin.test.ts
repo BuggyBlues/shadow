@@ -384,6 +384,9 @@ describe('Plugin Entry Point', () => {
     expect(manifest.channels).toContain('shadowob')
     expect(manifest.channelConfigs?.shadowob?.schema?.type).toBe('object')
     expect(manifest.channelConfigs.shadowob.schema.properties.accounts).toBeDefined()
+    expect(
+      manifest.channelConfigs.shadowob.schema.properties.capabilities.properties.inlineButtons,
+    ).toBeDefined()
     expect(manifest.channelEnvVars?.shadowob).toContain('SHADOW_SERVER_URL')
   })
 
@@ -430,15 +433,24 @@ describe('Plugin Entry Point', () => {
     const { shadowPlugin } = await import('../src/channel.js')
     const discovery = shadowPlugin.actions?.describeMessageTool({ cfg: {} } as never)
     expect(discovery?.actions).toContain('send')
-    expect(discovery?.actions).toContain('sendAttachment')
-    expect(discovery?.actions).toContain('get-server')
-    expect(discovery?.actions).not.toContain('send-interactive')
+    expect(discovery?.actions).toContain('upload-file')
+    expect(discovery?.actions).toContain('send-interactive')
+    expect(discovery?.actions).not.toContain('sendAttachment')
+    expect(discovery?.actions).not.toContain('get-server')
+    expect(discovery?.actions).not.toContain('update-homepage')
     expect(discovery?.capabilities).toContain('interactive')
+    expect(discovery?.mediaSourceParams?.['upload-file']).toContain('path')
+    expect(discovery?.mediaSourceParams?.sendAttachment).toBeUndefined()
     const schema = Array.isArray(discovery?.schema) ? discovery.schema[0] : discovery?.schema
     expect(schema?.properties.kind).toBeDefined()
     expect(schema?.properties.buttons).toBeDefined()
     expect(schema?.properties.fields).toBeDefined()
     expect(schema?.properties.approvalCommentLabel).toBeDefined()
+    expect(schema?.properties.path).toBeDefined()
+    expect(schema?.properties.filePath).toBeDefined()
+    expect(schema?.properties.filename).toBeDefined()
+    expect(schema?.properties.serverId).toBeUndefined()
+    expect(schema?.properties.html).toBeUndefined()
   })
 
   it('should tell agents to include message when sending interactive dialogs', async () => {
@@ -448,6 +460,11 @@ describe('Plugin Entry Point', () => {
 
     expect(text).toContain('prefer sending a Shadow interactive dialog')
     expect(text).toContain('`message` is required')
+    expect(text).toContain('`action: "upload-file"`')
+    expect(text).not.toContain('sendAttachment')
+    expect(text).not.toContain('get-server')
+    expect(text).not.toContain('update-homepage')
+    expect(text).not.toContain('homepage')
   })
 
   it('should handle send while keeping send-interactive as a legacy direct action', async () => {
@@ -456,7 +473,69 @@ describe('Plugin Entry Point', () => {
     expect(shadowPlugin.actions?.supportsAction?.({ action: 'send-interactive' as never })).toBe(
       true,
     )
+    expect(shadowPlugin.actions?.supportsAction?.({ action: 'upload-file' as never })).toBe(true)
+    expect(shadowPlugin.actions?.supportsAction?.({ action: 'sendFile' as never })).toBe(true)
+    expect(shadowPlugin.actions?.supportsAction?.({ action: 'sendAttachment' as never })).toBe(
+      false,
+    )
+    expect(shadowPlugin.actions?.supportsAction?.({ action: 'get-server' as never })).toBe(false)
+    expect(shadowPlugin.actions?.supportsAction?.({ action: 'update-homepage' as never })).toBe(
+      false,
+    )
     expect(shadowPlugin.actions?.supportsAction?.({ action: 'pin' })).toBe(false)
+  })
+
+  it('should handle canonical upload-file actions as Shadow attachments', async () => {
+    const { ShadowClient } = await import('@shadowob/sdk')
+    const { shadowPlugin } = await import('../src/channel.js')
+    const sendMessage = vi.spyOn(ShadowClient.prototype, 'sendMessage').mockResolvedValue({
+      id: 'file-msg-1',
+      content: 'Report',
+      channelId: 'ch-123',
+      authorId: 'bot-1',
+      createdAt: '2026-04-27T00:00:00.000Z',
+      updatedAt: '2026-04-27T00:00:00.000Z',
+    } as never)
+    const uploadMediaFromUrl = vi
+      .spyOn(ShadowClient.prototype, 'uploadMediaFromUrl')
+      .mockResolvedValue({ url: '/media/report.txt', key: 'report.txt', size: 12 })
+
+    try {
+      const result = await shadowPlugin.actions?.handleAction?.({
+        action: 'upload-file',
+        accountId: 'default',
+        cfg: {
+          channels: {
+            shadowob: {
+              token: 'tok',
+              serverUrl: 'http://localhost:3002',
+            },
+          },
+        },
+        params: {
+          target: 'shadowob:channel:ch-123',
+          path: '/home/openclaw/.openclaw/workspace/demo/report.txt',
+          caption: 'Report',
+        },
+      } as never)
+
+      expect(sendMessage).toHaveBeenCalledWith('ch-123', 'Report', {
+        replyToId: undefined,
+      })
+      expect(uploadMediaFromUrl).toHaveBeenCalledWith(
+        '/home/openclaw/.openclaw/workspace/demo/report.txt',
+        'file-msg-1',
+      )
+      expect(result?.details).toMatchObject({
+        ok: true,
+        action: 'upload-file',
+        canonicalAction: 'upload-file',
+        messageId: 'file-msg-1',
+      })
+    } finally {
+      sendMessage.mockRestore()
+      uploadMediaFromUrl.mockRestore()
+    }
   })
 
   it('should preserve metadata when sending to a thread-only target', async () => {
@@ -792,8 +871,13 @@ describe('Shadow Config Schema', () => {
   it('should validate multi-account config', async () => {
     const { ShadowConfigSchema } = await import('../src/config-schema.js')
     const result = ShadowConfigSchema.safeParse({
+      capabilities: { inlineButtons: 'all', uploadFile: true },
       accounts: {
-        bot1: { token: 'token-1', serverUrl: 'http://localhost:3000' },
+        bot1: {
+          token: 'token-1',
+          serverUrl: 'http://localhost:3000',
+          capabilities: { inlineButtons: 'all' },
+        },
         bot2: { token: 'token-2', serverUrl: 'http://localhost:3000', enabled: true },
       },
     })

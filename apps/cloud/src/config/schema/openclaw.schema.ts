@@ -277,6 +277,8 @@ export interface OpenClawBinding {
 export interface OpenClawChannelBase {
   /** Whether channel is enabled */
   enabled?: boolean
+  /** Channel-specific feature gates such as inline buttons or file uploads */
+  capabilities?: OpenClawChannelCapabilities
   /** DM policy */
   dmPolicy?: 'pairing' | 'allowlist' | 'open' | 'disabled'
   /** Allowed senders */
@@ -291,6 +293,19 @@ export interface OpenClawChannelBase {
   streaming?: 'off' | 'partial' | 'block' | 'progress'
   /** Config writes toggle */
   configWrites?: boolean
+}
+
+export interface OpenClawChannelCapabilities {
+  /** Inline button scope: off, DM-only, group-only, all, or allowlist */
+  inlineButtons?: 'off' | 'dm' | 'group' | 'all' | 'allowlist' | boolean
+  /** Canonical OpenClaw file upload action support */
+  uploadFile?: boolean
+  /** Native interactive message support */
+  interactive?: boolean
+  /** Native form message support */
+  forms?: boolean
+  /** Plugin-specific feature gates */
+  [key: string]: unknown
 }
 
 /**
@@ -340,14 +355,16 @@ export interface OpenClawChannelsConfig {
     groups?: Record<string, unknown>
   }
   /** Shadow/ShadowOB channel config */
-  shadowob?: {
+  shadowob?: OpenClawChannelBase & {
     enabled?: boolean
+    capabilities?: OpenClawChannelCapabilities
     accounts?: Record<
       string,
       {
         token?: string
         serverUrl?: string
         enabled?: boolean
+        capabilities?: OpenClawChannelCapabilities
       }
     >
   }

@@ -29,7 +29,9 @@ import {
   GitBranch,
   GitFork,
   Loader2,
+  Plus,
   Search,
+  ShoppingBag,
   Sparkles,
   Trash2,
   Users,
@@ -79,38 +81,12 @@ function getMyTemplateOverview(content: unknown) {
   }
 }
 
-type TemplateSourceFilter = 'all' | 'store' | 'git' | 'custom'
+type TemplateSource = 'store' | 'git' | 'custom'
 
-function getTemplateSourceType(templateSlug: string | null): Exclude<TemplateSourceFilter, 'all'> {
+function getTemplateSourceType(templateSlug: string | null): TemplateSource {
   if (templateSlug?.startsWith('git:')) return 'git'
   if (templateSlug) return 'store'
   return 'custom'
-}
-
-function FilterPill({
-  label,
-  count,
-  active,
-  onClick,
-}: {
-  label: string
-  count: number
-  active: boolean
-  onClick: () => void
-}) {
-  return (
-    <Button type="button" onClick={onClick} variant="ghost" size="sm">
-      <span className="truncate">{label}</span>
-      <span
-        className={cn(
-          'rounded-xl px-2 py-0.5 text-[11px]',
-          active ? 'bg-primary/15 text-primary' : 'bg-bg-tertiary/80 text-text-muted',
-        )}
-      >
-        {count}
-      </span>
-    </Button>
-  )
 }
 
 function CardMetric({
@@ -564,6 +540,60 @@ function ImportGitDialog({
   )
 }
 
+function CreateTemplateDialog({
+  onCreate,
+  onClose,
+}: {
+  onCreate: (name: string) => void
+  onClose: () => void
+}) {
+  const { t } = useTranslation()
+  const [name, setName] = useState('')
+
+  return (
+    <Modal open onClose={onClose}>
+      <ModalContent maxWidth="max-w-lg">
+        <ModalHeader
+          overline={t('templates.createTemplate')}
+          icon={<Plus size={18} className="text-primary" />}
+          title={t('templates.createTemplate')}
+          subtitle={t('templates.createTemplateDescription')}
+        />
+
+        <ModalBody>
+          <Input
+            type="text"
+            label={t('templates.newTemplateName')}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder={t('templates.templateNamePlaceholder')}
+          />
+        </ModalBody>
+
+        <ModalFooter>
+          <ModalButtonGroup>
+            <Button type="button" variant="ghost" onClick={onClose}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => {
+                const templateName = name.trim()
+                if (templateName) onCreate(templateName)
+              }}
+              disabled={!name.trim()}
+            >
+              <Plus size={14} />
+              {t('templates.createTemplate')}
+            </Button>
+          </ModalButtonGroup>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
+  )
+}
+
 export function MyTemplatesPage() {
   const api = useApiClient()
   const { t, i18n } = useTranslation()
@@ -572,12 +602,12 @@ export function MyTemplatesPage() {
   const navigate = useNavigate()
   const [showForkDialog, setShowForkDialog] = useState(false)
   const [showGitImport, setShowGitImport] = useState(false)
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [templateToDelete, setTemplateToDelete] = useState<{
     name: string
     reviewStatus?: 'draft' | 'pending' | 'approved' | 'rejected'
   } | null>(null)
   const [search, setSearch] = useState('')
-  const [activeFilter, setActiveFilter] = useState<TemplateSourceFilter>('all')
   const debouncedSearch = useDebounce(search)
   const typewriterPlaceholder = useTypewriterPlaceholder(
     t('templates.typewriterPhrases', { returnObjects: true }) as string[],
@@ -627,6 +657,10 @@ export function MyTemplatesPage() {
   })
 
   const templates = myTemplates ?? []
+  const existingTemplateNames = useMemo(
+    () => new Set(templates.map((template) => template.name)),
+    [templates],
+  )
   const catalogByName = useMemo(
     () => new Map((catalogData?.templates ?? []).map((template) => [template.name, template])),
     [catalogData?.templates],
@@ -638,28 +672,31 @@ export function MyTemplatesPage() {
     )
   }, [templates])
 
-  const sourceCounts = useMemo(() => {
-    const counts: Record<TemplateSourceFilter, number> = {
-      all: sortedTemplates.length,
-      store: 0,
-      git: 0,
-      custom: 0,
-    }
+  const createTemplateMutation = useMutation({
+    mutationFn: (name: string) => api.myTemplates.save(name, {}),
+    onSuccess: (_result, name) => {
+      queryClient.invalidateQueries({ queryKey: ['my-templates'] })
+      setShowCreateDialog(false)
+      navigate({ to: '/my-templates/$name', params: { name } })
+      toast.success(t('templates.templateCreated', { name }))
+    },
+    onError: (err) => toast.error(t('templates.createFailed', { message: (err as Error).message })),
+  })
 
-    for (const template of sortedTemplates) {
-      counts[getTemplateSourceType(template.templateSlug)] += 1
+  const ensureUniqueTemplateName = (name: string) => {
+    let result = name
+    let counter = 2
+    while (existingTemplateNames.has(result)) {
+      result = `${name}-${counter}`
+      counter += 1
     }
-
-    return counts
-  }, [sortedTemplates])
+    return result
+  }
 
   const filteredTemplates = useMemo(() => {
     const query = debouncedSearch.trim().toLowerCase()
 
     return sortedTemplates.filter((template) => {
-      const sourceType = getTemplateSourceType(template.templateSlug)
-      if (activeFilter !== 'all' && sourceType !== activeFilter) return false
-
       if (!query) return true
 
       const baseTemplate = template.templateSlug
@@ -679,7 +716,19 @@ export function MyTemplatesPage() {
 
       return haystack.includes(query)
     })
-  }, [activeFilter, catalogByName, debouncedSearch, sortedTemplates])
+  }, [catalogByName, debouncedSearch, sortedTemplates])
+
+  const normalizeTemplateName = (name: string) => {
+    const normalized = name.trim()
+    if (!normalized) return ''
+
+    return normalized
+      .replace(/[\\/?%*:|"<>]/g, '-')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 120)
+  }
 
   return (
     <PageShell
@@ -693,32 +742,27 @@ export function MyTemplatesPage() {
             placeholder={typewriterPlaceholder || t('templates.searchSavedPlaceholder')}
           />
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap gap-1.5">
-              {(
-                [
-                  ['all', t('templates.filters.all')],
-                  ['store', t('templates.filters.store')],
-                  ['git', t('templates.filters.git')],
-                  ['custom', t('templates.filters.custom')],
-                ] as Array<[TemplateSourceFilter, string]>
-              ).map(([key, label]) => (
-                <FilterPill
-                  key={key}
-                  label={label}
-                  count={sourceCounts[key]}
-                  active={activeFilter === key}
-                  onClick={() => setActiveFilter(key)}
-                />
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-2">
+            <p className="text-sm text-text-muted">
+              {t('store.matchingTemplates', { count: filteredTemplates.length })}
+              {debouncedSearch ? ` · ${t('store.matchingQuery', { query: debouncedSearch })}` : ''}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 type="button"
                 variant="primary"
                 size="sm"
+                onClick={() => setShowCreateDialog(true)}
+              >
+                <Plus size={14} />
+                <span className="truncate">{t('templates.createTemplate')}</span>
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
                 onClick={() => navigate({ to: '/store' })}
               >
-                <GitFork size={14} />
+                <ShoppingBag size={14} />
                 <span className="truncate">{t('templates.forkFromStore')}</span>
               </Button>
               <Button
@@ -732,11 +776,6 @@ export function MyTemplatesPage() {
               </Button>
             </div>
           </div>
-          <p className="text-sm text-text-muted">
-            {t('store.matchingTemplates', { count: filteredTemplates.length })}
-            {activeFilter !== 'all' ? ` · ${t(`templates.filters.${activeFilter}`)}` : ''}
-            {debouncedSearch ? ` · ${t('store.matchingQuery', { query: debouncedSearch })}` : ''}
-          </p>
         </div>
       }
     >
@@ -756,17 +795,37 @@ export function MyTemplatesPage() {
           <EmptyState
             icon={Copy}
             title={t('templates.noCustomTemplates')}
-            description={t('templates.forkTemplateStart')}
+            description={t('templates.noCustomTemplateHint')}
             action={
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                onClick={() => setShowForkDialog(true)}
-              >
-                <GitFork size={14} />
-                {t('templates.forkTemplate')}
-              </Button>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setShowCreateDialog(true)}
+                >
+                  <Plus size={14} />
+                  {t('templates.createTemplate')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => navigate({ to: '/store' })}
+                >
+                  <ShoppingBag size={14} />
+                  {t('templates.forkFromStore')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowGitImport(true)}
+                >
+                  <GitBranch size={14} />
+                  {t('templates.importGit')}
+                </Button>
+              </div>
             }
           />
         )}
@@ -779,16 +838,8 @@ export function MyTemplatesPage() {
             })}
             description={t('templates.emptyFiltered')}
             action={
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                onClick={() => {
-                  setSearch('')
-                  setActiveFilter('all')
-                }}
-              >
-                {t('templates.clearFilters')}
+              <Button type="button" variant="primary" size="sm" onClick={() => setSearch('')}>
+                {t('templates.clearSearch')}
               </Button>
             }
           />
@@ -888,6 +939,19 @@ export function MyTemplatesPage() {
           }
           onClose={() => setShowGitImport(false)}
           isPending={gitImportMutation.isPending}
+        />
+      )}
+
+      {showCreateDialog && (
+        <CreateTemplateDialog
+          onCreate={(name) => {
+            const normalizedName = normalizeTemplateName(name)
+            if (!normalizedName) return
+
+            const uniqueName = ensureUniqueTemplateName(normalizedName)
+            createTemplateMutation.mutate(uniqueName)
+          }}
+          onClose={() => setShowCreateDialog(false)}
         />
       )}
     </PageShell>

@@ -12,11 +12,10 @@ import {
   Loader2,
   RefreshCw,
   Rocket,
-  RotateCcw,
   Terminal,
   Trash2,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DangerConfirmDialog } from '@/components/DangerConfirmDialog'
 import { DashboardEmptyState } from '@/components/DashboardEmptyState'
@@ -25,15 +24,15 @@ import { DashboardNamespaceCard } from '@/components/DashboardNamespaceCard'
 import { DashboardLoadingState } from '@/components/DashboardState'
 import { DashboardTabsList } from '@/components/DashboardTabsList'
 import { DashboardTaskCard } from '@/components/DashboardTaskCard'
+import { MetricCardContent, MetricCardWrapper } from '@/components/MetricCard'
 import { PageShell } from '@/components/PageShell'
-import { StatCard } from '@/components/StatCard'
-import { StatsGrid } from '@/components/StatsGrid'
 import { StatusBadge } from '@/components/StatusBadge'
 import { StatusDot } from '@/components/StatusDot'
+import { ToolbarActionButton } from '@/components/ToolbarActionButton'
 import { useDebounce } from '@/hooks/useDebounce'
 import { type Deployment, type DeployTaskListItem } from '@/lib/api'
 import { useApiClient } from '@/lib/api-context'
-import { formatDisplayCost, formatTokenCount } from '@/lib/store-data'
+import { formatDisplayCost } from '@/lib/store-data'
 import { formatTimestamp, getAge, groupBy, isDeploymentReady, pluralize } from '@/lib/utils'
 import { useAppStore } from '@/stores/app'
 import { useToast } from '@/stores/toast'
@@ -46,16 +45,10 @@ interface NamespaceGroup {
   readyCount: number
   totalCount: number
   latestTask?: DeployTaskListItem
-  totalUsd?: number | null
-  billingAmount?: number | null
-  billingUnit?: 'usd' | 'shrimp'
-  totalTokens?: number | null
-  availableCostAgents?: number
-  unavailableCostAgents?: number
 }
 
 function getStatusVariant(status: string): 'neutral' | 'success' | 'warning' | 'danger' | 'info' {
-  if (status === 'deployed') return 'success'
+  if (status === 'deployed' || status === 'destroyed') return 'success'
   if (status === 'failed') return 'danger'
   if (status === 'running' || status === 'deploying' || status === 'destroying') return 'info'
   if (status === 'pending' || status === 'cancelling') return 'warning'
@@ -109,16 +102,14 @@ function NamespaceCard({
   isDiscovered,
   onDestroy,
   onRedeploy,
-  onRollback,
 }: {
   group: NamespaceGroup
   isDestroying: boolean
   isDiscovered: boolean
   onDestroy: (ns: string) => void
   onRedeploy: (taskId: number | string) => void
-  onRollback: (ns: string) => void
 }) {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const task = group.latestTask
   const readyLabel = `${group.readyCount}/${group.totalCount} ${t('clusters.ready').toLowerCase()}`
 
@@ -144,85 +135,38 @@ function NamespaceCard({
                 </span>
               )}
             </div>
-            <p className="text-xs text-text-muted">
-              {group.totalCount} {pluralize(group.totalCount, 'deployment')}
-            </p>
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-muted">
-              <DollarSign size={11} />
-              <span>
-                {formatDisplayCost(
-                  {
-                    totalUsd: group.totalUsd ?? null,
-                    billingAmount: group.billingAmount ?? null,
-                    billingUnit: group.billingUnit,
-                  },
-                  {
-                    locale: i18n.language,
-                    shrimpUnitLabel: t('deploy.shrimpCoins'),
-                  },
-                )}
+            <div className="mt-1 inline-flex items-center gap-2 text-xs">
+              <span className="rounded-full border border-border-subtle bg-bg-secondary px-2 py-0.5 text-text-subtle">
+                {readyLabel}
               </span>
-              {group.totalTokens !== null && (
-                <>
-                  <span>·</span>
-                  <span>
-                    {t('deployments.totalTokens')}{' '}
-                    {formatTokenCount(group.totalTokens ?? null, i18n.language)}
-                  </span>
-                </>
-              )}
-              <span>·</span>
-              <span>
-                {t('deployments.availableAgents')} {group.availableCostAgents ?? 0}
+              <span className="text-text-muted">
+                {group.totalCount} {pluralize(group.totalCount, 'deployment')}
               </span>
-              {(group.unavailableCostAgents ?? 0) > 0 && (
-                <>
-                  <span>·</span>
-                  <span>
-                    {t('deployments.unavailableAgents')} {group.unavailableCostAgents ?? 0}
-                  </span>
-                </>
-              )}
             </div>
           </div>
         </div>
       }
       headerRight={
         <div className="flex flex-wrap items-center gap-2 md:justify-end">
-          <StatusDot
-            status={group.readyCount === group.totalCount ? 'success' : 'warning'}
-            label={readyLabel}
-          />
           {task && (
-            <Button
+            <ToolbarActionButton
               type="button"
-              variant="ghost"
-              size="sm"
+              variant="primary"
               onClick={() => onRedeploy(task.task.id)}
-            >
-              <RefreshCw size={11} />
-              {t('deployTask.redeploy')}
-            </Button>
+              icon={<RefreshCw size={11} />}
+              label={t('deployTask.redeploy')}
+            />
           )}
-          <Button
+          <ToolbarActionButton
             type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => onRollback(group.namespace)}
-          >
-            <RotateCcw size={11} />
-            {t('deployTask.rollback')}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
+            variant="danger"
             onClick={() => onDestroy(group.namespace)}
             disabled={isDestroying}
-          >
-            {isDestroying ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
-            {t('clusters.destroy')}
-          </Button>
+            icon={
+              isDestroying ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />
+            }
+            label={t('clusters.destroy')}
+          />
         </div>
       }
       rows={group.deployments.map((dep) => (
@@ -230,27 +174,28 @@ function NamespaceCard({
       ))}
       footer={
         task ? (
-          <>
-            <div className="flex items-center gap-2 text-xs text-text-muted">
-              <FolderClock size={12} />
-              <span>
-                {t('deployTask.template')}: {task.task.templateSlug ?? '—'}
-              </span>
-              <span>·</span>
-              <Badge variant={getStatusVariant(task.task.status)} size="sm">
-                {t(`deployTask.statuses.${task.task.status}`)}
-              </Badge>
-              <span>·</span>
-              <span>{formatTimestamp(task.task.updatedAt ?? task.task.createdAt)}</span>
-            </div>
+          <div className="flex items-center gap-2 text-xs text-text-muted">
+            <FolderClock size={12} />
+            <Badge variant={getStatusVariant(task.task.status)} size="sm">
+              {t(`deployTask.statuses.${task.task.status}`)}
+            </Badge>
+            <span>·</span>
             <Link
               to="/deploy-tasks/$taskId"
               params={{ taskId: String(task.task.id) }}
-              className="text-xs text-primary transition-colors hover:text-primary-strong"
+              className="text-primary transition-colors hover:text-primary-strong"
             >
-              #{task.task.id} →
+              #{task.task.id}
             </Link>
-          </>
+            {task.task.blockedBy && (
+              <>
+                <span>·</span>
+                <span>
+                  {t('deployTask.blockedBy')} #{task.task.blockedBy.id}
+                </span>
+              </>
+            )}
+          </div>
         ) : null
       }
     />
@@ -300,6 +245,14 @@ function TasksPanel({ tasks }: { tasks: DeployTaskListItem[] }) {
                       <span>{task.templateSlug}</span>
                     </>
                   )}
+                  {task.blockedBy && (
+                    <>
+                      <span>·</span>
+                      <span>
+                        {t('deployTask.blockedBy')} #{task.blockedBy.id}
+                      </span>
+                    </>
+                  )}
                 </>
               }
             />
@@ -323,7 +276,6 @@ export function DeploymentsPage() {
   const debouncedSearch = useDebounce(search)
   const [destroyNs, setDestroyNs] = useState<string | null>(null)
   const [rollbackNs, setRollbackNs] = useState<string | null>(null)
-  const [hiddenNamespaces, setHiddenNamespaces] = useState<string[]>([])
   const [activeTab, setActiveTab] = useState('infrastructure')
 
   const {
@@ -367,36 +319,21 @@ export function DeploymentsPage() {
 
   const destroyMutation = useMutation({
     mutationFn: (ns: string) => api.destroy({ namespace: ns }),
-    onMutate: async (ns) => {
-      await queryClient.cancelQueries({ queryKey: ['deployments'] })
-      const previousDeployments = queryClient.getQueryData<Deployment[]>(['deployments'])
-      const previousHiddenNamespaces = hiddenNamespaces
-
-      setDestroyNs(ns)
-      setHiddenNamespaces((current) => (current.includes(ns) ? current : [...current, ns]))
-      queryClient.setQueryData<Deployment[]>(['deployments'], (current) =>
-        (current ?? []).filter((deployment) => deployment.namespace !== ns),
-      )
-
-      return { previousDeployments, previousHiddenNamespaces }
-    },
-    onSuccess: async (_, ns) => {
-      toast.success(t('deploymentDetail.destroySuccess', { namespace: ns }))
+    onSuccess: async (result, ns) => {
+      toast.success(t('deployments.destroyQueued', { namespace: ns }))
       addActivity({
         type: 'destroy',
-        title: t('deploymentDetail.destroyActivityTitle', { namespace: ns }),
+        title: t('deploymentDetail.destroyQueuedActivityTitle', { namespace: ns }),
         namespace: ns,
       })
       setDestroyNs(null)
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ['deployments'] })
-      }, 5_000)
-    },
-    onError: (_error, _ns, context) => {
-      if (context?.previousDeployments) {
-        queryClient.setQueryData(['deployments'], context.previousDeployments)
+      queryClient.invalidateQueries({ queryKey: ['deployments'] })
+      queryClient.invalidateQueries({ queryKey: ['deploy-tasks'] })
+      if (result.taskId) {
+        navigate({ to: '/deploy-tasks/$taskId', params: { taskId: String(result.taskId) } })
       }
-      setHiddenNamespaces(context?.previousHiddenNamespaces ?? [])
+    },
+    onError: () => {
       setDestroyNs(null)
       toast.error(t('deployments.destroyNamespaceFailed'))
     },
@@ -421,20 +358,15 @@ export function DeploymentsPage() {
     navigate({ to: '/deploy-tasks/$taskId', params: { taskId: String(nextTaskId) } })
   }
 
-  useEffect(() => {
-    const namespaces = new Set((deployments ?? []).map((d) => d.namespace))
-    setHiddenNamespaces((current) => current.filter((ns) => namespaces.has(ns)))
-  }, [deployments])
-
   // Build task map: namespace → latest task
   const tasksByNamespace = useMemo(() => {
     const map = new Map<string, DeployTaskListItem>()
     for (const item of tasks) {
       const ns = item.task.namespace
       const existing = map.get(ns)
-      const itemTime = Date.parse(item.task.updatedAt ?? item.task.createdAt ?? '') || 0
+      const itemTime = Date.parse(item.task.createdAt ?? item.task.updatedAt ?? '') || 0
       const existingTime =
-        Date.parse(existing?.task.updatedAt ?? existing?.task.createdAt ?? '') || 0
+        Date.parse(existing?.task.createdAt ?? existing?.task.updatedAt ?? '') || 0
       if (!existing || itemTime >= existingTime) {
         map.set(ns, item)
       }
@@ -442,36 +374,9 @@ export function DeploymentsPage() {
     return map
   }, [tasks])
 
-  const costByNamespace = useMemo(() => {
-    const map = new Map<
-      string,
-      {
-        totalUsd: number | null
-        billingAmount: number | null
-        billingUnit: 'usd' | 'shrimp'
-        totalTokens: number | null
-        availableAgents: number
-        unavailableAgents: number
-      }
-    >()
-
-    for (const item of costOverview?.namespaces ?? []) {
-      map.set(item.namespace, {
-        totalUsd: item.totalUsd,
-        billingAmount: item.billingAmount,
-        billingUnit: item.billingUnit,
-        totalTokens: item.totalTokens,
-        availableAgents: item.availableAgents,
-        unavailableAgents: item.unavailableAgents,
-      })
-    }
-
-    return map
-  }, [costOverview?.namespaces])
-
   // Compute groups
   const groups: NamespaceGroup[] = useMemo(() => {
-    const deps = (deployments ?? []).filter((d) => !hiddenNamespaces.includes(d.namespace))
+    const deps = deployments ?? []
     const grouped = groupBy(deps, (d) => d.namespace)
     let result = Object.entries(grouped).map(([namespace, deps]) => ({
       namespace,
@@ -479,12 +384,6 @@ export function DeploymentsPage() {
       readyCount: deps.filter((deployment) => isDeploymentReady(deployment.ready)).length,
       totalCount: deps.length,
       latestTask: tasksByNamespace.get(namespace),
-      totalUsd: costByNamespace.get(namespace)?.totalUsd ?? null,
-      billingAmount: costByNamespace.get(namespace)?.billingAmount ?? null,
-      billingUnit: costByNamespace.get(namespace)?.billingUnit ?? 'usd',
-      totalTokens: costByNamespace.get(namespace)?.totalTokens ?? null,
-      availableCostAgents: costByNamespace.get(namespace)?.availableAgents ?? 0,
-      unavailableCostAgents: costByNamespace.get(namespace)?.unavailableAgents ?? 0,
     }))
 
     if (debouncedSearch) {
@@ -497,11 +396,9 @@ export function DeploymentsPage() {
     }
 
     return result.sort((a, b) => a.namespace.localeCompare(b.namespace))
-  }, [deployments, debouncedSearch, hiddenNamespaces, tasksByNamespace, costByNamespace])
+  }, [deployments, debouncedSearch, tasksByNamespace])
 
-  const visibleDeployments = (deployments ?? []).filter(
-    (d) => !hiddenNamespaces.includes(d.namespace),
-  )
+  const visibleDeployments = deployments ?? []
   const total = visibleDeployments.length
   const ready = visibleDeployments.filter((deployment) =>
     isDeploymentReady(deployment.ready),
@@ -530,7 +427,6 @@ export function DeploymentsPage() {
     <PageShell
       breadcrumb={[]}
       title={t('deployments.title')}
-      description={t('deployments.description')}
       actions={
         <div className="flex items-center gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={() => refetch()}>
@@ -547,41 +443,56 @@ export function DeploymentsPage() {
       }
       headerContent={
         <div className="space-y-3">
-          <StatsGrid className="grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-            <StatCard
-              label={t('clusters.totalDeployments')}
-              value={total}
-              icon={<Box size={13} />}
-              color="default"
-            />
-            <StatCard
-              label={t('clusters.ready')}
-              value={ready}
-              icon={<CheckCircle size={13} />}
-              color="green"
-            />
-            <StatCard
-              label={t('deployments.namespaces')}
-              value={namespaceCount}
-              icon={<FolderOpen size={13} />}
-              color="blue"
-            />
-            <StatCard
-              label={t('deployTask.runningTasks')}
-              value={runningTasks}
-              icon={<Terminal size={13} />}
-              color={runningTasks > 0 ? 'blue' : 'default'}
-            />
-            <StatCard
-              label={t('deployments.totalCost')}
-              value={formatDisplayCost(costOverview ?? {}, {
-                locale: i18n.language,
-                shrimpUnitLabel: t('deploy.shrimpCoins'),
-              })}
-              icon={<DollarSign size={13} />}
-              color="purple"
-            />
-          </StatsGrid>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <MetricCardWrapper>
+              <MetricCardContent
+                label={t('clusters.totalDeployments')}
+                value={total}
+                icon={<Box size={13} />}
+                iconClassName="text-text-muted"
+                valueClassName="text-text-muted"
+              />
+            </MetricCardWrapper>
+            <MetricCardWrapper>
+              <MetricCardContent
+                label={t('clusters.ready')}
+                value={ready}
+                icon={<CheckCircle size={13} />}
+                iconClassName="text-success"
+                valueClassName="text-success"
+              />
+            </MetricCardWrapper>
+            <MetricCardWrapper>
+              <MetricCardContent
+                label={t('deployments.namespaces')}
+                value={namespaceCount}
+                icon={<FolderOpen size={13} />}
+                iconClassName="text-primary"
+                valueClassName="text-primary"
+              />
+            </MetricCardWrapper>
+            <MetricCardWrapper>
+              <MetricCardContent
+                label={t('deployTask.runningTasks')}
+                value={runningTasks}
+                icon={<Terminal size={13} />}
+                iconClassName={runningTasks > 0 ? 'text-primary' : 'text-text-muted'}
+                valueClassName={runningTasks > 0 ? 'text-primary' : 'text-text-muted'}
+              />
+            </MetricCardWrapper>
+            <MetricCardWrapper>
+              <MetricCardContent
+                label={t('deployments.totalCost')}
+                value={formatDisplayCost(costOverview ?? {}, {
+                  locale: i18n.language,
+                  shrimpUnitLabel: t('deploy.shrimpCoins'),
+                })}
+                icon={<DollarSign size={13} />}
+                iconClassName="text-accent"
+                valueClassName="text-accent"
+              />
+            </MetricCardWrapper>
+          </div>
           <div className="flex items-center justify-between gap-3">
             <Tabs value={activeTab} onChange={setActiveTab}>
               <DashboardTabsList tabs={tabs} />
@@ -634,7 +545,6 @@ export function DeploymentsPage() {
                   isDiscovered={nsInfo?.discovered?.includes(group.namespace) ?? false}
                   onDestroy={setDestroyNs}
                   onRedeploy={handleRedeploy}
-                  onRollback={setRollbackNs}
                 />
               ))}
             </div>
