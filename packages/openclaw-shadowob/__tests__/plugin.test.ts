@@ -447,6 +447,8 @@ describe('Plugin Entry Point', () => {
     expect(schema?.properties.kind).toBeDefined()
     expect(schema?.properties.buttons).toBeDefined()
     expect(schema?.properties.fields).toBeDefined()
+    expect(schema?.properties.media['~optional']).toBe('Optional')
+    expect(schema?.properties.kind['~optional']).toBe('Optional')
     expect(schema?.properties.approvalCommentLabel).toBeDefined()
     expect(schema?.properties.path).toBeDefined()
     expect(schema?.properties.filePath).toBeDefined()
