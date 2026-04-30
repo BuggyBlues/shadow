@@ -271,7 +271,12 @@ async function provisionServer(
 async function provisionChannel(
   client: ShadowClient,
   serverId: string,
-  channelDef: { id: string; title: string; type?: string; description?: string },
+  channelDef: {
+    id: string
+    title: string
+    type?: string
+    description?: string
+  },
   state: ShadowobState | null,
 ): Promise<string> {
   // Check state first
@@ -335,16 +340,13 @@ async function provisionBuddy(
         userId: existingBuddy.userId,
       }
     } catch (err) {
-      if (existingBuddy.token) {
-        log.dim(
-          `  Could not refresh token for "${buddyDef.name}", reusing state token: ${formatErrorMessage(err)}`,
-        )
-        return {
-          agentId: existingBuddy.agentId,
-          token: existingBuddy.token,
-          userId: existingBuddy.userId,
-        }
-      }
+      log.dim(
+        `  Buddy "${
+          buddyDef.name
+        }" in state could not mint a fresh token, recreating or looking up existing buddy: ${formatErrorMessage(
+          err,
+        )}`,
+      )
     }
   }
 
@@ -601,7 +603,9 @@ async function provisionListing(
     return created.id
   } catch (err) {
     log.warn(
-      `  Failed to create rental listing for buddy "${listingDef.buddyId}": ${err instanceof Error ? err.message : String(err)}`,
+      `  Failed to create rental listing for buddy "${listingDef.buddyId}": ${
+        err instanceof Error ? err.message : String(err)
+      }`,
     )
     return null
   }

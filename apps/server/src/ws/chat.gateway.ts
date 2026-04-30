@@ -172,11 +172,21 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
     )
 
     // message:typing
-    socket.on('message:typing', ({ channelId }: { channelId: string }) => {
-      if (!userId) return
-      const username = socket.data.username as string
-      socket.to(`channel:${channelId}`).emit('message:typing', { channelId, userId, username })
-    })
+    socket.on(
+      'message:typing',
+      ({ channelId, typing }: { channelId: string; typing?: boolean }) => {
+        if (!userId) return
+        const username = socket.data.username as string
+        const displayName = socket.data.displayName as string | undefined
+        socket.to(`channel:${channelId}`).emit('message:typing', {
+          channelId,
+          userId,
+          username,
+          displayName: displayName ?? username,
+          typing: typing !== false,
+        })
+      },
+    )
 
     // ---- DM (Direct Message) Events ----
 
@@ -330,10 +340,17 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
     })
 
     // dm:typing — typing indicator in DM
-    socket.on('dm:typing', ({ dmChannelId }: { dmChannelId: string }) => {
+    socket.on('dm:typing', ({ dmChannelId, typing }: { dmChannelId: string; typing?: boolean }) => {
       if (!userId) return
       const username = socket.data.username as string
-      socket.to(`dm:${dmChannelId}`).emit('dm:typing', { dmChannelId, userId, username })
+      const displayName = socket.data.displayName as string | undefined
+      socket.to(`dm:${dmChannelId}`).emit('dm:typing', {
+        dmChannelId,
+        userId,
+        username,
+        displayName: displayName ?? username,
+        typing: typing !== false,
+      })
     })
 
     // dm:react — add a reaction to a DM message

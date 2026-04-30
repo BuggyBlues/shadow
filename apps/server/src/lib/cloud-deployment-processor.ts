@@ -8,8 +8,10 @@ import { createHash } from 'node:crypto'
 import {
   attachCloudSaasProvisionState,
   createContainer,
+  deleteNamespace,
   extractCloudSaasRuntime,
   listManagedNamespaces,
+  listPodsAsync,
   namespaceExists,
   resolveCloudSaasShadowRuntime,
   type ServiceContainer,
@@ -37,6 +39,16 @@ type RunningOperationToken = {
 }
 type NamespaceDeletionWaitResult = 'deleted' | 'cancelled' | 'timeout'
 type NamespaceExistsFn = (namespace: string, kubeconfig?: string) => boolean | null
+type DeleteNamespaceFn = (namespace: string, kubeconfig?: string) => void
+type NamespaceDeletionStartResult =
+  | { status: 'already-deleted' }
+  | { status: 'delete-requested' }
+  | { status: 'delete-failed'; error: string }
+type DeploymentRecoveryProbeResult = {
+  agentCount: number
+  podNames: string[]
+  readyPods: number
+}
 type CloudDeploymentProcessorRuntime = {
   deploymentDao: CloudDeploymentDao
   clusterDao: CloudClusterDao
@@ -68,6 +80,54 @@ function resolveDeploymentStackName(deployment: CloudDeploymentRecord): string {
   const clusterHash = createHash('sha256').update(clusterKey).digest('hex').slice(0, 10)
   const namespace = sanitizePulumiStackPart(deployment.namespace).slice(0, 60) || 'deployment'
   return `saas-${namespace}-${clusterHash}`
+}
+
+export async function probeDeploymentRuntimeResources(
+  namespace: string,
+  kubeconfig?: string,
+): Promise<DeploymentRecoveryProbeResult | null> {
+  const pods = await listPodsAsync(namespace, kubeconfig)
+  const workloadPods = pods.filter(
+    (pod) => pod.status === 'Running' && pod.containers.includes('openclaw'),
+  )
+  if (workloadPods.length === 0) return null
+
+  const readyPods = workloadPods.filter((pod) => {
+    const [readyRaw, totalRaw] = pod.ready.split('/')
+    const ready = Number(readyRaw)
+    const total = Number(totalRaw)
+    return Number.isFinite(ready) && Number.isFinite(total) && total > 0 && ready >= total
+  }).length
+
+  return {
+    agentCount: workloadPods.length,
+    podNames: workloadPods.map((pod) => pod.name),
+    readyPods,
+  }
+}
+
+export async function ensureNamespaceDeletionStarted(
+  namespace: string,
+  kubeconfig?: string,
+  options: {
+    exists?: NamespaceExistsFn
+    deleteNamespace?: DeleteNamespaceFn
+  } = {},
+): Promise<NamespaceDeletionStartResult> {
+  const namespaceExistsFn = options.exists ?? namespaceExists
+  const deleteNamespaceFn = options.deleteNamespace ?? deleteNamespace
+
+  const exists = namespaceExistsFn(namespace, kubeconfig)
+  if (exists === false) return { status: 'already-deleted' }
+
+  try {
+    deleteNamespaceFn(namespace, kubeconfig)
+    return { status: 'delete-requested' }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    if (/not found/i.test(msg)) return { status: 'already-deleted' }
+    return { status: 'delete-failed', error: msg }
+  }
 }
 
 function resolveDestroyVerifyTimeoutMs(): number {
@@ -412,6 +472,7 @@ export async function waitForNamespaceDeletion(
     intervalMs?: number
     isCancelled?: () => boolean
     exists?: NamespaceExistsFn
+    onPoll?: (state: { exists: boolean | null; elapsedMs: number }) => void | Promise<void>
   } = {},
 ): Promise<NamespaceDeletionWaitResult> {
   const timeoutMs = options.timeoutMs ?? 180_000
@@ -424,6 +485,11 @@ export async function waitForNamespaceDeletion(
 
     const exists = namespaceExistsFn(namespace, kubeconfig)
     if (exists === false) return 'deleted'
+    try {
+      await options.onPoll?.({ exists, elapsedMs: Date.now() - startedAt })
+    } catch {
+      // Progress logging must never break destroy verification.
+    }
 
     const remainingMs = timeoutMs - (Date.now() - startedAt)
     const slept = await sleepUnlessCancelled(Math.min(intervalMs, remainingMs), options.isCancelled)
@@ -443,6 +509,7 @@ async function processDeployment(
 
   const cancelToken: RunningOperationToken = { cancelled: false }
   let stopWatchingCancellation = () => {}
+  let activeKubeconfig: string | undefined
 
   try {
     const newer = await deploymentDao.findNewerCurrentInNamespace(deployment)
@@ -462,6 +529,7 @@ async function processDeployment(
     stopWatchingCancellation = watchCancellationRequest(deployment, deploymentDao, cancelToken)
 
     const cluster = await resolveClusterRuntime(deployment.clusterId, clusterDao)
+    activeKubeconfig = cluster?.kubeconfig
     const stackName = resolveDeploymentStackName(deployment)
     if (cluster) {
       await deploymentDao.appendLog(
@@ -563,6 +631,28 @@ async function processDeployment(
     const msg = err instanceof Error ? err.message : String(err)
     const cancelled = cancelToken.cancelled || /cancel/i.test(msg)
     logger.error({ deploymentId: deployment.id, error: msg }, 'Deployment failed')
+
+    if (!cancelled) {
+      const recovery = await probeDeploymentRuntimeResources(
+        deployment.namespace,
+        activeKubeconfig,
+      ).catch(() => null)
+      if (recovery) {
+        await deploymentDao.appendLog(
+          deployment.id,
+          `[reconcile] Pulumi reported failure, but ${recovery.agentCount} OpenClaw pod(s) exist in namespace "${deployment.namespace}" (${recovery.readyPods}/${recovery.agentCount} ready): ${recovery.podNames.join(', ')}`,
+          'warn',
+        )
+        await deploymentDao.appendLog(
+          deployment.id,
+          '[reconcile] Marking deployment as deployed to keep Shadow Cloud state consistent with Kubernetes. Review pod readiness and logs from the namespace page.',
+          'warn',
+        )
+        await deploymentDao.markDeployed(deployment.id, recovery.agentCount)
+        return
+      }
+    }
+
     await deploymentDao.appendLog(
       deployment.id,
       cancelled ? `Cancelled: ${msg}` : `Error: ${msg}`,
@@ -634,12 +724,52 @@ async function processDestroy(
       'info',
     )
 
+    const deletionStart = await ensureNamespaceDeletionStarted(
+      deployment.namespace,
+      clusterKubeconfig,
+    )
+    if (deletionStart.status === 'already-deleted') {
+      await deploymentDao.appendLog(
+        deployment.id,
+        `Namespace "${deployment.namespace}" is already absent after Pulumi destroy`,
+        'info',
+      )
+    } else if (deletionStart.status === 'delete-requested') {
+      await deploymentDao.appendLog(
+        deployment.id,
+        `[destroy] Kubernetes namespace deletion requested for "${deployment.namespace}"`,
+        'info',
+      )
+    } else {
+      throw new Error(
+        `Failed to request Kubernetes namespace deletion for "${deployment.namespace}": ${deletionStart.error}`,
+      )
+    }
+
+    let lastDeletionProgressLogAt = 0
     const namespaceDeletionResult = await waitForNamespaceDeletion(
       deployment.namespace,
       clusterKubeconfig,
       {
         timeoutMs: resolveDestroyVerifyTimeoutMs(),
         isCancelled: () => cancelToken.cancelled,
+        onPoll: async ({ exists, elapsedMs }) => {
+          const now = Date.now()
+          if (now - lastDeletionProgressLogAt < 30_000) return
+          lastDeletionProgressLogAt = now
+          const pods = await listPodsAsync(deployment.namespace, clusterKubeconfig).catch(() => [])
+          const podSummary =
+            pods.length > 0
+              ? pods.map((pod) => `${pod.name}:${pod.status}:${pod.ready}`).join(', ')
+              : 'no pods listed'
+          await deploymentDao.appendLog(
+            deployment.id,
+            `[destroy] Waiting for namespace "${deployment.namespace}" deletion (${Math.round(
+              elapsedMs / 1000,
+            )}s elapsed, exists=${exists === null ? 'unknown' : String(exists)}); remaining pods: ${podSummary}`,
+            'info',
+          )
+        },
       },
     )
 
@@ -648,6 +778,16 @@ async function processDestroy(
     }
 
     if (namespaceDeletionResult !== 'deleted') {
+      const pods = await listPodsAsync(deployment.namespace, clusterKubeconfig).catch(() => [])
+      const podSummary =
+        pods.length > 0
+          ? pods.map((pod) => `${pod.name}:${pod.status}:${pod.ready}`).join(', ')
+          : 'no pods listed'
+      await deploymentDao.appendLog(
+        deployment.id,
+        `[destroy] Namespace deletion verification timed out; remaining pods: ${podSummary}`,
+        'error',
+      )
       throw new Error(
         `Namespace "${deployment.namespace}" still exists after Pulumi destroy verification timed out`,
       )

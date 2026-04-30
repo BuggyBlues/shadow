@@ -1,8 +1,33 @@
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
+import { z } from 'zod'
 import type { AppContainer } from '../container'
 import { authMiddleware } from '../middleware/auth.middleware'
 import { createAgentSchema, updateAgentSchema } from '../validators/agent.schema'
+
+const usageProviderSchema = z.object({
+  provider: z.string().min(1).max(120),
+  amountUsd: z.number().finite().nullable().optional(),
+  usageLabel: z.string().max(200).nullable().optional(),
+  raw: z.string().max(1000).nullable().optional(),
+  inputTokens: z.number().int().nonnegative().nullable().optional(),
+  outputTokens: z.number().int().nonnegative().nullable().optional(),
+  totalTokens: z.number().int().nonnegative().nullable().optional(),
+})
+
+const usageSnapshotSchema = z.object({
+  source: z.string().min(1).max(64).optional(),
+  model: z.string().max(255).nullable().optional(),
+  totalUsd: z.number().finite().nullable().optional(),
+  inputTokens: z.number().int().nonnegative().nullable().optional(),
+  outputTokens: z.number().int().nonnegative().nullable().optional(),
+  cacheReadTokens: z.number().int().nonnegative().nullable().optional(),
+  cacheWriteTokens: z.number().int().nonnegative().nullable().optional(),
+  totalTokens: z.number().int().nonnegative().nullable().optional(),
+  providers: z.array(usageProviderSchema).max(20).optional(),
+  raw: z.record(z.unknown()).optional(),
+  generatedAt: z.string().datetime().optional(),
+})
 
 /** Helper: verify the requesting user owns the agent. Returns 403 response or null. */
 async function requireAgentOwner(
@@ -225,6 +250,24 @@ export function createAgentHandler(container: AppContainer) {
     }
   })
 
+  // POST /api/agents/:id/usage-snapshot — lightweight runtime cost telemetry from the Buddy
+  agentHandler.post('/:id/usage-snapshot', zValidator('json', usageSnapshotSchema), async (c) => {
+    const cloudUsageService = container.resolve('cloudUsageService')
+    const user = c.get('user')
+    const id = c.req.param('id')
+    try {
+      const snapshot = await cloudUsageService.recordAgentSnapshot(
+        id,
+        user.userId,
+        c.req.valid('json'),
+      )
+      return c.json({ ok: true, snapshot })
+    } catch (err) {
+      const status = (err as { status?: number }).status ?? 500
+      return c.json({ ok: false, error: (err as Error).message }, status as 404 | 403 | 500)
+    }
+  })
+
   // GET /api/agents/:id/config — full remote config for the plugin (owner or agent itself)
   agentHandler.get('/:id/config', async (c) => {
     const agentService = container.resolve('agentService')
@@ -268,6 +311,24 @@ export function createAgentHandler(container: AppContainer) {
     try {
       const body = await c.req.json<{ commands?: unknown }>()
       const commands = await agentService.updateSlashCommands(id, user.userId, body.commands)
+      try {
+        const agent = await agentService.getById(id)
+        if (agent) {
+          const io = container.resolve('io')
+          const channelMemberDao = container.resolve('channelMemberDao')
+          const channelIds = await channelMemberDao.getAllChannelIds(agent.userId)
+          for (const channelId of channelIds) {
+            io.to(`channel:${channelId}`).emit('channel:slash-commands-updated', {
+              channelId,
+              agentId: id,
+              botUserId: agent.userId,
+              commandCount: commands.length,
+            })
+          }
+        }
+      } catch {
+        /* non-critical realtime refresh failure */
+      }
       return c.json({ ok: true, commands })
     } catch (err) {
       const status = (err as { status?: number }).status ?? 500

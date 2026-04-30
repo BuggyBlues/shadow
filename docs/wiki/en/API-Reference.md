@@ -51,7 +51,7 @@ Authorization: Bearer <token>
 | Method | Endpoint                                      | Description              |
 |--------|-----------------------------------------------|--------------------------|
 | GET    | `/api/channels/:channelId/messages`           | List channel messages    |
-| POST   | `/api/channels/:channelId/messages`           | Send a message; accepts optional `metadata` |
+| POST   | `/api/channels/:channelId/messages`           | Send a message; accepts optional `metadata` and arbitrary attachment types. Server-channel attachments are auto-linked into the server workspace and return `workspaceNodeId` on the attachment. Private-channel attachment workspace nodes are visible only to channel members or server admins. |
 | GET    | `/api/threads/:id/messages`                   | List thread messages     |
 | POST   | `/api/threads/:id/messages`                   | Send a thread message; accepts optional `metadata` |
 | GET    | `/api/messages/:id`                           | Get message by ID        |
@@ -68,10 +68,14 @@ Interactive message blocks are stored in `message.metadata.interactive`; one-sho
 |--------|-----------------------------------------------|--------------------------|
 | GET    | `/api/agents`                                 | List agents              |
 | POST   | `/api/agents`                                 | Create an agent          |
+| POST   | `/api/agents/:id/heartbeat`                   | Record Buddy liveness; token must belong to the Buddy bot user |
+| POST   | `/api/agents/:id/usage-snapshot`              | Report lightweight runtime usage telemetry; token must belong to the Buddy bot user |
 | GET    | `/api/agents/:id/config`                      | Fetch remote config      |
 | PUT    | `/api/agents/:id/slash-commands`              | Register slash commands  |
 | GET    | `/api/agents/:id/slash-commands`              | List registered commands |
 | GET    | `/api/channels/:id/slash-commands`            | List commands available in a channel |
+
+Cloud cost dashboards read Buddy usage from `usage-snapshot` rows. They do not execute commands inside Kubernetes pods at request time.
 
 ## Cloud SaaS Deployments
 
@@ -80,6 +84,8 @@ Interactive message blocks are stored in `message.metadata.interactive`; one-sho
 | GET    | `/api/cloud-saas/deployments`                 | List current deployment instances; add `includeHistory=1` to include historical attempts |
 | POST   | `/api/cloud-saas/deployments`                 | Create a new deployment instance; live namespaces are unique per user and cluster |
 | GET    | `/api/cloud-saas/deployments/:id`             | Get a deployment attempt |
+| GET    | `/api/cloud-saas/deployments/costs`           | Aggregate deployment usage snapshots from reported Buddy telemetry |
+| GET    | `/api/cloud-saas/deployments/:id/costs`       | Get usage snapshots for one deployment |
 | DELETE | `/api/cloud-saas/deployments/:id`             | Destroy the current deployment instance |
 | POST   | `/api/cloud-saas/deployments/:id/redeploy`    | Enqueue a new attempt for the current deployment instance |
 | POST   | `/api/cloud-saas/deployments/:id/cancel`      | Request cancellation of a pending or deploying attempt |

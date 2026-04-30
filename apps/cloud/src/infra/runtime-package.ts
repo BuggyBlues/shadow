@@ -78,7 +78,9 @@ export function buildAgentRuntimePackage(options: {
   cwd?: string
 }): AgentRuntimePackage {
   const { agent, config, extraEnv, cwd } = options
+  const registrySecretEnv = collectRegistrySecretEnv(agent, config)
   const runtimeEnv = {
+    ...registrySecretEnv,
     ...(agent.env ?? {}),
     ...(extraEnv ?? {}),
   }
@@ -117,7 +119,7 @@ export function buildAgentRuntimePackage(options: {
     configData['runtime-extensions.json'] = JSON.stringify(runtimeExtensions, null, 2)
   }
   const plainEnv: Record<string, string> = {}
-  const secretData: Record<string, string> = collectRegistrySecretEnv(agent, config)
+  const secretData: Record<string, string> = { ...registrySecretEnv }
 
   for (const [key, value] of Object.entries(mergedEnv)) {
     if (value == null) continue

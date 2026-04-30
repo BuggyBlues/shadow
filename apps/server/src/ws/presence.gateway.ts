@@ -124,10 +124,14 @@ export function setupPresenceGateway(
         }
 
         // Broadcast to channel room
+        const username = socket.data.username as string | undefined
+        const displayName = socket.data.displayName as string | undefined
         io.to(`channel:${channelId}`).emit('presence:activity', {
           userId,
           channelId,
           activity,
+          username,
+          displayName: displayName ?? username,
         })
       },
     )

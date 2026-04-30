@@ -1,4 +1,4 @@
-import type { Server as SocketIOServer } from 'socket.io'
+import type { Socket, Server as SocketIOServer } from 'socket.io'
 import type { AppContainer } from '../container'
 import { verifyToken } from '../lib/jwt'
 import { logger } from '../lib/logger'
@@ -7,6 +7,55 @@ import { setupAppGateway } from './app.gateway'
 import { setupChatGateway } from './chat.gateway'
 import { setupNotificationGateway } from './notification.gateway'
 import { setupPresenceGateway } from './presence.gateway'
+
+async function hydrateSocketUser(
+  socket: Socket,
+  userId: string,
+  user: {
+    username?: string | null
+    displayName?: string | null
+    avatarUrl?: string | null
+    isBot?: boolean | null
+  } | null,
+  fallbackUsername?: string | null,
+) {
+  const username = user?.username ?? fallbackUsername ?? userId
+  socket.data.userId = userId
+  socket.data.username = username
+  socket.data.displayName = user?.displayName ?? username
+  socket.data.avatarUrl = user?.avatarUrl ?? null
+  socket.data.isBot = user?.isBot ?? false
+}
+
+async function authenticateSocketUser(socket: Socket, container: AppContainer, token: string) {
+  const userDao = container.resolve('userDao')
+  const agentDao = container.resolve('agentDao')
+  let tokenError: unknown = null
+
+  try {
+    const payload = verifyToken(token)
+    const user = await userDao.findById(payload.userId).catch(() => null)
+    if (user) {
+      await hydrateSocketUser(socket, payload.userId, user, payload.username)
+      return
+    }
+    tokenError = new Error(`JWT user not found: ${payload.userId}`)
+  } catch (err) {
+    tokenError = err
+  }
+
+  const agent = await agentDao.findByLastToken(token)
+  if (agent) {
+    const user = await userDao.findById(agent.userId).catch(() => null)
+    if (user) {
+      await hydrateSocketUser(socket, agent.userId, user, 'agent')
+      return
+    }
+    tokenError = new Error(`Stored agent token user not found: ${agent.userId}`)
+  }
+
+  throw tokenError ?? new Error('Invalid token')
+}
 
 export function setupWebSocket(io: SocketIOServer, container: AppContainer): void {
   // Auth middleware for Socket.IO
@@ -18,18 +67,9 @@ export function setupWebSocket(io: SocketIOServer, container: AppContainer): voi
     }
 
     try {
-      const payload = verifyToken(token)
-      socket.data.userId = payload.userId
-      socket.data.username = payload.username
+      await authenticateSocketUser(socket, container, token)
       next()
     } catch (err) {
-      const agent = await container.resolve('agentDao').findByLastToken(token)
-      if (agent) {
-        socket.data.userId = agent.userId
-        socket.data.username = 'agent'
-        next()
-        return
-      }
       logger.warn({ err, socketId: socket.id }, 'Socket authentication failed — invalid token')
       next(new Error('Invalid token'))
     }

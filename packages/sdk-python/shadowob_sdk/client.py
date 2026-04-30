@@ -6,9 +6,80 @@ has a Python equivalent with the same semantics.
 
 from __future__ import annotations
 
+from dataclasses import asdict, is_dataclass
 from typing import Any
 
 import httpx
+
+from .types import ShadowAgentUsageSnapshotInput
+
+
+_USAGE_SNAPSHOT_FIELD_ALIASES = {
+    "total_usd": "totalUsd",
+    "input_tokens": "inputTokens",
+    "output_tokens": "outputTokens",
+    "cache_read_tokens": "cacheReadTokens",
+    "cache_write_tokens": "cacheWriteTokens",
+    "total_tokens": "totalTokens",
+    "generated_at": "generatedAt",
+}
+
+_USAGE_PROVIDER_FIELD_ALIASES = {
+    "amount_usd": "amountUsd",
+    "usage_label": "usageLabel",
+    "input_tokens": "inputTokens",
+    "output_tokens": "outputTokens",
+    "total_tokens": "totalTokens",
+}
+
+
+def _as_plain_value(value: Any) -> Any:
+    if is_dataclass(value) and not isinstance(value, type):
+        return asdict(value)
+    return value
+
+
+def _compact_json(value: Any) -> Any:
+    value = _as_plain_value(value)
+    if isinstance(value, dict):
+        return {
+            key: _compact_json(nested)
+            for key, nested in value.items()
+            if nested is not None
+        }
+    if isinstance(value, list):
+        return [_compact_json(item) for item in value]
+    return value
+
+
+def _usage_provider_to_json(provider: Any) -> Any:
+    data = _as_plain_value(provider)
+    if not isinstance(data, dict):
+        return data
+    return {
+        _USAGE_PROVIDER_FIELD_ALIASES.get(key, key): _compact_json(value)
+        for key, value in data.items()
+        if value is not None
+    }
+
+
+def _usage_snapshot_to_json(
+    snapshot: dict[str, Any] | ShadowAgentUsageSnapshotInput,
+) -> dict[str, Any]:
+    data = _as_plain_value(snapshot)
+    if not isinstance(data, dict):
+        raise TypeError("snapshot must be a dict or ShadowAgentUsageSnapshotInput")
+
+    payload: dict[str, Any] = {}
+    for key, value in data.items():
+        if value is None:
+            continue
+        api_key = _USAGE_SNAPSHOT_FIELD_ALIASES.get(key, key)
+        if api_key == "providers" and isinstance(value, list):
+            payload[api_key] = [_usage_provider_to_json(provider) for provider in value]
+        else:
+            payload[api_key] = _compact_json(value)
+    return payload
 
 
 class ShadowClient:
@@ -127,10 +198,21 @@ class ShadowClient:
         self,
         *,
         name: str,
+        username: str,
+        description: str | None = None,
         display_name: str | None = None,
         avatar_url: str | None = None,
+        kernel_type: str = "openclaw",
+        config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        data: dict[str, Any] = {"name": name}
+        data: dict[str, Any] = {
+            "name": name,
+            "username": username,
+            "kernelType": kernel_type,
+            "config": config or {},
+        }
+        if description:
+            data["description"] = description
         if display_name:
             data["displayName"] = display_name
         if avatar_url is not None:
@@ -157,6 +239,14 @@ class ShadowClient:
 
     def send_heartbeat(self, agent_id: str) -> dict[str, Any]:
         return self._post(f"/api/agents/{agent_id}/heartbeat", json={})
+
+    def report_agent_usage_snapshot(
+        self, agent_id: str, snapshot: dict[str, Any] | ShadowAgentUsageSnapshotInput
+    ) -> dict[str, Any]:
+        return self._post(
+            f"/api/agents/{agent_id}/usage-snapshot",
+            json=_usage_snapshot_to_json(snapshot),
+        )
 
     def get_agent_config(self, agent_id: str) -> dict[str, Any]:
         return self._get(f"/api/agents/{agent_id}/config")
@@ -348,12 +438,18 @@ class ShadowClient:
         *,
         thread_id: str | None = None,
         reply_to_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        attachments: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         data: dict[str, Any] = {"content": content}
         if thread_id:
             data["threadId"] = thread_id
         if reply_to_id:
             data["replyToId"] = reply_to_id
+        if metadata is not None:
+            data["metadata"] = metadata
+        if attachments is not None:
+            data["attachments"] = attachments
         return self._post(f"/api/channels/{channel_id}/messages", json=data)
 
     def get_messages(

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Check, Copy, PawPrint, Search, UserPlus, X } from 'lucide-react'
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../../../lib/api'
 
@@ -289,7 +290,7 @@ export function InvitePanel({
 
   const buddyCount = filteredMyBuddies.length + filteredServerBots.length
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 bg-bg-deep/60 flex items-center justify-center z-50"
       onMouseDown={(e) => {
@@ -591,6 +592,7 @@ export function InvitePanel({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

@@ -18,6 +18,7 @@ import {
   type DeployFromSnapshotOptions,
   type DeployResult,
   extractCloudSaasRuntime,
+  prepareCloudSaasConfigSnapshot,
   type ServiceContainer,
 } from '@shadowob/cloud'
 import { eq, like } from 'drizzle-orm'
@@ -28,9 +29,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { type AppContainer, createAppContainer } from '../src/container'
 import type { Database } from '../src/db'
 import * as schema from '../src/db/schema'
+import { createAgentHandler } from '../src/handlers/agent.handler'
 import { createCloudSaasHandler } from '../src/handlers/cloud-saas.handler'
 import { processCloudDeploymentQueueOnce } from '../src/lib/cloud-deployment-processor'
-import { signAccessToken } from '../src/lib/jwt'
+import { signAccessToken, signAgentToken } from '../src/lib/jwt'
 
 process.env.KMS_MASTER_KEY = process.env.KMS_MASTER_KEY ?? 'a'.repeat(64)
 
@@ -121,7 +123,9 @@ beforeAll(async () => {
   sql = postgres(TEST_DB_URL)
   db = drizzle(sql, { schema }) as Database
   container = createAppContainer(db)
-  app = new Hono().route('/api/cloud-saas', createCloudSaasHandler(container))
+  app = new Hono()
+    .route('/api/cloud-saas', createCloudSaasHandler(container))
+    .route('/api/agents', createAgentHandler(container))
 
   // Create test user
   const [user] = await db
@@ -1659,31 +1663,132 @@ describe('Cloud SaaS — deployment + billing', () => {
 
   it('GET /api/cloud-saas/deployments/costs and /:id/costs return token usage summaries', async () => {
     const namespace = uniqueName('e2e-costs-ns')
-    const createRes = await req('POST', '/api/cloud-saas/deployments', {
-      namespace,
-      name: uniqueName('e2e-costs-deploy'),
-      templateSlug: officialTemplateSlug,
-      resourceTier: 'lightweight',
-      configSnapshot: makeConfigSnapshot('cost-secret'),
+    const agentService = container.resolve('agentService')
+    const agent = await agentService.create({
+      name: 'E2E Usage Buddy',
+      username: uniqueName('e2e-usage-buddy'),
+      kernelType: 'openclaw',
+      config: {},
+      ownerId: userId,
+    })
+    const botUser = agent.botUser
+    const agentToken = signAgentToken({
+      userId: botUser.id,
+      email: botUser.email,
+      username: botUser.username,
     })
 
-    expect(createRes.status).toBe(201)
-    const deployment = (await createRes.json()) as { id: string }
+    const usageRes = await req(
+      'POST',
+      `/api/agents/${agent.id}/usage-snapshot`,
+      {
+        source: 'openclaw-trajectory',
+        model: 'qwen3.6-plus',
+        totalUsd: 0.12,
+        inputTokens: 100,
+        outputTokens: 45,
+        cacheReadTokens: 10,
+        cacheWriteTokens: 20,
+        totalTokens: 175,
+        providers: [
+          {
+            provider: 'anthropic',
+            amountUsd: 0.12,
+            usageLabel: 'qwen3.6-plus',
+            inputTokens: 100,
+            outputTokens: 45,
+            totalTokens: 175,
+          },
+        ],
+        generatedAt: new Date().toISOString(),
+      },
+      agentToken,
+    )
+    expect(usageRes.status).toBe(200)
 
-    const namespaceCostsRes = await req('GET', `/api/cloud-saas/deployments/${deployment.id}/costs`)
+    const ownerUsageRes = await req('POST', `/api/agents/${agent.id}/usage-snapshot`, {
+      source: 'openclaw-trajectory',
+      totalTokens: 1,
+    })
+    expect(ownerUsageRes.status).toBe(403)
+
+    const provisionState = {
+      provisionedAt: new Date().toISOString(),
+      namespace,
+      plugins: {
+        shadowob: {
+          buddies: {
+            'strategy-buddy': {
+              agentId: agent.id,
+              userId: botUser.id,
+              token: agentToken,
+            },
+          },
+        },
+      },
+    }
+
+    const [deployment] = await db
+      .insert(schema.cloudDeployments)
+      .values({
+        userId,
+        namespace,
+        name: uniqueName('e2e-costs-deploy'),
+        status: 'deployed',
+        agentCount: 1,
+        configSnapshot: attachCloudSaasProvisionState(
+          {
+            ...makeConfigSnapshot('cost-secret'),
+            use: [
+              {
+                plugin: 'shadowob',
+                options: {
+                  buddies: [{ id: 'strategy-buddy', name: 'Strategy Buddy' }],
+                  bindings: [
+                    {
+                      targetId: 'strategy-buddy',
+                      targetType: 'buddy',
+                      agentId: 'agent-1',
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+          provisionState,
+        ),
+        templateSlug: officialTemplateSlug,
+        resourceTier: 'lightweight',
+        monthlyCost: 500,
+        saasMode: true,
+      })
+      .returning()
+
+    const namespaceCostsRes = await req(
+      'GET',
+      `/api/cloud-saas/deployments/${deployment!.id}/costs`,
+    )
     expect(namespaceCostsRes.status).toBe(200)
     const namespaceCosts = (await namespaceCostsRes.json()) as {
       namespace: string
       billingAmount: number | null
       billingUnit: string
-      agents: Array<{ billingAmount: number | null; billingUnit: string }>
+      totalTokens: number | null
+      agents: Array<{
+        billingAmount: number | null
+        billingUnit: string
+        source: string
+        totalTokens: number | null
+      }>
     }
     expect(namespaceCosts.namespace).toBe(namespace)
     expect(namespaceCosts.billingUnit).toBe('usd')
-    expect(namespaceCosts.billingAmount).toBe(null)
+    expect(namespaceCosts.billingAmount).toBe(0.12)
+    expect(namespaceCosts.totalTokens).toBe(175)
     expect(Array.isArray(namespaceCosts.agents)).toBe(true)
     expect(namespaceCosts.agents.length).toBeGreaterThan(0)
     expect(namespaceCosts.agents.every((agent) => agent.billingUnit === 'usd')).toBe(true)
+    expect(namespaceCosts.agents[0]?.source).toBe('telemetry')
 
     const overviewRes = await req('GET', '/api/cloud-saas/deployments/costs')
     expect(overviewRes.status).toBe(200)
@@ -1699,7 +1804,7 @@ describe('Cloud SaaS — deployment + billing', () => {
     const matchingNamespace = overview.namespaces.find((item) => item.namespace === namespace)
     expect(matchingNamespace).toBeDefined()
     expect(matchingNamespace?.billingUnit).toBe('usd')
-    expect(matchingNamespace?.billingAmount).toBe(null)
+    expect(matchingNamespace?.billingAmount).toBe(0.12)
   })
 
   it('POST /api/cloud-saas/deployments/:id/redeploy creates a durable history entry without charging again', async () => {
@@ -1823,6 +1928,7 @@ describe('Cloud SaaS — deployment + billing', () => {
 
       const runtime = extractCloudSaasRuntime(storedRedeploy?.configSnapshot)
       expect(runtime.provisionState?.plugins.shadowob).toEqual(provisionState.plugins.shadowob)
+      expect(runtime.envVars.SHADOW_USER_TOKEN).toBe(token)
 
       const redeployAgainRes = await req(
         'POST',
@@ -1832,6 +1938,94 @@ describe('Cloud SaaS — deployment + billing', () => {
 
       const destroyOldRes = await req('DELETE', `/api/cloud-saas/deployments/${existing!.id}`)
       expect(destroyOldRes.status).toBe(409)
+    } finally {
+      await db
+        .delete(schema.cloudDeployments)
+        .where(eq(schema.cloudDeployments.namespace, namespace))
+        .catch(() => {})
+    }
+  })
+
+  it('refreshes model-provider runtime credentials when redeploying', async () => {
+    const namespace = uniqueName('e2e-redeploy-provider-ns')
+    const provisionState = {
+      provisionedAt: '2026-04-30T00:00:00.000Z',
+      namespace,
+      plugins: {
+        shadowob: {
+          buddies: {
+            'strategy-buddy': {
+              agentId: 'strategy-buddy',
+              userId: 'bot-user-1',
+              token: 'bot-token-1',
+            },
+          },
+        },
+      },
+    }
+
+    try {
+      const profileRes = await req('PUT', '/api/cloud-saas/provider-profiles', {
+        providerId: 'anthropic',
+        name: `Redeploy Provider ${namespace}`,
+        config: {
+          baseUrl: 'https://anthropic-redeploy.example.test',
+          models: [{ id: 'claude-redeploy-model', tags: ['default'] }],
+        },
+        envVars: { ANTHROPIC_API_KEY: 'fresh-redeploy-anthropic-key' },
+      })
+      expect(profileRes.status).toBe(200)
+      const profileBody = (await profileRes.json()) as { profile: { id: string } }
+      const baseConfig = {
+        ...makeConfigSnapshot('redeploy-provider-secret'),
+        use: [
+          {
+            plugin: 'model-provider',
+            options: { profileId: profileBody.profile.id },
+          },
+        ],
+      }
+      const staleSnapshot = attachCloudSaasProvisionState(
+        prepareCloudSaasConfigSnapshot(baseConfig, {
+          SHADOW_USER_TOKEN: 'stale-user-token',
+          SHADOW_SERVER_URL: 'http://stale-shadow.local',
+          ANTHROPIC_API_KEY: 'stale-anthropic-key',
+          ANTHROPIC_BASE_URL: 'https://stale-anthropic.example.test',
+        }),
+        provisionState,
+      )
+
+      const [existing] = await db
+        .insert(schema.cloudDeployments)
+        .values({
+          userId,
+          namespace,
+          name: `${namespace}-agent`,
+          status: 'deployed',
+          agentCount: 1,
+          configSnapshot: staleSnapshot,
+          templateSlug: officialTemplateSlug,
+          resourceTier: 'lightweight',
+          monthlyCost: 500,
+          saasMode: true,
+        })
+        .returning()
+
+      const redeployRes = await req('POST', `/api/cloud-saas/deployments/${existing!.id}/redeploy`)
+      expect(redeployRes.status).toBe(201)
+      const redeployed = (await redeployRes.json()) as { id: string }
+      const [storedRedeploy] = await db
+        .select()
+        .from(schema.cloudDeployments)
+        .where(eq(schema.cloudDeployments.id, redeployed.id))
+        .limit(1)
+
+      const runtime = extractCloudSaasRuntime(storedRedeploy?.configSnapshot)
+      expect(runtime.envVars.SHADOW_USER_TOKEN).toBe(token)
+      expect(runtime.envVars.SHADOW_SERVER_URL).not.toBe('http://stale-shadow.local')
+      expect(runtime.envVars.ANTHROPIC_API_KEY).toBe('fresh-redeploy-anthropic-key')
+      expect(runtime.envVars.ANTHROPIC_BASE_URL).toBe('https://anthropic-redeploy.example.test')
+      expect(runtime.provisionState?.plugins.shadowob).toEqual(provisionState.plugins.shadowob)
     } finally {
       await db
         .delete(schema.cloudDeployments)

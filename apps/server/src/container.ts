@@ -15,6 +15,7 @@ import { CloudConfigDao } from './dao/cloud-config.dao'
 import { CloudDeploymentDao } from './dao/cloud-deployment.dao'
 import { CloudEnvVarDao } from './dao/cloud-envvar.dao'
 import { CloudTemplateDao } from './dao/cloud-template.dao'
+import { CloudUsageDao } from './dao/cloud-usage.dao'
 import { EntitlementDao } from './dao/entitlement.dao'
 import { FriendshipDao } from './dao/friendship.dao'
 import { InviteCodeDao } from './dao/invite-code.dao'
@@ -50,6 +51,7 @@ import { AuthService } from './services/auth.service'
 import { CartService } from './services/cart.service'
 import { ChannelService } from './services/channel.service'
 import { CloudService } from './services/cloud.service'
+import { CloudUsageService } from './services/cloud-usage.service'
 import { DmService } from './services/dm.service'
 import { EntitlementService } from './services/entitlement.service'
 import { ExternalOAuthService } from './services/external-oauth.service'
@@ -127,9 +129,11 @@ export interface Cradle {
   cloudEnvVarDao: CloudEnvVarDao
   cloudClusterDao: CloudClusterDao
   cloudActivityDao: CloudActivityDao
+  cloudUsageDao: CloudUsageDao
 
   // Cloud Service
   cloudService: CloudService
+  cloudUsageService: CloudUsageService
 
   // Profile Comment DAOs
   profileCommentDao: ProfileCommentDao
@@ -235,6 +239,7 @@ export function createAppContainer(db: Database): AppContainer {
     cloudEnvVarDao: asClass(CloudEnvVarDao).singleton(),
     cloudClusterDao: asClass(CloudClusterDao).singleton(),
     cloudActivityDao: asClass(CloudActivityDao).singleton(),
+    cloudUsageDao: asClass(CloudUsageDao).singleton(),
 
     // Profile Comment DAOs
     profileCommentDao: asClass(ProfileCommentDao).singleton(),
@@ -275,6 +280,7 @@ export function createAppContainer(db: Database): AppContainer {
     voiceEnhanceService: asClass(VoiceEnhanceService).singleton(),
     agentDashboardService: asClass(AgentDashboardService).singleton(),
     cloudService: asClass(CloudService).singleton(),
+    cloudUsageService: asClass(CloudUsageService).singleton(),
   })
 
   return container

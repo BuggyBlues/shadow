@@ -12,6 +12,7 @@ export { channels, channelTypeEnum } from './channels'
 export {
   cloudActivities,
   cloudActivityTypeEnum,
+  cloudAgentUsageSnapshots,
   cloudClusters,
   cloudConfigs,
   cloudDeploymentLogs,

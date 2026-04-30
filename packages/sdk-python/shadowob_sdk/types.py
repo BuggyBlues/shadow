@@ -39,6 +39,18 @@ class ShadowChannel:
 
 
 @dataclass
+class ShadowAttachment:
+    id: str
+    filename: str
+    url: str
+    content_type: str
+    size: int
+    width: int | None = None
+    height: int | None = None
+    workspace_node_id: str | None = None
+
+
+@dataclass
 class ShadowMessage:
     id: str
     content: str
@@ -50,7 +62,7 @@ class ShadowMessage:
     reply_to_id: str | None = None
     is_pinned: bool = False
     author: dict[str, Any] | None = None
-    attachments: list[dict[str, Any]] = field(default_factory=list)
+    attachments: list[dict[str, Any] | ShadowAttachment] = field(default_factory=list)
     metadata: dict[str, Any] | None = None
 
 
@@ -152,6 +164,32 @@ class ShadowChannelSlashCommand(ShadowSlashCommand):
     bot_user_id: str = ""
     bot_username: str = ""
     bot_display_name: str | None = None
+
+
+@dataclass
+class ShadowUsageProviderSnapshot:
+    provider: str
+    amount_usd: float | None = None
+    usage_label: str | None = None
+    raw: str | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    total_tokens: int | None = None
+
+
+@dataclass
+class ShadowAgentUsageSnapshotInput:
+    source: str | None = None
+    model: str | None = None
+    total_usd: float | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    cache_read_tokens: int | None = None
+    cache_write_tokens: int | None = None
+    total_tokens: int | None = None
+    providers: list[dict[str, Any] | ShadowUsageProviderSnapshot] = field(default_factory=list)
+    raw: dict[str, Any] | None = None
+    generated_at: str | None = None
 
 
 @dataclass

@@ -1975,10 +1975,6 @@
           "description": "Inline button scope: off, DM-only, group-only, all, or allowlist",
           "enum": ["all", "allowlist", "dm", false, "group", "off", true]
         },
-        "uploadFile": {
-          "description": "Canonical OpenClaw file upload action support",
-          "type": "boolean"
-        },
         "interactive": {
           "description": "Native interactive message support",
           "type": "boolean"

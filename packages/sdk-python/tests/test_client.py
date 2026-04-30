@@ -1,6 +1,11 @@
 """Basic unit tests for the Shadow Python SDK client initialization."""
 
-from shadowob_sdk import ShadowClient, ShadowSocket
+from shadowob_sdk import (
+    ShadowAgentUsageSnapshotInput,
+    ShadowClient,
+    ShadowSocket,
+    ShadowUsageProviderSnapshot,
+)
 
 
 def test_client_creation():
@@ -119,6 +124,88 @@ def test_slash_command_registry_methods(monkeypatch):
     assert result["ok"] is True
     assert agent_commands["commands"][0]["name"] == "audit"
     assert channel_commands["commands"][0]["name"] == "audit"
+    client.close()
+
+
+def test_report_agent_usage_snapshot_posts_runtime_telemetry(monkeypatch):
+    client = ShadowClient("https://example.com", "test-token")
+    captured = {}
+
+    def fake_post(path, json=None):
+        captured["path"] = path
+        captured["json"] = json
+        return {"ok": True}
+
+    monkeypatch.setattr(client, "_post", fake_post)
+
+    result = client.report_agent_usage_snapshot(
+        "agent-1",
+        {
+            "source": "openclaw-trajectory",
+            "model": "qwen3.6-plus",
+            "totalTokens": 1234,
+        },
+    )
+
+    assert captured == {
+        "path": "/api/agents/agent-1/usage-snapshot",
+        "json": {
+            "source": "openclaw-trajectory",
+            "model": "qwen3.6-plus",
+            "totalTokens": 1234,
+        },
+    }
+    assert result == {"ok": True}
+    client.close()
+
+
+def test_report_agent_usage_snapshot_accepts_typed_payload(monkeypatch):
+    client = ShadowClient("https://example.com", "test-token")
+    captured = {}
+
+    def fake_post(path, json=None):
+        captured["path"] = path
+        captured["json"] = json
+        return {"ok": True}
+
+    monkeypatch.setattr(client, "_post", fake_post)
+
+    result = client.report_agent_usage_snapshot(
+        "agent-1",
+        ShadowAgentUsageSnapshotInput(
+            source="openclaw-trajectory",
+            model="qwen3.6-plus",
+            total_usd=0.12,
+            input_tokens=100,
+            total_tokens=1234,
+            providers=[
+                ShadowUsageProviderSnapshot(
+                    provider="openclaw",
+                    amount_usd=0.12,
+                    total_tokens=1234,
+                )
+            ],
+        ),
+    )
+
+    assert captured == {
+        "path": "/api/agents/agent-1/usage-snapshot",
+        "json": {
+            "source": "openclaw-trajectory",
+            "model": "qwen3.6-plus",
+            "totalUsd": 0.12,
+            "inputTokens": 100,
+            "totalTokens": 1234,
+            "providers": [
+                {
+                    "provider": "openclaw",
+                    "amountUsd": 0.12,
+                    "totalTokens": 1234,
+                }
+            ],
+        },
+    }
+    assert result == {"ok": True}
     client.close()
 
 

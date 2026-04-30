@@ -103,6 +103,44 @@ interface SystemEvent {
   timestamp: number
 }
 
+interface WorkStatus {
+  userId: string
+  name: string
+  typing: boolean
+  activity: string | null
+}
+
+interface WorkStatusPayload {
+  channelId: string
+  userId: string
+  username?: string
+  displayName?: string | null
+}
+
+interface TypingStatusPayload extends WorkStatusPayload {
+  typing?: boolean
+}
+
+interface ActivityStatusPayload extends WorkStatusPayload {
+  activity: string | null
+}
+
+interface MemberCacheEntry {
+  userId: string
+  user?: {
+    username?: string | null
+    displayName?: string | null
+  }
+}
+
+interface BuddyAgentCacheEntry {
+  botUser?: {
+    id: string
+    username?: string | null
+    displayName?: string | null
+  } | null
+}
+
 /** Pre-computed timeline item with grouping info */
 type TimelineItem =
   | { kind: 'message'; data: Message; isGrouped: boolean }
@@ -113,6 +151,12 @@ type InteractiveResponse = NonNullable<
 >
 
 const VIRTUALIZE_MESSAGE_THRESHOLD = 40
+
+function trimStatusEllipsis(label: string | null | undefined): string | null {
+  const trimmed = label?.trim()
+  if (!trimmed) return null
+  return trimmed.replace(/[.\u2026\u3002\uff0e]+$/u, '')
+}
 
 /** Estimated height by content type — used for virtualizer initial estimates */
 function estimateItemSize(item: TimelineItem): number {
@@ -138,15 +182,14 @@ export function ChatArea() {
   const [replyToId, setReplyToId] = useState<string | null>(null)
   const [droppedFiles, setDroppedFiles] = useState<File[]>([])
   const [isDragOver, setIsDragOver] = useState(false)
-  const [typingUsers, setTypingUsers] = useState<string[]>([])
+  const [workStatuses, setWorkStatuses] = useState<WorkStatus[]>([])
   const [lastReadCount, setLastReadCount] = useState(0)
   const [highlightMsgId, setHighlightMsgId] = useState<string | null>(null)
   const [systemEvents, setSystemEvents] = useState<SystemEvent[]>([])
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set())
-  const [activityUsers, setActivityUsers] = useState<
-    { userId: string; username: string; activity: string }[]
-  >([])
+  const typingTimersRef = useRef<Map<string, number>>(new Map())
+  const activityTimersRef = useRef<Map<string, number>>(new Map())
   const initialScrollDoneRef = useRef(false)
   const prevMessageCountRef = useRef(0)
   const shouldStickToBottomRef = useRef(true)
@@ -157,6 +200,42 @@ export function ChatArea() {
     contentType: string
     size: number
   } | null>(null)
+
+  const resolveWorkStatusName = useCallback(
+    (payload: WorkStatusPayload, existingName?: string) => {
+      const channelMembers =
+        queryClient.getQueryData<MemberCacheEntry[]>([
+          'members',
+          activeServerId,
+          activeChannelId,
+        ]) ?? []
+      const serverMembers =
+        queryClient.getQueryData<MemberCacheEntry[]>(['members', activeServerId]) ?? []
+      const member =
+        channelMembers.find((m) => m.userId === payload.userId) ??
+        serverMembers.find((m) => m.userId === payload.userId)
+      const buddyAgents =
+        queryClient.getQueryData<BuddyAgentCacheEntry[]>([
+          'members-buddy-agents',
+          activeServerId,
+        ]) ?? []
+      const buddyAgent = buddyAgents.find((agent) => agent.botUser?.id === payload.userId)
+      const candidates = [
+        payload.displayName,
+        buddyAgent?.botUser?.displayName,
+        member?.user?.displayName,
+        payload.username,
+        buddyAgent?.botUser?.username,
+        member?.user?.username,
+        existingName,
+        payload.userId,
+      ]
+      return (
+        candidates.find((value) => typeof value === 'string' && value.trim()) as string
+      ).trim()
+    },
+    [activeChannelId, activeServerId, queryClient],
+  )
 
   // Save-to-workspace state
   const [saveToWorkspaceFile, setSaveToWorkspaceFile] = useState<{
@@ -384,21 +463,37 @@ export function ChatArea() {
   )
 
   // Listen for typing indicators
-  useSocketEvent(
-    'message:typing',
-    (data: { userId: string; username: string; channelId: string }) => {
-      if (data.channelId === activeChannelId && data.userId !== user?.id) {
-        setTypingUsers((prev) => {
-          if (prev.includes(data.username)) return prev
-          return [...prev, data.username]
-        })
-        // Remove after 3 seconds
-        setTimeout(() => {
-          setTypingUsers((prev) => prev.filter((u) => u !== data.username))
-        }, 3000)
-      }
-    },
-  )
+  useSocketEvent('message:typing', (data: TypingStatusPayload) => {
+    if (data.channelId === activeChannelId && data.userId !== user?.id) {
+      const existingTimer = typingTimersRef.current.get(data.userId)
+      if (existingTimer) window.clearTimeout(existingTimer)
+      const isTyping = data.typing !== false
+      setWorkStatuses((prev) => {
+        const existing = prev.find((u) => u.userId === data.userId)
+        const name = resolveWorkStatusName(data, existing?.name)
+        if (!isTyping) {
+          typingTimersRef.current.delete(data.userId)
+          return prev
+            .map((u) => (u.userId === data.userId ? { ...u, name, typing: false } : u))
+            .filter((u) => u.typing || u.activity)
+        }
+        if (existing) {
+          return prev.map((u) => (u.userId === data.userId ? { ...u, name, typing: true } : u))
+        }
+        return [...prev, { userId: data.userId, name, typing: true, activity: null }]
+      })
+      if (!isTyping) return
+      const timer = window.setTimeout(() => {
+        typingTimersRef.current.delete(data.userId)
+        setWorkStatuses((prev) =>
+          prev
+            .map((u) => (u.userId === data.userId ? { ...u, typing: false } : u))
+            .filter((u) => u.typing || u.activity),
+        )
+      }, 3000)
+      typingTimersRef.current.set(data.userId, timer)
+    }
+  })
 
   // Listen for member join events
   useSocketEvent('member:joined', (data: MemberEvent) => {
@@ -456,39 +551,59 @@ export function ChatArea() {
   })
 
   // Listen for agent activity status
-  useSocketEvent(
-    'presence:activity',
-    (data: { userId: string; activity: string | null; channelId: string }) => {
-      if (data.channelId !== activeChannelId) return
-      setActivityUsers((prev) => {
-        if (!data.activity) {
-          return prev.filter((u) => u.userId !== data.userId)
-        }
-        // Look up display name from members cache
-        const members = queryClient.getQueryData<
-          { userId: string; user?: { displayName?: string; username?: string } }[]
-        >(['members', activeServerId])
-        const member = members?.find((m) => m.userId === data.userId)
-        const displayName = member?.user?.displayName || member?.user?.username || data.userId
+  useSocketEvent('presence:activity', (data: ActivityStatusPayload) => {
+    if (data.channelId !== activeChannelId) return
+    const existingTimer = activityTimersRef.current.get(data.userId)
+    if (existingTimer) window.clearTimeout(existingTimer)
 
-        const existing = prev.find((u) => u.userId === data.userId)
-        if (existing) {
-          return prev.map((u) =>
-            u.userId === data.userId
-              ? { ...u, activity: data.activity as string, username: displayName }
-              : u,
-          )
-        }
-        return [...prev, { userId: data.userId, username: displayName, activity: data.activity }]
-      })
-    },
-  )
+    setWorkStatuses((prev) => {
+      const existing = prev.find((u) => u.userId === data.userId)
+      const name = resolveWorkStatusName(data, existing?.name)
+      if (!data.activity) {
+        activityTimersRef.current.delete(data.userId)
+        return prev
+          .map((u) => (u.userId === data.userId ? { ...u, name, activity: null } : u))
+          .filter((u) => u.typing || u.activity)
+      }
+      if (existing) {
+        return prev.map((u) =>
+          u.userId === data.userId ? { ...u, name, activity: data.activity as string } : u,
+        )
+      }
+      return [...prev, { userId: data.userId, name, typing: false, activity: data.activity }]
+    })
+
+    if (data.activity) {
+      const timer = window.setTimeout(() => {
+        activityTimersRef.current.delete(data.userId)
+        setWorkStatuses((prev) =>
+          prev
+            .map((u) => (u.userId === data.userId ? { ...u, activity: null } : u))
+            .filter((u) => u.typing || u.activity),
+        )
+      }, 120_000)
+      activityTimersRef.current.set(data.userId, timer)
+    }
+  })
+
+  useEffect(() => {
+    return () => {
+      for (const timer of typingTimersRef.current.values()) window.clearTimeout(timer)
+      for (const timer of activityTimersRef.current.values()) window.clearTimeout(timer)
+      typingTimersRef.current.clear()
+      activityTimersRef.current.clear()
+    }
+  }, [])
 
   // Clear system events and activity on channel change
   useEffect(() => {
     setSystemEvents([])
-    setActivityUsers([])
-  }, [activeChannelId])
+    for (const timer of typingTimersRef.current.values()) window.clearTimeout(timer)
+    for (const timer of activityTimersRef.current.values()) window.clearTimeout(timer)
+    typingTimersRef.current.clear()
+    activityTimersRef.current.clear()
+    setWorkStatuses([])
+  }, [activeChannelId, activeServerId])
 
   // Refetch messages on socket reconnect to catch any missed while offline
   useSocketEvent('connect', () => {
@@ -991,49 +1106,58 @@ export function ChatArea() {
           )}
         </div>
 
-        {/* Typing indicator */}
-        {typingUsers.length > 0 && (
-          <div className="px-4 py-1 text-xs text-primary">
-            <span className="inline-flex gap-0.5 mr-1">
-              <span
-                className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce"
-                style={{ animationDelay: '0ms' }}
-              />
-              <span
-                className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce"
-                style={{ animationDelay: '150ms' }}
-              />
-              <span
-                className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce"
-                style={{ animationDelay: '300ms' }}
-              />
-            </span>
-            {t('chat.typingIndicator', { users: typingUsers.join('、') })}
-          </div>
-        )}
-
-        {/* Agent activity indicator */}
-        {activityUsers.length > 0 && (
-          <div className="px-4 py-1 text-xs text-text-muted flex items-center gap-1">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
-            </span>
-            {activityUsers
-              .map((u) => {
-                const activityLabel =
-                  u.activity === 'thinking'
-                    ? t('member.activityThinking')
-                    : u.activity === 'working'
-                      ? t('member.activityWorking')
-                      : u.activity === 'ready'
-                        ? t('member.activityReady')
-                        : u.activity === 'preparing'
-                          ? t('member.activityPreparing')
-                          : u.activity
-                return `Buddy ${u.username} ${activityLabel}`
-              })
-              .join('、')}
+        {/* Buddy work indicator */}
+        {workStatuses.length > 0 && (
+          <div className="px-5 pb-2 pt-1">
+            <div className="inline-flex max-w-[min(100%,42rem)] items-center gap-2.5 rounded-2xl border border-primary/35 bg-bg-secondary/85 px-4 py-2 text-xs text-primary shadow-[0_0_28px_rgba(0,229,255,0.2)] backdrop-blur-xl">
+              <span className="relative flex h-2.5 w-2.5 shrink-0">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary shadow-[0_0_14px_rgba(0,229,255,0.9)]" />
+              </span>
+              <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+                {workStatuses.map((u, index) => {
+                  const states = [
+                    u.activity === 'thinking'
+                      ? trimStatusEllipsis(t('member.activityThinking'))
+                      : u.activity === 'working'
+                        ? trimStatusEllipsis(t('member.activityWorking'))
+                        : u.activity === 'ready'
+                          ? trimStatusEllipsis(t('member.activityReady'))
+                          : u.activity === 'preparing'
+                            ? trimStatusEllipsis(t('member.activityPreparing'))
+                            : trimStatusEllipsis(u.activity),
+                    u.typing ? trimStatusEllipsis(t('member.activityTyping')) : null,
+                  ].filter(Boolean)
+                  const status = states.join(' / ')
+                  return (
+                    <span
+                      key={u.userId}
+                      className="inline-flex min-w-0 items-center gap-1.5 overflow-hidden"
+                    >
+                      {index > 0 && <span className="shrink-0 text-text-muted">,</span>}
+                      <span className="max-w-44 truncate font-semibold text-text-primary">
+                        {u.name}
+                      </span>
+                      {status && <span className="shrink-0 text-primary/90">{status}</span>}
+                    </span>
+                  )
+                })}
+              </span>
+              <span className="inline-flex shrink-0 gap-0.5">
+                <span
+                  className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary"
+                  style={{ animationDelay: '0ms' }}
+                />
+                <span
+                  className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary"
+                  style={{ animationDelay: '150ms' }}
+                />
+                <span
+                  className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary"
+                  style={{ animationDelay: '300ms' }}
+                />
+              </span>
+            </div>
           </div>
         )}
 

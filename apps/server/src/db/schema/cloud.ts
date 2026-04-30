@@ -1,5 +1,6 @@
 import {
   boolean,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -7,9 +8,11 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core'
+import { agents } from './agents'
 import { users } from './users'
 
 // ─── Enums ──────────────────────────────────────────────────────────────────
@@ -140,6 +143,64 @@ export const cloudDeployments = pgTable(
     cloudDeploymentsUserIdIdx: index('cloud_deployments_user_id_idx').on(t.userId),
     cloudDeploymentsStatusIdx: index('cloud_deployments_status_idx').on(t.status),
     cloudDeploymentsSaasModeIdx: index('cloud_deployments_saas_mode_idx').on(t.saasMode),
+  }),
+)
+
+/**
+ * Latest usage snapshot reported by a running Shadow Buddy.
+ *
+ * The Cloud SaaS dashboard reads this table only; it must not exec into
+ * OpenClaw pods to compute costs on demand.
+ */
+export const cloudAgentUsageSnapshots = pgTable(
+  'cloud_agent_usage_snapshots',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    agentId: uuid('agent_id')
+      .notNull()
+      .references(() => agents.id, { onDelete: 'cascade' }),
+    agentUserId: uuid('agent_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    ownerId: uuid('owner_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    source: varchar('source', { length: 64 }).default('openclaw-trajectory').notNull(),
+    model: varchar('model', { length: 255 }),
+    totalUsd: doublePrecision('total_usd'),
+    inputTokens: integer('input_tokens'),
+    outputTokens: integer('output_tokens'),
+    cacheReadTokens: integer('cache_read_tokens'),
+    cacheWriteTokens: integer('cache_write_tokens'),
+    totalTokens: integer('total_tokens'),
+    providers: jsonb('providers')
+      .$type<
+        Array<{
+          provider: string
+          amountUsd: number | null
+          usageLabel: string | null
+          raw: string | null
+          inputTokens: number | null
+          outputTokens: number | null
+          totalTokens: number | null
+        }>
+      >()
+      .default([]),
+    raw: jsonb('raw').$type<Record<string, unknown>>(),
+    generatedAt: timestamp('generated_at', { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    cloudAgentUsageSnapshotsAgentIdUniqueIdx: uniqueIndex(
+      'cloud_agent_usage_snapshots_agent_id_unique_idx',
+    ).on(t.agentId),
+    cloudAgentUsageSnapshotsOwnerIdIdx: index('cloud_agent_usage_snapshots_owner_id_idx').on(
+      t.ownerId,
+    ),
+    cloudAgentUsageSnapshotsUpdatedAtIdx: index('cloud_agent_usage_snapshots_updated_at_idx').on(
+      t.updatedAt,
+    ),
   }),
 )
 

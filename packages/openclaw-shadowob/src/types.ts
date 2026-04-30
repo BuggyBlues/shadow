@@ -15,7 +15,6 @@ export type ShadowAccountConfig = {
   enabled?: boolean
   capabilities?: {
     inlineButtons?: 'off' | 'dm' | 'group' | 'all' | 'allowlist' | boolean
-    uploadFile?: boolean
     interactive?: boolean
     forms?: boolean
     [key: string]: unknown

@@ -2,13 +2,23 @@ type TypeBoxCompatibleSchema = Record<PropertyKey, unknown>
 
 const TYPEBOX_KIND = Symbol.for('TypeBox.Kind')
 const TYPEBOX_OPTIONAL = Symbol.for('TypeBox.Optional')
+const OPENCLAW_TYPEBOX_KIND = '~kind'
+const OPENCLAW_TYPEBOX_OPTIONAL = '~optional'
 
 function typeboxSchema(kind: string, schema: Record<string, unknown>): TypeBoxCompatibleSchema {
-  return Object.assign(schema, { [TYPEBOX_KIND]: kind })
+  Object.defineProperties(schema, {
+    [TYPEBOX_KIND]: { value: kind },
+    [OPENCLAW_TYPEBOX_KIND]: { value: kind },
+  })
+  return schema
 }
 
 function optionalSchema(schema: TypeBoxCompatibleSchema): TypeBoxCompatibleSchema {
-  return Object.assign(schema, { [TYPEBOX_OPTIONAL]: 'Optional' })
+  Object.defineProperties(schema, {
+    [TYPEBOX_OPTIONAL]: { value: 'Optional' },
+    [OPENCLAW_TYPEBOX_OPTIONAL]: { value: 'Optional' },
+  })
+  return schema
 }
 
 function stringSchema(description?: string): TypeBoxCompatibleSchema {
@@ -56,6 +66,7 @@ function objectSchema(
 ): TypeBoxCompatibleSchema {
   const required = Object.entries(properties)
     .filter(([, schema]) => schema[TYPEBOX_OPTIONAL] !== 'Optional')
+    .filter(([, schema]) => schema[OPENCLAW_TYPEBOX_OPTIONAL] !== 'Optional')
     .map(([key]) => key)
 
   return typeboxSchema('Object', {
@@ -117,14 +128,14 @@ export const shadowMessageToolSchemaProperties = {
     stringSchema('Optional comment label for approval dialogs.'),
   ),
   oneShot: optionalSchema(booleanSchema('Disable the dialog after one response.')),
-  media: optionalSchema(stringSchema('Attachment source URL or local path for upload-file.')),
+  media: optionalSchema(stringSchema('Attachment source URL or local path for file upload.')),
   mediaUrl: optionalSchema(stringSchema('Alias for media.')),
   url: optionalSchema(stringSchema('Alias for media.')),
   path: optionalSchema(stringSchema('Local attachment path.')),
   filePath: optionalSchema(stringSchema('Local attachment path alias.')),
   file: optionalSchema(stringSchema('Local attachment path alias.')),
   fileUrl: optionalSchema(stringSchema('Attachment URL alias.')),
-  buffer: optionalSchema(stringSchema('Base64 attachment payload for upload-file.')),
+  buffer: optionalSchema(stringSchema('Base64 attachment payload for file upload.')),
   filename: optionalSchema(stringSchema('Attachment filename when buffer is used.')),
   contentType: optionalSchema(stringSchema('Attachment MIME type when buffer is used.')),
   mimeType: optionalSchema(stringSchema('Alias for contentType.')),

@@ -413,6 +413,7 @@
     "costUnavailableDescription": "暂时无法从运行中的 agents 收集使用量数据。",
     "costNoRunningPod": "未找到可读取使用量的运行中 Pod。",
     "costUsageUnavailableMessage": "OpenClaw 暂未返回 Token 使用量，请在 Agent 处理过消息后刷新。",
+    "costTelemetryMissing": "尚未收到使用量快照，请在该 Buddy 处理新消息后刷新。",
     "liveLogsUnavailableTransport": "暂时无法连接 Kubernetes 日志流，请稍后重试或查看最近日志。",
     "availableAgents": "可统计 Agents",
     "unavailableAgents": "不可统计 Agents",
@@ -941,6 +942,7 @@
       "tracked": "已跟踪",
       "json": "json",
       "text": "text",
+      "telemetry": "遥测",
       "unavailable": "不可用"
     },
     "name": "名称",
