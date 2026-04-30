@@ -18,6 +18,7 @@ import {
   type DeployFromSnapshotOptions,
   type DeployResult,
   extractCloudSaasRuntime,
+  prepareCloudSaasConfigSnapshot,
   type ServiceContainer,
 } from '@shadowob/cloud'
 import { eq, like } from 'drizzle-orm'
@@ -1927,6 +1928,7 @@ describe('Cloud SaaS — deployment + billing', () => {
 
       const runtime = extractCloudSaasRuntime(storedRedeploy?.configSnapshot)
       expect(runtime.provisionState?.plugins.shadowob).toEqual(provisionState.plugins.shadowob)
+      expect(runtime.envVars.SHADOW_USER_TOKEN).toBe(token)
 
       const redeployAgainRes = await req(
         'POST',
@@ -1936,6 +1938,94 @@ describe('Cloud SaaS — deployment + billing', () => {
 
       const destroyOldRes = await req('DELETE', `/api/cloud-saas/deployments/${existing!.id}`)
       expect(destroyOldRes.status).toBe(409)
+    } finally {
+      await db
+        .delete(schema.cloudDeployments)
+        .where(eq(schema.cloudDeployments.namespace, namespace))
+        .catch(() => {})
+    }
+  })
+
+  it('refreshes model-provider runtime credentials when redeploying', async () => {
+    const namespace = uniqueName('e2e-redeploy-provider-ns')
+    const provisionState = {
+      provisionedAt: '2026-04-30T00:00:00.000Z',
+      namespace,
+      plugins: {
+        shadowob: {
+          buddies: {
+            'strategy-buddy': {
+              agentId: 'strategy-buddy',
+              userId: 'bot-user-1',
+              token: 'bot-token-1',
+            },
+          },
+        },
+      },
+    }
+
+    try {
+      const profileRes = await req('PUT', '/api/cloud-saas/provider-profiles', {
+        providerId: 'anthropic',
+        name: `Redeploy Provider ${namespace}`,
+        config: {
+          baseUrl: 'https://anthropic-redeploy.example.test',
+          models: [{ id: 'claude-redeploy-model', tags: ['default'] }],
+        },
+        envVars: { ANTHROPIC_API_KEY: 'fresh-redeploy-anthropic-key' },
+      })
+      expect(profileRes.status).toBe(200)
+      const profileBody = (await profileRes.json()) as { profile: { id: string } }
+      const baseConfig = {
+        ...makeConfigSnapshot('redeploy-provider-secret'),
+        use: [
+          {
+            plugin: 'model-provider',
+            options: { profileId: profileBody.profile.id },
+          },
+        ],
+      }
+      const staleSnapshot = attachCloudSaasProvisionState(
+        prepareCloudSaasConfigSnapshot(baseConfig, {
+          SHADOW_USER_TOKEN: 'stale-user-token',
+          SHADOW_SERVER_URL: 'http://stale-shadow.local',
+          ANTHROPIC_API_KEY: 'stale-anthropic-key',
+          ANTHROPIC_BASE_URL: 'https://stale-anthropic.example.test',
+        }),
+        provisionState,
+      )
+
+      const [existing] = await db
+        .insert(schema.cloudDeployments)
+        .values({
+          userId,
+          namespace,
+          name: `${namespace}-agent`,
+          status: 'deployed',
+          agentCount: 1,
+          configSnapshot: staleSnapshot,
+          templateSlug: officialTemplateSlug,
+          resourceTier: 'lightweight',
+          monthlyCost: 500,
+          saasMode: true,
+        })
+        .returning()
+
+      const redeployRes = await req('POST', `/api/cloud-saas/deployments/${existing!.id}/redeploy`)
+      expect(redeployRes.status).toBe(201)
+      const redeployed = (await redeployRes.json()) as { id: string }
+      const [storedRedeploy] = await db
+        .select()
+        .from(schema.cloudDeployments)
+        .where(eq(schema.cloudDeployments.id, redeployed.id))
+        .limit(1)
+
+      const runtime = extractCloudSaasRuntime(storedRedeploy?.configSnapshot)
+      expect(runtime.envVars.SHADOW_USER_TOKEN).toBe(token)
+      expect(runtime.envVars.SHADOW_SERVER_URL).not.toBe('http://stale-shadow.local')
+      expect(runtime.envVars.ANTHROPIC_API_KEY).toBe('fresh-redeploy-anthropic-key')
+      expect(runtime.envVars.ANTHROPIC_BASE_URL).toBe('https://anthropic-redeploy.example.test')
+      expect(runtime.provisionState?.plugins.shadowob).toEqual(provisionState.plugins.shadowob)
     } finally {
       await db
         .delete(schema.cloudDeployments)

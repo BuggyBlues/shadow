@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { zValidator } from '@hono/zod-validator'
 import {
+  attachCloudSaasProvisionState,
   collectRuntimeEnvRequirements,
   deleteNamespace,
   extractCloudSaasRuntime,
@@ -2045,13 +2046,51 @@ export function createCloudSaasHandler(container: AppContainer) {
         return c.json({ ok: false, error: 'Deployment has no config snapshot to redeploy' }, 422)
       }
 
+      const runtime = extractCloudSaasRuntime(deployment.configSnapshot)
+      if (!runtime.configSnapshot) {
+        return c.json({ ok: false, error: 'Deployment has no config snapshot to redeploy' }, 422)
+      }
+
+      const redeployEnvVars = { ...runtime.envVars }
+      delete redeployEnvVars.SHADOW_USER_TOKEN
+      delete redeployEnvVars.SHADOW_SERVER_URL
+      delete redeployEnvVars.SHADOW_AGENT_SERVER_URL
+      delete redeployEnvVars.SHADOW_PROVISION_URL
+
+      let configSnapshot: Record<string, unknown>
+      try {
+        const runtimeEnvVars = await resolveCreateRuntimeEnvVars(
+          user.userId,
+          redeployEnvVars,
+          runtime.configSnapshot,
+          c.req.header('authorization'),
+          requestOrigin(c),
+        )
+        configSnapshot = prepareCloudSaasConfigSnapshot(runtime.configSnapshot, runtimeEnvVars)
+        if (runtime.provisionState) {
+          configSnapshot = attachCloudSaasProvisionState(configSnapshot, runtime.provisionState)
+        }
+      } catch (err) {
+        const status =
+          typeof (err as { status?: number }).status === 'number'
+            ? (err as { status: number }).status
+            : 422
+        return c.json(
+          {
+            ok: false,
+            error: err instanceof Error ? err.message : 'Invalid configSnapshot',
+          },
+          { status: status as 400 | 404 | 409 | 422 | 500 },
+        )
+      }
+
       const next = await dao.create({
         userId: user.userId,
         clusterId: deployment.clusterId,
         namespace: deployment.namespace,
         name: deployment.name,
         agentCount: deployment.agentCount,
-        configSnapshot: deployment.configSnapshot,
+        configSnapshot,
       })
       if (!next) {
         return c.json({ ok: false, error: 'Failed to create redeployment' }, 500)

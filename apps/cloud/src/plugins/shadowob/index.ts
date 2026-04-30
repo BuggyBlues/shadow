@@ -44,7 +44,6 @@ const SHADOWOB_OPENCLAW_EXTENSION_PATH = `/app/extensions/${SHADOWOB_OPENCLAW_EX
 function shadowobChannelCapabilities(): Record<string, unknown> {
   return {
     inlineButtons: 'all',
-    uploadFile: true,
     interactive: true,
     forms: true,
   }
@@ -61,7 +60,6 @@ function shadowobChannelCapabilitiesSchema(): Record<string, unknown> {
           { type: 'boolean' },
         ],
       },
-      uploadFile: { type: 'boolean' },
       interactive: { type: 'boolean' },
       forms: { type: 'boolean' },
     },

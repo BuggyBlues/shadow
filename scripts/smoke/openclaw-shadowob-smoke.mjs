@@ -828,7 +828,7 @@ async function runThreadSmoke(session, owner, agent, marker) {
 async function runMediaOutboundSmoke(session, owner, agent, marker, container) {
   const channelExpected = `${marker}_OUTBOUND_CHANNEL_ATTACHMENT`
   const channelStartedAt = Date.now()
-  const channelResult = runShadowAction(container, 'upload-file', {
+  const channelResult = runShadowAction(container, 'send-file', {
     target: `shadowob:channel:${session.channels.generalId}`,
     message: channelExpected,
     filename: `shadow-outbound-${marker.toLowerCase()}.txt`,
@@ -836,7 +836,7 @@ async function runMediaOutboundSmoke(session, owner, agent, marker, container) {
     buffer: Buffer.from(`outbound channel attachment ${marker}`, 'utf8').toString('base64'),
   })
   if (!channelResult?.ok) {
-    throw new Error(`Channel upload-file action failed: ${JSON.stringify(channelResult)}`)
+    throw new Error(`Channel send-file action failed: ${JSON.stringify(channelResult)}`)
   }
   const channelMessage = await waitForBotReply(
     session,
@@ -851,7 +851,7 @@ async function runMediaOutboundSmoke(session, owner, agent, marker, container) {
   const dm = await createDmChannel(session, owner, agent.botUser.id)
   const dmExpected = `${marker}_OUTBOUND_DM_ATTACHMENT`
   const dmStartedAt = Date.now()
-  const dmResult = runShadowAction(container, 'upload-file', {
+  const dmResult = runShadowAction(container, 'send-file', {
     target: `shadowob:dm:${dm.id}`,
     message: dmExpected,
     filename: `shadow-dm-outbound-${marker.toLowerCase()}.txt`,
@@ -859,7 +859,7 @@ async function runMediaOutboundSmoke(session, owner, agent, marker, container) {
     buffer: Buffer.from(`outbound DM attachment ${marker}`, 'utf8').toString('base64'),
   })
   if (!dmResult?.ok) {
-    throw new Error(`DM upload-file action failed: ${JSON.stringify(dmResult)}`)
+    throw new Error(`DM send-file action failed: ${JSON.stringify(dmResult)}`)
   }
   const dmMessage = await waitForDmMessage(
     session,
@@ -1074,7 +1074,7 @@ function runActionSurfaceSmoke(container) {
     const discovery = shadowPlugin.actions.describeMessageTool({ cfg: {} })
     const promptHints = shadowPlugin.agentPrompt?.messageToolHints?.({ cfg: {} }) ?? []
     const supports = Object.fromEntries(
-      ['send', 'send-interactive', 'upload-file', 'sendAttachment', 'get-server', 'update-homepage']
+      ['send', 'send-interactive', 'send-file', 'upload-file', 'sendAttachment', 'get-server', 'update-homepage']
         .map((action) => [action, shadowPlugin.actions.supportsAction({ action })])
     )
     console.log(JSON.stringify({
@@ -1093,11 +1093,11 @@ function runActionSurfaceSmoke(container) {
   const surface = JSON.parse(lines.at(-1) ?? 'null')
   const actions = new Set(surface?.actions ?? [])
   const promptText = (surface?.promptHints ?? []).join('\n')
-  for (const action of ['send', 'send-interactive', 'upload-file']) {
+  for (const action of ['send', 'send-interactive', 'send-file']) {
     if (!actions.has(action)) throw new Error(`Expected action ${action} to be discovered`)
     if (surface?.supports?.[action] !== true) throw new Error(`Expected action ${action} support`)
   }
-  for (const action of ['sendAttachment', 'get-server', 'update-homepage']) {
+  for (const action of ['upload-file', 'sendAttachment', 'get-server', 'update-homepage']) {
     if (actions.has(action)) throw new Error(`Removed action ${action} was still discovered`)
     if (surface?.supports?.[action] !== false) {
       throw new Error(`Removed action ${action} was still supported`)
@@ -1112,10 +1112,13 @@ function runActionSurfaceSmoke(container) {
   if (surface?.mediaSourceParams?.sendAttachment) {
     throw new Error('sendAttachment media source params were still present')
   }
+  if (surface?.mediaSourceParams?.['upload-file']) {
+    throw new Error('upload-file media source params were still present')
+  }
   return {
     actions: [...actions],
-    fileAction: 'upload-file',
-    removedActions: ['sendAttachment', 'get-server', 'update-homepage'],
+    fileAction: 'send-file',
+    removedActions: ['upload-file', 'sendAttachment', 'get-server', 'update-homepage'],
   }
 }
 
