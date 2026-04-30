@@ -298,8 +298,6 @@ export interface OpenClawChannelBase {
 export interface OpenClawChannelCapabilities {
   /** Inline button scope: off, DM-only, group-only, all, or allowlist */
   inlineButtons?: 'off' | 'dm' | 'group' | 'all' | 'allowlist' | boolean
-  /** Canonical OpenClaw file upload action support */
-  uploadFile?: boolean
   /** Native interactive message support */
   interactive?: boolean
   /** Native form message support */

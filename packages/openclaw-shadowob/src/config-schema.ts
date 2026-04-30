@@ -9,7 +9,6 @@ const ShadowCapabilitiesSchema = z
     inlineButtons: z
       .union([z.enum(['off', 'dm', 'group', 'all', 'allowlist']), z.boolean()])
       .optional(),
-    uploadFile: z.boolean().optional(),
     interactive: z.boolean().optional(),
     forms: z.boolean().optional(),
   })

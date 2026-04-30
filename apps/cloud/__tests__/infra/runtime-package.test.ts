@@ -67,6 +67,50 @@ describe('buildAgentRuntimePackage', () => {
     })
   })
 
+  it('uses registry provider secrets while building OpenClaw model config', () => {
+    const config: CloudConfig = {
+      version: '1',
+      use: [{ plugin: 'model-provider' }],
+      registry: {
+        vaults: {
+          default: {
+            providers: {
+              anthropic: { apiKey: 'sk-vault-provider' },
+            },
+          },
+        },
+      },
+      deployments: {
+        agents: [
+          {
+            id: 'agent-1',
+            runtime: 'openclaw',
+            configuration: {},
+          },
+        ],
+      },
+    }
+
+    const runtimePackage = buildAgentRuntimePackage({
+      agent: config.deployments!.agents[0]!,
+      config,
+    })
+    const openclawConfig = JSON.parse(runtimePackage.configData['config.json']!)
+    const serializedConfig = runtimePackage.configData['config.json']!
+
+    expect(openclawConfig.models.providers.anthropic).toMatchObject({
+      api: 'anthropic-messages',
+      apiKey: '${env:ANTHROPIC_API_KEY}',
+    })
+    expect(openclawConfig.agents.defaults.model.primary).toBe('anthropic/claude-sonnet-4-5')
+    expect(serializedConfig).not.toContain('sk-vault-provider')
+    expect(runtimePackage.plainEnv.ANTHROPIC_API_KEY).toBeUndefined()
+    expect(runtimePackage.secretData).toMatchObject({
+      ANTHROPIC_API_KEY: 'sk-vault-provider',
+      ANTHROPIC_APIKEY: 'sk-vault-provider',
+    })
+  })
+
   it('writes plugin runtime extensions outside openclaw.json', () => {
     const config: CloudConfig = {
       version: '1',
@@ -111,13 +155,13 @@ describe('buildAgentRuntimePackage', () => {
     expect(openclawConfig.channels.shadowob.accounts['bot-1']).toBeDefined()
     expect(openclawConfig.channels.shadowob.capabilities).toMatchObject({
       inlineButtons: 'all',
-      uploadFile: true,
       interactive: true,
       forms: true,
     })
     expect(openclawConfig.channels.shadowob.accounts['bot-1'].capabilities).toMatchObject({
       inlineButtons: 'all',
-      uploadFile: true,
+      interactive: true,
+      forms: true,
     })
     expect(runtimeExtensions.openclaw.manifestPatches[0].extensionId).toBe('shadowob')
     expect(runtimeExtensions.artifacts).toContainEqual({

@@ -14,21 +14,13 @@ import { shadowMessageToolSchemaProperties } from './typebox-schema.js'
 const SHADOW_DISCOVERED_ACTIONS = [
   'send',
   'send-interactive',
-  'upload-file',
+  'send-file',
   'react',
   'edit',
   'delete',
 ] as const
 
 const SHADOW_HANDLED_ACTIONS = [...SHADOW_DISCOVERED_ACTIONS, 'get-connection-status'] as const
-
-const SHADOW_ACTION_ALIASES: Record<string, (typeof SHADOW_HANDLED_ACTIONS)[number]> = {
-  uploadFile: 'upload-file',
-  sendFile: 'upload-file',
-  'send-file': 'upload-file',
-  sendMedia: 'upload-file',
-  'send-media': 'upload-file',
-}
 
 type ShadowActionResult = {
   content: Array<{ type: 'text'; text: string }>
@@ -45,10 +37,6 @@ function textResult(value: Record<string, unknown>): ShadowActionResult {
     ],
     details: value,
   }
-}
-
-function normalizeShadowAction(action: string): string {
-  return SHADOW_ACTION_ALIASES[action] ?? action
 }
 
 function readAttachmentSource(params: Record<string, unknown>) {
@@ -77,28 +65,19 @@ export const shadowMessageActions = {
         properties: shadowMessageToolSchemaProperties,
       },
       mediaSourceParams: {
-        'upload-file': [
-          'media',
-          'mediaUrl',
-          'url',
-          'path',
-          'filePath',
-          'file',
-          'fileUrl',
-          'buffer',
-        ],
+        'send-file': ['media', 'mediaUrl', 'url', 'path', 'filePath', 'file', 'fileUrl', 'buffer'],
       },
     }) as unknown as ReturnType<
       NonNullable<import('openclaw/plugin-sdk').ChannelPlugin['actions']>['describeMessageTool']
     >,
 
   messageActionTargetAliases: {
-    'upload-file': { aliases: ['recipient', 'to', 'channelId'] },
+    'send-file': { aliases: ['recipient', 'to', 'channelId'] },
     'send-interactive': { aliases: ['recipient'] },
   } as Record<string, { aliases: string[] }>,
 
   supportsAction: ({ action }: { action: string }): boolean =>
-    (SHADOW_HANDLED_ACTIONS as readonly string[]).includes(normalizeShadowAction(action)),
+    (SHADOW_HANDLED_ACTIONS as readonly string[]).includes(action),
 
   handleAction: async (ctx: ChannelMessageActionContext) => {
     const account = getAccountConfig(ctx.cfg, ctx.accountId ?? DEFAULT_ACCOUNT_ID)
@@ -107,7 +86,7 @@ export const shadowMessageActions = {
     }
 
     const requestedAction = String(ctx.action)
-    const action = normalizeShadowAction(requestedAction)
+    const action = requestedAction
     const { params } = ctx
 
     if (action === 'send') {
@@ -148,7 +127,7 @@ export const shadowMessageActions = {
       }
     }
 
-    if (action === 'upload-file') {
+    if (action === 'send-file') {
       try {
         const client = new ShadowClient(account.serverUrl, account.token)
         const to = readMessageTarget(params)
@@ -210,7 +189,7 @@ export const shadowMessageActions = {
         return textResult({
           ok: true,
           action: requestedAction,
-          canonicalAction: 'upload-file',
+          canonicalAction: 'send-file',
           messageId: message.id,
           filename,
         })

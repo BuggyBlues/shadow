@@ -124,7 +124,6 @@ shadowPlugin.configSchema = {
               { type: 'boolean' },
             ],
           },
-          uploadFile: { type: 'boolean' },
           interactive: { type: 'boolean' },
           forms: { type: 'boolean' },
         },

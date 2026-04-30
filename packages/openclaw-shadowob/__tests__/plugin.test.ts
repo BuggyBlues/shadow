@@ -433,13 +433,15 @@ describe('Plugin Entry Point', () => {
     const { shadowPlugin } = await import('../src/channel.js')
     const discovery = shadowPlugin.actions?.describeMessageTool({ cfg: {} } as never)
     expect(discovery?.actions).toContain('send')
-    expect(discovery?.actions).toContain('upload-file')
+    expect(discovery?.actions).toContain('send-file')
     expect(discovery?.actions).toContain('send-interactive')
+    expect(discovery?.actions).not.toContain('upload-file')
     expect(discovery?.actions).not.toContain('sendAttachment')
     expect(discovery?.actions).not.toContain('get-server')
     expect(discovery?.actions).not.toContain('update-homepage')
     expect(discovery?.capabilities).toContain('interactive')
-    expect(discovery?.mediaSourceParams?.['upload-file']).toContain('path')
+    expect(discovery?.mediaSourceParams?.['send-file']).toContain('path')
+    expect(discovery?.mediaSourceParams?.['upload-file']).toBeUndefined()
     expect(discovery?.mediaSourceParams?.sendAttachment).toBeUndefined()
     const schema = Array.isArray(discovery?.schema) ? discovery.schema[0] : discovery?.schema
     expect(schema?.properties.kind).toBeDefined()
@@ -460,21 +462,23 @@ describe('Plugin Entry Point', () => {
 
     expect(text).toContain('prefer sending a Shadow interactive dialog')
     expect(text).toContain('`message` is required')
-    expect(text).toContain('`action: "upload-file"`')
+    expect(text).toContain('`action: "send-file"`')
+    expect(text).not.toContain('upload-file')
     expect(text).not.toContain('sendAttachment')
     expect(text).not.toContain('get-server')
     expect(text).not.toContain('update-homepage')
     expect(text).not.toContain('homepage')
   })
 
-  it('should handle send while keeping send-interactive as a legacy direct action', async () => {
+  it('should support only the current Shadow message actions', async () => {
     const { shadowPlugin } = await import('../src/channel.js')
     expect(shadowPlugin.actions?.supportsAction?.({ action: 'send' })).toBe(true)
     expect(shadowPlugin.actions?.supportsAction?.({ action: 'send-interactive' as never })).toBe(
       true,
     )
-    expect(shadowPlugin.actions?.supportsAction?.({ action: 'upload-file' as never })).toBe(true)
-    expect(shadowPlugin.actions?.supportsAction?.({ action: 'sendFile' as never })).toBe(true)
+    expect(shadowPlugin.actions?.supportsAction?.({ action: 'send-file' as never })).toBe(true)
+    expect(shadowPlugin.actions?.supportsAction?.({ action: 'upload-file' as never })).toBe(false)
+    expect(shadowPlugin.actions?.supportsAction?.({ action: 'sendFile' as never })).toBe(false)
     expect(shadowPlugin.actions?.supportsAction?.({ action: 'sendAttachment' as never })).toBe(
       false,
     )
@@ -485,7 +489,7 @@ describe('Plugin Entry Point', () => {
     expect(shadowPlugin.actions?.supportsAction?.({ action: 'pin' })).toBe(false)
   })
 
-  it('should handle canonical upload-file actions as Shadow attachments', async () => {
+  it('should handle canonical send-file actions as Shadow attachments', async () => {
     const { ShadowClient } = await import('@shadowob/sdk')
     const { shadowPlugin } = await import('../src/channel.js')
     const sendMessage = vi.spyOn(ShadowClient.prototype, 'sendMessage').mockResolvedValue({
@@ -502,7 +506,7 @@ describe('Plugin Entry Point', () => {
 
     try {
       const result = await shadowPlugin.actions?.handleAction?.({
-        action: 'upload-file',
+        action: 'send-file',
         accountId: 'default',
         cfg: {
           channels: {
@@ -528,8 +532,8 @@ describe('Plugin Entry Point', () => {
       )
       expect(result?.details).toMatchObject({
         ok: true,
-        action: 'upload-file',
-        canonicalAction: 'upload-file',
+        action: 'send-file',
+        canonicalAction: 'send-file',
         messageId: 'file-msg-1',
       })
     } finally {
@@ -871,7 +875,7 @@ describe('Shadow Config Schema', () => {
   it('should validate multi-account config', async () => {
     const { ShadowConfigSchema } = await import('../src/config-schema.js')
     const result = ShadowConfigSchema.safeParse({
-      capabilities: { inlineButtons: 'all', uploadFile: true },
+      capabilities: { inlineButtons: 'all', interactive: true, forms: true },
       accounts: {
         bot1: {
           token: 'token-1',

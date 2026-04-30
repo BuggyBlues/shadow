@@ -83,9 +83,6 @@
                   }
                 ]
               },
-              "uploadFile": {
-                "type": "boolean"
-              },
               "interactive": {
                 "type": "boolean"
               },
