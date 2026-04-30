@@ -163,9 +163,9 @@ export class ShadowSocket {
     this.socket.emit('message:send' satisfies keyof ClientEventMap, data)
   }
 
-  /** Send a typing indicator */
-  sendTyping(channelId: string): void {
-    this.socket.emit('message:typing' satisfies keyof ClientEventMap, { channelId })
+  /** Send or clear a typing indicator */
+  sendTyping(channelId: string, typing = true): void {
+    this.socket.emit('message:typing' satisfies keyof ClientEventMap, { channelId, typing })
   }
 
   /** Update user presence status */
@@ -200,8 +200,8 @@ export class ShadowSocket {
     this.socket.emit('dm:send' as string, data)
   }
 
-  /** Send a DM typing indicator */
-  sendDmTyping(dmChannelId: string): void {
-    this.socket.emit('dm:typing' as string, { dmChannelId })
+  /** Send or clear a DM typing indicator */
+  sendDmTyping(dmChannelId: string, typing = true): void {
+    this.socket.emit('dm:typing' as string, { dmChannelId, typing })
   }
 }

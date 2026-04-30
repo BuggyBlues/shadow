@@ -12,6 +12,7 @@ import { deliverShadowDmReply } from './reply-delivery.js'
 import { resolveSessionStore } from './session.js'
 import { formatSlashCommandPrompt, matchShadowSlashCommand } from './slash-commands.js'
 import { createTypingCallbacks } from './typing.js'
+import { reportShadowUsageSnapshot } from './usage-reporting.js'
 
 export type ShadowDmMessage = {
   id: string
@@ -191,9 +192,16 @@ export async function processShadowDmMessage(params: {
     start: async () => {
       socket.sendDmTyping(dmChannelId)
     },
+    stop: async () => {
+      socket.sendDmTyping(dmChannelId, false)
+    },
     onStartError: (err) => {
       runtime.error?.(`[dm-typing] Failed to send typing indicator: ${String(err)}`)
     },
+    onStopError: (err) => {
+      runtime.error?.(`[dm-typing] Failed to clear typing indicator: ${String(err)}`)
+    },
+    maxDurationMs: 120_000,
   })
 
   try {
@@ -209,6 +217,7 @@ export async function processShadowDmMessage(params: {
       accountId,
       typingCallbacks: typingCbs,
     })
+    const dispatchStartedAt = Date.now()
     await core.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
       ctx: ctxPayload,
       cfg,
@@ -232,6 +241,19 @@ export async function processShadowDmMessage(params: {
           )
         },
       },
+    })
+    await reportShadowUsageSnapshot({
+      client,
+      shadowAgentId,
+      openClawAgentId: dispatchAgentId,
+      sessionKey:
+        typeof ctxPayload.SessionKey === 'string' ? ctxPayload.SessionKey : route.sessionKey,
+      runtime,
+      sinceMs: dispatchStartedAt,
+    }).catch((err) => {
+      runtime.error?.(
+        `[usage] Failed to report DM usage snapshot for ${dmMessage.id}: ${String(err)}`,
+      )
     })
   } catch (err) {
     runtime.error?.(`[dm] AI dispatch failed for DM message ${dmMessage.id}: ${String(err)}`)

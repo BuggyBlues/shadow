@@ -103,6 +103,44 @@ interface SystemEvent {
   timestamp: number
 }
 
+interface WorkStatus {
+  userId: string
+  name: string
+  typing: boolean
+  activity: string | null
+}
+
+interface WorkStatusPayload {
+  channelId: string
+  userId: string
+  username?: string
+  displayName?: string | null
+}
+
+interface TypingStatusPayload extends WorkStatusPayload {
+  typing?: boolean
+}
+
+interface ActivityStatusPayload extends WorkStatusPayload {
+  activity: string | null
+}
+
+interface MemberCacheEntry {
+  userId: string
+  user?: {
+    username?: string | null
+    displayName?: string | null
+  }
+}
+
+interface BuddyAgentCacheEntry {
+  botUser?: {
+    id: string
+    username?: string | null
+    displayName?: string | null
+  } | null
+}
+
 /** Pre-computed timeline item with grouping info */
 type TimelineItem =
   | { kind: 'message'; data: Message; isGrouped: boolean }
@@ -113,6 +151,12 @@ type InteractiveResponse = NonNullable<
 >
 
 const VIRTUALIZE_MESSAGE_THRESHOLD = 40
+
+function trimStatusEllipsis(label: string | null | undefined): string | null {
+  const trimmed = label?.trim()
+  if (!trimmed) return null
+  return trimmed.replace(/[.\u2026\u3002\uff0e]+$/u, '')
+}
 
 /** Estimated height by content type — used for virtualizer initial estimates */
 function estimateItemSize(item: TimelineItem): number {
@@ -138,9 +182,7 @@ export function ChatArea() {
   const [replyToId, setReplyToId] = useState<string | null>(null)
   const [droppedFiles, setDroppedFiles] = useState<File[]>([])
   const [isDragOver, setIsDragOver] = useState(false)
-  const [typingUsers, setTypingUsers] = useState<
-    { userId: string; username: string; typing: boolean; activity: string | null }[]
-  >([])
+  const [workStatuses, setWorkStatuses] = useState<WorkStatus[]>([])
   const [lastReadCount, setLastReadCount] = useState(0)
   const [highlightMsgId, setHighlightMsgId] = useState<string | null>(null)
   const [systemEvents, setSystemEvents] = useState<SystemEvent[]>([])
@@ -158,6 +200,42 @@ export function ChatArea() {
     contentType: string
     size: number
   } | null>(null)
+
+  const resolveWorkStatusName = useCallback(
+    (payload: WorkStatusPayload, existingName?: string) => {
+      const channelMembers =
+        queryClient.getQueryData<MemberCacheEntry[]>([
+          'members',
+          activeServerId,
+          activeChannelId,
+        ]) ?? []
+      const serverMembers =
+        queryClient.getQueryData<MemberCacheEntry[]>(['members', activeServerId]) ?? []
+      const member =
+        channelMembers.find((m) => m.userId === payload.userId) ??
+        serverMembers.find((m) => m.userId === payload.userId)
+      const buddyAgents =
+        queryClient.getQueryData<BuddyAgentCacheEntry[]>([
+          'members-buddy-agents',
+          activeServerId,
+        ]) ?? []
+      const buddyAgent = buddyAgents.find((agent) => agent.botUser?.id === payload.userId)
+      const candidates = [
+        payload.displayName,
+        buddyAgent?.botUser?.displayName,
+        member?.user?.displayName,
+        payload.username,
+        buddyAgent?.botUser?.username,
+        member?.user?.username,
+        existingName,
+        payload.userId,
+      ]
+      return (
+        candidates.find((value) => typeof value === 'string' && value.trim()) as string
+      ).trim()
+    },
+    [activeChannelId, activeServerId, queryClient],
+  )
 
   // Save-to-workspace state
   const [saveToWorkspaceFile, setSaveToWorkspaceFile] = useState<{
@@ -385,36 +463,37 @@ export function ChatArea() {
   )
 
   // Listen for typing indicators
-  useSocketEvent(
-    'message:typing',
-    (data: { userId: string; username: string; channelId: string }) => {
-      if (data.channelId === activeChannelId && data.userId !== user?.id) {
-        const existingTimer = typingTimersRef.current.get(data.userId)
-        if (existingTimer) window.clearTimeout(existingTimer)
-        setTypingUsers((prev) => {
-          const existing = prev.find((u) => u.userId === data.userId)
-          if (existing) {
-            return prev.map((u) =>
-              u.userId === data.userId ? { ...u, username: data.username, typing: true } : u,
-            )
-          }
-          return [
-            ...prev,
-            { userId: data.userId, username: data.username, typing: true, activity: null },
-          ]
-        })
-        const timer = window.setTimeout(() => {
+  useSocketEvent('message:typing', (data: TypingStatusPayload) => {
+    if (data.channelId === activeChannelId && data.userId !== user?.id) {
+      const existingTimer = typingTimersRef.current.get(data.userId)
+      if (existingTimer) window.clearTimeout(existingTimer)
+      const isTyping = data.typing !== false
+      setWorkStatuses((prev) => {
+        const existing = prev.find((u) => u.userId === data.userId)
+        const name = resolveWorkStatusName(data, existing?.name)
+        if (!isTyping) {
           typingTimersRef.current.delete(data.userId)
-          setTypingUsers((prev) =>
-            prev
-              .map((u) => (u.userId === data.userId ? { ...u, typing: false } : u))
-              .filter((u) => u.typing || u.activity),
-          )
-        }, 3000)
-        typingTimersRef.current.set(data.userId, timer)
-      }
-    },
-  )
+          return prev
+            .map((u) => (u.userId === data.userId ? { ...u, name, typing: false } : u))
+            .filter((u) => u.typing || u.activity)
+        }
+        if (existing) {
+          return prev.map((u) => (u.userId === data.userId ? { ...u, name, typing: true } : u))
+        }
+        return [...prev, { userId: data.userId, name, typing: true, activity: null }]
+      })
+      if (!isTyping) return
+      const timer = window.setTimeout(() => {
+        typingTimersRef.current.delete(data.userId)
+        setWorkStatuses((prev) =>
+          prev
+            .map((u) => (u.userId === data.userId ? { ...u, typing: false } : u))
+            .filter((u) => u.typing || u.activity),
+        )
+      }, 3000)
+      typingTimersRef.current.set(data.userId, timer)
+    }
+  })
 
   // Listen for member join events
   useSocketEvent('member:joined', (data: MemberEvent) => {
@@ -472,54 +551,40 @@ export function ChatArea() {
   })
 
   // Listen for agent activity status
-  useSocketEvent(
-    'presence:activity',
-    (data: { userId: string; activity: string | null; channelId: string }) => {
-      if (data.channelId !== activeChannelId) return
-      const existingTimer = activityTimersRef.current.get(data.userId)
-      if (existingTimer) window.clearTimeout(existingTimer)
+  useSocketEvent('presence:activity', (data: ActivityStatusPayload) => {
+    if (data.channelId !== activeChannelId) return
+    const existingTimer = activityTimersRef.current.get(data.userId)
+    if (existingTimer) window.clearTimeout(existingTimer)
 
-      setTypingUsers((prev) => {
-        if (!data.activity) {
-          activityTimersRef.current.delete(data.userId)
-          return prev
-            .map((u) => (u.userId === data.userId ? { ...u, activity: null } : u))
-            .filter((u) => u.typing || u.activity)
-        }
-        // Look up display name from members cache
-        const members = queryClient.getQueryData<
-          { userId: string; user?: { displayName?: string; username?: string } }[]
-        >(['members', activeServerId])
-        const member = members?.find((m) => m.userId === data.userId)
-        const displayName = member?.user?.displayName || member?.user?.username || data.userId
-
-        const existing = prev.find((u) => u.userId === data.userId)
-        if (existing) {
-          return prev.map((u) =>
-            u.userId === data.userId
-              ? { ...u, activity: data.activity as string, username: displayName }
-              : u,
-          )
-        }
-        return [
-          ...prev,
-          { userId: data.userId, username: displayName, typing: false, activity: data.activity },
-        ]
-      })
-
-      if (data.activity) {
-        const timer = window.setTimeout(() => {
-          activityTimersRef.current.delete(data.userId)
-          setTypingUsers((prev) =>
-            prev
-              .map((u) => (u.userId === data.userId ? { ...u, activity: null } : u))
-              .filter((u) => u.typing || u.activity),
-          )
-        }, 120_000)
-        activityTimersRef.current.set(data.userId, timer)
+    setWorkStatuses((prev) => {
+      const existing = prev.find((u) => u.userId === data.userId)
+      const name = resolveWorkStatusName(data, existing?.name)
+      if (!data.activity) {
+        activityTimersRef.current.delete(data.userId)
+        return prev
+          .map((u) => (u.userId === data.userId ? { ...u, name, activity: null } : u))
+          .filter((u) => u.typing || u.activity)
       }
-    },
-  )
+      if (existing) {
+        return prev.map((u) =>
+          u.userId === data.userId ? { ...u, name, activity: data.activity as string } : u,
+        )
+      }
+      return [...prev, { userId: data.userId, name, typing: false, activity: data.activity }]
+    })
+
+    if (data.activity) {
+      const timer = window.setTimeout(() => {
+        activityTimersRef.current.delete(data.userId)
+        setWorkStatuses((prev) =>
+          prev
+            .map((u) => (u.userId === data.userId ? { ...u, activity: null } : u))
+            .filter((u) => u.typing || u.activity),
+        )
+      }, 120_000)
+      activityTimersRef.current.set(data.userId, timer)
+    }
+  })
 
   useEffect(() => {
     return () => {
@@ -537,8 +602,8 @@ export function ChatArea() {
     for (const timer of activityTimersRef.current.values()) window.clearTimeout(timer)
     typingTimersRef.current.clear()
     activityTimersRef.current.clear()
-    setTypingUsers([])
-  }, [activeChannelId])
+    setWorkStatuses([])
+  }, [activeChannelId, activeServerId])
 
   // Refetch messages on socket reconnect to catch any missed while offline
   useSocketEvent('connect', () => {
@@ -1042,36 +1107,43 @@ export function ChatArea() {
         </div>
 
         {/* Buddy work indicator */}
-        {typingUsers.length > 0 && (
-          <div className="px-4 py-2">
-            <div className="inline-flex max-w-full items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs text-primary shadow-[0_0_26px_rgba(0,229,255,0.18)] backdrop-blur-md">
+        {workStatuses.length > 0 && (
+          <div className="px-5 pb-2 pt-1">
+            <div className="inline-flex max-w-[min(100%,42rem)] items-center gap-2.5 rounded-2xl border border-primary/35 bg-bg-secondary/85 px-4 py-2 text-xs text-primary shadow-[0_0_28px_rgba(0,229,255,0.2)] backdrop-blur-xl">
               <span className="relative flex h-2.5 w-2.5 shrink-0">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
                 <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary shadow-[0_0_14px_rgba(0,229,255,0.9)]" />
               </span>
-              <span className="min-w-0 truncate">
-                {typingUsers
-                  .map((u) => {
-                    const states = [
-                      u.activity === 'thinking'
-                        ? t('member.activityThinking')
-                        : u.activity === 'working'
-                          ? t('member.activityWorking')
-                          : u.activity === 'ready'
-                            ? t('member.activityReady')
-                            : u.activity === 'preparing'
-                              ? t('member.activityPreparing')
-                              : u.activity,
-                      u.typing ? t('member.activityTyping') : null,
-                    ].filter(Boolean)
-                    return t('member.buddyWorkStatus', {
-                      name: u.username,
-                      status: states.join(' / '),
-                    })
-                  })
-                  .join('、')}
+              <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+                {workStatuses.map((u, index) => {
+                  const states = [
+                    u.activity === 'thinking'
+                      ? trimStatusEllipsis(t('member.activityThinking'))
+                      : u.activity === 'working'
+                        ? trimStatusEllipsis(t('member.activityWorking'))
+                        : u.activity === 'ready'
+                          ? trimStatusEllipsis(t('member.activityReady'))
+                          : u.activity === 'preparing'
+                            ? trimStatusEllipsis(t('member.activityPreparing'))
+                            : trimStatusEllipsis(u.activity),
+                    u.typing ? trimStatusEllipsis(t('member.activityTyping')) : null,
+                  ].filter(Boolean)
+                  const status = states.join(' / ')
+                  return (
+                    <span
+                      key={u.userId}
+                      className="inline-flex min-w-0 items-center gap-1.5 overflow-hidden"
+                    >
+                      {index > 0 && <span className="shrink-0 text-text-muted">,</span>}
+                      <span className="max-w-44 truncate font-semibold text-text-primary">
+                        {u.name}
+                      </span>
+                      {status && <span className="shrink-0 text-primary/90">{status}</span>}
+                    </span>
+                  )
+                })}
               </span>
-              <span className="inline-flex gap-0.5">
+              <span className="inline-flex shrink-0 gap-0.5">
                 <span
                   className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary"
                   style={{ animationDelay: '0ms' }}

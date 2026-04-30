@@ -413,6 +413,7 @@
     "costUnavailableDescription": "Usage data could not be collected from the running agents yet.",
     "costNoRunningPod": "No running pod is available for usage collection.",
     "costUsageUnavailableMessage": "OpenClaw has not returned token usage yet. Refresh after the agent handles a message.",
+    "costTelemetryMissing": "No usage snapshot has been reported yet. Refresh after this Buddy handles a new message.",
     "liveLogsUnavailableTransport": "The Kubernetes log stream is temporarily unavailable. Retry later or use recent logs.",
     "availableAgents": "Available Agents",
     "unavailableAgents": "Unavailable Agents",
@@ -941,6 +942,7 @@
       "tracked": "tracked",
       "json": "json",
       "text": "text",
+      "telemetry": "telemetry",
       "unavailable": "unavailable"
     },
     "name": "NAME",

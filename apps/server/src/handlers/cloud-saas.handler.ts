@@ -1,25 +1,19 @@
 import { randomUUID } from 'node:crypto'
 import { zValidator } from '@hono/zod-validator'
 import {
-  type CostOverviewSummary,
   collectRuntimeEnvRequirements,
   deleteNamespace,
-  execInPodAsync,
   extractCloudSaasRuntime,
   extractRequiredEnvVars,
   listManagedNamespaces,
   listPodsAsync,
   listProviderCatalogs,
   loadCloudConfigSchema,
-  type NamespaceCostSummary,
-  OPENCLAW_USAGE_COMMANDS,
-  parseOpenClawUsageOutput,
   prepareCloudSaasConfigSnapshot,
   readPodLogsAsync,
   sanitizeCloudSaasDeployment,
   spawnPodLogStream,
   summarizeCloudConfigValidation,
-  summarizeCostOverview,
   validateCloudSaasConfigSnapshot,
 } from '@shadowob/cloud'
 import { and, desc, eq, ne, sql } from 'drizzle-orm'
@@ -756,172 +750,6 @@ function selectRuntimeProviderProfiles(
   }
 
   return [...selected.values()]
-}
-
-type DeploymentAgentConfig = {
-  id?: unknown
-  replicas?: unknown
-}
-
-function getDeploymentAgentNames(deployment: {
-  name: string
-  agentCount?: number | null
-  configSnapshot?: unknown
-}): string[] {
-  const configSnapshot =
-    deployment.configSnapshot && typeof deployment.configSnapshot === 'object'
-      ? (deployment.configSnapshot as Record<string, unknown>)
-      : null
-  const deployments = configSnapshot?.deployments as
-    | { agents?: DeploymentAgentConfig[] }
-    | undefined
-  const agentNames = (deployments?.agents ?? [])
-    .map((agent) => (typeof agent?.id === 'string' ? agent.id : null))
-    .filter((agentName): agentName is string => Boolean(agentName))
-
-  if (agentNames.length > 0) {
-    return agentNames
-  }
-
-  if ((deployment.agentCount ?? 0) > 1) {
-    return Array.from(
-      { length: deployment.agentCount ?? 0 },
-      (_, index) => `${deployment.name}-${index + 1}`,
-    )
-  }
-
-  return [deployment.name]
-}
-
-function buildUnavailableNamespaceCost(
-  deployment: {
-    namespace: string
-    name: string
-    agentCount?: number | null
-    configSnapshot?: unknown
-  },
-  message = 'i18n:deployments.costUsageUnavailableMessage',
-): NamespaceCostSummary {
-  const agentNames = getDeploymentAgentNames(deployment)
-  const agents = agentNames.map((agentName) => ({
-    agentName,
-    podName: null,
-    totalUsd: null,
-    billingAmount: null,
-    billingUnit: 'usd' as const,
-    totalTokens: null,
-    providers: [],
-    source: 'unavailable' as const,
-    message,
-  }))
-
-  return {
-    namespace: deployment.namespace,
-    totalUsd: null,
-    billingAmount: null,
-    billingUnit: 'usd',
-    totalTokens: null,
-    agents,
-    availableAgents: 0,
-    unavailableAgents: agents.length,
-    generatedAt: new Date().toISOString(),
-  }
-}
-
-async function collectSaasNamespaceCost(
-  deployment: {
-    namespace: string
-    name: string
-    agentCount?: number | null
-    configSnapshot?: unknown
-  },
-  kubeconfig?: string,
-): Promise<NamespaceCostSummary> {
-  const agentNames = getDeploymentAgentNames(deployment)
-  const pods = await listPodsAsync(deployment.namespace, kubeconfig)
-
-  if (pods.length === 0) {
-    return buildUnavailableNamespaceCost(deployment, 'i18n:deployments.costNoRunningPod')
-  }
-
-  const agents = await Promise.all(
-    agentNames.map(async (agentName) => {
-      const matching = pods.filter((pod) => pod.name.includes(agentName))
-      const candidates = matching.length > 0 ? matching : pods
-      const pod =
-        candidates.find((candidate) => candidate.status === 'Running') ?? candidates[0] ?? null
-
-      if (!pod) {
-        return {
-          agentName,
-          podName: null,
-          totalUsd: null,
-          billingAmount: null,
-          billingUnit: 'usd' as const,
-          totalTokens: null,
-          providers: [],
-          source: 'unavailable' as const,
-          message: 'i18n:deployments.costNoRunningPod',
-        }
-      }
-
-      for (const command of OPENCLAW_USAGE_COMMANDS) {
-        const result = await execInPodAsync({
-          namespace: deployment.namespace,
-          pod: pod.name,
-          container: 'openclaw',
-          command,
-          kubeconfig,
-          timeout: 10_000,
-        })
-        const parsed = parseOpenClawUsageOutput(result.stdout, result.stderr)
-        if (!parsed) continue
-
-        return {
-          agentName,
-          podName: pod.name,
-          totalUsd: parsed.totalUsd,
-          billingAmount: parsed.totalUsd,
-          billingUnit: 'usd' as const,
-          totalTokens: parsed.totalTokens,
-          providers: parsed.providers,
-          source: parsed.source,
-          message: null,
-        }
-      }
-
-      return {
-        agentName,
-        podName: pod.name,
-        totalUsd: null,
-        billingAmount: null,
-        billingUnit: 'usd' as const,
-        totalTokens: null,
-        providers: [],
-        source: 'unavailable' as const,
-        message: 'i18n:deployments.costUsageUnavailableMessage',
-      }
-    }),
-  )
-
-  const totalUsd = sumNullable(agents.map((agent) => agent.totalUsd))
-
-  return {
-    namespace: deployment.namespace,
-    totalUsd,
-    billingAmount: totalUsd,
-    billingUnit: 'usd',
-    totalTokens: sumNullable(agents.map((agent) => agent.totalTokens)),
-    agents,
-    availableAgents: agents.filter((agent) => agent.source !== 'unavailable').length,
-    unavailableAgents: agents.filter((agent) => agent.source === 'unavailable').length,
-    generatedAt: new Date().toISOString(),
-  }
-}
-
-function sumNullable(values: Array<number | null>): number | null {
-  const filtered = values.filter((value): value is number => value !== null)
-  return filtered.length > 0 ? filtered.reduce((sum, value) => sum + value, 0) : null
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -1728,19 +1556,7 @@ export function createCloudSaasHandler(container: AppContainer) {
       .orderBy(desc(cloudDeployments.updatedAt))
 
     const visibleRows = newestVisibleDeploymentsByNamespace(rows)
-    const summaries = await Promise.all(
-      visibleRows.map(async (row) => {
-        try {
-          const kubeconfig = (await resolveKubeconfig(row)) ?? undefined
-          return await collectSaasNamespaceCost(row, kubeconfig)
-        } catch (err) {
-          console.warn('[cloud-saas] failed to collect deployment costs:', err)
-          return buildUnavailableNamespaceCost(row)
-        }
-      }),
-    )
-
-    const overview: CostOverviewSummary = summarizeCostOverview(summaries, 'usd')
+    const overview = await container.resolve('cloudUsageService').collectOverview(visibleRows)
 
     return c.json(overview)
   })
@@ -1776,14 +1592,7 @@ export function createCloudSaasHandler(container: AppContainer) {
     const deployment = await dao.findById(id, user.userId)
     if (!deployment) return c.json({ ok: false, error: 'Deployment not found' }, 404)
 
-    let summary: NamespaceCostSummary
-    try {
-      const kubeconfig = (await resolveKubeconfig(deployment)) ?? undefined
-      summary = await collectSaasNamespaceCost(deployment, kubeconfig)
-    } catch (err) {
-      console.warn('[cloud-saas] failed to collect namespace costs:', err)
-      summary = buildUnavailableNamespaceCost(deployment)
-    }
+    const summary = await container.resolve('cloudUsageService').collectDeploymentCost(deployment)
 
     return c.json(summary)
   })

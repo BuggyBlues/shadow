@@ -167,6 +167,32 @@ class ShadowChannelSlashCommand(ShadowSlashCommand):
 
 
 @dataclass
+class ShadowUsageProviderSnapshot:
+    provider: str
+    amount_usd: float | None = None
+    usage_label: str | None = None
+    raw: str | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    total_tokens: int | None = None
+
+
+@dataclass
+class ShadowAgentUsageSnapshotInput:
+    source: str | None = None
+    model: str | None = None
+    total_usd: float | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    cache_read_tokens: int | None = None
+    cache_write_tokens: int | None = None
+    total_tokens: int | None = None
+    providers: list[dict[str, Any] | ShadowUsageProviderSnapshot] = field(default_factory=list)
+    raw: dict[str, Any] | None = None
+    generated_at: str | None = None
+
+
+@dataclass
 class ShadowFriendship:
     id: str
     user_id: str
