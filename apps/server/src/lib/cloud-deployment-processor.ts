@@ -10,6 +10,7 @@ import {
   createContainer,
   extractCloudSaasRuntime,
   listManagedNamespaces,
+  listPodsAsync,
   namespaceExists,
   resolveCloudSaasShadowRuntime,
   type ServiceContainer,
@@ -37,6 +38,11 @@ type RunningOperationToken = {
 }
 type NamespaceDeletionWaitResult = 'deleted' | 'cancelled' | 'timeout'
 type NamespaceExistsFn = (namespace: string, kubeconfig?: string) => boolean | null
+type DeploymentRecoveryProbeResult = {
+  agentCount: number
+  podNames: string[]
+  readyPods: number
+}
 type CloudDeploymentProcessorRuntime = {
   deploymentDao: CloudDeploymentDao
   clusterDao: CloudClusterDao
@@ -68,6 +74,30 @@ function resolveDeploymentStackName(deployment: CloudDeploymentRecord): string {
   const clusterHash = createHash('sha256').update(clusterKey).digest('hex').slice(0, 10)
   const namespace = sanitizePulumiStackPart(deployment.namespace).slice(0, 60) || 'deployment'
   return `saas-${namespace}-${clusterHash}`
+}
+
+export async function probeDeploymentRuntimeResources(
+  namespace: string,
+  kubeconfig?: string,
+): Promise<DeploymentRecoveryProbeResult | null> {
+  const pods = await listPodsAsync(namespace, kubeconfig)
+  const workloadPods = pods.filter(
+    (pod) => pod.status === 'Running' && pod.containers.includes('openclaw'),
+  )
+  if (workloadPods.length === 0) return null
+
+  const readyPods = workloadPods.filter((pod) => {
+    const [readyRaw, totalRaw] = pod.ready.split('/')
+    const ready = Number(readyRaw)
+    const total = Number(totalRaw)
+    return Number.isFinite(ready) && Number.isFinite(total) && total > 0 && ready >= total
+  }).length
+
+  return {
+    agentCount: workloadPods.length,
+    podNames: workloadPods.map((pod) => pod.name),
+    readyPods,
+  }
 }
 
 function resolveDestroyVerifyTimeoutMs(): number {
@@ -443,6 +473,7 @@ async function processDeployment(
 
   const cancelToken: RunningOperationToken = { cancelled: false }
   let stopWatchingCancellation = () => {}
+  let activeKubeconfig: string | undefined
 
   try {
     const newer = await deploymentDao.findNewerCurrentInNamespace(deployment)
@@ -462,6 +493,7 @@ async function processDeployment(
     stopWatchingCancellation = watchCancellationRequest(deployment, deploymentDao, cancelToken)
 
     const cluster = await resolveClusterRuntime(deployment.clusterId, clusterDao)
+    activeKubeconfig = cluster?.kubeconfig
     const stackName = resolveDeploymentStackName(deployment)
     if (cluster) {
       await deploymentDao.appendLog(
@@ -563,6 +595,28 @@ async function processDeployment(
     const msg = err instanceof Error ? err.message : String(err)
     const cancelled = cancelToken.cancelled || /cancel/i.test(msg)
     logger.error({ deploymentId: deployment.id, error: msg }, 'Deployment failed')
+
+    if (!cancelled) {
+      const recovery = await probeDeploymentRuntimeResources(
+        deployment.namespace,
+        activeKubeconfig,
+      ).catch(() => null)
+      if (recovery) {
+        await deploymentDao.appendLog(
+          deployment.id,
+          `[reconcile] Pulumi reported failure, but ${recovery.agentCount} OpenClaw pod(s) exist in namespace "${deployment.namespace}" (${recovery.readyPods}/${recovery.agentCount} ready): ${recovery.podNames.join(', ')}`,
+          'warn',
+        )
+        await deploymentDao.appendLog(
+          deployment.id,
+          '[reconcile] Marking deployment as deployed to keep Shadow Cloud state consistent with Kubernetes. Review pod readiness and logs from the namespace page.',
+          'warn',
+        )
+        await deploymentDao.markDeployed(deployment.id, recovery.agentCount)
+        return
+      }
+    }
+
     await deploymentDao.appendLog(
       deployment.id,
       cancelled ? `Cancelled: ${msg}` : `Error: ${msg}`,

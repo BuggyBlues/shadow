@@ -444,6 +444,8 @@
     "activityWorking": "工作中...",
     "activityReady": "就緒",
     "activityPreparing": "準備中...",
+    "activityTyping": "輸入中...",
+    "buddyWorkStatus": "{{name}} {{status}}",
     "addToChannel": "新增到頻道",
     "removeFromChannel": "從頻道移除",
     "removeFromChannelConfirm": "確定要將 {{name}} 從此頻道移除嗎？",

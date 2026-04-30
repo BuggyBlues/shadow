@@ -1,5 +1,21 @@
-import { describe, expect, it } from 'vitest'
-import { waitForNamespaceDeletion } from '../src/lib/cloud-deployment-processor'
+import { describe, expect, it, vi } from 'vitest'
+
+const cloudMocks = vi.hoisted(() => ({
+  listPodsAsync: vi.fn(),
+}))
+
+vi.mock('@shadowob/cloud', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@shadowob/cloud')>()
+  return {
+    ...actual,
+    listPodsAsync: cloudMocks.listPodsAsync,
+  }
+})
+
+import {
+  probeDeploymentRuntimeResources,
+  waitForNamespaceDeletion,
+} from '../src/lib/cloud-deployment-processor'
 
 describe('waitForNamespaceDeletion', () => {
   it('returns as soon as the namespace is deleted', async () => {
@@ -38,5 +54,34 @@ describe('waitForNamespaceDeletion', () => {
     })
 
     expect(result).toBe('timeout')
+  })
+})
+
+describe('probeDeploymentRuntimeResources', () => {
+  it('detects OpenClaw pods created by Kubernetes even when Pulumi readiness times out', async () => {
+    cloudMocks.listPodsAsync.mockResolvedValueOnce([
+      {
+        name: 'strategy-buddy-abc',
+        ready: '1/2',
+        status: 'Running',
+        restarts: 0,
+        age: '2026-04-30T00:00:00Z',
+        containers: ['agent-pack-sync', 'openclaw'],
+      },
+      {
+        name: 'pause',
+        ready: '1/1',
+        status: 'Running',
+        restarts: 0,
+        age: '2026-04-30T00:00:00Z',
+        containers: ['pause'],
+      },
+    ])
+
+    await expect(probeDeploymentRuntimeResources('gstack-buddy')).resolves.toEqual({
+      agentCount: 1,
+      podNames: ['strategy-buddy-abc'],
+      readyPods: 0,
+    })
   })
 })

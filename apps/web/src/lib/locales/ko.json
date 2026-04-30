@@ -444,6 +444,8 @@
     "activityWorking": "작업 중...",
     "activityReady": "준비 완료",
     "activityPreparing": "준비 중...",
+    "activityTyping": "입력 중...",
+    "buddyWorkStatus": "{{name}} {{status}}",
     "addToChannel": "채널에 추가",
     "removeFromChannel": "채널에서 제거",
     "removeFromChannelConfirm": "{{name}}을(를) 이 채널에서 제거하시겠습니까?",
