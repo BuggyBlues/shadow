@@ -434,6 +434,8 @@
     "activityWorking": "Working...",
     "activityReady": "Ready",
     "activityPreparing": "Preparing...",
+    "activityTyping": "Typing...",
+    "buddyWorkStatus": "{{name}} {{status}}",
     "addToChannel": "Add to Channel",
     "removeFromChannel": "Remove from Channel",
     "removeFromChannelConfirm": "Are you sure you want to remove {{name}} from this channel?",

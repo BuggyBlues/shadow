@@ -259,6 +259,10 @@ export async function processShadowMessage(params: {
   })
 
   socket.updateActivity(channelId, 'thinking')
+  const activityTimeout = setTimeout(() => {
+    runtime.log?.(`[activity] Clearing stale activity for message ${message.id}`)
+    socket.updateActivity(channelId, null)
+  }, 120_000)
 
   try {
     const dispatchAgentId = route.agentId || agentId
@@ -307,6 +311,7 @@ export async function processShadowMessage(params: {
     socket.updateActivity(channelId, null)
     throw err
   } finally {
+    clearTimeout(activityTimeout)
     typingCbs.onCleanup?.()
     setTimeout(() => {
       socket.updateActivity(channelId, null)

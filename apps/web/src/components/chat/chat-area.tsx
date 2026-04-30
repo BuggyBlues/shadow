@@ -138,15 +138,16 @@ export function ChatArea() {
   const [replyToId, setReplyToId] = useState<string | null>(null)
   const [droppedFiles, setDroppedFiles] = useState<File[]>([])
   const [isDragOver, setIsDragOver] = useState(false)
-  const [typingUsers, setTypingUsers] = useState<string[]>([])
+  const [typingUsers, setTypingUsers] = useState<
+    { userId: string; username: string; typing: boolean; activity: string | null }[]
+  >([])
   const [lastReadCount, setLastReadCount] = useState(0)
   const [highlightMsgId, setHighlightMsgId] = useState<string | null>(null)
   const [systemEvents, setSystemEvents] = useState<SystemEvent[]>([])
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set())
-  const [activityUsers, setActivityUsers] = useState<
-    { userId: string; username: string; activity: string }[]
-  >([])
+  const typingTimersRef = useRef<Map<string, number>>(new Map())
+  const activityTimersRef = useRef<Map<string, number>>(new Map())
   const initialScrollDoneRef = useRef(false)
   const prevMessageCountRef = useRef(0)
   const shouldStickToBottomRef = useRef(true)
@@ -388,14 +389,29 @@ export function ChatArea() {
     'message:typing',
     (data: { userId: string; username: string; channelId: string }) => {
       if (data.channelId === activeChannelId && data.userId !== user?.id) {
+        const existingTimer = typingTimersRef.current.get(data.userId)
+        if (existingTimer) window.clearTimeout(existingTimer)
         setTypingUsers((prev) => {
-          if (prev.includes(data.username)) return prev
-          return [...prev, data.username]
+          const existing = prev.find((u) => u.userId === data.userId)
+          if (existing) {
+            return prev.map((u) =>
+              u.userId === data.userId ? { ...u, username: data.username, typing: true } : u,
+            )
+          }
+          return [
+            ...prev,
+            { userId: data.userId, username: data.username, typing: true, activity: null },
+          ]
         })
-        // Remove after 3 seconds
-        setTimeout(() => {
-          setTypingUsers((prev) => prev.filter((u) => u !== data.username))
+        const timer = window.setTimeout(() => {
+          typingTimersRef.current.delete(data.userId)
+          setTypingUsers((prev) =>
+            prev
+              .map((u) => (u.userId === data.userId ? { ...u, typing: false } : u))
+              .filter((u) => u.typing || u.activity),
+          )
         }, 3000)
+        typingTimersRef.current.set(data.userId, timer)
       }
     },
   )
@@ -460,9 +476,15 @@ export function ChatArea() {
     'presence:activity',
     (data: { userId: string; activity: string | null; channelId: string }) => {
       if (data.channelId !== activeChannelId) return
-      setActivityUsers((prev) => {
+      const existingTimer = activityTimersRef.current.get(data.userId)
+      if (existingTimer) window.clearTimeout(existingTimer)
+
+      setTypingUsers((prev) => {
         if (!data.activity) {
-          return prev.filter((u) => u.userId !== data.userId)
+          activityTimersRef.current.delete(data.userId)
+          return prev
+            .map((u) => (u.userId === data.userId ? { ...u, activity: null } : u))
+            .filter((u) => u.typing || u.activity)
         }
         // Look up display name from members cache
         const members = queryClient.getQueryData<
@@ -479,15 +501,43 @@ export function ChatArea() {
               : u,
           )
         }
-        return [...prev, { userId: data.userId, username: displayName, activity: data.activity }]
+        return [
+          ...prev,
+          { userId: data.userId, username: displayName, typing: false, activity: data.activity },
+        ]
       })
+
+      if (data.activity) {
+        const timer = window.setTimeout(() => {
+          activityTimersRef.current.delete(data.userId)
+          setTypingUsers((prev) =>
+            prev
+              .map((u) => (u.userId === data.userId ? { ...u, activity: null } : u))
+              .filter((u) => u.typing || u.activity),
+          )
+        }, 120_000)
+        activityTimersRef.current.set(data.userId, timer)
+      }
     },
   )
+
+  useEffect(() => {
+    return () => {
+      for (const timer of typingTimersRef.current.values()) window.clearTimeout(timer)
+      for (const timer of activityTimersRef.current.values()) window.clearTimeout(timer)
+      typingTimersRef.current.clear()
+      activityTimersRef.current.clear()
+    }
+  }, [])
 
   // Clear system events and activity on channel change
   useEffect(() => {
     setSystemEvents([])
-    setActivityUsers([])
+    for (const timer of typingTimersRef.current.values()) window.clearTimeout(timer)
+    for (const timer of activityTimersRef.current.values()) window.clearTimeout(timer)
+    typingTimersRef.current.clear()
+    activityTimersRef.current.clear()
+    setTypingUsers([])
   }, [activeChannelId])
 
   // Refetch messages on socket reconnect to catch any missed while offline
@@ -991,49 +1041,51 @@ export function ChatArea() {
           )}
         </div>
 
-        {/* Typing indicator */}
+        {/* Buddy work indicator */}
         {typingUsers.length > 0 && (
-          <div className="px-4 py-1 text-xs text-primary">
-            <span className="inline-flex gap-0.5 mr-1">
-              <span
-                className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce"
-                style={{ animationDelay: '0ms' }}
-              />
-              <span
-                className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce"
-                style={{ animationDelay: '150ms' }}
-              />
-              <span
-                className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce"
-                style={{ animationDelay: '300ms' }}
-              />
-            </span>
-            {t('chat.typingIndicator', { users: typingUsers.join('、') })}
-          </div>
-        )}
-
-        {/* Agent activity indicator */}
-        {activityUsers.length > 0 && (
-          <div className="px-4 py-1 text-xs text-text-muted flex items-center gap-1">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
-            </span>
-            {activityUsers
-              .map((u) => {
-                const activityLabel =
-                  u.activity === 'thinking'
-                    ? t('member.activityThinking')
-                    : u.activity === 'working'
-                      ? t('member.activityWorking')
-                      : u.activity === 'ready'
-                        ? t('member.activityReady')
-                        : u.activity === 'preparing'
-                          ? t('member.activityPreparing')
-                          : u.activity
-                return `Buddy ${u.username} ${activityLabel}`
-              })
-              .join('、')}
+          <div className="px-4 py-2">
+            <div className="inline-flex max-w-full items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs text-primary shadow-[0_0_26px_rgba(0,229,255,0.18)] backdrop-blur-md">
+              <span className="relative flex h-2.5 w-2.5 shrink-0">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary shadow-[0_0_14px_rgba(0,229,255,0.9)]" />
+              </span>
+              <span className="min-w-0 truncate">
+                {typingUsers
+                  .map((u) => {
+                    const states = [
+                      u.activity === 'thinking'
+                        ? t('member.activityThinking')
+                        : u.activity === 'working'
+                          ? t('member.activityWorking')
+                          : u.activity === 'ready'
+                            ? t('member.activityReady')
+                            : u.activity === 'preparing'
+                              ? t('member.activityPreparing')
+                              : u.activity,
+                      u.typing ? t('member.activityTyping') : null,
+                    ].filter(Boolean)
+                    return t('member.buddyWorkStatus', {
+                      name: u.username,
+                      status: states.join(' / '),
+                    })
+                  })
+                  .join('、')}
+              </span>
+              <span className="inline-flex gap-0.5">
+                <span
+                  className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary"
+                  style={{ animationDelay: '0ms' }}
+                />
+                <span
+                  className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary"
+                  style={{ animationDelay: '150ms' }}
+                />
+                <span
+                  className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary"
+                  style={{ animationDelay: '300ms' }}
+                />
+              </span>
+            </div>
           </div>
         )}
 

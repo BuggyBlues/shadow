@@ -434,6 +434,8 @@
     "activityWorking": "工作中...",
     "activityReady": "就绪",
     "activityPreparing": "准备中...",
+    "activityTyping": "输入中...",
+    "buddyWorkStatus": "{{name}} {{status}}",
     "addToChannel": "添加到频道",
     "removeFromChannel": "从频道移除",
     "removeFromChannelConfirm": "确定要将 {{name}} 从此频道移除吗？",
