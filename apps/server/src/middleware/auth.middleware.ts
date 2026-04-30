@@ -89,12 +89,22 @@ export function createStoredAgentTokenMiddleware(container: AppContainer) {
     }
 
     const tokenValue = authHeader.slice(7)
+    let verifiedPayload: JwtPayload | null = null
     try {
-      verifyToken(tokenValue)
-      await next()
-      return
+      verifiedPayload = verifyToken(tokenValue)
     } catch {
       // Fall through to the stored opaque token lookup.
+    }
+
+    if (verifiedPayload) {
+      const user = await container
+        .resolve('userDao')
+        .findById(verifiedPayload.userId)
+        .catch(() => null)
+      if (user) {
+        await next()
+        return
+      }
     }
 
     const agent = await container.resolve('agentDao').findByLastToken(tokenValue)
