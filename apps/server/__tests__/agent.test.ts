@@ -183,9 +183,10 @@ describe('AgentService', () => {
         create: vi.fn().mockResolvedValue(agent),
       })
       const userDao = createMockUserDao({
-        update: vi
-          .fn()
-          .mockResolvedValue({ ...botUser, avatarUrl: 'https://shadowob.com/avatar.png' }),
+        update: vi.fn().mockResolvedValue({
+          ...botUser,
+          avatarUrl: 'https://shadowob.com/avatar.png',
+        }),
       })
       const logger = createMockLogger()
 
@@ -676,6 +677,53 @@ describe('Agent Handler (HTTP)', () => {
     expect(agentDao.findByLastToken).toHaveBeenCalledWith('legacy-agent-token')
   })
 
+  it('stored agent token should recover when a valid JWT points to a deleted bot user', async () => {
+    const { Hono } = await import('hono')
+    const { authMiddleware, createStoredAgentTokenMiddleware } = await import(
+      '../src/middleware/auth.middleware'
+    )
+    const app = new Hono()
+    const staleToken = signAgentToken({
+      userId: 'deleted-bot-user',
+      email: 'agent-stale@shadowob.bot',
+      username: 'agent-stale',
+    })
+    const userDao = createMockUserDao({
+      findById: vi.fn().mockResolvedValue(null),
+    })
+    const agentDao = createMockAgentDao({
+      findByLastToken: vi.fn().mockResolvedValue({ userId: 'current-bot-user' }),
+    })
+    const container = {
+      resolve: vi.fn((name: string) => {
+        if (name === 'userDao') return userDao
+        if (name === 'agentDao') return agentDao
+        throw new Error(`Unexpected dependency: ${name}`)
+      }),
+    }
+
+    app.use(
+      '*',
+      createStoredAgentTokenMiddleware(
+        container as Parameters<typeof createStoredAgentTokenMiddleware>[0],
+      ),
+    )
+    app.use('*', authMiddleware)
+    app.get('/api/auth/me', (c) => {
+      const user = c.get('user') as { userId: string }
+      return c.json({ id: user.userId })
+    })
+
+    const res = await app.request('/api/auth/me', {
+      headers: { Authorization: `Bearer ${staleToken}` },
+    })
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ id: 'current-bot-user' })
+    expect(userDao.findById).toHaveBeenCalledWith('deleted-bot-user')
+    expect(agentDao.findByLastToken).toHaveBeenCalledWith(staleToken)
+  })
+
   it('should return 409 when creating agent with duplicate username', async () => {
     const { Hono } = await import('hono')
     const { createAgentHandler } = await import('../src/handlers/agent.handler')
@@ -686,11 +734,11 @@ describe('Agent Handler (HTTP)', () => {
       resolve: (name: string) => {
         if (name === 'agentService') {
           return {
-            create: vi
-              .fn()
-              .mockRejectedValue(
-                Object.assign(new Error('Username already taken'), { status: 409 }),
-              ),
+            create: vi.fn().mockRejectedValue(
+              Object.assign(new Error('Username already taken'), {
+                status: 409,
+              }),
+            ),
           }
         }
         if (name === 'clawListingDao') return { findByAgentIds: vi.fn().mockResolvedValue([]) }
@@ -718,7 +766,10 @@ describe('Agent Handler (HTTP)', () => {
 
     const res = await app.request('/api/agents', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: {
+        'content-type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({
         name: 'Dup Buddy',
         username: 'dup-buddy',

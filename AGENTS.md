@@ -8,6 +8,12 @@ Shadow is a social/chat platform.
 
 ## Code Quality
 
+### Formatting & Linting
+
+- Use **Biome** for linting and formatting.
+- Do **not** use Prettier in this repository.
+- Format changed files with `pnpm biome format --write <files...>` or the project scripts that invoke Biome.
+
 ### Test Requirements
 
 | Change Type | Test Requirements |

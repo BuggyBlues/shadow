@@ -1,12 +1,40 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CloudConfig } from '../../src/config/schema.js'
 import type { ProvisionResult } from '../../src/plugins/shadowob/provisioning.js'
-import { buildProvisionedEnvVars } from '../../src/plugins/shadowob/provisioning.js'
+import {
+  buildProvisionedEnvVars,
+  provisionShadowResources,
+} from '../../src/plugins/shadowob/provisioning.js'
+
+const shadowClientMocks = vi.hoisted(() => ({
+  addAgentsToServer: vi.fn(),
+  addChannelMember: vi.fn(),
+  createAgent: vi.fn(),
+  createChannel: vi.fn(),
+  createListing: vi.fn(),
+  createServer: vi.fn(),
+  generateAgentToken: vi.fn(),
+  getChannel: vi.fn(),
+  getServer: vi.fn(),
+  getServerChannels: vi.fn(),
+  listAgents: vi.fn(),
+  listServers: vi.fn(),
+  toggleListing: vi.fn(),
+  updateListing: vi.fn(),
+  upsertPolicy: vi.fn(),
+}))
+
+vi.mock('@shadowob/sdk', () => ({
+  ShadowClient: vi.fn(function ShadowClient() {
+    return shadowClientMocks
+  }),
+}))
 
 const originalShadowAgentServerUrl = process.env.SHADOW_AGENT_SERVER_URL
 
 beforeEach(() => {
   delete process.env.SHADOW_AGENT_SERVER_URL
+  vi.clearAllMocks()
 })
 
 afterEach(() => {
@@ -18,6 +46,68 @@ afterEach(() => {
 })
 
 describe('provisioning', () => {
+  describe('provisionShadowResources', () => {
+    it('recreates a state buddy instead of reusing a stale token when token refresh fails', async () => {
+      const config: CloudConfig = {
+        version: '1',
+        use: [
+          {
+            plugin: 'shadowob',
+            options: {
+              buddies: [{ id: 'strategy-buddy', name: 'Strategy Buddy' }],
+            },
+          },
+        ],
+      }
+
+      shadowClientMocks.generateAgentToken
+        .mockRejectedValueOnce(
+          new Error('Shadow API POST /api/agents/old-agent/token failed (404)'),
+        )
+        .mockResolvedValueOnce({ token: 'fresh-agent-token' })
+      shadowClientMocks.createAgent.mockResolvedValue({
+        id: 'new-agent',
+        userId: 'new-user',
+      })
+
+      const result = await provisionShadowResources(config, {
+        serverUrl: 'http://shadow.local',
+        userToken: 'user-token',
+        existingState: {
+          buddies: {
+            'strategy-buddy': {
+              agentId: 'old-agent',
+              userId: 'deleted-user',
+              token: 'stale-agent-token',
+            },
+          },
+        },
+        logger: {
+          info: vi.fn(),
+          warn: vi.fn(),
+          error: vi.fn(),
+          success: vi.fn(),
+          step: vi.fn(),
+          dim: vi.fn(),
+        },
+      })
+
+      expect(shadowClientMocks.generateAgentToken).toHaveBeenNthCalledWith(1, 'old-agent')
+      expect(shadowClientMocks.createAgent).toHaveBeenCalledWith({
+        name: 'Strategy Buddy',
+        username: 'strategy-buddy',
+        displayName: 'Strategy Buddy',
+        avatarUrl: undefined,
+      })
+      expect(shadowClientMocks.generateAgentToken).toHaveBeenNthCalledWith(2, 'new-agent')
+      expect(result.buddies.get('strategy-buddy')).toEqual({
+        agentId: 'new-agent',
+        userId: 'new-user',
+        token: 'fresh-agent-token',
+      })
+    })
+  })
+
   describe('buildProvisionedEnvVars', () => {
     it('should build env vars from provisioned buddies', () => {
       const config: CloudConfig = {
@@ -45,7 +135,14 @@ describe('provisioning', () => {
         servers: new Map([['srv-1', 'real-server-id']]),
         channels: new Map([['ch-1', 'real-channel-id']]),
         buddies: new Map([
-          ['bot-1', { agentId: 'real-agent-id', token: 'token-abc123', userId: 'user-1' }],
+          [
+            'bot-1',
+            {
+              agentId: 'real-agent-id',
+              token: 'token-abc123',
+              userId: 'user-1',
+            },
+          ],
         ]),
       }
 
@@ -164,7 +261,14 @@ describe('provisioning', () => {
         servers: new Map([['srv-1', 'real-server-id']]),
         channels: new Map([['ch-1', 'real-channel-id']]),
         buddies: new Map([
-          ['bot-1', { agentId: 'real-agent-id', token: 'token-abc123', userId: 'user-1' }],
+          [
+            'bot-1',
+            {
+              agentId: 'real-agent-id',
+              token: 'token-abc123',
+              userId: 'user-1',
+            },
+          ],
         ]),
       }
 
