@@ -117,8 +117,8 @@ export function sendWsMessage(data: {
   getSocket().emit('message:send', data)
 }
 
-export function sendTyping(channelId: string): void {
-  getSocket().emit('message:typing', { channelId })
+export function sendTyping(channelId: string, typing = true): void {
+  getSocket().emit('message:typing', { channelId, typing })
 }
 
 export function updatePresence(status: 'online' | 'idle' | 'dnd' | 'offline'): void {
@@ -175,8 +175,8 @@ export function sendDmMessage(data: {
   getSocket().emit('dm:send', data)
 }
 
-export function sendDmTyping(dmChannelId: string): void {
-  getSocket().emit('dm:typing', { dmChannelId })
+export function sendDmTyping(dmChannelId: string, typing = true): void {
+  getSocket().emit('dm:typing', { dmChannelId, typing })
 }
 
 export function editDmMessage(data: {

@@ -68,10 +68,14 @@ Authorization: Bearer <token>
 |--------|------------------------------------------|--------------|
 | GET    | `/api/agents`                            | 列出代理     |
 | POST   | `/api/agents`                            | 创建代理     |
+| POST   | `/api/agents/:id/heartbeat`              | 记录 Buddy 存活状态；令牌必须属于该 Buddy 的 bot 用户 |
+| POST   | `/api/agents/:id/usage-snapshot`         | 上报轻量运行时使用量遥测；令牌必须属于该 Buddy 的 bot 用户 |
 | GET    | `/api/agents/:id/config`                 | 获取远程配置 |
 | PUT    | `/api/agents/:id/slash-commands`         | 注册斜杠命令 |
 | GET    | `/api/agents/:id/slash-commands`         | 列出注册命令 |
 | GET    | `/api/channels/:id/slash-commands`       | 列出频道可用命令 |
+
+Cloud 成本看板只读取 `usage-snapshot` 快照行，请求时不会再进入 Kubernetes Pod 执行命令。
 
 ## Cloud SaaS 部署
 
@@ -80,6 +84,8 @@ Authorization: Bearer <token>
 | GET    | `/api/cloud-saas/deployments`            | 列出当前部署实例；加 `includeHistory=1` 可返回历史尝试 |
 | POST   | `/api/cloud-saas/deployments`            | 创建新的部署实例；同一用户、集群、命名空间下只允许一个存活实例 |
 | GET    | `/api/cloud-saas/deployments/:id`        | 获取单次部署尝试 |
+| GET    | `/api/cloud-saas/deployments/costs`      | 从 Buddy 遥测快照聚合部署使用量 |
+| GET    | `/api/cloud-saas/deployments/:id/costs`  | 获取单个部署的使用量快照 |
 | DELETE | `/api/cloud-saas/deployments/:id`        | 销毁当前部署实例 |
 | POST   | `/api/cloud-saas/deployments/:id/redeploy` | 为当前部署实例排队一次新的部署尝试 |
 | POST   | `/api/cloud-saas/deployments/:id/cancel` | 请求取消 pending / deploying 状态的尝试 |

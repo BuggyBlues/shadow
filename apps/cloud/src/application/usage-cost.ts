@@ -18,7 +18,7 @@ export interface AgentCostSummary {
   billingUnit: BillingUnit
   totalTokens: number | null
   providers: ProviderUsageSummary[]
-  source: 'json' | 'text' | 'unavailable'
+  source: 'json' | 'text' | 'telemetry' | 'unavailable'
   message: string | null
 }
 

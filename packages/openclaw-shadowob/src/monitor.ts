@@ -14,7 +14,13 @@
  *   5. dispatchReplyWithBufferedBlockDispatcher()
  */
 
-import type { ShadowChannelPolicy, ShadowMessage, ShadowRemoteConfig } from '@shadowob/sdk'
+import type {
+  ShadowChannel,
+  ShadowChannelPolicy,
+  ShadowMessage,
+  ShadowRemoteConfig,
+  ShadowServer,
+} from '@shadowob/sdk'
 import { ShadowClient, ShadowSocket } from '@shadowob/sdk'
 import type { PluginRuntime } from 'openclaw/plugin-sdk/core'
 import { processShadowMessage } from './monitor/channel-message.js'
@@ -55,6 +61,13 @@ export type ShadowMonitorOptions = {
 
 export type ShadowMonitorResult = {
   stop: () => void
+}
+
+type ChannelServerContext = {
+  serverId: string
+  serverSlug: string
+  serverName: string
+  channelName: string
 }
 
 export function resolveShadowAgentIdFromConfig(config: unknown, accountId: string): string | null {
@@ -226,10 +239,7 @@ export async function monitorShadowProvider(
 
   let remoteConfig: ShadowRemoteConfig | null = null
   const channelPolicies = new Map<string, ShadowChannelPolicy>()
-  const channelServerMap = new Map<
-    string,
-    { serverId: string; serverSlug: string; serverName: string; channelName: string }
-  >()
+  const channelServerMap = new Map<string, ChannelServerContext>()
   const allChannelIds: string[] = []
   const messageWatermarks = await loadMessageWatermarks(accountId)
   const processedMessageIds = new Set<string>()
@@ -240,6 +250,43 @@ export async function monitorShadowProvider(
     if (processedMessageIds.size > MAX_TRACKED_MESSAGE_IDS) {
       const first = processedMessageIds.values().next().value
       if (first) processedMessageIds.delete(first)
+    }
+  }
+
+  const rememberChannelContext = (channel: ShadowChannel, server?: ShadowServer | null) => {
+    channelServerMap.set(channel.id, {
+      serverId: channel.serverId,
+      serverSlug: server?.slug ?? channel.serverId,
+      serverName: server?.name ?? channel.serverId,
+      channelName: channel.name,
+    })
+  }
+
+  const resolveChannelContext = async (channelId: string, reason: string): Promise<boolean> => {
+    if (channelServerMap.has(channelId)) return true
+    try {
+      const channel = await runShadowApiOperation(
+        `fetch channel context (${reason})`,
+        () => client.getChannel(channelId),
+        { runtime, abortSignal },
+      )
+      let server: ShadowServer | null = null
+      try {
+        server = await runShadowApiOperation(
+          `fetch server context for channel ${channelId}`,
+          () => client.getServer(channel.serverId),
+          { runtime, abortSignal },
+        )
+      } catch (err) {
+        runtime.error?.(`[config] Failed to fetch server context for ${channelId}: ${String(err)}`)
+      }
+      rememberChannelContext(channel, server)
+      const serverLabel = server?.name ?? channel.serverId
+      runtime.log?.(`[config] Resolved channel context: ${serverLabel} #${channel.name}`)
+      return true
+    } catch (err) {
+      runtime.error?.(`[config] Failed to resolve channel context for ${channelId}: ${String(err)}`)
+      return false
     }
   }
 
@@ -333,6 +380,7 @@ export async function monitorShadowProvider(
     attempt = 0,
   ): Promise<void> => {
     try {
+      await resolveChannelContext(message.channelId, `${source} message`)
       await processShadowMessage({
         message,
         account,
@@ -504,6 +552,12 @@ export async function monitorShadowProvider(
       runtime.log?.(
         `[ws] Received channel:created: #${data.name} (${data.id}) in server ${data.serverId} — ignoring (bot must be explicitly added)`,
       )
+      channelServerMap.set(data.id, {
+        serverId: data.serverId,
+        serverSlug: data.serverId,
+        serverName: data.serverId,
+        channelName: data.name,
+      })
     },
   )
 
@@ -586,6 +640,9 @@ export async function monitorShadowProvider(
 
     void (async () => {
       const refreshed = await refreshChannelConfig()
+      if (!refreshed) {
+        await resolveChannelContext(data.channelId, 'member-added')
+      }
       if (!refreshed && !channelPolicies.has(data.channelId)) {
         const defaultPolicy: ShadowChannelPolicy = {
           listen: true,

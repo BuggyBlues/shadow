@@ -1,4 +1,5 @@
 import type {
+  ShadowAgentUsageSnapshotInput,
   ShadowApp,
   ShadowCartItem,
   ShadowCategory,
@@ -240,6 +241,16 @@ export class ShadowClient {
     return this.request(`/api/agents/${agentId}/heartbeat`, {
       method: 'POST',
       body: JSON.stringify({}),
+    })
+  }
+
+  async reportAgentUsageSnapshot(
+    agentId: string,
+    snapshot: ShadowAgentUsageSnapshotInput,
+  ): Promise<{ ok: boolean }> {
+    return this.request(`/api/agents/${agentId}/usage-snapshot`, {
+      method: 'POST',
+      body: JSON.stringify(snapshot),
     })
   }
 

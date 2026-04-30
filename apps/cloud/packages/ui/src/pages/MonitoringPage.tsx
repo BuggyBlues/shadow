@@ -654,6 +654,8 @@ function CostsPanel({
   loadingNamespaceCosts: boolean
 }) {
   const { t, i18n } = useTranslation()
+  const translateCostMessage = (message: string) =>
+    message.startsWith('i18n:') ? t(message.slice(5)) : message
 
   const costByNamespace = useMemo(
     () => new Map(namespaceCosts.map((item) => [item.namespace, item])),
@@ -869,7 +871,9 @@ function CostsPanel({
                         )}
 
                         {agent.message && (
-                          <p className="text-xs text-yellow-500 mt-3">{agent.message}</p>
+                          <p className="text-xs text-yellow-500 mt-3">
+                            {translateCostMessage(agent.message)}
+                          </p>
                         )}
                       </GlassSurface>
                     ))}

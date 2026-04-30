@@ -273,12 +273,38 @@ export interface ShadowRemoteConfig {
   servers: ShadowRemoteServer[]
 }
 
+export interface ShadowUsageProviderSnapshot {
+  provider: string
+  amountUsd?: number | null
+  usageLabel?: string | null
+  raw?: string | null
+  inputTokens?: number | null
+  outputTokens?: number | null
+  totalTokens?: number | null
+}
+
+export interface ShadowAgentUsageSnapshotInput {
+  source?: string
+  model?: string | null
+  totalUsd?: number | null
+  inputTokens?: number | null
+  outputTokens?: number | null
+  cacheReadTokens?: number | null
+  cacheWriteTokens?: number | null
+  totalTokens?: number | null
+  providers?: ShadowUsageProviderSnapshot[]
+  raw?: Record<string, unknown>
+  generatedAt?: string
+}
+
 // ─── Socket Event Payloads ──────────────────────────────────────────────────
 
 export interface TypingPayload {
   channelId: string
   userId: string
   username: string
+  displayName?: string | null
+  typing?: boolean
 }
 
 export interface PresenceChangePayload {
@@ -290,6 +316,8 @@ export interface PresenceActivityPayload {
   userId: string
   activity: string | null
   channelId: string
+  username?: string
+  displayName?: string | null
 }
 
 export interface MemberJoinPayload {
@@ -651,6 +679,7 @@ export interface ServerEventMap {
   'message:new': (message: ShadowMessage) => void
   'message:updated': (message: ShadowMessage) => void
   'message:deleted': (payload: MessageDeletedPayload) => void
+  'message:typing': (payload: TypingPayload) => void
   'member:typing': (payload: TypingPayload) => void
   'member:join': (payload: MemberJoinPayload) => void
   'member:joined': (payload: MemberJoinPayload & { isBot?: boolean }) => void
@@ -681,7 +710,7 @@ export interface ClientEventMap {
     threadId?: string
     replyToId?: string
   }) => void
-  'message:typing': (data: { channelId: string }) => void
+  'message:typing': (data: { channelId: string; typing?: boolean }) => void
   'presence:update': (data: { status: 'online' | 'idle' | 'dnd' | 'offline' }) => void
   'presence:activity': (data: { channelId: string; activity: string | null }) => void
 }

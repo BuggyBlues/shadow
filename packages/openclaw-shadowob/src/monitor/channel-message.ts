@@ -21,6 +21,24 @@ import {
 } from './slash-commands.js'
 import { upsertShadowThreadBinding } from './thread-bindings.js'
 import { createTypingCallbacks } from './typing.js'
+import { reportShadowUsageSnapshot } from './usage-reporting.js'
+
+type ChannelServerInfo = {
+  serverId: string
+  serverSlug: string
+  serverName: string
+  channelName: string
+}
+
+function buildChannelContextForAgent(info: ChannelServerInfo | undefined, channelId: string) {
+  if (!info) return `Shadow channel id: ${channelId}`
+  return [
+    `Shadow server: ${info.serverName}`,
+    `Shadow server slug: ${info.serverSlug}`,
+    `Shadow channel: #${info.channelName}`,
+    `Shadow channel id: ${channelId}`,
+  ].join('\n')
+}
 
 export async function processShadowMessage(params: {
   message: ShadowMessage
@@ -33,10 +51,7 @@ export async function processShadowMessage(params: {
   botUsername: string
   agentId: string | null
   channelPolicies: Map<string, ShadowChannelPolicy>
-  channelServerMap: Map<
-    string,
-    { serverId: string; serverSlug: string; serverName: string; channelName: string }
-  >
+  channelServerMap: Map<string, ChannelServerInfo>
   slashCommands: ShadowSlashCommand[]
   socket: ShadowSocket
 }): Promise<void> {
@@ -142,18 +157,21 @@ export async function processShadowMessage(params: {
   const baseBodyForAgent = slashCommandMatch
     ? formatSlashCommandPrompt(cleanBody, slashCommandMatch)
     : cleanBody
-  const bodyForAgent = interactiveResponseContext.text
+  const serverInfo = channelServerMap.get(channelId)
+  const channelLabel = serverInfo ? `#${serverInfo.channelName}` : `channel:${channelId}`
+  const conversationLabel = serverInfo ? `${serverInfo.serverName} ${channelLabel}` : peerId
+  const messageBodyForAgent = interactiveResponseContext.text
     ? `${interactiveResponseContext.text}\n\nUser message:\n${baseBodyForAgent}`
     : baseBodyForAgent
+  const bodyForAgent = `${buildChannelContextForAgent(serverInfo, channelId)}\n\n${messageBodyForAgent}`
   const body = core.channel.reply.formatAgentEnvelope({
-    channel: 'Shadow',
+    channel: serverInfo ? `Shadow ${channelLabel}` : 'Shadow',
     from: senderName,
     timestamp: new Date(message.createdAt).getTime(),
     envelope: core.channel.reply.resolveEnvelopeFormatOptions(cfg),
     body: bodyForAgent,
   })
 
-  const serverInfo = channelServerMap.get(channelId)
   const escapedBotUsername = botUsername.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const mentionRegex = new RegExp(`@${escapedBotUsername}(?:\\s|$)`, 'i')
   const wasMentioned = mentionRegex.test(message.content)
@@ -168,7 +186,7 @@ export async function processShadowMessage(params: {
     SessionKey: route.sessionKey,
     AccountId: route.accountId,
     ChatType: chatType,
-    ConversationLabel: peerId,
+    ConversationLabel: conversationLabel,
     SenderName: senderName,
     SenderId: senderId,
     SenderUsername: senderUsername,
@@ -184,6 +202,7 @@ export async function processShadowMessage(params: {
           ServerSlug: serverInfo.serverSlug,
           ServerName: serverInfo.serverName,
           ChannelName: serverInfo.channelName,
+          ChannelLabel: channelLabel,
         }
       : {}),
     BotUserId: botUserId,
@@ -253,9 +272,16 @@ export async function processShadowMessage(params: {
     start: async () => {
       socket.sendTyping(channelId)
     },
+    stop: async () => {
+      socket.sendTyping(channelId, false)
+    },
     onStartError: (err) => {
       runtime.error?.(`[typing] Failed to send typing indicator: ${String(err)}`)
     },
+    onStopError: (err) => {
+      runtime.error?.(`[typing] Failed to clear typing indicator: ${String(err)}`)
+    },
+    maxDurationMs: 120_000,
   })
 
   socket.updateActivity(channelId, 'thinking')
@@ -278,6 +304,7 @@ export async function processShadowMessage(params: {
       accountId,
       typingCallbacks: typingCbs,
     })
+    const dispatchStartedAt = Date.now()
     await core.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
       ctx: ctxPayload,
       cfg,
@@ -303,6 +330,16 @@ export async function processShadowMessage(params: {
           )
         },
       },
+    })
+    await reportShadowUsageSnapshot({
+      client,
+      shadowAgentId: agentId,
+      openClawAgentId: dispatchAgentId,
+      sessionKey: bindingSessionKey,
+      runtime,
+      sinceMs: dispatchStartedAt,
+    }).catch((err) => {
+      runtime.error?.(`[usage] Failed to report usage snapshot for ${message.id}: ${String(err)}`)
     })
 
     socket.updateActivity(channelId, 'ready')
