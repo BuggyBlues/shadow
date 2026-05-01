@@ -182,17 +182,34 @@ describe('loadAllPlugins', () => {
         .sort(),
     ).toEqual([
       'agent-pack',
+      'alipay',
+      'amap',
+      'baidu-appbuilder',
+      'baidu-maps',
+      'baidu-netdisk',
+      'baidu-smartprogram',
       'cloudflare',
+      'cnb',
+      'coze',
+      'dingtalk',
+      'douyin-miniprogram',
+      'flyai',
       'gitagent',
+      'gitee',
       'github',
       'google-ads',
       'google-analytics',
       'google-workspace',
+      'huawei-xiaoyi',
       'hubspot',
       'klaviyo',
+      'kuaidi100',
+      'lark',
       'meta-ads',
+      'miclaw',
       'model-provider',
       'notion',
+      'oceanengine',
       'paypal',
       'salesforce',
       'seo-suite',
@@ -200,9 +217,18 @@ describe('loadAllPlugins', () => {
       'shopify',
       'stripe',
       'supabase',
+      'taobao-aipaas',
+      'tapd',
+      'tencent-ads',
+      'tencent-docs',
+      'tencent-maps',
       'vercel',
       'webflow',
+      'wechat-miniprogram-skyline',
+      'wechat-pay',
       'wordpress-woocommerce',
+      'wps',
+      'yuque',
     ])
   }, 30_000)
 
@@ -266,6 +292,81 @@ describe('loadAllPlugins', () => {
         id: 'cloudflare-mcp',
         transport: 'streamable-http',
         url: 'https://mcp.cloudflare.com/mcp',
+      }),
+    )
+  }, 30_000)
+
+  it('should load China app-layer connectors as independent plugins', async () => {
+    const registry = createPluginRegistry()
+    await loadAllPlugins(registry)
+
+    const lark = registry.get('lark')
+    const dingtalk = registry.get('dingtalk')
+    const yuque = registry.get('yuque')
+    const amap = registry.get('amap')
+    const baiduMaps = registry.get('baidu-maps')
+    const flyai = registry.get('flyai')
+    const skyline = registry.get('wechat-miniprogram-skyline')
+    const gitee = registry.get('gitee')
+
+    expect(lark?.manifest.capabilities).toEqual(expect.arrayContaining(['skill', 'cli', 'mcp']))
+    expect(lark?.runtime?.skillSources).toContainEqual(
+      expect.objectContaining({
+        id: 'lark-cli-skills',
+        url: 'https://github.com/larksuite/cli.git',
+      }),
+    )
+    expect(lark?.runtime?.runtimeDependencies).toContainEqual(
+      expect.objectContaining({ packages: ['@larksuite/cli'] }),
+    )
+    expect(lark?.runtime?.mcpServers).toContainEqual(
+      expect.objectContaining({
+        id: 'lark-mcp',
+        command: 'npx',
+        args: ['-y', '@larksuiteoapi/lark-mcp@latest'],
+      }),
+    )
+
+    expect(dingtalk?.runtime?.mcpServers).toContainEqual(
+      expect.objectContaining({
+        id: 'dingtalk-mcp',
+        args: ['-y', 'dingtalk-mcp@latest'],
+      }),
+    )
+    expect(yuque?.runtime?.skillSources?.map((source) => source.id)).toContain(
+      'yuque-openclaw-skills',
+    )
+    expect(yuque?.runtime?.mcpServers).toContainEqual(
+      expect.objectContaining({ id: 'yuque-mcp', args: ['-y', 'yuque-mcp@latest'] }),
+    )
+    expect(amap?.runtime?.mcpServers).toContainEqual(
+      expect.objectContaining({
+        id: 'amap-maps-mcp',
+        args: ['-y', '@amap/amap-maps-mcp-server@latest'],
+      }),
+    )
+    expect(baiduMaps?.runtime?.mcpServers).toContainEqual(
+      expect.objectContaining({
+        id: 'baidu-map-mcp',
+        args: ['-y', '@baidumap/mcp-server-baidu-map@latest'],
+      }),
+    )
+    expect(flyai?.runtime?.skillSources).toContainEqual(
+      expect.objectContaining({
+        id: 'flyai-skills',
+        url: 'https://github.com/alibaba-flyai/flyai-skill.git',
+      }),
+    )
+    expect(skyline?.runtime?.skillSources).toContainEqual(
+      expect.objectContaining({
+        id: 'wechat-skyline-skills',
+        url: 'https://github.com/wechat-miniprogram/skyline-skills.git',
+      }),
+    )
+    expect(gitee?.runtime?.mcpServers).toContainEqual(
+      expect.objectContaining({
+        id: 'gitee-mcp',
+        args: ['-y', '@gitee/mcp-gitee@latest'],
       }),
     )
   }, 30_000)
