@@ -2,9 +2,7 @@ import {
   Badge,
   Button,
   EmptyState,
-  GlassCard,
   GlassPanel,
-  GlassSurface,
   NativeSelect,
   Search,
   Table,
@@ -25,7 +23,6 @@ import {
   BarChart3,
   Box,
   CheckCircle,
-  Clock,
   DollarSign,
   Filter,
   FolderOpen,
@@ -38,8 +35,9 @@ import {
   Trash2,
   XCircle,
 } from 'lucide-react'
-import { type ReactNode, useMemo, useState } from 'react'
+import { type CSSProperties, type ReactNode, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ActivityMetadataTable, getActivityMetadataRows } from '@/components/ActivityMetadataTable'
 import { DashboardLoadingState } from '@/components/DashboardState'
 import { DashboardTabsList } from '@/components/DashboardTabsList'
 import { MetricCardContent, MetricCardWrapper } from '@/components/MetricCard'
@@ -47,6 +45,7 @@ import { PageShell } from '@/components/PageShell'
 import { StatsGrid } from '@/components/StatsGrid'
 import { StatusDot, type StatusType } from '@/components/StatusDot'
 import { useDebounce } from '@/hooks/useDebounce'
+import { formatActivityAbsoluteTime, normalizeActivityRecord } from '@/lib/activity-utils'
 import {
   type CostOverviewSummary,
   type Deployment,
@@ -57,7 +56,7 @@ import {
 } from '@/lib/api'
 import { useApiClient } from '@/lib/api-context'
 import { formatDisplayCost, formatTokenCount, formatUsdCost } from '@/lib/store-data'
-import { formatTimestamp, getRelativeTime, isDeploymentReady } from '@/lib/utils'
+import { formatTimestamp, isDeploymentReady } from '@/lib/utils'
 import { type ActivityEntry, type ActivityType } from '@/stores/app'
 
 function formatTokenLabel(value: number | null, locale: string, tokenLabel: string): string {
@@ -101,21 +100,7 @@ function doctorStatusToStatusType(status: DoctorCheck['status']): StatusType {
 function normalizeActivities(data?: {
   activities: Array<Record<string, unknown>>
 }): ActivityEntry[] {
-  return (data?.activities ?? []).map((activity) => {
-    const parsedCreatedAt =
-      typeof activity.createdAt === 'string' ? Date.parse(activity.createdAt) : Number.NaN
-    const timestamp =
-      typeof activity.timestamp === 'number' && Number.isFinite(activity.timestamp)
-        ? activity.timestamp
-        : Number.isFinite(parsedCreatedAt)
-          ? parsedCreatedAt
-          : Date.now()
-
-    return {
-      ...activity,
-      timestamp,
-    } as ActivityEntry
-  })
+  return (data?.activities ?? []).map((activity) => normalizeActivityRecord(activity))
 }
 
 function getActivityTypeConfig(
@@ -149,6 +134,56 @@ function getActivityTypeConfig(
       icon: <Shield size={12} />,
       variant: 'warning',
     },
+    config_update: {
+      label: translate('activity.types.config_update'),
+      icon: <Settings size={12} />,
+      variant: 'warning',
+    },
+    cluster_add: {
+      label: translate('activity.types.cluster_add'),
+      icon: <Box size={12} />,
+      variant: 'info',
+    },
+    cluster_remove: {
+      label: translate('activity.types.cluster_remove'),
+      icon: <Trash2 size={12} />,
+      variant: 'danger',
+    },
+    envvar_update: {
+      label: translate('activity.types.envvar_update'),
+      icon: <Settings size={12} />,
+      variant: 'info',
+    },
+    template_approved: {
+      label: translate('activity.types.template_approved'),
+      icon: <CheckCircle size={12} />,
+      variant: 'success',
+    },
+    template_rejected: {
+      label: translate('activity.types.template_rejected'),
+      icon: <XCircle size={12} />,
+      variant: 'danger',
+    },
+    billing_deduct: {
+      label: translate('activity.types.billing_deduct'),
+      icon: <DollarSign size={12} />,
+      variant: 'warning',
+    },
+    template_submit: {
+      label: translate('activity.types.template_submit'),
+      icon: <FolderOpen size={12} />,
+      variant: 'success',
+    },
+    template_update: {
+      label: translate('activity.types.template_update'),
+      icon: <FolderOpen size={12} />,
+      variant: 'warning',
+    },
+    template_delete: {
+      label: translate('activity.types.template_delete'),
+      icon: <Trash2 size={12} />,
+      variant: 'danger',
+    },
     init: {
       label: translate('activity.types.init'),
       icon: <Box size={12} />,
@@ -167,9 +202,62 @@ const ALL_ACTIVITY_TYPES: ActivityType[] = [
   'destroy',
   'scale',
   'config',
+  'config_update',
+  'cluster_add',
+  'cluster_remove',
+  'envvar_update',
+  'template_approved',
+  'template_rejected',
+  'billing_deduct',
+  'template_submit',
+  'template_update',
+  'template_delete',
   'init',
   'settings',
 ]
+
+const monitoringPanelClass =
+  'rounded-2xl border border-border-subtle bg-bg-secondary/40 p-4 space-y-4'
+const monitoringListItemClass =
+  'rounded-2xl border border-border-subtle bg-bg-secondary/30 px-4 py-3'
+const monitoringInfoCardClass = 'rounded-2xl border border-border-subtle bg-bg-secondary/30 p-4'
+const monitoringClickableItemClass =
+  'rounded-2xl border border-border-subtle bg-bg-secondary/30 block px-4 py-3 transition-colors hover:bg-bg-modifier-hover'
+const activityCardClass =
+  'relative overflow-hidden flex gap-4 px-4 py-3 rounded-xl border border-border-subtle bg-bg-secondary/50 transition-colors hover:bg-bg-modifier-hover'
+const activityCardBodyClass = 'flex-1 min-w-0 space-y-2'
+const activityCardVariantClassByVariant: Record<string, string> = {
+  success: 'border-success/35',
+  danger: 'border-danger/35',
+  info: 'border-info/35',
+  warning: 'border-warning/35',
+  neutral: 'border-border-subtle',
+}
+const activityIconClassByVariant: Record<string, string> = {
+  success: 'text-success',
+  danger: 'text-danger',
+  info: 'text-info',
+  warning: 'text-warning',
+  neutral: 'text-text-muted',
+}
+const activityMarkerStyleByVariant: Record<string, CSSProperties> = {
+  success: {
+    background: 'linear-gradient(to bottom, rgb(16, 185, 129), rgba(16, 185, 129, 0.55))',
+  },
+  danger: {
+    background: 'linear-gradient(to bottom, rgb(239, 68, 68), rgba(239, 68, 68, 0.55))',
+  },
+  info: {
+    background: 'linear-gradient(to bottom, rgb(59, 130, 246), rgba(59, 130, 246, 0.55))',
+  },
+  warning: {
+    background: 'linear-gradient(to bottom, rgb(250, 204, 21), rgba(251, 191, 36, 0.55))',
+  },
+  neutral: {
+    background: 'linear-gradient(to bottom, rgb(148, 163, 184), rgba(148, 163, 184, 0.55))',
+  },
+}
+const activityMarkerClass = 'absolute left-0 top-0 bottom-0 w-2 rounded-l-xl'
 
 function ActivityList({ activities, limit }: { activities: ActivityEntry[]; limit?: number }) {
   const { t } = useTranslation()
@@ -187,7 +275,7 @@ function ActivityList({ activities, limit }: { activities: ActivityEntry[]; limi
   }
 
   return (
-    <div>
+    <div className="space-y-3">
       {visibleActivities.map((activity) => {
         const config = activityTypeConfig[activity.type as keyof typeof activityTypeConfig] ?? {
           label: activity.type,
@@ -196,37 +284,43 @@ function ActivityList({ activities, limit }: { activities: ActivityEntry[]; limi
         }
         const time = new Date(activity.timestamp)
         const isValidDate = !Number.isNaN(time.getTime())
+        const cardVariantClass = activityCardVariantClassByVariant[config.variant]
+        const markerStyle = activityMarkerStyleByVariant[config.variant]
+        const description = [activity.description, activity.detail]
+          .map((value) => (typeof value === 'string' ? value.trim() : ''))
+          .find(Boolean)
 
         return (
-          <div
-            key={activity.id}
-            className="flex gap-4 py-3 border-b border-border-subtle last:border-0 hover:bg-bg-modifier-hover transition-colors px-4 -mx-4 rounded-lg"
-          >
-            <div className="mt-1 p-2 bg-bg-secondary rounded-lg shrink-0">{config.icon}</div>
+          <div key={activity.id} className={`${activityCardClass} ${cardVariantClass}`}>
+            <span aria-hidden className={activityMarkerClass} style={markerStyle} />
 
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <p className="text-sm font-medium text-text-primary">{activity.title}</p>
-                <Badge variant={config.variant} size="sm">
-                  {config.label}
-                </Badge>
+            <div className={activityCardBodyClass}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-text-primary truncate inline-flex items-center gap-2">
+                    <span className={activityIconClassByVariant[config.variant]}>
+                      {config.icon}
+                    </span>
+                    {activity.title || t(`activity.types.${activity.type}`)}
+                  </p>
+                  <ActivityMetadataTable rows={getActivityMetadataRows(activity, t)} />
+                </div>
+
+                <div className="shrink-0 min-w-0 max-w-[13rem] text-right text-xs leading-5 text-text-primary">
+                  {isValidDate ? (
+                    <p className="font-medium whitespace-nowrap">
+                      {formatActivityAbsoluteTime(activity.timestamp)}
+                    </p>
+                  ) : (
+                    '—'
+                  )}
+                </div>
               </div>
 
-              {activity.detail && <p className="text-xs text-text-muted mb-1">{activity.detail}</p>}
-
-              <div className="flex items-center gap-3 text-xs text-text-muted flex-wrap">
-                <span className="flex items-center gap-1">
-                  <Clock size={10} />
-                  {isValidDate ? time.toLocaleString() : '—'}
-                </span>
-                {activity.namespace && <span className="font-mono">ns: {activity.namespace}</span>}
-                {activity.template && <span className="font-mono">tpl: {activity.template}</span>}
-              </div>
+              {description ? (
+                <p className="text-sm leading-6 text-text-secondary">{description}</p>
+              ) : null}
             </div>
-
-            <span className="text-xs text-text-muted shrink-0 mt-1">
-              {isValidDate ? getRelativeTime(activity.timestamp) : ''}
-            </span>
           </div>
         )
       })}
@@ -411,7 +505,7 @@ function OverviewPanel({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <GlassCard className="p-4 space-y-4">
+        <div className={monitoringPanelClass}>
           <div className="flex items-center gap-2">
             <Stethoscope size={16} style={{ color: 'var(--color-nf-cyan)' }} />
             <h2 className="text-sm font-black text-text-primary">
@@ -423,10 +517,7 @@ function OverviewPanel({
             issues.length > 0 ? (
               <div className="space-y-3">
                 {issues.slice(0, 4).map((check) => (
-                  <GlassSurface
-                    key={check.name}
-                    className="rounded-2xl border border-border-subtle px-4 py-3"
-                  >
+                  <div key={check.name} className={monitoringListItemClass}>
                     <div className="flex items-center justify-between gap-3 mb-1">
                       <div className="flex items-center gap-2 min-w-0">
                         <StatusDot status={doctorStatusToStatusType(check.status)} />
@@ -448,20 +539,20 @@ function OverviewPanel({
                       </Badge>
                     </div>
                     <p className="text-xs text-text-secondary">{check.message}</p>
-                  </GlassSurface>
+                  </div>
                 ))}
               </div>
             ) : (
-              <GlassSurface className="rounded-2xl border border-border-subtle px-4 py-4 text-sm text-text-secondary">
+              <div className={`${monitoringListItemClass} py-4 text-sm text-text-secondary`}>
                 {t('monitoring.allSystemsHealthy')}
-              </GlassSurface>
+              </div>
             )
           ) : (
             <div className="text-sm text-text-muted">{t('monitoring.runningHealthChecks')}</div>
           )}
-        </GlassCard>
+        </div>
 
-        <GlassCard className="p-4 space-y-4">
+        <div className={monitoringPanelClass}>
           <div className="flex items-center gap-2">
             <DollarSign size={16} style={{ color: 'var(--color-nf-yellow)' }} />
             <h2 className="text-sm font-black text-text-primary">{t('monitoring.costSnapshot')}</h2>
@@ -496,7 +587,9 @@ function OverviewPanel({
                       params={{ namespace: item.namespace }}
                       className="block"
                     >
-                      <GlassSurface className="rounded-2xl border border-border-subtle flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-bg-modifier-hover">
+                      <div
+                        className={`${monitoringListItemClass} flex items-center justify-between gap-3`}
+                      >
                         <div className="min-w-0">
                           <p className="text-sm font-medium truncate text-text-primary">
                             {item.namespace}
@@ -518,7 +611,7 @@ function OverviewPanel({
                             shrimpUnitLabel: t('deploy.shrimpCoins'),
                           })}
                         </span>
-                      </GlassSurface>
+                      </div>
                     </Link>
                   ))
                 ) : (
@@ -531,9 +624,9 @@ function OverviewPanel({
           ) : (
             <p className="text-sm text-text-muted">{t('common.loading')}</p>
           )}
-        </GlassCard>
+        </div>
 
-        <GlassCard className="p-4 space-y-4">
+        <div className={monitoringPanelClass}>
           <div className="flex items-center gap-2">
             <FolderOpen size={16} style={{ color: 'var(--color-nf-cyan)' }} />
             <h2 className="text-sm font-black text-text-primary">
@@ -542,30 +635,30 @@ function OverviewPanel({
           </div>
 
           <div className="grid grid-cols-3 gap-3">
-            <GlassSurface className="rounded-2xl p-4">
+            <div className={monitoringInfoCardClass}>
               <div className="text-xs mb-1 text-text-muted">
                 {t('monitoring.configuredNamespaces')}
               </div>
               <div className="text-lg font-black text-text-primary">
                 {namespaces?.configured.length ?? 0}
               </div>
-            </GlassSurface>
-            <GlassSurface className="rounded-2xl p-4">
+            </div>
+            <div className={monitoringInfoCardClass}>
               <div className="text-xs mb-1 text-text-muted">
                 {t('monitoring.discoveredNamespaces')}
               </div>
               <div className="text-lg font-black text-text-primary">
                 {namespaces?.discovered.length ?? 0}
               </div>
-            </GlassSurface>
-            <GlassSurface className="rounded-2xl p-4">
+            </div>
+            <div className={monitoringInfoCardClass}>
               <div className="text-xs mb-1 text-text-muted">
                 {t('monitoring.trackedNamespaces')}
               </div>
               <div className="text-lg font-black text-text-primary">
                 {namespaces?.all.length ?? 0}
               </div>
-            </GlassSurface>
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -577,11 +670,11 @@ function OverviewPanel({
               </Button>
             ))}
           </div>
-        </GlassCard>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-4">
-        <GlassCard className="p-4 space-y-4">
+        <div className={monitoringPanelClass}>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Activity size={16} style={{ color: 'var(--color-nf-cyan)' }} />
@@ -595,9 +688,9 @@ function OverviewPanel({
           </div>
 
           <ActivityList activities={activities} limit={6} />
-        </GlassCard>
+        </div>
 
-        <GlassCard className="p-4 space-y-4">
+        <div className={monitoringPanelClass}>
           <div className="flex items-center gap-2">
             <Box size={16} style={{ color: 'var(--color-nf-cyan)' }} />
             <h2 className="text-sm font-black text-text-primary">
@@ -614,7 +707,7 @@ function OverviewPanel({
                   params={{ namespace: group.namespace }}
                   className="block"
                 >
-                  <GlassSurface className="rounded-2xl border border-border-subtle block px-4 py-3 transition-colors hover:bg-bg-modifier-hover">
+                  <div className={monitoringClickableItemClass}>
                     <div className="mb-2 flex items-center justify-between gap-3">
                       <p className="text-sm font-medium text-text-primary">{group.namespace}</p>
                       <Badge
@@ -627,7 +720,7 @@ function OverviewPanel({
                     <p className="line-clamp-2 text-xs text-text-muted">
                       {group.deployments.map((deployment) => deployment.name).join(', ')}
                     </p>
-                  </GlassSurface>
+                  </div>
                 </Link>
               ))}
             </div>
@@ -638,7 +731,7 @@ function OverviewPanel({
               description={t('deployments.noDeploymentsYet')}
             />
           )}
-        </GlassCard>
+        </div>
       </div>
     </div>
   )
@@ -749,7 +842,7 @@ function CostsPanel({
             : null
 
           return (
-            <GlassCard key={item.namespace} className="p-4 space-y-4">
+            <div key={item.namespace} className={monitoringPanelClass}>
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -794,9 +887,9 @@ function CostsPanel({
                 detail.agents.length > 0 ? (
                   <div className="space-y-3">
                     {detail.agents.map((agent) => (
-                      <GlassSurface
+                      <div
                         key={`${detail.namespace}-${agent.agentName}`}
-                        className="rounded-2xl border border-border-subtle px-4 py-3"
+                        className={monitoringListItemClass}
                       >
                         <div className="mb-2 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                           <div className="min-w-0">
@@ -875,7 +968,7 @@ function CostsPanel({
                             {translateCostMessage(agent.message)}
                           </p>
                         )}
-                      </GlassSurface>
+                      </div>
                     ))}
                   </div>
                 ) : (
@@ -888,7 +981,7 @@ function CostsPanel({
                   {loadingNamespaceCosts ? t('monitoring.loadingCostDetails') : t('common.loading')}
                 </p>
               )}
-            </GlassCard>
+            </div>
           )
         })}
       </div>
@@ -916,6 +1009,7 @@ function ActivityPanel({ activities }: { activities: ActivityEntry[] }) {
       list = list.filter(
         (activity) =>
           activity.title.toLowerCase().includes(query) ||
+          activity.description?.toLowerCase().includes(query) ||
           activity.detail?.toLowerCase().includes(query) ||
           activity.namespace?.toLowerCase().includes(query) ||
           activity.template?.toLowerCase().includes(query),
@@ -1101,8 +1195,7 @@ export function MonitoringPage() {
     { id: 'activity', label: t('activity.title'), icon: <Activity size={13} /> },
   ]
 
-  const tabPanelClassName =
-    'rounded-[28px] border border-border-subtle bg-bg-secondary/35 p-4 md:p-5 lg:p-6'
+  const tabPanelClassName = 'rounded-[28px] p-4 md:p-5 lg:p-6'
 
   return (
     <PageShell
@@ -1210,7 +1303,7 @@ export function MonitoringPage() {
     >
       <div className="min-h-[40vh]">
         {activeTab === 'overview' && (
-          <div className={tabPanelClassName}>
+          <GlassPanel className={tabPanelClassName}>
             <OverviewPanel
               doctor={doctor}
               deployments={deploymentList}
@@ -1218,71 +1311,71 @@ export function MonitoringPage() {
               costOverview={costOverview}
               activities={activities}
             />
-          </div>
+          </GlassPanel>
         )}
 
         {activeTab === 'health' &&
           (loadingDoctor ? (
-            <div className={tabPanelClassName}>
+            <GlassPanel className={tabPanelClassName}>
               <div className="min-h-[22vh] py-10 text-center text-sm text-text-muted">
                 {t('monitoring.runningHealthChecks')}
               </div>
-            </div>
+            </GlassPanel>
           ) : doctor ? (
-            <div className={tabPanelClassName}>
+            <GlassPanel className={tabPanelClassName}>
               <HealthPanel doctor={doctor} />
-            </div>
+            </GlassPanel>
           ) : (
-            <div className={tabPanelClassName}>
+            <GlassPanel className={tabPanelClassName}>
               <div className="min-h-[22vh] py-10 text-center text-sm text-text-muted">
                 {t('monitoring.failedHealthChecks')}
               </div>
-            </div>
+            </GlassPanel>
           ))}
 
         {activeTab === 'deployments' &&
           (loadingDeployments ? (
-            <div className={tabPanelClassName}>
+            <GlassPanel className={tabPanelClassName}>
               <DashboardLoadingState inline className="py-10" />
-            </div>
+            </GlassPanel>
           ) : deploymentList.length > 0 ? (
-            <div className={tabPanelClassName}>
+            <GlassPanel className={tabPanelClassName}>
               <DeploymentsPanel deployments={deploymentList} />
-            </div>
+            </GlassPanel>
           ) : (
-            <div className={tabPanelClassName}>
+            <GlassPanel className={tabPanelClassName}>
               <EmptyState
                 icon={Box}
                 title={t('monitoring.noDeploymentsFound')}
                 description={t('deployments.noDeploymentsYet')}
               />
-            </div>
+            </GlassPanel>
           ))}
 
         {activeTab === 'costs' &&
           (loadingCosts || loadingNamespaces ? (
-            <div className={tabPanelClassName}>
+            <GlassPanel className={tabPanelClassName}>
               <DashboardLoadingState inline className="py-10" />
-            </div>
+            </GlassPanel>
           ) : (
-            <div className={tabPanelClassName}>
+            <GlassPanel className={tabPanelClassName}>
               <CostsPanel
                 overview={costOverview}
                 namespaceCosts={namespaceCosts}
                 loadingNamespaceCosts={loadingNamespaceCosts}
               />
-            </div>
+            </GlassPanel>
           ))}
 
         {activeTab === 'activity' &&
           (loadingActivity ? (
-            <div className={tabPanelClassName}>
+            <GlassPanel className={tabPanelClassName}>
               <DashboardLoadingState inline className="py-10" />
-            </div>
+            </GlassPanel>
           ) : (
-            <div className={tabPanelClassName}>
+            <GlassPanel className={tabPanelClassName}>
               <ActivityPanel activities={activities} />
-            </div>
+            </GlassPanel>
           ))}
       </div>
     </PageShell>

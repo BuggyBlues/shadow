@@ -7,11 +7,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  Badge,
   Button,
   EmptyState,
-  GlassCard,
-  GlassPanel,
   Input,
   Modal,
   ModalBody,
@@ -19,27 +16,29 @@ import {
   ModalContent,
   ModalFooter,
   ModalHeader,
-  Search as SearchField,
+  Search,
 } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate } from '@tanstack/react-router'
+import { useNavigate } from '@tanstack/react-router'
 import {
+  Clock,
   Copy,
   Edit3,
   GitBranch,
   GitFork,
+  Hash,
   Loader2,
   Plus,
-  Search,
+  Rocket,
+  Search as SearchIcon,
   ShoppingBag,
-  Sparkles,
-  Trash2,
   Users,
 } from 'lucide-react'
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PageShell } from '@/components/PageShell'
 import { parseTemplateAgents } from '@/components/TemplateDetailShared'
+import { TemplateGalleryCard } from '@/components/TemplateGalleryCard'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useTypewriterPlaceholder } from '@/hooks/useTypewriterPlaceholder'
 import { type TemplateCatalogSummary } from '@/lib/api'
@@ -50,29 +49,11 @@ import { useToast } from '@/stores/toast'
 function getMyTemplateOverview(content: unknown) {
   const agents = parseTemplateAgents(content)
   const data = content && typeof content === 'object' ? (content as Record<string, unknown>) : {}
-  const deployments =
-    data.deployments && typeof data.deployments === 'object'
-      ? (data.deployments as Record<string, unknown>)
-      : undefined
 
-  const namespace =
-    typeof deployments?.namespace === 'string'
-      ? deployments.namespace
-      : typeof data.namespace === 'string'
-        ? data.namespace
-        : null
-
-  const providers = Array.isArray(data.providers)
-    ? data.providers
-    : Array.isArray(deployments?.providers)
-      ? deployments.providers
-      : []
-
-  const models = data.models && typeof data.models === 'object' ? Object.keys(data.models) : []
+  const namespace = typeof data.namespace === 'string' ? data.namespace : null
 
   return {
     agentCount: agents.length,
-    providerCount: providers.length > 0 ? providers.length : models.length,
     namespace,
     agentHighlights: agents
       .map((agent) => agent.identity?.name ?? agent.name)
@@ -89,210 +70,28 @@ function getTemplateSourceType(templateSlug: string | null): TemplateSource {
   return 'custom'
 }
 
-function CardMetric({
-  icon,
-  value,
-  label,
-}: {
-  icon: ReactNode
-  value: string | number
-  label: string
-}) {
-  return (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-xl border border-border-subtle bg-bg-primary/60 px-2.5 py-1.5 text-[11px] font-semibold text-text-secondary"
-      title={label}
-    >
-      {icon}
-      <span>{value}</span>
-    </span>
-  )
-}
-
-function TemplateCard({
-  name,
-  slug,
-  templateSlug,
-  content,
-  baseTemplate,
-  version,
-  updatedAt,
-  reviewStatus,
-  onDelete,
-  onShare,
-}: {
-  name: string
-  slug: string
-  templateSlug: string | null
-  content: unknown
-  baseTemplate?: TemplateCatalogSummary
-  version: number
-  updatedAt: string
-  reviewStatus?: 'draft' | 'pending' | 'approved' | 'rejected'
-  onDelete: () => void
-  onShare: () => void
-}) {
-  const { t, i18n } = useTranslation()
-  const overview = useMemo(() => getMyTemplateOverview(content), [content])
-  const sourceType = getTemplateSourceType(templateSlug)
-  const summaryText =
-    baseTemplate?.description ?? baseTemplate?.overview[0] ?? t('templateDetail.customDescription')
-  const displayEmoji =
-    baseTemplate?.emoji ?? (sourceType === 'git' ? '🌿' : sourceType === 'store' ? '🛍️' : '✨')
-  const updatedLabel = new Date(updatedAt).toLocaleDateString(i18n.language, {
-    month: 'short',
-    day: 'numeric',
-  })
-
-  return (
-    <GlassCard>
-      <div className="flex h-full flex-col gap-4 p-5">
-        <div className="flex items-start gap-4">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-border-subtle bg-bg-primary/50 text-[28px] shadow-sm">
-            {displayEmoji}
-          </div>
-
-          <div className="min-w-0 flex-1 space-y-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 space-y-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Link
-                    to="/my-templates/$name"
-                    params={{ name }}
-                    className="truncate text-[17px] font-extrabold text-text-primary transition-colors hover:text-primary"
-                  >
-                    {name}
-                  </Link>
-                  <Badge variant="neutral" size="sm">
-                    v{version}
-                  </Badge>
-                  <Badge
-                    variant={
-                      sourceType === 'store' ? 'info' : sourceType === 'git' ? 'success' : 'neutral'
-                    }
-                    size="sm"
-                  >
-                    {t(`templates.filters.${sourceType}`)}
-                  </Badge>
-                  {baseTemplate?.featured && (
-                    <Badge variant="info" size="sm">
-                      <Sparkles size={10} />
-                      {t('store.featured')}
-                    </Badge>
-                  )}
-                  {reviewStatus && (
-                    <Badge
-                      variant={
-                        reviewStatus === 'approved'
-                          ? 'success'
-                          : reviewStatus === 'rejected'
-                            ? 'danger'
-                            : reviewStatus === 'pending'
-                              ? 'warning'
-                              : 'neutral'
-                      }
-                      size="sm"
-                    >
-                      {reviewStatus === 'draft'
-                        ? t('templateDetail.reviewStatusDraft')
-                        : reviewStatus === 'pending'
-                          ? t('templateDetail.reviewStatusPending')
-                          : reviewStatus === 'approved'
-                            ? t('templateDetail.reviewStatusApproved')
-                            : t('templateDetail.reviewStatusRejected')}
-                    </Badge>
-                  )}
-                </div>
-
-                <p className="line-clamp-2 text-sm leading-6 text-text-secondary">{summaryText}</p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  onClick={onShare}
-                  variant="ghost"
-                  size="icon"
-                  title={t('common.share')}
-                >
-                  <Copy size={14} />
-                </Button>
-                <Button
-                  type="button"
-                  onClick={onDelete}
-                  variant="ghost"
-                  size="icon"
-                  title={t('common.delete')}
-                >
-                  <Trash2 size={14} />
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 text-[11px] text-text-muted">
-              {templateSlug &&
-                (sourceType === 'store' ? (
-                  <Link
-                    to="/store/$name"
-                    params={{ name: templateSlug }}
-                    className="rounded-xl border border-border-subtle px-2.5 py-1 transition-colors hover:text-text-primary"
-                  >
-                    {templateSlug}
-                  </Link>
-                ) : (
-                  <span className="rounded-xl border border-border-subtle px-2.5 py-1">
-                    {templateSlug}
-                  </span>
-                ))}
-
-              {overview.namespace && (
-                <span className="rounded-xl border border-border-subtle px-2.5 py-1">
-                  {overview.namespace}
-                </span>
-              )}
-
-              <span className="rounded-xl border border-border-subtle px-2.5 py-1">
-                {updatedLabel}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <CardMetric
-            icon={<Users size={11} className="text-primary" />}
-            value={overview.agentCount}
-            label={t('deploy.agentsLabel')}
-          />
-          <CardMetric
-            icon={<Sparkles size={11} className="text-primary" />}
-            value={overview.providerCount}
-            label={t('templateDetail.providers')}
-          />
-          <CardMetric
-            icon={<Copy size={11} className="text-primary" />}
-            value={`v${version}`}
-            label={t('templateDetail.version')}
-          />
-        </div>
-
-        <div className="mt-auto flex flex-col items-stretch gap-2 border-t border-border-subtle pt-4 sm:flex-row">
-          <Button asChild variant="secondary">
-            <Link to="/my-templates/$name" params={{ name }}>
-              <Edit3 size={14} />
-              <span className="truncate">{t('templates.openEditor')}</span>
-            </Link>
-          </Button>
-          <Button asChild variant="primary">
-            <Link to="/store/$name/deploy" params={{ name: slug }}>
-              <Sparkles size={14} />
-              <span className="truncate">{t('templates.deployNow')}</span>
-            </Link>
-          </Button>
-        </div>
-      </div>
-    </GlassCard>
-  )
+function createFallbackTemplateCardData(
+  name: string,
+  summary: string,
+  agentCount: number,
+): TemplateCatalogSummary {
+  return {
+    name,
+    title: name,
+    description: summary,
+    namespace: name,
+    tags: [],
+    agentCount,
+    category: 'demo',
+    emoji: '✨',
+    featured: false,
+    popularity: 0,
+    difficulty: 'beginner',
+    estimatedDeployTime: '',
+    overview: [summary],
+    features: [],
+    highlights: [],
+  }
 }
 
 function ForkDialog({
@@ -357,7 +156,7 @@ function ForkDialog({
             <Input
               type="text"
               label={t('templates.sourceTemplate')}
-              icon={Search}
+              icon={SearchIcon}
               value={selected || searchQuery}
               onChange={(event) => {
                 setSearchQuery(event.target.value)
@@ -665,6 +464,13 @@ export function MyTemplatesPage() {
     () => new Map((catalogData?.templates ?? []).map((template) => [template.name, template])),
     [catalogData?.templates],
   )
+  const templateCategoryLabels = useMemo(
+    () =>
+      Object.fromEntries(
+        (catalogData?.categories ?? []).map((category) => [category.id, category.label]),
+      ) as Record<string, string>,
+    [catalogData?.categories],
+  )
 
   const sortedTemplates = useMemo(() => {
     return [...templates].sort(
@@ -734,19 +540,75 @@ export function MyTemplatesPage() {
     <PageShell
       breadcrumb={[]}
       title={t('templates.title')}
+      bodyClassName="space-y-4"
       headerContent={
         <div className="space-y-3">
-          <SearchField
+          <Search
             value={search}
             onChange={setSearch}
             placeholder={typewriterPlaceholder || t('templates.searchSavedPlaceholder')}
           />
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-text-muted">
-              {t('store.matchingTemplates', { count: filteredTemplates.length })}
-              {debouncedSearch ? ` · ${t('store.matchingQuery', { query: debouncedSearch })}` : ''}
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
+          {debouncedSearch ? (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-text-muted">
+                {t('store.matchingTemplates', { count: filteredTemplates.length })}
+                {` ${t('store.matchingQuery', { query: debouncedSearch })}`}
+              </p>
+              <Button type="button" variant="secondary" size="sm" onClick={() => setSearch('')}>
+                {t('store.clearFilters')}
+              </Button>
+            </div>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={() => setShowCreateDialog(true)}
+            >
+              <Plus size={14} />
+              <span className="truncate">{t('templates.createTemplate')}</span>
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => navigate({ to: '/store' })}
+            >
+              <ShoppingBag size={14} />
+              <span className="truncate">{t('templates.forkFromStore')}</span>
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowGitImport(true)}
+            >
+              <GitBranch size={14} />
+              <span className="truncate">{t('templates.importGit')}</span>
+            </Button>
+          </div>
+        </div>
+      }
+    >
+      {isLoading && (
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <div
+              key={`template-skeleton-${index}`}
+              className="h-[240px] rounded-3xl border border-border-subtle bg-bg-secondary/60 animate-pulse"
+            />
+          ))}
+        </div>
+      )}
+
+      {!isLoading && templates.length === 0 && (
+        <EmptyState
+          icon={Copy}
+          title={t('templates.noCustomTemplates')}
+          description={t('templates.noCustomTemplateHint')}
+          action={
+            <div className="flex flex-wrap justify-center gap-2">
               <Button
                 type="button"
                 variant="primary"
@@ -754,7 +616,7 @@ export function MyTemplatesPage() {
                 onClick={() => setShowCreateDialog(true)}
               >
                 <Plus size={14} />
-                <span className="truncate">{t('templates.createTemplate')}</span>
+                {t('templates.createTemplate')}
               </Button>
               <Button
                 type="button"
@@ -763,7 +625,7 @@ export function MyTemplatesPage() {
                 onClick={() => navigate({ to: '/store' })}
               >
                 <ShoppingBag size={14} />
-                <span className="truncate">{t('templates.forkFromStore')}</span>
+                {t('templates.forkFromStore')}
               </Button>
               <Button
                 type="button"
@@ -772,112 +634,98 @@ export function MyTemplatesPage() {
                 onClick={() => setShowGitImport(true)}
               >
                 <GitBranch size={14} />
-                <span className="truncate">{t('templates.importGit')}</span>
+                {t('templates.importGit')}
               </Button>
             </div>
-          </div>
-        </div>
-      }
-    >
-      <GlassPanel className="space-y-5 p-4 md:p-5">
-        {isLoading && (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-5">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div
-                key={`template-skeleton-${index}`}
-                className="h-[248px] rounded-3xl border border-border-subtle bg-bg-secondary/60 p-5 animate-pulse"
-              />
-            ))}
-          </div>
-        )}
+          }
+        />
+      )}
 
-        {!isLoading && templates.length === 0 && (
-          <EmptyState
-            icon={Copy}
-            title={t('templates.noCustomTemplates')}
-            description={t('templates.noCustomTemplateHint')}
-            action={
-              <div className="flex flex-wrap justify-center gap-2">
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  onClick={() => setShowCreateDialog(true)}
-                >
-                  <Plus size={14} />
-                  {t('templates.createTemplate')}
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => navigate({ to: '/store' })}
-                >
-                  <ShoppingBag size={14} />
-                  {t('templates.forkFromStore')}
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setShowGitImport(true)}
-                >
-                  <GitBranch size={14} />
-                  {t('templates.importGit')}
-                </Button>
-              </div>
-            }
-          />
-        )}
+      {!isLoading && templates.length > 0 && filteredTemplates.length === 0 && (
+        <EmptyState
+          icon={SearchIcon}
+          title={t('templates.noTemplatesMatch', {
+            query: debouncedSearch || t('templates.title'),
+          })}
+          description={t('templates.emptyFiltered')}
+          action={
+            <Button type="button" variant="primary" size="sm" onClick={() => setSearch('')}>
+              {t('templates.clearSearch')}
+            </Button>
+          }
+        />
+      )}
 
-        {!isLoading && templates.length > 0 && filteredTemplates.length === 0 && (
-          <EmptyState
-            icon={Search}
-            title={t('templates.noTemplatesMatch', {
-              query: debouncedSearch || t('templates.title'),
-            })}
-            description={t('templates.emptyFiltered')}
-            action={
-              <Button type="button" variant="primary" size="sm" onClick={() => setSearch('')}>
-                {t('templates.clearSearch')}
-              </Button>
-            }
-          />
-        )}
+      {!isLoading && filteredTemplates.length > 0 && (
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          {filteredTemplates.map((template) => {
+            const overview = getMyTemplateOverview(template.content)
+            const sourceType = getTemplateSourceType(template.templateSlug)
+            const baseTemplate = template.templateSlug
+              ? catalogByName.get(template.templateSlug)
+              : undefined
+            const summaryText =
+              baseTemplate?.description ??
+              baseTemplate?.overview[0] ??
+              t('templateDetail.customDescription')
+            const updatedAtLabel = new Date(template.updatedAt).toLocaleString(i18n.language, {
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+            const cardTemplate = baseTemplate
+              ? baseTemplate
+              : createFallbackTemplateCardData(template.name, summaryText, overview.agentCount)
+            const categoryLabel = baseTemplate
+              ? (templateCategoryLabels[baseTemplate.category] ?? baseTemplate.category)
+              : t(`templates.filters.${sourceType}`)
+            const templateNameParam = encodeURIComponent(template.name)
+            const templateSlugParam = encodeURIComponent(template.slug)
 
-        {!isLoading && filteredTemplates.length > 0 && (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-5">
-            {filteredTemplates.map((template) => (
-              <TemplateCard
+            return (
+              <TemplateGalleryCard
                 key={template.slug}
-                name={template.name}
-                slug={template.slug}
-                templateSlug={template.templateSlug}
-                content={template.content}
-                baseTemplate={
-                  template.templateSlug ? catalogByName.get(template.templateSlug) : undefined
-                }
-                version={template.version ?? 1}
-                updatedAt={template.updatedAt}
-                reviewStatus={template.reviewStatus}
-                onShare={async () => {
-                  try {
-                    const shareData = await api.myTemplates.share(template.name)
-                    const json = JSON.stringify(shareData, null, 2)
-                    await navigator.clipboard.writeText(json)
-                    toast.success(t('templates.shareCopied'))
-                  } catch {
-                    toast.error(t('templates.shareFailed'))
-                  }
+                template={cardTemplate}
+                categoryLabel={categoryLabel}
+                detailHref={`/my-templates/${templateNameParam}`}
+                title={template.name}
+                summary={summaryText}
+                metrics={[
+                  {
+                    icon: <Users size={11} className="text-primary" />,
+                    value: overview.agentCount,
+                    label: t('templateDetail.agents'),
+                  },
+                  {
+                    icon: <Hash size={11} className="text-primary" />,
+                    value: `v${template.version ?? 1}`,
+                    label: t('templateDetail.version'),
+                  },
+                  {
+                    icon: <Clock size={11} className="text-primary" />,
+                    value: updatedAtLabel,
+                    label: t('templates.updated'),
+                  },
+                ]}
+                secondaryAction={{
+                  href: `/my-templates/${templateNameParam}`,
+                  label: t('templates.openEditor'),
+                  icon: <Edit3 size={14} />,
+                  variant: 'secondary',
                 }}
-                onDelete={() => {
-                  setTemplateToDelete({ name: template.name, reviewStatus: template.reviewStatus })
+                primaryAction={{
+                  href: `/store/${templateSlugParam}`,
+                  label: t('templates.deployNow'),
+                  icon: <Rocket size={14} />,
+                  variant: 'primary',
                 }}
               />
-            ))}
-          </div>
-        )}
-      </GlassPanel>
+            )
+          })}
+        </div>
+      )}
 
       <AlertDialog
         open={Boolean(templateToDelete)}

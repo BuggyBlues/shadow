@@ -1,4 +1,4 @@
-import { Badge, Button, Search, Tabs } from '@shadowob/ui'
+import { Badge, Button, GlassPanel, Search, Tabs } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import {
@@ -512,9 +512,9 @@ export function DeploymentsPage() {
       {activeTab === 'infrastructure' && (
         <>
           {isLoading && (
-            <div className="rounded-xl border border-border-subtle bg-bg-secondary/40 p-4">
+            <GlassPanel className="rounded-2xl p-4 md:p-5">
               <DashboardLoadingState rows={2} />
-            </div>
+            </GlassPanel>
           )}
 
           {!isLoading && groups.length === 0 && (
@@ -555,7 +555,11 @@ export function DeploymentsPage() {
       {/* Tasks Tab */}
       {activeTab === 'tasks' && (
         <>
-          {tasksLoading && <DashboardLoadingState inline />}
+          {tasksLoading && (
+            <GlassPanel className="rounded-2xl p-4 md:p-5">
+              <DashboardLoadingState inline />
+            </GlassPanel>
+          )}
           {!tasksLoading && <TasksPanel tasks={tasks} />}
         </>
       )}

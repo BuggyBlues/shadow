@@ -422,11 +422,48 @@ function normalizeSkillsConfig(skills: OpenClawConfig['skills']): void {
  * Strip agent-entry fields not in OpenClaw's strict schema.
  * Returns workspace files to write (e.g., SOUL.md from instructions).
  */
-function stripAndCollectWorkspaceFiles(openclawConfig: OpenClawConfig): Record<string, string> {
+function buildIdentityMarkdown(
+  entry: Record<string, unknown>,
+  agent: AgentDeployment,
+): string | undefined {
+  const identity =
+    entry.identity && typeof entry.identity === 'object' && !Array.isArray(entry.identity)
+      ? (entry.identity as Record<string, unknown>)
+      : {}
+  const stringValue = (value: unknown) => (typeof value === 'string' && value.trim() ? value : '')
+  const name =
+    stringValue(identity.name) ||
+    stringValue(entry.name) ||
+    stringValue(agent.identity?.name) ||
+    agent.id
+  const theme =
+    stringValue(identity.theme) ||
+    stringValue(agent.identity?.description) ||
+    stringValue(agent.description)
+  const emoji = stringValue(identity.emoji)
+  const avatar = stringValue(identity.avatar)
+
+  if (!name && !theme && !emoji && !avatar) return undefined
+
+  const lines = ['# IDENTITY.md - Agent Identity', '', `- Name: ${name}`]
+  if (theme) lines.push(`- Theme: ${theme}`)
+  if (emoji) lines.push(`- Emoji: ${emoji}`)
+  if (avatar) lines.push(`- Avatar: ${avatar}`)
+  return `${lines.join('\n')}\n`
+}
+
+function stripAndCollectWorkspaceFiles(
+  openclawConfig: OpenClawConfig,
+  agent: AgentDeployment,
+): Record<string, string> {
   const workspaceFiles: Record<string, string> = {}
   const agentList = openclawConfig.agents?.list as Array<Record<string, unknown>> | undefined
   if (agentList) {
     for (const entry of agentList) {
+      const identityMarkdown = buildIdentityMarkdown(entry, agent)
+      if (identityMarkdown && !workspaceFiles['IDENTITY.md']) {
+        workspaceFiles['IDENTITY.md'] = identityMarkdown
+      }
       if (entry.instructions) {
         workspaceFiles['SOUL.md'] = String(entry.instructions)
         delete entry.instructions
@@ -765,7 +802,7 @@ export function buildOpenClawConfig(
 
   // 18. Strip strict-schema-violating fields after plugins have contributed
   //     their prompt/context additions.
-  const workspaceFiles = stripAndCollectWorkspaceFiles(openclawConfig)
+  const workspaceFiles = stripAndCollectWorkspaceFiles(openclawConfig, agent)
   if (Object.keys(workspaceFiles).length > 0) {
     openclawConfig._workspaceFiles = workspaceFiles
   }

@@ -214,7 +214,6 @@ const plugin = definePlugin(manifest as PluginManifest, (api) => {
           },
         },
       },
-      tools: { allow: ['gws'] },
     }
   })
 
@@ -239,7 +238,7 @@ const plugin = definePlugin(manifest as PluginManifest, (api) => {
       'GOOGLE_APPLICATION_CREDENTIALS_JSON',
     ])
     if (credentialsJson) env.GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON = credentialsJson
-    if (cliToken) env.GOOGLE_WORKSPACE_CLI_TOKEN = cliToken
+    if (!credentialsJson && cliToken) env.GOOGLE_WORKSPACE_CLI_TOKEN = cliToken
     if (adcJson) env.GOOGLE_APPLICATION_CREDENTIALS_JSON = adcJson
 
     for (const key of ['GOOGLE_WORKSPACE_CLI_SANITIZE_TEMPLATE', 'GOOGLE_WORKSPACE_PROJECT_ID']) {

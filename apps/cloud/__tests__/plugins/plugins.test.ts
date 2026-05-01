@@ -759,7 +759,7 @@ describe('model-provider plugin', () => {
 // ─── Tool plugin implementations ──────────────────────────────────────────
 
 describe('Tool plugins', () => {
-  it('github plugin should produce skill and tool config', async () => {
+  it('github plugin should produce skill config without CLI tool allowlist', async () => {
     const mod = await import('../../src/plugins/github/index.js')
     const plugin = mod.default as PluginDefinition
     expect(plugin.manifest.id).toBe('github')
@@ -767,7 +767,7 @@ describe('Tool plugins', () => {
     const ctx = makeBuildContext({ secrets: { GITHUB_TOKEN: 'ghp_xxx' }, agentConfig: {} })
     const fragment = plugin._hooks.buildConfig[0]!(ctx)
     expect(fragment?.skills).toBeDefined()
-    expect(fragment?.tools).toEqual({ allow: ['gh'] })
+    expect(fragment?.tools).toBeUndefined()
   })
 
   it('google-workspace plugin should expose gws runtime config', async () => {
@@ -782,11 +782,14 @@ describe('Tool plugins', () => {
     )
 
     const ctx = makeBuildContext({
-      secrets: { GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON: '{"installed":{}}' },
+      secrets: {
+        GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON: '{"installed":{}}',
+        GOOGLE_WORKSPACE_CLI_TOKEN: 'ya29.expired',
+      },
       agentConfig: { services: ['gmail', 'calendar'] },
     })
     const fragment = plugin._hooks.buildConfig[0]!(ctx)
-    expect(fragment?.tools).toEqual({ allow: ['gws'] })
+    expect(fragment?.tools).toBeUndefined()
     expect(fragment?.skills).toMatchObject({
       load: { extraDirs: ['/app/plugin-skills/google-workspace'] },
       entries: {
@@ -809,6 +812,7 @@ describe('Tool plugins', () => {
       '/home/openclaw/.config/gws/credentials.json',
     )
     expect(env?.GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON).toBe('{"installed":{}}')
+    expect(env?.GOOGLE_WORKSPACE_CLI_TOKEN).toBeUndefined()
 
     const legacyEnv = plugin._hooks.buildEnv[0]!(
       makeBuildContext({
@@ -816,6 +820,13 @@ describe('Tool plugins', () => {
       }),
     )
     expect(legacyEnv?.GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON).toBe('{"installed":{}}')
+
+    const tokenOnlyEnv = plugin._hooks.buildEnv[0]!(
+      makeBuildContext({
+        secrets: { GOOGLE_WORKSPACE_CLI_TOKEN: 'ya29.only-token' },
+      }),
+    )
+    expect(tokenOnlyEnv?.GOOGLE_WORKSPACE_CLI_TOKEN).toBe('ya29.only-token')
 
     const legacyServiceAccountEnv = plugin._hooks.buildEnv[0]!(
       makeBuildContext({

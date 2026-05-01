@@ -319,9 +319,9 @@ export function defineSkillPlugin(
         fragment.skills = sc
       }
 
-      if (options.cli?.length) {
-        fragment.tools = { allow: options.cli.map((t) => t.name) }
-      }
+      // CLI declarations describe commands installed in the runtime image.
+      // They are not OpenClaw callable tool IDs, so adding them to tools.allow
+      // would filter out the real registered tools and break embedded runs.
 
       // Note: MCP server config (options.mcp) is NOT written to plugins.entries.
       // plugins.entries is only for pre-installed OpenClaw extension plugins (e.g. voice-call,
