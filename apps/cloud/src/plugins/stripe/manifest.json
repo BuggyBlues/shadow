@@ -34,7 +34,7 @@
       }
     }
   },
-  "capabilities": ["tool", "webhook", "data-source", "action"],
+  "capabilities": ["tool", "webhook", "data-source", "action", "mcp"],
   "tags": ["finance", "payments", "billing", "subscriptions", "invoices", "mcp"],
   "popularity": 92
 }

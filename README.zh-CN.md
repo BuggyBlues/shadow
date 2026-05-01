@@ -293,6 +293,7 @@ docker compose -f docker-compose.ci-tests.yml up --build --abort-on-container-ex
 | 本地开发与 CI | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) |
 | Cloud 部署 | [docs/development/cloud-saas-deployment.md](docs/development/cloud-saas-deployment.md) |
 | Agent Pack 链路 | [docs/development/cloud-agent-pack-buddy-flow.md](docs/development/cloud-agent-pack-buddy-flow.md) |
+| 连接器运行时资产 | [docs/development/cloud-connector-runtime-assets.md](docs/development/cloud-connector-runtime-assets.md) |
 | 架构 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 | OAuth | [docs/oauth.md](docs/oauth.md) |
 

@@ -13,6 +13,8 @@
 
 Cloud Core 只做微内核：读取模板、加载插件、收集配置碎片、交给部署器。agent-pack 插件负责把上游仓库映射成运行时可消费的目录和 metadata。
 
+对需要真实运行时依赖的连接器（例如 Google Workspace 的 `gws` CLI），不要把 CLI 安装、凭据文件和 smoke test 塞进 agent-pack。使用 connector runtime assets 声明 `runtimeDependencies`、`skillSources`、`subagentSources`、`credentialFiles` 和 `verificationChecks`；详见 [cloud-connector-runtime-assets.md](cloud-connector-runtime-assets.md)。
+
 ## 2. autoImport 规则
 
 `agent-pack` 的自动导入不是按仓库名硬编码，而是按可声明的 profile 和显式 mounts 分层识别。默认只启用和主流 agent 文件规范兼容的 profile：`standard`、`claude`、`codex`、`mcp`。脚本、任意上下文目录、仓库私有目录需要模板显式声明，或显式选择 `scripts` / `legacy-broad` profile。

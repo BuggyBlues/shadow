@@ -35,7 +35,7 @@
       }
     }
   },
-  "capabilities": ["tool", "webhook", "action"],
+  "capabilities": ["tool", "webhook", "action", "mcp"],
   "tags": ["code", "git", "vcs", "developer", "devops", "mcp"],
   "popularity": 98
 }

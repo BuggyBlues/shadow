@@ -16,6 +16,7 @@ const SECRET_ENV_MARKERS = [
   'COOKIE',
   'CERT',
   'CREDENTIAL',
+  'ADC',
   'KEY',
   'AUTH',
 ]
@@ -72,6 +73,10 @@ function hasRuntimeExtensions(extension: PluginRuntimeExtension): boolean {
   return Boolean(
     extension.openclaw?.manifestPatches?.length ||
       extension.artifacts?.length ||
+      extension.runtimeDependencies?.length ||
+      extension.skillSources?.length ||
+      extension.subagentSources?.length ||
+      extension.mcpServers?.length ||
       extension.credentialFiles?.length ||
       extension.verificationChecks?.length,
   )

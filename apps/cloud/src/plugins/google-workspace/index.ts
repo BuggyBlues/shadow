@@ -3,11 +3,10 @@
  */
 
 import { definePlugin } from '../helpers.js'
+import { buildRuntimeAssetK8sProvider } from '../runtime-assets.js'
 import type {
   PluginBuildContext,
   PluginConfigFragment,
-  PluginK8sProvider,
-  PluginK8sResult,
   PluginManifest,
   PluginValidationResult,
 } from '../types.js'
@@ -19,6 +18,39 @@ const GWS_REPO = 'https://github.com/googleworkspace/cli.git'
 const RUNTIME_MOUNT = '/opt/shadow-plugin-deps/google-workspace'
 const SKILLS_MOUNT = '/app/plugin-skills/google-workspace'
 const CREDENTIALS_FILE = '/home/openclaw/.config/gws/credentials.json'
+const ADC_FILE = '/home/openclaw/.config/gws/application-default-credentials.json'
+const AUTH_ENV_KEYS = [
+  'GOOGLE_WORKSPACE_CLI_TOKEN',
+  'GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON',
+  'GOOGLE_APPLICATION_CREDENTIALS_JSON',
+]
+const SECRET_FIELD_KEYS = {
+  credentialsJson: 'GOOGLE_WORKSPACE_CREDENTIALS_JSON',
+  accessToken: 'GOOGLE_WORKSPACE_ACCESS_TOKEN',
+  adcJson: 'GOOGLE_WORKSPACE_ADC_JSON',
+} as const
+const RUNTIME_DEPENDENCIES = [
+  {
+    id: 'gws-cli',
+    kind: 'npm-global' as const,
+    packages: [GWS_PACKAGE],
+    targetPath: '/runtime-deps',
+    binPath: '/runtime-deps/bin/gws',
+    description: 'Google Workspace CLI binary',
+  },
+]
+const SKILL_SOURCES = [
+  {
+    id: 'google-workspace-cli-skills',
+    kind: 'git' as const,
+    url: GWS_REPO,
+    ref: 'main',
+    from: 'skills',
+    targetPath: SKILLS_MOUNT,
+    includePattern: 'gws-*',
+    description: 'Google Workspace CLI agent skills',
+  },
+]
 
 function isEnabledForAgent(agent: { use?: Array<{ plugin?: string }> }, configUse?: unknown) {
   const agentEnabled = agent.use?.some((entry) => entry.plugin === PLUGIN_ID)
@@ -36,59 +68,62 @@ function stringArray(value: unknown, fallback: string[]): string[] {
   return items.length > 0 ? items : fallback
 }
 
-function buildGoogleWorkspaceInstallScript() {
-  return [
-    'set -eu',
-    'apk add --no-cache git >/dev/null',
-    `npm install -g --prefix /runtime-deps ${GWS_PACKAGE}`,
-    `git clone --depth 1 ${GWS_REPO} /tmp/googleworkspace-cli`,
-    'mkdir -p /plugin-skills',
-    'if [ -d /tmp/googleworkspace-cli/skills ]; then',
-    "  find /tmp/googleworkspace-cli/skills -maxdepth 1 -type d -name 'gws-*' -exec cp -R {} /plugin-skills/ \\;",
-    'fi',
-    'echo "[google-workspace] gws CLI and skills ready"',
-  ].join('\n')
+function firstSecret(context: PluginBuildContext, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = context.secrets[key]
+    if (value) return value
+  }
+  return undefined
 }
 
-const googleWorkspaceK8sProvider: PluginK8sProvider = {
-  buildK8s(agent, ctx): PluginK8sResult | undefined {
-    if (!isEnabledForAgent(agent, ctx.config.use)) return undefined
-
-    return {
-      initContainers: [
-        {
-          name: 'google-workspace-install',
-          image: 'node:22-alpine',
-          imagePullPolicy: 'IfNotPresent',
-          command: ['sh', '-lc', buildGoogleWorkspaceInstallScript()],
-          volumeMounts: [
-            { name: 'google-workspace-runtime', mountPath: '/runtime-deps' },
-            { name: 'google-workspace-skills', mountPath: '/plugin-skills' },
-          ],
-          resources: {
-            requests: { cpu: '100m', memory: '128Mi' },
-            limits: { cpu: '1000m', memory: '512Mi' },
-          },
-        },
-      ],
-      volumes: [
-        { name: 'google-workspace-runtime', spec: { emptyDir: {} } },
-        { name: 'google-workspace-skills', spec: { emptyDir: {} } },
-      ],
-      volumeMounts: [
-        { name: 'google-workspace-runtime', mountPath: RUNTIME_MOUNT, readOnly: true },
-        { name: 'google-workspace-skills', mountPath: SKILLS_MOUNT, readOnly: true },
-      ],
-      envVars: [
-        { name: 'PATH', value: `${RUNTIME_MOUNT}/bin:$(PATH)` },
-        { name: 'GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE', value: CREDENTIALS_FILE },
-      ],
-      labels: { 'plugin.google-workspace/enabled': 'true' },
-    }
-  },
+function hasWorkspaceCredential(context: PluginBuildContext): boolean {
+  return Boolean(
+    firstSecret(context, [
+      SECRET_FIELD_KEYS.credentialsJson,
+      'GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON',
+      SECRET_FIELD_KEYS.accessToken,
+      'GOOGLE_WORKSPACE_CLI_TOKEN',
+      SECRET_FIELD_KEYS.adcJson,
+      'GOOGLE_APPLICATION_CREDENTIALS_JSON',
+    ]),
+  )
 }
+
+const googleWorkspaceK8sProvider = buildRuntimeAssetK8sProvider({
+  pluginId: PLUGIN_ID,
+  isEnabled: (agent, config) => isEnabledForAgent(agent, config.use),
+  runtimeMountPath: RUNTIME_MOUNT,
+  skillsMountPath: SKILLS_MOUNT,
+  runtimeVolumeName: 'google-workspace-runtime',
+  skillsVolumeName: 'google-workspace-skills',
+  runtimeDependencies: RUNTIME_DEPENDENCIES,
+  skillSources: SKILL_SOURCES,
+  envVars: [{ name: 'GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE', value: CREDENTIALS_FILE }],
+  sanityCommands: ['/runtime-deps/bin/gws --version', 'test -f /plugin-skills/gws-shared/SKILL.md'],
+})
 
 const plugin = definePlugin(manifest as PluginManifest, (api) => {
+  api.addSecretFields([
+    {
+      key: SECRET_FIELD_KEYS.credentialsJson,
+      label: 'Google Workspace credentials JSON',
+      description: 'Credentials exported with `gws auth export --unmasked`.',
+      sensitive: true,
+    },
+    {
+      key: SECRET_FIELD_KEYS.adcJson,
+      label: 'Google Workspace ADC JSON',
+      description: 'Optional ADC or service account JSON for headless runtime use.',
+      sensitive: true,
+    },
+    {
+      key: SECRET_FIELD_KEYS.accessToken,
+      label: 'Google Workspace access token',
+      description: 'Optional short-lived OAuth access token.',
+      sensitive: true,
+    },
+  ])
+
   api.addCLI([
     {
       name: 'gws',
@@ -102,16 +137,57 @@ const plugin = definePlugin(manifest as PluginManifest, (api) => {
     },
   ])
 
-  api.addMCP({
-    transport: 'stdio',
-    command: 'gws',
-    args: ['mcp'],
-    env: {
-      GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE: CREDENTIALS_FILE,
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: OpenClaw template syntax
-      GOOGLE_WORKSPACE_CLI_TOKEN: '${env:GOOGLE_WORKSPACE_CLI_TOKEN}',
+  api.addRuntimeDependencies(RUNTIME_DEPENDENCIES)
+  api.addSkillSources(SKILL_SOURCES)
+  api.addCredentialFiles([
+    {
+      envKey: 'GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON',
+      path: CREDENTIALS_FILE,
+      mode: '0600',
     },
-  })
+    {
+      envKey: 'GOOGLE_APPLICATION_CREDENTIALS_JSON',
+      path: ADC_FILE,
+      mode: '0600',
+    },
+  ])
+  api.addVerificationChecks([
+    {
+      id: 'google-workspace-cli-installed',
+      label: 'Google Workspace CLI installed',
+      kind: 'command',
+      command: ['gws', '--version'],
+      timeoutMs: 10_000,
+      risk: 'safe',
+    },
+    {
+      id: 'google-workspace-auth',
+      label: 'Google Workspace auth status',
+      kind: 'command',
+      command: ['gws', 'auth', 'status'],
+      timeoutMs: 15_000,
+      risk: 'safe',
+      requiredEnvAny: AUTH_ENV_KEYS,
+    },
+    {
+      id: 'google-workspace-drive-read',
+      label: 'Google Drive read smoke test',
+      kind: 'command',
+      command: ['gws', 'drive', 'files', 'list', '--params', '{"pageSize": 1}'],
+      timeoutMs: 20_000,
+      risk: 'read',
+      requiredEnvAny: AUTH_ENV_KEYS,
+    },
+    {
+      id: 'google-workspace-calendar-agenda',
+      label: 'Google Calendar agenda smoke test',
+      kind: 'command',
+      command: ['gws', 'calendar', '+agenda'],
+      timeoutMs: 20_000,
+      risk: 'read',
+      requiredEnvAny: AUTH_ENV_KEYS,
+    },
+  ])
 
   api.onBuildConfig((context: PluginBuildContext): PluginConfigFragment => {
     const services = stringArray(context.agentConfig.services, [
@@ -129,6 +205,7 @@ const plugin = definePlugin(manifest as PluginManifest, (api) => {
           [PLUGIN_ID]: {
             enabled: true,
             services,
+            skillSources: [SKILLS_MOUNT],
             env: {
               GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE: CREDENTIALS_FILE,
               // biome-ignore lint/suspicious/noTemplateCurlyInString: OpenClaw template syntax
@@ -146,55 +223,33 @@ const plugin = definePlugin(manifest as PluginManifest, (api) => {
       GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE: CREDENTIALS_FILE,
       GOOGLE_WORKSPACE_CLI_KEYRING_BACKEND: 'file',
     }
-    for (const key of [
+
+    const credentialsJson = firstSecret(context, [
+      SECRET_FIELD_KEYS.credentialsJson,
       'GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON',
+    ])
+    const accessToken = firstSecret(context, [
+      SECRET_FIELD_KEYS.accessToken,
       'GOOGLE_WORKSPACE_CLI_TOKEN',
-      'GOOGLE_WORKSPACE_CLI_SANITIZE_TEMPLATE',
-    ]) {
-      const value = context.secrets[key]
-      if (value) env[key] = value
+    ])
+    const adcJson = firstSecret(context, [
+      SECRET_FIELD_KEYS.adcJson,
+      'GOOGLE_APPLICATION_CREDENTIALS_JSON',
+    ])
+    if (credentialsJson) env.GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON = credentialsJson
+    if (accessToken) env.GOOGLE_WORKSPACE_CLI_TOKEN = accessToken
+    if (adcJson) env.GOOGLE_APPLICATION_CREDENTIALS_JSON = adcJson
+
+    for (const key of ['GOOGLE_WORKSPACE_CLI_SANITIZE_TEMPLATE', 'GOOGLE_WORKSPACE_PROJECT_ID']) {
+      const value = context.secrets[key] ?? context.agentConfig[key]
+      if (typeof value === 'string' && value) env[key] = value
+    }
+
+    if (env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+      env.GOOGLE_APPLICATION_CREDENTIALS = ADC_FILE
     }
     return env
   })
-
-  api.onBuildRuntime(() => ({
-    credentialFiles: [
-      {
-        envKey: 'GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON',
-        path: CREDENTIALS_FILE,
-        mode: '0600',
-      },
-    ],
-    verificationChecks: [
-      {
-        id: 'google-workspace-auth',
-        label: 'Google Workspace auth status',
-        kind: 'command',
-        command: ['gws', 'auth', 'status'],
-        timeoutMs: 15_000,
-        risk: 'safe',
-        requiredEnv: ['GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON'],
-      },
-      {
-        id: 'google-workspace-drive-read',
-        label: 'Google Drive read smoke test',
-        kind: 'command',
-        command: ['gws', 'drive', 'files', 'list', '--params', '{"pageSize": 1}'],
-        timeoutMs: 20_000,
-        risk: 'read',
-        requiredEnv: ['GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON'],
-      },
-      {
-        id: 'google-workspace-calendar-agenda',
-        label: 'Google Calendar agenda smoke test',
-        kind: 'command',
-        command: ['gws', 'calendar', '+agenda'],
-        timeoutMs: 20_000,
-        risk: 'read',
-        requiredEnv: ['GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON'],
-      },
-    ],
-  }))
 
   api.onBuildPrompt((context) => {
     const readOnlyByDefault = context.agentConfig.readOnlyByDefault !== false
@@ -209,16 +264,14 @@ const plugin = definePlugin(manifest as PluginManifest, (api) => {
   })
 
   api.onValidate((context): PluginValidationResult => {
-    const hasCredentials = Boolean(context.secrets.GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON)
-    const hasToken = Boolean(context.secrets.GOOGLE_WORKSPACE_CLI_TOKEN)
-    if (hasCredentials || hasToken) return { valid: true, errors: [] }
+    if (hasWorkspaceCredential(context)) return { valid: true, errors: [] }
     return {
       valid: true,
       errors: [
         {
-          path: 'secrets.GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON',
+          path: `secrets.${SECRET_FIELD_KEYS.credentialsJson}`,
           message:
-            'Google Workspace works best with exported gws credentials JSON or a short-lived access token.',
+            'Google Workspace works best with exported gws credentials JSON, ADC/service-account JSON, or a short-lived access token.',
           severity: 'warning',
         },
       ],
@@ -226,9 +279,7 @@ const plugin = definePlugin(manifest as PluginManifest, (api) => {
   })
 
   api.onHealthCheck(async (context) => {
-    const hasCredentials = Boolean(context.secrets.GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON)
-    const hasToken = Boolean(context.secrets.GOOGLE_WORKSPACE_CLI_TOKEN)
-    return hasCredentials || hasToken
+    return hasWorkspaceCredential(context)
       ? { healthy: true, message: 'Google Workspace credentials are configured' }
       : { healthy: false, message: 'Missing Google Workspace credentials or access token' }
   })
