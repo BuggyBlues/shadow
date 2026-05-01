@@ -247,7 +247,11 @@ export const saasApi = {
           required: boolean
           sensitive: boolean
           placeholder?: string
+          source: 'template' | 'plugin'
+          sourceId: string
+          sourceLabel: string
         }>
+        autoDetectedEnvVars?: string[]
       }>(`/templates/${encodeURIComponent(slug)}/env-refs`),
     create: (data: {
       slug: string

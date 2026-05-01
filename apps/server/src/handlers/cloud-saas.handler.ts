@@ -1325,10 +1325,17 @@ export function createCloudSaasHandler(container: AppContainer) {
     if (!isDeployableTemplateContent(template.content)) {
       return c.json({ ok: false, error: 'Template is not deployable' }, 422)
     }
+    const [requiredEnvVars, fields, runtimeEnvVars] = await Promise.all([
+      Promise.resolve(extractRequiredEnvVars(template.content)),
+      collectRuntimeEnvFields(template.content),
+      collectRuntimeEnvRequirements(template.content),
+    ])
+    const visibleKeys = new Set(fields.map((field) => field.key))
     return c.json({
       template: slug,
-      requiredEnvVars: extractRequiredEnvVars(template.content),
-      fields: await collectRuntimeEnvFields(template.content),
+      requiredEnvVars,
+      fields,
+      autoDetectedEnvVars: runtimeEnvVars.filter((key) => !visibleKeys.has(key)).sort(),
     })
   })
 

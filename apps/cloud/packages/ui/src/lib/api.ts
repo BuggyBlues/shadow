@@ -74,6 +74,9 @@ export interface TemplateEnvField {
   required: boolean
   sensitive: boolean
   placeholder?: string
+  source: 'template' | 'plugin'
+  sourceId: string
+  sourceLabel: string
 }
 
 export interface Settings {
@@ -126,6 +129,7 @@ export interface ProviderCatalogEntry {
     description?: string
     required?: boolean
     sensitive?: boolean
+    placeholder?: string
   }>
 }
 
@@ -481,9 +485,12 @@ export const api = {
       ),
     get: (name: string) => get<Record<string, unknown>>(`/templates/${encodeURIComponent(name)}`),
     envRefs: (name: string) =>
-      get<{ template: string; requiredEnvVars: string[]; fields?: TemplateEnvField[] }>(
-        `/templates/${encodeURIComponent(name)}/env-refs`,
-      ),
+      get<{
+        template: string
+        requiredEnvVars: string[]
+        fields?: TemplateEnvField[]
+        autoDetectedEnvVars?: string[]
+      }>(`/templates/${encodeURIComponent(name)}/env-refs`),
   },
 
   // ── My Templates (forked / custom) ────────────────────────────────────

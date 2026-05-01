@@ -286,30 +286,58 @@ function EnvVarRow({
   const isFilled = isUsingSaved || Boolean(value.trim())
 
   return (
-    <div className="space-y-1.5">
-      <label
-        htmlFor={isUsingSaved ? undefined : inputId}
-        className={cn(
-          'flex items-center gap-1.5 text-xs font-mono',
-          error ? 'text-danger' : 'text-text-secondary',
-        )}
-      >
-        {error ? (
-          <XCircle size={11} className="text-danger" />
-        ) : isFilled ? (
-          <CheckCircle size={11} className="text-success" />
-        ) : (
-          <AlertTriangle size={11} className="text-warning" />
-        )}
-        <span>{label || envKey}</span>
-        {label && label !== envKey && (
-          <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[10px] text-text-muted">
+    <div
+      className={cn(
+        'space-y-3 rounded-xl border p-3 transition-colors',
+        error
+          ? 'border-danger/45 bg-danger/8'
+          : isFilled
+            ? 'border-success/25 bg-success/5'
+            : 'border-border-subtle bg-bg-primary/20',
+      )}
+    >
+      <div className="space-y-1.5">
+        <label
+          htmlFor={isUsingSaved ? undefined : inputId}
+          className={cn(
+            'flex flex-wrap items-center gap-1.5 text-sm font-semibold',
+            error ? 'text-danger' : 'text-text-primary',
+          )}
+        >
+          {error ? (
+            <XCircle size={13} className="text-danger" />
+          ) : isFilled ? (
+            <CheckCircle size={13} className="text-success" />
+          ) : required ? (
+            <AlertTriangle size={13} className="text-warning" />
+          ) : (
+            <Key size={13} className="text-text-muted" />
+          )}
+          <span>{label || envKey}</span>
+          <span className="rounded bg-bg-tertiary px-1.5 py-0.5 font-mono text-[10px] font-medium text-text-muted">
             {envKey}
           </span>
-        )}
-        {required && <span className="text-danger text-[10px]">*</span>}
-      </label>
-      {description && <p className="text-xs text-text-muted">{description}</p>}
+          <span
+            className={cn(
+              'rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
+              required ? 'bg-warning/12 text-warning' : 'bg-bg-tertiary text-text-muted',
+            )}
+          >
+            {required ? t('deploy.requiredBadge') : t('deploy.optionalBadge')}
+          </span>
+          {isSecret && (
+            <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+              {t('deploy.sensitiveBadge')}
+            </span>
+          )}
+          {hasSaved && (
+            <span className="rounded-full bg-success/10 px-1.5 py-0.5 text-[10px] font-semibold text-success">
+              {t('deploy.savedBadge')}
+            </span>
+          )}
+        </label>
+        {description && <p className="text-xs leading-relaxed text-text-muted">{description}</p>}
+      </div>
       {isUsingSaved ? (
         <div
           className={cn(
@@ -402,6 +430,14 @@ function getEnvFieldError(
   }
 }
 
+interface EnvFieldGroup {
+  id: string
+  title: string
+  description: string
+  source: TemplateEnvField['source']
+  fields: TemplateEnvField[]
+}
+
 function StepConfigure({
   name,
   config,
@@ -473,6 +509,7 @@ function StepConfigure({
   })
 
   const [selectedGroup, setSelectedGroup] = useState<string>('')
+  const [collapsedFieldGroups, setCollapsedFieldGroups] = useState<Record<string, boolean>>({})
 
   const enabledProviderProfiles = useMemo(
     () => (providerProfileData?.profiles ?? []).filter((profile) => profile.enabled),
@@ -509,38 +546,93 @@ function StepConfigure({
 
   const templateEnvFields = useMemo<TemplateEnvField[]>(() => {
     const fields = new Map<string, TemplateEnvField>()
+    const autoDetectedKeys = new Set(envRefsData?.autoDetectedEnvVars ?? [])
 
     for (const field of envRefsData?.fields ?? []) {
       if (field.key === 'SHADOW_SERVER_URL' || field.key === 'SHADOW_USER_TOKEN') continue
       fields.set(field.key, {
         key: field.key,
         label: field.label || envKeyToLabel(field.key),
-        description: field.description,
+        description:
+          field.description ??
+          (field.source === 'plugin'
+            ? t('deploy.pluginFieldDescription')
+            : t('deploy.templateFieldDescription')),
         required: field.required,
         sensitive: field.sensitive,
         placeholder: field.placeholder,
+        source: field.source ?? 'template',
+        sourceId: field.sourceId ?? 'template',
+        sourceLabel: field.sourceLabel ?? t('deploy.templateFieldSource'),
       })
     }
 
     for (const key of requiredVars) {
       if (key === 'SHADOW_SERVER_URL' || key === 'SHADOW_USER_TOKEN') continue
-      if (!fields.has(key)) {
+      if (!fields.has(key) && !autoDetectedKeys.has(key)) {
         fields.set(key, {
           key,
           label: envKeyToLabel(key),
           required: true,
           sensitive: isSensitiveEnvVarKey(key),
+          source: 'template',
+          sourceId: 'template',
+          sourceLabel: t('deploy.templateFieldSource'),
+          description: t('deploy.templateFieldDescription'),
         })
       }
     }
 
     return [...fields.values()].sort((a, b) => a.key.localeCompare(b.key))
-  }, [envRefsData?.fields, requiredVars])
+  }, [envRefsData?.autoDetectedEnvVars, envRefsData?.fields, requiredVars, t])
+
+  const autoDetectedEnvVars = envRefsData?.autoDetectedEnvVars ?? []
 
   const requiredTemplateVars = useMemo(
     () => templateEnvFields.filter((field) => field.required).map((field) => field.key),
     [templateEnvFields],
   )
+
+  const templateEnvFieldGroups = useMemo<EnvFieldGroup[]>(() => {
+    const groupsById = new Map<string, EnvFieldGroup>()
+    for (const field of templateEnvFields) {
+      const id = field.source === 'plugin' ? `plugin:${field.sourceId}` : 'template'
+      const existing = groupsById.get(id)
+      if (existing) {
+        existing.fields.push(field)
+        continue
+      }
+      groupsById.set(id, {
+        id,
+        source: field.source,
+        title:
+          field.source === 'plugin'
+            ? field.sourceLabel || field.sourceId
+            : t('deploy.templateFieldSource'),
+        description:
+          field.source === 'plugin'
+            ? t('deploy.pluginFieldGroupDescription', {
+                plugin: field.sourceLabel || field.sourceId,
+              })
+            : t('deploy.templateFieldGroupDescription'),
+        fields: [field],
+      })
+    }
+
+    return [...groupsById.values()]
+      .map((group) => ({
+        ...group,
+        fields: group.fields.sort((a, b) => {
+          if (a.required !== b.required) return a.required ? -1 : 1
+          return a.key.localeCompare(b.key)
+        }),
+      }))
+      .sort((a, b) => {
+        if (a.id === 'template') return -1
+        if (b.id === 'template') return 1
+        return a.title.localeCompare(b.title)
+      })
+  }, [templateEnvFields, t])
 
   // Build a lookup of saved env var keys → masked values (from effective deployment env)
   const savedLookup = useMemo(() => {
@@ -801,48 +893,154 @@ function StepConfigure({
           </div>
         )}
 
-        {/* Required Environment Variables */}
-        {templateEnvFields.length > 0 && (
+        {/* Preset environment variable fields */}
+        {(templateEnvFields.length > 0 || autoDetectedEnvVars.length > 0) && (
           <div className="rounded-xl border border-border-subtle bg-bg-secondary/50 p-4 space-y-4">
-            <div className="flex items-center gap-2">
-              <Key size={14} className="text-warning" />
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div className="flex items-start gap-2">
+                <Key size={14} className="mt-0.5 text-warning" />
+                <div>
+                  <h3 className="text-sm font-semibold">{t('deploy.envFieldSlotsTitle')}</h3>
+                  <p className="text-xs text-text-muted">
+                    {t('deploy.envFieldSlotsDescription', {
+                      count: templateEnvFields.length,
+                      required: requiredTemplateVars.length,
+                    })}
+                  </p>
+                </div>
+              </div>
               <div>
-                <h3 className="text-sm font-semibold">{t('deploy.requiredEnvVars')}</h3>
-                <p className="text-xs text-text-muted">
-                  {t('deploy.templateRequiresVars', { count: templateEnvFields.length })}
-                </p>
+                <span className="rounded-full bg-warning/10 px-2 py-1 text-[11px] font-semibold text-warning">
+                  {t('deploy.requiredCount', { count: requiredTemplateVars.length })}
+                </span>
               </div>
             </div>
-            {templateEnvFields.map((field) => {
-              const { key } = field
-              const fieldError = getEnvFieldError(errors, key)
+
+            {autoDetectedEnvVars.length > 0 && (
+              <div className="rounded-xl border border-success/20 bg-success/8 px-3 py-2 text-xs text-text-secondary">
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 size={13} className="mt-0.5 shrink-0 text-success" />
+                  <div className="space-y-1">
+                    <p className="font-medium text-success">
+                      {t('deploy.autoDetectedVarsTitle', {
+                        count: autoDetectedEnvVars.length,
+                      })}
+                    </p>
+                    <p>{t('deploy.autoDetectedVarsDescription')}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {templateEnvFieldGroups.map((group) => {
+              const collapsed = collapsedFieldGroups[group.id] ?? false
+              const requiredCount = group.fields.filter((field) => field.required).length
+              const filledCount = group.fields.filter((field) => {
+                const value = envVars[field.key]
+                return (
+                  value === '__SAVED__' ||
+                  Boolean(value?.trim()) ||
+                  Boolean(combinedLookup[field.key])
+                )
+              }).length
               return (
-                <EnvVarRow
-                  key={key}
-                  envKey={key}
-                  label={field.label}
-                  description={field.description}
-                  required={field.required}
-                  isSecret={field.sensitive}
-                  placeholder={
-                    field.placeholder ??
-                    (key.includes('KEY') || key.includes('TOKEN') || key.includes('SECRET')
-                      ? 'sk-...'
-                      : t('deploy.enterValue'))
-                  }
-                  value={envVars[key] ?? ''}
-                  hasSaved={Boolean(combinedLookup[key])}
-                  error={fieldError.hasError}
-                  errorMessage={fieldError.message}
-                  inputRef={(el) => {
-                    inputRefs.current[key] = el
-                  }}
-                  onValueChange={(value) => updateVar(key, value)}
-                  onInputBlur={() => clearErrors(`envVars.${key}` as const)}
-                  onUseSaved={() => updateVar(key, '__SAVED__')}
-                  onOverrideSaved={() => updateVar(key, '')}
-                  t={t}
-                />
+                <div
+                  key={group.id}
+                  className="overflow-hidden rounded-2xl border border-border-subtle bg-bg-primary/20"
+                >
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCollapsedFieldGroups((prev) => ({
+                        ...prev,
+                        [group.id]: !collapsed,
+                      }))
+                    }
+                    className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-bg-secondary/35"
+                  >
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div
+                        className={cn(
+                          'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
+                          group.source === 'plugin'
+                            ? 'bg-primary/12 text-primary'
+                            : 'bg-warning/12 text-warning',
+                        )}
+                      >
+                        {group.source === 'plugin' ? <Unplug size={14} /> : <Key size={14} />}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="text-sm font-semibold text-text-primary">{group.title}</h4>
+                          <span className="rounded-full bg-bg-tertiary px-2 py-0.5 text-[10px] font-semibold text-text-muted">
+                            {group.source === 'plugin'
+                              ? t('deploy.pluginSourceBadge')
+                              : t('deploy.templateSourceBadge')}
+                          </span>
+                          {requiredCount > 0 && (
+                            <span className="rounded-full bg-warning/10 px-2 py-0.5 text-[10px] font-semibold text-warning">
+                              {t('deploy.requiredCount', { count: requiredCount })}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-xs leading-relaxed text-text-muted">
+                          {group.description}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2 text-xs text-text-muted">
+                      <span>
+                        {t('deploy.fieldGroupProgress', {
+                          filled: filledCount,
+                          total: group.fields.length,
+                        })}
+                      </span>
+                      <ChevronRight
+                        size={15}
+                        className={cn('transition-transform', !collapsed && 'rotate-90')}
+                      />
+                    </div>
+                  </button>
+
+                  {!collapsed && (
+                    <div className="space-y-3 border-t border-border-subtle/70 p-3">
+                      {group.fields.map((field) => {
+                        const { key } = field
+                        const fieldError = getEnvFieldError(errors, key)
+                        return (
+                          <EnvVarRow
+                            key={key}
+                            envKey={key}
+                            label={field.label}
+                            description={field.description}
+                            required={field.required}
+                            isSecret={field.sensitive}
+                            placeholder={
+                              field.placeholder ??
+                              (key.includes('KEY') ||
+                              key.includes('TOKEN') ||
+                              key.includes('SECRET')
+                                ? 'sk-...'
+                                : t('deploy.enterValue'))
+                            }
+                            value={envVars[key] ?? ''}
+                            hasSaved={Boolean(combinedLookup[key])}
+                            error={fieldError.hasError}
+                            errorMessage={fieldError.message}
+                            inputRef={(el) => {
+                              inputRefs.current[key] = el
+                            }}
+                            onValueChange={(value) => updateVar(key, value)}
+                            onInputBlur={() => clearErrors(`envVars.${key}` as const)}
+                            onUseSaved={() => updateVar(key, '__SAVED__')}
+                            onOverrideSaved={() => updateVar(key, '')}
+                            t={t}
+                          />
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
               )
             })}
           </div>
