@@ -496,7 +496,7 @@ function OverviewPanel({
                       params={{ namespace: item.namespace }}
                       className="block"
                     >
-                      <GlassSurface className="flex items-center justify-between gap-3 rounded-2xl border border-border-subtle px-4 py-3 transition-colors hover:bg-bg-modifier-hover">
+                      <GlassSurface className="rounded-2xl border border-border-subtle flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-bg-modifier-hover">
                         <div className="min-w-0">
                           <p className="text-sm font-medium truncate text-text-primary">
                             {item.namespace}
@@ -614,7 +614,7 @@ function OverviewPanel({
                   params={{ namespace: group.namespace }}
                   className="block"
                 >
-                  <GlassSurface className="block rounded-2xl border border-border-subtle px-4 py-3 transition-colors hover:bg-bg-modifier-hover">
+                  <GlassSurface className="rounded-2xl border border-border-subtle block px-4 py-3 transition-colors hover:bg-bg-modifier-hover">
                     <div className="mb-2 flex items-center justify-between gap-3">
                       <p className="text-sm font-medium text-text-primary">{group.namespace}</p>
                       <Badge
@@ -1101,7 +1101,8 @@ export function MonitoringPage() {
     { id: 'activity', label: t('activity.title'), icon: <Activity size={13} /> },
   ]
 
-  const tabPanelClassName = 'rounded-[28px] p-4 md:p-5 lg:p-6'
+  const tabPanelClassName =
+    'rounded-[28px] border border-border-subtle bg-bg-secondary/35 p-4 md:p-5 lg:p-6'
 
   return (
     <PageShell
@@ -1209,7 +1210,7 @@ export function MonitoringPage() {
     >
       <div className="min-h-[40vh]">
         {activeTab === 'overview' && (
-          <GlassPanel className={tabPanelClassName}>
+          <div className={tabPanelClassName}>
             <OverviewPanel
               doctor={doctor}
               deployments={deploymentList}
@@ -1217,71 +1218,71 @@ export function MonitoringPage() {
               costOverview={costOverview}
               activities={activities}
             />
-          </GlassPanel>
+          </div>
         )}
 
         {activeTab === 'health' &&
           (loadingDoctor ? (
-            <GlassPanel className={tabPanelClassName}>
+            <div className={tabPanelClassName}>
               <div className="min-h-[22vh] py-10 text-center text-sm text-text-muted">
                 {t('monitoring.runningHealthChecks')}
               </div>
-            </GlassPanel>
+            </div>
           ) : doctor ? (
-            <GlassPanel className={tabPanelClassName}>
+            <div className={tabPanelClassName}>
               <HealthPanel doctor={doctor} />
-            </GlassPanel>
+            </div>
           ) : (
-            <GlassPanel className={tabPanelClassName}>
+            <div className={tabPanelClassName}>
               <div className="min-h-[22vh] py-10 text-center text-sm text-text-muted">
                 {t('monitoring.failedHealthChecks')}
               </div>
-            </GlassPanel>
+            </div>
           ))}
 
         {activeTab === 'deployments' &&
           (loadingDeployments ? (
-            <GlassPanel className={tabPanelClassName}>
+            <div className={tabPanelClassName}>
               <DashboardLoadingState inline className="py-10" />
-            </GlassPanel>
+            </div>
           ) : deploymentList.length > 0 ? (
-            <GlassPanel className={tabPanelClassName}>
+            <div className={tabPanelClassName}>
               <DeploymentsPanel deployments={deploymentList} />
-            </GlassPanel>
+            </div>
           ) : (
-            <GlassPanel className={tabPanelClassName}>
+            <div className={tabPanelClassName}>
               <EmptyState
                 icon={Box}
                 title={t('monitoring.noDeploymentsFound')}
                 description={t('deployments.noDeploymentsYet')}
               />
-            </GlassPanel>
+            </div>
           ))}
 
         {activeTab === 'costs' &&
           (loadingCosts || loadingNamespaces ? (
-            <GlassPanel className={tabPanelClassName}>
+            <div className={tabPanelClassName}>
               <DashboardLoadingState inline className="py-10" />
-            </GlassPanel>
+            </div>
           ) : (
-            <GlassPanel className={tabPanelClassName}>
+            <div className={tabPanelClassName}>
               <CostsPanel
                 overview={costOverview}
                 namespaceCosts={namespaceCosts}
                 loadingNamespaceCosts={loadingNamespaceCosts}
               />
-            </GlassPanel>
+            </div>
           ))}
 
         {activeTab === 'activity' &&
           (loadingActivity ? (
-            <GlassPanel className={tabPanelClassName}>
+            <div className={tabPanelClassName}>
               <DashboardLoadingState inline className="py-10" />
-            </GlassPanel>
+            </div>
           ) : (
-            <GlassPanel className={tabPanelClassName}>
+            <div className={tabPanelClassName}>
               <ActivityPanel activities={activities} />
-            </GlassPanel>
+            </div>
           ))}
       </div>
     </PageShell>
