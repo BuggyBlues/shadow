@@ -136,3 +136,16 @@ export interface CloudTemplate {
   updatedAt: string
   authorId: string | null
 }
+
+export interface CloudTemplateRefreshResult {
+  ok: true
+  templatesDir: string
+  totalFiles: number
+  created: number
+  updated: number
+  skipped: number
+  pruned: number
+  slugs: string[]
+  skippedFiles: Array<{ file: string; reason: string }>
+  prunedSlugs: string[]
+}

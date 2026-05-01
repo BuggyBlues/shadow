@@ -1,5 +1,6 @@
+import { RefreshCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { apiFetch, type CloudTemplate } from '../lib/admin-api'
+import { apiFetch, type CloudTemplate, type CloudTemplateRefreshResult } from '../lib/admin-api'
 
 type StatusFilter = 'all' | 'draft' | 'pending' | 'approved' | 'rejected'
 
@@ -48,6 +49,8 @@ export function TemplatesTab() {
   const [loading, setLoading] = useState(false)
   const [selected, setSelected] = useState<CloudTemplate | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [refreshLoading, setRefreshLoading] = useState(false)
+  const [refreshResult, setRefreshResult] = useState<CloudTemplateRefreshResult | null>(null)
   // Create/Edit modal
   const [modalMode, setModalMode] = useState<'create' | 'edit' | null>(null)
   const [editTarget, setEditTarget] = useState<CloudTemplate | null>(null)
@@ -76,6 +79,27 @@ export function TemplatesTab() {
   const setFilterAndLoad = (s: StatusFilter) => {
     setFilter(s)
     load(s)
+  }
+
+  const refreshOfficialTemplates = async () => {
+    if (!confirm('确定从 templates 目录刷新预设模版？旧的 official 残留模版会被下架。')) return
+    setRefreshLoading(true)
+    setRefreshResult(null)
+    try {
+      const result = await apiFetch<CloudTemplateRefreshResult>(
+        '/cloud-templates/refresh-official',
+        {
+          method: 'POST',
+          body: JSON.stringify({ prune: true }),
+        },
+      )
+      setRefreshResult(result)
+      await load(filter)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '刷新失败')
+    } finally {
+      setRefreshLoading(false)
+    }
   }
 
   const approve = async (id: string) => {
@@ -221,13 +245,47 @@ export function TemplatesTab() {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-bold">商店模版管理</h2>
-        <button
-          onClick={openCreate}
-          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition"
-        >
-          + 新建模版
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={refreshOfficialTemplates}
+            disabled={refreshLoading}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-lg text-sm font-medium transition disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshLoading ? 'animate-spin' : ''}`} />
+            {refreshLoading ? '刷新中…' : '刷新预设'}
+          </button>
+          <button
+            onClick={openCreate}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition"
+          >
+            + 新建模版
+          </button>
+        </div>
       </div>
+
+      {refreshResult && (
+        <div className="mb-4 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-zinc-300">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span>目录：{refreshResult.templatesDir}</span>
+            <span>文件：{refreshResult.totalFiles}</span>
+            <span className="text-green-300">新增：{refreshResult.created}</span>
+            <span className="text-sky-300">更新：{refreshResult.updated}</span>
+            <span className="text-yellow-300">跳过：{refreshResult.skipped}</span>
+            <span className="text-red-300">清理：{refreshResult.pruned}</span>
+          </div>
+          {refreshResult.prunedSlugs.length > 0 && (
+            <p className="mt-1 text-xs text-red-300">
+              已下架旧预设：{refreshResult.prunedSlugs.join(', ')}
+            </p>
+          )}
+          {refreshResult.skippedFiles.length > 0 && (
+            <p className="mt-1 text-xs text-yellow-300">
+              有文件未导入：
+              {refreshResult.skippedFiles.map((item) => `${item.file}: ${item.reason}`).join('；')}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Filter */}
       <div className="flex gap-2 mb-4">

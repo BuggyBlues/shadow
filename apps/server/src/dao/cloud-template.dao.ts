@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray, not } from 'drizzle-orm'
 import type { Database } from '../db'
 import { cloudTemplates } from '../db/schema'
 
@@ -73,6 +73,14 @@ export class CloudTemplateDao {
       })
       .returning()
     return result[0]
+  }
+
+  async deleteOfficialNotIn(slugs: string[]) {
+    if (slugs.length === 0) return []
+    return this.db
+      .delete(cloudTemplates)
+      .where(and(eq(cloudTemplates.source, 'official'), not(inArray(cloudTemplates.slug, slugs))))
+      .returning()
   }
 
   async submitCommunity(data: {

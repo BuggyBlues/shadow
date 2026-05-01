@@ -2,7 +2,6 @@ import 'dotenv/config'
 import { execSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { serve } from '@hono/node-server'
 import { hash } from 'bcryptjs'
 import { eq } from 'drizzle-orm'
@@ -14,13 +13,13 @@ import { type AppContainer, createAppContainer } from './container'
 import { db } from './db'
 import { users } from './db/schema'
 import { startCloudDeploymentProcessor } from './lib/cloud-deployment-processor'
+import { resolveCloudTemplatesDir } from './lib/cloud-templates'
 import { randomFixedDigits } from './lib/id'
 import { verifyToken } from './lib/jwt'
 import { logger } from './lib/logger'
 import { setupWebSocket } from './ws'
 
 const PORT = Number(process.env.PORT ?? 3002)
-const CURRENT_DIR = path.dirname(fileURLToPath(import.meta.url))
 
 async function main() {
   // Database schema sync / migration
@@ -107,21 +106,8 @@ async function main() {
   // Seed official cloud templates from @shadowob/cloud package
   try {
     const cloudService = container.resolve('cloudService')
-    // Resolve templates directory: env override > runtime image assets > monorepo source > installed package
-    const templatesDir =
-      process.env.CLOUD_TEMPLATES_DIR ??
-      (() => {
-        const candidates = [
-          path.resolve(process.cwd(), 'apps/cloud/templates'), // server runtime image
-          path.resolve(CURRENT_DIR, '../../../../apps/cloud/templates'), // monorepo dev
-          path.resolve(process.cwd(), '../../apps/cloud/templates'), // docker build context
-          path.resolve(process.cwd(), '../cloud/templates'), // alternative layout
-          path.resolve(process.cwd(), 'node_modules/@shadowob/cloud/templates'), // installed pkg
-        ]
-        return (candidates.find((candidate) => fs.existsSync(candidate)) ?? candidates[0]) as string
-      })()
-    await cloudService.seedOfficialTemplates(templatesDir)
-    logger.info('Cloud templates seeded')
+    const result = await cloudService.seedOfficialTemplates(resolveCloudTemplatesDir())
+    logger.info({ result }, 'Cloud templates seeded')
   } catch (err) {
     logger.warn({ err }, 'Cloud template seeding skipped')
   }

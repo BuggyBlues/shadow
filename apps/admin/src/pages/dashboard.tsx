@@ -1,3 +1,4 @@
+import { RefreshCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { ConfigManagementPage } from './config-management'
 
@@ -226,6 +227,19 @@ interface CloudTemplate {
   authorId: string | null
 }
 
+interface CloudTemplateRefreshResult {
+  ok: true
+  templatesDir: string
+  totalFiles: number
+  created: number
+  updated: number
+  skipped: number
+  pruned: number
+  slugs: string[]
+  skippedFiles: Array<{ file: string; reason: string }>
+  prunedSlugs: string[]
+}
+
 type TplStatusFilter = 'all' | 'draft' | 'pending' | 'approved' | 'rejected'
 
 interface PasswordChangeLog {
@@ -274,6 +288,8 @@ function DashboardContent() {
   const [tplLoading, setTplLoading] = useState(false)
   const [tplSelected, setTplSelected] = useState<CloudTemplate | null>(null)
   const [tplActionLoading, setTplActionLoading] = useState<string | null>(null)
+  const [tplRefreshLoading, setTplRefreshLoading] = useState(false)
+  const [tplRefreshResult, setTplRefreshResult] = useState<CloudTemplateRefreshResult | null>(null)
   const [tplRejectDialogOpen, setTplRejectDialogOpen] = useState(false)
   const [tplRejectNote, setTplRejectNote] = useState('')
   const [tplRejectTargetId, setTplRejectTargetId] = useState<string | null>(null)
@@ -372,6 +388,27 @@ function DashboardContent() {
       /* */
     } finally {
       setTplLoading(false)
+    }
+  }
+
+  const refreshOfficialTemplates = async () => {
+    if (!confirm('确定从 templates 目录刷新预设模版？旧的 official 残留模版会被下架。')) return
+    setTplRefreshLoading(true)
+    setTplRefreshResult(null)
+    try {
+      const result = await apiFetch<CloudTemplateRefreshResult>(
+        '/cloud-templates/refresh-official',
+        {
+          method: 'POST',
+          body: JSON.stringify({ prune: true }),
+        },
+      )
+      setTplRefreshResult(result)
+      await loadTemplates(tplFilter)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '刷新失败')
+    } finally {
+      setTplRefreshLoading(false)
     }
   }
 
@@ -1230,16 +1267,52 @@ function DashboardContent() {
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold">商店模版管理</h2>
-                <button
-                  onClick={() => {
-                    setTplForm(emptyTplForm)
-                    setTplCreateOpen(true)
-                  }}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition"
-                >
-                  + 新建模版
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={refreshOfficialTemplates}
+                    disabled={tplRefreshLoading}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-lg text-sm font-medium transition disabled:opacity-50"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${tplRefreshLoading ? 'animate-spin' : ''}`} />
+                    {tplRefreshLoading ? '刷新中…' : '刷新预设'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setTplForm(emptyTplForm)
+                      setTplCreateOpen(true)
+                    }}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition"
+                  >
+                    + 新建模版
+                  </button>
+                </div>
               </div>
+
+              {tplRefreshResult && (
+                <div className="mb-4 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-zinc-300">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                    <span>目录：{tplRefreshResult.templatesDir}</span>
+                    <span>文件：{tplRefreshResult.totalFiles}</span>
+                    <span className="text-green-300">新增：{tplRefreshResult.created}</span>
+                    <span className="text-sky-300">更新：{tplRefreshResult.updated}</span>
+                    <span className="text-yellow-300">跳过：{tplRefreshResult.skipped}</span>
+                    <span className="text-red-300">清理：{tplRefreshResult.pruned}</span>
+                  </div>
+                  {tplRefreshResult.prunedSlugs.length > 0 && (
+                    <p className="mt-1 text-xs text-red-300">
+                      已下架旧预设：{tplRefreshResult.prunedSlugs.join(', ')}
+                    </p>
+                  )}
+                  {tplRefreshResult.skippedFiles.length > 0 && (
+                    <p className="mt-1 text-xs text-yellow-300">
+                      有文件未导入：
+                      {tplRefreshResult.skippedFiles
+                        .map((item) => `${item.file}: ${item.reason}`)
+                        .join('；')}
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Filter */}
               <div className="flex gap-2 mb-4">
