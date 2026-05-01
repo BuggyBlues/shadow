@@ -7,7 +7,7 @@
  *   <pack-id>/
  *     skills/        — wired to OpenClaw skills.load.extraDirs
  *     commands/      — also wired as skills (each with SKILL.md inside)
- *     instructions/  — CLAUDE.md / AGENTS.md / SOUL.md / RULES.md / …
+ *     instructions/  — AGENTS.md / CLAUDE.md / GEMINI.md / …
  *     hooks/         — hook scripts
  *     mcp/           — collected mcp.json fragments
  *     scripts/       — bin/ helper executables
@@ -38,7 +38,7 @@ const AGENT_PACK_TOOL_CHECKS = [
 export type PackKind =
   | 'skills' // SKILL.md folders → wired to OpenClaw skills.load.extraDirs
   | 'commands' // Claude-style slash commands (.md w/ frontmatter) → also wired as skills
-  | 'instructions' // CLAUDE.md / AGENTS.md / SOUL.md / RULES.md / ETHOS.md / INSTRUCTIONS.md
+  | 'instructions' // AGENTS.md / CLAUDE.md / GEMINI.md / other explicitly configured docs
   | 'hooks' // bootstrap.md / teardown.md / hooks.yaml
   | 'mcp' // .mcp.json / mcp.json — MCP server configs
   | 'scripts' // bin/ or scripts/ helper executables
@@ -50,29 +50,13 @@ export type PackKind =
  * override per pack via the `instructionFiles` option.
  */
 export const DEFAULT_INSTRUCTION_FILES = [
-  'CLAUDE.md',
+  'AGENTS.override.md',
   'AGENTS.md',
+  'CLAUDE.md',
   'GEMINI.md',
-  'SOUL.md',
-  'RULES.md',
-  'rules.md',
-  'ETHOS.md',
-  'INSTRUCTIONS.md',
-  'PERSONALITY.md',
-  'ARCHITECTURE.md',
-  'BROWSER.md',
-  'DESIGN.md',
   '.cursorrules',
   '.windsurfrules',
   '.clinerules',
-  'README.md',
-  'README.mdx',
-  'CONTEXT.md',
-  'MEMORY.md',
-  'PLAYBOOK.md',
-  'SPEC.md',
-  'SYSTEM.md',
-  'AGENT.md',
 ]
 
 /** A per-pack mount declaration after preset/option resolution. */
@@ -95,6 +79,8 @@ export interface ResolvedPack {
    * Used for prompt summaries and runtime metadata only.
    */
   autoDetect?: boolean
+  /** Auto-import profiles used to resolve standard-compatible mounts. */
+  autoImportProfiles?: string[]
   /** One entry per kind to mount. */
   mounts: ResolvedMount[]
   /** Root-level instruction filenames to also collect into `instructions/`. */
@@ -202,13 +188,14 @@ function buildMountCopySnippet(
       // OpenClaw can discover them via skills.load.extraDirs.
       const descriptorName = mount.kind === 'agents' ? 'AGENT.md' : 'SKILL.md'
       const rootSkillSlug = sanitizeId(pack.id)
+      const codexAgentSkillWrapper = `printf '%s\\n' '---' 'description: Codex custom agent definition imported from an agent pack.' 'user-invocable: false' '---' '' '# Codex custom agent' '' 'Read the bundled AGENT.toml before using this custom agent definition. Treat it as agent configuration, not as a free-form prompt.' > "${dest}/$slug/SKILL.md"`
       const descriptorCopies =
         mount.kind === 'agents'
-          ? `cp "$f" "${dest}/$slug/${descriptorName}"; cp "$f" "${dest}/$slug/SKILL.md"`
+          ? `case "$f" in *.toml) cp "$f" "${dest}/$slug/AGENT.toml"; ${codexAgentSkillWrapper} ;; *) cp "$f" "${dest}/$slug/${descriptorName}"; cp "$f" "${dest}/$slug/SKILL.md" ;; esac`
           : `cp "$f" "${dest}/$slug/${descriptorName}"`
       const stripSkillSuffix =
         mount.kind === 'skills' ? `slug="$(printf '%s' "$slug" | sed 's/-SKILL$//')"; ` : ''
-      const normalizeTopLevelFile = `base="$(basename "$f" .md)"; if [ "$base" = "SKILL" ]; then slug="${rootSkillSlug}"; else slug="$base"; fi; ${stripSkillSuffix}slug="$(printf '%s' "$slug" | tr -cs 'A-Za-z0-9._-' '-' | sed 's/^-//;s/-$//')"; [ -n "$slug" ] || slug="item"; mkdir -p "${dest}/$slug"; ${descriptorCopies}`
+      const normalizeTopLevelFile = `base="$(basename "$f")"; base="\${base%.md}"; base="\${base%.toml}"; if [ "$base" = "SKILL" ]; then slug="${rootSkillSlug}"; else slug="$base"; fi; ${stripSkillSuffix}slug="$(printf '%s' "$slug" | tr -cs 'A-Za-z0-9._-' '-' | sed 's/^-//;s/-$//')"; [ -n "$slug" ] || slug="item"; mkdir -p "${dest}/$slug"; ${descriptorCopies}`
       const normalizeNestedSkillDir = `d="$(dirname "$f")"; rel="$d"; case "$rel" in "${from}"/*) rel="\${rel#${from}/}" ;; *) rel="$(basename "$d")" ;; esac; slug="$(basename "$d")"; slug="$(printf '%s' "$slug" | sed 's/-SKILL$//' | tr -cs 'A-Za-z0-9._-' '-' | sed 's/^-//;s/-$//')"; [ -n "$slug" ] || slug="${rootSkillSlug}"; if [ -e "${dest}/$slug" ]; then slug="$(printf '%s' "$rel" | sed 's/-SKILL$//' | tr '/ ' '--' | tr -cs 'A-Za-z0-9._-' '-' | sed 's/^-//;s/-$//')"; fi; [ -n "$slug" ] || slug="${rootSkillSlug}"; mkdir -p "${dest}/$slug"; cp -r "$d/." "${dest}/$slug/"`
       if (mount.include && mount.include.length > 0) {
         for (const name of mount.include) {
@@ -220,7 +207,9 @@ function buildMountCopySnippet(
         const hasDescriptor =
           mount.kind === 'skills'
             ? `[ -f "$d/SKILL.md" ]`
-            : `[ -n "$(find "$d" -maxdepth 1 -type f -name '*.md' -print -quit 2>/dev/null)" ]`
+            : mount.kind === 'agents'
+              ? `[ -n "$(find "$d" -maxdepth 1 -type f \\( -name '*.md' -o -name '*.toml' \\) -print -quit 2>/dev/null)" ]`
+              : `[ -n "$(find "$d" -maxdepth 1 -type f -name '*.md' -print -quit 2>/dev/null)" ]`
         cmds.push(
           `find "${from}" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | while read -r d; do if ${hasDescriptor}; then cp -r "$d" "${dest}/"; fi; done`,
         )
@@ -237,11 +226,13 @@ function buildMountCopySnippet(
         }
         if (mount.kind === 'commands' || mount.kind === 'agents') {
           const pathSegment = mount.kind
+          const fileGlob =
+            mount.kind === 'agents' ? `\\( -name '*.md' -o -name '*.toml' \\)` : `-name '*.md'`
           cmds.push(
-            `find "${from}" -mindepth 1 -maxdepth 1 -type f -name '*.md' 2>/dev/null | while read -r f; do ${normalizeTopLevelFile}; done`,
+            `find "${from}" -mindepth 1 -maxdepth 1 -type f ${fileGlob} 2>/dev/null | while read -r f; do ${normalizeTopLevelFile}; done`,
           )
           cmds.push(
-            `find "${from}" -path '*/.git/*' -prune -o -path "*/${pathSegment}/*.md" -type f -print 2>/dev/null | while read -r f; do ${normalizeTopLevelFile}; done`,
+            `find "${from}" -path '*/.git/*' -prune -o -path "*/${pathSegment}/*" -type f ${fileGlob} -print 2>/dev/null | while read -r f; do ${normalizeTopLevelFile}; done`,
           )
         }
       }
@@ -315,6 +306,7 @@ function buildPackCloneSnippet(pack: ResolvedPack, mountPath: string): string {
     url: pack.url,
     ref: pack.ref,
     autoDetect: pack.autoDetect ?? false,
+    autoImportProfiles: pack.autoImportProfiles ?? [],
     kinds: pack.mounts.map((m) => m.kind),
   })
   lines.push(`echo '${manifest.replace(/'/g, "'\\''")}' > "${destBase}/.pack.json"`)

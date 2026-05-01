@@ -68,7 +68,23 @@
                 {
                   "id": "gstack",
                   "url": "https://github.com/garrytan/gstack",
-                  "ref": "main"
+                  "ref": "main",
+                  "autoImport": ["standard", "claude", "codex", "mcp"],
+                  "mounts": [
+                    { "kind": "instructions", "from": "openclaw" },
+                    { "kind": "scripts", "from": "bin" },
+                    { "kind": "scripts", "from": "scripts" },
+                    { "kind": "scripts", "from": "setup" }
+                  ],
+                  "instructionFiles": [
+                    "AGENTS.md",
+                    "CLAUDE.md",
+                    "ARCHITECTURE.md",
+                    "BROWSER.md",
+                    "DESIGN.md",
+                    "ETHOS.md",
+                    "README.md"
+                  ]
                 }
               ],
               "poll": "1h"

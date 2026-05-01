@@ -1,7 +1,7 @@
 {
   "id": "agent-pack",
   "name": "Agent Pack",
-  "description": "Pure mechanism for pulling AI-agent customisation packs (skills, slash commands, persona/instructions, hooks, MCP server configs, helper scripts, sub-agents, arbitrary files) from any git repo at deploy time and mounting them into the agent container. Templates can rely on common-layout auto-detection or provide exact mounts for unusual repositories.",
+  "description": "Pure mechanism for pulling AI-agent customisation packs from any git repo at deploy time. Standards-based auto-import handles Agent Skills, Claude Code, Codex, and MCP layouts; templates can opt into scripts or declare exact mounts for repo-specific layouts.",
   "version": "1.0.0",
   "category": "code",
   "icon": "package",
@@ -39,7 +39,24 @@
             "depth": { "type": "number", "description": "Shallow clone depth. Defaults to 1." },
             "autoDetect": {
               "type": "boolean",
-              "description": "Auto-detect common pack layouts (skills/, .claude/commands, .claude/agents, openclaw/skills, hooks, MCP, scripts, context docs). Defaults to true when mounts are omitted."
+              "description": "Back-compat flag for standards-based auto-import. Defaults to true when mounts are omitted."
+            },
+            "autoImport": {
+              "description": "Select which standard-compatible layout profiles to import automatically. Defaults to ['standard', 'claude', 'codex', 'mcp'] when mounts are omitted.",
+              "oneOf": [
+                { "type": "boolean" },
+                {
+                  "type": "string",
+                  "enum": ["standard", "claude", "codex", "mcp", "scripts", "legacy-broad"]
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": ["standard", "claude", "codex", "mcp", "scripts", "legacy-broad"]
+                  }
+                }
+              ]
             },
             "mounts": {
               "type": "array",
@@ -77,7 +94,7 @@
             "instructionFiles": {
               "type": "array",
               "items": { "type": "string" },
-              "description": "Override the curated root-level instruction filenames (default: CLAUDE.md, AGENTS.md, SOUL.md, RULES.md, ETHOS.md, INSTRUCTIONS.md, PERSONALITY.md, README.md)."
+              "description": "Override the curated root-level agent instruction filenames (default: AGENTS.override.md, AGENTS.md, CLAUDE.md, GEMINI.md, and common rule files)."
             },
             "tokenSecret": {
               "type": "string",
