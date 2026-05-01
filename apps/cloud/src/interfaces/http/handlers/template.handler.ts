@@ -3,6 +3,7 @@
  */
 
 import { Hono } from 'hono'
+import { collectRuntimeEnvFields } from '../../../application/runtime-env-requirements.js'
 import type { HandlerContext } from './types.js'
 
 /** Extract all ${env:VAR_NAME} references from a JSON object recursively */
@@ -61,7 +62,23 @@ export function createTemplateHandler(ctx: HandlerContext): Hono {
     const content = await ctx.container.template.getTemplate(name)
     if (!content) return c.json({ error: `Template not found: ${name}` }, 404)
     const refs = extractEnvRefs(content)
-    return c.json({ template: name, requiredEnvVars: refs })
+    const runtimeFields = await collectRuntimeEnvFields(content)
+    const byKey = new Map(runtimeFields.map((field) => [field.key, field]))
+    for (const key of refs) {
+      if (!byKey.has(key)) {
+        byKey.set(key, {
+          key,
+          label: key,
+          required: true,
+          sensitive: /(TOKEN|SECRET|PASSWORD|PRIVATE|CREDENTIAL|API_KEY|_KEY$|_B64$)/i.test(key),
+        })
+      }
+    }
+    return c.json({
+      template: name,
+      requiredEnvVars: refs,
+      fields: [...byKey.values()].sort((a, b) => a.key.localeCompare(b.key)),
+    })
   })
 
   return app

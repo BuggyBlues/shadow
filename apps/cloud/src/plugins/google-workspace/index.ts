@@ -109,18 +109,21 @@ const plugin = definePlugin(manifest as PluginManifest, (api) => {
       label: 'Google Workspace credentials JSON',
       description: 'Credentials exported with `gws auth export --unmasked`.',
       sensitive: true,
+      placeholder: '{"installed":{"client_id":"..."}}',
     },
     {
       key: SECRET_FIELD_KEYS.adcJson,
       label: 'Google Workspace ADC JSON',
       description: 'Optional ADC or service account JSON for headless runtime use.',
       sensitive: true,
+      placeholder: '{"type":"service_account","project_id":"..."}',
     },
     {
       key: SECRET_FIELD_KEYS.accessToken,
       label: 'Google Workspace access token',
       description: 'Optional short-lived OAuth access token.',
       sensitive: true,
+      placeholder: 'ya29...',
     },
   ])
 
