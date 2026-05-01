@@ -1,7 +1,7 @@
 # ─────────────────────────────────────────────
 # Stage 1: Builder - install deps & build packages
 # ─────────────────────────────────────────────
-FROM mcr.microsoft.com/playwright:v1.59.0-jammy AS builder
+FROM mcr.microsoft.com/playwright:v1.59.1-jammy AS builder
 
 RUN corepack enable && corepack prepare pnpm@10.19.0 --activate
 
@@ -43,7 +43,7 @@ RUN pnpm build:packages
 # ─────────────────────────────────────────────
 # Stage 2: Runner - copy built artifacts + source for e2e
 # ─────────────────────────────────────────────
-FROM mcr.microsoft.com/playwright:v1.59.0-jammy AS runner
+FROM mcr.microsoft.com/playwright:v1.59.1-jammy AS runner
 
 RUN corepack enable && corepack prepare pnpm@10.19.0 --activate
 
