@@ -2431,11 +2431,11 @@
         },
         "entries": {
           "description": "Per-skill config",
-          "$ref": "#/definitions/Record%3Cstring%2C%7Benabled%3F%3Aboolean%7Cundefined%3BapiKey%3F%3Astring%7Cundefined%3Benv%3F%3ARecord%3Cstring%2Cstring%3E%7Cundefined%3B%7D%3E"
+          "$ref": "#/definitions/Record%3Cstring%2C%7Benabled%3F%3Aboolean%7Cundefined%3BapiKey%3F%3Astring%7Cundefined%3Benv%3F%3ARecord%3Cstring%2Cstring%3E%7Cundefined%3Bconfig%3F%3ARecord%3Cstring%2Cunknown%3E%7Cundefined%3B%7D%3E"
         }
       }
     },
-    "Record<string,{enabled?:boolean|undefined;apiKey?:string|undefined;env?:Record<string,string>|undefined;}>": {
+    "Record<string,{enabled?:boolean|undefined;apiKey?:string|undefined;env?:Record<string,string>|undefined;config?:Record<string,unknown>|undefined;}>": {
       "type": "object"
     },
     "OpenClawGatewayConfig": {
