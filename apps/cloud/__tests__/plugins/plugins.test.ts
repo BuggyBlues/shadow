@@ -182,13 +182,27 @@ describe('loadAllPlugins', () => {
         .sort(),
     ).toEqual([
       'agent-pack',
+      'cloudflare',
       'gitagent',
       'github',
+      'google-ads',
+      'google-analytics',
       'google-workspace',
+      'hubspot',
+      'klaviyo',
+      'meta-ads',
       'model-provider',
       'notion',
+      'paypal',
+      'salesforce',
+      'seo-suite',
       'shadowob',
+      'shopify',
       'stripe',
+      'supabase',
+      'vercel',
+      'webflow',
+      'wordpress-woocommerce',
     ])
   }, 30_000)
 
@@ -216,6 +230,44 @@ describe('loadAllPlugins', () => {
       expect(plugin.manifest.capabilities.length).toBeGreaterThan(0)
       expect(plugin.manifest.tags.length).toBeGreaterThan(0)
     }
+  }, 30_000)
+
+  it('should load business connectors as independent plugins', async () => {
+    const registry = createPluginRegistry()
+    await loadAllPlugins(registry)
+
+    const shopify = registry.get('shopify')
+    const webflow = registry.get('webflow')
+    const cloudflare = registry.get('cloudflare')
+
+    expect(shopify?.manifest.capabilities).toEqual(expect.arrayContaining(['skill', 'cli', 'mcp']))
+    expect(shopify?.skills?.entries?.map((entry) => entry.id)).toContain('shopify')
+    expect(shopify?.runtime?.skillSources).toContainEqual(
+      expect.objectContaining({
+        id: 'shopify-ai-toolkit-skills',
+        url: 'https://github.com/Shopify/shopify-ai-toolkit.git',
+      }),
+    )
+    expect(shopify?.k8s).toBeDefined()
+
+    expect(webflow?.manifest.capabilities).toEqual(expect.arrayContaining(['skill', 'cli', 'mcp']))
+    expect(webflow?.runtime?.skillSources?.map((source) => source.id)).toEqual(
+      expect.arrayContaining([
+        'webflow-site-skills',
+        'webflow-cli-skills',
+        'webflow-code-component-skills',
+      ]),
+    )
+    expect(webflow?.runtime?.runtimeDependencies).toContainEqual(
+      expect.objectContaining({ packages: ['@webflow/webflow-cli'] }),
+    )
+    expect(cloudflare?.runtime?.mcpServers).toContainEqual(
+      expect.objectContaining({
+        id: 'cloudflare-mcp',
+        transport: 'streamable-http',
+        url: 'https://mcp.cloudflare.com/mcp',
+      }),
+    )
   }, 30_000)
 })
 

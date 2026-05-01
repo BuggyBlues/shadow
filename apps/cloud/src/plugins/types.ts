@@ -78,6 +78,7 @@ export interface PluginAuthField {
   sensitive: boolean
   placeholder?: string
   validation?: string
+  helpUrl?: string
 }
 
 export interface PluginOAuthConfig {
@@ -207,15 +208,26 @@ export interface PluginCLITool {
   env?: Record<string, string>
 }
 
+export type PluginMCPTransport = 'stdio' | 'sse' | 'http' | 'streamable-http'
+
 /** MCP server config (prefer skills+cli for most integrations). */
 export interface PluginMCPServer {
   id?: string
-  transport: 'stdio' | 'sse'
-  command: string
+  transport: PluginMCPTransport
+  /** Command used by stdio MCP servers. */
+  command?: string
   args?: string[]
+  /** URL used by remote HTTP, streamable HTTP, or SSE MCP servers. */
+  url?: string
+  headers?: Record<string, string>
   env?: Record<string, string>
   description?: string
   requiredEnv?: string[]
+  auth?: {
+    type: 'none' | 'bearer' | 'oauth2'
+    tokenEnvKey?: string
+    scopes?: string[]
+  }
 }
 
 export interface PluginRuntimeDependency {
@@ -293,6 +305,7 @@ export interface PluginSecretField {
   required?: boolean
   sensitive?: boolean
   placeholder?: string
+  helpUrl?: string
   aliases?: string[]
   /** Whether this value must be present in the runtime container env. Defaults to true. */
   runtime?: boolean

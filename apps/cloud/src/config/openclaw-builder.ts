@@ -599,17 +599,14 @@ function mergeRuntimeExtensions(
     subagentSources.set(source.id, source)
   }
   const mcpServers = new Map<string, NonNullable<PluginRuntimeExtension['mcpServers']>[number]>()
+  const mcpServerKey = (server: NonNullable<PluginRuntimeExtension['mcpServers']>[number]) =>
+    server.id ??
+    `${server.transport}:${server.url ?? server.command ?? ''}:${server.args?.join(' ') ?? ''}`
   for (const server of target.mcpServers ?? []) {
-    mcpServers.set(
-      server.id ?? `${server.transport}:${server.command}:${server.args?.join(' ') ?? ''}`,
-      server,
-    )
+    mcpServers.set(mcpServerKey(server), server)
   }
   for (const server of fragment.mcpServers ?? []) {
-    mcpServers.set(
-      server.id ?? `${server.transport}:${server.command}:${server.args?.join(' ') ?? ''}`,
-      server,
-    )
+    mcpServers.set(mcpServerKey(server), server)
   }
   const credentialFiles = new Map<
     string,
