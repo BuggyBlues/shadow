@@ -57,7 +57,6 @@
 
 .chat-scroll-surface {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.01), rgba(255, 255, 255, 0.04));
-  contain: layout paint;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
   -webkit-overflow-scrolling: touch;
@@ -66,9 +65,7 @@
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.58));
 }
 .message-row {
-  contain: layout paint style;
-  content-visibility: auto;
-  contain-intrinsic-size: 72px;
+  overflow: visible;
 }
 :root.light .chat-panel .message-row:hover {
   background-color: rgba(255, 255, 255, 0.55);
@@ -162,6 +159,10 @@ textarea.form-input {
 }
 
 /* ─── Markdown message styling ─── */
+.msg-markdown {
+  overflow-wrap: anywhere;
+}
+
 .msg-markdown p {
   margin: 0.25rem 0;
 }
@@ -172,7 +173,7 @@ textarea.form-input {
   margin-bottom: 0.5rem;
   font-weight: 900;
   color: var(--color-text-primary);
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 .msg-markdown h1 {
   font-size: 1.5rem;
@@ -192,6 +193,8 @@ textarea.form-input {
   font-size: 0.85em;
   font-family: var(--font-mono);
   border: 1px solid rgba(255, 255, 255, 0.05);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 :root.light .msg-markdown code {
   background: rgba(0, 0, 0, 0.04);
@@ -200,7 +203,6 @@ textarea.form-input {
 
 .msg-markdown pre {
   background: rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
   padding: 1rem;
@@ -252,23 +254,48 @@ textarea.form-input {
   padding-left: 1.5rem;
   margin: 0.5rem 0;
 }
+.msg-markdown ul {
+  list-style: disc;
+}
+.msg-markdown ol {
+  list-style: decimal;
+}
+.msg-markdown ul ul {
+  list-style: circle;
+}
+.msg-markdown ol ol,
+.msg-markdown ul ol {
+  list-style: lower-alpha;
+}
 .msg-markdown li {
   margin: 0.25rem 0;
+  padding-left: 0.15rem;
+}
+
+.msg-markdown-table-scroll {
+  width: 100%;
+  max-width: 100%;
+  margin: 1rem 0;
+  overflow-x: auto;
+  border-radius: 12px;
 }
 
 .msg-markdown table {
   border-collapse: separate;
   border-spacing: 0;
   width: 100%;
-  margin: 1rem 0;
+  min-width: 100%;
+  max-width: 100%;
+  table-layout: auto;
+  margin: 0;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(12, 16, 24, 0.5);
 }
 :root.light .msg-markdown table {
   border-color: rgba(0, 0, 0, 0.08);
-  background: rgba(0, 0, 0, 0.01);
+  background: rgba(255, 255, 255, 0.78);
 }
 
 .msg-markdown th {
@@ -302,7 +329,7 @@ textarea.form-input {
   border-bottom: none;
 }
 .msg-markdown tr:hover td {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.035);
 }
 
 .msg-markdown img {
