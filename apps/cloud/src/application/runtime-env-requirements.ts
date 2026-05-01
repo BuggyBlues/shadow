@@ -18,6 +18,7 @@ export interface RuntimeEnvField {
   source: 'template' | 'plugin'
   sourceId: string
   sourceLabel: string
+  helpUrl?: string
 }
 
 function collectPluginIds(value: unknown, out = new Set<string>(), depth = 0): Set<string> {
@@ -113,6 +114,7 @@ function fieldFromAuth(field: PluginAuthField, plugin: PluginDefinition): Runtim
     source: 'plugin',
     sourceId: plugin.manifest.id,
     sourceLabel: plugin.manifest.name,
+    helpUrl: plugin.manifest.docs ?? plugin.manifest.website,
   }
 }
 
@@ -131,6 +133,7 @@ function mergeSecretField(
     source: base?.source ?? 'plugin',
     sourceId: base?.sourceId ?? plugin.manifest.id,
     sourceLabel: base?.sourceLabel ?? plugin.manifest.name,
+    helpUrl: base?.helpUrl ?? plugin.manifest.docs ?? plugin.manifest.website,
   }
 }
 
@@ -147,6 +150,7 @@ function addField(fields: Map<string, RuntimeEnvField>, field: RuntimeEnvField):
     source: existing?.source ?? field.source,
     sourceId: existing?.sourceId ?? field.sourceId,
     sourceLabel: existing?.sourceLabel ?? field.sourceLabel,
+    helpUrl: existing?.helpUrl ?? field.helpUrl,
   })
 }
 

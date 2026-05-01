@@ -77,6 +77,7 @@ export interface TemplateEnvField {
   source: 'template' | 'plugin'
   sourceId: string
   sourceLabel: string
+  helpUrl?: string
 }
 
 export interface Settings {

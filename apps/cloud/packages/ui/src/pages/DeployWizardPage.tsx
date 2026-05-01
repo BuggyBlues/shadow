@@ -22,6 +22,7 @@ import {
   CheckCircle,
   CheckCircle2,
   ChevronRight,
+  CircleHelp,
   Clock,
   Copy,
   Database,
@@ -308,6 +309,8 @@ function EnvVarRow({
             <XCircle size={13} className="text-danger" />
           ) : isFilled ? (
             <CheckCircle size={13} className="text-success" />
+          ) : isSecret ? (
+            <Key size={13} className="text-text-muted" />
           ) : required ? (
             <AlertTriangle size={13} className="text-warning" />
           ) : (
@@ -325,11 +328,6 @@ function EnvVarRow({
           >
             {required ? t('deploy.requiredBadge') : t('deploy.optionalBadge')}
           </span>
-          {isSecret && (
-            <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
-              {t('deploy.sensitiveBadge')}
-            </span>
-          )}
           {hasSaved && (
             <span className="rounded-full bg-success/10 px-1.5 py-0.5 text-[10px] font-semibold text-success">
               {t('deploy.savedBadge')}
@@ -435,6 +433,7 @@ interface EnvFieldGroup {
   title: string
   description: string
   source: TemplateEnvField['source']
+  helpUrl?: string
   fields: TemplateEnvField[]
 }
 
@@ -564,6 +563,7 @@ function StepConfigure({
         source: field.source ?? 'template',
         sourceId: field.sourceId ?? 'template',
         sourceLabel: field.sourceLabel ?? t('deploy.templateFieldSource'),
+        helpUrl: field.helpUrl,
       })
     }
 
@@ -600,6 +600,7 @@ function StepConfigure({
       const existing = groupsById.get(id)
       if (existing) {
         existing.fields.push(field)
+        existing.helpUrl ??= field.helpUrl
         continue
       }
       groupsById.set(id, {
@@ -615,6 +616,7 @@ function StepConfigure({
                 plugin: field.sourceLabel || field.sourceId,
               })
             : t('deploy.templateFieldGroupDescription'),
+        helpUrl: field.source === 'plugin' ? field.helpUrl : undefined,
         fields: [field],
       })
     }
@@ -781,6 +783,23 @@ function StepConfigure({
           <p className="text-sm text-text-muted">{t('deploy.stepConfigureDescription')}</p>
         </div>
 
+        {/* Namespace */}
+        <div className="rounded-xl border border-border-subtle bg-bg-secondary/50 p-4 space-y-3">
+          <div>
+            <label htmlFor="namespace" className="block text-sm font-semibold mb-0.5">
+              {t('deploy.namespace')}
+            </label>
+            <p className="text-xs text-text-muted">{t('deploy.kubernetesNamespaceDesc')}</p>
+          </div>
+          <Input
+            id="namespace"
+            type="text"
+            value={namespace ?? ''}
+            onChange={(e) => setValue('namespace', e.target.value, { shouldDirty: true })}
+            placeholder={template?.namespace ?? name}
+          />
+        </div>
+
         {/* Group auto-fill selector */}
         {groups.length > 0 && (
           <div className="flex items-center gap-3 rounded-xl border border-border-subtle bg-bg-secondary/50 px-4 py-3">
@@ -803,23 +822,6 @@ function StepConfigure({
           </div>
         )}
 
-        {/* Namespace */}
-        <div className="rounded-xl border border-border-subtle bg-bg-secondary/50 p-4 space-y-3">
-          <div>
-            <label htmlFor="namespace" className="block text-sm font-semibold mb-0.5">
-              {t('deploy.namespace')}
-            </label>
-            <p className="text-xs text-text-muted">{t('deploy.kubernetesNamespaceDesc')}</p>
-          </div>
-          <Input
-            id="namespace"
-            type="text"
-            value={namespace ?? ''}
-            onChange={(e) => setValue('namespace', e.target.value, { shouldDirty: true })}
-            placeholder={template?.namespace ?? name}
-          />
-        </div>
-
         {isSaasMode && (
           <AlertBanner
             variant={enabledProviderProfiles.length > 0 ? 'success' : 'warning'}
@@ -838,9 +840,11 @@ function StepConfigure({
               </span>
               <Link
                 to="/providers"
-                className="shrink-0 font-semibold text-primary hover:text-primary/80"
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bg-primary/35 text-primary transition-colors hover:bg-primary/12 hover:text-primary"
+                aria-label={t('deploy.openProviderSettings')}
+                title={t('deploy.openProviderSettings')}
               >
-                {t('deploy.manageProviderProfiles')}
+                <CircleHelp size={16} />
               </Link>
             </div>
           </AlertBanner>
@@ -933,8 +937,9 @@ function StepConfigure({
             )}
 
             {templateEnvFieldGroups.map((group) => {
-              const collapsed = collapsedFieldGroups[group.id] ?? false
               const requiredCount = group.fields.filter((field) => field.required).length
+              const collapsed =
+                collapsedFieldGroups[group.id] ?? (group.source === 'plugin' && requiredCount === 0)
               const filledCount = group.fields.filter((field) => {
                 const value = envVars[field.key]
                 return (
@@ -948,59 +953,85 @@ function StepConfigure({
                   key={group.id}
                   className="overflow-hidden rounded-2xl border border-border-subtle bg-bg-primary/20"
                 >
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCollapsedFieldGroups((prev) => ({
-                        ...prev,
-                        [group.id]: !collapsed,
-                      }))
-                    }
-                    className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-bg-secondary/35"
-                  >
-                    <div className="flex min-w-0 items-start gap-3">
-                      <div
-                        className={cn(
-                          'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
-                          group.source === 'plugin'
-                            ? 'bg-primary/12 text-primary'
-                            : 'bg-warning/12 text-warning',
-                        )}
-                      >
-                        {group.source === 'plugin' ? <Unplug size={14} /> : <Key size={14} />}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h4 className="text-sm font-semibold text-text-primary">{group.title}</h4>
-                          <span className="rounded-full bg-bg-tertiary px-2 py-0.5 text-[10px] font-semibold text-text-muted">
-                            {group.source === 'plugin'
-                              ? t('deploy.pluginSourceBadge')
-                              : t('deploy.templateSourceBadge')}
-                          </span>
-                          {requiredCount > 0 && (
-                            <span className="rounded-full bg-warning/10 px-2 py-0.5 text-[10px] font-semibold text-warning">
-                              {t('deploy.requiredCount', { count: requiredCount })}
-                            </span>
+                  <div className="flex items-center gap-2 px-4 py-3 transition-colors hover:bg-bg-secondary/35">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCollapsedFieldGroups((prev) => ({
+                          ...prev,
+                          [group.id]: !collapsed,
+                        }))
+                      }
+                      className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left"
+                    >
+                      <div className="flex min-w-0 items-start gap-3">
+                        <div
+                          className={cn(
+                            'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
+                            group.source === 'plugin'
+                              ? 'bg-primary/12 text-primary'
+                              : 'bg-warning/12 text-warning',
                           )}
+                        >
+                          {group.source === 'plugin' ? <Unplug size={14} /> : <Key size={14} />}
                         </div>
-                        <p className="mt-1 text-xs leading-relaxed text-text-muted">
-                          {group.description}
-                        </p>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="text-sm font-semibold text-text-primary">
+                              {group.title}
+                            </h4>
+                            <span className="rounded-full bg-bg-tertiary px-2 py-0.5 text-[10px] font-semibold text-text-muted">
+                              {group.source === 'plugin'
+                                ? t('deploy.pluginSourceBadge')
+                                : t('deploy.templateSourceBadge')}
+                            </span>
+                            {requiredCount > 0 && (
+                              <span className="rounded-full bg-warning/10 px-2 py-0.5 text-[10px] font-semibold text-warning">
+                                {t('deploy.requiredCount', { count: requiredCount })}
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-1 text-xs leading-relaxed text-text-muted">
+                            {group.description}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2 text-xs text-text-muted">
-                      <span>
-                        {t('deploy.fieldGroupProgress', {
-                          filled: filledCount,
-                          total: group.fields.length,
-                        })}
-                      </span>
-                      <ChevronRight
-                        size={15}
-                        className={cn('transition-transform', !collapsed && 'rotate-90')}
-                      />
-                    </div>
-                  </button>
+                      <div className="flex shrink-0 items-center gap-2 text-xs text-text-muted">
+                        <span>
+                          {t('deploy.fieldGroupProgress', {
+                            filled: filledCount,
+                            total: group.fields.length,
+                          })}
+                        </span>
+                        <ChevronRight
+                          size={15}
+                          className={cn('transition-transform', !collapsed && 'rotate-90')}
+                        />
+                      </div>
+                    </button>
+                    {group.source === 'plugin' &&
+                      (group.helpUrl ? (
+                        <a
+                          href={group.helpUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex h-8 w-8 shrink-0 self-center items-center justify-center rounded-full bg-bg-primary/35 text-text-muted transition-colors hover:bg-primary/12 hover:text-primary"
+                          aria-label={t('deploy.openConfigHelp')}
+                          title={t('deploy.openConfigHelp')}
+                        >
+                          <CircleHelp size={15} />
+                        </a>
+                      ) : (
+                        <Link
+                          to="/secrets"
+                          className="inline-flex h-8 w-8 shrink-0 self-center items-center justify-center rounded-full bg-bg-primary/35 text-text-muted transition-colors hover:bg-primary/12 hover:text-primary"
+                          aria-label={t('deploy.openConfigHelp')}
+                          title={t('deploy.openConfigHelp')}
+                        >
+                          <CircleHelp size={15} />
+                        </Link>
+                      ))}
+                  </div>
 
                   {!collapsed && (
                     <div className="space-y-3 border-t border-border-subtle/70 p-3">

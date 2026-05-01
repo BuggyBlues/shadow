@@ -250,6 +250,7 @@ export const saasApi = {
           source: 'template' | 'plugin'
           sourceId: string
           sourceLabel: string
+          helpUrl?: string
         }>
         autoDetectedEnvVars?: string[]
       }>(`/templates/${encodeURIComponent(slug)}/env-refs`),
