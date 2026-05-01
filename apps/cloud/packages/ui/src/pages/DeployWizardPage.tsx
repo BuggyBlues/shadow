@@ -155,12 +155,6 @@ function StepOverview({ name }: { name: string }) {
 
   const template = data?.template
   const displayTitle = template?.title || name
-  const highlightItems =
-    template?.highlights && template.highlights.length > 0
-      ? template.highlights
-      : template?.features && template.features.length > 0
-        ? template.features
-        : [t('deploy.asConfigured')]
 
   return (
     <div className="space-y-4">
@@ -226,11 +220,6 @@ function StepOverview({ name }: { name: string }) {
           </div>
         </div>
       </GlassPanel>
-
-      {/* Highlights */}
-      <AlertBanner variant="info" icon={Sparkles} title={t('deploy.whatYouWillGet')}>
-        <AlertBannerList variant="info" items={highlightItems} bulletIcon={CheckCircle} />
-      </AlertBanner>
 
       {/* Requirements */}
       {(template?.requirements.length ?? 0) > 0 && (
@@ -782,15 +771,15 @@ function StepConfigure({
       data-lpignore="true"
       data-form-type="other"
     >
-      <GlassPanel className="rounded-2xl p-0 overflow-hidden">
-        <div className="divide-y divide-bg-secondary/20">
-          <div className="space-y-1 p-4 md:p-5">
+      <GlassPanel className="rounded-2xl space-y-4 p-4">
+        <div className="space-y-4">
+          <div className="space-y-1">
             <h2 className="text-lg font-semibold">{t('deploy.stepConfigureLabel')}</h2>
             <p className="text-sm text-text-muted">{t('deploy.stepConfigureDescription')}</p>
           </div>
 
         {/* Namespace */}
-          <div className="bg-bg-secondary/14 p-4 space-y-3">
+          <div className="rounded-xl bg-bg-secondary/10 p-4 space-y-3">
           <div>
             <label htmlFor="namespace" className="block text-sm font-semibold mb-0.5">
               {t('deploy.namespace')}
@@ -808,7 +797,7 @@ function StepConfigure({
 
         {/* Group auto-fill selector */}
         {groups.length > 0 && (
-          <div className="flex items-center gap-3 bg-bg-secondary/14 px-4 py-3">
+          <div className="flex items-center gap-3 rounded-xl bg-bg-secondary/10 px-4 py-3">
             <Database size={14} className="text-text-muted shrink-0" />
             <span className="text-xs text-text-secondary shrink-0">
               {t('deploy.fillFromGroup')}
@@ -829,7 +818,7 @@ function StepConfigure({
         )}
 
         {isSaasMode && (
-          <div className="bg-bg-secondary/14 px-4 py-3">
+          <div className="rounded-xl bg-bg-secondary/10 px-4 py-3">
             <div className="flex items-start gap-3">
               <div
                 className={cn(
@@ -867,7 +856,7 @@ function StepConfigure({
 
         {/* Shadow Connection */}
         {!isSaasMode && (
-          <div className="bg-bg-secondary/14 p-4 space-y-4">
+          <div className="rounded-xl bg-bg-secondary/10 p-4 space-y-4">
             <div className="flex items-center gap-2">
               <Unplug size={14} className="text-text-muted" />
               <div>
@@ -914,7 +903,7 @@ function StepConfigure({
 
         {/* Preset environment variable fields */}
         {(templateEnvFields.length > 0 || autoDetectedEnvVars.length > 0) && (
-          <div className="bg-bg-secondary/14 p-4 space-y-4">
+          <div className="rounded-xl bg-bg-secondary/10 p-4 space-y-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div className="flex items-start gap-2">
                 <Key size={14} className="mt-0.5 text-warning" />
@@ -936,7 +925,7 @@ function StepConfigure({
             </div>
 
             {autoDetectedEnvVars.length > 0 && (
-              <div className="rounded-xl bg-bg-secondary/18 px-3 py-2 text-xs text-text-secondary">
+              <div className="rounded-lg bg-bg-secondary/12 px-3 py-2 text-xs text-text-secondary">
                 <div className="flex items-start gap-2">
                   <CheckCircle2 size={13} className="mt-0.5 shrink-0 text-success" />
                   <div className="space-y-1">
@@ -964,7 +953,7 @@ function StepConfigure({
                 )
               }).length
               return (
-                <div key={group.id} className="overflow-hidden rounded-xl bg-bg-secondary/14">
+                <div key={group.id} className="overflow-hidden rounded-xl bg-bg-secondary/10">
                   <div className="flex items-center gap-2 px-4 py-3 transition-colors hover:bg-bg-secondary/20">
                     <button
                       type="button"
@@ -1090,7 +1079,7 @@ function StepConfigure({
         )}
 
         {/* Extra env vars (optional) */}
-        <div className="bg-bg-secondary/14 p-4 space-y-3">
+        <div className="rounded-xl bg-bg-secondary/10 p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-semibold">{t('deploy.additionalVariables')}</h3>
@@ -1107,7 +1096,7 @@ function StepConfigure({
             </Button>
           </div>
           {extraVars.length === 0 ? (
-            <div className="text-center py-3 text-xs text-text-muted rounded-lg bg-bg-secondary/20">
+            <div className="text-center py-3 text-xs text-text-muted rounded-lg bg-bg-secondary/10">
               {t('deploy.noAdditionalVars')}
             </div>
           ) : (
@@ -1165,6 +1154,7 @@ function StepConfigure({
             </div>
           )}
         </div>
+      </div>
       </GlassPanel>
 
       <div className="flex items-center justify-between gap-3 px-1">
