@@ -3,8 +3,8 @@
  * git repo and mount them into the agent container at
  * `/agent-packs/<pack-id>/<kind>/`.
  *
- * Pure mechanism. No bundled registry / presets — template authors can either
- * rely on common-layout auto-detection or declare exact mounts for unusual
+ * Pure mechanism. No bundled registry — template authors can either rely on
+ * standards-based auto-import profiles or declare exact mounts for unusual
  * repositories. Supports any combination of:
  *   - skills      → wired to OpenClaw `skills.load.extraDirs`
  *   - commands    → also wired as skills (Claude-style slash commands)
@@ -79,6 +79,14 @@ export interface PackMountOption {
   include?: string[]
 }
 
+export type AgentPackAutoImportProfile =
+  | 'standard'
+  | 'claude'
+  | 'codex'
+  | 'mcp'
+  | 'scripts'
+  | 'legacy-broad'
+
 export interface PackOption {
   /** Stable id within the agent (used for mount subdir). Auto-derived from url. */
   id?: string
@@ -89,10 +97,15 @@ export interface PackOption {
   /** Shallow clone depth. Defaults to 1. */
   depth?: number
   /**
-   * Auto-detect common agent-pack layouts. Defaults to true when mounts are
-   * omitted, and false when explicit mounts are supplied.
+   * Back-compat flag for standards-based auto-import. Defaults to true when
+   * mounts are omitted, and false when explicit mounts are supplied.
    */
   autoDetect?: boolean
+  /**
+   * Select which standard-compatible layout profiles to auto-import. Defaults
+   * to ['standard', 'claude', 'codex', 'mcp'] when mounts are omitted.
+   */
+  autoImport?: boolean | AgentPackAutoImportProfile | AgentPackAutoImportProfile[]
   /** Per-kind mount declarations. Optional when autoDetect is enabled. */
   mounts?: PackMountOption[]
   /** Override the curated root-level instruction filenames. */
@@ -134,116 +147,171 @@ export interface AgentPackOptions {
 export const validateAgentPackOptions: (input: unknown) => typia.IValidation<AgentPackOptions> =
   typia.createValidate<AgentPackOptions>()
 
-const AUTO_MOUNTS: readonly ResolvedMount[] = [
-  // Standard Agent Skills / Claude Code plugin layouts.
-  { kind: 'skills', from: 'skills' },
-  { kind: 'skills', from: '.agents/skills' },
-  { kind: 'skills', from: '.codex/skills' },
-  { kind: 'skills', from: '.claude/skills' },
-  { kind: 'skills', from: '.claude/plugins' },
-  { kind: 'skills', from: '.cursor/skills' },
-  { kind: 'skills', from: '.gemini/skills' },
-  { kind: 'skills', from: '.windsurf/skills' },
-  { kind: 'skills', from: 'openclaw/skills' },
-  { kind: 'skills', from: 'agent-skills' },
-  { kind: 'skills', from: 'agent_skills' },
-  { kind: 'skills', from: 'claude-skills' },
-  { kind: 'skills', from: 'claude/skills' },
-  { kind: 'skills', from: 'scientific-skills' },
-  { kind: 'skills', from: 'plugins' },
-  { kind: 'skills', from: 'extensions' },
-  { kind: 'skills', from: '.' },
-
-  // Slash-command and subagent workspaces.
-  { kind: 'commands', from: 'commands' },
-  { kind: 'commands', from: 'slash-commands' },
-  { kind: 'commands', from: '.agents/commands' },
-  { kind: 'commands', from: '.codex/commands' },
-  { kind: 'commands', from: '.claude/commands' },
-  { kind: 'commands', from: '.cursor/commands' },
-  { kind: 'commands', from: '.gemini/commands' },
-  { kind: 'commands', from: '.windsurf/commands' },
-  { kind: 'commands', from: 'plugins' },
-  { kind: 'commands', from: 'extensions' },
-  { kind: 'agents', from: 'agents' },
-  { kind: 'agents', from: '.agents' },
-  { kind: 'agents', from: '.agents/agents' },
-  { kind: 'agents', from: '.codex/agents' },
-  { kind: 'agents', from: '.claude/agents' },
-  { kind: 'agents', from: '.claude/subagents' },
-  { kind: 'agents', from: '.cursor/agents' },
-  { kind: 'agents', from: '.gemini/agents' },
-  { kind: 'agents', from: '.windsurf/agents' },
-  { kind: 'agents', from: 'subagents' },
-  { kind: 'agents', from: 'plugins' },
-  { kind: 'agents', from: 'extensions' },
-
-  // Human-readable methodology and project context.
-  { kind: 'instructions', from: '.' },
-  { kind: 'instructions', from: 'context' },
-  { kind: 'instructions', from: 'docs' },
-  { kind: 'instructions', from: 'openclaw' },
-  { kind: 'instructions', from: '.agents' },
-  { kind: 'instructions', from: '.codex' },
-  { kind: 'instructions', from: '.claude' },
-  { kind: 'instructions', from: '.github/copilot-instructions.md' },
-  { kind: 'instructions', from: '.github/instructions' },
-  { kind: 'instructions', from: '.github/prompts' },
-  { kind: 'instructions', from: '.github/chatmodes' },
-  { kind: 'instructions', from: '.cursor/rules' },
-  { kind: 'instructions', from: '.cursorrules' },
-  { kind: 'instructions', from: '.windsurf/rules' },
-  { kind: 'instructions', from: '.windsurfrules' },
-  { kind: 'instructions', from: '.clinerules' },
-  { kind: 'instructions', from: 'rules' },
-  { kind: 'instructions', from: 'rules.md' },
-  { kind: 'instructions', from: 'instructions' },
-  { kind: 'instructions', from: 'prompts' },
-  { kind: 'instructions', from: 'playbooks' },
-  { kind: 'instructions', from: 'specs' },
-  { kind: 'instructions', from: 'workflow' },
-  { kind: 'instructions', from: 'workflows' },
-  { kind: 'instructions', from: 'knowledge' },
-  { kind: 'instructions', from: 'knowledge-base' },
-  { kind: 'instructions', from: 'memory-bank' },
-  { kind: 'instructions', from: 'memory' },
-  { kind: 'instructions', from: 'second-brain' },
-  { kind: 'instructions', from: 'strategy' },
-  { kind: 'instructions', from: 'ops' },
-  { kind: 'instructions', from: '.claude/commands' },
-  { kind: 'instructions', from: '.claude/agents' },
-
-  // Hooks, MCP, helper binaries, and heavier repo assets.
-  { kind: 'hooks', from: 'hooks' },
-  { kind: 'hooks', from: '.agents/hooks' },
-  { kind: 'hooks', from: '.codex/hooks' },
-  { kind: 'hooks', from: '.claude/hooks' },
-  { kind: 'hooks', from: '.claude/settings.json' },
-  { kind: 'hooks', from: '.claude/settings.local.json' },
-  { kind: 'hooks', from: '.cursor/hooks' },
-  { kind: 'hooks', from: '.cursor/hooks.json' },
-  { kind: 'mcp', from: '.mcp.json' },
-  { kind: 'mcp', from: '.mcp' },
-  { kind: 'mcp', from: '.claude/mcp.json' },
-  { kind: 'mcp', from: '.cursor/mcp.json' },
-  { kind: 'mcp', from: '.vscode/mcp.json' },
-  { kind: 'mcp', from: 'mcp.json' },
-  { kind: 'mcp', from: 'mcp' },
-  { kind: 'scripts', from: 'bin' },
-  { kind: 'scripts', from: 'scripts' },
-  { kind: 'scripts', from: 'setup' },
-  { kind: 'scripts', from: 'setup.sh' },
-  { kind: 'scripts', from: 'install' },
-  { kind: 'scripts', from: 'install.sh' },
-  { kind: 'scripts', from: 'bootstrap' },
-  { kind: 'scripts', from: 'bootstrap.sh' },
-  { kind: 'files', from: 'data_sources' },
-  { kind: 'files', from: 'data-sources' },
-  { kind: 'files', from: 'data' },
-  { kind: 'files', from: 'examples' },
-  { kind: 'files', from: 'templates' },
-  { kind: 'files', from: 'notebooks' },
+const DEFAULT_AUTO_IMPORT_PROFILES: readonly AgentPackAutoImportProfile[] = [
+  'standard',
+  'claude',
+  'codex',
+  'mcp',
 ]
+
+const AUTO_MOUNT_PROFILES: Record<AgentPackAutoImportProfile, readonly ResolvedMount[]> = {
+  standard: [
+    // Agent Skills / OpenClaw-compatible SKILL.md layouts.
+    { kind: 'skills', from: '.' },
+    { kind: 'skills', from: 'skills' },
+    { kind: 'skills', from: '.agents/skills' },
+    { kind: 'skills', from: 'agent-skills' },
+    { kind: 'skills', from: 'agent_skills' },
+    { kind: 'skills', from: 'openclaw/skills' },
+  ],
+  claude: [
+    // Claude Code skills, commands, subagents, hooks, and root instructions.
+    { kind: 'skills', from: '.claude/skills' },
+    { kind: 'commands', from: 'commands' },
+    { kind: 'commands', from: '.claude/commands' },
+    { kind: 'agents', from: '.claude/agents' },
+    { kind: 'instructions', from: '.' },
+    { kind: 'hooks', from: '.claude/hooks' },
+    { kind: 'hooks', from: '.claude/settings.json' },
+  ],
+  codex: [
+    // Codex repo skills, AGENTS.md guidance, and custom agent TOML files.
+    { kind: 'skills', from: '.codex/skills' },
+    { kind: 'skills', from: '.agents/skills' },
+    { kind: 'agents', from: '.codex/agents' },
+    { kind: 'instructions', from: '.' },
+  ],
+  mcp: [
+    { kind: 'mcp', from: '.mcp.json' },
+    { kind: 'mcp', from: '.mcp' },
+    { kind: 'mcp', from: '.claude/mcp.json' },
+    { kind: 'mcp', from: '.cursor/mcp.json' },
+    { kind: 'mcp', from: '.vscode/mcp.json' },
+    { kind: 'mcp', from: 'mcp.json' },
+    { kind: 'mcp', from: 'mcp' },
+  ],
+  scripts: [
+    { kind: 'scripts', from: 'bin' },
+    { kind: 'scripts', from: 'scripts' },
+    { kind: 'scripts', from: 'setup' },
+    { kind: 'scripts', from: 'setup.sh' },
+    { kind: 'scripts', from: 'install' },
+    { kind: 'scripts', from: 'install.sh' },
+    { kind: 'scripts', from: 'bootstrap' },
+    { kind: 'scripts', from: 'bootstrap.sh' },
+  ],
+  'legacy-broad': [
+    // Historical broad scan profile. Kept as an explicit opt-in for templates
+    // that intentionally treat a whole repo as an agent pack.
+    { kind: 'skills', from: 'skills' },
+    { kind: 'skills', from: '.agents/skills' },
+    { kind: 'skills', from: '.codex/skills' },
+    { kind: 'skills', from: '.claude/skills' },
+    { kind: 'skills', from: '.claude/plugins' },
+    { kind: 'skills', from: '.cursor/skills' },
+    { kind: 'skills', from: '.gemini/skills' },
+    { kind: 'skills', from: '.windsurf/skills' },
+    { kind: 'skills', from: 'openclaw/skills' },
+    { kind: 'skills', from: 'agent-skills' },
+    { kind: 'skills', from: 'agent_skills' },
+    { kind: 'skills', from: 'claude-skills' },
+    { kind: 'skills', from: 'claude/skills' },
+    { kind: 'skills', from: 'scientific-skills' },
+    { kind: 'skills', from: 'plugins' },
+    { kind: 'skills', from: 'extensions' },
+    { kind: 'skills', from: '.' },
+
+    // Slash-command and subagent workspaces.
+    { kind: 'commands', from: 'commands' },
+    { kind: 'commands', from: 'slash-commands' },
+    { kind: 'commands', from: '.agents/commands' },
+    { kind: 'commands', from: '.codex/commands' },
+    { kind: 'commands', from: '.claude/commands' },
+    { kind: 'commands', from: '.cursor/commands' },
+    { kind: 'commands', from: '.gemini/commands' },
+    { kind: 'commands', from: '.windsurf/commands' },
+    { kind: 'commands', from: 'plugins' },
+    { kind: 'commands', from: 'extensions' },
+    { kind: 'agents', from: 'agents' },
+    { kind: 'agents', from: '.agents' },
+    { kind: 'agents', from: '.agents/agents' },
+    { kind: 'agents', from: '.codex/agents' },
+    { kind: 'agents', from: '.claude/agents' },
+    { kind: 'agents', from: '.claude/subagents' },
+    { kind: 'agents', from: '.cursor/agents' },
+    { kind: 'agents', from: '.gemini/agents' },
+    { kind: 'agents', from: '.windsurf/agents' },
+    { kind: 'agents', from: 'subagents' },
+    { kind: 'agents', from: 'plugins' },
+    { kind: 'agents', from: 'extensions' },
+
+    // Human-readable methodology and project context.
+    { kind: 'instructions', from: '.' },
+    { kind: 'instructions', from: 'context' },
+    { kind: 'instructions', from: 'docs' },
+    { kind: 'instructions', from: 'openclaw' },
+    { kind: 'instructions', from: '.agents' },
+    { kind: 'instructions', from: '.codex' },
+    { kind: 'instructions', from: '.claude' },
+    { kind: 'instructions', from: '.github/copilot-instructions.md' },
+    { kind: 'instructions', from: '.github/instructions' },
+    { kind: 'instructions', from: '.github/prompts' },
+    { kind: 'instructions', from: '.github/chatmodes' },
+    { kind: 'instructions', from: '.cursor/rules' },
+    { kind: 'instructions', from: '.cursorrules' },
+    { kind: 'instructions', from: '.windsurf/rules' },
+    { kind: 'instructions', from: '.windsurfrules' },
+    { kind: 'instructions', from: '.clinerules' },
+    { kind: 'instructions', from: 'rules' },
+    { kind: 'instructions', from: 'rules.md' },
+    { kind: 'instructions', from: 'instructions' },
+    { kind: 'instructions', from: 'prompts' },
+    { kind: 'instructions', from: 'playbooks' },
+    { kind: 'instructions', from: 'specs' },
+    { kind: 'instructions', from: 'workflow' },
+    { kind: 'instructions', from: 'workflows' },
+    { kind: 'instructions', from: 'knowledge' },
+    { kind: 'instructions', from: 'knowledge-base' },
+    { kind: 'instructions', from: 'memory-bank' },
+    { kind: 'instructions', from: 'memory' },
+    { kind: 'instructions', from: 'second-brain' },
+    { kind: 'instructions', from: 'strategy' },
+    { kind: 'instructions', from: 'ops' },
+    { kind: 'instructions', from: '.claude/commands' },
+    { kind: 'instructions', from: '.claude/agents' },
+
+    // Hooks, MCP, helper binaries, and heavier repo assets.
+    { kind: 'hooks', from: 'hooks' },
+    { kind: 'hooks', from: '.agents/hooks' },
+    { kind: 'hooks', from: '.codex/hooks' },
+    { kind: 'hooks', from: '.claude/hooks' },
+    { kind: 'hooks', from: '.claude/settings.json' },
+    { kind: 'hooks', from: '.claude/settings.local.json' },
+    { kind: 'hooks', from: '.cursor/hooks' },
+    { kind: 'hooks', from: '.cursor/hooks.json' },
+    { kind: 'mcp', from: '.mcp.json' },
+    { kind: 'mcp', from: '.mcp' },
+    { kind: 'mcp', from: '.claude/mcp.json' },
+    { kind: 'mcp', from: '.cursor/mcp.json' },
+    { kind: 'mcp', from: '.vscode/mcp.json' },
+    { kind: 'mcp', from: 'mcp.json' },
+    { kind: 'mcp', from: 'mcp' },
+    { kind: 'scripts', from: 'bin' },
+    { kind: 'scripts', from: 'scripts' },
+    { kind: 'scripts', from: 'setup' },
+    { kind: 'scripts', from: 'setup.sh' },
+    { kind: 'scripts', from: 'install' },
+    { kind: 'scripts', from: 'install.sh' },
+    { kind: 'scripts', from: 'bootstrap' },
+    { kind: 'scripts', from: 'bootstrap.sh' },
+    { kind: 'files', from: 'data_sources' },
+    { kind: 'files', from: 'data-sources' },
+    { kind: 'files', from: 'data' },
+    { kind: 'files', from: 'examples' },
+    { kind: 'files', from: 'templates' },
+    { kind: 'files', from: 'notebooks' },
+  ],
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -260,8 +328,16 @@ function readOptions(agent: PluginBuildContext['agent']): AgentPackOptions | nul
   return entry.options as AgentPackOptions
 }
 
-function shouldAutoDetect(pack: PackOption): boolean {
-  return pack.autoDetect ?? !pack.mounts?.length
+function normalizeAutoImportProfiles(pack: PackOption): AgentPackAutoImportProfile[] {
+  if (pack.autoImport === false || pack.autoDetect === false) return []
+
+  const configured = pack.autoImport
+  if (configured === true) return [...DEFAULT_AUTO_IMPORT_PROFILES]
+  if (typeof configured === 'string') return [configured]
+  if (Array.isArray(configured)) return configured
+
+  if (pack.autoDetect === true || !pack.mounts?.length) return [...DEFAULT_AUTO_IMPORT_PROFILES]
+  return []
 }
 
 function dedupeMounts(mounts: ResolvedMount[]): ResolvedMount[] {
@@ -286,8 +362,11 @@ export function buildAgentPackPrompt(packs: ResolvedPack[], mountPath: string): 
 
   for (const pack of packs) {
     if (pack.autoDetect) {
+      const profiles = pack.autoImportProfiles?.length
+        ? pack.autoImportProfiles.join(', ')
+        : 'standard-compatible'
       lines.push(
-        `- **${pack.id}** — auto-detected common layouts under \`${mountPath}/${pack.id}/{skills,commands,agents,instructions,hooks,mcp,scripts,files}\``,
+        `- **${pack.id}** — auto-imported ${profiles} layouts under \`${mountPath}/${pack.id}/{skills,commands,agents,instructions,hooks,mcp,scripts,files}\``,
       )
       continue
     }
@@ -332,14 +411,17 @@ export function resolvePacks(opts: AgentPackOptions): ResolvedPack[] {
     if (seen.has(id)) continue
     seen.add(id)
 
-    const autoDetect = shouldAutoDetect(p)
+    const autoImportProfiles = normalizeAutoImportProfiles(p)
+    const autoDetect = autoImportProfiles.length > 0
     const mounts = dedupeMounts([
       ...(p.mounts ?? []).map((m) => ({
         kind: m.kind,
         from: m.from,
         include: m.include,
       })),
-      ...(autoDetect ? AUTO_MOUNTS.map((m) => ({ ...m })) : []),
+      ...autoImportProfiles.flatMap((profile) =>
+        (AUTO_MOUNT_PROFILES[profile] ?? []).map((mount) => ({ ...mount })),
+      ),
     ])
     if (mounts.length === 0) continue
 
@@ -349,6 +431,7 @@ export function resolvePacks(opts: AgentPackOptions): ResolvedPack[] {
       ref: p.ref ?? 'main',
       depth: p.depth ?? 1,
       autoDetect,
+      autoImportProfiles,
       mounts,
       instructionFiles: p.instructionFiles ?? DEFAULT_INSTRUCTION_FILES,
     })
@@ -557,10 +640,14 @@ const plugin = definePlugin(manifest as PluginManifest, (api) => {
           severity: 'error',
         })
       }
-      if ((!p.mounts || p.mounts.length === 0) && p.autoDetect === false) {
+      const autoImportDisabled =
+        p.autoDetect === false ||
+        p.autoImport === false ||
+        (Array.isArray(p.autoImport) && p.autoImport.length === 0)
+      if ((!p.mounts || p.mounts.length === 0) && autoImportDisabled) {
         errors.push({
           path: `use.agent-pack.packs[${i}].mounts`,
-          message: 'Each pack must declare at least one mount when autoDetect is false.',
+          message: 'Each pack must declare at least one mount when automatic import is disabled.',
           severity: 'error',
         })
       } else if (p.mounts) {

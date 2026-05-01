@@ -90,31 +90,63 @@ describe('agent-pack resolvePacks', () => {
     const r = resolvePacks({ packs: [{ url: 'https://github.com/a/b' }] })
     expect(r).toHaveLength(1)
     expect(r[0]!.autoDetect).toBe(true)
+    expect(r[0]!.autoImportProfiles).toEqual(['standard', 'claude', 'codex', 'mcp'])
     expect(r[0]!.mounts).toEqual(
       expect.arrayContaining([
+        { kind: 'skills', from: '.' },
         { kind: 'skills', from: 'skills' },
         { kind: 'skills', from: '.agents/skills' },
-        { kind: 'skills', from: '.cursor/skills' },
-        { kind: 'skills', from: '.gemini/skills' },
+        { kind: 'skills', from: '.codex/skills' },
+        { kind: 'skills', from: '.claude/skills' },
         { kind: 'skills', from: 'openclaw/skills' },
-        { kind: 'skills', from: 'scientific-skills' },
-        { kind: 'skills', from: 'plugins' },
+        { kind: 'commands', from: 'commands' },
         { kind: 'commands', from: '.claude/commands' },
         { kind: 'agents', from: '.claude/agents' },
-        { kind: 'instructions', from: '.cursor/rules' },
-        { kind: 'instructions', from: '.cursorrules' },
-        { kind: 'instructions', from: 'context' },
+        { kind: 'agents', from: '.codex/agents' },
+        { kind: 'instructions', from: '.' },
         { kind: 'mcp', from: '.mcp.json' },
+      ]),
+    )
+    expect(r[0]!.mounts).not.toEqual(
+      expect.arrayContaining([
         { kind: 'scripts', from: 'bin' },
-        { kind: 'scripts', from: 'setup' },
-        { kind: 'scripts', from: 'install.sh' },
+        { kind: 'instructions', from: 'context' },
       ]),
     )
   })
 
-  it('auto-detects broader upstream agent-pack conventions', () => {
+  it('lets packs opt into scripts without broad repo scanning', () => {
     const r = resolvePacks({
-      packs: [{ url: 'https://github.com/affaan-m/everything-claude-code' }],
+      packs: [
+        {
+          url: 'https://github.com/garrytan/gstack',
+          autoImport: ['standard', 'scripts'],
+        },
+      ],
+    })
+    const mounts = r[0]!.mounts
+
+    expect(r[0]!.autoImportProfiles).toEqual(['standard', 'scripts'])
+    expect(mounts).toEqual(
+      expect.arrayContaining([
+        { kind: 'skills', from: '.' },
+        { kind: 'skills', from: 'skills' },
+        { kind: 'scripts', from: 'bin' },
+        { kind: 'scripts', from: 'scripts' },
+        { kind: 'scripts', from: 'setup' },
+      ]),
+    )
+    expect(mounts).not.toEqual(expect.arrayContaining([{ kind: 'instructions', from: 'context' }]))
+  })
+
+  it('keeps historical broad auto-detect as an explicit opt-in profile', () => {
+    const r = resolvePacks({
+      packs: [
+        {
+          url: 'https://github.com/affaan-m/everything-claude-code',
+          autoImport: ['legacy-broad'],
+        },
+      ],
     })
     const mounts = r[0]!.mounts
 
@@ -186,6 +218,7 @@ describe('agent-pack resolvePacks', () => {
           ref: 'main',
           depth: 1,
           autoDetect: true,
+          autoImportProfiles: ['claude', 'codex'],
           mounts: [
             { kind: 'commands', from: '.claude/commands' },
             { kind: 'agents', from: '.claude/agents' },
@@ -197,7 +230,7 @@ describe('agent-pack resolvePacks', () => {
       '/agent-packs',
     )
 
-    expect(prompt).toContain('auto-detected common layouts')
+    expect(prompt).toContain('auto-imported claude, codex layouts')
     expect(prompt).toContain('/agent-packs/seomachine/{skills,commands,agents')
   })
 })
@@ -281,10 +314,27 @@ describe('agent-pack k8s helpers', () => {
     ]
     const script = buildAgentPackInitScript(packs, '/agent-packs')
     expect(script).not.toContain('; ;')
-    expect(script).toContain('basename "$f" .md')
+    expect(script).toContain('base="${base%.md}"')
     expect(script).toContain('/agent-packs/seomachine/commands/$slug/SKILL.md')
     expect(script).toContain('/agent-packs/seomachine/agents/$slug/AGENT.md')
     expect(script).toContain('/agent-packs/seomachine/agents/$slug/SKILL.md')
+  })
+
+  it('wraps Codex custom agent TOML files for runtime discovery', () => {
+    const packs: ResolvedPack[] = [
+      {
+        id: 'codex-team',
+        url: 'https://github.com/x/y',
+        ref: 'main',
+        depth: 1,
+        mounts: [{ kind: 'agents', from: '.codex/agents' }],
+        instructionFiles: [],
+      },
+    ]
+    const script = buildAgentPackInitScript(packs, '/agent-packs')
+    expect(script).toContain("-name '*.toml'")
+    expect(script).toContain('/agent-packs/codex-team/agents/$slug/AGENT.toml')
+    expect(script).toContain('Codex custom agent definition imported from an agent pack.')
   })
 
   it('generates shell scripts that pass sh syntax validation', () => {

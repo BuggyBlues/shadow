@@ -73,7 +73,13 @@
                 {
                   "id": "seomachine",
                   "url": "https://github.com/TheCraigHewitt/seomachine",
-                  "ref": "main"
+                  "ref": "main",
+                  "autoImport": ["claude", "mcp"],
+                  "mounts": [
+                    { "kind": "instructions", "from": ".claude/commands" },
+                    { "kind": "instructions", "from": ".claude/agents" },
+                    { "kind": "instructions", "from": "context" }
+                  ]
                 }
               ],
               "poll": "1h"

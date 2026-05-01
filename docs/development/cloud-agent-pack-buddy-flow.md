@@ -13,22 +13,20 @@
 
 Cloud Core 只做微内核：读取模板、加载插件、收集配置碎片、交给部署器。agent-pack 插件负责把上游仓库映射成运行时可消费的目录和 metadata。
 
-## 2. autoDetect 规则
+## 2. autoImport 规则
 
-`agent-pack` 的自动识别不是按仓库名硬编码，而是按目录形态和声明文件分层识别：
+`agent-pack` 的自动导入不是按仓库名硬编码，而是按可声明的 profile 和显式 mounts 分层识别。默认只启用和主流 agent 文件规范兼容的 profile：`standard`、`claude`、`codex`、`mcp`。脚本、任意上下文目录、仓库私有目录需要模板显式声明，或显式选择 `scripts` / `legacy-broad` profile。
 
 | 信号 | 能力 | 说明 |
 |------|------|------|
-| `.claude-plugin/plugin.json` | plugin manifest | 优先读取 Claude plugin manifest 声明的 skills/commands/agents/hooks/MCP |
-| `skills/**/SKILL.md` 或 `SKILL.md` | skills | 标准 skill 或根目录单技能仓库 |
-| `.claude/commands/*.md` | slash commands | 注册到 Shadow 频道命令表，并保留源 prompt 给运行时执行 |
-| `.claude/agents/*.md` | agents | 导入角色定义，供 Buddy prompt 和 OpenClaw runtime 使用 |
-| `.claude/hooks` / `hooks` | hooks | 作为 pack metadata 暴露，后续由支持 hooks 的 runtime 消费 |
-| `mcp*.json` / `.mcp*.json` | MCP | 作为运行时 MCP 配置候选项 |
-| `bin/`、`scripts/`、`setup` / `install` / `bootstrap` | script-backed skills | 可执行脚本会被包装成轻量 `SKILL.md`，并注册为 slash command |
-| `context/`、`data_sources/` | resources | 作为 pack 附属资源同步进挂载目录 |
+| `SKILL.md`、`*-SKILL.md`、`skills/**/SKILL.md`、`.agents/skills/**/SKILL.md` | `standard` skills | 归一化为 OpenClaw 可加载 skill 目录 |
+| `.claude/skills/**/SKILL.md`、`.claude/commands/*.md`、`.claude/agents/*.md` | `claude` skills / commands / agents | 命令转成 skill 目录并生成 Shadow slash command；agent markdown 同时保留 `AGENT.md` |
+| `AGENTS.md`、`AGENTS.override.md`、`.codex/agents/*.toml`、`.agents/skills/**/SKILL.md` | `codex` instructions / agents / skills | 导入 Codex 指令和自定义 agent 定义；Codex agent TOML 会生成轻量 wrapper 供 runtime 发现 |
+| `.mcp.json`、`mcp.json`、`.claude/mcp.json` | `mcp` | 作为运行时 MCP 配置候选项 |
+| `bin/`、`scripts/`、`setup` / `install` / `bootstrap` | `scripts` | 显式启用后，可执行脚本会被包装成轻量 `SKILL.md`，并注册为 slash command |
+| `context/`、`docs/`、`playbooks/`、`data_sources/` | explicit mounts | 不再默认扫描；需要具体模板按仓库语义声明 |
 
-这套规则能覆盖“标准插件”、“Claude workspace”、“单 skill 仓库”和“工程团队栈”四类常见项目。无法识别时，导入不会猜测执行逻辑，而是把仓库作为 resources 记录并在验证阶段暴露缺口。
+这套规则能覆盖“标准 Agent Skills”、“Claude workspace”、“Codex workspace”和“MCP 配置”四类通用项目。像 gstack 这种把脚本、README、OpenClaw playbook、根目录 skill collection 混在一起的工程团队栈，应通过模板配置声明它自己的 mounts，而不是让通用插件内置仓库名或猜测私有目录语义。
 
 ## 3. 斜杠命令与交互组件
 
