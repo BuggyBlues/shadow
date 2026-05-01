@@ -125,6 +125,13 @@ function mergeByKey<T>(items: T[], keyOf: (item: T) => string): T[] {
   return [...map.values()]
 }
 
+function mcpServerKey(server: PluginMCPServer): string {
+  return (
+    server.id ??
+    `${server.transport}:${server.url ?? server.command ?? ''}:${server.args?.join(' ') ?? ''}`
+  )
+}
+
 function mergeCollectedRuntime(
   current: PluginRuntimeExtension,
   fragment: PluginRuntimeExtension,
@@ -172,8 +179,7 @@ function mergeCollectedRuntime(
       ? {
           mcpServers: mergeByKey(
             [...(current.mcpServers ?? []), ...(fragment.mcpServers ?? [])],
-            (server) =>
-              server.id ?? `${server.transport}:${server.command}:${server.args?.join(' ') ?? ''}`,
+            mcpServerKey,
           ),
         }
       : {}),
@@ -267,6 +273,27 @@ function defaultValidation(
   return { valid: errors.filter((e) => e.severity === 'error').length === 0, errors }
 }
 
+function openClawEnvRef(key: string): string {
+  return ['$', '{env:', key, '}'].join('')
+}
+
+function defaultConnectorSkills(manifest: PluginManifest): PluginSkillsConfig {
+  const env = Object.fromEntries(
+    manifest.auth.fields.map((field) => [field.key, openClawEnvRef(field.key)]),
+  )
+
+  return {
+    entries: [
+      {
+        id: manifest.id,
+        name: manifest.name,
+        description: manifest.description,
+        ...(Object.keys(env).length > 0 ? { env } : {}),
+      },
+    ],
+  }
+}
+
 // ─── Factory helpers ─────────────────────────────────────────────────────────
 
 /**
@@ -333,6 +360,105 @@ export function defineSkillPlugin(
 
     api.onBuildEnv((ctx) => defaultEnvVars(manifest, ctx))
     api.onValidate((ctx) => defaultValidation(manifest, ctx))
+    extraSetup?.(api)
+  })
+}
+
+/**
+ * Create a connector plugin that can declare Skills, CLI tools, MCP servers,
+ * runtime assets, credential files, and smoke checks in one place.
+ */
+export function defineConnectorPlugin(
+  manifest: PluginManifest,
+  options: {
+    skills?: PluginSkillsConfig
+    cli?: PluginCLITool[]
+    mcp?: PluginMCPServer | PluginMCPServer[]
+    runtimeDependencies?: PluginRuntimeDependency[]
+    skillSources?: PluginRuntimeSource[]
+    subagentSources?: PluginRuntimeSource[]
+    credentialFiles?: PluginCredentialFile[]
+    verificationChecks?: PluginVerificationCheck[]
+    prompt?: string | ((ctx: PluginBuildContext) => string | void)
+    config?: (ctx: PluginBuildContext) => PluginConfigFragment | void
+    env?: (ctx: PluginBuildContext) => Record<string, string> | void
+    validate?: (ctx: PluginBuildContext) => PluginValidationResult | void
+    runtimeMountPath?: string
+    skillsMountPath?: string
+    subagentsMountPath?: string
+    runtimeVolumeName?: string
+    skillsVolumeName?: string
+    subagentsVolumeName?: string
+    sanityCommands?: string[]
+  },
+  extraSetup?: (api: PluginAPI) => void,
+): PluginDefinition {
+  const mcpServers = options.mcp ? (Array.isArray(options.mcp) ? options.mcp : [options.mcp]) : []
+  const skills = options.skills ?? defaultConnectorSkills(manifest)
+
+  return definePlugin(manifest, (api) => {
+    api.addSkills(skills)
+    if (options.cli?.length) api.addCLI(options.cli)
+    for (const server of mcpServers) api.addMCP(server)
+    if (options.runtimeDependencies?.length) api.addRuntimeDependencies(options.runtimeDependencies)
+    if (options.skillSources?.length) api.addSkillSources(options.skillSources)
+    if (options.subagentSources?.length) api.addSubagentSources(options.subagentSources)
+    if (options.credentialFiles?.length) api.addCredentialFiles(options.credentialFiles)
+    if (options.verificationChecks?.length) api.addVerificationChecks(options.verificationChecks)
+
+    api.addSecretFields(
+      manifest.auth.fields.map((field) => ({
+        key: field.key,
+        label: field.label,
+        description: field.description,
+        required: field.required,
+        sensitive: field.sensitive,
+        placeholder: field.placeholder,
+        helpUrl: field.helpUrl,
+      })),
+    )
+
+    api.onBuildConfig((_ctx): PluginConfigFragment => {
+      const fragment: PluginConfigFragment = {}
+      if (skills) {
+        const skillConfig: Record<string, unknown> = {}
+        const extraDirs = [
+          ...new Set(
+            (options.skillSources ?? [])
+              .map((source) => source.targetPath)
+              .filter((path): path is string => Boolean(path)),
+          ),
+        ]
+        if (extraDirs.length > 0) skillConfig.load = { extraDirs }
+        if (skills.bundled?.length) skillConfig.allowBundled = skills.bundled
+        if (skills.entries?.length) {
+          const entries: Record<string, unknown> = {}
+          for (const skill of skills.entries) {
+            entries[skill.id] = {
+              enabled: true,
+              ...(skill.apiKey ? { apiKey: skill.apiKey } : {}),
+              ...(skill.env ? { env: skill.env } : {}),
+            }
+          }
+          skillConfig.entries = entries
+        }
+        fragment.skills = skillConfig
+      }
+      return fragment
+    })
+
+    if (options.config) api.onBuildConfig(options.config)
+    api.onBuildEnv((ctx) => ({
+      ...defaultEnvVars(manifest, ctx),
+      ...(options.env?.(ctx) ?? {}),
+    }))
+    api.onValidate((ctx) => options.validate?.(ctx) ?? defaultValidation(manifest, ctx))
+    if (options.prompt) {
+      api.onBuildPrompt((ctx) =>
+        typeof options.prompt === 'function' ? options.prompt(ctx) : options.prompt,
+      )
+    }
+
     extraSetup?.(api)
   })
 }

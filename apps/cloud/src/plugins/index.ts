@@ -4,6 +4,7 @@
 
 export {
   defineChannelPlugin,
+  defineConnectorPlugin,
   definePlugin,
   defineProviderPlugin,
   defineSkillPlugin,
@@ -27,6 +28,7 @@ export type {
   PluginInstallConfig,
   PluginManifest,
   PluginMCPServer,
+  PluginMCPTransport,
   PluginOAuthConfig,
   PluginProvisionContext,
   PluginProvisionResult,

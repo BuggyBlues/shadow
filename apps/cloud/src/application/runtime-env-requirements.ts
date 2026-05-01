@@ -114,7 +114,7 @@ function fieldFromAuth(field: PluginAuthField, plugin: PluginDefinition): Runtim
     source: 'plugin',
     sourceId: plugin.manifest.id,
     sourceLabel: plugin.manifest.name,
-    helpUrl: plugin.manifest.docs ?? plugin.manifest.website,
+    helpUrl: field.helpUrl ?? plugin.manifest.docs ?? plugin.manifest.website,
   }
 }
 
@@ -133,7 +133,7 @@ function mergeSecretField(
     source: base?.source ?? 'plugin',
     sourceId: base?.sourceId ?? plugin.manifest.id,
     sourceLabel: base?.sourceLabel ?? plugin.manifest.name,
-    helpUrl: base?.helpUrl ?? plugin.manifest.docs ?? plugin.manifest.website,
+    helpUrl: field.helpUrl ?? base?.helpUrl ?? plugin.manifest.docs ?? plugin.manifest.website,
   }
 }
 
