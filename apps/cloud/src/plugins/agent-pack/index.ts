@@ -114,6 +114,19 @@ export interface AgentPackOptions {
      * markdown. Defaults to true when autoRegister is enabled.
      */
     inferInteractions?: boolean
+    /**
+     * Register executable helper scripts from mounted script packs as slash
+     * commands. Defaults to true so bin/script-based packs are discoverable.
+     */
+    includeScripts?: boolean
+    /**
+     * Write lightweight SKILL.md wrappers for discovered scripts into the
+     * mounted pack's skills directory. Defaults to true when scripts are
+     * included, so OpenClaw can also auto-load them as skills.
+     */
+    generateScriptSkills?: boolean
+    /** Per-pack cap for generated script-backed commands. Defaults to 80. */
+    maxScriptCommandsPerPack?: number
     rules?: PluginSlashCommandRule[]
   }
 }
@@ -356,6 +369,9 @@ const agentPackK8sProvider: PluginK8sProvider = {
           enabled: true,
           outputPath: agentPackSlashCommandsIndexPath(mountPath),
           inferInteractions: slashCommands.inferInteractions ?? true,
+          includeScripts: slashCommands.includeScripts ?? true,
+          generateScriptSkills: slashCommands.generateScriptSkills ?? true,
+          maxScriptCommandsPerPack: slashCommands.maxScriptCommandsPerPack,
           rules: slashCommands.rules,
         }
       : undefined

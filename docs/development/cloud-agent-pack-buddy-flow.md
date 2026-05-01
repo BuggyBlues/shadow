@@ -25,7 +25,8 @@ Cloud Core 只做微内核：读取模板、加载插件、收集配置碎片、
 | `.claude/agents/*.md` | agents | 导入角色定义，供 Buddy prompt 和 OpenClaw runtime 使用 |
 | `.claude/hooks` / `hooks` | hooks | 作为 pack metadata 暴露，后续由支持 hooks 的 runtime 消费 |
 | `mcp*.json` / `.mcp*.json` | MCP | 作为运行时 MCP 配置候选项 |
-| `context/`、`scripts/`、`data_sources/` | resources | 作为 pack 附属资源同步进挂载目录 |
+| `bin/`、`scripts/` | script-backed skills | 可执行脚本会被包装成轻量 `SKILL.md`，并注册为 slash command |
+| `context/`、`data_sources/` | resources | 作为 pack 附属资源同步进挂载目录 |
 
 这套规则能覆盖“标准插件”、“Claude workspace”、“单 skill 仓库”和“工程团队栈”四类常见项目。无法识别时，导入不会猜测执行逻辑，而是把仓库作为 resources 记录并在验证阶段暴露缺口。
 
@@ -36,7 +37,9 @@ Cloud Core 只做微内核：读取模板、加载插件、收集配置碎片、
 1. `agent-pack` 插件的 init/sync 容器扫描 mounted pack，生成 `/agent-packs/.shadow/slash-commands.json`。
 2. Shadow Server 暴露 `GET /api/channels/:id/slash-commands`，供频道输入框补全。
 
-`agent-pack` 默认通过 `onBuildRuntime` 暴露标准 runtime artifact：`{ kind: "shadow.slashCommands", path: "/agent-packs/.shadow/slash-commands.json" }`。通用 runner 只把这个 artifact 路径传给 Shadow channel，不扫描 pack，也不内置 agent-pack 逻辑。命令识别和交互推断属于 agent-pack 插件：优先级是上游命令 frontmatter 自带 `interaction`、插件通用 rule、再从 AskUserQuestion 风格的 `**Ask:**` / `Q1:` markdown 自动生成表单。模板不复制 gstack 这类上游问题，容器入口也不允许写仓库名、命令名或表单字段特例。
+`agent-pack` 默认通过 `onBuildRuntime` 暴露标准 runtime artifact：`{ kind: "shadow.slashCommands", path: "/agent-packs/.shadow/slash-commands.json" }`。通用 runner 只把这个 artifact 路径传给 Shadow channel，不扫描 pack，也不内置 agent-pack 逻辑。命令识别和交互推断属于 agent-pack 插件：优先级是上游命令 frontmatter 自带 `interaction`、插件通用 rule、从 AskUserQuestion 风格的 `**Ask:**` / `Q1:` markdown 自动生成表单、最后把可执行 helper scripts 包装成 script-backed skills。模板不复制 gstack 这类上游问题，容器入口也不允许写仓库名、命令名或表单字段特例。
+
+脚本导入规则保持保守：只处理 shebang、无扩展名 CLI、或常见脚本扩展的文件；跳过 TypeScript 源文件、JSON、Markdown、图片、lockfile 等非执行资产。生成的 wrapper 会要求 agent 先检查 `--help` 或读取脚本，再用绝对路径执行，并在破坏性、长耗时或需要凭证的动作前解释风险。
 
 如果命令带 `interaction`，无参数触发时 Buddy 必须先发送交互组件，而不是直接进入纯聊天。典型链路是：
 

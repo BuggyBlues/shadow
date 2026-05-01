@@ -415,6 +415,9 @@ describe('agent-pack k8s helpers', () => {
     expect(script).toContain('/tmp/agent-pack-slash-indexer.mjs')
     expect(script).toContain("--mount-path '/agent-packs'")
     expect(script).toContain("--output '/agent-packs/.shadow/slash-commands.json'")
+    expect(script).toContain('--include-scripts true')
+    expect(script).toContain('--generate-script-skills true')
+    expect(script).toContain('--max-script-commands-per-pack 80')
     expect(script).toContain('Wrote ')
   })
 

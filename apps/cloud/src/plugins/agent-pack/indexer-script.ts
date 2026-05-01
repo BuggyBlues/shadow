@@ -5,8 +5,8 @@
  */
 
 export const AGENT_PACK_SLASH_INDEXER_SCRIPT = String.raw`
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { basename, dirname, extname, join, relative } from 'node:path'
 
 function readArg(name, fallback) {
   const idx = process.argv.indexOf(name)
@@ -28,6 +28,29 @@ function listFiles(dir, suffix) {
     return readdirSync(dir, { withFileTypes: true })
       .filter((d) => d.isFile() && d.name.endsWith(suffix))
       .map((d) => join(dir, d.name))
+  } catch {
+    return []
+  }
+}
+
+function listFilesRecursive(dir, maxDepth, depth = 0) {
+  if (depth > maxDepth) return []
+  try {
+    const entries = readdirSync(dir, { withFileTypes: true })
+    const out = []
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue
+      const path = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        if (['node_modules', 'dist', 'build', 'vendor', 'coverage', '__pycache__'].includes(entry.name)) {
+          continue
+        }
+        out.push(...listFilesRecursive(path, maxDepth, depth + 1))
+      } else if (entry.isFile()) {
+        out.push(path)
+      }
+    }
+    return out
   } catch {
     return []
   }
@@ -405,6 +428,179 @@ function addInferredAliases(command, context) {
   return command
 }
 
+const SCRIPT_EXTENSIONS = new Set(['', '.sh', '.bash', '.js', '.mjs', '.cjs', '.py', '.rb', '.pl'])
+const SCRIPT_EXCLUDED_EXTENSIONS = new Set([
+  '.ts',
+  '.tsx',
+  '.json',
+  '.md',
+  '.mdx',
+  '.txt',
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+  '.svg',
+  '.icns',
+  '.map',
+  '.lock',
+])
+const SCRIPT_EXCLUDED_NAMES = new Set([
+  'package.json',
+  'package-lock.json',
+  'pnpm-lock.yaml',
+  'yarn.lock',
+  'bun.lockb',
+])
+
+function readScriptHead(path) {
+  try {
+    return readFileSync(path, 'utf-8').slice(0, 12000)
+  } catch {
+    return ''
+  }
+}
+
+function isLikelyScript(path) {
+  const name = basename(path)
+  if (!name || name.startsWith('.') || SCRIPT_EXCLUDED_NAMES.has(name)) return false
+  const ext = extname(name).toLowerCase()
+  if (SCRIPT_EXCLUDED_EXTENSIONS.has(ext)) return false
+  if (!SCRIPT_EXTENSIONS.has(ext)) return false
+
+  try {
+    const stat = statSync(path)
+    if (!stat.isFile() || stat.size <= 0 || stat.size > 512 * 1024) return false
+  } catch {
+    return false
+  }
+
+  if (ext === '') return true
+  const head = readScriptHead(path)
+  return head.startsWith('#!') || /(^|\n)\s*(Usage:|USAGE:|export\s+default|if\s+\(__name__\s*==)/.test(head)
+}
+
+function commandNameFromScriptPath(path) {
+  const ext = extname(path)
+  const raw = ext ? basename(path, ext) : basename(path)
+  const normalized = raw.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '')
+  return normalizeSlashCommandName(normalized)
+}
+
+function deriveScriptDescription(path, packId) {
+  const head = readScriptHead(path)
+  const lines = head.split('\n').slice(0, 60)
+  for (const rawLine of lines) {
+    const line = rawLine
+      .replace(/^#!.*$/, '')
+      .replace(/^\s*(#|\/\/)\s?/, '')
+      .trim()
+    if (!line) continue
+    if (/^(usage|env overrides?|set -|shellcheck|eslint|biome)/i.test(line)) continue
+    return stripMarkdownInline(line).slice(0, 180)
+  }
+  return 'Run a helper script from the ' + packId + ' agent pack.'
+}
+
+function scriptSkillMarkdown(params) {
+  const rel = params.relPath
+  const description = params.description
+  const path = params.path
+  return [
+    '---',
+    'name: ' + JSON.stringify(params.name),
+    'description: ' + JSON.stringify(description),
+    '---',
+    '',
+    '# ' + params.name,
+    '',
+    'This capability is backed by a mounted helper script from the ' + params.packId + ' agent pack.',
+    '',
+    '- Script path: ' + path,
+    '- Pack script: ' + rel,
+    '',
+    'When this skill is relevant:',
+    '',
+    '1. Inspect usage first by running the script with --help, or read the script if help is not supported.',
+    '2. Run the script with explicit user-provided arguments, using the absolute script path above.',
+    '3. Summarize stdout, stderr, exit status, and any files created or changed.',
+    '4. For destructive, credentialed, long-running, or network-heavy actions, explain the exact action before running it unless the user explicitly requested that action.',
+  ].join('\n')
+}
+
+function discoverPackDirs(mountPath) {
+  return listChildDirs(mountPath).filter((packDir) => !packDir.endsWith('/.shadow'))
+}
+
+function discoverPackScripts(packDir, maxPerPack) {
+  const scriptsDir = join(packDir, 'scripts')
+  if (!existsSync(scriptsDir)) return []
+  const seenNames = new Set()
+  const scripts = []
+  for (const path of listFilesRecursive(scriptsDir, 4)) {
+    if (!isLikelyScript(path)) continue
+    const name = commandNameFromScriptPath(path)
+    if (!name || seenNames.has(name.toLowerCase())) continue
+    seenNames.add(name.toLowerCase())
+    scripts.push({
+      name,
+      path,
+      relPath: relative(scriptsDir, path),
+    })
+    if (scripts.length >= maxPerPack) break
+  }
+  return scripts
+}
+
+function generateScriptSkillWrappers(mountPath, options) {
+  if (!options.includeScripts || !options.generateScriptSkills) return
+  for (const packDir of discoverPackDirs(mountPath)) {
+    const packId = basename(packDir)
+    const skillsDir = join(packDir, 'skills')
+    mkdirSync(skillsDir, { recursive: true })
+
+    for (const script of discoverPackScripts(packDir, options.maxScriptCommandsPerPack)) {
+      const skillDir = join(skillsDir, script.name)
+      const skillPath = join(skillDir, 'SKILL.md')
+      if (existsSync(skillPath)) continue
+      const description = deriveScriptDescription(script.path, packId)
+      mkdirSync(skillDir, { recursive: true })
+      writeFileSync(
+        skillPath,
+        scriptSkillMarkdown({
+          ...script,
+          packId,
+          description,
+        }),
+        'utf-8',
+      )
+    }
+  }
+}
+
+function discoverScriptCommands(mountPath, options) {
+  if (!options.includeScripts) return []
+  const commands = []
+  for (const packDir of discoverPackDirs(mountPath)) {
+    const packId = basename(packDir)
+    for (const script of discoverPackScripts(packDir, options.maxScriptCommandsPerPack)) {
+      const description = deriveScriptDescription(script.path, packId)
+      commands.push({
+        name: script.name,
+        description,
+        packId,
+        sourcePath: script.path,
+        body: scriptSkillMarkdown({
+          ...script,
+          packId,
+          description,
+        }),
+      })
+    }
+  }
+  return commands
+}
+
 function readSlashCommand(path, fallbackName, options) {
   const text = readMaybe(path).trim()
   if (!text) return null
@@ -490,6 +686,12 @@ const mountPath = readArg('--mount-path', '/agent-packs')
 const output = readArg('--output', mountPath + '/.shadow/slash-commands.json')
 const rulesRaw = readArg('--rules-json', '[]')
 const inferInteractions = readArg('--infer-interactions', 'true') !== 'false'
+const includeScripts = readArg('--include-scripts', 'true') !== 'false'
+const generateScriptSkills = readArg('--generate-script-skills', 'true') !== 'false'
+const maxScriptCommandsPerPack = Math.max(
+  0,
+  Number.parseInt(readArg('--max-script-commands-per-pack', '80'), 10) || 80,
+)
 let rules = []
 try {
   const parsed = JSON.parse(rulesRaw)
@@ -498,10 +700,25 @@ try {
   console.warn('[agent-pack] Ignoring invalid slash command rules JSON: ' + err.message)
 }
 
-const commands = discoverSlashCommands(commandDirsFromMountRoot(mountPath), {
+const options = {
   inferInteractions,
+  includeScripts,
+  generateScriptSkills,
+  maxScriptCommandsPerPack,
   rules,
-})
+}
+generateScriptSkillWrappers(mountPath, options)
+
+const seenCommands = new Set()
+const commands = [
+  ...discoverSlashCommands(commandDirsFromMountRoot(mountPath), options),
+  ...discoverScriptCommands(mountPath, options),
+].filter((command) => {
+  const key = command.name.toLowerCase()
+  if (seenCommands.has(key)) return false
+  seenCommands.add(key)
+  return true
+}).slice(0, 200)
 mkdirSync(dirname(output), { recursive: true })
 writeFileSync(output, JSON.stringify(commands, null, 2), 'utf-8')
 console.log('[agent-pack] Wrote ' + commands.length + ' slash command(s) to ' + output)
