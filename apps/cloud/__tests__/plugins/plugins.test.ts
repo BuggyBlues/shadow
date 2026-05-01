@@ -551,12 +551,13 @@ describe('collectRuntimeEnvRequirements', () => {
 
     expect(keys).toEqual(
       expect.arrayContaining([
-        'GOOGLE_WORKSPACE_ACCESS_TOKEN',
-        'GOOGLE_WORKSPACE_ADC_JSON',
-        'GOOGLE_WORKSPACE_CREDENTIALS_JSON',
+        'GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON',
+        'GOOGLE_WORKSPACE_CLI_TOKEN',
       ]),
     )
-    expect(keys).not.toContain('GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON')
+    expect(keys).not.toContain('GOOGLE_WORKSPACE_ADC_JSON')
+    expect(keys).not.toContain('GOOGLE_WORKSPACE_ACCESS_TOKEN')
+    expect(keys).not.toContain('GOOGLE_WORKSPACE_CREDENTIALS_JSON')
   })
 
   it('collects connector credential field metadata for deploy forms', async () => {
@@ -569,17 +570,18 @@ describe('collectRuntimeEnvRequirements', () => {
     expect(fields).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          key: 'GOOGLE_WORKSPACE_CREDENTIALS_JSON',
-          label: 'Google Workspace credentials JSON',
+          key: 'GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON',
+          label: 'Google Workspace credentials.json',
           required: false,
           sensitive: true,
           placeholder: '{"installed":{"client_id":"..."}}',
           source: 'plugin',
           sourceId: 'google-workspace',
+          helpUrl: 'https://github.com/googleworkspace/cli#authentication',
         }),
         expect.objectContaining({
-          key: 'GOOGLE_WORKSPACE_ACCESS_TOKEN',
-          label: 'Google Workspace access token',
+          key: 'GOOGLE_WORKSPACE_CLI_TOKEN',
+          label: 'Google Workspace CLI token',
           required: false,
           sensitive: true,
           placeholder: 'ya29...',
@@ -774,14 +776,13 @@ describe('Tool plugins', () => {
     expect(plugin.manifest.id).toBe('google-workspace')
     expect(plugin.secretFields?.map((field) => field.key)).toEqual(
       expect.arrayContaining([
-        'GOOGLE_WORKSPACE_ACCESS_TOKEN',
-        'GOOGLE_WORKSPACE_ADC_JSON',
-        'GOOGLE_WORKSPACE_CREDENTIALS_JSON',
+        'GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON',
+        'GOOGLE_WORKSPACE_CLI_TOKEN',
       ]),
     )
 
     const ctx = makeBuildContext({
-      secrets: { GOOGLE_WORKSPACE_CREDENTIALS_JSON: '{"installed":{}}' },
+      secrets: { GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON: '{"installed":{}}' },
       agentConfig: { services: ['gmail', 'calendar'] },
     })
     const fragment = plugin._hooks.buildConfig[0]!(ctx)
@@ -803,6 +804,25 @@ describe('Tool plugins', () => {
       '/home/openclaw/.config/gws/credentials.json',
     )
     expect(env?.GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON).toBe('{"installed":{}}')
+
+    const legacyEnv = plugin._hooks.buildEnv[0]!(
+      makeBuildContext({
+        secrets: { GOOGLE_WORKSPACE_CREDENTIALS_JSON: '{"installed":{}}' },
+      }),
+    )
+    expect(legacyEnv?.GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON).toBe('{"installed":{}}')
+
+    const legacyServiceAccountEnv = plugin._hooks.buildEnv[0]!(
+      makeBuildContext({
+        secrets: { GOOGLE_WORKSPACE_ADC_JSON: '{"type":"service_account"}' },
+      }),
+    )
+    expect(legacyServiceAccountEnv?.GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON).toBe(
+      '{"type":"service_account"}',
+    )
+    expect(legacyServiceAccountEnv?.GOOGLE_APPLICATION_CREDENTIALS_JSON).toBe(
+      '{"type":"service_account"}',
+    )
 
     const runtime = plugin._hooks.buildRuntime[0]!(ctx)
     expect(runtime?.credentialFiles).toContainEqual({
@@ -834,11 +854,7 @@ describe('Tool plugins', () => {
     expect(
       runtime?.verificationChecks?.find((check) => check.id === 'google-workspace-auth')
         ?.requiredEnvAny,
-    ).toEqual([
-      'GOOGLE_WORKSPACE_CLI_TOKEN',
-      'GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON',
-      'GOOGLE_APPLICATION_CREDENTIALS_JSON',
-    ])
+    ).toEqual(['GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON', 'GOOGLE_WORKSPACE_CLI_TOKEN'])
   })
 
   it('google-workspace plugin should install gws and Workspace skills for enabled agents', async () => {

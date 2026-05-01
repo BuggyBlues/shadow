@@ -19,12 +19,12 @@ const RUNTIME_MOUNT = '/opt/shadow-plugin-deps/google-workspace'
 const SKILLS_MOUNT = '/app/plugin-skills/google-workspace'
 const CREDENTIALS_FILE = '/home/openclaw/.config/gws/credentials.json'
 const ADC_FILE = '/home/openclaw/.config/gws/application-default-credentials.json'
-const AUTH_ENV_KEYS = [
-  'GOOGLE_WORKSPACE_CLI_TOKEN',
-  'GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON',
-  'GOOGLE_APPLICATION_CREDENTIALS_JSON',
-]
+const AUTH_ENV_KEYS = ['GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON', 'GOOGLE_WORKSPACE_CLI_TOKEN']
 const SECRET_FIELD_KEYS = {
+  credentialsJson: 'GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON',
+  cliToken: 'GOOGLE_WORKSPACE_CLI_TOKEN',
+} as const
+const LEGACY_SECRET_FIELD_KEYS = {
   credentialsJson: 'GOOGLE_WORKSPACE_CREDENTIALS_JSON',
   accessToken: 'GOOGLE_WORKSPACE_ACCESS_TOKEN',
   adcJson: 'GOOGLE_WORKSPACE_ADC_JSON',
@@ -80,10 +80,10 @@ function hasWorkspaceCredential(context: PluginBuildContext): boolean {
   return Boolean(
     firstSecret(context, [
       SECRET_FIELD_KEYS.credentialsJson,
-      'GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON',
-      SECRET_FIELD_KEYS.accessToken,
-      'GOOGLE_WORKSPACE_CLI_TOKEN',
-      SECRET_FIELD_KEYS.adcJson,
+      SECRET_FIELD_KEYS.cliToken,
+      LEGACY_SECRET_FIELD_KEYS.credentialsJson,
+      LEGACY_SECRET_FIELD_KEYS.accessToken,
+      LEGACY_SECRET_FIELD_KEYS.adcJson,
       'GOOGLE_APPLICATION_CREDENTIALS_JSON',
     ]),
   )
@@ -106,22 +106,16 @@ const plugin = definePlugin(manifest as PluginManifest, (api) => {
   api.addSecretFields([
     {
       key: SECRET_FIELD_KEYS.credentialsJson,
-      label: 'Google Workspace credentials JSON',
-      description: 'Credentials exported with `gws auth export --unmasked`.',
+      label: 'Google Workspace credentials.json',
+      description:
+        'Paste credentials.json from `gws auth export --unmasked`, or a service-account JSON.',
       sensitive: true,
       placeholder: '{"installed":{"client_id":"..."}}',
     },
     {
-      key: SECRET_FIELD_KEYS.adcJson,
-      label: 'Google Workspace ADC JSON',
-      description: 'Optional ADC or service account JSON for headless runtime use.',
-      sensitive: true,
-      placeholder: '{"type":"service_account","project_id":"..."}',
-    },
-    {
-      key: SECRET_FIELD_KEYS.accessToken,
-      label: 'Google Workspace access token',
-      description: 'Optional short-lived OAuth access token.',
+      key: SECRET_FIELD_KEYS.cliToken,
+      label: 'Google Workspace CLI token',
+      description: 'Paste GOOGLE_WORKSPACE_CLI_TOKEN if you already use a token flow.',
       sensitive: true,
       placeholder: 'ya29...',
     },
@@ -229,18 +223,20 @@ const plugin = definePlugin(manifest as PluginManifest, (api) => {
 
     const credentialsJson = firstSecret(context, [
       SECRET_FIELD_KEYS.credentialsJson,
-      'GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON',
+      LEGACY_SECRET_FIELD_KEYS.credentialsJson,
+      LEGACY_SECRET_FIELD_KEYS.adcJson,
+      'GOOGLE_APPLICATION_CREDENTIALS_JSON',
     ])
-    const accessToken = firstSecret(context, [
-      SECRET_FIELD_KEYS.accessToken,
-      'GOOGLE_WORKSPACE_CLI_TOKEN',
+    const cliToken = firstSecret(context, [
+      SECRET_FIELD_KEYS.cliToken,
+      LEGACY_SECRET_FIELD_KEYS.accessToken,
     ])
     const adcJson = firstSecret(context, [
-      SECRET_FIELD_KEYS.adcJson,
+      LEGACY_SECRET_FIELD_KEYS.adcJson,
       'GOOGLE_APPLICATION_CREDENTIALS_JSON',
     ])
     if (credentialsJson) env.GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON = credentialsJson
-    if (accessToken) env.GOOGLE_WORKSPACE_CLI_TOKEN = accessToken
+    if (cliToken) env.GOOGLE_WORKSPACE_CLI_TOKEN = cliToken
     if (adcJson) env.GOOGLE_APPLICATION_CREDENTIALS_JSON = adcJson
 
     for (const key of ['GOOGLE_WORKSPACE_CLI_SANITIZE_TEMPLATE', 'GOOGLE_WORKSPACE_PROJECT_ID']) {
@@ -274,7 +270,7 @@ const plugin = definePlugin(manifest as PluginManifest, (api) => {
         {
           path: `secrets.${SECRET_FIELD_KEYS.credentialsJson}`,
           message:
-            'Google Workspace works best with exported gws credentials JSON, ADC/service-account JSON, or a short-lived access token.',
+            'Google Workspace works best with credentials.json from gws auth export, a service-account JSON, or GOOGLE_WORKSPACE_CLI_TOKEN.',
           severity: 'warning',
         },
       ],
@@ -284,7 +280,7 @@ const plugin = definePlugin(manifest as PluginManifest, (api) => {
   api.onHealthCheck(async (context) => {
     return hasWorkspaceCredential(context)
       ? { healthy: true, message: 'Google Workspace credentials are configured' }
-      : { healthy: false, message: 'Missing Google Workspace credentials or access token' }
+      : { healthy: false, message: 'Missing Google Workspace credentials' }
   })
 })
 

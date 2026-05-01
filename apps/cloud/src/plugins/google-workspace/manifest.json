@@ -6,30 +6,22 @@
   "category": "productivity",
   "icon": "google",
   "website": "https://github.com/googleworkspace/cli",
-  "docs": "https://github.com/googleworkspace/cli",
+  "docs": "https://github.com/googleworkspace/cli#authentication",
   "auth": {
     "type": "oauth2",
     "fields": [
       {
-        "key": "GOOGLE_WORKSPACE_CREDENTIALS_JSON",
-        "label": "Google Workspace Credentials JSON",
-        "description": "Credentials exported with `gws auth export --unmasked`.",
+        "key": "GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON",
+        "label": "Google Workspace credentials.json",
+        "description": "Paste credentials.json from `gws auth export --unmasked`, or a service-account JSON.",
         "required": false,
         "sensitive": true,
         "placeholder": "{\"installed\":{\"client_id\":\"...\"}}"
       },
       {
-        "key": "GOOGLE_WORKSPACE_ADC_JSON",
-        "label": "Google Workspace ADC JSON",
-        "description": "Optional Application Default Credentials or service account JSON for headless runtime use.",
-        "required": false,
-        "sensitive": true,
-        "placeholder": "{\"type\":\"service_account\",\"project_id\":\"...\"}"
-      },
-      {
-        "key": "GOOGLE_WORKSPACE_ACCESS_TOKEN",
-        "label": "Google Workspace Access Token",
-        "description": "Optional short-lived OAuth access token.",
+        "key": "GOOGLE_WORKSPACE_CLI_TOKEN",
+        "label": "Google Workspace CLI token",
+        "description": "Paste GOOGLE_WORKSPACE_CLI_TOKEN if you already use a token flow.",
         "required": false,
         "sensitive": true,
         "placeholder": "ya29..."

@@ -194,8 +194,7 @@ describe('buildAgentRuntimePackage', () => {
       agent: config.deployments!.agents[0]!,
       config,
       extraEnv: {
-        GOOGLE_WORKSPACE_CREDENTIALS_JSON: '{"installed":{}}',
-        GOOGLE_WORKSPACE_ADC_JSON: '{"type":"service_account"}',
+        GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON: '{"installed":{}}',
       },
     })
     const runtimeExtensions = JSON.parse(runtimePackage.configData['runtime-extensions.json']!)
@@ -225,17 +224,9 @@ describe('buildAgentRuntimePackage', () => {
     expect(runtimeExtensions.verificationChecks.map((check: { id: string }) => check.id)).toEqual(
       expect.arrayContaining(['google-workspace-auth', 'google-workspace-calendar-agenda']),
     )
-    expect(runtimePackage.secretData.GOOGLE_WORKSPACE_CREDENTIALS_JSON).toBe('{"installed":{}}')
     expect(runtimePackage.secretData.GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON).toBe('{"installed":{}}')
     expect(runtimePackage.secretData.GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE).toBe(
       '/home/openclaw/.config/gws/credentials.json',
-    )
-    expect(runtimePackage.secretData.GOOGLE_WORKSPACE_ADC_JSON).toBe('{"type":"service_account"}')
-    expect(runtimePackage.secretData.GOOGLE_APPLICATION_CREDENTIALS_JSON).toBe(
-      '{"type":"service_account"}',
-    )
-    expect(runtimePackage.secretData.GOOGLE_APPLICATION_CREDENTIALS).toBe(
-      '/home/openclaw/.config/gws/application-default-credentials.json',
     )
   })
 })
