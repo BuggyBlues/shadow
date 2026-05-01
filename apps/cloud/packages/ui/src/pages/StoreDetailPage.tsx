@@ -2,7 +2,7 @@ import { Button, GlassPanel } from '@shadowob/ui'
 import { EmptyState } from '@shadowob/ui/components/ui/empty-state'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
-import { ArrowLeft, BookOpen, Clock, FolderOpen, GitFork, Key, Rocket, Users } from 'lucide-react'
+import { BookOpen, Clock, FolderOpen, GitFork, Key, Rocket, Users } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -67,11 +67,6 @@ export function StoreDetailPage() {
         <EmptyState
           title={t('storeDetail.templateNotFound')}
           description={t('storeDetail.templateNotFoundDesc')}
-          action={
-            <Button asChild variant="primary" size="sm">
-              <Link to="/store">{t('storeDetail.backToStore')}</Link>
-            </Button>
-          }
         />
       </div>
     )
@@ -101,12 +96,6 @@ export function StoreDetailPage() {
           >
             <GitFork size={14} />
             <span>{forkMutation.isPending ? t('common.loading') : t('store.forkTemplate')}</span>
-          </Button>
-          <Button asChild variant="ghost">
-            <Link to="/store">
-              <ArrowLeft size={14} />
-              <span>{t('store.backToStore')}</span>
-            </Link>
           </Button>
         </>
       }
