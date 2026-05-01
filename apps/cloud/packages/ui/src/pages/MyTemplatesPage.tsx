@@ -16,7 +16,7 @@ import {
   ModalContent,
   ModalFooter,
   ModalHeader,
-  Search,
+  Search as SearchField,
 } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
@@ -540,53 +540,47 @@ export function MyTemplatesPage() {
     <PageShell
       breadcrumb={[]}
       title={t('templates.title')}
-      bodyClassName="space-y-4"
       headerContent={
         <div className="space-y-3">
-          <Search
+          <SearchField
             value={search}
             onChange={setSearch}
             placeholder={typewriterPlaceholder || t('templates.searchSavedPlaceholder')}
           />
-          {debouncedSearch ? (
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-text-muted">
-                {t('store.matchingTemplates', { count: filteredTemplates.length })}
-                {` ${t('store.matchingQuery', { query: debouncedSearch })}`}
-              </p>
-              <Button type="button" variant="secondary" size="sm" onClick={() => setSearch('')}>
-                {t('store.clearFilters')}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-text-muted">
+              {t('store.matchingTemplates', { count: filteredTemplates.length })}
+              {debouncedSearch ? ` · ${t('store.matchingQuery', { query: debouncedSearch })}` : ''}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={() => setShowCreateDialog(true)}
+              >
+                <Plus size={14} />
+                <span className="truncate">{t('templates.createTemplate')}</span>
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => navigate({ to: '/store' })}
+              >
+                <ShoppingBag size={14} />
+                <span className="truncate">{t('templates.forkFromStore')}</span>
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowGitImport(true)}
+              >
+                <GitBranch size={14} />
+                <span className="truncate">{t('templates.importGit')}</span>
               </Button>
             </div>
-          ) : null}
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              onClick={() => setShowCreateDialog(true)}
-            >
-              <Plus size={14} />
-              <span className="truncate">{t('templates.createTemplate')}</span>
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => navigate({ to: '/store' })}
-            >
-              <ShoppingBag size={14} />
-              <span className="truncate">{t('templates.forkFromStore')}</span>
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => setShowGitImport(true)}
-            >
-              <GitBranch size={14} />
-              <span className="truncate">{t('templates.importGit')}</span>
-            </Button>
           </div>
         </div>
       }
@@ -692,6 +686,9 @@ export function MyTemplatesPage() {
                 detailHref={`/my-templates/${templateNameParam}`}
                 title={template.name}
                 summary={summaryText}
+                difficultyLabel={
+                  baseTemplate ? t(`store.difficulties.${baseTemplate.difficulty}`) : undefined
+                }
                 metrics={[
                   {
                     icon: <Users size={11} className="text-primary" />,
