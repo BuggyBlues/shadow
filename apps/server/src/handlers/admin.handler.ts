@@ -5,6 +5,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import type { AppContainer } from '../container'
 import { channels, cloudTemplates, messages } from '../db/schema'
+import { resolveCloudTemplatesDir } from '../lib/cloud-templates'
 import { authMiddleware } from '../middleware/auth.middleware'
 import { updateServerSchema } from '../validators/server.schema'
 
@@ -371,6 +372,26 @@ export function createAdminHandler(container: AppContainer) {
       .offset(offset)
     return c.json(rows)
   })
+
+  adminHandler.post(
+    '/cloud-templates/refresh-official',
+    zValidator(
+      'json',
+      z
+        .object({
+          prune: z.boolean().default(true),
+        })
+        .default({ prune: true }),
+    ),
+    async (c) => {
+      const input = c.req.valid('json')
+      const cloudService = container.resolve('cloudService')
+      const result = await cloudService.refreshOfficialTemplates(resolveCloudTemplatesDir(), {
+        prune: input.prune,
+      })
+      return c.json({ ok: true, ...result })
+    },
+  )
 
   adminHandler.post(
     '/cloud-templates',
