@@ -1,4 +1,5 @@
-import { Badge, Button, EmptyState, GlassPanel } from '@shadowob/ui'
+import { Badge, Button, GlassPanel } from '@shadowob/ui'
+import { EmptyState } from '@shadowob/ui/components/ui/empty-state'
 import { useQuery } from '@tanstack/react-query'
 import { Coins, Loader2, TrendingDown, TrendingUp, Wallet } from 'lucide-react'
 import { useState } from 'react'

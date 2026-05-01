@@ -1,4 +1,5 @@
-import { Badge, Button, Card, EmptyState, NativeSelect, Search } from '@shadowob/ui'
+import { Badge, Button, Card, NativeSelect, Search } from '@shadowob/ui'
+import { EmptyState } from '@shadowob/ui/components/ui/empty-state'
 import { useQuery } from '@tanstack/react-query'
 import {
   Activity,

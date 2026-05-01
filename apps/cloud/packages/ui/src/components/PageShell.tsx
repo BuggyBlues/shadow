@@ -26,7 +26,7 @@ export function PageShell({
   className,
   narrow,
   bodyClassName = 'space-y-6',
-  breadcrumbPosition = 'outside',
+  breadcrumbPosition = 'inside',
 }: PageShellProps) {
   const hasTitleRow = Boolean(title) || Boolean(actions)
   const renderBreadcrumbInHeader = breadcrumb.length > 0 && breadcrumbPosition === 'inside'

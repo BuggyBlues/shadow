@@ -19,14 +19,12 @@ const RUNTIME_MOUNT = '/opt/shadow-plugin-deps/google-workspace'
 const SKILLS_MOUNT = '/app/plugin-skills/google-workspace'
 const CREDENTIALS_FILE = '/home/openclaw/.config/gws/credentials.json'
 const ADC_FILE = '/home/openclaw/.config/gws/application-default-credentials.json'
-const AUTH_ENV_KEYS = ['GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON', 'GOOGLE_WORKSPACE_CLI_TOKEN']
+const AUTH_ENV_KEYS = ['GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON']
 const SECRET_FIELD_KEYS = {
   credentialsJson: 'GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON',
-  cliToken: 'GOOGLE_WORKSPACE_CLI_TOKEN',
 } as const
 const LEGACY_SECRET_FIELD_KEYS = {
   credentialsJson: 'GOOGLE_WORKSPACE_CREDENTIALS_JSON',
-  accessToken: 'GOOGLE_WORKSPACE_ACCESS_TOKEN',
   adcJson: 'GOOGLE_WORKSPACE_ADC_JSON',
 } as const
 const RUNTIME_DEPENDENCIES = [
@@ -80,9 +78,7 @@ function hasWorkspaceCredential(context: PluginBuildContext): boolean {
   return Boolean(
     firstSecret(context, [
       SECRET_FIELD_KEYS.credentialsJson,
-      SECRET_FIELD_KEYS.cliToken,
       LEGACY_SECRET_FIELD_KEYS.credentialsJson,
-      LEGACY_SECRET_FIELD_KEYS.accessToken,
       LEGACY_SECRET_FIELD_KEYS.adcJson,
       'GOOGLE_APPLICATION_CREDENTIALS_JSON',
     ]),
@@ -112,13 +108,6 @@ const plugin = definePlugin(manifest as PluginManifest, (api) => {
       sensitive: true,
       placeholder: '{"installed":{"client_id":"..."}}',
     },
-    {
-      key: SECRET_FIELD_KEYS.cliToken,
-      label: 'Google Workspace CLI token',
-      description: 'Paste GOOGLE_WORKSPACE_CLI_TOKEN if you already use a token flow.',
-      sensitive: true,
-      placeholder: 'ya29...',
-    },
   ])
 
   api.addCLI([
@@ -128,8 +117,6 @@ const plugin = definePlugin(manifest as PluginManifest, (api) => {
       description: 'Google Workspace CLI for Gmail, Calendar, Drive, Docs, Sheets, Chat, Admin',
       env: {
         GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE: CREDENTIALS_FILE,
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: OpenClaw template syntax
-        GOOGLE_WORKSPACE_CLI_TOKEN: '${env:GOOGLE_WORKSPACE_CLI_TOKEN}',
       },
     },
   ])
@@ -208,8 +195,6 @@ const plugin = definePlugin(manifest as PluginManifest, (api) => {
             env: {
               GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE: CREDENTIALS_FILE,
               GOOGLE_WORKSPACE_SERVICES: services.join(','),
-              // biome-ignore lint/suspicious/noTemplateCurlyInString: OpenClaw template syntax
-              GOOGLE_WORKSPACE_CLI_TOKEN: '${env:GOOGLE_WORKSPACE_CLI_TOKEN}',
             },
           },
         },
@@ -229,16 +214,11 @@ const plugin = definePlugin(manifest as PluginManifest, (api) => {
       LEGACY_SECRET_FIELD_KEYS.adcJson,
       'GOOGLE_APPLICATION_CREDENTIALS_JSON',
     ])
-    const cliToken = firstSecret(context, [
-      SECRET_FIELD_KEYS.cliToken,
-      LEGACY_SECRET_FIELD_KEYS.accessToken,
-    ])
     const adcJson = firstSecret(context, [
       LEGACY_SECRET_FIELD_KEYS.adcJson,
       'GOOGLE_APPLICATION_CREDENTIALS_JSON',
     ])
     if (credentialsJson) env.GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON = credentialsJson
-    if (!credentialsJson && cliToken) env.GOOGLE_WORKSPACE_CLI_TOKEN = cliToken
     if (adcJson) env.GOOGLE_APPLICATION_CREDENTIALS_JSON = adcJson
 
     for (const key of ['GOOGLE_WORKSPACE_CLI_SANITIZE_TEMPLATE', 'GOOGLE_WORKSPACE_PROJECT_ID']) {
@@ -272,7 +252,7 @@ const plugin = definePlugin(manifest as PluginManifest, (api) => {
         {
           path: `secrets.${SECRET_FIELD_KEYS.credentialsJson}`,
           message:
-            'Google Workspace works best with credentials.json from gws auth export, a service-account JSON, or GOOGLE_WORKSPACE_CLI_TOKEN.',
+            'Google Workspace works best with credentials.json from gws auth export or a service-account JSON.',
           severity: 'warning',
         },
       ],

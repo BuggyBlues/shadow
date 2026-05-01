@@ -1,4 +1,5 @@
-import { Button, EmptyState, GlassCard, Search } from '@shadowob/ui'
+import { Button, GlassCard, Search } from '@shadowob/ui'
+import { EmptyState } from '@shadowob/ui/components/ui/empty-state'
 import { useQuery } from '@tanstack/react-query'
 import { AlertCircle, ChevronRight, Package, Rocket, Star, Users } from 'lucide-react'
 import { useMemo, useState } from 'react'

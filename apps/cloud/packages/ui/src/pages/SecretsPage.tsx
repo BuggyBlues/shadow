@@ -9,7 +9,6 @@ import {
   AlertDialogTitle,
   Button,
   Card,
-  EmptyState,
   Input,
   Table,
   TableBody,
@@ -18,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from '@shadowob/ui'
+import { EmptyState } from '@shadowob/ui/components/ui/empty-state'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   FolderPlus,

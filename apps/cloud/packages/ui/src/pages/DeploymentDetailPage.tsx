@@ -41,10 +41,10 @@ import { DashboardTaskCard } from '@/components/DashboardTaskCard'
 import { EnvVarEditorDialog } from '@/components/EnvVarEditorDialog'
 import { IconActionButton } from '@/components/IconActionButton'
 import { LogsPanel } from '@/components/LogsPanel'
+import { LogsPanelHeaderActions } from '@/components/LogsPanelHeaderActions'
 import { PageShell } from '@/components/PageShell'
 import { StatCard } from '@/components/StatCard'
 import { StatusBadge } from '@/components/StatusBadge'
-import { ToolbarActionButton } from '@/components/ToolbarActionButton'
 import { useSSEStream } from '@/hooks/useSSEStream'
 import { api, type Pod, type ValidateResult } from '@/lib/api'
 import { cn, formatTimestamp, getAge, pluralize } from '@/lib/utils'
@@ -145,7 +145,16 @@ function PodsTab({ pods, isLoading }: { pods: Pod[] | undefined; isLoading: bool
 function LogsTab({ namespace, id }: { namespace: string; id: string }) {
   const { t } = useTranslation()
   const logRef = useRef<HTMLDivElement>(null)
-  const { lines, status, error, connect: sseConnect, clear, disconnect } = useSSEStream()
+  const [showLogTimestamps, setShowLogTimestamps] = useState(false)
+  const {
+    lines,
+    entries: logLines,
+    status,
+    error,
+    connect: sseConnect,
+    clear,
+    disconnect,
+  } = useSSEStream()
 
   const handleConnect = () => {
     const url = api.deployments.logsUrl(namespace, id)
@@ -173,43 +182,6 @@ function LogsTab({ namespace, id }: { namespace: string; id: string }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-text-muted">{t('deploymentDetail.logsDescription')}</p>
-        <div className="flex flex-wrap items-center gap-2">
-          {lines.length > 0 && (
-            <>
-              <ToolbarActionButton
-                type="button"
-                variant="glass"
-                onClick={handleDownload}
-                icon={<Download size={11} />}
-                label={t('common.download')}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="transition-[background-color,border-color,color,box-shadow,transform] duration-[160ms] ease active:translate-y-[0.5px] focus-visible:outline-none"
-                onClick={() => {
-                  disconnect()
-                  clear()
-                }}
-              >
-                <XCircle size={11} />
-                {t('common.clear')}
-              </Button>
-            </>
-          )}
-          <ToolbarActionButton
-            type="button"
-            variant={connected ? 'primary' : 'glass'}
-            onClick={handleConnect}
-            icon={<RefreshCw size={12} className={connected ? 'animate-spin' : ''} />}
-            label={connected ? t('deployments.streaming') : t('deployments.connectLogs')}
-          />
-        </div>
-      </div>
-
       {error && (
         <div className="rounded-xl border border-danger/20 bg-danger/10 px-4 py-3 text-xs text-danger">
           {error}
@@ -222,9 +194,54 @@ function LogsTab({ namespace, id }: { namespace: string; id: string }) {
             {namespace}/{id}
           </span>
         }
-        headerRight={<span>{t('deploymentDetail.logsLines', { count: lines.length })}</span>}
-        lines={lines}
+        headerRight={
+          <LogsPanelHeaderActions
+            showTimestampsToggle={false}
+            actions={[
+              ...(lines.length > 0
+                ? [
+                    {
+                      id: 'download',
+                      type: 'button' as const,
+                      icon: <Download size={11} />,
+                      label: t('common.download'),
+                      onClick: handleDownload,
+                    },
+                    {
+                      id: 'clear',
+                      type: 'button' as const,
+                      icon: <XCircle size={11} />,
+                      label: t('common.clear'),
+                      onClick: () => {
+                        disconnect()
+                        clear()
+                      },
+                    },
+                  ]
+                : []),
+              {
+                id: 'connect',
+                type: 'toolbar' as const,
+                icon: <RefreshCw size={12} className={connected ? 'animate-spin' : ''} />,
+                label: connected ? t('deployments.streaming') : t('deployments.connectLogs'),
+                onClick: handleConnect,
+                variant: connected ? 'primary' : 'glass',
+              },
+            ]}
+          />
+        }
+        footerRight={
+          <LogsPanelHeaderActions
+            showTimestamps={showLogTimestamps}
+            onShowTimestampsChange={setShowLogTimestamps}
+            showTimestampsLabel={t('deploy.showTimestamps')}
+            hideTimestampsLabel={t('deploy.hideTimestamps')}
+          />
+        }
+        footerLeft={<span>{t('deploymentDetail.logsLines', { count: lines.length })}</span>}
+        lines={logLines}
         collapseRepeats
+        showTimestamps={showLogTimestamps}
         emptyText={
           connected ? t('deploymentDetail.logsWaiting') : t('deploymentDetail.logsConnectHint')
         }
