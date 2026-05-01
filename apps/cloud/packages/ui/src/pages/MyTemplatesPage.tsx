@@ -24,10 +24,8 @@ import {
   Clock,
   Copy,
   Edit3,
-  GitBranch,
   GitFork,
   Hash,
-  Loader2,
   Plus,
   Rocket,
   Search as SearchIcon,
@@ -249,96 +247,6 @@ function ForkDialog({
   )
 }
 
-function ImportGitDialog({
-  onImport,
-  onClose,
-  isPending,
-}: {
-  onImport: (url: string, name?: string, path?: string, branch?: string) => void
-  onClose: () => void
-  isPending: boolean
-}) {
-  const { t } = useTranslation()
-  const [url, setUrl] = useState('')
-  const [name, setName] = useState('')
-  const [branch, setBranch] = useState('')
-  const [path, setPath] = useState('')
-
-  return (
-    <Modal open onClose={onClose}>
-      <ModalContent maxWidth="max-w-lg">
-        <ModalHeader
-          overline={t('templates.importFromGit')}
-          icon={<GitBranch size={18} className="text-success" />}
-          title={t('templates.importFromGit')}
-          subtitle={t('templates.cloneGitRepository')}
-        />
-
-        <ModalBody>
-          <Input
-            type="text"
-            label={`${t('templates.repositoryUrl')} *`}
-            value={url}
-            onChange={(event) => setUrl(event.target.value)}
-            placeholder="https://github.com/org/repo.git"
-          />
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Input
-              type="text"
-              label={t('templates.templateName')}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder={t('templates.autoDetectFromRepo')}
-            />
-            <Input
-              type="text"
-              label={t('templates.branch')}
-              value={branch}
-              onChange={(event) => setBranch(event.target.value)}
-              placeholder={t('templates.defaultBranch')}
-            />
-          </div>
-
-          <Input
-            type="text"
-            label={t('templates.configFilePath')}
-            value={path}
-            onChange={(event) => setPath(event.target.value)}
-            placeholder="auto-detect (shadowob.json, *.template.json)"
-          />
-        </ModalBody>
-
-        <ModalFooter>
-          <ModalButtonGroup>
-            <Button type="button" variant="ghost" onClick={onClose}>
-              {t('common.cancel')}
-            </Button>
-            <Button
-              type="button"
-              variant="primary"
-              onClick={() => {
-                if (url.trim()) {
-                  onImport(
-                    url.trim(),
-                    name.trim() || undefined,
-                    path.trim() || undefined,
-                    branch.trim() || undefined,
-                  )
-                }
-              }}
-              disabled={!url.trim() || isPending}
-            >
-              {isPending ? <Loader2 size={14} className="animate-spin" /> : <GitBranch size={14} />}
-              {isPending ? t('templates.cloning') : t('templates.importAction')}
-            </Button>
-          </ModalButtonGroup>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
-  )
-}
-
 function CreateTemplateDialog({
   onCreate,
   onClose,
@@ -400,7 +308,6 @@ export function MyTemplatesPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [showForkDialog, setShowForkDialog] = useState(false)
-  const [showGitImport, setShowGitImport] = useState(false)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [templateToDelete, setTemplateToDelete] = useState<{
     name: string
@@ -432,18 +339,6 @@ export function MyTemplatesPage() {
       toast.success(`${t('templates.forkedAs')} "${data.name}"`)
     },
     onError: (err) => toast.error(t('templates.forkFailed', { message: err.message })),
-  })
-
-  const gitImportMutation = useMutation({
-    mutationFn: (args: { url: string; name?: string; path?: string; branch?: string }) =>
-      api.myTemplates.importGit(args),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['my-templates'] })
-      setShowGitImport(false)
-      navigate({ to: '/my-templates/$name', params: { name: data.name } })
-      toast.success(`${t('templates.importedFromGit')} "${data.name}"`)
-    },
-    onError: (err) => toast.error(t('templates.importFailed', { message: err.message })),
   })
 
   const deleteMutation = useMutation({
@@ -571,15 +466,6 @@ export function MyTemplatesPage() {
                 <ShoppingBag size={14} />
                 <span className="truncate">{t('templates.forkFromStore')}</span>
               </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => setShowGitImport(true)}
-              >
-                <GitBranch size={14} />
-                <span className="truncate">{t('templates.importGit')}</span>
-              </Button>
             </div>
           </div>
         </div>
@@ -620,15 +506,6 @@ export function MyTemplatesPage() {
               >
                 <ShoppingBag size={14} />
                 {t('templates.forkFromStore')}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => setShowGitImport(true)}
-              >
-                <GitBranch size={14} />
-                {t('templates.importGit')}
               </Button>
             </div>
           }
@@ -774,16 +651,6 @@ export function MyTemplatesPage() {
         <ForkDialog
           onFork={(source, name) => forkMutation.mutate({ source, name })}
           onClose={() => setShowForkDialog(false)}
-        />
-      )}
-
-      {showGitImport && (
-        <ImportGitDialog
-          onImport={(url, name, path, branch) =>
-            gitImportMutation.mutate({ url, name, path, branch })
-          }
-          onClose={() => setShowGitImport(false)}
-          isPending={gitImportMutation.isPending}
         />
       )}
 
