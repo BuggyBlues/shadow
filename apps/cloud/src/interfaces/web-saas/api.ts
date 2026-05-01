@@ -166,6 +166,7 @@ export interface SaasProviderCatalog {
     description?: string
     required?: boolean
     sensitive?: boolean
+    placeholder?: string
   }>
 }
 
@@ -236,9 +237,18 @@ export const saasApi = {
       return get<SaasTemplate>(`/templates/${encodeURIComponent(slug)}${qs}`)
     },
     envRefs: (slug: string) =>
-      get<{ template: string; requiredEnvVars: string[] }>(
-        `/templates/${encodeURIComponent(slug)}/env-refs`,
-      ),
+      get<{
+        template: string
+        requiredEnvVars: string[]
+        fields?: Array<{
+          key: string
+          label: string
+          description?: string
+          required: boolean
+          sensitive: boolean
+          placeholder?: string
+        }>
+      }>(`/templates/${encodeURIComponent(slug)}/env-refs`),
     create: (data: {
       slug: string
       name: string

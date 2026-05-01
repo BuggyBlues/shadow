@@ -404,6 +404,7 @@ export function defineProviderPlugin(
         description: field.description,
         required: field.required,
         sensitive: field.sensitive,
+        placeholder: field.placeholder,
       })),
     )
 

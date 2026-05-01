@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { zValidator } from '@hono/zod-validator'
 import {
   attachCloudSaasProvisionState,
+  collectRuntimeEnvFields,
   collectRuntimeEnvRequirements,
   deleteNamespace,
   extractCloudSaasRuntime,
@@ -1327,6 +1328,7 @@ export function createCloudSaasHandler(container: AppContainer) {
     return c.json({
       template: slug,
       requiredEnvVars: extractRequiredEnvVars(template.content),
+      fields: await collectRuntimeEnvFields(template.content),
     })
   })
 

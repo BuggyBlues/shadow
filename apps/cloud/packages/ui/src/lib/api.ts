@@ -64,6 +64,16 @@ export interface TemplateCatalogDetail extends TemplateCatalogSummary {
   useCases: string[]
   requirements: string[]
   requiredEnvVars: string[]
+  fields?: TemplateEnvField[]
+}
+
+export interface TemplateEnvField {
+  key: string
+  label: string
+  description?: string
+  required: boolean
+  sensitive: boolean
+  placeholder?: string
 }
 
 export interface Settings {
@@ -471,7 +481,7 @@ export const api = {
       ),
     get: (name: string) => get<Record<string, unknown>>(`/templates/${encodeURIComponent(name)}`),
     envRefs: (name: string) =>
-      get<{ template: string; requiredEnvVars: string[] }>(
+      get<{ template: string; requiredEnvVars: string[]; fields?: TemplateEnvField[] }>(
         `/templates/${encodeURIComponent(name)}/env-refs`,
       ),
   },

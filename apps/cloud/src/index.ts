@@ -19,7 +19,11 @@ export { loadCloudConfigSchema } from './application/config-schema.js'
 export { summarizeCloudConfigValidation } from './application/config-validation.js'
 export type { ProviderCatalogEntry } from './application/provider-catalogs.js'
 export { listProviderCatalogs } from './application/provider-catalogs.js'
-export { collectRuntimeEnvRequirements } from './application/runtime-env-requirements.js'
+export {
+  collectRuntimeEnvFields,
+  collectRuntimeEnvRequirements,
+  type RuntimeEnvField,
+} from './application/runtime-env-requirements.js'
 export { extractRequiredEnvVars } from './application/template-env-refs.js'
 export {
   type BillingUnit,

@@ -45,7 +45,7 @@ import { useTranslation } from 'react-i18next'
 import { AlertBanner, AlertBannerList } from '@/components/AlertBanner'
 import { Breadcrumb } from '@/components/Breadcrumb'
 import { useSSEStream } from '@/hooks/useSSEStream'
-import { type ProviderSettings } from '@/lib/api'
+import { type ProviderSettings, type TemplateEnvField } from '@/lib/api'
 import { useApiClient } from '@/lib/api-context'
 import { API_PRESETS } from '@/lib/presets'
 import { cn } from '@/lib/utils'
@@ -98,6 +98,15 @@ function getDifficultyLabel(
 
 function getProviderSecretEnvName(providerId: string): string {
   return `${providerId.toUpperCase().replace(/-/g, '_')}_API_KEY`
+}
+
+function envKeyToLabel(key: string): string {
+  return key
+    .toLowerCase()
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
 }
 
 /** Extract all ${env:VAR_NAME} references from a template content object */
@@ -238,7 +247,10 @@ function isSensitiveEnvVarKey(key: string): boolean {
 
 function EnvVarRow({
   envKey,
+  label,
+  description,
   placeholder,
+  required = true,
   isSecret = false,
   value,
   hasSaved,
@@ -252,7 +264,10 @@ function EnvVarRow({
   t,
 }: {
   envKey: string
+  label?: string
+  description?: string
   placeholder?: string
+  required?: boolean
   isSecret?: boolean
   value: string
   hasSaved: boolean
@@ -286,9 +301,15 @@ function EnvVarRow({
         ) : (
           <AlertTriangle size={11} className="text-warning" />
         )}
-        {envKey}
-        <span className="text-danger text-[10px]">*</span>
+        <span>{label || envKey}</span>
+        {label && label !== envKey && (
+          <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[10px] text-text-muted">
+            {envKey}
+          </span>
+        )}
+        {required && <span className="text-danger text-[10px]">*</span>}
       </label>
+      {description && <p className="text-xs text-text-muted">{description}</p>}
       {isUsingSaved ? (
         <div
           className={cn(
@@ -486,9 +507,39 @@ function StepConfigure({
     envRefsData?.requiredEnvVars ??
     (isEnvRefsError ? extractClientEnvRefs(ownTemplateForEnv?.content) : [])
 
+  const templateEnvFields = useMemo<TemplateEnvField[]>(() => {
+    const fields = new Map<string, TemplateEnvField>()
+
+    for (const field of envRefsData?.fields ?? []) {
+      if (field.key === 'SHADOW_SERVER_URL' || field.key === 'SHADOW_USER_TOKEN') continue
+      fields.set(field.key, {
+        key: field.key,
+        label: field.label || envKeyToLabel(field.key),
+        description: field.description,
+        required: field.required,
+        sensitive: field.sensitive,
+        placeholder: field.placeholder,
+      })
+    }
+
+    for (const key of requiredVars) {
+      if (key === 'SHADOW_SERVER_URL' || key === 'SHADOW_USER_TOKEN') continue
+      if (!fields.has(key)) {
+        fields.set(key, {
+          key,
+          label: envKeyToLabel(key),
+          required: true,
+          sensitive: isSensitiveEnvVarKey(key),
+        })
+      }
+    }
+
+    return [...fields.values()].sort((a, b) => a.key.localeCompare(b.key))
+  }, [envRefsData?.fields, requiredVars])
+
   const requiredTemplateVars = useMemo(
-    () => requiredVars.filter((key) => key !== 'SHADOW_SERVER_URL' && key !== 'SHADOW_USER_TOKEN'),
-    [requiredVars],
+    () => templateEnvFields.filter((field) => field.required).map((field) => field.key),
+    [templateEnvFields],
   )
 
   // Build a lookup of saved env var keys → masked values (from effective deployment env)
@@ -532,7 +583,7 @@ function StepConfigure({
       merged.SHADOW_SERVER_URL = '__SAVED__'
       changed = true
     }
-    for (const key of requiredTemplateVars) {
+    for (const { key } of templateEnvFields) {
       if (!merged[key] && combinedLookup[key]) {
         merged[key] = '__SAVED__'
         changed = true
@@ -541,7 +592,7 @@ function StepConfigure({
     if (changed) {
       setValue('envVars', merged, { shouldDirty: true })
     }
-  }, [requiredTemplateVars, combinedLookup, getValues, setValue])
+  }, [templateEnvFields, combinedLookup, getValues, setValue])
 
   // When group changes, re-fill any already-saved marked vars that now have values
   const applyGroup = (group: string) => {
@@ -552,7 +603,7 @@ function StepConfigure({
     }
     const merged = { ...getValues('envVars') }
     let changed = false
-    const allKeys = ['SHADOW_SERVER_URL', ...requiredTemplateVars]
+    const allKeys = ['SHADOW_SERVER_URL', ...templateEnvFields.map((field) => field.key)]
     for (const key of allKeys) {
       if (groupVars[key] || savedLookup[key]) {
         merged[key] = '__SAVED__'
@@ -751,29 +802,33 @@ function StepConfigure({
         )}
 
         {/* Required Environment Variables */}
-        {requiredTemplateVars.length > 0 && (
+        {templateEnvFields.length > 0 && (
           <div className="rounded-xl border border-border-subtle bg-bg-secondary/50 p-4 space-y-4">
             <div className="flex items-center gap-2">
               <Key size={14} className="text-warning" />
               <div>
                 <h3 className="text-sm font-semibold">{t('deploy.requiredEnvVars')}</h3>
                 <p className="text-xs text-text-muted">
-                  {t('deploy.templateRequiresVars', { count: requiredTemplateVars.length })}{' '}
-                  {t('deploy.envVarsAllRequired')}
+                  {t('deploy.templateRequiresVars', { count: templateEnvFields.length })}
                 </p>
               </div>
             </div>
-            {requiredTemplateVars.map((key) => {
+            {templateEnvFields.map((field) => {
+              const { key } = field
               const fieldError = getEnvFieldError(errors, key)
               return (
                 <EnvVarRow
                   key={key}
                   envKey={key}
-                  isSecret={isSensitiveEnvVarKey(key)}
+                  label={field.label}
+                  description={field.description}
+                  required={field.required}
+                  isSecret={field.sensitive}
                   placeholder={
-                    key.includes('KEY') || key.includes('TOKEN') || key.includes('SECRET')
+                    field.placeholder ??
+                    (key.includes('KEY') || key.includes('TOKEN') || key.includes('SECRET')
                       ? 'sk-...'
-                      : t('deploy.enterValue')
+                      : t('deploy.enterValue'))
                   }
                   value={envVars[key] ?? ''}
                   hasSaved={Boolean(combinedLookup[key])}

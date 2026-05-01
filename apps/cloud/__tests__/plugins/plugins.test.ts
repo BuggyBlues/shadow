@@ -3,7 +3,10 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest'
-import { collectRuntimeEnvRequirements } from '../../src/application/runtime-env-requirements.js'
+import {
+  collectRuntimeEnvFields,
+  collectRuntimeEnvRequirements,
+} from '../../src/application/runtime-env-requirements.js'
 import {
   mergePluginFragments,
   resolveAgentPluginConfig,
@@ -554,6 +557,33 @@ describe('collectRuntimeEnvRequirements', () => {
       ]),
     )
     expect(keys).not.toContain('GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON')
+  })
+
+  it('collects connector credential field metadata for deploy forms', async () => {
+    const fields = await collectRuntimeEnvFields({
+      version: '1',
+      use: [{ plugin: 'google-workspace' }],
+      deployments: { agents: [{ id: 'agent-1', runtime: 'openclaw', configuration: {} }] },
+    })
+
+    expect(fields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'GOOGLE_WORKSPACE_CREDENTIALS_JSON',
+          label: 'Google Workspace credentials JSON',
+          required: false,
+          sensitive: true,
+          placeholder: '{"installed":{"client_id":"..."}}',
+        }),
+        expect.objectContaining({
+          key: 'GOOGLE_WORKSPACE_ACCESS_TOKEN',
+          label: 'Google Workspace access token',
+          required: false,
+          sensitive: true,
+          placeholder: 'ya29...',
+        }),
+      ]),
+    )
   })
 })
 

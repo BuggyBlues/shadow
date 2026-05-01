@@ -394,7 +394,9 @@ export const saasApiAdapter: CloudApiClient & WalletApiExtension = {
     detail: async (name: string, locale: string) => {
       const [template, envRefs] = await Promise.all([
         saasApi.templates.get(name, locale),
-        saasApi.templates.envRefs(name).catch(() => ({ template: name, requiredEnvVars: [] })),
+        saasApi.templates
+          .envRefs(name)
+          .catch(() => ({ template: name, requiredEnvVars: [], fields: [] })),
       ])
       return {
         template: {
@@ -404,6 +406,7 @@ export const saasApiAdapter: CloudApiClient & WalletApiExtension = {
           useCases: Array.isArray(template.tags) ? template.tags : [],
           requirements: [],
           requiredEnvVars: envRefs.requiredEnvVars,
+          fields: envRefs.fields,
         },
       }
     },

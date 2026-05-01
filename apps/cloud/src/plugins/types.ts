@@ -292,6 +292,7 @@ export interface PluginSecretField {
   description?: string
   required?: boolean
   sensitive?: boolean
+  placeholder?: string
   aliases?: string[]
   /** Whether this value must be present in the runtime container env. Defaults to true. */
   runtime?: boolean
