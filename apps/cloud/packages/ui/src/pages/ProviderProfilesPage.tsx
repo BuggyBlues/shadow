@@ -10,7 +10,6 @@ import {
   Badge,
   Button,
   Card,
-  EmptyState,
   Input,
   Modal,
   ModalBody,
@@ -27,11 +26,13 @@ import {
   SelectValue,
   Switch,
 } from '@shadowob/ui'
+import { EmptyState } from '@shadowob/ui/components/ui/empty-state'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
   CheckCircle,
   ChevronRight,
+  Copy,
   Globe2,
   KeyRound,
   Loader2,
@@ -114,12 +115,27 @@ function catalogApiFormat(
   return 'openai'
 }
 
-function providerDisplayName(catalog: ProviderCatalogEntry | undefined, fallback?: string): string {
-  const raw = catalog?.pluginName ?? catalog?.provider.id ?? fallback ?? ''
+function formatProviderName(value: string): string {
+  const raw = value.trim()
+  if (!raw) return ''
   return raw
     .split(/[-_]/)
     .map((part) => (part ? part.charAt(0).toUpperCase() + part.slice(1) : part))
     .join(' ')
+}
+
+function isGenericPluginName(value: string): boolean {
+  const normalized = value.trim().toLowerCase()
+  return normalized.length === 0 || normalized === 'model provider' || normalized === '模型提供商'
+}
+
+function providerDisplayName(catalog: ProviderCatalogEntry | undefined, fallback?: string): string {
+  const raw =
+    catalog && isGenericPluginName(catalog.pluginName)
+      ? catalog.provider.id
+      : (catalog?.pluginName ?? catalog?.provider.id ?? fallback ?? '')
+
+  return formatProviderName(raw)
 }
 
 function providerInitial(catalog: ProviderCatalogEntry | undefined, fallback?: string): string {
@@ -195,6 +211,70 @@ function modelFromCatalog(
   }
 }
 
+function duplicateModelIndexes(models: ProviderProfileModelFormState[]): Set<number> {
+  const seen = new Map<string, number>()
+  const duplicates = new Set<number>()
+
+  models.forEach((model, index) => {
+    const modelId = model.id.trim()
+    if (!modelId) return
+    const key = modelId.toLowerCase()
+    const firstIndex = seen.get(key)
+    if (firstIndex === undefined) {
+      seen.set(key, index)
+    } else {
+      seen.set(key, firstIndex)
+      duplicates.add(firstIndex)
+      duplicates.add(index)
+    }
+  })
+
+  return duplicates
+}
+
+function serializeHasModelError(models: ProviderProfileModelFormState[]): {
+  hasDuplicateModel: boolean
+  hasEmptyModelId: boolean
+} {
+  const duplicateIndexes = duplicateModelIndexes(models)
+
+  return {
+    hasDuplicateModel: duplicateIndexes.size > 0,
+    hasEmptyModelId: models.some((model) => !model.id.trim()),
+  }
+}
+
+function duplicateModelIdFor(sourceId: string, models: ProviderProfileModelFormState[]): string {
+  const base = sourceId.trim()
+  if (!base) return ''
+
+  const exists = new Set(
+    models.map((model) => model.id.trim().toLowerCase()).filter((id) => id.length > 0),
+  )
+
+  let candidate = `${base}-copy`
+  let counter = 1
+
+  while (exists.has(candidate.toLowerCase())) {
+    counter += 1
+    candidate = `${base}-copy-${counter}`
+  }
+
+  return candidate
+}
+
+function duplicateModel(
+  model: ProviderProfileModelFormState,
+  models: ProviderProfileModelFormState[],
+) {
+  return {
+    ...model,
+    clientId: makeClientId(),
+    id: duplicateModelIdFor(model.id, models),
+    tags: [...model.tags],
+  }
+}
+
 function numericField(value: string): number | undefined {
   const parsed = Number(value)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined
@@ -255,10 +335,14 @@ function profileModels(profile: ProviderProfile): ProviderProfileModelFormState[
 
 function serializeModels(models: ProviderProfileModelFormState[]): Array<Record<string, unknown>> {
   const serialized: Array<Record<string, unknown>> = []
+  const seenModelIds = new Set<string>()
 
   for (const model of models) {
     const id = model.id.trim()
     if (!id) continue
+    const normalizedId = id.toLowerCase()
+    if (seenModelIds.has(normalizedId)) continue
+    seenModelIds.add(normalizedId)
 
     const contextWindow = numericField(model.contextWindow)
     const maxTokens = numericField(model.maxTokens)
@@ -448,14 +532,21 @@ export function ProviderProfilesPage() {
   }
 
   const hasRequiredModel = Boolean(form && serializeModels(form.models).length > 0)
-  const hasCredential = Boolean(form?.apiKey.trim())
+  const modelValidation = serializeHasModelError(form?.models ?? [])
+  const duplicateModelIndexSet = duplicateModelIndexes(form?.models ?? [])
+  const hasCredential = selectedCatalog
+    ? Boolean(form?.apiKey.trim()) || Boolean(form?.id)
+    : Boolean(form?.apiKey.trim())
+  const secretLabel = primarySecretKey(selectedCatalog) || t('providers.apiKey')
   const submitDisabled =
     saveProfile.isPending ||
     !form?.providerId ||
     !form.name.trim() ||
     !selectedCatalog ||
     !hasCredential ||
-    !hasRequiredModel
+    !hasRequiredModel ||
+    modelValidation.hasEmptyModelId ||
+    modelValidation.hasDuplicateModel
   const providerModelNames = (profile: ProviderProfile) =>
     profileModels(profile).map((model) => model.id)
 
@@ -743,6 +834,7 @@ export function ProviderProfilesPage() {
                       provider: providerDisplayName(selectedCatalog, form.providerId),
                     })
               }
+              subtitle={t('providers.profileDialogDescription')}
               action={
                 !form.id && connectDialogOpen ? (
                   <Button type="button" variant="ghost" size="xs" onClick={backToProviderList}>
@@ -820,12 +912,13 @@ export function ProviderProfilesPage() {
                         selectedCatalog?.provider.baseUrl ?? t('providers.baseUrlPlaceholder')
                       }
                     />
+                    <p className="mt-1 text-xs text-text-muted">{t('providers.baseUrlHelp')}</p>
                   </div>
 
                   <div className="sm:col-span-2">
                     <div className="mb-1 flex items-center justify-between gap-3">
                       <label htmlFor="provider-profile-api-key" className="block text-xs font-bold">
-                        {primarySecretKey(selectedCatalog) || t('providers.apiKey')}
+                        {secretLabel}
                       </label>
                     </div>
                     <SecretInput
@@ -840,6 +933,7 @@ export function ProviderProfilesPage() {
                       autoComplete="new-password"
                       data-bwignore="true"
                     />
+                    <p className="mt-1 text-xs text-text-muted">{t('providers.apiKeyHelp')}</p>
                   </div>
                 </div>
               </section>
@@ -941,6 +1035,21 @@ export function ProviderProfilesPage() {
                             type="button"
                             variant="ghost"
                             size="icon"
+                            className="h-10 w-10 shrink-0 rounded-lg text-text-muted hover:bg-bg-primary/40 hover:text-text-primary"
+                            title={t('common.copy')}
+                            onClick={() =>
+                              setForm({
+                                ...form,
+                                models: [...form.models, duplicateModel(model, form.models)],
+                              })
+                            }
+                          >
+                            <Copy size={14} />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
                             className="h-10 w-10 shrink-0 rounded-lg text-danger/75 hover:bg-danger/10 hover:text-danger"
                             title={t('common.delete')}
                             onClick={() =>
@@ -955,6 +1064,19 @@ export function ProviderProfilesPage() {
                             <Trash2 size={14} />
                           </Button>
                         </div>
+                        <p className="mt-1 text-xs text-text-muted">
+                          {t('providers.modelTagHint')}
+                        </p>
+                        {!model.id.trim() ? (
+                          <p className="mt-2 text-xs font-bold text-danger">
+                            {t('providers.modelIdRequired')}
+                          </p>
+                        ) : null}
+                        {duplicateModelIndexSet.has(index) ? (
+                          <p className="mt-2 text-xs font-bold text-danger">
+                            {t('providers.modelDuplicate')}
+                          </p>
+                        ) : null}
                         <div className="mt-3 h-px bg-gradient-to-r from-transparent via-border-subtle/20 to-transparent" />
                         <details className="pt-3">
                           <summary className="cursor-pointer text-xs font-black text-text-muted">
@@ -1065,6 +1187,9 @@ export function ProviderProfilesPage() {
                 {!hasRequiredModel && (
                   <p className="text-xs font-bold text-danger">{t('providers.modelRequired')}</p>
                 )}
+                {modelValidation.hasDuplicateModel ? (
+                  <p className="text-xs font-bold text-danger">{t('providers.modelDuplicate')}</p>
+                ) : null}
               </section>
             </ModalBody>
             <ModalFooter>

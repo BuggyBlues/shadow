@@ -1,4 +1,5 @@
-import { Button, EmptyState, GlassCard, GlassPanel } from '@shadowob/ui'
+import { Button, GlassPanel } from '@shadowob/ui'
+import { EmptyState } from '@shadowob/ui/components/ui/empty-state'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import { ArrowLeft, BookOpen, Clock, FolderOpen, GitFork, Key, Rocket, Users } from 'lucide-react'
@@ -8,6 +9,7 @@ import {
   parseTemplateAgents,
   TemplateAgentsTab,
   TemplateConfigTab,
+  TemplateDetailQuickInfoPanel,
   TemplateDetailShell,
 } from '@/components/TemplateDetailShared'
 import { useApiClient } from '@/lib/api-context'
@@ -110,46 +112,33 @@ export function StoreDetailPage() {
       }
       sidebar={
         detail ? (
-          <GlassCard className="rounded-3xl pt-3 px-5 pb-5">
-            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-text-muted mb-3">
-              {t('templateDetail.quickInfo')}
-            </h3>
-
-            <div className="space-y-3 text-sm">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-xs text-text-muted flex items-center gap-1.5">
-                  <Users size={12} />
-                  {t('deploy.agentsLabel')}
-                </span>
-                <span className="text-sm font-bold text-text-primary">{detail.agentCount}</span>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-xs text-text-muted flex items-center gap-1.5">
-                  <FolderOpen size={12} />
-                  {t('deploy.namespaceLabel')}
-                </span>
-                <code className="text-sm text-text-primary">{detail.namespace}</code>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-xs text-text-muted flex items-center gap-1.5">
-                  <Clock size={12} />
-                  {t('deploy.deployTimeLabel')}
-                </span>
-                <span className="text-sm text-text-primary">{detail.estimatedDeployTime}</span>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-xs text-text-muted flex items-center gap-1.5">
-                  <Key size={12} />
-                  {t('storeDetail.requiredEnvVars')}
-                </span>
-                <span className="text-sm font-bold text-text-primary">
-                  {detail.requiredEnvVars.length}
-                </span>
-              </div>
-            </div>
-
+          <TemplateDetailQuickInfoPanel
+            title={t('templateDetail.quickInfo')}
+            items={[
+              {
+                icon: <Users size={12} />,
+                label: t('deploy.agentsLabel'),
+                value: <span className="font-bold">{detail.agentCount}</span>,
+              },
+              {
+                icon: <FolderOpen size={12} />,
+                label: t('deploy.namespaceLabel'),
+                value: <code className="text-sm text-text-primary">{detail.namespace}</code>,
+              },
+              {
+                icon: <Clock size={12} />,
+                label: t('deploy.deployTimeLabel'),
+                value: detail.estimatedDeployTime,
+              },
+              {
+                icon: <Key size={12} />,
+                label: t('storeDetail.requiredEnvVars'),
+                value: <span className="font-bold">{detail.requiredEnvVars.length}</span>,
+              },
+            ]}
+          >
             {detail.requiredEnvVars.length > 0 && (
-              <div className="space-y-2 mt-4 pt-3 border-t border-border-subtle">
+              <div className="space-y-2 mt-3 border-t border-border-subtle pt-3">
                 <div className="text-[11px] font-semibold text-text-muted">
                   {t('storeDetail.requiredEnvVars')}
                 </div>
@@ -166,7 +155,7 @@ export function StoreDetailPage() {
               </div>
             )}
 
-            <div className="space-y-2 mt-4 pt-3 border-t border-border-subtle">
+            <div className="space-y-2 border-t border-border-subtle pt-3">
               <div className="text-[11px] font-semibold text-text-muted">
                 {t('storeDetail.cliQuickDeploy')}
               </div>
@@ -174,7 +163,7 @@ export function StoreDetailPage() {
                 shadowob-cloud deploy --template {name}
               </code>
             </div>
-          </GlassCard>
+          </TemplateDetailQuickInfoPanel>
         ) : null
       }
       tabs={tabs}

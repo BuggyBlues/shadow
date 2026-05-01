@@ -1,4 +1,5 @@
-import { Badge, Button, Card, EmptyState, GlassCard, Search } from '@shadowob/ui'
+import { Badge, Button, Card, GlassCard, Search } from '@shadowob/ui'
+import { EmptyState } from '@shadowob/ui/components/ui/empty-state'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import {

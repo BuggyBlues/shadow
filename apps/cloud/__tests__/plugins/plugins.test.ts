@@ -549,15 +549,11 @@ describe('collectRuntimeEnvRequirements', () => {
       deployments: { agents: [{ id: 'agent-1', runtime: 'openclaw', configuration: {} }] },
     })
 
-    expect(keys).toEqual(
-      expect.arrayContaining([
-        'GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON',
-        'GOOGLE_WORKSPACE_CLI_TOKEN',
-      ]),
-    )
+    expect(keys).toEqual(expect.arrayContaining(['GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON']))
     expect(keys).not.toContain('GOOGLE_WORKSPACE_ADC_JSON')
     expect(keys).not.toContain('GOOGLE_WORKSPACE_ACCESS_TOKEN')
     expect(keys).not.toContain('GOOGLE_WORKSPACE_CREDENTIALS_JSON')
+    expect(keys).not.toContain('GOOGLE_WORKSPACE_CLI_TOKEN')
   })
 
   it('collects connector credential field metadata for deploy forms', async () => {
@@ -578,13 +574,6 @@ describe('collectRuntimeEnvRequirements', () => {
           source: 'plugin',
           sourceId: 'google-workspace',
           helpUrl: 'https://github.com/googleworkspace/cli#authentication',
-        }),
-        expect.objectContaining({
-          key: 'GOOGLE_WORKSPACE_CLI_TOKEN',
-          label: 'Google Workspace CLI token',
-          required: false,
-          sensitive: true,
-          placeholder: 'ya29...',
         }),
       ]),
     )
@@ -775,16 +764,15 @@ describe('Tool plugins', () => {
     const plugin = mod.default as PluginDefinition
     expect(plugin.manifest.id).toBe('google-workspace')
     expect(plugin.secretFields?.map((field) => field.key)).toEqual(
-      expect.arrayContaining([
-        'GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON',
-        'GOOGLE_WORKSPACE_CLI_TOKEN',
-      ]),
+      expect.arrayContaining(['GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON']),
+    )
+    expect(plugin.secretFields?.map((field) => field.key)).not.toContain(
+      'GOOGLE_WORKSPACE_CLI_TOKEN',
     )
 
     const ctx = makeBuildContext({
       secrets: {
         GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON: '{"installed":{}}',
-        GOOGLE_WORKSPACE_CLI_TOKEN: 'ya29.expired',
       },
       agentConfig: { services: ['gmail', 'calendar'] },
     })
@@ -826,7 +814,8 @@ describe('Tool plugins', () => {
         secrets: { GOOGLE_WORKSPACE_CLI_TOKEN: 'ya29.only-token' },
       }),
     )
-    expect(tokenOnlyEnv?.GOOGLE_WORKSPACE_CLI_TOKEN).toBe('ya29.only-token')
+    expect(tokenOnlyEnv?.GOOGLE_WORKSPACE_CLI_TOKEN).toBeUndefined()
+    expect(tokenOnlyEnv?.GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON).toBeUndefined()
 
     const legacyServiceAccountEnv = plugin._hooks.buildEnv[0]!(
       makeBuildContext({
@@ -870,7 +859,7 @@ describe('Tool plugins', () => {
     expect(
       runtime?.verificationChecks?.find((check) => check.id === 'google-workspace-auth')
         ?.requiredEnvAny,
-    ).toEqual(['GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON', 'GOOGLE_WORKSPACE_CLI_TOKEN'])
+    ).toEqual(['GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON'])
   })
 
   it('google-workspace plugin should install gws and Workspace skills for enabled agents', async () => {

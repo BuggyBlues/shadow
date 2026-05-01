@@ -26,6 +26,7 @@ import {
   Clock,
   Copy,
   Database,
+  DollarSign,
   Download,
   FolderOpen,
   Key,
@@ -37,6 +38,7 @@ import {
   Trash2,
   Unplug,
   Users,
+  Wallet,
   XCircle,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -45,7 +47,10 @@ import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { AlertBanner, AlertBannerList } from '@/components/AlertBanner'
 import { LogsPanel } from '@/components/LogsPanel'
+import { LogsPanelHeaderActions } from '@/components/LogsPanelHeaderActions'
+import { MetricCardContent, MetricCardWrapper } from '@/components/MetricCard'
 import { PageShell } from '@/components/PageShell'
+import { StatsGrid } from '@/components/StatsGrid'
 import { useSSEStream } from '@/hooks/useSSEStream'
 import { type ProviderSettings, type TemplateEnvField } from '@/lib/api'
 import { useApiClient } from '@/lib/api-context'
@@ -158,13 +163,12 @@ function StepOverview({ name }: { name: string }) {
         : [t('deploy.asConfigured')]
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold mb-1">{t('deploy.reviewTemplate')}</h2>
-        <p className="text-sm text-text-muted">{t('deploy.confirmDeployKubernetes')}</p>
-      </div>
-
-      <div className="rounded-[24px] border border-border-subtle/40 bg-bg-secondary/35 p-6">
+    <div className="space-y-4">
+      <GlassPanel className="rounded-2xl bg-bg-secondary/35 p-5">
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold mb-1">{t('deploy.reviewTemplate')}</h2>
+          <p className="text-sm text-text-muted">{t('deploy.confirmDeployKubernetes')}</p>
+        </div>
         <div className="flex items-start gap-4">
           <span className="text-4xl">{template?.emoji ?? '📦'}</span>
           <div className="flex-1">
@@ -190,32 +194,38 @@ function StepOverview({ name }: { name: string }) {
             </div>
 
             {/* Quick stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="rounded-xl border border-border-subtle/35 bg-bg-secondary/40 p-3">
-                <div className="text-xs text-text-muted flex items-center gap-1 mb-1">
-                  <Users size={11} />
-                  {t('deploy.agentsLabel')}
-                </div>
-                <p className="text-lg font-semibold">{template?.agentCount ?? '—'}</p>
-              </div>
-              <div className="rounded-xl border border-border-subtle/35 bg-bg-secondary/40 p-3">
-                <div className="text-xs text-text-muted flex items-center gap-1 mb-1">
-                  <FolderOpen size={11} />
-                  {t('deploy.namespaceLabel')}
-                </div>
-                <p className="text-sm font-mono mt-1">{template?.namespace ?? '—'}</p>
-              </div>
-              <div className="rounded-xl border border-border-subtle/35 bg-bg-secondary/40 p-3">
-                <div className="text-xs text-text-muted flex items-center gap-1 mb-1">
-                  <Clock size={11} />
-                  {t('deploy.deployTimeLabel')}
-                </div>
-                <p className="text-sm mt-1">{template?.estimatedDeployTime ?? '—'}</p>
-              </div>
-            </div>
+            <StatsGrid className="mb-0 mt-1 grid-cols-1 md:grid-cols-3">
+              <MetricCardWrapper>
+                <MetricCardContent
+                  label={t('deploy.agentsLabel')}
+                  value={template?.agentCount ?? '—'}
+                  icon={<Users size={11} />}
+                  iconClassName="text-text-muted"
+                  valueClassName="text-lg font-semibold"
+                />
+              </MetricCardWrapper>
+              <MetricCardWrapper>
+                <MetricCardContent
+                  label={t('deploy.namespaceLabel')}
+                  value={template?.namespace ?? '—'}
+                  icon={<FolderOpen size={11} />}
+                  iconClassName="text-text-muted"
+                  valueClassName="text-sm font-mono"
+                />
+              </MetricCardWrapper>
+              <MetricCardWrapper>
+                <MetricCardContent
+                  label={t('deploy.deployTimeLabel')}
+                  value={template?.estimatedDeployTime ?? '—'}
+                  icon={<Clock size={11} />}
+                  iconClassName="text-text-muted"
+                  valueClassName="text-sm"
+                />
+              </MetricCardWrapper>
+            </StatsGrid>
           </div>
         </div>
-      </div>
+      </GlassPanel>
 
       {/* Highlights */}
       <AlertBanner variant="info" icon={Sparkles} title={t('deploy.whatYouWillGet')}>
@@ -290,12 +300,8 @@ function EnvVarRow({
   return (
     <div
       className={cn(
-        'space-y-3 rounded-xl border p-3 transition-colors',
-        error
-          ? 'border-danger/45 bg-danger/8'
-          : isFilled
-            ? 'border-success/25 bg-success/5'
-            : 'border-border-subtle bg-bg-primary/20',
+        'space-y-3 rounded-xl p-3 transition-colors',
+        error ? 'bg-danger/10' : isFilled ? 'bg-success/10' : 'bg-bg-primary/20',
       )}
     >
       <div className="space-y-1.5">
@@ -341,9 +347,7 @@ function EnvVarRow({
         <div
           className={cn(
             'flex items-center gap-2 rounded-lg px-3 py-2 transition-colors',
-            error
-              ? 'border border-danger/45 bg-danger/10 ring-1 ring-danger/20'
-              : 'border border-success/30 bg-success/8',
+            error ? 'bg-danger/12' : 'bg-success/8',
           )}
         >
           <CheckCircle size={12} className="text-success shrink-0" />
@@ -772,20 +776,20 @@ function StepConfigure({
     <form
       id="wizard-configure-form"
       onSubmit={handleSubmit(onSubmit)}
-      className="space-y-5"
+      className="space-y-4"
       autoComplete="off"
       data-1p-ignore
       data-lpignore="true"
       data-form-type="other"
     >
-      <GlassPanel className="rounded-[28px] p-5 md:p-6 space-y-5">
+      <GlassPanel className="rounded-2xl p-4 md:p-5 space-y-4">
         <div className="space-y-1">
           <h2 className="text-lg font-semibold">{t('deploy.stepConfigureLabel')}</h2>
           <p className="text-sm text-text-muted">{t('deploy.stepConfigureDescription')}</p>
         </div>
 
         {/* Namespace */}
-        <div className="rounded-xl border border-border-subtle bg-bg-secondary/50 p-4 space-y-3">
+        <div className="rounded-xl bg-bg-secondary/40 p-4 space-y-3">
           <div>
             <label htmlFor="namespace" className="block text-sm font-semibold mb-0.5">
               {t('deploy.namespace')}
@@ -803,7 +807,7 @@ function StepConfigure({
 
         {/* Group auto-fill selector */}
         {groups.length > 0 && (
-          <div className="flex items-center gap-3 rounded-xl border border-border-subtle bg-bg-secondary/50 px-4 py-3">
+          <div className="flex items-center gap-3 rounded-xl bg-bg-secondary/40 px-4 py-3">
             <Database size={14} className="text-text-muted shrink-0" />
             <span className="text-xs text-text-secondary shrink-0">
               {t('deploy.fillFromGroup')}
@@ -811,7 +815,7 @@ function StepConfigure({
             <select
               value={selectedGroup}
               onChange={(e) => applyGroup(e.target.value)}
-              className="flex-1 min-w-0 bg-transparent text-xs text-text-primary border border-border-subtle rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-primary/50"
+              className="flex-1 min-w-0 bg-bg-secondary/35 text-xs text-text-primary rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-primary/50"
             >
               <option value="">{t('deploy.selectGroup')}</option>
               {groups.map((g) => (
@@ -853,7 +857,7 @@ function StepConfigure({
 
         {/* Shadow Connection */}
         {!isSaasMode && (
-          <div className="rounded-xl border border-border-subtle bg-bg-secondary/50 p-4 space-y-4">
+          <div className="rounded-xl bg-bg-secondary/40 p-4 space-y-4">
             <div className="flex items-center gap-2">
               <Unplug size={14} className="text-purple-400" />
               <div>
@@ -900,7 +904,7 @@ function StepConfigure({
 
         {/* Preset environment variable fields */}
         {(templateEnvFields.length > 0 || autoDetectedEnvVars.length > 0) && (
-          <div className="rounded-xl border border-border-subtle bg-bg-secondary/50 p-4 space-y-4">
+          <div className="rounded-xl bg-bg-secondary/40 p-4 space-y-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div className="flex items-start gap-2">
                 <Key size={14} className="mt-0.5 text-warning" />
@@ -922,7 +926,7 @@ function StepConfigure({
             </div>
 
             {autoDetectedEnvVars.length > 0 && (
-              <div className="rounded-xl border border-success/20 bg-success/8 px-3 py-2 text-xs text-text-secondary">
+              <div className="rounded-xl bg-success/10 px-3 py-2 text-xs text-text-secondary">
                 <div className="flex items-start gap-2">
                   <CheckCircle2 size={13} className="mt-0.5 shrink-0 text-success" />
                   <div className="space-y-1">
@@ -950,10 +954,7 @@ function StepConfigure({
                 )
               }).length
               return (
-                <div
-                  key={group.id}
-                  className="overflow-hidden rounded-2xl border border-border-subtle bg-bg-primary/20"
-                >
+                <div key={group.id} className="overflow-hidden rounded-2xl bg-bg-primary/20">
                   <div className="flex items-center gap-2 px-4 py-3 transition-colors hover:bg-bg-secondary/35">
                     <button
                       type="button"
@@ -1035,7 +1036,7 @@ function StepConfigure({
                   </div>
 
                   {!collapsed && (
-                    <div className="space-y-3 border-t border-border-subtle/70 p-3">
+                    <div className="space-y-3 p-3">
                       {group.fields.map((field) => {
                         const { key } = field
                         const fieldError = getEnvFieldError(errors, key)
@@ -1079,7 +1080,7 @@ function StepConfigure({
         )}
 
         {/* Extra env vars (optional) */}
-        <div className="rounded-xl border border-border-subtle bg-bg-secondary/50 p-4 space-y-3">
+        <div className="rounded-xl bg-bg-secondary/40 p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-semibold">{t('deploy.additionalVariables')}</h3>
@@ -1096,7 +1097,7 @@ function StepConfigure({
             </Button>
           </div>
           {extraVars.length === 0 ? (
-            <div className="text-center py-3 text-xs text-text-muted border border-dashed border-border-subtle rounded-lg">
+            <div className="text-center py-3 text-xs text-text-muted rounded-lg bg-bg-secondary/20">
               {t('deploy.noAdditionalVars')}
             </div>
           ) : (
@@ -1230,7 +1231,7 @@ export function StepProviders({
 
       {/* Use existing settings toggle */}
       {existingProviders.length > 0 && (
-        <div className="bg-success/8 border border-success/25 rounded-lg p-4 flex items-center justify-between">
+        <div className="bg-success/8 rounded-lg p-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CheckCircle size={16} className="text-success" />
             <div>
@@ -1260,10 +1261,7 @@ export function StepProviders({
       {/* Provider list */}
       <div className="space-y-3">
         {providers.map((provider, i) => (
-          <div
-            key={`${provider.id}-${i}`}
-            className="bg-bg-secondary border border-border-subtle rounded-lg p-4"
-          >
+          <div key={`${provider.id}-${i}`} className="bg-bg-secondary rounded-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Key size={14} className="text-text-muted" />
@@ -1275,7 +1273,7 @@ export function StepProviders({
               </Button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="bg-bg-deep border border-border-subtle rounded px-3 py-2.5">
+              <div className="bg-bg-deep rounded px-3 py-2.5">
                 <label className="text-xs text-text-muted mb-1 block">
                   {t('settings.secretEnvKey')}
                 </label>
@@ -1395,6 +1393,15 @@ function StepDeploy({
   const TIER_COSTS: Record<string, number> = { lightweight: 500, standard: 1200, pro: 2800 }
   const monthlyCost = TIER_COSTS['lightweight'] ?? 500
   const hasEnoughBalance = walletBalance === null || walletBalance >= monthlyCost
+  const configuredEnvCount = Object.keys(config.envVars).filter((key) =>
+    Boolean(config.envVars[key]),
+  ).length
+  const agentSummary =
+    template?.features && template.features.length > 0
+      ? `${t('deploy.includes')}: ${(template.features ?? []).slice(0, 2).join(', ')}`
+      : t('deploy.asConfigured')
+  const walletSummary =
+    walletBalance === null ? t('common.loading') : `${walletBalance} ${t('deploy.shrimpCoins')}`
 
   const taskUrl = taskInfo ? new URL(taskInfo.url, window.location.origin).toString() : ''
 
@@ -1777,8 +1784,8 @@ function StepDeploy({
   }
 
   return (
-    <div className="space-y-6">
-      <div>
+    <div className="space-y-4">
+      <GlassPanel className="rounded-2xl p-4">
         <h2 className="text-lg font-semibold mb-1">
           {!deployStarted
             ? t('deploy.reviewDeploy')
@@ -1801,130 +1808,161 @@ function StepDeploy({
                   ? t('deploy.cancelRequested')
                   : t('deploy.deployingToCluster')}
         </p>
-      </div>
+      </GlassPanel>
 
       {/* Review summary (before deploy) */}
       {!deployStarted && (
         <>
-          <GlassPanel className="rounded-[24px] divide-y divide-border-subtle p-0">
-            <div className="px-5 py-3 flex items-center justify-between">
-              <span className="text-xs text-text-muted">{t('deploy.template')}</span>
-              <span className="text-sm font-medium flex items-center gap-2">
-                <span>{template?.emoji ?? '📦'}</span>
-                {displayTitle}
-              </span>
-            </div>
-            <div className="px-5 py-3 flex items-center justify-between">
-              <span className="text-xs text-text-muted">{t('deploy.namespace')}</span>
-              <span className="text-sm font-mono text-text-secondary">{targetNamespace}</span>
-            </div>
-            <div className="px-5 py-3 flex items-center justify-between">
-              <span className="text-xs text-text-muted">{t('deploy.envVariables')}</span>
-              <span className="text-sm text-text-secondary">
-                {Object.keys(config.envVars).filter((k) => config.envVars[k]).length}{' '}
-                {t('deploy.configured')}
-              </span>
-            </div>
-            <div className="px-5 py-3 flex items-center justify-between">
-              <span className="text-xs text-text-muted">{t('deploy.agentsLabel')}</span>
-              <span className="text-sm text-text-secondary">
-                {(template?.features.length ?? 0) > 0
-                  ? `${t('deploy.includes')}: ${(template?.features ?? []).slice(0, 2).join(', ')}`
-                  : t('deploy.asConfigured')}
-              </span>
-            </div>
+          <GlassPanel className="rounded-2xl p-4">
+            <StatsGrid className="mb-0 grid-cols-1 md:grid-cols-2">
+              <MetricCardWrapper>
+                <MetricCardContent
+                  label={t('deploy.template')}
+                  icon={<Rocket size={11} />}
+                  iconClassName="text-text-muted"
+                  value={`${template?.emoji ?? '📦'} ${displayTitle}`}
+                  valueClassName="text-sm font-medium text-left"
+                />
+              </MetricCardWrapper>
+
+              <MetricCardWrapper>
+                <MetricCardContent
+                  label={t('deploy.namespace')}
+                  icon={<FolderOpen size={11} />}
+                  iconClassName="text-text-muted"
+                  value={targetNamespace}
+                  valueClassName="text-sm font-mono"
+                />
+              </MetricCardWrapper>
+
+              <MetricCardWrapper>
+                <MetricCardContent
+                  label={t('deploy.envVariables')}
+                  icon={<Key size={11} />}
+                  iconClassName="text-text-muted"
+                  value={`${configuredEnvCount} ${t('deploy.configured')}`}
+                  valueClassName="text-sm"
+                />
+              </MetricCardWrapper>
+
+              <MetricCardWrapper>
+                <MetricCardContent
+                  label={t('deploy.agentsLabel')}
+                  icon={<Users size={11} />}
+                  iconClassName="text-text-muted"
+                  value={agentSummary}
+                  valueClassName="text-sm"
+                />
+              </MetricCardWrapper>
+            </StatsGrid>
           </GlassPanel>
 
-          {/* Cost & balance info */}
-          <GlassPanel className="rounded-[24px] divide-y divide-border-subtle p-0">
-            <div className="px-5 py-3 flex items-center justify-between">
-              <span className="text-xs text-text-muted">{t('deploy.estimatedCost')}</span>
-              <span className="text-sm font-medium">
-                {monthlyCost} {t('deploy.shrimpCoinsPerMonth')}
-              </span>
-            </div>
-            <div className="px-5 py-3 flex items-center justify-between">
-              <span className="text-xs text-text-muted">{t('deploy.walletBalance')}</span>
-              <span
-                className={`text-sm font-medium ${!hasEnoughBalance ? 'text-red-500' : 'text-green-600'}`}
-              >
-                {walletBalance === null ? '...' : walletBalance} {t('deploy.shrimpCoins')}
-              </span>
-            </div>
+          <GlassPanel className="rounded-2xl p-4">
+            <StatsGrid className="mb-0 grid-cols-1 md:grid-cols-2">
+              <MetricCardWrapper>
+                <MetricCardContent
+                  label={t('deploy.estimatedCost')}
+                  icon={<DollarSign size={11} />}
+                  iconClassName="text-text-muted"
+                  value={`${monthlyCost} ${t('deploy.shrimpCoinsPerMonth')}`}
+                  valueClassName="text-sm font-medium"
+                />
+              </MetricCardWrapper>
+
+              <MetricCardWrapper>
+                <MetricCardContent
+                  label={t('deploy.walletBalance')}
+                  icon={<Wallet size={11} />}
+                  iconClassName={cn(
+                    'text-text-muted',
+                    hasEnoughBalance ? 'text-success' : 'text-danger',
+                  )}
+                  value={walletSummary}
+                  valueClassName={cn(
+                    'text-sm font-medium',
+                    hasEnoughBalance ? 'text-success' : 'text-danger',
+                  )}
+                />
+              </MetricCardWrapper>
+            </StatsGrid>
           </GlassPanel>
 
           {!hasEnoughBalance && (
-            <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-center justify-between gap-4">
-              <p className="text-xs text-red-700 dark:text-red-400">
-                <strong>{t('deploy.insufficientBalance')}</strong>{' '}
-                {t('deploy.insufficientBalanceDesc')}
-              </p>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="shrink-0"
-                onClick={() => {
-                  // Bridge to host-app Stripe recharge modal (apps/web).
-                  // The host listens for `shadow:open-recharge` and shows the modal.
-                  if (typeof window !== 'undefined') {
-                    let acked = false
-                    const onAck = () => {
-                      acked = true
-                      window.removeEventListener('shadow:open-recharge:ack', onAck)
-                    }
-                    window.addEventListener('shadow:open-recharge:ack', onAck)
-                    window.dispatchEvent(
-                      new CustomEvent('shadow:open-recharge', {
-                        detail: { source: 'deploy-wizard', amount: 10000 },
-                      }),
-                    )
-                    setTimeout(() => {
-                      if (!acked) {
-                        toast.error(t('deploy.rechargeUnavailable'))
+            <GlassPanel className="rounded-2xl p-4">
+              <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                <p className="text-xs text-danger">
+                  <strong>{t('deploy.insufficientBalance')}</strong>{' '}
+                  {t('deploy.insufficientBalanceDesc')}
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="shrink-0 bg-danger/8 hover:bg-danger/12 w-full sm:w-auto justify-center"
+                  onClick={() => {
+                    // Bridge to host-app Stripe recharge modal (apps/web).
+                    // The host listens for `shadow:open-recharge` and shows the modal.
+                    if (typeof window !== 'undefined') {
+                      let acked = false
+                      const onAck = () => {
+                        acked = true
+                        window.removeEventListener('shadow:open-recharge:ack', onAck)
                       }
-                    }, 500)
-                  }
-                }}
-              >
-                {t('deploy.topUp')}
-              </Button>
-            </div>
+                      window.addEventListener('shadow:open-recharge:ack', onAck)
+                      window.dispatchEvent(
+                        new CustomEvent('shadow:open-recharge', {
+                          detail: { source: 'deploy-wizard', amount: 10000 },
+                        }),
+                      )
+                      setTimeout(() => {
+                        if (!acked) {
+                          toast.error(t('deploy.rechargeUnavailable'))
+                        }
+                      }, 500)
+                    }
+                  }}
+                >
+                  {t('deploy.topUp')}
+                </Button>
+              </div>
+            </GlassPanel>
           )}
 
-          <div className="bg-primary/8 border border-primary/25 rounded-lg p-4">
+          <GlassPanel className="rounded-2xl p-4">
             <p className="text-xs text-primary">
               <strong>{t('deploy.whatHappensNext')}</strong> {t('deploy.whatHappensNextDesc')}
             </p>
-          </div>
+          </GlassPanel>
 
           {/* Action buttons */}
-          <div className="flex justify-between">
-            <Button
-              type="button"
-              onClick={onBack}
-              variant="ghost"
-              disabled={initMutation.isPending}
-            >
-              <ArrowLeft size={14} />
-              {t('common.back')}
-            </Button>
-            <Button
-              type="button"
-              onClick={handleDeploy}
-              variant="primary"
-              disabled={!hasEnoughBalance || initMutation.isPending}
-            >
-              {initMutation.isPending ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <Rocket size={16} />
-              )}
-              {initMutation.isPending
-                ? t('deploy.preparingDeployment')
-                : t('deploy.startDeployment')}
-            </Button>
-          </div>
+          <GlassPanel className="rounded-2xl p-4">
+            <div className="flex justify-between">
+              <Button
+                type="button"
+                onClick={onBack}
+                variant="ghost"
+                disabled={initMutation.isPending}
+              >
+                <ArrowLeft size={14} />
+                {t('common.back')}
+              </Button>
+              <Button
+                type="button"
+                onClick={handleDeploy}
+                variant="primary"
+                disabled={!hasEnoughBalance || initMutation.isPending}
+              >
+                {initMutation.isPending ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Rocket size={16} />
+                )}
+                {initMutation.isPending
+                  ? t('deploy.preparingDeployment')
+                  : t('deploy.startDeployment')}
+              </Button>
+            </div>
+          </GlassPanel>
         </>
       )}
 
@@ -1932,67 +1970,69 @@ function StepDeploy({
       {deployStarted && (
         <>
           {/* Status bar */}
-          <div
-            className={cn(
-              'flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between',
-              isDone && 'border-success/20 bg-success/8',
-              isError && 'border-danger/20 bg-danger/8',
-              isCancelling && 'border-warning/20 bg-warning/8',
-              isDeploying && 'border-primary/20 bg-primary/8',
-            )}
-          >
-            <div className="flex items-center gap-3">
-              {isCancelling && <Loader2 size={18} className="animate-spin text-warning" />}
-              {!isCancelling && isDeploying && (
-                <Loader2 size={18} className="text-primary animate-spin" />
+          <GlassPanel className="rounded-2xl p-4">
+            <div
+              className={cn(
+                'flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between',
+                isDone && 'bg-success/4',
+                isError && 'bg-danger/4',
+                isCancelling && 'bg-warning/4',
+                isDeploying && 'bg-primary/4',
               )}
-              {isDone && <CheckCircle size={18} className="text-success" />}
-              {isError && <XCircle size={18} className="text-danger" />}
-              <div>
-                <p
-                  className={cn(
-                    'text-sm font-medium',
-                    isDone && 'text-success',
-                    isError && 'text-danger',
-                    isCancelling && 'text-warning',
-                    isDeploying && !isCancelling && 'text-primary',
-                  )}
-                >
-                  {isCancelling && t('deploy.cancelling')}
-                  {!isCancelling && isDeploying && t('deploy.deploying')}
-                  {isDone && t('deploy.deploymentSuccessful')}
-                  {isError && t('deploy.deploymentFailed')}
-                </p>
-                <p className="mt-1 text-xs text-text-muted">
-                  {isCancelling
-                    ? t('deploy.cancelRequested')
-                    : t('deploy.logLinesReceived', { count: lines.length })}
-                </p>
-              </div>
-            </div>
-            {activeDeploymentId &&
-            typeof deployApi.cancelDeploymentFn === 'function' &&
-            !isDone &&
-            !isError ? (
-              <Button
-                type="button"
-                onClick={handleCancelDeployment}
-                variant="ghost"
-                size="sm"
-                disabled={cancelRequested}
-              >
-                {cancelRequested ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <XCircle size={14} />
+            >
+              <div className="flex items-center gap-3">
+                {isCancelling && <Loader2 size={18} className="animate-spin text-warning" />}
+                {!isCancelling && isDeploying && (
+                  <Loader2 size={18} className="text-primary animate-spin" />
                 )}
-                {cancelRequested ? t('deploy.cancelling') : t('deploy.cancelDeployment')}
-              </Button>
-            ) : null}
-          </div>
+                {isDone && <CheckCircle size={18} className="text-success" />}
+                {isError && <XCircle size={18} className="text-danger" />}
+                <div>
+                  <p
+                    className={cn(
+                      'text-sm font-medium',
+                      isDone && 'text-success',
+                      isError && 'text-danger',
+                      isCancelling && 'text-warning',
+                      isDeploying && !isCancelling && 'text-primary',
+                    )}
+                  >
+                    {isCancelling && t('deploy.cancelling')}
+                    {!isCancelling && isDeploying && t('deploy.deploying')}
+                    {isDone && t('deploy.deploymentSuccessful')}
+                    {isError && t('deploy.deploymentFailed')}
+                  </p>
+                  <p className="mt-1 text-xs text-text-muted">
+                    {isCancelling
+                      ? t('deploy.cancelRequested')
+                      : t('deploy.logLinesReceived', { count: lines.length })}
+                  </p>
+                </div>
+              </div>
+              {activeDeploymentId &&
+              typeof deployApi.cancelDeploymentFn === 'function' &&
+              !isDone &&
+              !isError ? (
+                <Button
+                  type="button"
+                  onClick={handleCancelDeployment}
+                  variant="ghost"
+                  size="sm"
+                  disabled={cancelRequested}
+                >
+                  {cancelRequested ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <XCircle size={14} />
+                  )}
+                  {cancelRequested ? t('deploy.cancelling') : t('deploy.cancelDeployment')}
+                </Button>
+              ) : null}
+            </div>
+          </GlassPanel>
 
           {taskInfo && (
-            <div className="bg-bg-secondary border border-border-subtle rounded-lg p-4">
+            <GlassPanel className="rounded-2xl p-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-xs text-text-muted mb-1">{t('deployTask.taskUrl')}</p>
@@ -2013,58 +2053,68 @@ function StepDeploy({
                   </Button>
                   <Link
                     to="/deployments"
-                    className="flex items-center gap-2 text-xs text-text-secondary hover:text-text-primary border border-border-dim hover:border-border rounded-lg px-3 py-2 transition-colors"
+                    className="flex items-center gap-2 text-xs text-text-secondary hover:text-text-primary rounded-xl px-3 py-2 transition-colors"
                   >
                     <Activity size={12} />
                     {t('nav.deployments')}
                   </Link>
                 </div>
               </div>
-            </div>
+            </GlassPanel>
           )}
 
           {/* Log viewer */}
-          <LogsPanel
-            headerLeft={t('deploy.deploymentLog')}
-            lines={logLines}
-            collapseRepeats
-            showTimestamps={showLogTimestamps}
-            footerLeft={<span>{t('deploy.logLinesReceived', { count: lines.length })}</span>}
-            footerRight={
-              <div className="flex items-center gap-2">
-                <label className="flex items-center gap-2 text-xs text-text-secondary">
-                  <Checkbox
-                    checked={showLogTimestamps}
-                    onCheckedChange={(checked) => setShowLogTimestamps(checked === true)}
-                  />
-                  <span>
-                    {showLogTimestamps ? t('deploy.hideTimestamps') : t('deploy.showTimestamps')}
-                  </span>
-                </label>
-                {lines.length > 0 && (
-                  <Button type="button" onClick={handleDownloadLog} variant="ghost" size="sm">
-                    <Download size={11} />
-                    {t('deploy.download')}
-                  </Button>
-                )}
-              </div>
-            }
-            emptyText={
-              isDeploying ? t('deploy.initializingDeployment') : t('deployments.noLogsYet')
-            }
-            bodyRef={logRef}
-            bodyOnScroll={handleLogScroll}
-          />
+          <GlassPanel className="rounded-2xl p-0 overflow-hidden">
+            <LogsPanel
+              headerLeft={t('deploy.deploymentLog')}
+              headerRight={
+                <LogsPanelHeaderActions
+                  showTimestampsToggle={false}
+                  actions={[
+                    ...(lines.length > 0
+                      ? [
+                          {
+                            id: 'download',
+                            type: 'button' as const,
+                            icon: <Download size={11} />,
+                            label: t('deploy.download'),
+                            onClick: handleDownloadLog,
+                          },
+                        ]
+                      : []),
+                  ]}
+                />
+              }
+              lines={logLines}
+              collapseRepeats
+              showTimestamps={showLogTimestamps}
+              footerRight={
+                <LogsPanelHeaderActions
+                  showTimestamps={showLogTimestamps}
+                  onShowTimestampsChange={(checked) => setShowLogTimestamps(checked)}
+                  showTimestampsLabel={t('deploy.showTimestamps')}
+                  hideTimestampsLabel={t('deploy.hideTimestamps')}
+                />
+              }
+              footerLeft={<span>{t('deploy.logLinesReceived', { count: lines.length })}</span>}
+              emptyText={
+                isDeploying ? t('deploy.initializingDeployment') : t('deployments.noLogsYet')
+              }
+              bodyRef={logRef}
+              bodyOnScroll={handleLogScroll}
+              className="rounded-none border-0"
+            />
+          </GlassPanel>
 
           {sseError && (
-            <div className="rounded-lg border border-danger/25 bg-danger/8 px-4 py-3 text-xs text-danger">
-              {sseError}
-            </div>
+            <GlassPanel className="rounded-2xl p-4">
+              <p className="text-xs text-danger">{sseError}</p>
+            </GlassPanel>
           )}
 
           {isDone && (
             <Modal open={successModalOpen} onClose={() => setSuccessModalOpen(false)}>
-              <ModalContent size="md" className="border-success/20">
+              <ModalContent size="md">
                 <ModalHeader
                   icon={<CheckCircle2 size={20} className="text-success" />}
                   title={t('deploy.deploymentSuccessful')}
@@ -2077,7 +2127,7 @@ function StepDeploy({
                   closeLabel={t('common.close')}
                 />
                 <ModalBody className="space-y-4">
-                  <div className="rounded-2xl border border-border-subtle/45 bg-bg-secondary/25 px-4 py-3">
+                  <div className="rounded-2xl bg-bg-secondary/25 px-4 py-3">
                     <p className="text-xs font-medium text-text-muted">{t('deploy.namespace')}</p>
                     <p className="mt-1 font-mono text-sm text-text-primary">{targetNamespace}</p>
                   </div>
@@ -2090,7 +2140,7 @@ function StepDeploy({
                           params: { taskId: String(taskInfo.id) },
                         })
                       }
-                      className="flex w-full items-center gap-3 rounded-2xl border border-border-subtle/45 bg-bg-secondary/20 px-4 py-3 text-left transition-colors hover:border-primary/25 hover:bg-primary/5"
+                      className="flex w-full items-center gap-3 rounded-2xl bg-bg-secondary/20 px-4 py-3 text-left transition-colors hover:bg-primary/5"
                     >
                       <Server size={18} className="text-text-muted" />
                       <span>
@@ -2123,17 +2173,19 @@ function StepDeploy({
             </Modal>
           )}
           {isError && (
-            <div className="flex items-center gap-3">
-              <Link
-                to="/store"
-                className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary border border-border-dim hover:border-border px-4 py-2 rounded-lg transition-colors"
-              >
-                {t('store.backToStore')}
-              </Link>
-              <Button type="button" onClick={resetDeploymentState} variant="ghost">
-                {t('common.retry')}
-              </Button>
-            </div>
+            <GlassPanel className="rounded-2xl p-4">
+              <div className="flex items-center gap-3">
+                <Link
+                  to="/store"
+                  className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary bg-bg-secondary/20 px-4 py-2 rounded-lg transition-colors"
+                >
+                  {t('store.backToStore')}
+                </Link>
+                <Button type="button" onClick={resetDeploymentState} variant="ghost">
+                  {t('common.retry')}
+                </Button>
+              </div>
+            </GlassPanel>
           )}
         </>
       )}
@@ -2163,7 +2215,6 @@ export function DeployWizardPage() {
 
   return (
     <PageShell
-      className="max-w-4xl"
       breadcrumb={[
         { label: t('store.title'), to: '/store' },
         { label: name, to: `/store/${name}` },
@@ -2171,10 +2222,10 @@ export function DeployWizardPage() {
       ]}
       breadcrumbPosition="inside"
       title={name}
+      bodyClassName="space-y-4"
       headerContent={
-        <div className="flex items-start gap-4">
-          {/* Glass step indicators */}
-          <div className="grid grid-cols-3 gap-2 flex-1 min-w-0">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
+          <div className="grid flex-1 min-w-0 grid-cols-1 sm:grid-cols-3 gap-2">
             {steps.map((step, index) => {
               const status =
                 index < currentStep ? 'completed' : index === currentStep ? 'active' : 'upcoming'
@@ -2186,27 +2237,33 @@ export function DeployWizardPage() {
                   disabled={!isClickable}
                   onClick={() => isClickable && setCurrentStep(index)}
                   className={cn(
-                    'group rounded-xl border border-border-subtle/28 px-3 py-2 text-left transition-colors',
-                    isClickable ? 'cursor-pointer' : 'cursor-default',
+                    'group relative overflow-hidden rounded-xl px-3 py-2.5 text-left transition-all',
+                    isClickable ? 'cursor-pointer hover:-translate-y-[1px]' : 'cursor-default',
                     status === 'active' &&
-                      'border-primary/30 bg-primary/10 shadow-[0_0_0_1px_rgba(0,243,255,0.05)_inset]',
-                    status === 'completed' &&
-                      'border-success/22 bg-success/8 hover:border-success/35 hover:bg-success/12',
-                    status === 'upcoming' && 'bg-bg-secondary/40 text-text-muted',
+                      'bg-primary/12 shadow-[0_0_0_1px_rgba(0,243,255,0.06)_inset]',
+                    status === 'completed' && 'bg-success/8 hover:bg-success/12',
+                    status === 'upcoming' && 'bg-bg-secondary/45 text-text-muted',
                   )}
                 >
-                  <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'absolute inset-x-0 top-0 h-[2px] opacity-0 transition-opacity',
+                      status === 'active' && 'bg-primary/60 opacity-100',
+                      status === 'completed' && 'bg-success/50 opacity-100',
+                    )}
+                  />
+                  <div className="relative flex items-center gap-2.5 min-w-0">
                     <div
                       className={cn(
-                        'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition-all',
-                        status === 'active' && 'bg-primary text-bg-base',
-                        status === 'completed' &&
-                          'bg-success/18 text-success ring-1 ring-success/35',
-                        status === 'upcoming' &&
-                          'bg-bg-secondary text-text-muted ring-1 ring-border-subtle',
+                        'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition-all',
+                        status === 'active' &&
+                          'bg-primary text-bg-base shadow-[0_6px_18px_-10px_rgba(0,243,255,0.45)]',
+                        status === 'completed' && 'bg-success/20 text-success',
+                        status === 'upcoming' && 'bg-bg-secondary text-text-muted',
                       )}
                     >
-                      {status === 'completed' ? <CheckCircle2 size={14} /> : index + 1}
+                      {status === 'completed' ? <CheckCircle2 size={13} /> : index + 1}
                     </div>
                     <div className="min-w-0">
                       <span
@@ -2234,7 +2291,6 @@ export function DeployWizardPage() {
               )
             })}
           </div>
-          {/* Nav buttons */}
           <div className="flex items-center gap-2 shrink-0 pt-1">
             {currentStep > 0 && currentStep < 2 && (
               <Button type="button" onClick={handleBack} variant="ghost" size="sm">
@@ -2258,22 +2314,19 @@ export function DeployWizardPage() {
         </div>
       }
     >
-      {/* Step content */}
-      <div className="p-6 pb-12">
-        {currentStep === 0 && <StepOverview name={name} />}
-        {currentStep === 1 && (
-          <StepConfigure
-            name={name}
-            config={deployConfig}
-            onChange={setDeployConfig}
-            onBack={handleBack}
-            onNext={() => setCurrentStep(2)}
-          />
-        )}
-        {currentStep === 2 && (
-          <StepDeploy name={name} config={deployConfig} onBack={() => setCurrentStep(1)} />
-        )}
-      </div>
+      {currentStep === 0 && <StepOverview name={name} />}
+      {currentStep === 1 && (
+        <StepConfigure
+          name={name}
+          config={deployConfig}
+          onChange={setDeployConfig}
+          onBack={handleBack}
+          onNext={() => setCurrentStep(2)}
+        />
+      )}
+      {currentStep === 2 && (
+        <StepDeploy name={name} config={deployConfig} onBack={() => setCurrentStep(1)} />
+      )}
     </PageShell>
   )
 }

@@ -8,7 +8,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   Button,
-  EmptyState,
   Input,
   Modal,
   ModalBody,
@@ -18,6 +17,7 @@ import {
   ModalHeader,
   Search as SearchField,
 } from '@shadowob/ui'
+import { EmptyState } from '@shadowob/ui/components/ui/empty-state'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import {

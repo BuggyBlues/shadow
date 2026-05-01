@@ -8,6 +8,11 @@
   "exports": {
     ".": "./src/index.ts",
     "./components/*": "./src/components/*",
+    "./components/ui/*": "./src/components/ui/*",
+    "./components/ui/empty-state": {
+      "types": "./src/components/ui/empty-state.tsx",
+      "default": "./src/components/ui/empty-state.tsx"
+    },
     "./lib/*": "./src/lib/*",
     "./styles/*": "./src/styles/*"
   },

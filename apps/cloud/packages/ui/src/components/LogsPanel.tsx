@@ -77,8 +77,13 @@ export function LogsPanel({
   }, [])
 
   return (
-    <Card className={className}>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle bg-bg-secondary/40 px-4 py-2.5">
+    <Card
+      className={cn(
+        'overflow-hidden rounded-xl border border-border-subtle bg-bg-secondary/25',
+        className,
+      )}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle bg-bg-secondary/30 px-4 py-2.5">
         <div className="text-xs text-text-muted">{headerLeft}</div>
         {headerRight ? <div className="shrink-0">{headerRight}</div> : null}
       </div>
@@ -109,7 +114,7 @@ export function LogsPanel({
         )}
       </div>
       {(footerLeft || footerRight) && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle bg-bg-secondary/40 px-4 py-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle bg-bg-secondary/30 px-4 py-2.5">
           {footerLeft ? <div className="text-xs text-text-muted">{footerLeft}</div> : null}
           {footerRight ? <div className="flex items-center gap-2">{footerRight}</div> : null}
         </div>

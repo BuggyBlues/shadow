@@ -1,7 +1,6 @@
 import {
   Badge,
   Button,
-  EmptyState,
   GlassPanel,
   NativeSelect,
   Search,
@@ -13,6 +12,7 @@ import {
   TableRow,
   Tabs,
 } from '@shadowob/ui'
+import { EmptyState } from '@shadowob/ui/components/ui/empty-state'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import {
@@ -331,50 +331,141 @@ function ActivityList({ activities, limit }: { activities: ActivityEntry[]; limi
 function HealthPanel({ doctor }: { doctor: DoctorResult }) {
   const { t } = useTranslation()
 
+  const checkGroups = useMemo(
+    () =>
+      doctor.checks.reduce(
+        (acc, check) => {
+          acc[check.status].push(check)
+          return acc
+        },
+        { pass: [] as DoctorCheck[], warn: [] as DoctorCheck[], fail: [] as DoctorCheck[] },
+      ),
+    [doctor.checks],
+  )
+
+  const scoreSource = doctor.summary.pass + doctor.summary.warn + doctor.summary.fail
+  const healthScore = scoreSource > 0 ? Math.round((doctor.summary.pass / scoreSource) * 100) : 100
+
+  const sectionStyles: Record<
+    DoctorCheck['status'],
+    { colorClass: string; bgClass: string; borderClass: string }
+  > = {
+    pass: {
+      colorClass: 'text-success',
+      bgClass: 'bg-success/12',
+      borderClass: 'border-success/20',
+    },
+    warn: {
+      colorClass: 'text-warning',
+      bgClass: 'bg-warning/12',
+      borderClass: 'border-warning/20',
+    },
+    fail: {
+      colorClass: 'text-danger',
+      bgClass: 'bg-danger/12',
+      borderClass: 'border-danger/20',
+    },
+  }
+
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-3 mb-2">
-        <div className="flex items-center gap-4 flex-wrap">
-          <Badge variant="success">
-            <CheckCircle size={11} />
-            {doctor.summary.pass} {t('monitoring.passed')}
-          </Badge>
-          {doctor.summary.warn > 0 && (
-            <Badge variant="warning">
-              <AlertTriangle size={11} />
-              {doctor.summary.warn} {t('monitoring.warnings')}
-            </Badge>
-          )}
-          {doctor.summary.fail > 0 && (
-            <Badge variant="danger">
-              <XCircle size={11} />
-              {doctor.summary.fail} {t('monitoring.failed')}
-            </Badge>
-          )}
+    <div className="space-y-5">
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className="rounded-2xl border border-success/30 bg-success/10 px-4 py-3">
+          <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">
+            {t('monitoring.passed')}
+          </p>
+          <p className="mt-2 text-2xl font-black text-success">{doctor.summary.pass}</p>
+          <div className="mt-1 text-xs text-success">
+            {doctor.summary.pass} / {scoreSource} {t('monitoring.passed')}
+          </div>
+        </div>
+        <div className="rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3">
+          <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">
+            {t('monitoring.warnings')}
+          </p>
+          <p className="mt-2 text-2xl font-black text-warning">{doctor.summary.warn}</p>
+          <div className="mt-1 text-xs text-warning">
+            {doctor.summary.warn} {t('monitoring.events')}
+          </div>
+        </div>
+        <div className="rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3">
+          <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">
+            {t('monitoring.failed')}
+          </p>
+          <p className="mt-2 text-2xl font-black text-danger">{doctor.summary.fail}</p>
+          <div className="mt-1 text-xs text-danger">
+            {doctor.summary.fail} {t('monitoring.events')}
+          </div>
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-[var(--glass-line)] divide-y divide-[var(--glass-line-soft)]">
-        {doctor.checks.map((check) => (
-          <div key={check.name} className="px-4 py-3 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <StatusDot status={doctorStatusToStatusType(check.status)} />
-              <div className="min-w-0">
-                <p className="text-sm font-medium truncate">{check.name}</p>
-                <p className="text-xs text-text-muted">{check.message}</p>
-              </div>
-            </div>
+      <div className="flex items-center justify-between gap-3 rounded-2xl border border-border-subtle bg-bg-secondary/40 px-4 py-3">
+        <div>
+          <p className="text-xs text-text-muted">{t('monitoring.healthScore')}</p>
+          <p className="text-2xl font-black text-text-primary">{healthScore}%</p>
+        </div>
+        <StatusDot
+          status={
+            scoreSource === 0
+              ? 'neutral'
+              : healthScore >= 80
+                ? 'success'
+                : healthScore >= 50
+                  ? 'warning'
+                  : 'error'
+          }
+          label={t(
+            healthScore >= 80
+              ? 'monitoring.passed'
+              : healthScore >= 50
+                ? 'monitoring.warnings'
+                : 'monitoring.failed',
+          )}
+          size="sm"
+        />
+      </div>
 
-            <Badge
-              variant={
-                check.status === 'pass' ? 'success' : check.status === 'warn' ? 'warning' : 'danger'
-              }
-              size="sm"
-            >
-              {t(`monitoring.statusLabels.${check.status}`)}
-            </Badge>
-          </div>
-        ))}
+      <div className="space-y-4">
+        {(['fail', 'warn', 'pass'] as const).map((status) => {
+          const checks = checkGroups[status]
+          const sectionStyle = sectionStyles[status]
+
+          return (
+            <div key={status} className="space-y-2">
+              <p
+                className={`text-xs uppercase tracking-wide font-semibold ${sectionStyle.colorClass} flex items-center gap-2`}
+              >
+                <StatusDot status={doctorStatusToStatusType(status)} size="sm" />
+                {t(`monitoring.statusLabels.${status}`)} ({checks.length})
+              </p>
+
+              {checks.length === 0 ? (
+                <div
+                  className={`${monitoringInfoCardClass} ${sectionStyle.bgClass} text-text-muted`}
+                >
+                  {t('common.none')}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {checks.map((check) => (
+                    <div
+                      key={`${status}-${check.name}`}
+                      className={`${monitoringListItemClass} ${sectionStyle.borderClass} border-l-4`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <StatusDot status={doctorStatusToStatusType(check.status)} size="sm" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-text-primary">{check.name}</p>
+                          <p className="mt-1 text-xs text-text-muted">{check.message}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -1195,7 +1286,7 @@ export function MonitoringPage() {
     { id: 'activity', label: t('activity.title'), icon: <Activity size={13} /> },
   ]
 
-  const tabPanelClassName = 'rounded-[28px] p-4 md:p-5 lg:p-6'
+  const tabPanelClassName = 'rounded-2xl p-4 md:p-5 lg:p-6'
 
   return (
     <PageShell

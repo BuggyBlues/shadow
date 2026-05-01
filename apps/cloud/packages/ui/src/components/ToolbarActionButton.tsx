@@ -16,7 +16,7 @@ export function ToolbarActionButton({
   ...props
 }: ToolbarActionButtonProps) {
   return (
-    <Button size="sm" className={cn('gap-2 px-3', className)} {...props}>
+    <Button size="sm" className={cn('h-8 gap-2 px-3', className)} {...props}>
       <span className={cn('inline-flex items-center justify-center align-middle', iconClassName)}>
         {icon}
       </span>

@@ -2,6 +2,7 @@ import {
   Badge,
   Button,
   Card,
+  GlassPanel,
   Select,
   SelectContent,
   SelectItem,
@@ -43,11 +44,11 @@ import { DashboardEmptyState } from '@/components/DashboardEmptyState'
 import { DashboardTabsList } from '@/components/DashboardTabsList'
 import { EnvVarEditorDialog } from '@/components/EnvVarEditorDialog'
 import { LogsPanel } from '@/components/LogsPanel'
+import { LogsPanelHeaderActions } from '@/components/LogsPanelHeaderActions'
 import { MetricCardContent, MetricCardWrapper } from '@/components/MetricCard'
 import { PageShell } from '@/components/PageShell'
 import { StatsGrid } from '@/components/StatsGrid'
 import { StatusBadge } from '@/components/StatusBadge'
-import { ToolbarActionButton } from '@/components/ToolbarActionButton'
 import { useSSEStream } from '@/hooks/useSSEStream'
 import {
   type Deployment,
@@ -121,7 +122,13 @@ function PodsPanel({
   })
 
   if (!agent) {
-    return <DashboardEmptyState icon={Box} title={t('deployments.noAgentSelected')} />
+    return (
+      <DashboardEmptyState
+        icon={Box}
+        title={t('deployments.noAgentSelected')}
+        cardVariant="glass"
+      />
+    )
   }
 
   if (isLoading) {
@@ -134,7 +141,13 @@ function PodsPanel({
   }
 
   if (!pods || pods.length === 0) {
-    return <DashboardEmptyState icon={Box} title={t('deployments.noPodsForAgent', { agent })} />
+    return (
+      <DashboardEmptyState
+        icon={Box}
+        title={t('deployments.noPodsForAgent', { agent })}
+        cardVariant="glass"
+      />
+    )
   }
 
   return (
@@ -143,7 +156,7 @@ function PodsPanel({
         {t('deployments.selectedPodsCount', { count: pods.length })}
       </p>
 
-      <Card>
+      <Card variant="glassPanel">
         <Table>
           <TableHeader>
             <TableRow>
@@ -198,11 +211,21 @@ function NamespaceLogsTab({
   const api = useApiClient()
   const { t } = useTranslation()
   const logRef = useRef<HTMLDivElement>(null)
-  const { lines, status, error, connect, disconnect, clear } = useSSEStream({
+  const {
+    lines,
+    entries: liveEntries,
+    status,
+    error,
+    connect,
+    disconnect,
+    clear,
+  } = useSSEStream({
     maxLines: 4000,
   })
   const [logMode, setLogMode] = useState<'recent' | 'live'>('recent')
+  const [showLogTimestamps, setShowLogTimestamps] = useState(false)
   const isLiveMode = logMode === 'live'
+  type NamespaceLogLine = string | { text: string; createdAt: string }
 
   const {
     data: history,
@@ -227,25 +250,32 @@ function NamespaceLogsTab({
 
   const connected = status === 'connecting' || status === 'connected'
   const liveLines = useMemo(
-    () => lines.map((line) => (line.startsWith('i18n:') ? t(line.slice(5)) : line)),
-    [lines, t],
+    () =>
+      liveEntries.map((entry) => ({
+        text: entry.text.startsWith('i18n:') ? t(entry.text.slice(5)) : entry.text,
+        createdAt: entry.createdAt,
+      })),
+    [liveEntries, t],
   )
+  const recentLines = isLoading || !history ? [] : history.lines
+  const linesToShow = isLiveMode ? liveLines : recentLines
+
+  const getLineText = (line: NamespaceLogLine): string =>
+    typeof line === 'string' ? line : line.text
+
   const handleConnect = () => {
     if (!agent) return
     connect(api.deployments.logsUrl(namespace, agent))
   }
 
   const handleDownload = () => {
-    const historyLines = history?.lines ?? []
-    const content =
-      logMode === 'recent'
-        ? historyLines.join('\n')
-        : [...historyLines, '', '--- LIVE ---', ...liveLines].join('\n')
+    if (linesToShow.length === 0) return
+    const content = linesToShow.map(getLineText).join('\n')
     const blob = new Blob([content], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
     anchor.href = url
-    anchor.download = `${namespace}-${agent ?? 'logs'}-${Date.now()}.log`
+    anchor.download = `${namespace}-${isLiveMode ? (agent ?? 'live') : 'recent'}-${Date.now()}.log`
     anchor.click()
     URL.revokeObjectURL(url)
   }
@@ -254,6 +284,7 @@ function NamespaceLogsTab({
     return (
       <DashboardEmptyState
         icon={FileText}
+        cardVariant="glass"
         title={t('deployments.noDeploymentsInNamespace')}
         description={t('deployments.noDeploymentsInNamespaceDescription', { namespace })}
       />
@@ -299,83 +330,99 @@ function NamespaceLogsTab({
                 </SelectContent>
               </Select>
             ) : null}
-
-            {!isLiveMode ? (
-              <ToolbarActionButton
-                type="button"
-                onClick={() => refetch()}
-                variant="ghost"
-                icon={<RefreshCw size={12} />}
-                label={t('common.refresh')}
-              />
-            ) : null}
-
-            <ToolbarActionButton
-              type="button"
-              onClick={handleDownload}
-              variant="ghost"
-              icon={<Download size={12} />}
-              label={t('deploy.download')}
-            />
           </div>
         </div>
       </div>
 
-      {logMode === 'recent' ? (
-        <LogsPanel
-          headerLeft={
-            <>
-              <span className="font-medium text-text-secondary">{namespace}</span>
-              {history?.podName ? <span> · {history.podName}</span> : null}
-            </>
-          }
-          lines={isLoading ? [] : (history?.lines ?? [])}
-          emptyText={isLoading ? t('common.loading') : t('deployments.noLogsYet')}
-          collapseRepeats
-        />
-      ) : (
-        <>
-          {error && (
-            <div className="text-xs text-red-400 bg-red-900/20 border border-red-900/30 rounded-lg px-4 py-2">
-              {error}
-            </div>
-          )}
-
-          <LogsPanel
-            headerLeft={`${namespace}/${agent}`}
-            headerRight={
-              <>
-                {(liveLines.length > 0 || connected) && (
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      disconnect()
-                      clear()
-                    }}
-                    variant="ghost"
-                    size="sm"
-                  >
-                    {t('common.clearAll')}
-                  </Button>
-                )}
-                <ToolbarActionButton
-                  type="button"
-                  onClick={handleConnect}
-                  variant={connected ? 'secondary' : 'primary'}
-                  icon={<RefreshCw size={12} className={connected ? 'animate-spin' : ''} />}
-                  label={connected ? t('deployments.streaming') : t('deployments.connectLogs')}
-                />
-              </>
-            }
-            lines={liveLines}
-            emptyText={
-              connected ? t('deployments.waitingForLogs') : t('deployments.connectLiveLogs')
-            }
-            bodyRef={logRef}
-            collapseRepeats
-          />
-        </>
+      {error && logMode === 'live' && (
+        <div className="rounded-lg border border-danger/25 bg-danger/8 px-4 py-3 text-xs text-danger">
+          {error}
+        </div>
       )}
+
+      <LogsPanel
+        headerLeft={
+          <div>
+            <p className="text-xs text-text-muted">
+              {namespace}
+              {history?.podName ? ` · ${history.podName}` : ''}
+              {isLiveMode && agent ? ` / ${agent}` : ''}
+            </p>
+          </div>
+        }
+        headerRight={
+          <LogsPanelHeaderActions
+            showTimestampsToggle={false}
+            showTimestamps={showLogTimestamps}
+            onShowTimestampsChange={setShowLogTimestamps}
+            showTimestampsLabel={t('deploy.showTimestamps')}
+            hideTimestampsLabel={t('deploy.hideTimestamps')}
+            actions={[
+              ...(isLiveMode && (liveLines.length > 0 || connected)
+                ? [
+                    {
+                      id: 'clear',
+                      type: 'button' as const,
+                      icon: <XCircle size={11} />,
+                      label: t('common.clearAll'),
+                      onClick: () => {
+                        disconnect()
+                        clear()
+                      },
+                    },
+                  ]
+                : []),
+              {
+                id: isLiveMode ? 'stream' : 'refresh',
+                type: 'toolbar' as const,
+                icon: (
+                  <RefreshCw size={12} className={isLiveMode && connected ? 'animate-spin' : ''} />
+                ),
+                label: isLiveMode
+                  ? connected
+                    ? t('deployments.streaming')
+                    : t('deployments.connectLogs')
+                  : t('common.refresh'),
+                onClick: isLiveMode ? handleConnect : () => void refetch(),
+                variant: isLiveMode ? (connected ? 'secondary' : 'primary') : 'ghost',
+              },
+              {
+                id: 'download',
+                type: 'toolbar' as const,
+                icon: <Download size={12} />,
+                label: t('deploy.download'),
+                onClick: handleDownload,
+                variant: 'ghost',
+              },
+            ]}
+          />
+        }
+        lines={linesToShow}
+        showTimestamps={showLogTimestamps}
+        footerRight={
+          isLiveMode ? (
+            <LogsPanelHeaderActions
+              showTimestamps={showLogTimestamps}
+              onShowTimestampsChange={setShowLogTimestamps}
+              showTimestampsLabel={t('deploy.showTimestamps')}
+              hideTimestampsLabel={t('deploy.hideTimestamps')}
+            />
+          ) : null
+        }
+        emptyText={
+          isLiveMode
+            ? connected
+              ? t('deployments.waitingForLogs')
+              : t('deployments.connectLiveLogs')
+            : isLoading
+              ? t('common.loading')
+              : t('deployments.noLogsYet')
+        }
+        bodyRef={logRef}
+        collapseRepeats
+        footerLeft={<span>{t('deploy.logLinesReceived', { count: linesToShow.length })}</span>}
+        bodyClassName="max-h-[16rem]"
+      />
     </div>
   )
 }
@@ -485,9 +532,13 @@ function NamespaceEnvironmentTab({ namespace }: { namespace: string }) {
         </div>
 
         {scopedEntries.length === 0 ? (
-          <DashboardEmptyState icon={Variable} title={t('deployments.noScopedEnv')} />
+          <DashboardEmptyState
+            icon={Variable}
+            title={t('deployments.noScopedEnv')}
+            cardVariant="glass"
+          />
         ) : (
-          <Card>
+          <Card variant="glassPanel">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -558,9 +609,13 @@ function NamespaceEnvironmentTab({ namespace }: { namespace: string }) {
         <p className="text-xs text-text-muted mb-3">{t('deployments.fallbackEnvDescription')}</p>
 
         {fallbackEntries.length === 0 ? (
-          <DashboardEmptyState icon={Variable} title={t('deployments.noFallbackEnv')} />
+          <DashboardEmptyState
+            icon={Variable}
+            title={t('deployments.noFallbackEnv')}
+            cardVariant="glass"
+          />
         ) : (
-          <Card>
+          <Card variant="glassPanel">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -655,6 +710,7 @@ function NamespaceCostTab({ namespace }: { namespace: string }) {
     return (
       <DashboardEmptyState
         icon={DollarSign}
+        cardVariant="glass"
         title={t('deployments.costUnavailable')}
         description={t('deployments.costUnavailableDescription')}
       />
@@ -711,7 +767,7 @@ function NamespaceCostTab({ namespace }: { namespace: string }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {data.agents.map((agent) => (
-          <Card key={agent.agentName} className="min-w-0 p-5">
+          <Card key={agent.agentName} variant="glassPanel" className="min-w-0 p-5">
             <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
@@ -792,7 +848,7 @@ function NamespaceInfoTab({
 
   return (
     <div className="space-y-6">
-      <Card className="overflow-hidden p-0">
+      <Card variant="glassPanel" className="overflow-hidden p-0">
         <div className="px-5 py-3 flex items-center justify-between border-b border-border-subtle">
           <span className="text-xs text-text-muted">{t('deployments.namespaceLabel')}</span>
           <span className="text-sm font-mono text-text-secondary">{namespace}</span>
@@ -980,6 +1036,7 @@ export function DeploymentNamespacePage() {
       >
         <DashboardEmptyState
           icon={FolderOpen}
+          cardVariant="glass"
           title={t('deployments.noDeploymentsInNamespace')}
           description={t('deployments.noDeploymentsInNamespaceDescription', {
             namespace,
@@ -1081,31 +1138,33 @@ export function DeploymentNamespacePage() {
       }
       narrow
     >
-      <div className="space-y-6">
-        <div className="min-h-[38vh]">
-          {activeTab === 'agents' && (
-            <PodsPanel namespace={namespace} agent={selectedAgent} enabled={!isLoading} />
-          )}
-          {activeTab === 'logs' && (
-            <NamespaceLogsTab
-              namespace={namespace}
-              agent={selectedAgent}
-              deployments={namespaceDeployments}
-              onSelectAgent={setSelectedAgent}
-            />
-          )}
-          {activeTab === 'env' && <NamespaceEnvironmentTab namespace={namespace} />}
-          {activeTab === 'cost' && <NamespaceCostTab namespace={namespace} />}
-          {activeTab === 'info' && (
-            <NamespaceInfoTab
-              namespace={namespace}
-              agent={selectedAgent}
-              deployments={namespaceDeployments}
-              pods={selectedPodsQuery.data}
-            />
-          )}
+      <GlassPanel className="rounded-2xl p-4 md:p-5 lg:p-6">
+        <div className="space-y-6">
+          <div className="min-h-[38vh]">
+            {activeTab === 'agents' && (
+              <PodsPanel namespace={namespace} agent={selectedAgent} enabled={!isLoading} />
+            )}
+            {activeTab === 'logs' && (
+              <NamespaceLogsTab
+                namespace={namespace}
+                agent={selectedAgent}
+                deployments={namespaceDeployments}
+                onSelectAgent={setSelectedAgent}
+              />
+            )}
+            {activeTab === 'env' && <NamespaceEnvironmentTab namespace={namespace} />}
+            {activeTab === 'cost' && <NamespaceCostTab namespace={namespace} />}
+            {activeTab === 'info' && (
+              <NamespaceInfoTab
+                namespace={namespace}
+                agent={selectedAgent}
+                deployments={namespaceDeployments}
+                pods={selectedPodsQuery.data}
+              />
+            )}
+          </div>
         </div>
-      </div>
+      </GlassPanel>
 
       <DangerConfirmDialog
         open={destroyOpen}

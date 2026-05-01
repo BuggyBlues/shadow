@@ -1,4 +1,4 @@
-import { Badge, Button, Checkbox } from '@shadowob/ui'
+import { Badge, Button } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from '@tanstack/react-router'
 import {
@@ -16,6 +16,7 @@ import { DangerConfirmDialog } from '@/components/DangerConfirmDialog'
 import { DashboardEmptyState } from '@/components/DashboardEmptyState'
 import { DashboardErrorState, DashboardLoadingState } from '@/components/DashboardState'
 import { LogsPanel } from '@/components/LogsPanel'
+import { LogsPanelHeaderActions } from '@/components/LogsPanelHeaderActions'
 import { MetricCardContent, MetricCardWrapper } from '@/components/MetricCard'
 import { PageShell } from '@/components/PageShell'
 import { StatsGrid } from '@/components/StatsGrid'
@@ -392,37 +393,42 @@ export function DeploymentTaskPage() {
           </div>
         }
         headerRight={
-          <>
-            <Badge
-              variant={running ? 'info' : success ? 'success' : failed ? 'danger' : 'neutral'}
-              size="sm"
-            >
-              {running ? t('deployTask.liveStreaming') : t('deployTask.logReplay')}
-            </Badge>
-          </>
+          <LogsPanelHeaderActions
+            showTimestampsToggle={false}
+            actions={[
+              ...(lines.length > 0
+                ? [
+                    {
+                      id: 'download',
+                      type: 'button' as const,
+                      icon: <Download size={11} />,
+                      label: t('deploy.download'),
+                      onClick: handleDownloadLog,
+                    },
+                  ]
+                : []),
+            ]}
+            suffix={
+              <Badge
+                variant={running ? 'info' : success ? 'success' : failed ? 'danger' : 'neutral'}
+                size="sm"
+              >
+                {running ? t('deployTask.liveStreaming') : t('deployTask.logReplay')}
+              </Badge>
+            }
+          />
+        }
+        footerRight={
+          <LogsPanelHeaderActions
+            showTimestamps={showLogTimestamps}
+            onShowTimestampsChange={setShowLogTimestamps}
+            showTimestampsLabel={t('deploy.showTimestamps')}
+            hideTimestampsLabel={t('deploy.hideTimestamps')}
+          />
         }
         lines={logLines}
         showTimestamps={showLogTimestamps}
         footerLeft={<span>{t('deploy.logLinesReceived', { count: lines.length })}</span>}
-        footerRight={
-          <div className="flex items-center gap-2">
-            <label className="flex items-center gap-2 text-xs text-text-secondary">
-              <Checkbox
-                checked={showLogTimestamps}
-                onCheckedChange={(checked) => setShowLogTimestamps(checked === true)}
-              />
-              <span>
-                {showLogTimestamps ? t('deploy.hideTimestamps') : t('deploy.showTimestamps')}
-              </span>
-            </label>
-            {lines.length > 0 && (
-              <Button type="button" variant="ghost" size="sm" onClick={handleDownloadLog}>
-                <Download size={11} />
-                {t('deploy.download')}
-              </Button>
-            )}
-          </div>
-        }
         emptyText={t('deployTask.waitingForLogs')}
         collapseRepeats
         bodyRef={logRef}

@@ -1,4 +1,5 @@
-import { Button, Card, EmptyState } from '@shadowob/ui'
+import { Button, Card } from '@shadowob/ui'
+import { EmptyState } from '@shadowob/ui/components/ui/empty-state'
 import { useQuery } from '@tanstack/react-query'
 import { clsx } from 'clsx'
 import { Activity, AlertTriangle, CheckCircle, Clock, XCircle } from 'lucide-react'

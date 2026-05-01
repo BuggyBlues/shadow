@@ -10,13 +10,12 @@ import {
   AlertDialogTitle,
   Badge,
   Button,
-  EmptyState,
   GlassPanel,
 } from '@shadowob/ui'
+import { EmptyState } from '@shadowob/ui/components/ui/empty-state'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import {
-  ArrowLeft,
   Check,
   Clock,
   Cpu,
@@ -40,9 +39,8 @@ import { useTranslation } from 'react-i18next'
 import { PageShell } from '@/components/PageShell'
 import {
   parseTemplateAgents,
-  type TemplateAgentInfo,
   TemplateAgentsTab,
-  TemplateConfigTab,
+  TemplateDetailQuickInfoPanel,
   TemplateDetailShell,
 } from '@/components/TemplateDetailShared'
 import { type ValidateResult } from '@/lib/api'
@@ -383,7 +381,7 @@ export function MyTemplateDetailPage() {
   const api = useApiClient()
   const { t } = useTranslation()
   const { name } = useParams({ strict: false }) as { name: string }
-  const [activeTab, setActiveTab] = useState('overview')
+  const [activeTab, setActiveTab] = useState('agents')
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [publishDialogOpen, setPublishDialogOpen] = useState(false)
   const navigate = useNavigate()
@@ -437,7 +435,6 @@ export function MyTemplateDetailPage() {
   const providers = (templateContent?.providers ?? deployments?.providers) as unknown[] | undefined
 
   const tabs = [
-    { id: 'overview', label: t('templateDetail.overview'), icon: <FileJson size={13} /> },
     {
       id: 'agents',
       label: t('templateDetail.agents'),
@@ -499,12 +496,6 @@ export function MyTemplateDetailPage() {
             <Badge variant="neutral" size="sm">
               v{data.version ?? 1}
             </Badge>
-            {data.templateSlug && (
-              <Badge variant="neutral" size="sm">
-                <GitFork size={10} />
-                {data.templateSlug}
-              </Badge>
-            )}
           </>
         }
         description={
@@ -512,44 +503,12 @@ export function MyTemplateDetailPage() {
             ? t('templateDetail.forkedDescription', { name: data.templateSlug })
             : t('templateDetail.customDescription')
         }
-        supportingText={
-          data.templateSlug ? (
-            <p className="flex items-center gap-1 text-xs text-text-muted">
-              <GitFork size={12} />
-              <span>{t('templateDetail.forkedFrom')}</span>
-              <Link
-                to="/store/$name"
-                params={{ name: data.templateSlug }}
-                className="text-text-secondary transition-colors hover:text-primary"
-              >
-                {data.templateSlug}
-              </Link>
-            </p>
-          ) : null
-        }
-        chips={
-          <>
-            <div className="flex items-center gap-1.5 rounded-full border border-border-subtle bg-bg-secondary px-3 py-1.5 text-xs text-text-secondary">
-              <Users size={11} className="text-primary" />
-              {t('templateDetail.agentsCount', { count: agents.length })}
-            </div>
-            <div className="flex items-center gap-1.5 rounded-full border border-border-subtle bg-bg-secondary px-3 py-1.5 text-xs text-text-secondary">
-              <Layers size={11} className="text-primary" />
-              {Array.isArray(configurations) ? configurations.length : 0}{' '}
-              {t('templateDetail.configurations')}
-            </div>
-            <div className="flex items-center gap-1.5 rounded-full border border-border-subtle bg-bg-secondary px-3 py-1.5 text-xs text-text-secondary">
-              <Cpu size={11} className="text-primary" />
-              {Array.isArray(providers) ? providers.length : 0} {t('templateDetail.providers')}
-            </div>
-          </>
-        }
         actions={
           <>
-            <Button asChild variant="primary" size="sm">
+            <Button asChild variant="primary">
               <Link to="/store/$name/deploy" params={{ name: data.templateSlug ?? name }}>
-                <Rocket size={16} />
-                {t('common.deploy')}
+                <Rocket size={14} />
+                <span>{t('common.deploy')}</span>
               </Link>
             </Button>
             {/* Review status action — state machine */}
@@ -557,174 +516,122 @@ export function MyTemplateDetailPage() {
               <Button
                 type="button"
                 variant="secondary"
-                size="sm"
                 disabled={publishMutation.isPending}
                 onClick={() => setPublishDialogOpen(true)}
                 title={t('templateDetail.publishTooltip')}
               >
-                <Upload size={14} />
-                {publishMutation.isPending
-                  ? t('templateDetail.publishing')
-                  : isResubmit
-                    ? t('templateDetail.resubmitToCommunity')
-                    : t('templateDetail.publishToCommunity')}
+                <Upload size={12} />
+                <span>
+                  {publishMutation.isPending
+                    ? t('templateDetail.publishing')
+                    : isResubmit
+                      ? t('templateDetail.resubmitToCommunity')
+                      : t('templateDetail.publishToCommunity')}
+                </span>
               </Button>
             )}
-            {reviewStatus === 'pending' && (
-              <div className="flex items-center gap-1.5 rounded-full border border-warning/30 bg-warning/10 px-3 py-1.5 text-xs text-warning">
-                <Loader2 size={11} className="animate-spin" />
-                {t('templateDetail.reviewStatusPending')}
-              </div>
-            )}
-            {reviewStatus === 'approved' && (
-              <div className="flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-3 py-1.5 text-xs text-success">
-                <Shield size={11} />
-                {t('templateDetail.reviewStatusApproved')}
-              </div>
-            )}
-            <Button
-              type="button"
-              onClick={() => setDeleteDialogOpen(true)}
-              variant="ghost"
-              size="sm"
-            >
+            <Button type="button" onClick={() => setDeleteDialogOpen(true)} variant="ghost">
               <Trash2 size={14} />
               {t('common.delete')}
-            </Button>
-            <Button asChild variant="ghost" size="sm">
-              <Link to="/my-templates">
-                <ArrowLeft size={14} />
-                {t('common.back')}
-              </Link>
             </Button>
           </>
         }
         sidebar={
-          <GlassPanel className="space-y-4 rounded-2xl p-5">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-              {t('templateDetail.quickInfo')}
-            </h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-xs text-text-muted">
-                  <Users size={12} />
-                  {t('templateDetail.agents')}
-                </span>
-                <span className="text-sm font-medium text-text-primary">{agents.length}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-xs text-text-muted">
-                  <Layers size={12} />
-                  {t('clusters.namespace')}
-                </span>
-                <span className="text-sm font-mono text-text-primary">
-                  {namespace ?? t('common.none')}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-xs text-text-muted">
-                  <Settings size={12} />
-                  {t('templateDetail.configurations')}
-                </span>
-                <span className="text-sm text-text-primary">
-                  {Array.isArray(configurations) ? configurations.length : 0}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-xs text-text-muted">
-                  <Cpu size={12} />
-                  {t('templateDetail.providers')}
-                </span>
-                <span className="text-sm text-text-primary">
-                  {Array.isArray(providers) ? providers.length : 0}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-xs text-text-muted">
-                  <History size={12} />
-                  {t('templateDetail.version')}
-                </span>
-                <span className="text-sm font-mono text-text-primary">v{data.version ?? 1}</span>
-              </div>
-              {data.reviewStatus && (
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-xs text-text-muted">
-                    <Shield size={12} />
-                    {t('templateDetail.reviewStatusLabel')}
+          <TemplateDetailQuickInfoPanel
+            title={t('templateDetail.quickInfo')}
+            items={[
+              {
+                icon: <Users size={12} />,
+                label: t('templateDetail.agents'),
+                value: <span className="font-medium text-text-primary">{agents.length}</span>,
+              },
+              {
+                icon: <Layers size={12} />,
+                label: t('clusters.namespace'),
+                value: (
+                  <span className="font-mono text-text-primary">
+                    {namespace ?? t('common.none')}
                   </span>
-                  <Badge
-                    variant={
-                      data.reviewStatus === 'approved'
-                        ? 'success'
-                        : data.reviewStatus === 'rejected'
-                          ? 'danger'
-                          : data.reviewStatus === 'pending'
-                            ? 'warning'
-                            : 'neutral'
-                    }
-                    className="text-xs"
-                  >
-                    {data.reviewStatus === 'draft'
-                      ? t('templateDetail.reviewStatusDraft')
-                      : data.reviewStatus === 'pending'
-                        ? t('templateDetail.reviewStatusPending')
-                        : data.reviewStatus === 'approved'
-                          ? t('templateDetail.reviewStatusApproved')
-                          : t('templateDetail.reviewStatusRejected')}
-                  </Badge>
+                ),
+              },
+              {
+                icon: <Settings size={12} />,
+                label: t('templateDetail.configurations'),
+                value: Array.isArray(configurations) ? configurations.length : 0,
+              },
+              {
+                icon: <Cpu size={12} />,
+                label: t('templateDetail.providers'),
+                value: Array.isArray(providers) ? providers.length : 0,
+              },
+            ]}
+          >
+            {data.reviewStatus === 'rejected' && data.reviewNote ? (
+              <div className="mt-1 rounded-lg border border-red-800/40 bg-red-900/20 p-3">
+                <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-red-400">
+                  <Shield size={11} />
+                  {t('templateDetail.reviewNoteLabel')}
+                </p>
+                <p className="text-xs leading-relaxed text-red-300">{data.reviewNote}</p>
+              </div>
+            ) : null}
+            {data.templateSlug ? (
+              <div className="space-y-2 border-t border-border-subtle pt-3">
+                <div className="text-[11px] font-semibold text-text-muted flex items-center gap-1.5">
+                  <GitFork size={12} />
+                  <span>{t('templateDetail.forkedFrom')}</span>
                 </div>
-              )}
-              {data.reviewStatus === 'rejected' && data.reviewNote && (
-                <div className="mt-1 rounded-lg border border-red-800/40 bg-red-900/20 p-3">
-                  <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-red-400">
-                    <Shield size={11} />
-                    {t('templateDetail.reviewNoteLabel')}
-                  </p>
-                  <p className="text-xs leading-relaxed text-red-300">{data.reviewNote}</p>
-                </div>
-              )}
-            </div>
-          </GlassPanel>
+                <Link
+                  to="/store/$name"
+                  params={{ name: data.templateSlug }}
+                  className="text-sm text-text-secondary transition-colors hover:text-primary"
+                >
+                  {data.templateSlug}
+                </Link>
+              </div>
+            ) : null}
+          </TemplateDetailQuickInfoPanel>
         }
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
       >
-        {activeTab === 'overview' && <OverviewPanel content={data.content} agents={agents} />}
-        {activeTab === 'agents' && (
-          <TemplateAgentsTab
-            agents={agents}
-            emptyTitle={t('templateDetail.noAgents')}
-            emptyDescription={t('templateDetail.noAgents')}
-            introText={t('templateDetail.agentsInTemplate', { count: agents.length })}
-          />
-        )}
-        {activeTab === 'editor' && (
-          <>
-            {!canEdit && (
-              <div
-                className={cn(
-                  'mb-4 rounded-lg border p-3 flex items-center gap-2 text-sm',
-                  reviewStatus === 'pending'
-                    ? 'bg-yellow-900/20 border-yellow-800/40 text-yellow-300'
-                    : 'bg-blue-900/20 border-blue-800/40 text-blue-300',
-                )}
-              >
-                <Shield size={14} />
-                {reviewStatus === 'pending'
-                  ? t('templateDetail.editorLockedPending')
-                  : t('templateDetail.editorLockedApproved')}
-              </div>
-            )}
-            <EditorTab
-              name={name}
-              content={data.content}
-              templateSlug={data.templateSlug}
-              readOnly={!canEdit}
+        <GlassPanel className="rounded-3xl p-5">
+          {activeTab === 'agents' && (
+            <TemplateAgentsTab
+              agents={agents}
+              emptyTitle={t('templateDetail.noAgents')}
+              emptyDescription={t('templateDetail.noAgents')}
+              introText={t('templateDetail.agentsInTemplate', { count: agents.length })}
             />
-          </>
-        )}
-        {activeTab === 'versions' && <VersionsTab name={name} />}
+          )}
+          {activeTab === 'editor' && (
+            <>
+              {!canEdit && (
+                <div
+                  className={cn(
+                    'mb-4 rounded-lg border p-3 flex items-center gap-2 text-sm',
+                    reviewStatus === 'pending'
+                      ? 'bg-yellow-900/20 border-yellow-800/40 text-yellow-300'
+                      : 'bg-blue-900/20 border-blue-800/40 text-blue-300',
+                  )}
+                >
+                  <Shield size={14} />
+                  {reviewStatus === 'pending'
+                    ? t('templateDetail.editorLockedPending')
+                    : t('templateDetail.editorLockedApproved')}
+                </div>
+              )}
+              <EditorTab
+                name={name}
+                content={data.content}
+                templateSlug={data.templateSlug}
+                readOnly={!canEdit}
+              />
+            </>
+          )}
+          {activeTab === 'versions' && <VersionsTab name={name} />}
+        </GlassPanel>
       </TemplateDetailShell>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
@@ -786,107 +693,5 @@ export function MyTemplateDetailPage() {
         </AlertDialogContent>
       </AlertDialog>
     </>
-  )
-}
-
-// ── Overview Panel ────────────────────────────────────────────────────────────
-
-function OverviewPanel({ content, agents }: { content: unknown; agents: TemplateAgentInfo[] }) {
-  const { t } = useTranslation()
-
-  if (!content || typeof content !== 'object') {
-    return (
-      <EmptyState
-        title={t('templateDetail.noContent')}
-        description={t('templateDetail.noContentDescription')}
-      />
-    )
-  }
-  const data = content as Record<string, unknown>
-  const deployments = data.deployments as Record<string, unknown> | undefined
-  const namespace = deployments?.namespace as string | undefined
-  const configs = (data.configurations ?? deployments?.configurations) as unknown[] | undefined
-  const providers = (data.providers ?? deployments?.providers) as unknown[] | undefined
-
-  return (
-    <div className="space-y-5">
-      {/* Quick stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard
-          label={t('templateDetail.agents')}
-          value={agents.length}
-          icon={<Users size={14} className="text-primary" />}
-        />
-        <StatCard
-          label={t('clusters.namespace')}
-          value={namespace ?? t('common.none')}
-          icon={<Layers size={14} className="text-primary" />}
-        />
-        <StatCard
-          label={t('templateDetail.configurations')}
-          value={Array.isArray(configs) ? configs.length : 0}
-          icon={<Settings size={14} className="text-primary" />}
-        />
-        <StatCard
-          label={t('templateDetail.providers')}
-          value={Array.isArray(providers) ? providers.length : 0}
-          icon={<Cpu size={14} className="text-primary" />}
-        />
-      </div>
-
-      {/* Agent summary */}
-      <GlassPanel className="rounded-2xl p-4">
-        <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
-          <Users size={14} className="text-primary" />
-          {t('templateDetail.agentSummary')}
-        </h3>
-        <div className="space-y-2">
-          {agents.map((a) => (
-            <div key={a.id} className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-text-primary">{a.identity?.name ?? a.id}</span>
-                <Badge variant="neutral" size="sm">
-                  {a.runtime}
-                </Badge>
-              </div>
-              <div className="flex items-center gap-2">
-                {a.integrations?.map((i) => (
-                  <Badge key={i.name} variant="neutral" size="sm">
-                    {i.name}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </GlassPanel>
-
-      {/* Raw config preview */}
-      <TemplateConfigTab
-        templateData={content}
-        description={t('templateDetail.configPreviewDescription')}
-        title={t('templateDetail.configPreview')}
-      />
-    </div>
-  )
-}
-
-function StatCard({
-  label,
-  value,
-  icon,
-}: {
-  label: string
-  value: string | number
-  icon: React.ReactNode
-}) {
-  return (
-    <GlassPanel className="rounded-2xl p-3">
-      <div className="mb-1 flex items-center gap-1.5 text-[10px] uppercase text-text-muted">
-        {icon}
-        {label}
-      </div>
-      <p className="font-mono text-lg font-semibold text-text-primary">{value}</p>
-    </GlassPanel>
   )
 }

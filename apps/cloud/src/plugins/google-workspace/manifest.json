@@ -17,14 +17,6 @@
         "required": false,
         "sensitive": true,
         "placeholder": "{\"installed\":{\"client_id\":\"...\"}}"
-      },
-      {
-        "key": "GOOGLE_WORKSPACE_CLI_TOKEN",
-        "label": "Google Workspace CLI token",
-        "description": "Paste GOOGLE_WORKSPACE_CLI_TOKEN if you already use a token flow.",
-        "required": false,
-        "sensitive": true,
-        "placeholder": "ya29..."
       }
     ],
     "oauth": {

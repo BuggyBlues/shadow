@@ -1,4 +1,5 @@
-import { Card, EmptyState } from '@shadowob/ui'
+import { Card } from '@shadowob/ui'
+import { EmptyState } from '@shadowob/ui/components/ui/empty-state'
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'

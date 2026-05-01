@@ -1,4 +1,5 @@
-import { Badge, Button, EmptyState, GlassPanel, GlassSurface, Tabs } from '@shadowob/ui'
+import { Badge, Button, GlassPanel, GlassSurface, Tabs } from '@shadowob/ui'
+import { EmptyState } from '@shadowob/ui/components/ui/empty-state'
 import { ChevronRight, Cpu, Layers, Settings, Users, Zap } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useState } from 'react'
@@ -340,7 +341,7 @@ export function TemplateAgentsTab({
       <p className="text-sm text-text-muted">
         {introText ?? t('templateDetail.agentsCount', { count: agents.length })}
       </p>
-      <div className="overflow-hidden rounded-[24px] border border-border-subtle divide-y divide-border-subtle">
+      <div className="overflow-hidden rounded-2xl border border-border-subtle divide-y divide-border-subtle">
         {agents.map((agent, index) => (
           <TemplateAgentCard key={agent.id} agent={agent} index={index} />
         ))}
@@ -372,6 +373,51 @@ export function TemplateConfigTab({
         maxHeight="600px"
       />
     </div>
+  )
+}
+
+export type TemplateDetailQuickInfoItem = {
+  icon: ReactNode
+  label: string
+  value: ReactNode
+  valueClassName?: string
+}
+
+export function TemplateDetailQuickInfoPanel({
+  title,
+  items,
+  className = 'rounded-3xl p-5',
+  children,
+}: {
+  title: ReactNode
+  items: TemplateDetailQuickInfoItem[]
+  className?: string
+  children?: ReactNode
+}) {
+  if (items.length === 0 && !children) return null
+
+  return (
+    <GlassPanel className={cn('space-y-4', className)}>
+      <h3 className="text-xs font-black uppercase tracking-[0.2em] text-text-muted">{title}</h3>
+
+      {items.length > 0 && (
+        <div className="space-y-3 pt-3 text-sm">
+          {items.map((item) => (
+            <div key={item.label} className="flex items-center justify-between gap-3">
+              <span className="text-xs text-text-muted flex items-center gap-1.5">
+                {item.icon}
+                {item.label}
+              </span>
+              <span className={cn('text-sm text-text-primary', item.valueClassName)}>
+                {item.value}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {children ? <div className="space-y-2">{children}</div> : null}
+    </GlassPanel>
   )
 }
 
@@ -415,7 +461,7 @@ export function TemplateDetailShell({
           <Breadcrumb items={breadcrumbItems} className="mb-3" />
 
           <div className="flex flex-col gap-5 md:flex-row md:items-start">
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[28px] border border-border-subtle bg-bg-secondary/50">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border border-border-subtle bg-bg-secondary/50">
               {heroIcon}
             </div>
 
