@@ -201,10 +201,13 @@ const plugin = definePlugin(manifest as PluginManifest, (api) => {
         entries: {
           [PLUGIN_ID]: {
             enabled: true,
-            services,
-            skillSources: [SKILLS_MOUNT],
+            config: {
+              services,
+              skillSources: [SKILLS_MOUNT],
+            },
             env: {
               GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE: CREDENTIALS_FILE,
+              GOOGLE_WORKSPACE_SERVICES: services.join(','),
               // biome-ignore lint/suspicious/noTemplateCurlyInString: OpenClaw template syntax
               GOOGLE_WORKSPACE_CLI_TOKEN: '${env:GOOGLE_WORKSPACE_CLI_TOKEN}',
             },

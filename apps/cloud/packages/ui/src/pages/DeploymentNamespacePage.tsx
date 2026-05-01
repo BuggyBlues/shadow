@@ -38,7 +38,6 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Breadcrumb } from '@/components/Breadcrumb'
 import { DangerConfirmDialog } from '@/components/DangerConfirmDialog'
 import { DashboardEmptyState } from '@/components/DashboardEmptyState'
 import { DashboardTabsList } from '@/components/DashboardTabsList'
@@ -144,7 +143,7 @@ function PodsPanel({
         {t('deployments.selectedPodsCount', { count: pods.length })}
       </p>
 
-      <Card variant="glass">
+      <Card>
         <Table>
           <TableHeader>
             <TableRow>
@@ -332,7 +331,7 @@ function NamespaceLogsTab({
           }
           lines={isLoading ? [] : (history?.lines ?? [])}
           emptyText={isLoading ? t('common.loading') : t('deployments.noLogsYet')}
-          bodyClassName="h-80 max-h-80 min-h-80 overflow-auto"
+          collapseRepeats
         />
       ) : (
         <>
@@ -373,7 +372,7 @@ function NamespaceLogsTab({
               connected ? t('deployments.waitingForLogs') : t('deployments.connectLiveLogs')
             }
             bodyRef={logRef}
-            bodyClassName="h-80 max-h-80 min-h-80 overflow-auto"
+            collapseRepeats
           />
         </>
       )}
@@ -488,7 +487,7 @@ function NamespaceEnvironmentTab({ namespace }: { namespace: string }) {
         {scopedEntries.length === 0 ? (
           <DashboardEmptyState icon={Variable} title={t('deployments.noScopedEnv')} />
         ) : (
-          <Card variant="glass">
+          <Card>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -561,7 +560,7 @@ function NamespaceEnvironmentTab({ namespace }: { namespace: string }) {
         {fallbackEntries.length === 0 ? (
           <DashboardEmptyState icon={Variable} title={t('deployments.noFallbackEnv')} />
         ) : (
-          <Card variant="glass">
+          <Card>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -712,7 +711,7 @@ function NamespaceCostTab({ namespace }: { namespace: string }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {data.agents.map((agent) => (
-          <Card variant="glass" key={agent.agentName} className="min-w-0 p-5">
+          <Card key={agent.agentName} className="min-w-0 p-5">
             <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
@@ -793,7 +792,7 @@ function NamespaceInfoTab({
 
   return (
     <div className="space-y-6">
-      <Card variant="glass" className="overflow-hidden p-0">
+      <Card className="overflow-hidden p-0">
         <div className="px-5 py-3 flex items-center justify-between border-b border-border-subtle">
           <span className="text-xs text-text-muted">{t('deployments.namespaceLabel')}</span>
           <span className="text-sm font-mono text-text-secondary">{namespace}</span>
@@ -967,6 +966,7 @@ export function DeploymentNamespacePage() {
     return (
       <PageShell
         breadcrumb={[{ label: t('deployments.title'), to: '/deployments' }, { label: namespace }]}
+        breadcrumbPosition="inside"
         title={namespace}
         actions={
           <Button asChild variant="primary" size="sm">
@@ -992,55 +992,47 @@ export function DeploymentNamespacePage() {
 
   return (
     <PageShell
-      breadcrumb={[]}
-      title=""
-      description={null}
+      breadcrumb={[{ label: t('deployments.title'), to: '/deployments' }, { label: namespace }]}
+      breadcrumbPosition="inside"
+      title={namespace}
+      actions={
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            onClick={() => {
+              void refetch()
+              void queryClient.invalidateQueries({
+                queryKey: ['namespace-costs', namespace],
+              })
+            }}
+            variant="ghost"
+            size="sm"
+          >
+            <RefreshCw size={12} />
+            {t('common.refresh')}
+          </Button>
+          <Button
+            type="button"
+            onClick={() => redeployMutation.mutate()}
+            disabled={!latestTask || redeployMutation.isPending}
+            variant="primary"
+            size="sm"
+          >
+            {redeployMutation.isPending ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <Rocket size={12} />
+            )}
+            {t('deployTask.redeploy')}
+          </Button>
+          <Button type="button" onClick={() => setDestroyOpen(true)} variant="ghost" size="sm">
+            <Trash2 size={12} />
+            {t('clusters.destroy')}
+          </Button>
+        </div>
+      }
       headerContent={
         <>
-          <div className="mb-3">
-            <Breadcrumb
-              items={[{ label: t('deployments.title'), to: '/deployments' }, { label: namespace }]}
-            />
-          </div>
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h1 className="text-[1.875rem] font-extrabold tracking-[-0.03em] text-text-primary md:text-[2.125rem]">
-              {namespace}
-            </h1>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                onClick={() => {
-                  void refetch()
-                  void queryClient.invalidateQueries({
-                    queryKey: ['namespace-costs', namespace],
-                  })
-                }}
-                variant="ghost"
-                size="sm"
-              >
-                <RefreshCw size={12} />
-                {t('common.refresh')}
-              </Button>
-              <Button
-                type="button"
-                onClick={() => redeployMutation.mutate()}
-                disabled={!latestTask || redeployMutation.isPending}
-                variant="primary"
-                size="sm"
-              >
-                {redeployMutation.isPending ? (
-                  <Loader2 size={12} className="animate-spin" />
-                ) : (
-                  <Rocket size={12} />
-                )}
-                {t('deployTask.redeploy')}
-              </Button>
-              <Button type="button" onClick={() => setDestroyOpen(true)} variant="ghost" size="sm">
-                <Trash2 size={12} />
-                {t('clusters.destroy')}
-              </Button>
-            </div>
-          </div>
           <StatsGrid className="mb-4 md:mb-5 grid-cols-2 md:grid-cols-4">
             <MetricCardWrapper>
               <MetricCardContent

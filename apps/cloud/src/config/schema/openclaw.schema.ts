@@ -495,6 +495,7 @@ export interface OpenClawSkillsConfig {
       enabled?: boolean
       apiKey?: string
       env?: Record<string, string>
+      config?: Record<string, unknown>
     }
   >
 }

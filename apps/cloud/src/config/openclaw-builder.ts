@@ -392,6 +392,32 @@ function normalizeLegacyToolsConfig(tools: OpenClawConfig['tools']): void {
   delete mutableTools.memory
 }
 
+function normalizeSkillsConfig(skills: OpenClawConfig['skills']): void {
+  if (!skills?.entries) return
+
+  for (const entry of Object.values(skills.entries)) {
+    const mutableEntry = entry as Record<string, unknown>
+    const config =
+      mutableEntry.config &&
+      typeof mutableEntry.config === 'object' &&
+      !Array.isArray(mutableEntry.config)
+        ? ({ ...mutableEntry.config } as Record<string, unknown>)
+        : {}
+    for (const key of ['services', 'skillSources']) {
+      if (mutableEntry[key] !== undefined && config[key] === undefined) {
+        config[key] = mutableEntry[key]
+      }
+    }
+    if (Object.keys(config).length > 0) mutableEntry.config = config
+
+    for (const key of Object.keys(mutableEntry)) {
+      if (key !== 'enabled' && key !== 'apiKey' && key !== 'env' && key !== 'config') {
+        delete mutableEntry[key]
+      }
+    }
+  }
+}
+
 /**
  * Strip agent-entry fields not in OpenClaw's strict schema.
  * Returns workspace files to write (e.g., SOUL.md from instructions).
@@ -735,6 +761,7 @@ export function buildOpenClawConfig(
   // 17. Normalize legacy tool config fragments so historical templates and
   //     stored snapshots still produce a valid OpenClaw config.
   normalizeLegacyToolsConfig(openclawConfig.tools)
+  normalizeSkillsConfig(openclawConfig.skills)
 
   // 18. Strip strict-schema-violating fields after plugins have contributed
   //     their prompt/context additions.

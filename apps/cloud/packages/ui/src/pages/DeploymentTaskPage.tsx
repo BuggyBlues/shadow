@@ -1,14 +1,23 @@
-import { Badge, Button, Card } from '@shadowob/ui'
+import { Badge, Button, Checkbox } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from '@tanstack/react-router'
-import { CheckCircle2, Copy, FolderOpen, Loader2, RefreshCw, Terminal, XCircle } from 'lucide-react'
+import {
+  CheckCircle2,
+  Download,
+  FolderOpen,
+  Loader2,
+  RefreshCw,
+  Terminal,
+  XCircle,
+} from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Breadcrumb } from '@/components/Breadcrumb'
 import { DangerConfirmDialog } from '@/components/DangerConfirmDialog'
 import { DashboardEmptyState } from '@/components/DashboardEmptyState'
 import { DashboardErrorState, DashboardLoadingState } from '@/components/DashboardState'
-import { StatCard } from '@/components/StatCard'
+import { LogsPanel } from '@/components/LogsPanel'
+import { MetricCardContent, MetricCardWrapper } from '@/components/MetricCard'
+import { PageShell } from '@/components/PageShell'
 import { StatsGrid } from '@/components/StatsGrid'
 import { ToolbarActionButton } from '@/components/ToolbarActionButton'
 import { useSSEStream } from '@/hooks/useSSEStream'
@@ -34,7 +43,17 @@ export function DeploymentTaskPage() {
   const taskId = params.taskId
   const logRef = useRef<HTMLDivElement>(null)
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false)
-  const { lines, status: streamStatus, error, connect } = useSSEStream({ maxLines: 4000 })
+  const shouldAutoScrollLogRef = useRef(true)
+  const [showLogTimestamps, setShowLogTimestamps] = useState(false)
+  const {
+    lines,
+    entries: logLines,
+    status: streamStatus,
+    error,
+    connect,
+  } = useSSEStream({
+    maxLines: 4000,
+  })
 
   const {
     data,
@@ -65,23 +84,41 @@ export function DeploymentTaskPage() {
     if (!taskCanRequestCancel) setCancelConfirmOpen(false)
   }, [taskCanRequestCancel])
 
+  const handleLogScroll = () => {
+    if (!logRef.current) return
+    const distanceFromBottom =
+      logRef.current.scrollHeight - logRef.current.scrollTop - logRef.current.clientHeight
+    shouldAutoScrollLogRef.current = distanceFromBottom < 64
+  }
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll reset should match new taskId
+  useEffect(() => {
+    shouldAutoScrollLogRef.current = true
+  }, [taskId])
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset scroll on stream state changes
+  useEffect(() => {
+    if (streamStatus === 'done' || streamStatus === 'error') {
+      shouldAutoScrollLogRef.current = true
+    }
+  }, [streamStatus])
+
+  const handleDownloadLog = () => {
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `deploy-task-${taskId}-${Date.now()}.log`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on new log lines
   useEffect(() => {
-    if (logRef.current) {
+    if (logRef.current && shouldAutoScrollLogRef.current) {
       logRef.current.scrollTop = logRef.current.scrollHeight
     }
   }, [lines.length])
-
-  const copyTaskUrl = async () => {
-    if (!taskUrl) return
-
-    try {
-      await navigator.clipboard.writeText(taskUrl)
-      toast.success(t('deployTask.linkCopied'))
-    } catch {
-      toast.error(t('deployTask.linkCopyFailed'))
-    }
-  }
 
   const cancelMutation = useMutation({
     mutationFn: () => api.deployTasks.cancel(taskId),
@@ -115,22 +152,23 @@ export function DeploymentTaskPage() {
 
   if (queryError || !task) {
     return (
-      <div className="p-6">
-        <Breadcrumb items={[{ label: t('deployTask.title') }]} className="mb-4" />
-        <DashboardErrorState
-          icon={XCircle}
-          title={t('deployTask.taskNotFound')}
-          description={t('deployTask.taskNotFoundDescription')}
-          action={
-            <Button asChild variant="primary" size="sm">
-              <Link to="/store">
-                <FolderOpen size={14} />
-                {t('deployTask.backToStore')}
-              </Link>
-            </Button>
-          }
-        />
-      </div>
+      <PageShell
+        breadcrumb={[{ label: t('deployTask.title') }]}
+        breadcrumbPosition="inside"
+        narrow
+        title={t('deployTask.title')}
+        description={t('deployTask.taskNotFoundDescription')}
+        actions={
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/store">
+              <FolderOpen size={14} />
+              {t('deployTask.backToStore')}
+            </Link>
+          </Button>
+        }
+      >
+        <DashboardErrorState icon={XCircle} title={t('deployTask.taskNotFound')} />
+      </PageShell>
     )
   }
 
@@ -141,23 +179,20 @@ export function DeploymentTaskPage() {
   const blockedByStatus = task.blockedBy ? t(`deployTask.statuses.${task.blockedBy.status}`) : ''
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <Breadcrumb
-        items={[{ label: t('nav.deployments'), to: '/deployments' }, { label: `#${task.id}` }]}
-        className="mb-4"
-      />
-
-      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-3">
-            {t('deployTask.title')}
-            <Badge variant={getStatusVariant(task.status)} size="sm">
-              {t(`deployTask.statuses.${task.status}`)}
-            </Badge>
-          </h1>
-          <p className="mt-1 text-sm text-text-muted">{t('deployTask.description')}</p>
+    <PageShell
+      breadcrumb={[{ label: t('nav.deployments'), to: '/deployments' }, { label: `#${task.id}` }]}
+      breadcrumbPosition="inside"
+      narrow
+      title={
+        <div className="flex items-center gap-3">
+          {t('deployTask.title')}
+          <Badge variant={getStatusVariant(task.status)} size="sm">
+            {t(`deployTask.statuses.${task.status}`)}
+          </Badge>
         </div>
-
+      }
+      description={t('deployTask.description')}
+      actions={
         <div className="flex items-center gap-2 flex-wrap">
           <ToolbarActionButton
             type="button"
@@ -165,13 +200,6 @@ export function DeploymentTaskPage() {
             variant="ghost"
             icon={<RefreshCw size={12} className={running ? 'animate-spin' : ''} />}
             label={t('deployTask.refresh')}
-          />
-          <ToolbarActionButton
-            type="button"
-            onClick={copyTaskUrl}
-            variant="ghost"
-            icon={<Copy size={12} />}
-            label={t('deployTask.copyLink')}
           />
           {cancellable && (
             <ToolbarActionButton
@@ -189,152 +217,164 @@ export function DeploymentTaskPage() {
               label={t('deployTask.cancelTask')}
             />
           )}
-          <Button asChild variant="ghost" size="sm">
-            <Link to="/deployments">
-              <Terminal size={12} />
-              {t('nav.deployments')}
-            </Link>
-          </Button>
-          <Button asChild variant="primary" size="sm">
-            <Link to="/deployments">
-              <FolderOpen size={12} />
-              {t('deployTask.openClusters')}
-            </Link>
-          </Button>
         </div>
-      </div>
-
-      <div className="mb-6">
-        <Card variant="surface">
-          <div className="flex items-start gap-3 p-4">
-            {running && <Loader2 size={18} className="text-primary animate-spin mt-1" />}
-            {success && <CheckCircle2 size={18} className="text-success mt-1" />}
-            {failed && <XCircle size={18} className="text-danger mt-1" />}
-            <div>
-              <p
-                className={cn(
-                  'text-sm font-medium',
-                  running && 'text-primary',
-                  success && 'text-success',
-                  failed && 'text-danger',
-                )}
-              >
-                {running &&
-                  (task.status === 'destroying'
-                    ? t('deployTask.destroyRunningMessage')
-                    : t('deployTask.runningMessage'))}
-                {success &&
-                  (task.status === 'destroyed'
-                    ? t('deployTask.destroySuccessMessage')
-                    : t('deployTask.successMessage'))}
-                {failed && t('deployTask.failedMessage')}
-              </p>
-              <p className="mt-1 text-xs text-text-muted">
-                {running &&
-                  (task.blockedBy
-                    ? t('deployTask.blockedByDescription', {
-                        id: task.blockedBy.id,
-                        status: blockedByStatus,
-                      })
-                    : t('deployTask.runningDescription'))}
-                {success &&
-                  (task.status === 'destroyed'
-                    ? t('deployTask.destroySuccessDescription')
-                    : t('deployTask.successDescription'))}
-                {failed && t('deployTask.failedDescription')}
-              </p>
+      }
+      headerContent={
+        <div className="space-y-4">
+          <div className="rounded-lg border border-border-subtle bg-bg-secondary/40 px-4 py-3">
+            <div className="flex items-start gap-3">
+              {running && <Loader2 size={18} className="text-primary animate-spin mt-1" />}
+              {success && <CheckCircle2 size={18} className="text-success mt-1" />}
+              {failed && <XCircle size={18} className="text-danger mt-1" />}
+              <div>
+                <p
+                  className={cn(
+                    'text-sm font-medium',
+                    running && 'text-primary',
+                    success && 'text-success',
+                    failed && 'text-danger',
+                  )}
+                >
+                  {running &&
+                    (task.status === 'destroying'
+                      ? t('deployTask.destroyRunningMessage')
+                      : t('deployTask.runningMessage'))}
+                  {success &&
+                    (task.status === 'destroyed'
+                      ? t('deployTask.destroySuccessMessage')
+                      : t('deployTask.successMessage'))}
+                  {failed && t('deployTask.failedMessage')}
+                </p>
+                <p className="mt-1 text-xs text-text-muted">
+                  {running &&
+                    (task.blockedBy
+                      ? t('deployTask.blockedByDescription', {
+                          id: task.blockedBy.id,
+                          status: blockedByStatus,
+                        })
+                      : t('deployTask.runningDescription'))}
+                  {success &&
+                    (task.status === 'destroyed'
+                      ? t('deployTask.destroySuccessDescription')
+                      : t('deployTask.successDescription'))}
+                  {failed && t('deployTask.failedDescription')}
+                </p>
+              </div>
             </div>
           </div>
-        </Card>
-      </div>
 
-      {task.blockedBy && (
-        <Card variant="surface" className="mb-6 border-warning/30">
-          <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-medium text-warning">{t('deployTask.blockedBy')}</p>
-              <p className="mt-1 text-xs text-text-muted">
-                {t('deployTask.blockedByDescription', {
-                  id: task.blockedBy.id,
-                  status: blockedByStatus,
-                })}
-              </p>
+          {task.blockedBy && (
+            <div className="rounded-lg border border-warning/30 bg-warning/8 px-4 py-3">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-medium text-warning">{t('deployTask.blockedBy')}</p>
+                  <p className="mt-1 text-xs text-text-muted">
+                    {t('deployTask.blockedByDescription', {
+                      id: task.blockedBy.id,
+                      status: blockedByStatus,
+                    })}
+                  </p>
+                </div>
+                <Button asChild variant="secondary" size="sm">
+                  <Link to="/deploy-tasks/$taskId" params={{ taskId: String(task.blockedBy.id) }}>
+                    <Terminal size={12} />
+                    {t('deployTask.openBlockingTask')}
+                  </Link>
+                </Button>
+              </div>
             </div>
-            <Button asChild variant="secondary" size="sm">
-              <Link to="/deploy-tasks/$taskId" params={{ taskId: String(task.blockedBy.id) }}>
-                <Terminal size={12} />
-                {t('deployTask.openBlockingTask')}
-              </Link>
-            </Button>
-          </div>
-        </Card>
-      )}
+          )}
 
-      <StatsGrid className="lg:grid-cols-4 mb-6">
-        <StatCard
-          label={t('deployTask.taskId')}
-          value={`#${task.id}`}
-          icon={<Terminal size={13} />}
-        />
-        <StatCard
-          label={t('deployTask.template')}
-          value={task.templateSlug ?? '—'}
-          icon={<FolderOpen size={13} />}
-          color="blue"
-        />
-        <StatCard
-          label={t('deployTask.namespace')}
-          value={task.namespace}
-          icon={<FolderOpen size={13} />}
-          color="default"
-        />
-        <StatCard
-          label={t('deployTask.logs')}
-          value={lines.length}
-          icon={<Terminal size={13} />}
-          color="green"
-        />
-        {task.blockedBy && (
-          <StatCard
-            label={t('deployTask.blockedBy')}
-            value={`#${task.blockedBy.id}`}
-            icon={<Loader2 size={13} />}
-            color="yellow"
-          />
-        )}
-      </StatsGrid>
-
-      <Card variant="surface" className="mb-6">
-        <div className="space-y-3 p-5">
-          <div>
-            <p className="mb-1 text-xs uppercase tracking-wider text-text-muted">
-              {t('deployTask.taskUrl')}
-            </p>
-            <code className="block break-all rounded-lg border border-border-subtle bg-bg-deep px-3 py-2 font-mono text-xs text-text-secondary">
-              {taskUrl}
-            </code>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-            <div>
-              <p className="mb-1 text-text-muted">{t('deployTask.created')}</p>
-              <p className="text-text-secondary">{formatTimestamp(task.createdAt)}</p>
-            </div>
-            <div>
-              <p className="mb-1 text-text-muted">{t('deployTask.updated')}</p>
-              <p className="text-text-secondary">{formatTimestamp(task.updatedAt)}</p>
-            </div>
-            <div>
-              <p className="mb-1 text-text-muted">{t('deployTask.streamStatus')}</p>
-              <p className="text-text-secondary">
-                {t(`deployTask.streamStatuses.${streamStatus}`)}
-              </p>
-            </div>
-          </div>
+          <StatsGrid className={task.blockedBy ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}>
+            <MetricCardWrapper>
+              <MetricCardContent
+                label={t('deployTask.taskId')}
+                value={`#${task.id}`}
+                icon={<Terminal size={13} />}
+                iconClassName="text-text-primary"
+                valueClassName="text-text-primary"
+              />
+            </MetricCardWrapper>
+            <MetricCardWrapper>
+              <MetricCardContent
+                label={t('deployTask.template')}
+                value={task.templateSlug ?? '—'}
+                icon={<FolderOpen size={13} />}
+                iconClassName="text-primary"
+                valueClassName="text-primary"
+              />
+            </MetricCardWrapper>
+            <MetricCardWrapper>
+              <MetricCardContent
+                label={t('deployTask.namespace')}
+                value={task.namespace}
+                icon={<FolderOpen size={13} />}
+                iconClassName="text-text-secondary"
+                valueClassName="text-text-secondary"
+              />
+            </MetricCardWrapper>
+            <MetricCardWrapper>
+              <MetricCardContent
+                label={t('deployTask.taskUrl')}
+                value={taskUrl || '—'}
+                icon={<Terminal size={13} />}
+                iconClassName="text-primary"
+                valueClassName="text-primary break-all text-[0.85rem] leading-5"
+              />
+            </MetricCardWrapper>
+            <MetricCardWrapper>
+              <MetricCardContent
+                label={t('deployTask.created')}
+                value={formatTimestamp(task.createdAt)}
+                icon={<Loader2 size={13} />}
+                iconClassName="text-text-secondary"
+                valueClassName="text-text-secondary"
+              />
+            </MetricCardWrapper>
+            <MetricCardWrapper>
+              <MetricCardContent
+                label={t('deployTask.updated')}
+                value={formatTimestamp(task.updatedAt)}
+                icon={<Loader2 size={13} />}
+                iconClassName="text-text-secondary"
+                valueClassName="text-text-secondary"
+              />
+            </MetricCardWrapper>
+            <MetricCardWrapper>
+              <MetricCardContent
+                label={t('deployTask.streamStatus')}
+                value={t(`deployTask.streamStatuses.${streamStatus}`)}
+                icon={<Loader2 size={13} />}
+                iconClassName="text-text-secondary"
+                valueClassName="text-text-secondary"
+              />
+            </MetricCardWrapper>
+            <MetricCardWrapper>
+              <MetricCardContent
+                label={t('deployTask.logs')}
+                value={lines.length}
+                icon={<Terminal size={13} />}
+                iconClassName="text-success"
+                valueClassName="text-success"
+              />
+            </MetricCardWrapper>
+            {task.blockedBy ? (
+              <MetricCardWrapper>
+                <MetricCardContent
+                  label={t('deployTask.blockedBy')}
+                  value={`#${task.blockedBy.id}`}
+                  icon={<Loader2 size={13} />}
+                  iconClassName="text-warning"
+                  valueClassName="text-warning"
+                />
+              </MetricCardWrapper>
+            ) : null}
+          </StatsGrid>
         </div>
-      </Card>
-
+      }
+    >
       {task.error && (
-        <div className="mb-6 bg-danger/8 border border-danger/25 rounded-xl p-4">
+        <div className="rounded-lg border border-danger/25 bg-danger/8 p-4">
           <p className="text-xs text-danger font-medium mb-1">{t('deployTask.error')}</p>
           <p className="text-sm text-danger break-words">{task.error}</p>
         </div>
@@ -344,34 +384,50 @@ export function DeploymentTaskPage() {
         <DashboardErrorState className="mb-6" title={t('deployTask.error')} description={error} />
       )}
 
-      <Card variant="surface">
-        <div className="flex items-center justify-between border-b border-border-subtle bg-bg-secondary/70 px-4 py-3">
+      <LogsPanel
+        headerLeft={
           <div>
             <p className="text-sm font-medium text-text-primary">{t('deployTask.logs')}</p>
             <p className="mt-1 text-xs text-text-muted">{t('deployTask.logDescription')}</p>
           </div>
-          <Badge
-            variant={running ? 'info' : success ? 'success' : failed ? 'danger' : 'neutral'}
-            size="sm"
-          >
-            {running ? t('deployTask.liveStreaming') : t('deployTask.logReplay')}
-          </Badge>
-        </div>
-        <div
-          ref={logRef}
-          className="min-h-[16rem] max-h-[28rem] overflow-auto space-y-1 p-4 font-mono text-xs text-text-secondary"
-        >
-          {lines.length === 0 && (
-            <span className="text-text-muted">{t('deployTask.waitingForLogs')}</span>
-          )}
-          {lines.map((line, index) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: deploy logs are append-only
-            <div key={index} className="leading-relaxed">
-              {line || '\u00a0'}
-            </div>
-          ))}
-        </div>
-      </Card>
+        }
+        headerRight={
+          <>
+            <Badge
+              variant={running ? 'info' : success ? 'success' : failed ? 'danger' : 'neutral'}
+              size="sm"
+            >
+              {running ? t('deployTask.liveStreaming') : t('deployTask.logReplay')}
+            </Badge>
+          </>
+        }
+        lines={logLines}
+        showTimestamps={showLogTimestamps}
+        footerLeft={<span>{t('deploy.logLinesReceived', { count: lines.length })}</span>}
+        footerRight={
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 text-xs text-text-secondary">
+              <Checkbox
+                checked={showLogTimestamps}
+                onCheckedChange={(checked) => setShowLogTimestamps(checked === true)}
+              />
+              <span>
+                {showLogTimestamps ? t('deploy.hideTimestamps') : t('deploy.showTimestamps')}
+              </span>
+            </label>
+            {lines.length > 0 && (
+              <Button type="button" variant="ghost" size="sm" onClick={handleDownloadLog}>
+                <Download size={11} />
+                {t('deploy.download')}
+              </Button>
+            )}
+          </div>
+        }
+        emptyText={t('deployTask.waitingForLogs')}
+        collapseRepeats
+        bodyRef={logRef}
+        bodyOnScroll={handleLogScroll}
+      />
 
       <DangerConfirmDialog
         open={cancelConfirmOpen && cancellable}
@@ -385,6 +441,6 @@ export function DeploymentTaskPage() {
           if (cancellable && !cancelMutation.isPending) cancelMutation.mutate()
         }}
       />
-    </div>
+    </PageShell>
   )
 }

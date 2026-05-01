@@ -18,7 +18,7 @@ export function DashboardNamespaceCard({
   className,
 }: DashboardNamespaceCardProps) {
   return (
-    <Card variant="glass" className={cn(className)}>
+    <Card className={cn(className)}>
       <div className="flex flex-col gap-3 border-b border-[var(--glass-line)] px-5 py-4 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">{headerLeft}</div>
         {headerRight ? (

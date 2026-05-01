@@ -15,6 +15,11 @@ export interface SSEResult {
   exitCode?: number
 }
 
+export interface SSELogLine {
+  text: string
+  createdAt: string
+}
+
 interface UseSSEStreamOptions {
   /** Max number of lines to keep in buffer (default: 2000) */
   maxLines?: number
@@ -26,6 +31,7 @@ interface FetchSSEOptions {
 
 interface UseSSEStreamReturn {
   lines: string[]
+  entries: SSELogLine[]
   status: SSEStatus
   error: string | null
   /** Connect to an EventSource (GET) endpoint */
@@ -41,6 +47,7 @@ interface UseSSEStreamReturn {
 export function useSSEStream(options: UseSSEStreamOptions = {}): UseSSEStreamReturn {
   const { maxLines = 2000 } = options
   const [lines, setLines] = useState<string[]>([])
+  const [entries, setEntries] = useState<SSELogLine[]>([])
   const [status, setStatus] = useState<SSEStatus>('idle')
   const [error, setError] = useState<string | null>(null)
 
@@ -49,6 +56,10 @@ export function useSSEStream(options: UseSSEStreamOptions = {}): UseSSEStreamRet
   const appendLine = useCallback(
     (line: string) => {
       setLines((prev) => [...prev.slice(-(maxLines - 1)), line])
+      setEntries((prev) => [
+        ...prev.slice(-(maxLines - 1)),
+        { text: line, createdAt: new Date().toISOString() },
+      ])
     },
     [maxLines],
   )
@@ -176,6 +187,7 @@ export function useSSEStream(options: UseSSEStreamOptions = {}): UseSSEStreamRet
 
   const clear = useCallback(() => {
     setLines([])
+    setEntries([])
     setError(null)
     setStatus('idle')
   }, [])
@@ -185,6 +197,7 @@ export function useSSEStream(options: UseSSEStreamOptions = {}): UseSSEStreamRet
     (url: string, options?: FetchSSEOptions) => {
       cleanup()
       setLines([])
+      setEntries([])
       setError(null)
       setStatus('connecting')
 
@@ -230,6 +243,7 @@ export function useSSEStream(options: UseSSEStreamOptions = {}): UseSSEStreamRet
     async (url: string, body: unknown, options?: FetchSSEOptions): Promise<SSEResult> => {
       cleanup()
       setLines([])
+      setEntries([])
       setError(null)
       setStatus('connecting')
 
@@ -298,5 +312,5 @@ export function useSSEStream(options: UseSSEStreamOptions = {}): UseSSEStreamRet
   // Cleanup on unmount
   useEffect(() => cleanup, [cleanup])
 
-  return { lines, status, error, connect, startFetch, disconnect, clear }
+  return { lines, entries, status, error, connect, startFetch, disconnect, clear }
 }

@@ -16,6 +16,7 @@ import type {
 } from './types.js'
 
 const RUNTIME_ASSET_IMAGE = 'node:22-alpine'
+const DEFAULT_CONTAINER_PATH = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
 
 interface RuntimeAssetK8sOptions {
   pluginId: string
@@ -189,12 +190,19 @@ export function buildRuntimeAssetK8sProvider(options: RuntimeAssetK8sOptions): P
               requests: { cpu: '100m', memory: '128Mi' },
               limits: { cpu: '1000m', memory: '512Mi' },
             },
+            securityContext: {
+              allowPrivilegeEscalation: false,
+              runAsNonRoot: false,
+              runAsUser: 0,
+              runAsGroup: 0,
+              capabilities: { drop: ['ALL'] },
+            },
           },
         ],
         volumes,
         volumeMounts: mainVolumeMounts,
         envVars: [
-          { name: 'PATH', value: `${runtimeMountPath}/bin:$(PATH)` },
+          { name: 'PATH', value: `${runtimeMountPath}/bin:${DEFAULT_CONTAINER_PATH}` },
           ...(options.envVars ?? []),
         ],
         labels: {

@@ -27,7 +27,7 @@ export function DashboardTaskCard({
   className,
 }: DashboardTaskCardProps) {
   return (
-    <Card variant="glass" className={cn('p-4', className)}>
+    <Card className={cn('p-4', className)}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <span className="text-sm font-semibold text-text-primary">#{id}</span>

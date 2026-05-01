@@ -20,7 +20,7 @@ export function DashboardEmptyState({
   action,
   className,
   contentClassName,
-  cardVariant = 'glass',
+  cardVariant = 'default',
 }: DashboardEmptyStateProps) {
   return (
     <Card variant={cardVariant} className={cn('p-6', className)}>

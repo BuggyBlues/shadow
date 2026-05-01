@@ -304,6 +304,8 @@
     "whatHappensNextDesc": "Shadow Cloud will initialize the template, generate Kubernetes manifests, and deploy them to your cluster. You can monitor the progress in real time below.",
     "deploymentLog": "Deployment Log",
     "download": "Download",
+    "showTimestamps": "Show timestamps",
+    "hideTimestamps": "Hide timestamps",
     "logLinesReceived": "{{count}} log lines received",
     "shadowConnectionTitle": "Shadow Platform Connection",
     "shadowConnectionDescription": "Server URL and API token for provisioning Shadow resources (servers, channels, buddies).",
