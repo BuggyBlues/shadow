@@ -131,4 +131,30 @@ name: gstack-upgrade
       commands.filter((command: { name: string }) => command.name === 'gstack-upgrade'),
     ).toHaveLength(1)
   })
+
+  it('wraps top-level setup scripts copied into the scripts mount', () => {
+    const root = mkdtempSync(join(tmpdir(), 'shadow-agent-pack-'))
+    const mountPath = join(root, 'agent-packs')
+    const scriptDir = join(mountPath, 'gstack', 'scripts')
+    mkdirSync(scriptDir, { recursive: true })
+    writeFileSync(
+      join(scriptDir, 'setup'),
+      `#!/usr/bin/env bash
+# Install gstack into the current agent host.
+echo setup
+`,
+      'utf-8',
+    )
+
+    const scriptPath = join(root, 'indexer.mjs')
+    const outputPath = join(mountPath, '.shadow', 'slash-commands.json')
+    writeFileSync(scriptPath, AGENT_PACK_SLASH_INDEXER_SCRIPT, 'utf-8')
+
+    execFileSync('node', [scriptPath, '--mount-path', mountPath, '--output', outputPath])
+
+    const commands = JSON.parse(readFileSync(outputPath, 'utf-8'))
+    const setup = commands.find((command: { name: string }) => command.name === 'setup')
+    expect(setup?.description).toContain('Install gstack')
+    expect(existsSync(join(mountPath, 'gstack', 'skills', 'setup', 'SKILL.md'))).toBe(true)
+  })
 })

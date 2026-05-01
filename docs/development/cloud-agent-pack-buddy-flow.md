@@ -25,7 +25,7 @@ Cloud Core 只做微内核：读取模板、加载插件、收集配置碎片、
 | `.claude/agents/*.md` | agents | 导入角色定义，供 Buddy prompt 和 OpenClaw runtime 使用 |
 | `.claude/hooks` / `hooks` | hooks | 作为 pack metadata 暴露，后续由支持 hooks 的 runtime 消费 |
 | `mcp*.json` / `.mcp*.json` | MCP | 作为运行时 MCP 配置候选项 |
-| `bin/`、`scripts/` | script-backed skills | 可执行脚本会被包装成轻量 `SKILL.md`，并注册为 slash command |
+| `bin/`、`scripts/`、`setup` / `install` / `bootstrap` | script-backed skills | 可执行脚本会被包装成轻量 `SKILL.md`，并注册为 slash command |
 | `context/`、`data_sources/` | resources | 作为 pack 附属资源同步进挂载目录 |
 
 这套规则能覆盖“标准插件”、“Claude workspace”、“单 skill 仓库”和“工程团队栈”四类常见项目。无法识别时，导入不会猜测执行逻辑，而是把仓库作为 resources 记录并在验证阶段暴露缺口。
