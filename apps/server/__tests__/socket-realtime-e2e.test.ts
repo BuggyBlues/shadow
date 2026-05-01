@@ -55,6 +55,27 @@ function waitForRawEvent<T>(ws: ShadowSocket, event: string, timeout = 5000): Pr
   })
 }
 
+function waitForRawEventMatching<T>(
+  ws: ShadowSocket,
+  event: string,
+  matches: (data: T) => boolean,
+  timeout = 5000,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const handler = (data: T) => {
+      if (!matches(data)) return
+      clearTimeout(timer)
+      ws.raw.off(event, handler)
+      resolve(data)
+    }
+    const timer = setTimeout(() => {
+      ws.raw.off(event, handler)
+      reject(new Error(`Timeout waiting for matching ${event}`))
+    }, timeout)
+    ws.raw.on(event, handler)
+  })
+}
+
 beforeAll(async () => {
   sql = postgres(TEST_DB_URL, { max: 5 })
   db = drizzle(sql, { schema })
@@ -177,7 +198,11 @@ describe('Socket.IO Real-time (mobile pattern)', () => {
   })
 
   it('user2 receives message:new when user1 sends via message:send', async () => {
-    const received = waitForRawEvent<{ content: string; channelId: string }>(ws2, 'message:new')
+    const received = waitForRawEventMatching<{ content: string; channelId: string }>(
+      ws2,
+      'message:new',
+      (msg) => msg.content === 'Hello from user1 via WS',
+    )
 
     ws1.sendMessage({ channelId, content: 'Hello from user1 via WS' })
 
@@ -187,9 +212,17 @@ describe('Socket.IO Real-time (mobile pattern)', () => {
   })
 
   it('user1 also receives own message:new (io.to broadcasts to all in room)', async () => {
-    const received = waitForRawEvent<{ content: string }>(ws1, 'message:new')
+    const received = waitForRawEventMatching<{ content: string }>(
+      ws1,
+      'message:new',
+      (msg) => msg.content === 'Self-receive test',
+    )
     // ws2 also receives the broadcast — drain it so it doesn't pollute the next test
-    const drain = waitForRawEvent(ws2, 'message:new')
+    const drain = waitForRawEventMatching<{ content: string }>(
+      ws2,
+      'message:new',
+      (msg) => msg.content === 'Self-receive test',
+    )
 
     ws1.sendMessage({ channelId, content: 'Self-receive test' })
 
@@ -199,7 +232,11 @@ describe('Socket.IO Real-time (mobile pattern)', () => {
   })
 
   it('user2 receives message:new when user1 sends via REST', async () => {
-    const received = waitForRawEvent<{ content: string; channelId: string }>(ws2, 'message:new')
+    const received = waitForRawEventMatching<{ content: string; channelId: string }>(
+      ws2,
+      'message:new',
+      (msg) => msg.content === 'Hello from REST API',
+    )
 
     const res = await fetch(`${baseUrl}/api/channels/${channelId}/messages`, {
       method: 'POST',
@@ -327,7 +364,11 @@ describe('Socket.IO Real-time (mobile pattern)', () => {
     expect(res.ok).toBe(true)
 
     // Verify events are received again
-    const received = waitForRawEvent<{ content: string }>(ws2, 'message:new')
+    const received = waitForRawEventMatching<{ content: string }>(
+      ws2,
+      'message:new',
+      (msg) => msg.content === 'After reconnect',
+    )
     ws1.sendMessage({ channelId, content: 'After reconnect' })
     const msg = await received
     expect(msg.content).toBe('After reconnect')
