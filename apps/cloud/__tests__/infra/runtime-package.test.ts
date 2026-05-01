@@ -51,6 +51,7 @@ describe('buildAgentRuntimePackage', () => {
     })
 
     expect(runtimePackage.configData['config.json']).toContain('"agent-1"')
+    expect(runtimePackage.configData['IDENTITY.md']).toContain('- Name: agent-1')
     expect(runtimePackage.configData['SOUL.md']).toContain('Hello from the agent.')
     expect(runtimePackage.configData.PUBLIC_FLAG).toBeUndefined()
 

@@ -10,16 +10,44 @@ export function setActivityRecordFn(fn: (entry: object) => Promise<unknown>) {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type ActivityType = 'deploy' | 'destroy' | 'scale' | 'config' | 'init' | 'settings'
+export type ActivityType =
+  | 'deploy'
+  | 'destroy'
+  | 'scale'
+  | 'config'
+  | 'config_update'
+  | 'cluster_add'
+  | 'cluster_remove'
+  | 'envvar_update'
+  | 'init'
+  | 'template_approved'
+  | 'template_rejected'
+  | 'billing_deduct'
+  | 'settings'
+  | 'template_submit'
+  | 'template_delete'
+  | 'template_update'
+
+export type ActivityTypeValue = ActivityType | (string & {})
 
 export interface ActivityEntry {
   id: string
-  type: ActivityType
+  type: ActivityTypeValue
   title: string
+  description?: string
   detail?: string
   namespace?: string
   template?: string
+  templateSlug?: string
+  slug?: string
+  taskId?: string
+  deploymentId?: string
+  monthlyCost?: number
+  resourceTier?: string
+  userId?: string
+  meta?: Record<string, unknown> | null
   timestamp: number
+  metadata?: Array<{ label: string; value: string }>
 }
 
 interface AppState {

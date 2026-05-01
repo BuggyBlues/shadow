@@ -281,6 +281,15 @@ describe('community pack template mounts', () => {
     }>
     const googleWorkspace = globalUse.find((entry) => entry.plugin === 'google-workspace')
     expect(googleWorkspace).toEqual({ plugin: 'google-workspace' })
+    expect(content.deployments.agents[0].identity).toMatchObject({
+      name: 'Workspace Buddy',
+      description: expect.stringContaining('Workspace operations partner'),
+    })
+    expect(content.deployments.agents[0].configuration.openclaw.agents.list[0].identity).toEqual({
+      name: 'Workspace Buddy',
+      theme: 'Calm, audit-friendly Workspace operations partner.',
+      emoji: '📎',
+    })
     expect(content.deployments.agents[0].env).toBeUndefined()
   })
 })

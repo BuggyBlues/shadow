@@ -755,6 +755,7 @@ export const saasApiAdapter: CloudApiClient & WalletApiExtension = {
           id: a.id,
           type: a.type,
           namespace: a.namespace,
+          meta: a.meta ?? null,
           ...a.meta,
           createdAt: a.createdAt,
         })),

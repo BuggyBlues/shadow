@@ -5,19 +5,24 @@ import {
   ArrowUpDown,
   BarChart3,
   Box,
-  Clock,
+  CheckCircle,
+  DollarSign,
   Filter,
+  FolderOpen,
   Rocket,
   Settings,
+  Settings2,
   Shield,
   Trash2,
+  XCircle,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ActivityMetadataTable, getActivityMetadataRows } from '@/components/ActivityMetadataTable'
 import { PageShell } from '@/components/PageShell'
 import { useDebounce } from '@/hooks/useDebounce'
+import { formatActivityAbsoluteTime, normalizeActivityRecord } from '@/lib/activity-utils'
 import { api } from '@/lib/api'
-import { getRelativeTime } from '@/lib/utils'
 import { type ActivityEntry, type ActivityType, useAppStore } from '@/stores/app'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -27,6 +32,16 @@ const TYPE_ICON: Record<ActivityType, React.ReactNode> = {
   destroy: <Trash2 size={12} />,
   scale: <BarChart3 size={12} />,
   config: <Shield size={12} />,
+  config_update: <Settings2 size={12} />,
+  cluster_add: <CheckCircle size={12} />,
+  cluster_remove: <Trash2 size={12} />,
+  envvar_update: <Settings2 size={12} />,
+  template_approved: <CheckCircle size={12} />,
+  template_rejected: <XCircle size={12} />,
+  billing_deduct: <DollarSign size={12} />,
+  template_submit: <FolderOpen size={12} />,
+  template_delete: <Trash2 size={12} />,
+  template_update: <FolderOpen size={12} />,
   init: <Box size={12} />,
   settings: <Settings size={12} />,
 }
@@ -36,11 +51,49 @@ const TYPE_VARIANT: Record<ActivityType, 'success' | 'danger' | 'info' | 'warnin
   destroy: 'danger',
   scale: 'info',
   config: 'warning',
+  config_update: 'warning',
+  cluster_add: 'info',
+  cluster_remove: 'danger',
+  envvar_update: 'info',
+  template_approved: 'success',
+  template_rejected: 'danger',
+  billing_deduct: 'warning',
+  template_submit: 'success',
+  template_delete: 'danger',
+  template_update: 'warning',
   init: 'neutral',
   settings: 'neutral',
 }
 
-const ALL_TYPES: ActivityType[] = ['deploy', 'destroy', 'scale', 'config', 'init', 'settings']
+const ALL_TYPES: ActivityType[] = [
+  'deploy',
+  'destroy',
+  'scale',
+  'config',
+  'config_update',
+  'cluster_add',
+  'cluster_remove',
+  'envvar_update',
+  'template_approved',
+  'template_rejected',
+  'billing_deduct',
+  'template_submit',
+  'template_update',
+  'template_delete',
+  'init',
+  'settings',
+]
+
+const activityIconTextClassByVariant: Record<
+  'success' | 'danger' | 'info' | 'warning' | 'neutral',
+  string
+> = {
+  success: 'text-success',
+  danger: 'text-danger',
+  info: 'text-info',
+  warning: 'text-warning',
+  neutral: 'text-text-muted',
+}
 
 // ── Activity Item ─────────────────────────────────────────────────────────────
 
@@ -48,37 +101,32 @@ function ActivityItem({ activity }: { activity: ActivityEntry }) {
   const { t } = useTranslation()
   const time = new Date(activity.timestamp)
   const isValidDate = !Number.isNaN(time.getTime())
+  const normalizedType = (activity.type as ActivityType) || 'settings'
+  const title = activity.title?.trim() || t(`activity.types.${normalizedType}`)
+  const absoluteTime = isValidDate ? formatActivityAbsoluteTime(activity.timestamp) : '—'
 
   return (
     <div className="flex gap-4 py-4 border-b border-border-subtle last:border-0 hover:bg-bg-modifier-hover transition-colors px-4 -mx-4 rounded-lg">
-      {/* Icon */}
-      <div className="mt-1 p-2 bg-bg-secondary border border-border-subtle rounded-lg shrink-0">
-        {TYPE_ICON[activity.type]}
-      </div>
-
-      {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <p className="text-sm font-medium text-text-primary">{activity.title}</p>
-          <Badge variant={TYPE_VARIANT[activity.type]} size="sm">
-            {t(`activity.types.${activity.type}`)}
+          <p className="text-sm font-medium text-text-primary truncate inline-flex items-center gap-2">
+            <span className={activityIconTextClassByVariant[TYPE_VARIANT[normalizedType]]}>
+              {TYPE_ICON[normalizedType]}
+            </span>
+            <span className="truncate">{title}</span>
+          </p>
+          <Badge variant={TYPE_VARIANT[normalizedType]} size="sm">
+            {t(`activity.types.${normalizedType}`)}
           </Badge>
         </div>
         {activity.detail && <p className="text-xs text-text-muted mb-1">{activity.detail}</p>}
+        <ActivityMetadataTable rows={getActivityMetadataRows(activity, t)} />
         <div className="flex items-center gap-3 text-xs text-text-muted">
-          <span className="flex items-center gap-1">
-            <Clock size={10} />
-            {isValidDate ? time.toLocaleString() : '—'}
-          </span>
-          {activity.namespace && <span className="font-mono">ns: {activity.namespace}</span>}
-          {activity.template && <span className="font-mono">tmpl: {activity.template}</span>}
+          <span className="font-mono">{absoluteTime}</span>
+          {activity.namespace && <span className="font-mono">{activity.namespace}</span>}
+          {activity.template && <span className="font-mono">{activity.template}</span>}
         </div>
       </div>
-
-      {/* Relative time */}
-      <span className="text-xs text-text-muted shrink-0 mt-1">
-        {isValidDate ? getRelativeTime(activity.timestamp) : ''}
-      </span>
     </div>
   )
 }
@@ -142,11 +190,9 @@ export function ActivityPage() {
   })
   // Map API response (createdAt: string) to ActivityEntry (timestamp: number)
   const activities = useMemo(() => {
-    return (activityData?.activities ?? []).map((a: Record<string, unknown>) => ({
-      ...a,
-      timestamp:
-        a.timestamp ?? (a.createdAt ? new Date(a.createdAt as string).getTime() : Date.now()),
-    })) as ActivityEntry[]
+    return (activityData?.activities ?? []).map((a: Record<string, unknown>) =>
+      normalizeActivityRecord(a),
+    ) as ActivityEntry[]
   }, [activityData])
   const clearActivities = useAppStore((s) => s.clearActivities)
   const [search, setSearch] = useState('')
@@ -170,7 +216,8 @@ export function ActivityPage() {
           a.title.toLowerCase().includes(q) ||
           a.detail?.toLowerCase().includes(q) ||
           a.namespace?.toLowerCase().includes(q) ||
-          a.template?.toLowerCase().includes(q),
+          a.template?.toLowerCase().includes(q) ||
+          a.metadata?.some((entry) => `${entry.label}: ${entry.value}`.toLowerCase().includes(q)),
       )
     }
 

@@ -48,10 +48,26 @@
         "description": "Google Workspace operations Buddy for Gmail triage, calendar preparation, Drive search, Docs drafting, and Sheets updates through the gws CLI.",
         "identity": {
           "name": "Workspace Buddy",
+          "description": "Workspace operations partner for Gmail, Calendar, Drive, Docs, and Sheets.",
           "personality": "You are a calm executive-operations partner. You keep Workspace changes deliberate, reversible where possible, and easy for the user to audit.",
           "systemPrompt": "Workflow:\n1. Use mounted gws skills and the `gws` CLI for Gmail, Calendar, Drive, Docs, and Sheets tasks.\n2. Prefer read-only discovery first: summarize emails, inspect files, list agenda items, or read sheet ranges before proposing writes.\n3. Ask for explicit approval before sending email, creating or editing calendar events, sharing files, deleting data, writing docs, or updating spreadsheets.\n4. Use `--dry-run` when available for sends, uploads, shares, and destructive changes.\n5. For every action, state the exact Workspace object, target account or file, and command family you used."
         },
-        "configuration": {},
+        "configuration": {
+          "openclaw": {
+            "agents": {
+              "list": [
+                {
+                  "id": "google-workspace-buddy",
+                  "identity": {
+                    "name": "Workspace Buddy",
+                    "theme": "Calm, audit-friendly Workspace operations partner.",
+                    "emoji": "📎"
+                  }
+                }
+              ]
+            }
+          }
+        },
         "resources": {
           "requests": { "cpu": "100m", "memory": "256Mi" },
           "limits": { "cpu": "1000m", "memory": "1Gi" }
