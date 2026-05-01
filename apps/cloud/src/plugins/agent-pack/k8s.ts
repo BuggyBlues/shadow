@@ -105,6 +105,9 @@ export interface SlashCommandIndexOptions {
   enabled: boolean
   outputPath: string
   inferInteractions?: boolean
+  includeScripts?: boolean
+  generateScriptSkills?: boolean
+  maxScriptCommandsPerPack?: number
   rules?: unknown[]
 }
 
@@ -159,6 +162,9 @@ function buildSlashCommandIndexSnippet(
       `--mount-path ${shQuote(mountPath)}`,
       `--output ${shQuote(options.outputPath)}`,
       `--infer-interactions ${options.inferInteractions === false ? 'false' : 'true'}`,
+      `--include-scripts ${options.includeScripts === false ? 'false' : 'true'}`,
+      `--generate-script-skills ${options.generateScriptSkills === false ? 'false' : 'true'}`,
+      `--max-script-commands-per-pack ${Math.max(0, Math.floor(options.maxScriptCommandsPerPack ?? 80))}`,
       `--rules-json ${shQuote(rulesJson)}`,
     ].join(' '),
   ].join('\n')

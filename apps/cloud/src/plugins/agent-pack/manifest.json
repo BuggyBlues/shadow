@@ -114,6 +114,21 @@
             "default": true,
             "description": "Derive form interactions from upstream AskUserQuestion-style markdown."
           },
+          "includeScripts": {
+            "type": "boolean",
+            "default": true,
+            "description": "Register executable helper scripts from mounted script directories as slash commands."
+          },
+          "generateScriptSkills": {
+            "type": "boolean",
+            "default": true,
+            "description": "Generate lightweight SKILL.md wrappers for discovered scripts so OpenClaw can load script-backed capabilities."
+          },
+          "maxScriptCommandsPerPack": {
+            "type": "number",
+            "default": 80,
+            "description": "Maximum number of script-backed commands to expose per pack."
+          },
           "rules": {
             "type": "array",
             "description": "Optional generic command match rules for aliases or explicit interaction metadata.",
