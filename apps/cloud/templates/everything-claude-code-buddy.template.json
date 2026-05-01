@@ -1,0 +1,125 @@
+{
+  "version": "1.0.0",
+  "name": "everything-claude-code-buddy",
+  "title": "${i18n:title}",
+  "description": "${i18n:description}",
+  "environment": "production",
+  "use": [
+    {
+      "plugin": "model-provider"
+    },
+    {
+      "plugin": "shadowob",
+      "options": {
+        "servers": [
+          {
+            "id": "ecc-hq",
+            "name": "ECC Engineering",
+            "slug": "ecc",
+            "channels": [
+              {
+                "id": "engineering",
+                "title": "Engineering",
+                "type": "text"
+              },
+              {
+                "id": "review",
+                "title": "Review",
+                "type": "text"
+              },
+              {
+                "id": "ops",
+                "title": "Ops",
+                "type": "text"
+              }
+            ]
+          }
+        ],
+        "buddies": [
+          {
+            "id": "ecc-bot",
+            "name": "ECC Buddy"
+          }
+        ],
+        "bindings": [
+          {
+            "targetId": "ecc-bot",
+            "targetType": "buddy",
+            "servers": ["ecc-hq"],
+            "channels": ["engineering", "review", "ops"],
+            "agentId": "ecc-buddy"
+          }
+        ]
+      }
+    }
+  ],
+  "deployments": {
+    "namespace": "everything-claude-code-buddy",
+    "agents": [
+      {
+        "id": "ecc-buddy",
+        "runtime": "openclaw",
+        "description": "Full-stack engineering harness Buddy powered by everything-claude-code: shared skills, Claude and Codex agents, commands, hooks, and research-first development rules.",
+        "identity": {
+          "name": "ECC Buddy",
+          "personality": "You are a pragmatic engineering lead with strong process hygiene. You choose the smallest relevant ECC workflow instead of loading the whole playbook into every answer.",
+          "systemPrompt": "Routing:\n1. Before acting, identify the narrow ECC skill, command, or agent relevant to the request.\n2. Use research-first and security-aware guidance for unfamiliar codebases.\n3. Prefer TDD, review, and verification skills for engineering changes.\n4. For operations requests, inspect mounted command and script wrappers before recommending execution.\n5. Cite the ECC path or slash command used."
+        },
+        "use": [
+          {
+            "plugin": "agent-pack",
+            "options": {
+              "packs": [
+                {
+                  "id": "ecc",
+                  "url": "https://github.com/affaan-m/everything-claude-code",
+                  "ref": "main",
+                  "autoImport": ["standard", "claude", "codex", "mcp", "scripts"],
+                  "mounts": [
+                    {
+                      "kind": "instructions",
+                      "from": ".claude/rules"
+                    },
+                    {
+                      "kind": "instructions",
+                      "from": "docs"
+                    },
+                    {
+                      "kind": "instructions",
+                      "from": "plugins"
+                    }
+                  ]
+                }
+              ],
+              "poll": "1h",
+              "slashCommands": {
+                "maxScriptCommandsPerPack": 120
+              }
+            }
+          }
+        ],
+        "resources": {
+          "requests": {
+            "cpu": "100m",
+            "memory": "384Mi"
+          },
+          "limits": {
+            "cpu": "1000m",
+            "memory": "1Gi"
+          }
+        },
+        "configuration": {}
+      }
+    ]
+  },
+  "i18n": {
+    "en": {
+      "title": "Everything Claude Code Buddy",
+      "description": "A broad engineering harness template with ECC skills, commands, agents, hooks, memory, and Codex-compatible guidance for research-first development."
+    },
+    "zh-CN": {
+      "title": "Everything Claude Code Buddy",
+      "description": "全栈工程 harness 模板，集成 ECC skills、commands、agents、hooks、memory 和 Codex 兼容规则，服务研究优先开发。"
+    }
+  }
+}

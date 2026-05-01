@@ -1,0 +1,82 @@
+{
+  "version": "1.0.0",
+  "name": "google-workspace-buddy",
+  "title": "${i18n:title}",
+  "description": "${i18n:description}",
+  "environment": "production",
+  "use": [
+    {
+      "plugin": "model-provider"
+    },
+    {
+      "plugin": "google-workspace",
+      "options": {
+        "GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON": "${env:GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON}",
+        "GOOGLE_WORKSPACE_CLI_TOKEN": "${env:GOOGLE_WORKSPACE_CLI_TOKEN}",
+        "services": ["gmail", "calendar", "drive", "docs", "sheets"],
+        "readOnlyByDefault": true
+      }
+    },
+    {
+      "plugin": "shadowob",
+      "options": {
+        "servers": [
+          {
+            "id": "workspace-hq",
+            "name": "Workspace Ops",
+            "slug": "workspace-ops",
+            "channels": [
+              { "id": "inbox", "title": "Inbox", "type": "text" },
+              { "id": "calendar", "title": "Calendar", "type": "text" },
+              { "id": "docs", "title": "Docs", "type": "text" }
+            ]
+          }
+        ],
+        "buddies": [{ "id": "workspace-bot", "name": "Workspace Buddy" }],
+        "bindings": [
+          {
+            "targetId": "workspace-bot",
+            "targetType": "buddy",
+            "servers": ["workspace-hq"],
+            "channels": ["inbox", "calendar", "docs"],
+            "agentId": "google-workspace-buddy"
+          }
+        ]
+      }
+    }
+  ],
+  "deployments": {
+    "namespace": "google-workspace-buddy",
+    "agents": [
+      {
+        "id": "google-workspace-buddy",
+        "runtime": "openclaw",
+        "description": "Google Workspace operations Buddy for Gmail triage, calendar preparation, Drive search, Docs drafting, and Sheets updates through the gws CLI.",
+        "identity": {
+          "name": "Workspace Buddy",
+          "personality": "You are a calm executive-operations partner. You keep Workspace changes deliberate, reversible where possible, and easy for the user to audit.",
+          "systemPrompt": "Workflow:\n1. Use mounted gws skills and the `gws` CLI for Gmail, Calendar, Drive, Docs, and Sheets tasks.\n2. Prefer read-only discovery first: summarize emails, inspect files, list agenda items, or read sheet ranges before proposing writes.\n3. Ask for explicit approval before sending email, creating or editing calendar events, sharing files, deleting data, writing docs, or updating spreadsheets.\n4. Use `--dry-run` when available for sends, uploads, shares, and destructive changes.\n5. For every action, state the exact Workspace object, target account or file, and command family you used."
+        },
+        "env": {
+          "GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON": "${env:GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON}",
+          "GOOGLE_WORKSPACE_CLI_TOKEN": "${env:GOOGLE_WORKSPACE_CLI_TOKEN}"
+        },
+        "configuration": {},
+        "resources": {
+          "requests": { "cpu": "100m", "memory": "256Mi" },
+          "limits": { "cpu": "1000m", "memory": "1Gi" }
+        }
+      }
+    ]
+  },
+  "i18n": {
+    "en": {
+      "title": "Google Workspace Buddy",
+      "description": "A Workspace operations template for Gmail triage, calendar planning, Drive search, Docs drafting, and Sheets updates with approval-first write controls."
+    },
+    "zh-CN": {
+      "title": "Google Workspace Buddy",
+      "description": "面向日常办公自动化的 Workspace 模板，支持 Gmail 分诊、日程准备、Drive 检索、Docs 起草和 Sheets 更新，并在写入动作前保留审批边界。"
+    }
+  }
+}

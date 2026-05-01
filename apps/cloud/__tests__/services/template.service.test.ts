@@ -10,30 +10,30 @@ describe('TemplateService', () => {
   it('returns slug name plus localized title and description', async () => {
     const service = new TemplateService(new TemplateDao(templatesDir))
     const templates = await service.discover()
-    const basic = templates.find((template) => template.name === 'shadowob-cloud')
+    const basic = templates.find((template) => template.name === 'gstack-buddy')
 
     expect(basic).toBeDefined()
-    if (!basic) throw new Error('shadowob-cloud template not found')
+    if (!basic) throw new Error('gstack-buddy template not found')
     expect(basic).toMatchObject({
-      name: 'shadowob-cloud',
-      title: 'Shadow Cloud Basic',
+      name: 'gstack-buddy',
+      title: 'gstack Strategy Buddy',
     })
-    expect(basic.description).toContain('Launch a dependable general-purpose AI assistant')
+    expect(basic.description).toContain('virtual product-team template')
     expect(basic.description).not.toContain('${i18n:')
     expect(['team', 'Name'].join('') in (basic as unknown as Record<string, unknown>)).toBe(false)
   })
 
-  it('uses locale-specific title and description for folder templates', async () => {
+  it('uses locale-specific title and description', async () => {
     const service = new TemplateService(new TemplateDao(templatesDir))
     const templates = await service.discover('zh-CN')
-    const discovery = templates.find((template) => template.name === 'template-discovery-team')
+    const discovery = templates.find((template) => template.name === 'google-workspace-buddy')
 
     expect(discovery).toBeDefined()
-    if (!discovery) throw new Error('template-discovery-team template not found')
+    if (!discovery) throw new Error('google-workspace-buddy template not found')
     expect(discovery).toMatchObject({
-      name: 'template-discovery-team',
-      title: '模板发现团队',
+      name: 'google-workspace-buddy',
+      title: 'Google Workspace Buddy',
     })
-    expect(discovery.description).toContain('帮助客户选择并部署合适的 Shadow 模板')
+    expect(discovery.description).toContain('日常办公自动化')
   })
 })

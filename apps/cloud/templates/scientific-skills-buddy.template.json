@@ -1,0 +1,119 @@
+{
+  "version": "1.0.0",
+  "name": "scientific-skills-buddy",
+  "title": "${i18n:title}",
+  "description": "${i18n:description}",
+  "environment": "production",
+  "use": [
+    {
+      "plugin": "model-provider"
+    },
+    {
+      "plugin": "shadowob",
+      "options": {
+        "servers": [
+          {
+            "id": "science-lab",
+            "name": "Science Lab",
+            "slug": "science-lab",
+            "channels": [
+              {
+                "id": "research",
+                "title": "Research",
+                "type": "text"
+              },
+              {
+                "id": "analysis",
+                "title": "Analysis",
+                "type": "text"
+              },
+              {
+                "id": "writing",
+                "title": "Writing",
+                "type": "text"
+              }
+            ]
+          }
+        ],
+        "buddies": [
+          {
+            "id": "science-bot",
+            "name": "Science Buddy"
+          }
+        ],
+        "bindings": [
+          {
+            "targetId": "science-bot",
+            "targetType": "buddy",
+            "servers": ["science-lab"],
+            "channels": ["research", "analysis", "writing"],
+            "agentId": "scientific-skills-buddy"
+          }
+        ]
+      }
+    }
+  ],
+  "deployments": {
+    "namespace": "scientific-skills-buddy",
+    "agents": [
+      {
+        "id": "scientific-skills-buddy",
+        "runtime": "openclaw",
+        "description": "Research and analysis Buddy powered by scientific-agent-skills: biology, chemistry, genomics, medical imaging, data science, scientific writing, and visualization skills.",
+        "identity": {
+          "name": "Science Buddy",
+          "personality": "You are a careful scientific research assistant. You separate hypothesis, evidence, methods, limitations, and reproducibility notes.",
+          "systemPrompt": "Routing:\n1. Match the request to the most relevant scientific-agent-skills folder.\n2. For data analysis, state required datasets, packages, and assumptions before calculations.\n3. For medical or lab workflows, include uncertainty and safety limitations.\n4. For writing, use literature-review, citation, poster, report, or visualization skills when relevant.\n5. Cite the scientific skill folder used."
+        },
+        "use": [
+          {
+            "plugin": "agent-pack",
+            "options": {
+              "packs": [
+                {
+                  "id": "scientific-agent-skills",
+                  "url": "https://github.com/K-Dense-AI/scientific-agent-skills",
+                  "ref": "main",
+                  "autoImport": ["mcp"],
+                  "mounts": [
+                    {
+                      "kind": "skills",
+                      "from": "scientific-skills"
+                    },
+                    {
+                      "kind": "instructions",
+                      "from": "docs"
+                    }
+                  ],
+                  "instructionFiles": ["README.md"]
+                }
+              ],
+              "poll": "1h"
+            }
+          }
+        ],
+        "resources": {
+          "requests": {
+            "cpu": "100m",
+            "memory": "512Mi"
+          },
+          "limits": {
+            "cpu": "1000m",
+            "memory": "2Gi"
+          }
+        },
+        "configuration": {}
+      }
+    ]
+  },
+  "i18n": {
+    "en": {
+      "title": "Scientific Skills Buddy",
+      "description": "A scientific research template with 100+ skills for data analysis, biology, chemistry, medicine, visualization, and scientific writing."
+    },
+    "zh-CN": {
+      "title": "科研技能 Buddy",
+      "description": "科研研究模板，提供 100+ agent skills，覆盖数据分析、生物、化学、医学、可视化和科学写作。"
+    }
+  }
+}

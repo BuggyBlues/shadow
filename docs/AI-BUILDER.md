@@ -42,7 +42,7 @@ Use this path when you want Shadow to run a Buddy or Buddy team in Kubernetes.
 3. Start from a template:
 
    ```bash
-   node apps/cloud/dist/cli.js templates get research-team > shadowob-cloud.json
+   node apps/cloud/dist/cli.js templates get gstack-buddy > shadowob-cloud.json
    node apps/cloud/dist/cli.js validate -f shadowob-cloud.json
    ```
 
@@ -137,11 +137,10 @@ The command reference is also mirrored into the OpenClaw skill at
 
 Start with an existing template close to your use case:
 
-- `research-team.template.json`
-- `devops-team.template.json`
-- `customer-support-team.template.json`
-- `gitagent-from-repo.template.json`
-- `template-discovery-team.template.json`
+- `gstack-buddy.template.json`
+- `superpowers-buddy.template.json`
+- `google-workspace-buddy.template.json`
+- `marketingskills-buddy.template.json`
 
 For agent packs, read
 [development/cloud-agent-pack-buddy-flow.md](development/cloud-agent-pack-buddy-flow.md). The current

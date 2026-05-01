@@ -63,11 +63,11 @@ test.describe('Main Deploy Flow', () => {
 
   test('Deploy Wizard Step 1 — template overview', async ({ page }) => {
     // Navigate directly to a deploy wizard page
-    await page.goto(`${BASE}/store/shadowob-cloud/deploy`)
+    await page.goto(`${BASE}/store/gstack-buddy/deploy`)
 
     // Step 1: Review Template
     await expect(page.getByText('Review Template')).toBeVisible({ timeout: 10_000 })
-    await expect(page.getByRole('heading', { name: 'Shadow Cloud Basic' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'gstack Strategy Buddy' })).toBeVisible()
 
     // Click Continue
     await page.getByRole('button', { name: 'Continue' }).click()
@@ -77,7 +77,7 @@ test.describe('Main Deploy Flow', () => {
   })
 
   test('Deploy Wizard Step 2 — configure namespace', async ({ page }) => {
-    await page.goto(`${BASE}/store/shadowob-cloud/deploy`)
+    await page.goto(`${BASE}/store/gstack-buddy/deploy`)
     await expect(page.getByText('Review Template')).toBeVisible({ timeout: 10_000 })
 
     // Step 1 → Step 2
@@ -98,7 +98,7 @@ test.describe('Main Deploy Flow', () => {
   })
 
   test('Deploy Wizard Step 3 — review and deploy', async ({ page }) => {
-    await page.goto(`${BASE}/store/shadowob-cloud/deploy`)
+    await page.goto(`${BASE}/store/gstack-buddy/deploy`)
     await expect(page.getByText('Review Template')).toBeVisible({ timeout: 10_000 })
 
     // Navigate through all steps (wait for saved env vars in Step 2)
@@ -108,14 +108,14 @@ test.describe('Main Deploy Flow', () => {
     await expect(page.getByText('Review & Deploy')).toBeVisible()
 
     // Review summary items should be visible
-    await expect(page.getByText('shadowob-cloud').first()).toBeVisible()
+    await expect(page.getByText('gstack-buddy').first()).toBeVisible()
 
     // Start Deployment button should be present
     await expect(page.getByRole('button', { name: /Start Deployment/i })).toBeVisible()
   })
 
   test('Deploy Wizard — full flow deploys and shows logs', async ({ page }) => {
-    await page.goto(`${BASE}/store/shadowob-cloud/deploy`)
+    await page.goto(`${BASE}/store/gstack-buddy/deploy`)
     await expect(page.getByText('Review Template')).toBeVisible({ timeout: 10_000 })
 
     // Navigate through all steps (wait for saved env vars in Step 2)
@@ -174,7 +174,7 @@ test.describe('Config Editor', () => {
     await fetch(`${BASE}/api/my-templates/fork`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ source: 'shadowob-cloud', name: 'e2e-editor-test' }),
+      body: JSON.stringify({ source: 'gstack-buddy', name: 'e2e-editor-test' }),
     })
   })
 

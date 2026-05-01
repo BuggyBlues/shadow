@@ -13,11 +13,11 @@ import { expect, test } from '@playwright/test'
 
 // Expected templates on the page (slug → localized title substring that appears in the card title)
 const EXPECTED_TEMPLATES: Record<string, string> = {
-  'shadowob-cloud': 'Shadow Cloud Basic',
-  'devops-team': 'DevOps',
-  'customer-support-team': 'Customer Support',
-  'security-team': 'Security',
-  'research-team': 'Research',
+  'gstack-buddy': 'gstack Strategy Buddy',
+  'superpowers-buddy': 'Superpowers Engineering Buddy',
+  'google-workspace-buddy': 'Google Workspace Buddy',
+  'marketingskills-buddy': 'Marketing Skills Buddy',
+  'seomachine-buddy': 'SEO Machine Buddy',
 }
 
 test.describe('Console → Store page', () => {
@@ -59,14 +59,14 @@ test.describe('Console → Store page', () => {
     await expect(page.getByRole('link', { name: 'Deploy Template' })).toBeVisible()
   })
 
-  test('shadowob-cloud Deploy modal shows correct config info', async ({ page }) => {
-    // Navigate to the shadowob-cloud detail page
-    const card = page.locator('a[href*="/store/shadowob-cloud"]').first()
+  test('google-workspace-buddy Deploy modal shows correct config info', async ({ page }) => {
+    // Navigate to the Google Workspace detail page
+    const card = page.locator('a[href*="/store/google-workspace-buddy"]').first()
     await card.click()
-    await expect(page).toHaveURL(/\/store\/shadowob-cloud$/)
+    await expect(page).toHaveURL(/\/store\/google-workspace-buddy$/)
 
     // Verify template title is shown
-    await expect(page.getByRole('heading', { name: 'Shadow Cloud Basic' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Google Workspace Buddy' })).toBeVisible()
 
     // Deploy link should be available
     await expect(page.getByRole('link', { name: 'Deploy Template' })).toBeVisible()

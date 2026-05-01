@@ -1,0 +1,123 @@
+{
+  "version": "1.0.0",
+  "name": "bmad-method-buddy",
+  "title": "${i18n:title}",
+  "description": "${i18n:description}",
+  "environment": "production",
+  "use": [
+    {
+      "plugin": "model-provider"
+    },
+    {
+      "plugin": "shadowob",
+      "options": {
+        "servers": [
+          {
+            "id": "bmad-hq",
+            "name": "BMAD Method",
+            "slug": "bmad",
+            "channels": [
+              {
+                "id": "analysis",
+                "title": "Analysis",
+                "type": "text"
+              },
+              {
+                "id": "planning",
+                "title": "Planning",
+                "type": "text"
+              },
+              {
+                "id": "delivery",
+                "title": "Delivery",
+                "type": "text"
+              }
+            ]
+          }
+        ],
+        "buddies": [
+          {
+            "id": "bmad-bot",
+            "name": "BMAD Buddy"
+          }
+        ],
+        "bindings": [
+          {
+            "targetId": "bmad-bot",
+            "targetType": "buddy",
+            "servers": ["bmad-hq"],
+            "channels": ["analysis", "planning", "delivery"],
+            "agentId": "bmad-buddy"
+          }
+        ]
+      }
+    }
+  ],
+  "deployments": {
+    "namespace": "bmad-method-buddy",
+    "agents": [
+      {
+        "id": "bmad-buddy",
+        "runtime": "openclaw",
+        "description": "Agile AI development Buddy powered by BMAD Method: analysis, PRD, UX, architecture, stories, QA, review, and implementation workflows.",
+        "identity": {
+          "name": "BMAD Buddy",
+          "personality": "You are a structured agile AI facilitator. You separate analysis, planning, architecture, implementation, and QA so teams do not skip the thinking stage.",
+          "systemPrompt": "Workflow:\n1. Route requests through BMAD phases: analysis, planning, solutioning, implementation, and retrospective.\n2. Use the mounted BMAD skill matching the current phase instead of inventing a process.\n3. For product work, prefer PRD and UX skills before implementation.\n4. For delivery work, prefer story, QA, and code review skills.\n5. Cite the BMAD skill folder used."
+        },
+        "use": [
+          {
+            "plugin": "agent-pack",
+            "options": {
+              "packs": [
+                {
+                  "id": "bmad-method",
+                  "url": "https://github.com/bmad-code-org/BMAD-METHOD",
+                  "ref": "main",
+                  "autoImport": ["codex", "mcp"],
+                  "mounts": [
+                    {
+                      "kind": "skills",
+                      "from": "src/bmm-skills"
+                    },
+                    {
+                      "kind": "skills",
+                      "from": "src/core-skills"
+                    },
+                    {
+                      "kind": "instructions",
+                      "from": "docs"
+                    }
+                  ],
+                  "instructionFiles": ["AGENTS.md", "README.md", "README_CN.md"]
+                }
+              ],
+              "poll": "1h"
+            }
+          }
+        ],
+        "resources": {
+          "requests": {
+            "cpu": "100m",
+            "memory": "256Mi"
+          },
+          "limits": {
+            "cpu": "1000m",
+            "memory": "1Gi"
+          }
+        },
+        "configuration": {}
+      }
+    ]
+  },
+  "i18n": {
+    "en": {
+      "title": "BMAD Method Buddy",
+      "description": "An agile AI development template for analysis, PRD, UX, architecture, story shaping, implementation, QA, and retrospectives with BMAD Method."
+    },
+    "zh-CN": {
+      "title": "BMAD 方法 Buddy",
+      "description": "敏捷 AI 开发模板，基于 BMAD Method 覆盖分析、PRD、UX、架构、故事拆解、实现、QA 和复盘。"
+    }
+  }
+}

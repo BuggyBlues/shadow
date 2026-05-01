@@ -45,6 +45,8 @@ const STUB_ENV: NodeJS.ProcessEnv = {
   GA4_PROPERTY_ID: 'stub-ga4',
   GOOGLE_CREDENTIALS_B64: 'stub-gcreds',
   GSC_SITE_URL: 'https://example.com',
+  GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON: '{"installed":{}}',
+  GOOGLE_WORKSPACE_CLI_TOKEN: 'stub-google-workspace-token',
   NOTION_TOKEN: 'stub-notion',
   NOTION_CONTENT_DB_ID: 'stub-notion-content',
   NOTION_SOCIAL_DB_ID: 'stub-notion-social',

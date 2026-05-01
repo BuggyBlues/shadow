@@ -1,0 +1,123 @@
+{
+  "version": "1.0.0",
+  "name": "claude-seo-buddy",
+  "title": "${i18n:title}",
+  "description": "${i18n:description}",
+  "environment": "production",
+  "use": [
+    {
+      "plugin": "model-provider"
+    },
+    {
+      "plugin": "shadowob",
+      "options": {
+        "servers": [
+          {
+            "id": "seo-audit-hq",
+            "name": "SEO Audit",
+            "slug": "seo-audit",
+            "channels": [
+              {
+                "id": "audit",
+                "title": "Audit",
+                "type": "text"
+              },
+              {
+                "id": "strategy",
+                "title": "Strategy",
+                "type": "text"
+              },
+              {
+                "id": "technical",
+                "title": "Technical",
+                "type": "text"
+              }
+            ]
+          }
+        ],
+        "buddies": [
+          {
+            "id": "seo-bot",
+            "name": "SEO Buddy"
+          }
+        ],
+        "bindings": [
+          {
+            "targetId": "seo-bot",
+            "targetType": "buddy",
+            "servers": ["seo-audit-hq"],
+            "channels": ["audit", "strategy", "technical"],
+            "agentId": "claude-seo-buddy"
+          }
+        ]
+      }
+    }
+  ],
+  "deployments": {
+    "namespace": "claude-seo-buddy",
+    "agents": [
+      {
+        "id": "claude-seo-buddy",
+        "runtime": "openclaw",
+        "description": "SEO audit and GEO/AEO Buddy powered by claude-seo: technical SEO, content quality, schema, local SEO, backlinks, Google integrations, and report workflows.",
+        "identity": {
+          "name": "SEO Buddy",
+          "personality": "You are a technical SEO lead. You care about crawlability, schema, E-E-A-T, AI search visibility, measurement, and prioritized fixes.",
+          "systemPrompt": "Workflow:\n1. Route requests to claude-seo skills such as seo-audit, seo-technical, seo-schema, seo-content, seo-geo, seo-local, or seo-google.\n2. Ask for site URL, target market, CMS, analytics access, and constraints when missing.\n3. Separate evidence, severity, impact, and implementation steps.\n4. For external APIs or reporting scripts, explain required credentials before use.\n5. Cite the claude-seo skill or agent path used."
+        },
+        "use": [
+          {
+            "plugin": "agent-pack",
+            "options": {
+              "packs": [
+                {
+                  "id": "claude-seo",
+                  "url": "https://github.com/AgriciDaniel/claude-seo",
+                  "ref": "main",
+                  "autoImport": ["standard", "claude", "mcp", "scripts"],
+                  "mounts": [
+                    {
+                      "kind": "instructions",
+                      "from": "docs"
+                    },
+                    {
+                      "kind": "instructions",
+                      "from": "pdf"
+                    },
+                    {
+                      "kind": "files",
+                      "from": "extensions"
+                    }
+                  ],
+                  "instructionFiles": ["AGENTS.md", "CLAUDE.md", "README.md"]
+                }
+              ],
+              "poll": "1h"
+            }
+          }
+        ],
+        "resources": {
+          "requests": {
+            "cpu": "100m",
+            "memory": "384Mi"
+          },
+          "limits": {
+            "cpu": "1000m",
+            "memory": "1Gi"
+          }
+        },
+        "configuration": {}
+      }
+    ]
+  },
+  "i18n": {
+    "en": {
+      "title": "Claude SEO Buddy",
+      "description": "A technical SEO and GEO/AEO audit template with claude-seo skills, subagents, docs, scripts, and extension guidance."
+    },
+    "zh-CN": {
+      "title": "Claude SEO Buddy",
+      "description": "技术 SEO 与 GEO/AEO 审计模板，集成 claude-seo skills、subagents、文档、脚本和扩展指引。"
+    }
+  }
+}

@@ -205,7 +205,7 @@ Buddy 身份监听和回复。
 ```bash
 pnpm --filter @shadowob/cloud build
 node apps/cloud/dist/cli.js init --list
-node apps/cloud/dist/cli.js templates get research-team > shadowob-cloud.json
+node apps/cloud/dist/cli.js templates get gstack-buddy > shadowob-cloud.json
 node apps/cloud/dist/cli.js validate -f shadowob-cloud.json
 ```
 

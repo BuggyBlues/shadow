@@ -181,6 +181,7 @@ describe('loadAllPlugins', () => {
       'agent-pack',
       'gitagent',
       'github',
+      'google-workspace',
       'model-provider',
       'notion',
       'shadowob',
@@ -604,6 +605,85 @@ describe('Tool plugins', () => {
     const fragment = plugin._hooks.buildConfig[0]!(ctx)
     expect(fragment?.skills).toBeDefined()
     expect(fragment?.tools).toEqual({ allow: ['gh'] })
+  })
+
+  it('google-workspace plugin should expose gws runtime config', async () => {
+    const mod = await import('../../src/plugins/google-workspace/index.js')
+    const plugin = mod.default as PluginDefinition
+    expect(plugin.manifest.id).toBe('google-workspace')
+
+    const ctx = makeBuildContext({
+      secrets: { GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON: '{"installed":{}}' },
+      agentConfig: { services: ['gmail', 'calendar'] },
+    })
+    const fragment = plugin._hooks.buildConfig[0]!(ctx)
+    expect(fragment?.tools).toEqual({ allow: ['gws'] })
+    expect(fragment?.skills).toMatchObject({
+      load: { extraDirs: ['/app/plugin-skills/google-workspace'] },
+      entries: {
+        'google-workspace': {
+          enabled: true,
+          services: ['gmail', 'calendar'],
+        },
+      },
+    })
+
+    const env = plugin._hooks.buildEnv[0]!(ctx)
+    expect(env?.GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE).toBe(
+      '/home/openclaw/.config/gws/credentials.json',
+    )
+    expect(env?.GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON).toBe('{"installed":{}}')
+
+    const runtime = plugin._hooks.buildRuntime[0]!(ctx)
+    expect(runtime?.credentialFiles).toContainEqual({
+      envKey: 'GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON',
+      path: '/home/openclaw/.config/gws/credentials.json',
+      mode: '0600',
+    })
+    expect(runtime?.verificationChecks?.map((check) => check.id)).toEqual(
+      expect.arrayContaining(['google-workspace-auth', 'google-workspace-drive-read']),
+    )
+  })
+
+  it('google-workspace plugin should install gws and Workspace skills for enabled agents', async () => {
+    const mod = await import('../../src/plugins/google-workspace/index.js')
+    const plugin = mod.default as PluginDefinition
+    const result = plugin.k8s?.buildK8s(
+      {
+        id: 'agent-1',
+        runtime: 'openclaw',
+        use: [{ plugin: 'google-workspace' }],
+        configuration: {},
+      },
+      {
+        agent: {
+          id: 'agent-1',
+          runtime: 'openclaw',
+          configuration: {},
+        },
+        config: { version: '1' },
+        namespace: 'default',
+      },
+    )
+
+    expect(result?.initContainers?.[0]?.command.join(' ')).toContain('@googleworkspace/cli')
+    expect(result?.initContainers?.[0]?.command.join(' ')).toContain(
+      'https://github.com/googleworkspace/cli.git',
+    )
+    expect(result?.volumeMounts).toEqual(
+      expect.arrayContaining([
+        {
+          name: 'google-workspace-runtime',
+          mountPath: '/opt/shadow-plugin-deps/google-workspace',
+          readOnly: true,
+        },
+        {
+          name: 'google-workspace-skills',
+          mountPath: '/app/plugin-skills/google-workspace',
+          readOnly: true,
+        },
+      ]),
+    )
   })
 
   it('stripe plugin should produce plugin entry', async () => {

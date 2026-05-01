@@ -505,10 +505,34 @@ function mergeRuntimeExtensions(
   for (const artifact of fragment.artifacts ?? []) {
     artifacts.set(artifact.kind, artifact)
   }
+  const credentialFiles = new Map<
+    string,
+    NonNullable<PluginRuntimeExtension['credentialFiles']>[number]
+  >()
+  for (const file of target.credentialFiles ?? []) {
+    credentialFiles.set(`${file.envKey}:${file.path}`, file)
+  }
+  for (const file of fragment.credentialFiles ?? []) {
+    credentialFiles.set(`${file.envKey}:${file.path}`, file)
+  }
+  const verificationChecks = new Map<
+    string,
+    NonNullable<PluginRuntimeExtension['verificationChecks']>[number]
+  >()
+  for (const check of target.verificationChecks ?? []) {
+    verificationChecks.set(check.id, check)
+  }
+  for (const check of fragment.verificationChecks ?? []) {
+    verificationChecks.set(check.id, check)
+  }
 
   return {
     ...(manifestPatches.length > 0 ? { openclaw: { manifestPatches } } : {}),
     ...(artifacts.size > 0 ? { artifacts: [...artifacts.values()] } : {}),
+    ...(credentialFiles.size > 0 ? { credentialFiles: [...credentialFiles.values()] } : {}),
+    ...(verificationChecks.size > 0
+      ? { verificationChecks: [...verificationChecks.values()] }
+      : {}),
   }
 }
 
