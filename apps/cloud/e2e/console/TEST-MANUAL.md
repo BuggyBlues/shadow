@@ -165,7 +165,7 @@ Direct HTTP checks against the serve port to verify the backend is operating cor
 | each expected template card is present | All 7 templates have cards with name substring |
 | cards show agent count badge | "N agents" badge on each card |
 | clicking Deploy opens the deploy modal | Deploy button → modal appears, Escape closes |
-| solopreneur-pack Deploy modal shows config | Modal shows correct template config |
+| google-workspace-buddy Deploy modal shows config | Modal shows correct template config |
 
 ---
 
@@ -173,16 +173,16 @@ Direct HTTP checks against the serve port to verify the backend is operating cor
 
 Tests the end-to-end deploy pipeline through both the API and the dashboard UI.
 
-**solopreneur-pack (4 tests):**
+**gstack-buddy (4 tests):**
 | Test | Validates |
 |------|-----------|
 | serve GET /api/templates lists all templates | API returns ≥7 templates |
-| serve GET /api/templates/solopreneur-pack returns full config | Config shape: version, deployments, registry |
-| dashboard renders solopreneur-pack card | React renders card from real API data |
+| serve GET /api/templates/gstack-buddy returns full config | Config shape: version, deployments, plugin use |
+| dashboard renders gstack-buddy card | React renders card from real API data |
 | clicking Deploy triggers full CLI pipeline | POST /api/deploy → SSE stream → manifests written to disk |
 
 **Per-template API tests (6 templates × 2 tests = 12):**
-For devops-team, code-review-team, customer-support-team, metrics-team, security-team, research-team:
+For superpowers-buddy, google-workspace-buddy, bmad-method-buddy, claude-seo-buddy, agent-marketplace-buddy, marketingskills-buddy:
 
 | Test | Validates |
 |------|-----------|
@@ -208,7 +208,7 @@ For features that can't be fully automated (require real K8s):
 ### 2. Deploy Wizard (with K8s)
 ```
 1. Navigate to Agent Store
-2. Click any template card (e.g., solopreneur-pack)
+2. Click any template card (e.g., gstack-buddy)
 3. Click "Deploy Template" on detail page
 4. Step through wizard:
    a. Review template → Next

@@ -1,0 +1,131 @@
+{
+  "version": "1.0.0",
+  "name": "agent-marketplace-buddy",
+  "title": "${i18n:title}",
+  "description": "${i18n:description}",
+  "environment": "production",
+  "use": [
+    {
+      "plugin": "model-provider"
+    },
+    {
+      "plugin": "shadowob",
+      "options": {
+        "servers": [
+          {
+            "id": "agent-marketplace-hq",
+            "name": "Agent Marketplace",
+            "slug": "agent-marketplace",
+            "channels": [
+              {
+                "id": "choose",
+                "title": "Choose",
+                "type": "text"
+              },
+              {
+                "id": "build",
+                "title": "Build",
+                "type": "text"
+              },
+              {
+                "id": "review",
+                "title": "Review",
+                "type": "text"
+              }
+            ]
+          }
+        ],
+        "buddies": [
+          {
+            "id": "marketplace-bot",
+            "name": "Marketplace Buddy"
+          }
+        ],
+        "bindings": [
+          {
+            "targetId": "marketplace-bot",
+            "targetType": "buddy",
+            "servers": ["agent-marketplace-hq"],
+            "channels": ["choose", "build", "review"],
+            "agentId": "agent-marketplace-buddy"
+          }
+        ]
+      }
+    }
+  ],
+  "deployments": {
+    "namespace": "agent-marketplace-buddy",
+    "agents": [
+      {
+        "id": "agent-marketplace-buddy",
+        "runtime": "openclaw",
+        "description": "Composable specialist-agent Buddy powered by wshobson/agents: plugin marketplace, domain agents, command workflows, and specialized skills.",
+        "identity": {
+          "name": "Marketplace Buddy",
+          "personality": "You are a precise agent librarian and workflow architect. You help teams choose the smallest useful specialist set, then run the relevant workflow.",
+          "systemPrompt": "Routing:\n1. Start by identifying the smallest plugin or specialist set that matches the task.\n2. Prefer mounted plugin README and docs before invoking a skill or command.\n3. For engineering tasks, select agents and skills by domain: backend, frontend, security, data, infra, docs, SEO, or operations.\n4. Avoid loading the whole marketplace into one answer; cite the selected plugin path.\n5. When a workflow command exists, use it as the source of truth."
+        },
+        "use": [
+          {
+            "plugin": "agent-pack",
+            "options": {
+              "packs": [
+                {
+                  "id": "wshobson-agents",
+                  "url": "https://github.com/wshobson/agents",
+                  "ref": "main",
+                  "autoImport": ["mcp"],
+                  "mounts": [
+                    {
+                      "kind": "skills",
+                      "from": "plugins"
+                    },
+                    {
+                      "kind": "commands",
+                      "from": "plugins"
+                    },
+                    {
+                      "kind": "agents",
+                      "from": "plugins"
+                    },
+                    {
+                      "kind": "instructions",
+                      "from": "docs"
+                    },
+                    {
+                      "kind": "instructions",
+                      "from": "plugins"
+                    }
+                  ],
+                  "instructionFiles": ["CLAUDE.md", "README.md"]
+                }
+              ],
+              "poll": "1h"
+            }
+          }
+        ],
+        "resources": {
+          "requests": {
+            "cpu": "100m",
+            "memory": "384Mi"
+          },
+          "limits": {
+            "cpu": "1000m",
+            "memory": "1Gi"
+          }
+        },
+        "configuration": {}
+      }
+    ]
+  },
+  "i18n": {
+    "en": {
+      "title": "Agent Marketplace Buddy",
+      "description": "A composable specialist-agent marketplace template for development, security, infrastructure, data, documentation, SEO, and workflow orchestration."
+    },
+    "zh-CN": {
+      "title": "Agent Marketplace Buddy",
+      "description": "可组合专家 agent 市场模板，覆盖开发、安全、基础设施、数据、文档、SEO 和 workflow 编排场景。"
+    }
+  }
+}

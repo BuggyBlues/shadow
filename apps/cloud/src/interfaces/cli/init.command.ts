@@ -21,7 +21,7 @@ export function createInitCommand(container: ServiceContainer) {
   return new Command('init')
     .description('Generate an shadowob-cloud.json config template')
     .option('-o, --output <path>', 'Output file path', 'shadowob-cloud.json')
-    .option('-t, --template <name>', 'Template name (use --list to see all)', 'shadowob-cloud')
+    .option('-t, --template <name>', 'Template name (use --list to see all)', 'gstack-buddy')
     .option('-l, --list', 'List all available templates and exit')
     .option('--force', 'Overwrite existing file')
     .option('--quick', 'Quick init: read .env, pick default template, no prompts')
@@ -67,7 +67,10 @@ export function createInitCommand(container: ServiceContainer) {
             process.exit(1)
           }
 
-          const templateName = templates[0]?.name ?? 'shadowob-cloud'
+          const templateName =
+            templates.find((template) => template.name === 'gstack-buddy')?.name ??
+            templates[0]?.name ??
+            'gstack-buddy'
           const content =
             (await container.template.getTemplate(templateName)) ??
             ({

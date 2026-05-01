@@ -3,7 +3,7 @@
 Deploy AI agents to Kubernetes with a single command.
 
 ```bash
-shadowob-cloud init --template solopreneur-pack
+shadowob-cloud init --template gstack-buddy
 shadowob-cloud validate
 shadowob-cloud up
 ```
@@ -29,7 +29,7 @@ shadowob-cloud doctor      # checks kubectl, docker, pulumi
 
 ```bash
 shadowob-cloud init                          # interactive — creates shadowob-cloud.json
-shadowob-cloud init --template devops-team   # from a preset template
+shadowob-cloud init --template gstack-buddy  # from a preset template
 shadowob-cloud init --list                   # list all available templates
 ```
 
@@ -77,16 +77,13 @@ Pre-built agent team templates:
 
 | Template | Agents | Description |
 |---|---|---|
-| `solopreneur-pack` | 5 | Content writer, SEO monitor, metrics analyst, social manager, personal assistant |
-| `devops-team` | 3 | Infrastructure monitor, CI/CD watcher, incident responder |
-| `code-review-team` | 3 | Code reviewer, security scanner, docs auditor |
-| `customer-support-team` | 2 | Support triage, issue resolver |
-| `metrics-team` | 2 | Data analyst, anomaly alerter |
-| `security-team` | 3 | Vulnerability scanner, dependency auditor, secrets detective |
-| `research-team` | 3 | Market researcher, competitor monitor, digest curator |
-| `shadowob-cloud` | 1 | Self-managing cloud agent |
-| `gitagent-from-repo` | 1 | Agent loaded from a Git repository |
-| `managed-agents-demo` | 3 | Demo: vault isolation, permissions, networking |
+| `gstack-buddy` | 1 | Product strategy, office hours, CEO review, retros |
+| `google-workspace-buddy` | 1 | Gmail, Calendar, Drive, Docs, and Sheets operations through `gws` |
+| `superpowers-buddy` | 1 | Specs, TDD, planning, subagent execution, code review |
+| `everything-claude-code-buddy` | 1 | Broad engineering harness with skills, commands, agents, hooks |
+| `marketingskills-buddy` | 1 | CRO, copy, SEO, paid, email, and growth skills |
+| `seomachine-buddy` | 1 | Keyword research, content briefs, on-page audits |
+| `scientific-skills-buddy` | 1 | Scientific research, data analysis, and writing skills |
 
 Write your own — see [Config Reference](#config-reference) below.
 

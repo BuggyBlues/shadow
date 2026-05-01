@@ -1,0 +1,146 @@
+{
+  "version": "1.0.0",
+  "name": "superclaude-buddy",
+  "title": "${i18n:title}",
+  "description": "${i18n:description}",
+  "environment": "production",
+  "use": [
+    {
+      "plugin": "model-provider"
+    },
+    {
+      "plugin": "shadowob",
+      "options": {
+        "servers": [
+          {
+            "id": "superclaude-hq",
+            "name": "SuperClaude",
+            "slug": "superclaude",
+            "channels": [
+              {
+                "id": "general",
+                "title": "General",
+                "type": "text"
+              },
+              {
+                "id": "commands",
+                "title": "Commands",
+                "type": "text"
+              },
+              {
+                "id": "architecture",
+                "title": "Architecture",
+                "type": "text"
+              }
+            ]
+          }
+        ],
+        "buddies": [
+          {
+            "id": "superclaude-bot",
+            "name": "SuperClaude Buddy"
+          }
+        ],
+        "bindings": [
+          {
+            "targetId": "superclaude-bot",
+            "targetType": "buddy",
+            "servers": ["superclaude-hq"],
+            "channels": ["general", "commands", "architecture"],
+            "agentId": "superclaude-buddy"
+          }
+        ]
+      }
+    }
+  ],
+  "deployments": {
+    "namespace": "superclaude-buddy",
+    "agents": [
+      {
+        "id": "superclaude-buddy",
+        "runtime": "openclaw",
+        "description": "Structured development-platform Buddy powered by SuperClaude Framework: commands, agents, modes, MCP guidance, and confidence-check skills.",
+        "identity": {
+          "name": "SuperClaude Buddy",
+          "personality": "You are a structured development-platform operator. You pick the appropriate command, mode, or expert persona before drafting an answer.",
+          "systemPrompt": "Workflow:\n1. Read SuperClaude command, mode, and core rule docs before using a workflow.\n2. Route tasks to the smallest relevant command or agent.\n3. Use architecture, PM, research, troubleshooting, and review agents when applicable.\n4. Use confidence-check before final recommendations for risky decisions.\n5. Cite the SuperClaude command, mode, or agent path used."
+        },
+        "use": [
+          {
+            "plugin": "agent-pack",
+            "options": {
+              "packs": [
+                {
+                  "id": "superclaude",
+                  "url": "https://github.com/SuperClaude-Org/SuperClaude_Framework",
+                  "ref": "main",
+                  "autoImport": ["standard", "claude", "mcp", "scripts"],
+                  "mounts": [
+                    {
+                      "kind": "skills",
+                      "from": "plugins/superclaude/skills"
+                    },
+                    {
+                      "kind": "commands",
+                      "from": "plugins/superclaude/commands"
+                    },
+                    {
+                      "kind": "agents",
+                      "from": "plugins/superclaude/agents"
+                    },
+                    {
+                      "kind": "hooks",
+                      "from": "plugins/superclaude/hooks"
+                    },
+                    {
+                      "kind": "mcp",
+                      "from": "plugins/superclaude/.mcp.json"
+                    },
+                    {
+                      "kind": "instructions",
+                      "from": "plugins/superclaude/core"
+                    },
+                    {
+                      "kind": "instructions",
+                      "from": "plugins/superclaude/modes"
+                    },
+                    {
+                      "kind": "instructions",
+                      "from": "docs/reference"
+                    },
+                    {
+                      "kind": "scripts",
+                      "from": "plugins/superclaude/scripts"
+                    }
+                  ]
+                }
+              ],
+              "poll": "1h"
+            }
+          }
+        ],
+        "resources": {
+          "requests": {
+            "cpu": "100m",
+            "memory": "384Mi"
+          },
+          "limits": {
+            "cpu": "1000m",
+            "memory": "1Gi"
+          }
+        },
+        "configuration": {}
+      }
+    ]
+  },
+  "i18n": {
+    "en": {
+      "title": "SuperClaude Buddy",
+      "description": "A structured development workbench template with SuperClaude commands, modes, agents, MCP guidance, and confidence-check workflows."
+    },
+    "zh-CN": {
+      "title": "SuperClaude Buddy",
+      "description": "结构化开发工作台模板，内置 SuperClaude commands、modes、agents、MCP 指引和 confidence-check 流程。"
+    }
+  }
+}

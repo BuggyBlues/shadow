@@ -116,12 +116,12 @@ async function waitForPulumiUnlock(timeoutMs = 45_000) {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 // Deploy tests need extra time because they wait for Pulumi stack lock release
-test.describe('Dashboard → Deploy pipeline (solopreneur-pack)', () => {
+test.describe('Dashboard → Deploy pipeline (gstack-buddy)', () => {
   test.describe.configure({ timeout: 240_000 })
   /**
    * Test 1: The API serve layer works correctly.
    *
-   * Directly hits GET /api/templates and GET /api/templates/solopreneur-pack.
+   * Directly hits GET /api/templates and GET /api/templates/gstack-buddy.
    * Verifies serve.ts correctly reads the template files and returns the right shape.
    */
   test('serve GET /api/templates lists all templates', async () => {
@@ -133,9 +133,9 @@ test.describe('Dashboard → Deploy pipeline (solopreneur-pack)', () => {
     expect(templates.length).toBeGreaterThanOrEqual(7)
 
     const names = templates.map((t) => t.name)
-    expect(names).toContain('solopreneur-pack')
-    expect(names).toContain('devops-team')
-    expect(names).toContain('code-review-team')
+    expect(names).toContain('gstack-buddy')
+    expect(names).toContain('superpowers-buddy')
+    expect(names).toContain('google-workspace-buddy')
 
     // Each entry has the required fields
     for (const t of templates) {
@@ -151,14 +151,14 @@ test.describe('Dashboard → Deploy pipeline (solopreneur-pack)', () => {
    * Verifies serve.ts readFileSync + JSON.parse on the template file works,
    * and that the returned config has the expected structure for a valid template.
    */
-  test('serve GET /api/templates/solopreneur-pack returns full config', async () => {
-    const res = await fetch(`http://localhost:${SERVE_PORT}/api/templates/solopreneur-pack`)
+  test('serve GET /api/templates/gstack-buddy returns full config', async () => {
+    const res = await fetch(`http://localhost:${SERVE_PORT}/api/templates/gstack-buddy`)
     expect(res.status).toBe(200)
 
     const config = (await res.json()) as {
       version: string
       deployments: { namespace: string; agents: Array<{ id: string }> }
-      registry: { providers: Array<{ id: string }> }
+      use: Array<{ plugin: string }>
     }
 
     expect(config.version).toBe('1.0.0')
@@ -167,8 +167,10 @@ test.describe('Dashboard → Deploy pipeline (solopreneur-pack)', () => {
     const agents = config.deployments?.agents ?? []
     expect(agents.length).toBeGreaterThan(0)
 
-    const providerIds = (config.registry?.providers ?? []).map((p) => p.id)
-    expect(providerIds).toContain('deepseek')
+    expect(agents.map((agent) => agent.id)).toContain('strategy-buddy')
+    expect(config.use.map((entry) => entry.plugin)).toEqual(
+      expect.arrayContaining(['model-provider', 'shadowob']),
+    )
   })
 
   /**
@@ -177,12 +179,12 @@ test.describe('Dashboard → Deploy pipeline (solopreneur-pack)', () => {
    * Validates the full React app loads, fetches /api/templates, and renders
    * each template as a card with the correct slug, agent count badge, and Deploy button.
    */
-  test('dashboard renders solopreneur-pack card with agent count', async ({ page }) => {
+  test('dashboard renders gstack-buddy card with agent count', async ({ page }) => {
     await page.goto('/store')
 
     // The card should appear — template name is rendered as a link in the card
     const card = page
-      .locator('a', { hasText: 'solopreneur-pack' })
+      .locator('a', { hasText: 'gstack Strategy Buddy' })
       .locator('xpath=ancestor::div[contains(@class,"rounded")][1]')
     await expect(card).toBeVisible()
 
@@ -194,7 +196,7 @@ test.describe('Dashboard → Deploy pipeline (solopreneur-pack)', () => {
    * Test 4: Full end-to-end deploy pipeline through the Deploy Wizard.
    *
    * Steps:
-   * 1. Navigate to /store/solopreneur-pack/deploy
+   * 1. Navigate to /store/gstack-buddy/deploy
    * 2. Step 1: Review template → Continue
    * 3. Step 2: Configure namespace → Review & Deploy
    * 4. Step 3: Click "Start Deployment" → observe SSE logs → success/failure
@@ -207,7 +209,7 @@ test.describe('Dashboard → Deploy pipeline (solopreneur-pack)', () => {
 
     // Seed ALL required env vars so Step 2 validation passes
     const envRefsRes = await fetch(
-      `http://localhost:${SERVE_PORT}/api/templates/solopreneur-pack/env-refs`,
+      `http://localhost:${SERVE_PORT}/api/templates/gstack-buddy/env-refs`,
     )
     const envRefsData = (await envRefsRes.json()) as { requiredEnvVars: string[] }
     for (const key of envRefsData.requiredEnvVars) {
@@ -218,7 +220,7 @@ test.describe('Dashboard → Deploy pipeline (solopreneur-pack)', () => {
       })
     }
 
-    await page.goto(`/store/solopreneur-pack/deploy`)
+    await page.goto(`/store/gstack-buddy/deploy`)
     await expect(page.getByText('Review Template')).toBeVisible({ timeout: 10_000 })
 
     // Step 1 → Step 2
@@ -258,24 +260,24 @@ test.describe('Dashboard → Deploy pipeline (solopreneur-pack)', () => {
 // ─── Additional templates ─────────────────────────────────────────────────────
 
 const TEMPLATES_WITH_KNOWN_AGENTS: Array<{ slug: string; firstAgent: string }> = [
-  { slug: 'devops-team', firstAgent: 'infra-monitor' },
-  { slug: 'code-review-team', firstAgent: 'code-reviewer' },
-  { slug: 'customer-support-team', firstAgent: 'support-triage' },
-  { slug: 'metrics-team', firstAgent: 'data-analyst' },
-  { slug: 'security-team', firstAgent: 'vuln-scanner' },
-  { slug: 'research-team', firstAgent: 'market-researcher' },
+  { slug: 'superpowers-buddy', firstAgent: 'superpowers-buddy' },
+  { slug: 'google-workspace-buddy', firstAgent: 'google-workspace-buddy' },
+  { slug: 'bmad-method-buddy', firstAgent: 'bmad-buddy' },
+  { slug: 'claude-seo-buddy', firstAgent: 'claude-seo-buddy' },
+  { slug: 'agent-marketplace-buddy', firstAgent: 'agent-marketplace-buddy' },
+  { slug: 'marketingskills-buddy', firstAgent: 'marketing-buddy' },
 ]
 
 for (const { slug, firstAgent } of TEMPLATES_WITH_KNOWN_AGENTS) {
   test.describe(`Dashboard → Deploy pipeline (${slug})`, () => {
     test.describe.configure({ timeout: 120_000 })
     /**
-     * For each non-solopreneur template, verify:
+     * For each additional template, verify:
      * 1. Template appears in the dashboard list
      * 2. POST /api/deploy writes real manifests for that template's agents
      *
      * These tests call POST /api/deploy directly (not through the UI) to avoid
-     * duplicating the full UI interaction test from solopreneur-pack above.
+     * duplicating the full UI interaction test from gstack-buddy above.
      * The key assertion is that the manifests contain the expected agent names.
      */
     test(`POST /api/deploy generates valid manifests with agent ${firstAgent}`, async () => {

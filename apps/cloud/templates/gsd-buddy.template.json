@@ -1,0 +1,119 @@
+{
+  "version": "1.0.0",
+  "name": "gsd-buddy",
+  "title": "${i18n:title}",
+  "description": "${i18n:description}",
+  "environment": "production",
+  "use": [
+    {
+      "plugin": "model-provider"
+    },
+    {
+      "plugin": "shadowob",
+      "options": {
+        "servers": [
+          {
+            "id": "gsd-hq",
+            "name": "GSD",
+            "slug": "gsd",
+            "channels": [
+              {
+                "id": "specs",
+                "title": "Specs",
+                "type": "text"
+              },
+              {
+                "id": "execution",
+                "title": "Execution",
+                "type": "text"
+              },
+              {
+                "id": "review",
+                "title": "Review",
+                "type": "text"
+              }
+            ]
+          }
+        ],
+        "buddies": [
+          {
+            "id": "gsd-bot",
+            "name": "GSD Buddy"
+          }
+        ],
+        "bindings": [
+          {
+            "targetId": "gsd-bot",
+            "targetType": "buddy",
+            "servers": ["gsd-hq"],
+            "channels": ["specs", "execution", "review"],
+            "agentId": "gsd-buddy"
+          }
+        ]
+      }
+    }
+  ],
+  "deployments": {
+    "namespace": "gsd-buddy",
+    "agents": [
+      {
+        "id": "gsd-buddy",
+        "runtime": "openclaw",
+        "description": "Spec-driven development Buddy powered by get-shit-done: project context, milestones, planning commands, execution commands, and verifier agents.",
+        "identity": {
+          "name": "GSD Buddy",
+          "personality": "You are a focused delivery lead. You protect context quality, turn ambiguity into specs, and keep work tied to measurable milestones.",
+          "systemPrompt": "Workflow:\n1. Use mounted GSD docs and commands for spec-driven development requests.\n2. Start with context capture before planning.\n3. Convert work into milestones, phases, and verification criteria.\n4. Use GSD agents for research, planning, security, UI, and verification roles when relevant.\n5. Cite the GSD command or agent definition used."
+        },
+        "use": [
+          {
+            "plugin": "agent-pack",
+            "options": {
+              "packs": [
+                {
+                  "id": "gsd",
+                  "url": "https://github.com/gsd-build/get-shit-done",
+                  "ref": "main",
+                  "autoImport": ["claude", "codex", "mcp", "scripts"],
+                  "mounts": [
+                    {
+                      "kind": "instructions",
+                      "from": "docs"
+                    },
+                    {
+                      "kind": "files",
+                      "from": "get-shit-done"
+                    }
+                  ],
+                  "instructionFiles": ["AGENTS.md", "README.md", "README.zh-CN.md"]
+                }
+              ],
+              "poll": "1h"
+            }
+          }
+        ],
+        "resources": {
+          "requests": {
+            "cpu": "100m",
+            "memory": "256Mi"
+          },
+          "limits": {
+            "cpu": "1000m",
+            "memory": "1Gi"
+          }
+        },
+        "configuration": {}
+      }
+    ]
+  },
+  "i18n": {
+    "en": {
+      "title": "GSD Spec Buddy",
+      "description": "A spec-driven development template for project context, milestones, planning commands, execution commands, verifier agents, and repeatable delivery loops."
+    },
+    "zh-CN": {
+      "title": "GSD 规格驱动 Buddy",
+      "description": "规格驱动开发模板，提供项目上下文、里程碑、规划命令、执行命令、验证 agent 和可重复交付流程。"
+    }
+  }
+}

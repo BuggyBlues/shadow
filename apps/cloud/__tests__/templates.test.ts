@@ -14,6 +14,7 @@ const templateFiles = readdirSync(templatesDir).filter((f) => f.endsWith('.templ
 const folderTemplates = readdirSync(templatesDir, { withFileTypes: true })
   .filter((e) => e.isDirectory() && existsSync(join(templatesDir, e.name, 'shadowob-cloud.json')))
   .map((e) => e.name)
+const describeFolderTemplates = folderTemplates.length > 0 ? describe : describe.skip
 
 describe('template-schema consistency (TPL-02)', () => {
   it.each(templateFiles)('%s is valid JSON/JSONC', (file) => {
@@ -88,7 +89,7 @@ describe('template-schema consistency (TPL-02)', () => {
   })
 })
 
-describe('folder-based template consistency (TPL-03)', () => {
+describeFolderTemplates('folder-based template consistency (TPL-03)', () => {
   it.each(folderTemplates)('%s/shadowob-cloud.json is valid JSON/JSONC', (slug) => {
     const file = join(templatesDir, slug, 'shadowob-cloud.json')
     const content = readFileSync(file, 'utf-8')
@@ -190,5 +191,99 @@ describe('community pack template mounts', () => {
     expect(readAgentPackMounts('slavingia-skills-buddy.template.json')).toEqual(
       expect.arrayContaining([{ kind: 'skills', from: 'skills' }]),
     )
+  })
+
+  it('superpowers-buddy imports standard skills plus root Claude plugin agents', () => {
+    expect(readAgentPackMounts('superpowers-buddy.template.json')).toEqual(
+      expect.arrayContaining([
+        { kind: 'skills', from: 'skills' },
+        { kind: 'commands', from: 'commands' },
+        { kind: 'agents', from: 'agents' },
+      ]),
+    )
+  })
+
+  it('gsd-buddy mounts command, agent, script, and context assets', () => {
+    expect(readAgentPackMounts('gsd-buddy.template.json')).toEqual(
+      expect.arrayContaining([
+        { kind: 'commands', from: 'commands' },
+        { kind: 'agents', from: 'agents' },
+        { kind: 'scripts', from: 'bin' },
+        { kind: 'instructions', from: 'docs' },
+        { kind: 'files', from: 'get-shit-done' },
+      ]),
+    )
+  })
+
+  it('bmad-method-buddy mounts BMAD native skill trees explicitly', () => {
+    expect(readAgentPackMounts('bmad-method-buddy.template.json')).toEqual(
+      expect.arrayContaining([
+        { kind: 'skills', from: 'src/bmm-skills' },
+        { kind: 'skills', from: 'src/core-skills' },
+        { kind: 'instructions', from: 'docs' },
+      ]),
+    )
+  })
+
+  it('agent-marketplace-buddy mounts nested plugin marketplace assets', () => {
+    expect(readAgentPackMounts('agent-marketplace-buddy.template.json')).toEqual(
+      expect.arrayContaining([
+        { kind: 'skills', from: 'plugins' },
+        { kind: 'commands', from: 'plugins' },
+        { kind: 'agents', from: 'plugins' },
+        { kind: 'instructions', from: 'docs' },
+      ]),
+    )
+  })
+
+  it('superclaude-buddy mounts the packaged SuperClaude plugin assets', () => {
+    expect(readAgentPackMounts('superclaude-buddy.template.json')).toEqual(
+      expect.arrayContaining([
+        { kind: 'skills', from: 'plugins/superclaude/skills' },
+        { kind: 'commands', from: 'plugins/superclaude/commands' },
+        { kind: 'agents', from: 'plugins/superclaude/agents' },
+        { kind: 'mcp', from: 'plugins/superclaude/.mcp.json' },
+      ]),
+    )
+  })
+
+  it('scientific-skills-buddy mounts the scientific skills collection', () => {
+    expect(readAgentPackMounts('scientific-skills-buddy.template.json')).toEqual(
+      expect.arrayContaining([
+        { kind: 'skills', from: 'scientific-skills' },
+        { kind: 'instructions', from: 'docs' },
+      ]),
+    )
+  })
+
+  it('claude-seo and claude-ads buddies mount root subagents plus domain docs', () => {
+    expect(readAgentPackMounts('claude-seo-buddy.template.json')).toEqual(
+      expect.arrayContaining([
+        { kind: 'agents', from: 'agents' },
+        { kind: 'scripts', from: 'scripts' },
+        { kind: 'instructions', from: 'docs' },
+      ]),
+    )
+    expect(readAgentPackMounts('claude-ads-buddy.template.json')).toEqual(
+      expect.arrayContaining([
+        { kind: 'agents', from: 'agents' },
+        { kind: 'instructions', from: 'ads/references' },
+        { kind: 'instructions', from: 'research' },
+      ]),
+    )
+  })
+
+  it('google-workspace-buddy enables the Google Workspace plugin', () => {
+    const content = readFlatTemplate('google-workspace-buddy.template.json')
+    const globalUse = (content.use ?? []) as Array<{
+      plugin: string
+      options?: Record<string, unknown>
+    }>
+    const googleWorkspace = globalUse.find((entry) => entry.plugin === 'google-workspace')
+    expect(googleWorkspace?.options).toMatchObject({
+      GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON: '${env:GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON}',
+      services: ['gmail', 'calendar', 'drive', 'docs', 'sheets'],
+      readOnlyByDefault: true,
+    })
   })
 })

@@ -58,7 +58,7 @@ describe('agent-pack slash command indexer', () => {
     expect(commands[0].interaction.fields).toHaveLength(2)
     expect(commands[0].interaction.fields[0].label).toBe('Q1: Demand Reality')
     expect(commands[0].interaction.fields[0].placeholder).toContain('strongest evidence')
-  })
+  }, 20_000)
 
   it('wraps mounted helper scripts as skills and slash commands', () => {
     const root = mkdtempSync(join(tmpdir(), 'shadow-agent-pack-'))

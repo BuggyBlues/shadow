@@ -1,0 +1,123 @@
+{
+  "version": "1.0.0",
+  "name": "claude-ads-buddy",
+  "title": "${i18n:title}",
+  "description": "${i18n:description}",
+  "environment": "production",
+  "use": [
+    {
+      "plugin": "model-provider"
+    },
+    {
+      "plugin": "shadowob",
+      "options": {
+        "servers": [
+          {
+            "id": "ads-ops-hq",
+            "name": "Ads Ops",
+            "slug": "ads-ops",
+            "channels": [
+              {
+                "id": "audit",
+                "title": "Audit",
+                "type": "text"
+              },
+              {
+                "id": "creative",
+                "title": "Creative",
+                "type": "text"
+              },
+              {
+                "id": "budget",
+                "title": "Budget",
+                "type": "text"
+              }
+            ]
+          }
+        ],
+        "buddies": [
+          {
+            "id": "ads-bot",
+            "name": "Ads Buddy"
+          }
+        ],
+        "bindings": [
+          {
+            "targetId": "ads-bot",
+            "targetType": "buddy",
+            "servers": ["ads-ops-hq"],
+            "channels": ["audit", "creative", "budget"],
+            "agentId": "claude-ads-buddy"
+          }
+        ]
+      }
+    }
+  ],
+  "deployments": {
+    "namespace": "claude-ads-buddy",
+    "agents": [
+      {
+        "id": "claude-ads-buddy",
+        "runtime": "openclaw",
+        "description": "Paid advertising audit and optimization Buddy powered by claude-ads: Google, Meta, YouTube, LinkedIn, TikTok, Microsoft, Apple Ads, scoring, creative, and budget models.",
+        "identity": {
+          "name": "Ads Buddy",
+          "personality": "You are a performance marketing operator. You translate platform data into prioritized budget, creative, tracking, and testing actions.",
+          "systemPrompt": "Workflow:\n1. Route requests to claude-ads skills such as ads-audit, ads-google, ads-meta, ads-budget, ads-creative, ads-test, or ads-landing.\n2. Ask for platform, objective, spend range, conversion event, time window, and constraints when missing.\n3. Separate tracking issues, budget waste, creative gaps, audience problems, and landing page bottlenecks.\n4. For scripts or API-driven checks, explain credentials and risk before use.\n5. Cite the claude-ads skill or agent path used."
+        },
+        "use": [
+          {
+            "plugin": "agent-pack",
+            "options": {
+              "packs": [
+                {
+                  "id": "claude-ads",
+                  "url": "https://github.com/AgriciDaniel/claude-ads",
+                  "ref": "main",
+                  "autoImport": ["standard", "claude", "scripts"],
+                  "mounts": [
+                    {
+                      "kind": "instructions",
+                      "from": "ads/references"
+                    },
+                    {
+                      "kind": "instructions",
+                      "from": "ads/research-sources"
+                    },
+                    {
+                      "kind": "instructions",
+                      "from": "research"
+                    }
+                  ],
+                  "instructionFiles": ["CLAUDE.md", "README.md"]
+                }
+              ],
+              "poll": "1h"
+            }
+          }
+        ],
+        "resources": {
+          "requests": {
+            "cpu": "100m",
+            "memory": "384Mi"
+          },
+          "limits": {
+            "cpu": "1000m",
+            "memory": "1Gi"
+          }
+        },
+        "configuration": {}
+      }
+    ]
+  },
+  "i18n": {
+    "en": {
+      "title": "Claude Ads Buddy",
+      "description": "A paid advertising audit and optimization template for platform checks, budget modeling, creative review, tracking issues, and landing-page bottlenecks."
+    },
+    "zh-CN": {
+      "title": "Claude Ads Buddy",
+      "description": "付费广告审计与优化模板，支持平台检查、预算建模、创意评审、追踪问题和落地页瓶颈分析。"
+    }
+  }
+}

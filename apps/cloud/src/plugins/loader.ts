@@ -45,6 +45,7 @@ export async function loadAllPlugins(registry: PluginRegistry): Promise<void> {
     import('./shadowob/index.js'),
     import('./model-provider/index.js'),
     import('./github/index.js'),
+    import('./google-workspace/index.js'),
     import('./notion/index.js'),
     import('./stripe/index.js'),
     import('./gitagent/index.js'),

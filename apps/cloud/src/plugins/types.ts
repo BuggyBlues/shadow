@@ -329,11 +329,46 @@ export interface PluginRuntimeArtifact {
   mediaType?: string
 }
 
+export interface PluginCredentialFile {
+  /** Env var containing file contents, e.g. GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON. */
+  envKey: string
+  /** Absolute path to materialize inside the runtime container. */
+  path: string
+  /** Octal file mode. Defaults to 0600. */
+  mode?: string
+}
+
+export interface PluginVerificationCheck {
+  id: string
+  label: string
+  kind: 'command' | 'http' | 'mcp-tool'
+  command?: string[]
+  http?: {
+    method?: 'GET' | 'POST'
+    url: string
+    headers?: Record<string, string>
+    body?: unknown
+    expectStatus?: number | number[]
+    expectJsonPath?: string
+  }
+  mcp?: {
+    serverId: string
+    toolName: string
+    args?: unknown
+  }
+  timeoutMs?: number
+  risk?: 'safe' | 'read' | 'write'
+  requiredEnv?: string[]
+  cleanup?: PluginVerificationCheck
+}
+
 export interface PluginRuntimeExtension {
   openclaw?: {
     manifestPatches?: PluginOpenClawManifestPatch[]
   }
   artifacts?: PluginRuntimeArtifact[]
+  credentialFiles?: PluginCredentialFile[]
+  verificationChecks?: PluginVerificationCheck[]
 }
 
 // ─── K8s Artifact Types ──────────────────────────────────────────────────────

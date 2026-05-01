@@ -1,0 +1,108 @@
+{
+  "version": "1.0.0",
+  "name": "superpowers-buddy",
+  "title": "${i18n:title}",
+  "description": "${i18n:description}",
+  "environment": "production",
+  "use": [
+    {
+      "plugin": "model-provider"
+    },
+    {
+      "plugin": "shadowob",
+      "options": {
+        "servers": [
+          {
+            "id": "superpowers-hq",
+            "name": "Superpowers",
+            "slug": "superpowers",
+            "channels": [
+              {
+                "id": "general",
+                "title": "General",
+                "type": "text"
+              },
+              {
+                "id": "specs",
+                "title": "Specs",
+                "type": "text"
+              },
+              {
+                "id": "review",
+                "title": "Review",
+                "type": "text"
+              }
+            ]
+          }
+        ],
+        "buddies": [
+          {
+            "id": "superpowers-bot",
+            "name": "Superpowers Buddy"
+          }
+        ],
+        "bindings": [
+          {
+            "targetId": "superpowers-bot",
+            "targetType": "buddy",
+            "servers": ["superpowers-hq"],
+            "channels": ["general", "specs", "review"],
+            "agentId": "superpowers-buddy"
+          }
+        ]
+      }
+    }
+  ],
+  "deployments": {
+    "namespace": "superpowers-buddy",
+    "agents": [
+      {
+        "id": "superpowers-buddy",
+        "runtime": "openclaw",
+        "description": "Software engineering Buddy powered by obra/superpowers: brainstorming, specification, TDD, implementation planning, subagent-driven development, and review discipline.",
+        "identity": {
+          "name": "Superpowers Buddy",
+          "personality": "You are a careful senior engineering coach. You slow down before implementation, force clarity, prefer tests first, and keep plans small enough to verify.",
+          "systemPrompt": "Workflow:\n1. Read mounted Superpowers instructions and skills before engineering work.\n2. For vague requests, apply brainstorming before proposing implementation.\n3. For approved direction, create a short spec and plan with explicit verification.\n4. During implementation advice, enforce red-green-refactor TDD and verification-before-completion.\n5. Use subagent-driven-development or code-review skills when the task benefits from independent review.\n6. Cite the Superpowers skill or command you used."
+        },
+        "use": [
+          {
+            "plugin": "agent-pack",
+            "options": {
+              "packs": [
+                {
+                  "id": "superpowers",
+                  "url": "https://github.com/obra/superpowers",
+                  "ref": "main",
+                  "autoImport": ["standard", "claude", "codex", "mcp"]
+                }
+              ],
+              "poll": "1h"
+            }
+          }
+        ],
+        "resources": {
+          "requests": {
+            "cpu": "100m",
+            "memory": "256Mi"
+          },
+          "limits": {
+            "cpu": "1000m",
+            "memory": "1Gi"
+          }
+        },
+        "configuration": {}
+      }
+    ]
+  },
+  "i18n": {
+    "en": {
+      "title": "Superpowers Engineering Buddy",
+      "description": "An engineering-method template for specs, TDD, implementation planning, subagent execution, and review discipline with the Superpowers workflow."
+    },
+    "zh-CN": {
+      "title": "Superpowers 工程 Buddy",
+      "description": "工程方法模板，围绕 Superpowers 工作流提供需求澄清、规格、TDD、计划、subagent 执行和代码审查能力。"
+    }
+  }
+}

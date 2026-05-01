@@ -20,7 +20,7 @@ Cloud Core 只做微内核：读取模板、加载插件、收集配置碎片、
 | 信号 | 能力 | 说明 |
 |------|------|------|
 | `SKILL.md`、`*-SKILL.md`、`skills/**/SKILL.md`、`.agents/skills/**/SKILL.md` | `standard` skills | 归一化为 OpenClaw 可加载 skill 目录 |
-| `.claude/skills/**/SKILL.md`、`.claude/commands/*.md`、`.claude/agents/*.md` | `claude` skills / commands / agents | 命令转成 skill 目录并生成 Shadow slash command；agent markdown 同时保留 `AGENT.md` |
+| `.claude/skills/**/SKILL.md`、`commands/*.md`、`.claude/commands/*.md`、`agents/*.md`、`.claude/agents/*.md` | `claude` skills / commands / agents | 命令转成 skill 目录并生成 Shadow slash command；agent markdown 同时保留 `AGENT.md` |
 | `AGENTS.md`、`AGENTS.override.md`、`.codex/agents/*.toml`、`.agents/skills/**/SKILL.md` | `codex` instructions / agents / skills | 导入 Codex 指令和自定义 agent 定义；Codex agent TOML 会生成轻量 wrapper 供 runtime 发现 |
 | `.mcp.json`、`mcp.json`、`.claude/mcp.json` | `mcp` | 作为运行时 MCP 配置候选项 |
 | `bin/`、`scripts/`、`setup` / `install` / `bootstrap` | `scripts` | 显式启用后，可执行脚本会被包装成轻量 `SKILL.md`，并注册为 slash command |

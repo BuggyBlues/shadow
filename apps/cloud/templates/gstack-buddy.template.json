@@ -71,10 +71,22 @@
                   "ref": "main",
                   "autoImport": ["standard", "claude", "codex", "mcp"],
                   "mounts": [
-                    { "kind": "instructions", "from": "openclaw" },
-                    { "kind": "scripts", "from": "bin" },
-                    { "kind": "scripts", "from": "scripts" },
-                    { "kind": "scripts", "from": "setup" }
+                    {
+                      "kind": "instructions",
+                      "from": "openclaw"
+                    },
+                    {
+                      "kind": "scripts",
+                      "from": "bin"
+                    },
+                    {
+                      "kind": "scripts",
+                      "from": "scripts"
+                    },
+                    {
+                      "kind": "scripts",
+                      "from": "setup"
+                    }
                   ],
                   "instructionFiles": [
                     "AGENTS.md",
@@ -121,11 +133,11 @@
   "i18n": {
     "en": {
       "title": "gstack Strategy Buddy",
-      "description": "Turn your planning channel into a gstack-style virtual product team: YC office hours, CEO review, investigation, retros, and the helper scripts behind Garry Tan's open source software factory, mounted live from GitHub."
+      "description": "A virtual product-team template for product pressure testing, CEO-style scope review, investigation discipline, weekly retros, and gstack helper scripts mounted from GitHub."
     },
     "zh-CN": {
       "title": "gstack 战略 Buddy",
-      "description": "把规划频道变成 gstack 风格的虚拟产品团队：YC office hours、CEO review、系统化调查、周复盘，以及 Garry Tan 开源软件工厂背后的脚本工具，都会从 GitHub 实时挂载进来。"
+      "description": "虚拟产品团队模板，支持产品压力测试、CEO 视角范围评审、系统化调查、周复盘，并实时挂载 gstack 的脚本工具。"
     }
   }
 }

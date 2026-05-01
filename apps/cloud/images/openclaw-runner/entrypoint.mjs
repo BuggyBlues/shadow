@@ -12,6 +12,7 @@
 import { spawn, spawnSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import {
+  chmodSync,
   cpSync,
   createWriteStream,
   existsSync,
@@ -22,7 +23,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { createServer } from 'node:http'
-import { basename, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 
 const OPENCLAW_STATE_DIR = '/home/openclaw/.openclaw'
 const CONFIG_MOUNT = '/etc/openclaw'
@@ -131,6 +132,40 @@ function applyRuntimeArtifacts(runtimeExtensions) {
   if (typeof slashIndexPath === 'string' && slashIndexPath.trim()) {
     process.env.SHADOW_SLASH_COMMANDS_PATH = slashIndexPath.trim()
     console.log(`[entrypoint] Slash command index: ${slashIndexPath.trim()}`)
+  }
+}
+
+function parseFileMode(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value !== 'string' || !/^[0-7]{3,4}$/.test(value)) return 0o600
+  return Number.parseInt(value, 8)
+}
+
+function materializeCredentialFiles(runtimeExtensions) {
+  const files = Array.isArray(runtimeExtensions?.credentialFiles)
+    ? runtimeExtensions.credentialFiles
+    : []
+  for (const file of files) {
+    if (!file || typeof file.envKey !== 'string' || typeof file.path !== 'string') continue
+    if (!file.path.startsWith('/')) {
+      console.warn(`[entrypoint] Ignoring credential file with non-absolute path: ${file.path}`)
+      continue
+    }
+
+    const value = process.env[file.envKey]
+    if (!value) continue
+
+    try {
+      mkdirSync(dirname(file.path), { recursive: true })
+      const mode = parseFileMode(file.mode)
+      writeFileSync(file.path, value, { encoding: 'utf-8', mode })
+      chmodSync(file.path, mode)
+      console.log(`[entrypoint] Materialized credential file: ${file.path}`)
+    } catch (err) {
+      console.warn(
+        `[entrypoint] Failed to materialize credential file ${file.path}: ${err.message}`,
+      )
+    }
   }
 }
 
@@ -858,6 +893,7 @@ async function main() {
   const mountedConfig = loadMountedConfig()
   const runtimeExtensions = loadRuntimeExtensions()
   applyRuntimeArtifacts(runtimeExtensions)
+  materializeCredentialFiles(runtimeExtensions)
   const baseConfig = generateOpenClawConfig(mountedConfig)
   const openclawConfig = baseConfig
   healthRequiresShadowChannel =

@@ -15,6 +15,7 @@ const SECRET_ENV_MARKERS = [
   'PRIVATE',
   'COOKIE',
   'CERT',
+  'CREDENTIAL',
   'KEY',
   'AUTH',
 ]
@@ -68,7 +69,12 @@ function collectRegistrySecretEnv(
 }
 
 function hasRuntimeExtensions(extension: PluginRuntimeExtension): boolean {
-  return Boolean(extension.openclaw?.manifestPatches?.length || extension.artifacts?.length)
+  return Boolean(
+    extension.openclaw?.manifestPatches?.length ||
+      extension.artifacts?.length ||
+      extension.credentialFiles?.length ||
+      extension.verificationChecks?.length,
+  )
 }
 
 export function buildAgentRuntimePackage(options: {
