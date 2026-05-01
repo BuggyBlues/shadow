@@ -58,9 +58,24 @@ Current connector coverage:
 - SEO and content systems: `seo-suite`, `wordpress-woocommerce`, `webflow`.
 - Cloud and backend operations: `cloudflare`, `supabase`, `vercel`.
 - CRM and lifecycle operations: `hubspot`, `klaviyo`, `salesforce`.
+- China app-layer services: `lark`, `dingtalk`, `tencent-docs`, `wps`, `yuque`, `alipay`, `wechat-pay`, `amap`, `baidu-maps`, `tencent-maps`, `flyai`, `kuaidi100`, `oceanengine`, `tencent-ads`, `coze`, `taobao-aipaas`, `baidu-appbuilder`, `baidu-netdisk`, `wechat-miniprogram-skyline`, `douyin-miniprogram`, `baidu-smartprogram`, `miclaw`, `huawei-xiaoyi`, `gitee`, `tapd`, and `cnb`.
 
 Capability policy:
 
 - Prefer official CLI plus official skills when available. Shopify mounts Shopify AI Toolkit skills and installs `@shopify/cli`; Webflow mounts Webflow skills and installs `@webflow/webflow-cli`.
 - Use remote MCP metadata for providers whose official integration is hosted, such as PayPal, Cloudflare, HubSpot, Klaviyo, Webflow, and Vercel.
 - Keep connectors without confirmed official skills as credential/MCP/CLI declarations until the upstream source is verified.
+
+## China Connector Cross-Check
+
+The domestic connector batch follows the same "one service, one plugin" rule.
+
+- Lark / Feishu: installs `@larksuite/cli`, registers `@larksuiteoapi/lark-mcp`, and mounts official `larksuite/cli` skills from `skills/lark-*`.
+- DingTalk: registers the verified `dingtalk-mcp` stdio MCP package and preserves the upstream env names `DINGTALK_Client_ID`, `DINGTALK_Client_Secret`, and `ACTIVE_PROFILES`.
+- Yuque: registers `yuque-mcp` and mounts the official OpenClaw skills from `yuque/yuque-ecosystem`.
+- AMap and Baidu Maps: register the verified npm MCP packages `@amap/amap-maps-mcp-server` and `@baidumap/mcp-server-baidu-map` with their documented env keys.
+- FlyAI: installs `@fly-ai/flyai-cli` and mounts `alibaba-flyai/flyai-skill`.
+- WeChat Mini Program Skyline: mounts official `wechat-miniprogram/skyline-skills`.
+- Gitee: registers `@gitee/mcp-gitee` with the documented `GITEE_ACCESS_TOKEN` / `GITEE_API_BASE` env contract.
+
+Connectors whose official documentation describes an MCP/CLI surface but does not expose a stable package or endpoint in the current cross-check are intentionally registered as credentialed skill connectors first. Once a stable upstream command, URL, or skill repo is verified, the plugin can add `mcp`, `runtimeDependencies`, or `skillSources` without changing templates.
