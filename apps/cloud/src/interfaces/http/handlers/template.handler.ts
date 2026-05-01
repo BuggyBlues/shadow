@@ -3,7 +3,10 @@
  */
 
 import { Hono } from 'hono'
-import { collectRuntimeEnvFields } from '../../../application/runtime-env-requirements.js'
+import {
+  collectRuntimeEnvFields,
+  collectRuntimeEnvRequirements,
+} from '../../../application/runtime-env-requirements.js'
 import type { HandlerContext } from './types.js'
 
 /** Extract all ${env:VAR_NAME} references from a JSON object recursively */
@@ -62,7 +65,10 @@ export function createTemplateHandler(ctx: HandlerContext): Hono {
     const content = await ctx.container.template.getTemplate(name)
     if (!content) return c.json({ error: `Template not found: ${name}` }, 404)
     const refs = extractEnvRefs(content)
-    const runtimeFields = await collectRuntimeEnvFields(content)
+    const [runtimeFields, runtimeEnvVars] = await Promise.all([
+      collectRuntimeEnvFields(content),
+      collectRuntimeEnvRequirements(content),
+    ])
     const byKey = new Map(runtimeFields.map((field) => [field.key, field]))
     for (const key of refs) {
       if (!byKey.has(key)) {
@@ -71,13 +77,19 @@ export function createTemplateHandler(ctx: HandlerContext): Hono {
           label: key,
           required: true,
           sensitive: /(TOKEN|SECRET|PASSWORD|PRIVATE|CREDENTIAL|API_KEY|_KEY$|_B64$)/i.test(key),
+          source: 'template',
+          sourceId: 'template',
+          sourceLabel: 'Template',
         })
       }
     }
+    const fields = [...byKey.values()].sort((a, b) => a.key.localeCompare(b.key))
+    const visibleKeys = new Set(fields.map((field) => field.key))
     return c.json({
       template: name,
       requiredEnvVars: refs,
-      fields: [...byKey.values()].sort((a, b) => a.key.localeCompare(b.key)),
+      fields,
+      autoDetectedEnvVars: runtimeEnvVars.filter((key) => !visibleKeys.has(key)).sort(),
     })
   })
 

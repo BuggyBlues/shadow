@@ -574,6 +574,8 @@ describe('collectRuntimeEnvRequirements', () => {
           required: false,
           sensitive: true,
           placeholder: '{"installed":{"client_id":"..."}}',
+          source: 'plugin',
+          sourceId: 'google-workspace',
         }),
         expect.objectContaining({
           key: 'GOOGLE_WORKSPACE_ACCESS_TOKEN',
@@ -583,6 +585,57 @@ describe('collectRuntimeEnvRequirements', () => {
           placeholder: 'ya29...',
         }),
       ]),
+    )
+  })
+
+  it('keeps model-provider auto-detected variables out of deploy form fields', async () => {
+    const fields = await collectRuntimeEnvFields({
+      version: '1',
+      use: [{ plugin: 'model-provider' }],
+      deployments: { agents: [{ id: 'agent-1', runtime: 'openclaw', configuration: {} }] },
+    })
+
+    expect(fields.map((field) => field.key)).not.toEqual(
+      expect.arrayContaining(['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'OPENAI_COMPATIBLE_API_KEY']),
+    )
+  })
+
+  it('keeps explicit model-provider env refs auto-detected instead of form fields', async () => {
+    const fields = await collectRuntimeEnvFields({
+      version: '1',
+      use: [{ plugin: 'model-provider' }],
+      models: {
+        providers: {
+          anthropic: {
+            apiKey: '${env:ANTHROPIC_API_KEY}',
+          },
+        },
+      },
+      deployments: { agents: [{ id: 'agent-1', runtime: 'openclaw', configuration: {} }] },
+    })
+
+    expect(fields.map((field) => field.key)).not.toContain('ANTHROPIC_API_KEY')
+  })
+
+  it('keeps explicit non-provider template env refs visible and required', async () => {
+    const fields = await collectRuntimeEnvFields({
+      version: '1',
+      use: [{ plugin: 'model-provider' }],
+      tools: {
+        custom: {
+          token: '${env:CUSTOM_TOOL_TOKEN}',
+        },
+      },
+      deployments: { agents: [{ id: 'agent-1', runtime: 'openclaw', configuration: {} }] },
+    })
+
+    expect(fields).toContainEqual(
+      expect.objectContaining({
+        key: 'CUSTOM_TOOL_TOKEN',
+        required: true,
+        source: 'template',
+        sourceId: 'template',
+      }),
     )
   })
 })

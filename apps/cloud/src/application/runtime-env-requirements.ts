@@ -15,6 +15,9 @@ export interface RuntimeEnvField {
   required: boolean
   sensitive: boolean
   placeholder?: string
+  source: 'template' | 'plugin'
+  sourceId: string
+  sourceLabel: string
 }
 
 function collectPluginIds(value: unknown, out = new Set<string>(), depth = 0): Set<string> {
@@ -53,6 +56,27 @@ function addPluginSecretKeys(keys: Set<string>, plugin: PluginDefinition): void 
   }
 }
 
+function collectProviderCatalogKeys(
+  registry: ReturnType<typeof getPluginRegistry>,
+  pluginIds: Set<string>,
+): Set<string> {
+  const keys = new Set<string>()
+  const allProviderCatalogs = registry.getAll().flatMap((plugin) => plugin.providerCatalogs ?? [])
+
+  for (const pluginId of pluginIds) {
+    const plugin = registry.get(pluginId)
+    if (plugin) {
+      for (const catalog of plugin.providerCatalogs ?? []) addProviderCatalogKeys(keys, catalog)
+    }
+
+    if (pluginId === 'model-provider') {
+      for (const catalog of allProviderCatalogs) addProviderCatalogKeys(keys, catalog)
+    }
+  }
+
+  return keys
+}
+
 function isSensitiveEnvKey(key: string): boolean {
   return /(TOKEN|SECRET|PASSWORD|PRIVATE|CREDENTIAL|API_KEY|_KEY$|_B64$)/i.test(key)
 }
@@ -72,10 +96,13 @@ function fieldFromEnvRef(key: string): RuntimeEnvField {
     label: envKeyToLabel(key),
     required: true,
     sensitive: isSensitiveEnvKey(key),
+    source: 'template',
+    sourceId: 'template',
+    sourceLabel: 'Template',
   }
 }
 
-function fieldFromAuth(field: PluginAuthField): RuntimeEnvField {
+function fieldFromAuth(field: PluginAuthField, plugin: PluginDefinition): RuntimeEnvField {
   return {
     key: field.key,
     label: field.label || envKeyToLabel(field.key),
@@ -83,12 +110,16 @@ function fieldFromAuth(field: PluginAuthField): RuntimeEnvField {
     required: field.required,
     sensitive: field.sensitive,
     placeholder: field.placeholder,
+    source: 'plugin',
+    sourceId: plugin.manifest.id,
+    sourceLabel: plugin.manifest.name,
   }
 }
 
 function mergeSecretField(
   base: RuntimeEnvField | undefined,
   field: PluginSecretField,
+  plugin: PluginDefinition,
 ): RuntimeEnvField {
   return {
     key: field.key,
@@ -97,6 +128,9 @@ function mergeSecretField(
     required: field.required ?? base?.required ?? false,
     sensitive: field.sensitive ?? base?.sensitive ?? isSensitiveEnvKey(field.key),
     placeholder: field.placeholder ?? base?.placeholder,
+    source: base?.source ?? 'plugin',
+    sourceId: base?.sourceId ?? plugin.manifest.id,
+    sourceLabel: base?.sourceLabel ?? plugin.manifest.name,
   }
 }
 
@@ -110,29 +144,10 @@ function addField(fields: Map<string, RuntimeEnvField>, field: RuntimeEnvField):
     description: field.description ?? existing?.description,
     placeholder: field.placeholder ?? existing?.placeholder,
     label: field.label || existing?.label || field.key,
+    source: existing?.source ?? field.source,
+    sourceId: existing?.sourceId ?? field.sourceId,
+    sourceLabel: existing?.sourceLabel ?? field.sourceLabel,
   })
-}
-
-function addProviderCatalogFields(
-  fields: Map<string, RuntimeEnvField>,
-  catalog: ProviderCatalog,
-): void {
-  if (catalog.allowEnvDetection === false) return
-
-  addField(fields, { ...fieldFromEnvRef(catalog.envKey), required: false })
-  for (const alias of catalog.envKeyAliases ?? []) {
-    addField(fields, { ...fieldFromEnvRef(alias), required: false })
-  }
-  if (catalog.baseUrlEnvKey) {
-    addField(fields, { ...fieldFromEnvRef(catalog.baseUrlEnvKey), required: false })
-  }
-  if (catalog.modelEnvKey) {
-    addField(fields, {
-      ...fieldFromEnvRef(catalog.modelEnvKey),
-      required: false,
-      sensitive: false,
-    })
-  }
 }
 
 function addPluginSecretFields(
@@ -140,15 +155,14 @@ function addPluginSecretFields(
   plugin: PluginDefinition,
 ): void {
   const manifestFields = new Map(
-    plugin.manifest.auth.fields.map((field) => [field.key, fieldFromAuth(field)]),
+    plugin.manifest.auth.fields.map((field) => [field.key, fieldFromAuth(field, plugin)]),
   )
 
   for (const manifestField of manifestFields.values()) addField(fields, manifestField)
 
   for (const field of plugin.secretFields ?? []) {
     if (field.runtime === false) continue
-    addField(fields, mergeSecretField(manifestFields.get(field.key), field))
-    for (const alias of field.aliases ?? []) addField(fields, fieldFromEnvRef(alias))
+    addField(fields, mergeSecretField(manifestFields.get(field.key), field, plugin))
   }
 }
 
@@ -166,19 +180,14 @@ export async function collectRuntimeEnvRequirements(configSnapshot: unknown): Pr
 
   const registry = getPluginRegistry()
   const keys = new Set<string>()
-  const allProviderCatalogs = registry.getAll().flatMap((plugin) => plugin.providerCatalogs ?? [])
+  const providerCatalogKeys = collectProviderCatalogKeys(registry, pluginIds)
 
   for (const pluginId of pluginIds) {
     const plugin = registry.get(pluginId)
-    if (plugin) {
-      addPluginSecretKeys(keys, plugin)
-      for (const catalog of plugin.providerCatalogs ?? []) addProviderCatalogKeys(keys, catalog)
-    }
-
-    if (pluginId === 'model-provider') {
-      for (const catalog of allProviderCatalogs) addProviderCatalogKeys(keys, catalog)
-    }
+    if (plugin) addPluginSecretKeys(keys, plugin)
   }
+
+  for (const key of providerCatalogKeys) keys.add(key)
 
   return [...keys].sort()
 }
@@ -193,28 +202,26 @@ export async function collectRuntimeEnvRequirements(configSnapshot: unknown): Pr
  */
 export async function collectRuntimeEnvFields(configSnapshot: unknown): Promise<RuntimeEnvField[]> {
   const fields = new Map<string, RuntimeEnvField>()
-
-  for (const ref of collectTemplateRefs(configSnapshot)) {
-    if (ref.type === 'env') addField(fields, fieldFromEnvRef(ref.key))
-  }
-
   const pluginIds = collectPluginIds(configSnapshot)
+  let providerCatalogKeys = new Set<string>()
+
   if (pluginIds.size > 0) {
     await ensurePluginsLoaded()
+    providerCatalogKeys = collectProviderCatalogKeys(getPluginRegistry(), pluginIds)
+  }
+
+  for (const ref of collectTemplateRefs(configSnapshot)) {
+    if (ref.type === 'env' && !providerCatalogKeys.has(ref.key)) {
+      addField(fields, fieldFromEnvRef(ref.key))
+    }
+  }
+
+  if (pluginIds.size > 0) {
     const registry = getPluginRegistry()
-    const allProviderCatalogs = registry.getAll().flatMap((plugin) => plugin.providerCatalogs ?? [])
 
     for (const pluginId of pluginIds) {
       const plugin = registry.get(pluginId)
-      if (plugin) {
-        addPluginSecretFields(fields, plugin)
-        for (const catalog of plugin.providerCatalogs ?? [])
-          addProviderCatalogFields(fields, catalog)
-      }
-
-      if (pluginId === 'model-provider') {
-        for (const catalog of allProviderCatalogs) addProviderCatalogFields(fields, catalog)
-      }
+      if (plugin && pluginId !== 'model-provider') addPluginSecretFields(fields, plugin)
     }
   }
 
