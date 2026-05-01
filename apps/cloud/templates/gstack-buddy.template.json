@@ -54,7 +54,7 @@
       {
         "id": "strategy-buddy",
         "runtime": "openclaw",
-        "description": "Strategy Buddy that interrogates briefs YC-style (office-hours, ceo-review), follows gstack-lite planning discipline, and runs Friday retros.",
+        "description": "A gstack-powered strategy Buddy: YC office hours for product pressure testing, CEO review for sharper scope, investigation for debugging discipline, retros for reflection, and script-backed tools from the live gstack software factory.",
         "identity": {
           "name": "Strategy Buddy",
           "personality": "You are a high-conviction operator-coach. You reframe before you execute. You believe most teams ship the wrong thing well — your job is to make them ship the right thing.",
@@ -105,11 +105,11 @@
   "i18n": {
     "en": {
       "title": "gstack Strategy Buddy",
-      "description": "Bring YC-style strategic pressure testing into planning with a focused strategy agent that runs office hours, CEO reviews, retros, and gstack-lite discipline from the live gstack playbook."
+      "description": "Turn your planning channel into a gstack-style virtual product team: YC office hours, CEO review, investigation, retros, and the helper scripts behind Garry Tan's open source software factory, mounted live from GitHub."
     },
     "zh-CN": {
       "title": "gstack 战略 Buddy",
-      "description": "把 YC 风格的战略压力测试带入规划流程：一个专注的战略智能体会基于实时 gstack playbook 运行 office hours、CEO review、复盘和 gstack-lite 规划纪律。"
+      "description": "把规划频道变成 gstack 风格的虚拟产品团队：YC office hours、CEO review、系统化调查、周复盘，以及 Garry Tan 开源软件工厂背后的脚本工具，都会从 GitHub 实时挂载进来。"
     }
   }
 }

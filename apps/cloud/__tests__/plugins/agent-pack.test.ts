@@ -106,6 +106,8 @@ describe('agent-pack resolvePacks', () => {
         { kind: 'instructions', from: 'context' },
         { kind: 'mcp', from: '.mcp.json' },
         { kind: 'scripts', from: 'bin' },
+        { kind: 'scripts', from: 'setup' },
+        { kind: 'scripts', from: 'install.sh' },
       ]),
     )
   })
