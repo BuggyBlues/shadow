@@ -13,6 +13,7 @@ interface PageShellProps {
   className?: string
   narrow?: boolean
   bodyClassName?: string
+  breadcrumbPosition?: 'outside' | 'inside'
 }
 
 export function PageShell({
@@ -25,8 +26,10 @@ export function PageShell({
   className,
   narrow,
   bodyClassName = 'space-y-6',
+  breadcrumbPosition = 'outside',
 }: PageShellProps) {
   const hasTitleRow = Boolean(title) || Boolean(actions)
+  const renderBreadcrumbInHeader = breadcrumb.length > 0 && breadcrumbPosition === 'inside'
 
   return (
     <div
@@ -36,9 +39,12 @@ export function PageShell({
         className,
       )}
     >
-      {breadcrumb.length > 0 && <Breadcrumb items={breadcrumb} className="mb-4" />}
+      {breadcrumb.length > 0 && breadcrumbPosition === 'outside' ? (
+        <Breadcrumb items={breadcrumb} className="mb-4" />
+      ) : null}
 
       <GlassPanel as="section" className="p-5 md:p-6">
+        {renderBreadcrumbInHeader ? <Breadcrumb items={breadcrumb} className="mb-3" /> : null}
         {/* Title row */}
         {hasTitleRow ? (
           <div

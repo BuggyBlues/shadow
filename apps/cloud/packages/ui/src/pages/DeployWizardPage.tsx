@@ -44,7 +44,8 @@ import type { FieldErrors } from 'react-hook-form'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { AlertBanner, AlertBannerList } from '@/components/AlertBanner'
-import { Breadcrumb } from '@/components/Breadcrumb'
+import { LogsPanel } from '@/components/LogsPanel'
+import { PageShell } from '@/components/PageShell'
 import { useSSEStream } from '@/hooks/useSSEStream'
 import { type ProviderSettings, type TemplateEnvField } from '@/lib/api'
 import { useApiClient } from '@/lib/api-context'
@@ -1338,12 +1339,22 @@ function StepDeploy({
   const { t, i18n } = useTranslation()
   const logRef = useRef<HTMLDivElement>(null)
   const shouldAutoScrollLogRef = useRef(true)
+  const [showLogTimestamps, setShowLogTimestamps] = useState(false)
   const toast = useToast()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const addActivity = useAppStore((s) => s.addActivity)
   const addRecentDeploy = useAppStore((s) => s.addRecentDeploy)
-  const { lines, status, error: sseError, connect, startFetch, disconnect, clear } = useSSEStream()
+  const {
+    lines,
+    entries: logLines,
+    status,
+    error: sseError,
+    connect,
+    startFetch,
+    disconnect,
+    clear,
+  } = useSSEStream()
   const [deployStarted, setDeployStarted] = useState(false)
   const [deploySuccess, setDeploySuccess] = useState<boolean | null>(null)
   const [taskInfo, setTaskInfo] = useState<{ id: number | string; url: string } | null>(null)
@@ -2013,33 +2024,37 @@ function StepDeploy({
           )}
 
           {/* Log viewer */}
-          <div className="overflow-hidden rounded-xl border border-border-subtle/35 bg-bg-deep/95 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-            <div className="flex items-center justify-between border-b border-border-subtle/30 bg-bg-secondary/30 px-4 py-2.5">
-              <span className="text-xs text-text-muted font-medium">
-                {t('deploy.deploymentLog')}
-              </span>
-              {lines.length > 0 && (
-                <Button type="button" onClick={handleDownloadLog} variant="ghost" size="sm">
-                  <Download size={11} />
-                  {t('deploy.download')}
-                </Button>
-              )}
-            </div>
-            <div
-              ref={logRef}
-              onScroll={handleLogScroll}
-              className="h-[min(42vh,30rem)] min-h-[18rem] overflow-auto p-4 font-mono text-xs text-text-secondary space-y-1 overscroll-contain"
-            >
-              {lines.length === 0 && isDeploying && (
-                <span className="text-text-muted">{t('deploy.initializingDeployment')}</span>
-              )}
-              {lines.map((line, i) => (
-                <div key={i} className="leading-relaxed">
-                  {line || '\u00a0'}
-                </div>
-              ))}
-            </div>
-          </div>
+          <LogsPanel
+            headerLeft={t('deploy.deploymentLog')}
+            lines={logLines}
+            collapseRepeats
+            showTimestamps={showLogTimestamps}
+            footerLeft={<span>{t('deploy.logLinesReceived', { count: lines.length })}</span>}
+            footerRight={
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-2 text-xs text-text-secondary">
+                  <Checkbox
+                    checked={showLogTimestamps}
+                    onCheckedChange={(checked) => setShowLogTimestamps(checked === true)}
+                  />
+                  <span>
+                    {showLogTimestamps ? t('deploy.hideTimestamps') : t('deploy.showTimestamps')}
+                  </span>
+                </label>
+                {lines.length > 0 && (
+                  <Button type="button" onClick={handleDownloadLog} variant="ghost" size="sm">
+                    <Download size={11} />
+                    {t('deploy.download')}
+                  </Button>
+                )}
+              </div>
+            }
+            emptyText={
+              isDeploying ? t('deploy.initializingDeployment') : t('deployments.noLogsYet')
+            }
+            bodyRef={logRef}
+            bodyOnScroll={handleLogScroll}
+          />
 
           {sseError && (
             <div className="rounded-lg border border-danger/25 bg-danger/8 px-4 py-3 text-xs text-danger">
@@ -2147,132 +2162,118 @@ export function DeployWizardPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <GlassPanel className="overflow-hidden border border-border-subtle/35 p-0 shadow-[0_24px_90px_rgba(0,0,0,0.28)]">
-        {/* Sticky top header */}
-        <div className="sticky top-0 z-20 border-b border-border-subtle/35 bg-bg-base/60 backdrop-blur-[16px]">
-          <div className="px-4 py-4 md:px-6">
-            <Breadcrumb
-              items={[
-                { label: t('store.title'), to: '/store' },
-                { label: name, to: `/store/${name}` },
-                { label: t('common.deploy') },
-              ]}
-              className="mb-3"
-            />
-            <div className="flex items-start gap-4">
-              {/* Glass step indicators */}
-              <div className="grid grid-cols-3 gap-2 flex-1 min-w-0">
-                {steps.map((step, index) => {
-                  const status =
-                    index < currentStep
-                      ? 'completed'
-                      : index === currentStep
-                        ? 'active'
-                        : 'upcoming'
-                  const isClickable = index <= currentStep
-                  return (
-                    <button
-                      key={step.id}
-                      type="button"
-                      disabled={!isClickable}
-                      onClick={() => isClickable && setCurrentStep(index)}
+    <PageShell
+      className="max-w-4xl"
+      breadcrumb={[
+        { label: t('store.title'), to: '/store' },
+        { label: name, to: `/store/${name}` },
+        { label: t('common.deploy') },
+      ]}
+      breadcrumbPosition="inside"
+      title={name}
+      headerContent={
+        <div className="flex items-start gap-4">
+          {/* Glass step indicators */}
+          <div className="grid grid-cols-3 gap-2 flex-1 min-w-0">
+            {steps.map((step, index) => {
+              const status =
+                index < currentStep ? 'completed' : index === currentStep ? 'active' : 'upcoming'
+              const isClickable = index <= currentStep
+              return (
+                <button
+                  key={step.id}
+                  type="button"
+                  disabled={!isClickable}
+                  onClick={() => isClickable && setCurrentStep(index)}
+                  className={cn(
+                    'group rounded-xl border border-border-subtle/28 px-3 py-2 text-left transition-colors',
+                    isClickable ? 'cursor-pointer' : 'cursor-default',
+                    status === 'active' &&
+                      'border-primary/30 bg-primary/10 shadow-[0_0_0_1px_rgba(0,243,255,0.05)_inset]',
+                    status === 'completed' &&
+                      'border-success/22 bg-success/8 hover:border-success/35 hover:bg-success/12',
+                    status === 'upcoming' && 'bg-bg-secondary/40 text-text-muted',
+                  )}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div
                       className={cn(
-                        'group rounded-xl border border-border-subtle/28 px-3 py-2 text-left transition-colors',
-                        isClickable ? 'cursor-pointer' : 'cursor-default',
-                        status === 'active' &&
-                          'border-primary/30 bg-primary/10 shadow-[0_0_0_1px_rgba(0,243,255,0.05)_inset]',
+                        'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition-all',
+                        status === 'active' && 'bg-primary text-bg-base',
                         status === 'completed' &&
-                          'border-success/22 bg-success/8 hover:border-success/35 hover:bg-success/12',
-                        status === 'upcoming' && 'bg-bg-secondary/40 text-text-muted',
+                          'bg-success/18 text-success ring-1 ring-success/35',
+                        status === 'upcoming' &&
+                          'bg-bg-secondary text-text-muted ring-1 ring-border-subtle',
                       )}
                     >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div
-                          className={cn(
-                            'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition-all',
-                            status === 'active' && 'bg-primary text-bg-base',
-                            status === 'completed' &&
-                              'bg-success/18 text-success ring-1 ring-success/35',
-                            status === 'upcoming' &&
-                              'bg-bg-secondary text-text-muted ring-1 ring-border-subtle',
-                          )}
-                        >
-                          {status === 'completed' ? <CheckCircle2 size={14} /> : index + 1}
-                        </div>
-                        <div className="min-w-0">
-                          <span
-                            className={cn(
-                              'text-xs md:text-sm font-medium block truncate transition-colors',
-                              status === 'active' && 'text-text-primary',
-                              status === 'completed' &&
-                                'text-text-secondary group-hover:text-text-primary',
-                              status === 'upcoming' && 'text-text-muted',
-                            )}
-                          >
-                            {step.label}
-                          </span>
-                          <span
-                            className={cn(
-                              'hidden md:block text-[11px] truncate',
-                              status === 'active' ? 'text-text-secondary' : 'text-text-muted',
-                            )}
-                          >
-                            {step.description}
-                          </span>
-                        </div>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-              {/* Nav buttons */}
-              <div className="flex items-center gap-2 shrink-0 pt-1">
-                {currentStep > 0 && currentStep < 2 && (
-                  <Button type="button" onClick={handleBack} variant="ghost" size="sm">
-                    <ArrowLeft size={14} />
-                    {t('common.back')}
-                  </Button>
-                )}
-                {nextLabel && currentStep === 0 && (
-                  <Button
-                    type="button"
-                    onClick={() => setCurrentStep(1)}
-                    variant="primary"
-                    size="sm"
-                  >
-                    {nextLabel}
-                    <ArrowRight size={14} />
-                  </Button>
-                )}
-                {nextLabel && currentStep === 1 && (
-                  <Button type="submit" form="wizard-configure-form" variant="primary" size="sm">
-                    {nextLabel}
-                    <ArrowRight size={14} />
-                  </Button>
-                )}
-              </div>
-            </div>
+                      {status === 'completed' ? <CheckCircle2 size={14} /> : index + 1}
+                    </div>
+                    <div className="min-w-0">
+                      <span
+                        className={cn(
+                          'text-xs md:text-sm font-medium block truncate transition-colors',
+                          status === 'active' && 'text-text-primary',
+                          status === 'completed' &&
+                            'text-text-secondary group-hover:text-text-primary',
+                          status === 'upcoming' && 'text-text-muted',
+                        )}
+                      >
+                        {step.label}
+                      </span>
+                      <span
+                        className={cn(
+                          'hidden md:block text-[11px] truncate',
+                          status === 'active' ? 'text-text-secondary' : 'text-text-muted',
+                        )}
+                      >
+                        {step.description}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+          {/* Nav buttons */}
+          <div className="flex items-center gap-2 shrink-0 pt-1">
+            {currentStep > 0 && currentStep < 2 && (
+              <Button type="button" onClick={handleBack} variant="ghost" size="sm">
+                <ArrowLeft size={14} />
+                {t('common.back')}
+              </Button>
+            )}
+            {nextLabel && currentStep === 0 && (
+              <Button type="button" onClick={() => setCurrentStep(1)} variant="primary" size="sm">
+                {nextLabel}
+                <ArrowRight size={14} />
+              </Button>
+            )}
+            {nextLabel && currentStep === 1 && (
+              <Button type="submit" form="wizard-configure-form" variant="primary" size="sm">
+                {nextLabel}
+                <ArrowRight size={14} />
+              </Button>
+            )}
           </div>
         </div>
-
-        {/* Step content */}
-        <div className="p-6 pb-12">
-          {currentStep === 0 && <StepOverview name={name} />}
-          {currentStep === 1 && (
-            <StepConfigure
-              name={name}
-              config={deployConfig}
-              onChange={setDeployConfig}
-              onBack={handleBack}
-              onNext={() => setCurrentStep(2)}
-            />
-          )}
-          {currentStep === 2 && (
-            <StepDeploy name={name} config={deployConfig} onBack={() => setCurrentStep(1)} />
-          )}
-        </div>
-      </GlassPanel>
-    </div>
+      }
+    >
+      {/* Step content */}
+      <div className="p-6 pb-12">
+        {currentStep === 0 && <StepOverview name={name} />}
+        {currentStep === 1 && (
+          <StepConfigure
+            name={name}
+            config={deployConfig}
+            onChange={setDeployConfig}
+            onBack={handleBack}
+            onNext={() => setCurrentStep(2)}
+          />
+        )}
+        {currentStep === 2 && (
+          <StepDeploy name={name} config={deployConfig} onBack={() => setCurrentStep(1)} />
+        )}
+      </div>
+    </PageShell>
   )
 }

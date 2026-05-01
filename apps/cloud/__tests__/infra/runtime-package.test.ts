@@ -224,6 +224,22 @@ describe('buildAgentRuntimePackage', () => {
     expect(runtimeExtensions.verificationChecks.map((check: { id: string }) => check.id)).toEqual(
       expect.arrayContaining(['google-workspace-auth', 'google-workspace-calendar-agenda']),
     )
+    expect(runtimePackage.openclawConfig.skills?.entries?.['google-workspace']).toMatchObject({
+      enabled: true,
+      config: {
+        services: ['gmail', 'calendar', 'drive', 'docs', 'sheets'],
+        skillSources: ['/app/plugin-skills/google-workspace'],
+      },
+      env: {
+        GOOGLE_WORKSPACE_SERVICES: 'gmail,calendar,drive,docs,sheets',
+      },
+    })
+    expect(runtimePackage.openclawConfig.skills?.entries?.['google-workspace']).not.toHaveProperty(
+      'services',
+    )
+    expect(runtimePackage.openclawConfig.skills?.entries?.['google-workspace']).not.toHaveProperty(
+      'skillSources',
+    )
     expect(runtimePackage.secretData.GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON).toBe('{"installed":{}}')
     expect(runtimePackage.secretData.GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE).toBe(
       '/home/openclaw/.config/gws/credentials.json',

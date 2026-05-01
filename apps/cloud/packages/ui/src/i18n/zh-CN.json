@@ -304,6 +304,8 @@
     "whatHappensNextDesc": "Shadow Cloud 将初始化模板、生成 Kubernetes 清单并部署到集群。你可以在下方实时监控部署进度。",
     "deploymentLog": "部署日志",
     "download": "下载",
+    "showTimestamps": "显示时间戳",
+    "hideTimestamps": "隐藏时间戳",
     "logLinesReceived": "已接收 {{count}} 行日志",
     "shadowConnectionTitle": "Shadow 平台连接",
     "shadowConnectionDescription": "用于创建 Shadow 资源（服务器、频道、伙伴）的服务地址与 API 令牌。",

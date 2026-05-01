@@ -792,8 +792,13 @@ describe('Tool plugins', () => {
       entries: {
         'google-workspace': {
           enabled: true,
-          services: ['gmail', 'calendar'],
-          skillSources: ['/app/plugin-skills/google-workspace'],
+          config: {
+            services: ['gmail', 'calendar'],
+            skillSources: ['/app/plugin-skills/google-workspace'],
+          },
+          env: {
+            GOOGLE_WORKSPACE_SERVICES: 'gmail,calendar',
+          },
         },
       },
     })
@@ -884,6 +889,16 @@ describe('Tool plugins', () => {
     expect(installCommand).toContain('/runtime-deps/bin/gws --version')
     expect(installCommand).toContain('test -f /plugin-skills/gws-shared/SKILL.md')
     expect(installCommand).toContain('https://github.com/googleworkspace/cli.git')
+    expect(result?.initContainers?.[0]?.securityContext).toMatchObject({
+      allowPrivilegeEscalation: false,
+      runAsNonRoot: false,
+      runAsUser: 0,
+      runAsGroup: 0,
+      capabilities: { drop: ['ALL'] },
+    })
+    expect(result?.envVars?.find((env) => env.name === 'PATH')?.value).toBe(
+      '/opt/shadow-plugin-deps/google-workspace/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+    )
     expect(result?.volumeMounts).toEqual(
       expect.arrayContaining([
         {

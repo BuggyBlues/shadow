@@ -37,7 +37,7 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Breadcrumb } from '@/components/Breadcrumb'
+import { PageShell } from '@/components/PageShell'
 import {
   parseTemplateAgents,
   type TemplateAgentInfo,
@@ -464,21 +464,23 @@ export function MyTemplateDetailPage() {
 
   if (!data) {
     return (
-      <div className="p-6">
-        <Breadcrumb
-          items={[{ label: t('templates.title'), to: '/my-templates' }, { label: name }]}
-          className="mb-4"
-        />
+      <PageShell
+        breadcrumb={[{ label: t('templates.title'), to: '/my-templates' }, { label: name }]}
+        breadcrumbPosition="inside"
+        narrow
+        title={name}
+        description={t('templateDetail.missingTemplateDescription', { name })}
+        actions={
+          <Button asChild variant="primary" size="sm">
+            <Link to="/my-templates">{t('templateDetail.backToTemplates')}</Link>
+          </Button>
+        }
+      >
         <EmptyState
           title={t('storeDetail.templateNotFound')}
           description={t('templateDetail.missingTemplateDescription', { name })}
-          action={
-            <Button asChild variant="primary" size="sm">
-              <Link to="/my-templates">{t('templateDetail.backToTemplates')}</Link>
-            </Button>
-          }
         />
-      </div>
+      </PageShell>
     )
   }
 

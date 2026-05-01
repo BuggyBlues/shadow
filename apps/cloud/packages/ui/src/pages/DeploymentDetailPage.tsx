@@ -34,7 +34,6 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Breadcrumb } from '@/components/Breadcrumb'
 import { DangerConfirmDialog } from '@/components/DangerConfirmDialog'
 import { DashboardEmptyState } from '@/components/DashboardEmptyState'
 import { DashboardTabsList } from '@/components/DashboardTabsList'
@@ -42,6 +41,7 @@ import { DashboardTaskCard } from '@/components/DashboardTaskCard'
 import { EnvVarEditorDialog } from '@/components/EnvVarEditorDialog'
 import { IconActionButton } from '@/components/IconActionButton'
 import { LogsPanel } from '@/components/LogsPanel'
+import { PageShell } from '@/components/PageShell'
 import { StatCard } from '@/components/StatCard'
 import { StatusBadge } from '@/components/StatusBadge'
 import { ToolbarActionButton } from '@/components/ToolbarActionButton'
@@ -93,7 +93,7 @@ function PodsTab({ pods, isLoading }: { pods: Pod[] | undefined; isLoading: bool
         })}
       </p>
 
-      <Card variant="glass">
+      <Card>
         <Table>
           <TableHeader>
             <TableRow>
@@ -224,11 +224,11 @@ function LogsTab({ namespace, id }: { namespace: string; id: string }) {
         }
         headerRight={<span>{t('deploymentDetail.logsLines', { count: lines.length })}</span>}
         lines={lines}
+        collapseRepeats
         emptyText={
           connected ? t('deploymentDetail.logsWaiting') : t('deploymentDetail.logsConnectHint')
         }
         bodyRef={logRef}
-        bodyClassName="max-h-[30rem] bg-bg-deep/80"
       />
     </div>
   )
@@ -251,7 +251,7 @@ function InfoTab({
 
   return (
     <div className="space-y-6">
-      <Card variant="glass">
+      <Card>
         <div className="flex items-center justify-between px-5 py-3">
           <span className="text-xs text-text-muted">
             {t('deploymentDetail.info.deploymentName')}
@@ -411,7 +411,7 @@ function ConfigTab() {
       )}
 
       {/* Editor */}
-      <Card variant="glass">
+      <Card>
         <Editor
           height="400px"
           language="json"
@@ -525,7 +525,7 @@ function EnvironmentTab() {
       {envVars.length === 0 ? (
         <DashboardEmptyState icon={Variable} title={t('secrets.noEnvVarsInGroup')} />
       ) : (
-        <Card variant="glass">
+        <Card>
           <Table>
             <TableHeader>
               <TableRow>
@@ -763,28 +763,25 @@ export function DeploymentDetailPage() {
   ]
 
   return (
-    <div className="mx-auto max-w-[1280px] space-y-6 p-6 md:px-8">
-      <Breadcrumb
-        items={[
-          { label: t('deployments.title'), to: '/deployments' },
-          { label: namespace },
-          { label: id },
-        ]}
-        className="mb-4"
-      />
-
-      {/* Header */}
-      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h1 className="font-extrabold tracking-[-0.03em] text-text-primary font-mono text-3xl">
-            {id}
-          </h1>
-          <p className="mt-1 text-sm text-text-muted">
-            {t('deploymentDetail.namespace')}:{' '}
-            <span className="font-mono text-text-secondary">{namespace}</span>
-          </p>
-        </div>
-
+    <PageShell
+      breadcrumb={[
+        { label: t('deployments.title'), to: '/deployments' },
+        { label: namespace },
+        { label: id },
+      ]}
+      breadcrumbPosition="inside"
+      title={
+        <span className="font-mono text-[1.875rem] tracking-[-0.03em] md:text-[2.125rem]">
+          {id}
+        </span>
+      }
+      description={
+        <span>
+          {t('deploymentDetail.namespace')}:{' '}
+          <span className="font-mono text-text-secondary">{namespace}</span>
+        </span>
+      }
+      actions={
         <div className="flex flex-wrap items-center gap-3">
           <Button
             type="button"
@@ -809,35 +806,37 @@ export function DeploymentDetailPage() {
             {t('deploymentDetail.destroy')}
           </Button>
         </div>
-      </div>
+      }
+      narrow
+      headerContent={
+        <>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <StatCard
+              label={t('deploymentDetail.stats.pods')}
+              value={podCount}
+              icon={<Box size={13} />}
+            />
+            <StatCard
+              label={t('deploymentDetail.stats.running')}
+              value={running}
+              icon={<CheckCircle size={13} />}
+              color="green"
+            />
+            <StatCard
+              label={t('deploymentDetail.stats.notReady')}
+              value={podCount - running}
+              icon={<XCircle size={13} />}
+              color={podCount - running > 0 ? 'yellow' : 'default'}
+            />
+          </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 mb-6">
-        <StatCard
-          label={t('deploymentDetail.stats.pods')}
-          value={podCount}
-          icon={<Box size={13} />}
-        />
-        <StatCard
-          label={t('deploymentDetail.stats.running')}
-          value={running}
-          icon={<CheckCircle size={13} />}
-          color="green"
-        />
-        <StatCard
-          label={t('deploymentDetail.stats.notReady')}
-          value={podCount - running}
-          icon={<XCircle size={13} />}
-          color={podCount - running > 0 ? 'yellow' : 'default'}
-        />
-      </div>
-
-      {/* Tabs */}
-      <Tabs value={activeTab} onChange={setActiveTab}>
-        <DashboardTabsList tabs={tabs} />
-      </Tabs>
-
-      <div className="min-h-[38vh]">
+          <Tabs value={activeTab} onChange={setActiveTab}>
+            <DashboardTabsList tabs={tabs} />
+          </Tabs>
+        </>
+      }
+    >
+      <div className="min-h-[38vh] space-y-6">
         {activeTab === 'pods' && <PodsTab pods={pods} isLoading={isLoading} />}
         {activeTab === 'logs' && <LogsTab namespace={namespace} id={id} />}
         {activeTab === 'config' && <ConfigTab />}
@@ -858,6 +857,6 @@ export function DeploymentDetailPage() {
         loading={destroyMutation.isPending}
         onConfirm={() => destroyMutation.mutate()}
       />
-    </div>
+    </PageShell>
   )
 }
