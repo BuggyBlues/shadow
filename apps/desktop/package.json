@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@shadowob/shared": "workspace:*",
+    "@shadowob/ui": "workspace:*",
     "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
