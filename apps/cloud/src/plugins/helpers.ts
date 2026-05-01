@@ -16,13 +16,19 @@ import type {
   PluginBuildContext,
   PluginCLITool,
   PluginConfigFragment,
+  PluginCredentialFile,
   PluginDefinition,
   PluginHooks,
   PluginManifest,
   PluginMCPServer,
+  PluginRuntimeArtifact,
+  PluginRuntimeDependency,
+  PluginRuntimeExtension,
+  PluginRuntimeSource,
   PluginSecretField,
   PluginSkillsConfig,
   PluginValidationResult,
+  PluginVerificationCheck,
   ProviderCatalog,
   ProviderModelEntry,
 } from './types.js'
@@ -55,10 +61,15 @@ function makeAPI(
     skills?: PluginSkillsConfig
     cli?: PluginCLITool[]
     mcp?: PluginMCPServer[]
+    runtime?: PluginRuntimeExtension
     providerCatalogs?: ProviderCatalog[]
     secretFields?: PluginSecretField[]
   },
 ): PluginAPI {
+  const mergeRuntime = (fragment: PluginRuntimeExtension) => {
+    collected.runtime = mergeCollectedRuntime(collected.runtime ?? {}, fragment)
+  }
+
   return {
     addSkills: (s) => {
       collected.skills = s
@@ -68,6 +79,25 @@ function makeAPI(
     },
     addMCP: (server) => {
       collected.mcp = [...(collected.mcp ?? []), server]
+      mergeRuntime({ mcpServers: [server] })
+    },
+    addRuntimeDependencies: (deps: PluginRuntimeDependency[]) => {
+      mergeRuntime({ runtimeDependencies: deps })
+    },
+    addSkillSources: (sources: PluginRuntimeSource[]) => {
+      mergeRuntime({ skillSources: sources })
+    },
+    addSubagentSources: (sources: PluginRuntimeSource[]) => {
+      mergeRuntime({ subagentSources: sources })
+    },
+    addRuntimeArtifacts: (artifacts: PluginRuntimeArtifact[]) => {
+      mergeRuntime({ artifacts })
+    },
+    addCredentialFiles: (files: PluginCredentialFile[]) => {
+      mergeRuntime({ credentialFiles: files })
+    },
+    addVerificationChecks: (checks: PluginVerificationCheck[]) => {
+      mergeRuntime({ verificationChecks: checks })
     },
     addProviderCatalog: (catalog) => {
       collected.providerCatalogs = [...(collected.providerCatalogs ?? []), catalog]
@@ -87,6 +117,85 @@ function makeAPI(
   }
 }
 
+function mergeByKey<T>(items: T[], keyOf: (item: T) => string): T[] {
+  const map = new Map<string, T>()
+  for (const item of items) {
+    map.set(keyOf(item), item)
+  }
+  return [...map.values()]
+}
+
+function mergeCollectedRuntime(
+  current: PluginRuntimeExtension,
+  fragment: PluginRuntimeExtension,
+): PluginRuntimeExtension {
+  const manifestPatches = [
+    ...(current.openclaw?.manifestPatches ?? []),
+    ...(fragment.openclaw?.manifestPatches ?? []),
+  ]
+
+  return {
+    ...(manifestPatches.length > 0 ? { openclaw: { manifestPatches } } : {}),
+    ...(current.artifacts?.length || fragment.artifacts?.length
+      ? {
+          artifacts: mergeByKey(
+            [...(current.artifacts ?? []), ...(fragment.artifacts ?? [])],
+            (artifact) => artifact.kind,
+          ),
+        }
+      : {}),
+    ...(current.runtimeDependencies?.length || fragment.runtimeDependencies?.length
+      ? {
+          runtimeDependencies: mergeByKey(
+            [...(current.runtimeDependencies ?? []), ...(fragment.runtimeDependencies ?? [])],
+            (dep) => dep.id,
+          ),
+        }
+      : {}),
+    ...(current.skillSources?.length || fragment.skillSources?.length
+      ? {
+          skillSources: mergeByKey(
+            [...(current.skillSources ?? []), ...(fragment.skillSources ?? [])],
+            (source) => source.id,
+          ),
+        }
+      : {}),
+    ...(current.subagentSources?.length || fragment.subagentSources?.length
+      ? {
+          subagentSources: mergeByKey(
+            [...(current.subagentSources ?? []), ...(fragment.subagentSources ?? [])],
+            (source) => source.id,
+          ),
+        }
+      : {}),
+    ...(current.mcpServers?.length || fragment.mcpServers?.length
+      ? {
+          mcpServers: mergeByKey(
+            [...(current.mcpServers ?? []), ...(fragment.mcpServers ?? [])],
+            (server) =>
+              server.id ?? `${server.transport}:${server.command}:${server.args?.join(' ') ?? ''}`,
+          ),
+        }
+      : {}),
+    ...(current.credentialFiles?.length || fragment.credentialFiles?.length
+      ? {
+          credentialFiles: mergeByKey(
+            [...(current.credentialFiles ?? []), ...(fragment.credentialFiles ?? [])],
+            (file) => `${file.envKey}:${file.path}`,
+          ),
+        }
+      : {}),
+    ...(current.verificationChecks?.length || fragment.verificationChecks?.length
+      ? {
+          verificationChecks: mergeByKey(
+            [...(current.verificationChecks ?? []), ...(fragment.verificationChecks ?? [])],
+            (check) => check.id,
+          ),
+        }
+      : {}),
+  }
+}
+
 // ─── Core primitive ──────────────────────────────────────────────────────────
 
 /**
@@ -103,16 +212,21 @@ export function definePlugin(
     skills?: PluginSkillsConfig
     cli?: PluginCLITool[]
     mcp?: PluginMCPServer[]
+    runtime?: PluginRuntimeExtension
     providerCatalogs?: ProviderCatalog[]
     secretFields?: PluginSecretField[]
   } = {}
   const api = makeAPI(hooks, collected)
   setup(api)
+  if (collected.runtime) {
+    hooks.buildRuntime.unshift(() => collected.runtime)
+  }
   return {
     manifest,
     skills: collected.skills,
     cli: collected.cli,
     mcp: collected.mcp,
+    runtime: collected.runtime,
     providerCatalogs: collected.providerCatalogs,
     secretFields: collected.secretFields,
     _hooks: hooks,

@@ -505,6 +505,49 @@ function mergeRuntimeExtensions(
   for (const artifact of fragment.artifacts ?? []) {
     artifacts.set(artifact.kind, artifact)
   }
+  const runtimeDependencies = new Map<
+    string,
+    NonNullable<PluginRuntimeExtension['runtimeDependencies']>[number]
+  >()
+  for (const dependency of target.runtimeDependencies ?? []) {
+    runtimeDependencies.set(dependency.id, dependency)
+  }
+  for (const dependency of fragment.runtimeDependencies ?? []) {
+    runtimeDependencies.set(dependency.id, dependency)
+  }
+  const skillSources = new Map<
+    string,
+    NonNullable<PluginRuntimeExtension['skillSources']>[number]
+  >()
+  for (const source of target.skillSources ?? []) {
+    skillSources.set(source.id, source)
+  }
+  for (const source of fragment.skillSources ?? []) {
+    skillSources.set(source.id, source)
+  }
+  const subagentSources = new Map<
+    string,
+    NonNullable<PluginRuntimeExtension['subagentSources']>[number]
+  >()
+  for (const source of target.subagentSources ?? []) {
+    subagentSources.set(source.id, source)
+  }
+  for (const source of fragment.subagentSources ?? []) {
+    subagentSources.set(source.id, source)
+  }
+  const mcpServers = new Map<string, NonNullable<PluginRuntimeExtension['mcpServers']>[number]>()
+  for (const server of target.mcpServers ?? []) {
+    mcpServers.set(
+      server.id ?? `${server.transport}:${server.command}:${server.args?.join(' ') ?? ''}`,
+      server,
+    )
+  }
+  for (const server of fragment.mcpServers ?? []) {
+    mcpServers.set(
+      server.id ?? `${server.transport}:${server.command}:${server.args?.join(' ') ?? ''}`,
+      server,
+    )
+  }
   const credentialFiles = new Map<
     string,
     NonNullable<PluginRuntimeExtension['credentialFiles']>[number]
@@ -529,6 +572,12 @@ function mergeRuntimeExtensions(
   return {
     ...(manifestPatches.length > 0 ? { openclaw: { manifestPatches } } : {}),
     ...(artifacts.size > 0 ? { artifacts: [...artifacts.values()] } : {}),
+    ...(runtimeDependencies.size > 0
+      ? { runtimeDependencies: [...runtimeDependencies.values()] }
+      : {}),
+    ...(skillSources.size > 0 ? { skillSources: [...skillSources.values()] } : {}),
+    ...(subagentSources.size > 0 ? { subagentSources: [...subagentSources.values()] } : {}),
+    ...(mcpServers.size > 0 ? { mcpServers: [...mcpServers.values()] } : {}),
     ...(credentialFiles.size > 0 ? { credentialFiles: [...credentialFiles.values()] } : {}),
     ...(verificationChecks.size > 0
       ? { verificationChecks: [...verificationChecks.values()] }

@@ -9,13 +9,7 @@
       "plugin": "model-provider"
     },
     {
-      "plugin": "google-workspace",
-      "options": {
-        "GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON": "${env:GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON}",
-        "GOOGLE_WORKSPACE_CLI_TOKEN": "${env:GOOGLE_WORKSPACE_CLI_TOKEN}",
-        "services": ["gmail", "calendar", "drive", "docs", "sheets"],
-        "readOnlyByDefault": true
-      }
+      "plugin": "google-workspace"
     },
     {
       "plugin": "shadowob",
@@ -56,10 +50,6 @@
           "name": "Workspace Buddy",
           "personality": "You are a calm executive-operations partner. You keep Workspace changes deliberate, reversible where possible, and easy for the user to audit.",
           "systemPrompt": "Workflow:\n1. Use mounted gws skills and the `gws` CLI for Gmail, Calendar, Drive, Docs, and Sheets tasks.\n2. Prefer read-only discovery first: summarize emails, inspect files, list agenda items, or read sheet ranges before proposing writes.\n3. Ask for explicit approval before sending email, creating or editing calendar events, sharing files, deleting data, writing docs, or updating spreadsheets.\n4. Use `--dry-run` when available for sends, uploads, shares, and destructive changes.\n5. For every action, state the exact Workspace object, target account or file, and command family you used."
-        },
-        "env": {
-          "GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON": "${env:GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON}",
-          "GOOGLE_WORKSPACE_CLI_TOKEN": "${env:GOOGLE_WORKSPACE_CLI_TOKEN}"
         },
         "configuration": {},
         "resources": {

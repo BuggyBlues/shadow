@@ -18,7 +18,7 @@
 | `TheCraigHewitt/seomachine` | `.claude/commands`, `.claude/agents`, `.claude/skills`, context docs | Native Claude profile plus explicit context docs | `seomachine-buddy` |
 | `AgriciDaniel/claude-seo` | Claude plugin manifest, root `skills/`, root `agents/`, scripts, docs | Native profiles plus explicit docs/extensions | `claude-seo-buddy` |
 | `AgriciDaniel/claude-ads` | Claude plugin manifest, root `skills/`, `ads/SKILL.md`, root `agents/`, scripts, references | Native profiles plus explicit ad reference docs | `claude-ads-buddy` |
-| `googleworkspace/cli` | `gws` CLI, Workspace API command surface, `skills/gws-*`, OAuth/exported credentials | Dedicated `google-workspace` plugin installs CLI, mounts skills, materializes credentials, and declares smoke checks | `google-workspace-buddy` |
+| `googleworkspace/cli` | `gws` CLI, Workspace API command surface, `skills/gws-*`, OAuth/exported credentials | Dedicated `google-workspace` connector installs CLI, mounts skills, materializes credentials, and declares smoke checks. Current upstream no longer exposes `gws mcp`, so MCP is not enabled for this template. | `google-workspace-buddy` |
 
 ## Agent-Pack Changes
 
@@ -28,11 +28,14 @@
 
 ## Plugin API Follow-Up
 
-The reviewed stacks are usable as templates today, but two categories still need the Runtime Asset Plugin direction from `Shadow_Cloud_Plugin_API_与批量验收方案.md`:
+The reviewed stacks are usable as templates today. The Runtime Asset Plugin direction from `Shadow_Cloud_Plugin_API_与批量验收方案.md` is now the connector baseline:
 
-- Google Workspace now has the first concrete runtime-asset slice: `credentialFiles` and `verificationChecks` can be emitted through `onBuildRuntime`, and the OpenClaw runner materializes credential files before startup. The plugin still uses a custom K8s provider for CLI install and skill mounting; the next step is promoting that pattern into declarative `runtimeDeps` and `skillSources`.
-- CLI/install ecosystems: SuperClaude, GSD, BMAD, and ECC include install or helper scripts that are useful as commands, but Cloud cannot yet declaratively install npm/python binaries or verify CLI readiness.
-- Scientific/runtime-heavy skills: `scientific-agent-skills` exposes high-quality skill docs, but many skills imply Python/R/database/package dependencies. A future runtime asset layer should declare `runtimeDeps`, `skillSources`, `credentialFiles`, and `verificationChecks` so templates can be certified beyond static mount validation.
+- Google Workspace uses `runtimeDependencies`, `skillSources`, `credentialFiles`, and `verificationChecks` so the plugin can describe CLI install, skill mount, auth files, and smoke checks without runner-specific code.
+- CLI/install ecosystems: SuperClaude, GSD, BMAD, and ECC include install or helper scripts that are useful as commands. Repeated install patterns should move into connector runtime assets instead of ad-hoc K8s shell.
+- Scientific/runtime-heavy skills: `scientific-agent-skills` exposes high-quality skill docs, but many skills imply Python/R/database/package dependencies. Future scientific templates should declare those packages as runtime dependencies and add safe read-only verification checks.
+- MCP and subagents are first-class connector concepts, but they must reflect real upstream support. For example, current `@googleworkspace/cli@0.22.5` has no `gws mcp` command, while agent-pack repositories that contain `.mcp.json` or `agents/` can still expose those assets through agent-pack mounts.
+
+See [cloud-connector-runtime-assets.md](cloud-connector-runtime-assets.md) for the current API shape and Google Workspace cross-check evidence.
 
 ## Acceptance Strategy
 

@@ -1,0 +1,207 @@
+/**
+ * Runtime asset helpers for connector-style plugins.
+ *
+ * A connector usually has the same moving parts: install one or more CLI
+ * binaries, mount agent skills/subagents, expose env vars, and publish runtime
+ * metadata. This helper keeps that wiring out of individual plugin bodies.
+ */
+
+import type { AgentDeployment, CloudConfig } from '../config/schema.js'
+import type {
+  PluginK8sEnvVar,
+  PluginK8sProvider,
+  PluginK8sResult,
+  PluginRuntimeDependency,
+  PluginRuntimeSource,
+} from './types.js'
+
+const RUNTIME_ASSET_IMAGE = 'node:22-alpine'
+
+interface RuntimeAssetK8sOptions {
+  pluginId: string
+  isEnabled(agent: AgentDeployment, config: CloudConfig): boolean
+  runtimeMountPath?: string
+  skillsMountPath?: string
+  subagentsMountPath?: string
+  runtimeVolumeName?: string
+  skillsVolumeName?: string
+  subagentsVolumeName?: string
+  runtimeDependencies?: PluginRuntimeDependency[]
+  skillSources?: PluginRuntimeSource[]
+  subagentSources?: PluginRuntimeSource[]
+  envVars?: PluginK8sEnvVar[]
+  labels?: Record<string, string>
+  sanityCommands?: string[]
+}
+
+function shQuote(value: string): string {
+  return `'${value.replace(/'/g, "'\\''")}'`
+}
+
+function sanitizeId(value: string): string {
+  return value.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 63)
+}
+
+function copyGitSourceSnippet(source: PluginRuntimeSource, destRoot: string): string {
+  const safeId = sanitizeId(source.id)
+  const clonePath = `/tmp/runtime-asset-src-${safeId}`
+  const ref = source.ref ?? 'main'
+  const from = source.from ?? '.'
+  const sourcePath = from === '.' || from === '' ? clonePath : `${clonePath}/${from}`
+  const commands = [
+    `rm -rf ${shQuote(clonePath)}`,
+    `git clone --depth 1 --branch ${shQuote(ref)} ${shQuote(source.url ?? '')} ${shQuote(clonePath)}`,
+    `mkdir -p ${shQuote(destRoot)}`,
+  ]
+
+  if (source.include?.length) {
+    for (const item of source.include) {
+      commands.push(
+        `if [ -e ${shQuote(`${sourcePath}/${item}`)} ]; then cp -R ${shQuote(`${sourcePath}/${item}`)} ${shQuote(destRoot)}/; fi`,
+      )
+    }
+  } else if (source.includePattern) {
+    commands.push(
+      `if [ -d ${shQuote(sourcePath)} ]; then find ${shQuote(sourcePath)} -maxdepth 1 -type d -name ${shQuote(source.includePattern)} -exec cp -R {} ${shQuote(destRoot)}/ \\;; fi`,
+    )
+  } else {
+    commands.push(
+      `if [ -d ${shQuote(sourcePath)} ]; then cp -R ${shQuote(sourcePath)}/. ${shQuote(destRoot)}/; elif [ -f ${shQuote(sourcePath)} ]; then cp ${shQuote(sourcePath)} ${shQuote(destRoot)}/; fi`,
+    )
+  }
+
+  return commands.join('\n')
+}
+
+function runtimeDependencySnippet(dep: PluginRuntimeDependency, runtimeRoot: string): string {
+  switch (dep.kind) {
+    case 'npm-global': {
+      const packages = dep.packages?.filter(Boolean) ?? []
+      if (packages.length === 0) return ''
+      return `npm install -g --prefix ${shQuote(dep.targetPath ?? runtimeRoot)} ${packages.map(shQuote).join(' ')}`
+    }
+    case 'system-package': {
+      const packages = dep.packages?.filter(Boolean) ?? []
+      if (packages.length === 0) return ''
+      return `apk add --no-cache ${packages.map(shQuote).join(' ')}`
+    }
+    case 'shell':
+      return dep.command?.length ? dep.command.join(' ') : ''
+    case 'binary':
+      return dep.command?.length ? dep.command.join(' ') : ''
+    default:
+      return ''
+  }
+}
+
+export function buildRuntimeAssetInstallScript(options: {
+  runtimeDependencies?: PluginRuntimeDependency[]
+  skillSources?: PluginRuntimeSource[]
+  subagentSources?: PluginRuntimeSource[]
+  runtimeRoot?: string
+  skillsRoot?: string
+  subagentsRoot?: string
+  sanityCommands?: string[]
+}): string {
+  const runtimeRoot = options.runtimeRoot ?? '/runtime-deps'
+  const skillsRoot = options.skillsRoot ?? '/plugin-skills'
+  const subagentsRoot = options.subagentsRoot ?? '/plugin-subagents'
+  const hasGitSources = Boolean(options.skillSources?.length || options.subagentSources?.length)
+  const lines = ['set -eu', `mkdir -p ${shQuote(runtimeRoot)}`]
+
+  if (options.skillSources?.length) lines.push(`mkdir -p ${shQuote(skillsRoot)}`)
+  if (options.subagentSources?.length) lines.push(`mkdir -p ${shQuote(subagentsRoot)}`)
+  if (hasGitSources) lines.push('apk add --no-cache git >/dev/null')
+
+  for (const dep of options.runtimeDependencies ?? []) {
+    const snippet = runtimeDependencySnippet(dep, runtimeRoot)
+    if (snippet) lines.push(snippet)
+  }
+  for (const source of options.skillSources ?? []) {
+    if (source.kind === 'git' && source.url) lines.push(copyGitSourceSnippet(source, skillsRoot))
+  }
+  for (const source of options.subagentSources ?? []) {
+    if (source.kind === 'git' && source.url) lines.push(copyGitSourceSnippet(source, subagentsRoot))
+  }
+  lines.push(...(options.sanityCommands ?? []))
+  lines.push('echo "[runtime-assets] ready"')
+
+  return lines.filter(Boolean).join('\n')
+}
+
+export function buildRuntimeAssetK8sProvider(options: RuntimeAssetK8sOptions): PluginK8sProvider {
+  return {
+    buildK8s(agent, ctx): PluginK8sResult | undefined {
+      if (!options.isEnabled(agent, ctx.config)) return undefined
+
+      const runtimeVolumeName = options.runtimeVolumeName ?? `${options.pluginId}-runtime`
+      const skillsVolumeName = options.skillsVolumeName ?? `${options.pluginId}-skills`
+      const subagentsVolumeName = options.subagentsVolumeName ?? `${options.pluginId}-subagents`
+      const runtimeMountPath =
+        options.runtimeMountPath ?? `/opt/shadow-plugin-deps/${options.pluginId}`
+      const skillsMountPath = options.skillsMountPath
+      const subagentsMountPath = options.subagentsMountPath
+      const hasSkillSources = Boolean(options.skillSources?.length && skillsMountPath)
+      const hasSubagentSources = Boolean(options.subagentSources?.length && subagentsMountPath)
+
+      const volumeMounts = [{ name: runtimeVolumeName, mountPath: '/runtime-deps' }]
+      const volumes = [{ name: runtimeVolumeName, spec: { emptyDir: {} } }]
+      const mainVolumeMounts = [
+        { name: runtimeVolumeName, mountPath: runtimeMountPath, readOnly: true },
+      ]
+      if (hasSkillSources) {
+        volumeMounts.push({ name: skillsVolumeName, mountPath: '/plugin-skills' })
+        volumes.push({ name: skillsVolumeName, spec: { emptyDir: {} } })
+        mainVolumeMounts.push({
+          name: skillsVolumeName,
+          mountPath: skillsMountPath!,
+          readOnly: true,
+        })
+      }
+      if (hasSubagentSources) {
+        volumeMounts.push({ name: subagentsVolumeName, mountPath: '/plugin-subagents' })
+        volumes.push({ name: subagentsVolumeName, spec: { emptyDir: {} } })
+        mainVolumeMounts.push({
+          name: subagentsVolumeName,
+          mountPath: subagentsMountPath!,
+          readOnly: true,
+        })
+      }
+
+      return {
+        initContainers: [
+          {
+            name: `${options.pluginId}-assets`,
+            image: RUNTIME_ASSET_IMAGE,
+            imagePullPolicy: 'IfNotPresent',
+            command: [
+              'sh',
+              '-lc',
+              buildRuntimeAssetInstallScript({
+                runtimeDependencies: options.runtimeDependencies,
+                skillSources: options.skillSources,
+                subagentSources: options.subagentSources,
+                sanityCommands: options.sanityCommands,
+              }),
+            ],
+            volumeMounts,
+            resources: {
+              requests: { cpu: '100m', memory: '128Mi' },
+              limits: { cpu: '1000m', memory: '512Mi' },
+            },
+          },
+        ],
+        volumes,
+        volumeMounts: mainVolumeMounts,
+        envVars: [
+          { name: 'PATH', value: `${runtimeMountPath}/bin:$(PATH)` },
+          ...(options.envVars ?? []),
+        ],
+        labels: {
+          [`plugin.${options.pluginId}/enabled`]: 'true',
+          ...(options.labels ?? {}),
+        },
+      }
+    },
+  }
+}

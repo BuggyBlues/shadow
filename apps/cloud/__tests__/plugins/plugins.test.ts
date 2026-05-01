@@ -257,6 +257,67 @@ describe('defineSkillPlugin', () => {
     expect(result.errors).toHaveLength(1)
     expect(result.errors[0].path).toBe('secrets.TEST_API_KEY')
   })
+
+  it('should expose connector runtime assets through the plugin API', () => {
+    const plugin = defineSkillPlugin(
+      makeManifest(),
+      { cli: [{ name: 'demo', command: 'demo', description: 'Demo CLI' }] },
+      (api) => {
+        api.addRuntimeDependencies([{ id: 'demo-cli', kind: 'npm-global', packages: ['demo-cli'] }])
+        api.addSkillSources([
+          {
+            id: 'demo-skills',
+            kind: 'git',
+            url: 'https://example.com/demo.git',
+            targetPath: '/app/plugin-skills/demo',
+          },
+        ])
+        api.addSubagentSources([
+          {
+            id: 'demo-subagents',
+            kind: 'git',
+            url: 'https://example.com/demo-subagents.git',
+            targetPath: '/app/plugin-subagents/demo',
+          },
+        ])
+        api.addMCP({
+          id: 'demo-mcp',
+          transport: 'stdio',
+          command: 'demo-mcp',
+        })
+        api.addCredentialFiles([{ envKey: 'DEMO_JSON', path: '/home/openclaw/.config/demo.json' }])
+        api.addVerificationChecks([
+          {
+            id: 'demo-auth',
+            label: 'Demo auth',
+            kind: 'command',
+            command: ['demo', 'auth', 'status'],
+            requiredEnvAny: ['DEMO_TOKEN', 'DEMO_JSON'],
+          },
+        ])
+      },
+    )
+
+    const runtime = plugin._hooks.buildRuntime[0]?.(makeBuildContext())
+    expect(runtime).toMatchObject({
+      runtimeDependencies: [{ id: 'demo-cli', kind: 'npm-global', packages: ['demo-cli'] }],
+      skillSources: [{ id: 'demo-skills', targetPath: '/app/plugin-skills/demo' }],
+      subagentSources: [{ id: 'demo-subagents', targetPath: '/app/plugin-subagents/demo' }],
+      mcpServers: [{ id: 'demo-mcp', transport: 'stdio', command: 'demo-mcp' }],
+      credentialFiles: [{ envKey: 'DEMO_JSON', path: '/home/openclaw/.config/demo.json' }],
+      verificationChecks: [
+        {
+          id: 'demo-auth',
+          requiredEnvAny: ['DEMO_TOKEN', 'DEMO_JSON'],
+        },
+      ],
+    })
+    expect(plugin.mcp).toContainEqual({
+      id: 'demo-mcp',
+      transport: 'stdio',
+      command: 'demo-mcp',
+    })
+  })
 })
 
 // ─── defineChannelPlugin ───────────────────────────────────────────────────
@@ -477,6 +538,23 @@ describe('collectRuntimeEnvRequirements', () => {
       ]),
     )
   })
+
+  it('collects connector credential keys without template env wiring', async () => {
+    const keys = await collectRuntimeEnvRequirements({
+      version: '1',
+      use: [{ plugin: 'google-workspace' }],
+      deployments: { agents: [{ id: 'agent-1', runtime: 'openclaw', configuration: {} }] },
+    })
+
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        'GOOGLE_WORKSPACE_ACCESS_TOKEN',
+        'GOOGLE_WORKSPACE_ADC_JSON',
+        'GOOGLE_WORKSPACE_CREDENTIALS_JSON',
+      ]),
+    )
+    expect(keys).not.toContain('GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON')
+  })
 })
 
 describe('model-provider plugin', () => {
@@ -611,9 +689,16 @@ describe('Tool plugins', () => {
     const mod = await import('../../src/plugins/google-workspace/index.js')
     const plugin = mod.default as PluginDefinition
     expect(plugin.manifest.id).toBe('google-workspace')
+    expect(plugin.secretFields?.map((field) => field.key)).toEqual(
+      expect.arrayContaining([
+        'GOOGLE_WORKSPACE_ACCESS_TOKEN',
+        'GOOGLE_WORKSPACE_ADC_JSON',
+        'GOOGLE_WORKSPACE_CREDENTIALS_JSON',
+      ]),
+    )
 
     const ctx = makeBuildContext({
-      secrets: { GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON: '{"installed":{}}' },
+      secrets: { GOOGLE_WORKSPACE_CREDENTIALS_JSON: '{"installed":{}}' },
       agentConfig: { services: ['gmail', 'calendar'] },
     })
     const fragment = plugin._hooks.buildConfig[0]!(ctx)
@@ -624,9 +709,11 @@ describe('Tool plugins', () => {
         'google-workspace': {
           enabled: true,
           services: ['gmail', 'calendar'],
+          skillSources: ['/app/plugin-skills/google-workspace'],
         },
       },
     })
+    expect(plugin.mcp).toBeUndefined()
 
     const env = plugin._hooks.buildEnv[0]!(ctx)
     expect(env?.GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE).toBe(
@@ -640,9 +727,35 @@ describe('Tool plugins', () => {
       path: '/home/openclaw/.config/gws/credentials.json',
       mode: '0600',
     })
-    expect(runtime?.verificationChecks?.map((check) => check.id)).toEqual(
-      expect.arrayContaining(['google-workspace-auth', 'google-workspace-drive-read']),
+    expect(runtime?.runtimeDependencies).toContainEqual(
+      expect.objectContaining({
+        id: 'gws-cli',
+        kind: 'npm-global',
+        packages: ['@googleworkspace/cli'],
+      }),
     )
+    expect(runtime?.skillSources).toContainEqual(
+      expect.objectContaining({
+        id: 'google-workspace-cli-skills',
+        includePattern: 'gws-*',
+        targetPath: '/app/plugin-skills/google-workspace',
+      }),
+    )
+    expect(runtime?.verificationChecks?.map((check) => check.id)).toEqual(
+      expect.arrayContaining([
+        'google-workspace-cli-installed',
+        'google-workspace-auth',
+        'google-workspace-drive-read',
+      ]),
+    )
+    expect(
+      runtime?.verificationChecks?.find((check) => check.id === 'google-workspace-auth')
+        ?.requiredEnvAny,
+    ).toEqual([
+      'GOOGLE_WORKSPACE_CLI_TOKEN',
+      'GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON',
+      'GOOGLE_APPLICATION_CREDENTIALS_JSON',
+    ])
   })
 
   it('google-workspace plugin should install gws and Workspace skills for enabled agents', async () => {
@@ -666,10 +779,12 @@ describe('Tool plugins', () => {
       },
     )
 
-    expect(result?.initContainers?.[0]?.command.join(' ')).toContain('@googleworkspace/cli')
-    expect(result?.initContainers?.[0]?.command.join(' ')).toContain(
-      'https://github.com/googleworkspace/cli.git',
-    )
+    const installCommand = result?.initContainers?.[0]?.command.join(' ')
+    expect(result?.initContainers?.[0]?.name).toBe('google-workspace-assets')
+    expect(installCommand).toContain('@googleworkspace/cli')
+    expect(installCommand).toContain('/runtime-deps/bin/gws --version')
+    expect(installCommand).toContain('test -f /plugin-skills/gws-shared/SKILL.md')
+    expect(installCommand).toContain('https://github.com/googleworkspace/cli.git')
     expect(result?.volumeMounts).toEqual(
       expect.arrayContaining([
         {

@@ -30,7 +30,7 @@
       }
     }
   },
-  "capabilities": ["tool", "data-source"],
+  "capabilities": ["tool", "data-source", "mcp"],
   "tags": ["productivity", "wiki", "docs", "tasks", "mcp", "notion"],
   "popularity": 90
 }

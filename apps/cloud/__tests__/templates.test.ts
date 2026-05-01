@@ -280,10 +280,7 @@ describe('community pack template mounts', () => {
       options?: Record<string, unknown>
     }>
     const googleWorkspace = globalUse.find((entry) => entry.plugin === 'google-workspace')
-    expect(googleWorkspace?.options).toMatchObject({
-      GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON: '${env:GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON}',
-      services: ['gmail', 'calendar', 'drive', 'docs', 'sheets'],
-      readOnlyByDefault: true,
-    })
+    expect(googleWorkspace).toEqual({ plugin: 'google-workspace' })
+    expect(content.deployments.agents[0].env).toBeUndefined()
   })
 })

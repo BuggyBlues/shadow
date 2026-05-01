@@ -297,6 +297,7 @@ docker compose -f docker-compose.ci-tests.yml up --build --abort-on-container-ex
 | Local development and CI | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) |
 | Cloud deployment | [docs/development/cloud-saas-deployment.md](docs/development/cloud-saas-deployment.md) |
 | Agent pack flow | [docs/development/cloud-agent-pack-buddy-flow.md](docs/development/cloud-agent-pack-buddy-flow.md) |
+| Connector runtime assets | [docs/development/cloud-connector-runtime-assets.md](docs/development/cloud-connector-runtime-assets.md) |
 | Architecture | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 | OAuth | [docs/oauth.md](docs/oauth.md) |
 

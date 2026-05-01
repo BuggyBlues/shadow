@@ -153,6 +153,10 @@ auto-detection logic recognizes common upstream layouts:
 - `mcp*.json` / `.mcp*.json`
 - `context/`, `scripts/`, and `data_sources/`
 
+For connector-style templates that need real runtime dependencies, credentials, smoke checks, or
+non-agent-pack skill sources, read
+[development/cloud-connector-runtime-assets.md](development/cloud-connector-runtime-assets.md).
+
 ## Validation Checklist
 
 Before treating a Buddy deployment as working, verify more than "the pod is running":

@@ -64,6 +64,7 @@ export type PluginCapability =
   | 'auth-provider'
   | 'skill'
   | 'cli'
+  | 'mcp'
   | 'config-builder'
   | 'config-resolver'
 
@@ -208,10 +209,35 @@ export interface PluginCLITool {
 
 /** MCP server config (prefer skills+cli for most integrations). */
 export interface PluginMCPServer {
+  id?: string
   transport: 'stdio' | 'sse'
   command: string
   args?: string[]
   env?: Record<string, string>
+  description?: string
+  requiredEnv?: string[]
+}
+
+export interface PluginRuntimeDependency {
+  id: string
+  kind: 'npm-global' | 'system-package' | 'binary' | 'shell'
+  packages?: string[]
+  command?: string[]
+  targetPath?: string
+  binPath?: string
+  description?: string
+}
+
+export interface PluginRuntimeSource {
+  id: string
+  kind: 'git' | 'local' | 'http-archive'
+  url?: string
+  ref?: string
+  from?: string
+  targetPath: string
+  include?: string[]
+  includePattern?: string
+  description?: string
 }
 
 // ─── Provider / Secret Capability Types ─────────────────────────────────────
@@ -358,7 +384,10 @@ export interface PluginVerificationCheck {
   }
   timeoutMs?: number
   risk?: 'safe' | 'read' | 'write'
+  /** All listed env vars must be present before running this check. */
   requiredEnv?: string[]
+  /** At least one listed env var must be present before running this check. */
+  requiredEnvAny?: string[]
   cleanup?: PluginVerificationCheck
 }
 
@@ -367,6 +396,10 @@ export interface PluginRuntimeExtension {
     manifestPatches?: PluginOpenClawManifestPatch[]
   }
   artifacts?: PluginRuntimeArtifact[]
+  runtimeDependencies?: PluginRuntimeDependency[]
+  skillSources?: PluginRuntimeSource[]
+  subagentSources?: PluginRuntimeSource[]
+  mcpServers?: PluginMCPServer[]
   credentialFiles?: PluginCredentialFile[]
   verificationChecks?: PluginVerificationCheck[]
 }
@@ -471,6 +504,24 @@ export interface PluginAPI {
   /** Declare an MCP server (use sparingly — prefer skills+cli) */
   addMCP(server: PluginMCPServer): void
 
+  /** Declare runtime CLI/binary/system dependencies needed by this plugin. */
+  addRuntimeDependencies(deps: PluginRuntimeDependency[]): void
+
+  /** Declare external skill bundles that should be mounted for the agent. */
+  addSkillSources(sources: PluginRuntimeSource[]): void
+
+  /** Declare external sub-agent bundles that should be mounted for the agent. */
+  addSubagentSources(sources: PluginRuntimeSource[]): void
+
+  /** Declare runtime artifacts consumed by Shadow or the runner. */
+  addRuntimeArtifacts(artifacts: PluginRuntimeArtifact[]): void
+
+  /** Declare env-backed credential files to materialize in the runtime. */
+  addCredentialFiles(files: PluginCredentialFile[]): void
+
+  /** Declare smoke checks that prove a connector is usable. */
+  addVerificationChecks(checks: PluginVerificationCheck[]): void
+
   /** Declare model/provider presets that selector plugins can discover. */
   addProviderCatalog(catalog: ProviderCatalog): void
 
@@ -546,6 +597,7 @@ export interface PluginDefinition {
   cli?: PluginCLITool[]
   /** Declared MCP servers (from api.addMCP) */
   mcp?: PluginMCPServer[]
+  runtime?: PluginRuntimeExtension
   /** Declared model provider catalogs (from api.addProviderCatalog) */
   providerCatalogs?: ProviderCatalog[]
   /** Declared env/secret fields (from api.addSecretFields) */
