@@ -33,6 +33,15 @@ import { useConfirmStore } from '../common/confirm-dialog'
 import { InvitePanel } from '../common/invite-panel'
 import { NotificationBell } from '../notification/notification-bell'
 import { type PickerResult, WorkspaceFilePicker } from '../workspace'
+import {
+  CHAT_SCROLLING_RESET_DELAY,
+  CHAT_VIRTUAL_OVERSCAN,
+  CHAT_VIRTUALIZE_THRESHOLD,
+  estimateChatTimelineItemSize,
+  getChatTimelineItemKey,
+  isScrollNearBottom,
+  shouldAdjustChatScrollPositionOnItemSizeChange,
+} from './chat-virtualization'
 import { FilePreviewPanel } from './file-preview-panel'
 import { type Message as BubbleMessage, MessageBubble } from './message-bubble'
 import { MessageInput } from './message-input'
@@ -150,26 +159,10 @@ type InteractiveResponse = NonNullable<
   NonNullable<BubbleMessage['metadata']>['interactiveResponse']
 >
 
-const VIRTUALIZE_MESSAGE_THRESHOLD = 40
-
 function trimStatusEllipsis(label: string | null | undefined): string | null {
   const trimmed = label?.trim()
   if (!trimmed) return null
   return trimmed.replace(/[.\u2026\u3002\uff0e]+$/u, '')
-}
-
-/** Estimated height by content type — used for virtualizer initial estimates */
-function estimateItemSize(item: TimelineItem): number {
-  if (item.kind === 'system') return 40
-  const msg = item.data
-  let base = 60
-  if (msg.replyToId) base += 36
-  if (msg.attachments && msg.attachments.length > 0) {
-    base += msg.attachments.length * 120
-  }
-  const lineCount = (msg.content.match(/\n/g) || []).length
-  if (lineCount > 3) base += (lineCount - 3) * 20
-  return Math.min(base, 400) // cap to avoid extreme estimates
 }
 
 export function ChatArea() {
@@ -193,6 +186,8 @@ export function ChatArea() {
   const initialScrollDoneRef = useRef(false)
   const prevMessageCountRef = useRef(0)
   const shouldStickToBottomRef = useRef(true)
+  const stickyScrollRafRef = useRef<number | null>(null)
+  const pendingPrependRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null)
   const [previewFile, setPreviewFile] = useState<{
     id: string
     filename: string
@@ -356,9 +351,7 @@ export function ChatArea() {
   useSocketEvent('message:new', (msg: Message) => {
     if (msg.channelId === activeChannelId) {
       const scrollEl = parentRef.current
-      const wasNearBottom = scrollEl
-        ? scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight < 150
-        : true
+      const wasNearBottom = scrollEl ? isScrollNearBottom(scrollEl, 160) : true
 
       queryClient.setQueryData<InfiniteData<MessagesPage>>(['messages', activeChannelId], (old) => {
         if (!old || old.pages.length === 0) return old
@@ -395,10 +388,7 @@ export function ChatArea() {
         }
         return { ...old, pages }
       })
-      if (wasNearBottom || shouldStickToBottomRef.current) {
-        shouldStickToBottomRef.current = true
-        scrollToBottom('smooth')
-      }
+      shouldStickToBottomRef.current = wasNearBottom || shouldStickToBottomRef.current
       // Play receive sound for messages from others
       if (msg.authorId !== user?.id) {
         playReceiveSound()
@@ -629,71 +619,59 @@ export function ChatArea() {
   })
 
   // Dynamic blocks (forms, markdown, attachments) behave best in normal flow for active chats.
-  const shouldVirtualize = timeline.length > VIRTUALIZE_MESSAGE_THRESHOLD
+  const shouldVirtualize = timeline.length > CHAT_VIRTUALIZE_THRESHOLD
 
-  // Virtual list setup with dynamic size estimation
   const virtualizer = useVirtualizer({
     count: timeline.length,
+    enabled: shouldVirtualize,
     getScrollElement: () => parentRef.current,
-    estimateSize: (index) =>
-      estimateItemSize(
-        timeline[index] ?? {
-          kind: 'message' as const,
-          data: {
-            content: '',
-            createdAt: '',
-            authorId: '',
-            channelId: '',
-            replyToId: null,
-            isEdited: false,
-            isPinned: false,
-            id: '',
-          } as Message,
-          isGrouped: false,
-        },
-      ),
-    overscan: 5,
+    estimateSize: (index) => estimateChatTimelineItemSize(timeline[index]),
+    getItemKey: (index) => getChatTimelineItemKey(timeline[index], index),
+    overscan: CHAT_VIRTUAL_OVERSCAN,
+    paddingStart: 8,
+    paddingEnd: 16,
+    scrollPaddingEnd: 16,
+    isScrollingResetDelay: CHAT_SCROLLING_RESET_DELAY,
+    useFlushSync: true,
   })
 
+  useLayoutEffect(() => {
+    virtualizer.shouldAdjustScrollPositionOnItemSizeChange =
+      shouldAdjustChatScrollPositionOnItemSizeChange
+    return () => {
+      virtualizer.shouldAdjustScrollPositionOnItemSizeChange = undefined
+    }
+  }, [virtualizer])
+
   const scrollToBottom = useCallback(
-    (behavior: 'auto' | 'smooth' = 'smooth') => {
+    (behavior: 'auto' | 'smooth' = 'auto') => {
       if (timeline.length === 0) return
       const lastIndex = timeline.length - 1
+      const scrollEl = parentRef.current
+      if (!scrollEl) return
 
-      const settleRawBottom = () => {
-        if (!shouldStickToBottomRef.current) return
-        const scrollEl = parentRef.current
-        if (scrollEl) {
-          scrollEl.scrollTop = scrollEl.scrollHeight
-        }
+      if (!shouldVirtualize) {
+        scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior })
+        return
       }
 
-      const settleAtBottom = (nextBehavior: 'auto' | 'smooth') => {
-        if (!shouldStickToBottomRef.current) return
-        if (!shouldVirtualize) {
-          settleRawBottom()
-          return
-        }
-        virtualizer.measure()
-        virtualizer.scrollToIndex(lastIndex, { align: 'end', behavior: nextBehavior })
-        requestAnimationFrame(() => {
-          const scrollEl = parentRef.current
-          if (scrollEl && shouldStickToBottomRef.current) {
-            scrollEl.scrollTop = scrollEl.scrollHeight
-          }
-        })
-      }
-
+      virtualizer.scrollToIndex(lastIndex, { align: 'end', behavior })
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          settleAtBottom(behavior)
-          window.setTimeout(() => settleAtBottom('auto'), 80)
-          window.setTimeout(() => settleAtBottom('auto'), 240)
-        })
+        if (!shouldStickToBottomRef.current) return
+        scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior: 'auto' })
       })
     },
     [timeline.length, shouldVirtualize, virtualizer],
   )
+
+  useEffect(() => {
+    return () => {
+      if (stickyScrollRafRef.current !== null) {
+        window.cancelAnimationFrame(stickyScrollRafRef.current)
+        stickyScrollRafRef.current = null
+      }
+    }
+  }, [])
 
   // Single consolidated scroll-position effect — avoids conflicts from multiple useLayoutEffects
   useLayoutEffect(() => {
@@ -701,6 +679,23 @@ export function ChatArea() {
     const currentCount = timeline.length
 
     if (currentCount === 0) return
+
+    const pendingPrepend = pendingPrependRef.current
+    if (pendingPrepend) {
+      prevMessageCountRef.current = currentCount
+      requestAnimationFrame(() => {
+        const scrollEl = parentRef.current
+        if (!scrollEl) {
+          pendingPrependRef.current = null
+          return
+        }
+        const heightDelta = scrollEl.scrollHeight - pendingPrepend.scrollHeight
+        scrollEl.scrollTop = pendingPrepend.scrollTop + Math.max(0, heightDelta)
+        pendingPrependRef.current = null
+        shouldStickToBottomRef.current = isScrollNearBottom(scrollEl)
+      })
+      return
+    }
 
     if (!initialScrollDoneRef.current) {
       // First load: scroll to bottom immediately
@@ -719,13 +714,15 @@ export function ChatArea() {
         // For new messages at the end, auto-scroll only if user was near bottom
         if (shouldStickToBottomRef.current) {
           // User was at bottom — scroll to new bottom
-          scrollToBottom('smooth')
+          scrollToBottom('auto')
           // Track read count
           setLastReadCount(currentCount)
         } else {
           // User was reading older messages — show indicator but don't auto-scroll
         }
       }
+    } else if (currentCount < prevCount && shouldStickToBottomRef.current) {
+      scrollToBottom('auto')
     }
 
     prevMessageCountRef.current = currentCount
@@ -736,6 +733,7 @@ export function ChatArea() {
     initialScrollDoneRef.current = false
     prevMessageCountRef.current = 0
     shouldStickToBottomRef.current = true
+    pendingPrependRef.current = null
     setLastReadCount(0)
   }, [activeChannelId])
 
@@ -746,12 +744,20 @@ export function ChatArea() {
 
     const handleScroll = () => {
       // Load more when near the top
-      if (scrollEl.scrollTop < 200 && hasNextPage && !isFetchingNextPage) {
+      if (
+        scrollEl.scrollTop < 200 &&
+        hasNextPage &&
+        !isFetchingNextPage &&
+        !pendingPrependRef.current
+      ) {
+        pendingPrependRef.current = {
+          scrollHeight: scrollEl.scrollHeight,
+          scrollTop: scrollEl.scrollTop,
+        }
         void fetchNextPage()
       }
       // Update read count when near bottom
-      const isNearBottom = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight < 80
-      shouldStickToBottomRef.current = isNearBottom
+      shouldStickToBottomRef.current = isScrollNearBottom(scrollEl, 96)
     }
 
     scrollEl.addEventListener('scroll', handleScroll, { passive: true })
@@ -927,6 +933,7 @@ export function ChatArea() {
         <MessageBubble
           message={item.data}
           currentUserId={user?.id ?? ''}
+          serverId={activeServerId ?? undefined}
           isGrouped={item.isGrouped}
           onReply={(id) => setReplyToId(id)}
           onReact={handleReact}
@@ -1072,15 +1079,14 @@ export function ChatArea() {
 
                 return (
                   <div
-                    key={item.kind === 'message' ? item.data.id : item.data.id}
+                    key={virtualItem.key}
                     data-index={virtualItem.index}
                     ref={virtualizer.measureElement}
                     style={{
                       position: 'absolute',
-                      top: 0,
+                      top: `${virtualItem.start}px`,
                       left: 0,
                       width: '100%',
-                      transform: `translateY(${virtualItem.start}px)`,
                     }}
                   >
                     {renderTimelineItem(item, virtualItem.index)}

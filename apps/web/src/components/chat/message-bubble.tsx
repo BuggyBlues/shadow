@@ -142,6 +142,7 @@ interface MessagesPage {
 export interface MessageBubbleProps {
   message: Message
   currentUserId: string
+  serverId?: string
   /** 'channel' (default) enables server-member features; 'dm' disables them */
   variant?: 'channel' | 'dm'
   onReply?: (messageId: string) => void
@@ -219,6 +220,7 @@ function CodeBlockWithCopy({ children }: { children: React.ReactNode }) {
 function MessageBubbleInner({
   message,
   currentUserId,
+  serverId,
   variant = 'channel',
   onReply,
   onReact,
@@ -272,6 +274,7 @@ function MessageBubbleInner({
     ) as HTMLElement | null
     if (!scrollParent) return
     const handleScroll = () => {
+      setIsHovered(false)
       setShowEmojiPicker(false)
       setShowFullPicker(false)
       setShowMoreMenu(false)
@@ -295,9 +298,25 @@ function MessageBubbleInner({
   }, [showMoreMenu, showEmojiPicker, showFullPicker])
 
   const isOwn = message.authorId === currentUserId
-  const currentUser = useAuthStore((s) => s.user)
+  const isDmOwn = variant === 'dm' && isOwn
+  const getFloatingControlsStyle = useCallback(
+    (offsetTop: number, estimatedWidth: number): React.CSSProperties | null => {
+      if (typeof window === 'undefined') return null
+      const rect = messageRef.current?.getBoundingClientRect()
+      if (!rect) return null
+
+      const maxTop = Math.max(8, window.innerHeight - 56)
+      const maxLeft = Math.max(8, window.innerWidth - estimatedWidth - 8)
+      const desiredLeft = isDmOwn ? rect.left + 16 : rect.right - estimatedWidth - 16
+
+      return {
+        top: Math.min(Math.max(8, rect.top - offsetTop), maxTop),
+        left: Math.min(Math.max(8, desiredLeft), maxLeft),
+      }
+    },
+    [isDmOwn],
+  )
   const queryClient = useQueryClient()
-  const { activeServerId } = useChatStore()
   const author = message.author
 
   const handleEdit = useCallback(() => {
@@ -408,23 +427,24 @@ function MessageBubbleInner({
 
   // Look up member info from cache for role/buddy metadata (channel mode only)
   const membersList =
-    variant === 'channel'
-      ? (queryClient.getQueryData<MemberEntry[]>(['members', activeServerId]) ?? [])
+    variant === 'channel' && serverId
+      ? (queryClient.getQueryData<MemberEntry[]>(['members', serverId]) ?? [])
       : []
   const authorMember = membersList.find((m: MemberEntry) => m.userId === author?.id)
   const buddyAgentsList =
-    variant === 'channel'
-      ? (queryClient.getQueryData<BuddyAgentEntry[]>(['members-buddy-agents', activeServerId]) ??
-        [])
+    variant === 'channel' && serverId
+      ? (queryClient.getQueryData<BuddyAgentEntry[]>(['members-buddy-agents', serverId]) ?? [])
       : []
   const buddyAgent = author?.isBot
     ? buddyAgentsList.find((a: BuddyAgentEntry) => a.botUser?.id === author.id)
     : undefined
-  const currentMember = membersList.find((m: MemberEntry) => m.userId === currentUser?.id)
+  const currentMember = membersList.find((m: MemberEntry) => m.userId === currentUserId)
   const canKick =
-    variant === 'channel' && (currentMember?.role === 'owner' || currentMember?.role === 'admin')
+    variant === 'channel' &&
+    !!serverId &&
+    (currentMember?.role === 'owner' || currentMember?.role === 'admin')
   // Allow deletion for own messages OR messages from a bot owned by the current user
-  const canDelete = isOwn || (author?.isBot && buddyAgent?.ownerId === currentUser?.id)
+  const canDelete = isOwn || (author?.isBot && buddyAgent?.ownerId === currentUserId)
 
   const dateFnsLocaleMap: Record<string, Locale> = {
     'zh-CN': zhCN,
@@ -454,27 +474,89 @@ function MessageBubbleInner({
   /**
    * Process react children to highlight @username mention patterns.
    */
-  const renderMentions = (children: React.ReactNode): React.ReactNode => {
-    if (!children) return children
-    const childArray = Array.isArray(children) ? children : [children]
-    return childArray.map((child, idx) => {
-      if (typeof child !== 'string') return child
-      const parts = child.split(/(@[A-Za-z0-9_-]+)/g)
-      if (parts.length === 1) return child
-      return parts.map((part, pi) => {
-        if (/^@[A-Za-z0-9_-]+$/.test(part)) {
-          return (
-            <MentionSpan key={`${idx}-${pi}`} mention={part} label={resolveMentionLabel(part)} />
-          )
-        }
-        return part
+  const renderMentions = useCallback(
+    (children: React.ReactNode): React.ReactNode => {
+      if (!children) return children
+      const childArray = Array.isArray(children) ? children : [children]
+      return childArray.map((child, idx) => {
+        if (typeof child !== 'string') return child
+        const parts = child.split(/(@[A-Za-z0-9_-]+)/g)
+        if (parts.length === 1) return child
+        return parts.map((part, pi) => {
+          if (/^@[A-Za-z0-9_-]+$/.test(part)) {
+            return (
+              <MentionSpan key={`${idx}-${pi}`} mention={part} label={resolveMentionLabel(part)} />
+            )
+          }
+          return part
+        })
       })
-    })
-  }
+    },
+    [resolveMentionLabel],
+  )
 
   const markdownContent = useMemo(() => message.content, [message.content])
+  const markdownNode = useMemo(() => {
+    if (!markdownContent || markdownContent === '\u200B') return null
 
-  const isDmOwn = variant === 'dm' && isOwn
+    return (
+      <div className="text-[15px] text-text-primary leading-[1.6] tracking-[0.01em] break-words msg-markdown pt-[2px]">
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{
+            img: ({ src, alt }) => (
+              <a href={src} target="_blank" rel="noopener noreferrer">
+                <img src={src} alt={alt ?? ''} loading="lazy" />
+              </a>
+            ),
+            a: ({ href, children }) => {
+              const handleClick = (e: React.MouseEvent) => {
+                e.preventDefault()
+                if (href) {
+                  window.open(href, '_blank', 'noopener,noreferrer')
+                }
+              }
+              return (
+                <a
+                  href={href}
+                  onClick={handleClick}
+                  className="text-primary hover:underline cursor-pointer"
+                  rel="noopener noreferrer"
+                >
+                  {children}
+                </a>
+              )
+            },
+            p: ({ children }) => <p>{renderMentions(children)}</p>,
+            li: ({ children }) => <li>{renderMentions(children)}</li>,
+            table: ({ children }) => (
+              <div className="msg-markdown-table-scroll">
+                <table>{children}</table>
+              </div>
+            ),
+            td: ({ children }) => <td>{renderMentions(children)}</td>,
+            code: ({ className, children, ...props }) => {
+              if (className) {
+                return (
+                  <code className={className} {...props}>
+                    {children}
+                  </code>
+                )
+              }
+              return (
+                <code className="bg-bg-modifier-hover rounded px-1.5" {...props}>
+                  {children}
+                </code>
+              )
+            },
+            pre: ({ children }) => <CodeBlockWithCopy>{children}</CodeBlockWithCopy>,
+          }}
+        >
+          {markdownContent}
+        </ReactMarkdown>
+      </div>
+    )
+  }, [markdownContent, renderMentions])
 
   return (
     <div
@@ -535,22 +617,39 @@ function MessageBubbleInner({
       <div className={`flex-1 min-w-0 ${isDmOwn ? 'text-right' : ''}`}>
         {/* Reply reference */}
         {replyToMessage && (
-          <button
-            type="button"
-            onClick={() => {
-              const el = document.getElementById(`msg-${replyToMessage.id}`)
-              el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-            }}
-            className={`flex items-center gap-1.5 mb-1 text-xs text-text-muted hover:text-text-secondary transition bg-primary/5 border-l-2 border-primary rounded-r-lg px-2 py-1 ${isDmOwn ? 'ml-auto flex-row-reverse' : ''}`}
-          >
-            <Reply size={12} className="shrink-0" />
-            <span className="font-medium">
-              {replyToMessage.author?.displayName ??
-                replyToMessage.author?.username ??
-                t('common.unknownUser')}
-            </span>
-            <span className="truncate max-w-[300px] opacity-70">{replyToMessage.content}</span>
-          </button>
+          <div className={`mb-1 flex w-full ${isDmOwn ? 'justify-end' : 'justify-start'}`}>
+            <button
+              type="button"
+              onClick={() => {
+                const el = document.getElementById(`msg-${replyToMessage.id}`)
+                el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              }}
+              className={`grid max-w-[min(100%,42rem)] items-center gap-x-1.5 py-0.5 text-xs text-text-muted transition hover:text-text-secondary ${
+                isDmOwn
+                  ? 'grid-cols-[minmax(0,1fr)_auto] border-r-2 border-primary/70 pr-2 text-right'
+                  : 'grid-cols-[auto_minmax(0,1fr)] border-l-2 border-primary/70 pl-2 text-left'
+              }`}
+            >
+              {isDmOwn ? (
+                <>
+                  <span className="min-w-0 truncate opacity-70">{replyToMessage.content}</span>
+                  <Reply size={12} className="shrink-0 text-primary/75" />
+                </>
+              ) : (
+                <>
+                  <Reply size={12} className="shrink-0 text-primary/75" />
+                  <span className="min-w-0 truncate">
+                    <span className="font-semibold text-text-secondary/90">
+                      {replyToMessage.author?.displayName ??
+                        replyToMessage.author?.username ??
+                        t('common.unknownUser')}
+                    </span>
+                    <span className="opacity-70"> {replyToMessage.content}</span>
+                  </span>
+                </>
+              )}
+            </button>
+          </div>
         )}
         {/* Author line — hidden in grouped mode */}
         {!isGrouped && (
@@ -628,60 +727,7 @@ function MessageBubbleInner({
             </div>
           </div>
         ) : (
-          /* Markdown content — hide zero-width space placeholder for file-only messages */
-          message.content &&
-          message.content !== '\u200B' && (
-            <div className="text-[15px] text-text-primary leading-[1.6] tracking-[0.01em] break-words msg-markdown pt-[2px]">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  img: ({ src, alt }) => (
-                    <a href={src} target="_blank" rel="noopener noreferrer">
-                      <img src={src} alt={alt ?? ''} loading="lazy" />
-                    </a>
-                  ),
-                  a: ({ href, children }) => {
-                    const handleClick = (e: React.MouseEvent) => {
-                      e.preventDefault()
-                      if (href) {
-                        window.open(href, '_blank', 'noopener,noreferrer')
-                      }
-                    }
-                    return (
-                      <a
-                        href={href}
-                        onClick={handleClick}
-                        className="text-primary hover:underline cursor-pointer"
-                        rel="noopener noreferrer"
-                      >
-                        {children}
-                      </a>
-                    )
-                  },
-                  p: ({ children }) => <p>{renderMentions(children)}</p>,
-                  li: ({ children }) => <li>{renderMentions(children)}</li>,
-                  td: ({ children }) => <td>{renderMentions(children)}</td>,
-                  code: ({ className, children, ...props }) => {
-                    if (className) {
-                      return (
-                        <code className={className} {...props}>
-                          {children}
-                        </code>
-                      )
-                    }
-                    return (
-                      <code className="bg-bg-modifier-hover rounded px-1.5" {...props}>
-                        {children}
-                      </code>
-                    )
-                  },
-                  pre: ({ children }) => <CodeBlockWithCopy>{children}</CodeBlockWithCopy>,
-                }}
-              >
-                {markdownContent}
-              </ReactMarkdown>
-            </div>
-          )
+          markdownNode
         )}
 
         {/* Attachments */}
@@ -828,155 +874,171 @@ function MessageBubbleInner({
         )}
       </div>
 
-      {/* Hover actions — positioned absolutely within the message row to follow scroll */}
-      {showActions && (
-        <div
-          ref={actionsRef}
-          className="absolute flex items-center bg-white/90 dark:bg-[#1A1D24]/90 backdrop-blur-xl rounded-[14px] border border-black/5 dark:border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.4)] p-0.5 z-40 transition-all"
-          style={isDmOwn ? { top: '-16px', left: '16px' } : { top: '-16px', right: '16px' }}
-          onMouseEnter={activateHover}
-          onMouseLeave={deactivateHover}
-        >
-          <Button
-            variant="ghost"
-            size="xs"
-            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className="!w-8 !h-8 !p-0 !rounded-[10px] !font-normal !normal-case !tracking-normal text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-            title={t('chat.addEmoji')}
-          >
-            <Smile size={18} strokeWidth={2} />
-          </Button>
-          <Button
-            variant="ghost"
-            size="xs"
-            onClick={() => onReply?.(message.id)}
-            className="!w-8 !h-8 !p-0 !rounded-[10px] !font-normal !normal-case !tracking-normal text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-            title={t('chat.reply')}
-          >
-            <Reply size={18} strokeWidth={2} />
-          </Button>
-          <div className="relative">
-            <Button
-              variant="ghost"
-              size="xs"
-              onClick={() => setShowMoreMenu(!showMoreMenu)}
-              className={`!w-8 !h-8 !p-0 !rounded-[10px] !font-normal !normal-case !tracking-normal transition-colors ${showMoreMenu ? 'bg-black/5 dark:bg-white/10 text-text-primary' : 'text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/10'}`}
-              title={t('chat.more')}
+      {/* Hover actions */}
+      {showActions &&
+        messageRef.current &&
+        (() => {
+          const floatingStyle = getFloatingControlsStyle(16, 116)
+          if (!floatingStyle) return null
+          return createPortal(
+            <div
+              ref={actionsRef}
+              className="fixed flex items-center bg-white/90 dark:bg-[#1A1D24]/90 backdrop-blur-xl rounded-[14px] border border-black/5 dark:border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.4)] p-0.5 z-[65] transition-all"
+              style={floatingStyle}
+              onMouseEnter={activateHover}
+              onMouseLeave={deactivateHover}
             >
-              <MoreHorizontal size={18} strokeWidth={2} />
-            </Button>
-            {/* More dropdown menu */}
-            {showMoreMenu && (
-              <div className="absolute top-[calc(100%+4px)] right-0 bg-white/95 dark:bg-[#1A1D24]/95 backdrop-blur-2xl rounded-[16px] border border-black/5 dark:border-white/10 shadow-[0_12px_48px_rgba(0,0,0,0.12)] dark:shadow-[0_12px_48px_rgba(0,0,0,0.5)] py-2 min-w-[180px] z-50 flex flex-col gap-0.5 px-1.5 animate-in fade-in zoom-in-95 duration-100 origin-top-right">
-                {isOwn && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleEdit}
-                    className="!w-full !justify-start !rounded-[10px] !font-medium !normal-case !tracking-normal !px-3 !py-2.5 !text-[14px] !h-auto text-text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-                  >
-                    <Pencil size={16} strokeWidth={2} className="mr-1.5 opacity-70" />
-                    {t('chat.editMessage')}
-                  </Button>
-                )}
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                className="!w-8 !h-8 !p-0 !rounded-[10px] !font-normal !normal-case !tracking-normal text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                title={t('chat.addEmoji')}
+              >
+                <Smile size={18} strokeWidth={2} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={() => onReply?.(message.id)}
+                className="!w-8 !h-8 !p-0 !rounded-[10px] !font-normal !normal-case !tracking-normal text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                title={t('chat.reply')}
+              >
+                <Reply size={18} strokeWidth={2} />
+              </Button>
+              <div className="relative">
                 <Button
                   variant="ghost"
-                  size="sm"
-                  onClick={handleCopy}
-                  className="!w-full !justify-start !rounded-[10px] !font-medium !normal-case !tracking-normal !px-3 !py-2.5 !text-[14px] !h-auto text-text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                  size="xs"
+                  onClick={() => setShowMoreMenu(!showMoreMenu)}
+                  className={`!w-8 !h-8 !p-0 !rounded-[10px] !font-normal !normal-case !tracking-normal transition-colors ${showMoreMenu ? 'bg-black/5 dark:bg-white/10 text-text-primary' : 'text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/10'}`}
+                  title={t('chat.more')}
                 >
-                  <Copy size={16} strokeWidth={2} className="mr-1.5 opacity-70" />
-                  {copied ? t('common.copied') : t('chat.copyMessage')}
+                  <MoreHorizontal size={18} strokeWidth={2} />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleShareLink}
-                  className="!w-full !justify-start !rounded-[10px] !font-medium !normal-case !tracking-normal !px-3 !py-2.5 !text-[14px] !h-auto text-text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-                >
-                  <ExternalLink size={16} strokeWidth={2} className="mr-1.5 opacity-70" />
-                  {t('chat.shareLink')}
-                </Button>
-                {onEnterSelectionMode && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setShowMoreMenu(false)
-                      onEnterSelectionMode(message.id)
-                    }}
-                    className="!w-full !justify-start !rounded-[10px] !font-medium !normal-case !tracking-normal !px-3 !py-2.5 !text-[14px] !h-auto text-text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                {/* More dropdown menu */}
+                {showMoreMenu && (
+                  <div
+                    className={`absolute top-[calc(100%+4px)] ${isDmOwn ? 'left-0 origin-top-left' : 'right-0 origin-top-right'} bg-white/95 dark:bg-[#1A1D24]/95 backdrop-blur-2xl rounded-[16px] border border-black/5 dark:border-white/10 shadow-[0_12px_48px_rgba(0,0,0,0.12)] dark:shadow-[0_12px_48px_rgba(0,0,0,0.5)] py-2 min-w-[180px] z-50 flex flex-col gap-0.5 px-1.5 animate-in fade-in zoom-in-95 duration-100`}
                   >
-                    <CheckSquare size={16} strokeWidth={2} className="mr-1.5 opacity-70" />
-                    {t('chat.selectMessages', '多选消息')}
-                  </Button>
-                )}
-                {canDelete && (
-                  <>
-                    <div className="h-px bg-black/5 dark:bg-white/10 mx-2 my-1" />
+                    {isOwn && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleEdit}
+                        className="!w-full !justify-start !rounded-[10px] !font-medium !normal-case !tracking-normal !px-3 !py-2.5 !text-[14px] !h-auto text-text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                      >
+                        <Pencil size={16} strokeWidth={2} className="mr-1.5 opacity-70" />
+                        {t('chat.editMessage')}
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={handleDelete}
-                      className="!w-full !justify-start !rounded-[10px] !font-medium !normal-case !tracking-normal !px-3 !py-2.5 !text-[14px] !h-auto text-danger hover:!bg-danger/10 hover:text-danger transition-colors group"
+                      onClick={handleCopy}
+                      className="!w-full !justify-start !rounded-[10px] !font-medium !normal-case !tracking-normal !px-3 !py-2.5 !text-[14px] !h-auto text-text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
                     >
-                      <Trash2
-                        size={16}
-                        strokeWidth={2}
-                        className="mr-1.5 opacity-80 group-hover:opacity-100"
-                      />
-                      {t('chat.deleteMessage')}
+                      <Copy size={16} strokeWidth={2} className="mr-1.5 opacity-70" />
+                      {copied ? t('common.copied') : t('chat.copyMessage')}
                     </Button>
-                  </>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleShareLink}
+                      className="!w-full !justify-start !rounded-[10px] !font-medium !normal-case !tracking-normal !px-3 !py-2.5 !text-[14px] !h-auto text-text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                    >
+                      <ExternalLink size={16} strokeWidth={2} className="mr-1.5 opacity-70" />
+                      {t('chat.shareLink')}
+                    </Button>
+                    {onEnterSelectionMode && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setShowMoreMenu(false)
+                          onEnterSelectionMode(message.id)
+                        }}
+                        className="!w-full !justify-start !rounded-[10px] !font-medium !normal-case !tracking-normal !px-3 !py-2.5 !text-[14px] !h-auto text-text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                      >
+                        <CheckSquare size={16} strokeWidth={2} className="mr-1.5 opacity-70" />
+                        {t('chat.selectMessages', '多选消息')}
+                      </Button>
+                    )}
+                    {canDelete && (
+                      <>
+                        <div className="h-px bg-black/5 dark:bg-white/10 mx-2 my-1" />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleDelete}
+                          className="!w-full !justify-start !rounded-[10px] !font-medium !normal-case !tracking-normal !px-3 !py-2.5 !text-[14px] !h-auto text-danger hover:!bg-danger/10 hover:text-danger transition-colors group"
+                        >
+                          <Trash2
+                            size={16}
+                            strokeWidth={2}
+                            className="mr-1.5 opacity-80 group-hover:opacity-100"
+                          />
+                          {t('chat.deleteMessage')}
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
-          </div>
-        </div>
-      )}
+            </div>,
+            document.body,
+          )
+        })()}
 
-      {/* Quick emoji picker — positioned absolutely within message row */}
-      {showEmojiPicker && (
-        <div
-          className="absolute flex items-center bg-white/90 dark:bg-[#1A1D24]/90 backdrop-blur-xl rounded-[14px] border border-black/5 dark:border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.4)] p-0.5 z-40 transition-all"
-          style={isDmOwn ? { top: '-44px', left: '16px' } : { top: '-44px', right: '16px' }}
-          onMouseEnter={activateHover}
-          onMouseLeave={() => {
-            hoverTimeoutRef.current = setTimeout(() => {
-              setIsHovered(false)
-              setShowEmojiPicker(false)
-            }, 150)
-          }}
-        >
-          {quickEmojis.map((emoji) => (
-            <Button
-              variant="ghost"
-              size="xs"
-              key={emoji}
-              onClick={() => {
-                onReact?.(message.id, emoji)
-                setShowEmojiPicker(false)
+      {/* Quick emoji picker */}
+      {showEmojiPicker &&
+        messageRef.current &&
+        (() => {
+          const floatingStyle = getFloatingControlsStyle(44, 284)
+          if (!floatingStyle) return null
+          return createPortal(
+            <div
+              className="fixed flex items-center bg-white/90 dark:bg-[#1A1D24]/90 backdrop-blur-xl rounded-[14px] border border-black/5 dark:border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.4)] p-0.5 z-[66] transition-all"
+              style={floatingStyle}
+              onMouseEnter={activateHover}
+              onMouseLeave={() => {
+                hoverTimeoutRef.current = setTimeout(() => {
+                  setIsHovered(false)
+                  setShowEmojiPicker(false)
+                }, 150)
               }}
-              className="!w-8 !h-8 !rounded-[10px] !px-0 !font-normal !normal-case !tracking-normal text-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
             >
-              {emoji}
-            </Button>
-          ))}
-          <div className="w-px h-5 bg-black/5 dark:bg-white/10 mx-0.5 shrink-0" />
-          <Button
-            variant="ghost"
-            size="xs"
-            onClick={() => {
-              setShowEmojiPicker(false)
-              setShowFullPicker(true)
-            }}
-            className="!w-8 !h-8 !rounded-[10px] !px-0 !font-normal !normal-case !tracking-normal text-sm text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-            title={t('chat.addEmoji')}
-          >
-            +
-          </Button>
-        </div>
-      )}
+              {quickEmojis.map((emoji) => (
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  key={emoji}
+                  onClick={() => {
+                    onReact?.(message.id, emoji)
+                    setShowEmojiPicker(false)
+                  }}
+                  className="!w-8 !h-8 !rounded-[10px] !px-0 !font-normal !normal-case !tracking-normal text-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                >
+                  {emoji}
+                </Button>
+              ))}
+              <div className="w-px h-5 bg-black/5 dark:bg-white/10 mx-0.5 shrink-0" />
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={() => {
+                  setShowEmojiPicker(false)
+                  setShowFullPicker(true)
+                }}
+                className="!w-8 !h-8 !rounded-[10px] !px-0 !font-normal !normal-case !tracking-normal text-sm text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                title={t('chat.addEmoji')}
+              >
+                +
+              </Button>
+            </div>,
+            document.body,
+          )
+        })()}
 
       {/* Full emoji picker — still needs portal due to size and overflow */}
       {showFullPicker &&
@@ -1092,7 +1154,7 @@ function MessageBubbleInner({
               >
                 {t('member.viewProfile')}
               </Button>
-              {canKick && author?.id !== currentUser?.id && authorMember?.role !== 'owner' && (
+              {canKick && author?.id !== currentUserId && authorMember?.role !== 'owner' && (
                 <>
                   <div className="h-px bg-border-subtle my-1" />
                   <Button
@@ -1108,12 +1170,12 @@ function MessageBubbleInner({
                         title: t(titleKey),
                         message: t(confirmKey, { name }),
                       })
-                      if (ok) {
-                        fetchApi(`/api/servers/${activeServerId}/members/${author?.id}`, {
+                      if (ok && serverId) {
+                        fetchApi(`/api/servers/${serverId}/members/${author?.id}`, {
                           method: 'DELETE',
                         }).then(() => {
                           queryClient.invalidateQueries({
-                            queryKey: ['members', activeServerId],
+                            queryKey: ['members', serverId],
                           })
                         })
                       }
@@ -1511,6 +1573,7 @@ export const MessageBubble = React.memo(MessageBubbleInner, (prev, next) => {
   if (prev.message.sendStatus !== next.message.sendStatus) return false
   if (prev.message.updatedAt !== next.message.updatedAt) return false
   if (prev.currentUserId !== next.currentUserId) return false
+  if (prev.serverId !== next.serverId) return false
   if (prev.variant !== next.variant) return false
   if (prev.highlight !== next.highlight) return false
   if (prev.isGrouped !== next.isGrouped) return false
