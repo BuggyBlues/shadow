@@ -40,8 +40,28 @@ const manifest = connectorManifest({
 })
 
 const runtimeDependencies = [npmGlobalDependency('supabase', ['supabase'], 'Supabase CLI')]
+const skillSources = [
+  {
+    id: 'supabase-agent-skills',
+    kind: 'git' as const,
+    url: 'https://github.com/supabase/agent-skills.git',
+    ref: 'main',
+    from: 'skills',
+    targetPath: '/app/plugin-skills/supabase',
+    include: ['supabase', 'supabase-postgres-best-practices'],
+    description: 'Supabase official agent skills',
+  },
+]
 const verificationChecks = [
   installedCheck('supabase-cli-installed', 'Supabase CLI installed', ['supabase', '--version']),
+  {
+    id: 'supabase-skills-mounted',
+    label: 'Supabase skills mounted',
+    kind: 'command' as const,
+    command: ['test', '-f', '/app/plugin-skills/supabase/supabase/SKILL.md'],
+    timeoutMs: 5_000,
+    risk: 'safe' as const,
+  },
 ]
 
 const plugin = defineConnectorPlugin(manifest, {
@@ -61,9 +81,14 @@ const plugin = defineConnectorPlugin(manifest, {
     requiredEnv: ['SUPABASE_ACCESS_TOKEN'],
   },
   runtimeDependencies,
+  skillSources,
   verificationChecks,
   prompt:
     'Use Supabase for Auth, RLS, schema, migrations, logs, storage, edge functions, and database diagnostics. Confirm destructive SQL, migration, auth, or policy changes before running them.',
 })
 
-export default attachConnectorRuntimeAssets(plugin, { runtimeDependencies })
+export default attachConnectorRuntimeAssets(plugin, {
+  runtimeDependencies,
+  skillSources,
+  skillsMountPath: '/app/plugin-skills/supabase',
+})

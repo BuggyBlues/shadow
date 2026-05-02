@@ -181,18 +181,26 @@ describe('loadAllPlugins', () => {
         .map((plugin) => plugin.manifest.id)
         .sort(),
     ).toEqual([
+      'agent-browser',
       'agent-pack',
+      'airtable',
       'alipay',
       'amap',
+      'atlassian',
       'baidu-appbuilder',
       'baidu-maps',
       'baidu-netdisk',
       'baidu-smartprogram',
+      'browserbase',
+      'canva',
       'cloudflare',
       'cnb',
       'coze',
       'dingtalk',
       'douyin-miniprogram',
+      'figma',
+      'firebase',
+      'firecrawl',
       'flyai',
       'gitagent',
       'gitee',
@@ -202,19 +210,27 @@ describe('loadAllPlugins', () => {
       'google-workspace',
       'huawei-xiaoyi',
       'hubspot',
+      'huggingface',
+      'inference-ai-image-generation',
+      'inference-sh',
       'klaviyo',
       'kuaidi100',
       'lark',
+      'linear',
       'meta-ads',
       'miclaw',
       'model-provider',
       'notion',
       'oceanengine',
       'paypal',
+      'playwright',
+      'posthog',
       'salesforce',
+      'sentry',
       'seo-suite',
       'shadowob',
       'shopify',
+      'skill-discovery',
       'stripe',
       'supabase',
       'taobao-aipaas',
@@ -226,6 +242,7 @@ describe('loadAllPlugins', () => {
       'webflow',
       'wechat-miniprogram-skyline',
       'wechat-pay',
+      'wonda',
       'wordpress-woocommerce',
       'wps',
       'yuque',
@@ -292,6 +309,12 @@ describe('loadAllPlugins', () => {
         id: 'cloudflare-mcp',
         transport: 'streamable-http',
         url: 'https://mcp.cloudflare.com/mcp',
+      }),
+    )
+    expect(cloudflare?.runtime?.skillSources).toContainEqual(
+      expect.objectContaining({
+        id: 'cloudflare-agent-skills',
+        url: 'https://github.com/cloudflare/skills.git',
       }),
     )
   }, 30_000)
@@ -367,6 +390,158 @@ describe('loadAllPlugins', () => {
       expect.objectContaining({
         id: 'gitee-mcp',
         args: ['-y', '@gitee/mcp-gitee@latest'],
+      }),
+    )
+  }, 30_000)
+
+  it('should load skills.sh connectors as independent plugins', async () => {
+    const registry = createPluginRegistry()
+    await loadAllPlugins(registry)
+
+    const agentBrowser = registry.get('agent-browser')
+    const skillDiscovery = registry.get('skill-discovery')
+    const inferenceSh = registry.get('inference-sh')
+    const aiImage = registry.get('inference-ai-image-generation')
+    const wonda = registry.get('wonda')
+
+    expect(agentBrowser?.manifest.capabilities).toEqual(expect.arrayContaining(['skill', 'cli']))
+    expect(agentBrowser?.runtime?.runtimeDependencies).toContainEqual(
+      expect.objectContaining({ packages: ['agent-browser'] }),
+    )
+    expect(agentBrowser?.runtime?.skillSources).toContainEqual(
+      expect.objectContaining({
+        id: 'agent-browser-skill',
+        url: 'https://github.com/vercel-labs/agent-browser.git',
+      }),
+    )
+
+    expect(skillDiscovery?.runtime?.runtimeDependencies).toContainEqual(
+      expect.objectContaining({ packages: ['skills'] }),
+    )
+    expect(skillDiscovery?.runtime?.skillSources).toContainEqual(
+      expect.objectContaining({
+        id: 'find-skills-skill',
+        url: 'https://github.com/vercel-labs/skills.git',
+      }),
+    )
+
+    expect(inferenceSh?.runtime?.runtimeDependencies).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'inference-cli-prereqs', kind: 'system-package' }),
+        expect.objectContaining({ id: 'inference-cli', kind: 'shell' }),
+      ]),
+    )
+    expect(inferenceSh?.runtime?.skillSources).toContainEqual(
+      expect.objectContaining({
+        id: 'infsh-cli-skill',
+        url: 'https://github.com/infsh-skills/skills.git',
+      }),
+    )
+    expect(aiImage?.runtime?.skillSources).toContainEqual(
+      expect.objectContaining({
+        id: 'infsh-ai-image-skills',
+        from: 'tools/image',
+      }),
+    )
+    expect(wonda?.runtime?.runtimeDependencies).toContainEqual(
+      expect.objectContaining({ packages: ['@degausai/wonda'] }),
+    )
+    expect(wonda?.runtime?.skillSources).toContainEqual(
+      expect.objectContaining({
+        id: 'wonda-cli-skill',
+        url: 'https://github.com/degausai/wonda.git',
+      }),
+    )
+  }, 30_000)
+
+  it('should load design, product, and browser operations connectors', async () => {
+    const registry = createPluginRegistry()
+    await loadAllPlugins(registry)
+
+    const figma = registry.get('figma')
+    const canva = registry.get('canva')
+    const airtable = registry.get('airtable')
+    const huggingface = registry.get('huggingface')
+    const sentry = registry.get('sentry')
+    const firebase = registry.get('firebase')
+    const firecrawl = registry.get('firecrawl')
+    const playwright = registry.get('playwright')
+    const browserbase = registry.get('browserbase')
+    const linear = registry.get('linear')
+    const atlassian = registry.get('atlassian')
+    const posthog = registry.get('posthog')
+    const supabase = registry.get('supabase')
+
+    expect(figma?.runtime?.runtimeDependencies).toContainEqual(
+      expect.objectContaining({ packages: ['@figma/code-connect'] }),
+    )
+    expect(figma?.runtime?.skillSources).toContainEqual(
+      expect.objectContaining({
+        id: 'figma-mcp-skills',
+        url: 'https://github.com/figma/mcp-server-guide.git',
+      }),
+    )
+    expect(canva?.runtime?.runtimeDependencies).toContainEqual(
+      expect.objectContaining({ packages: ['@canva/cli'] }),
+    )
+    expect(airtable?.runtime?.skillSources).toContainEqual(
+      expect.objectContaining({
+        id: 'airtable-skills',
+        url: 'https://github.com/Airtable/skills.git',
+      }),
+    )
+    expect(airtable?.runtime?.mcpServers).toContainEqual(
+      expect.objectContaining({ id: 'airtable-mcp', url: 'https://mcp.airtable.com/mcp' }),
+    )
+    expect(huggingface?.runtime?.runtimeDependencies).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'hf-cli-prereqs', kind: 'system-package' }),
+        expect.objectContaining({ id: 'hf-cli', kind: 'shell' }),
+      ]),
+    )
+    expect(huggingface?.runtime?.skillSources).toContainEqual(
+      expect.objectContaining({
+        id: 'huggingface-skills',
+        url: 'https://github.com/huggingface/skills.git',
+      }),
+    )
+    expect(sentry?.runtime?.runtimeDependencies).toContainEqual(
+      expect.objectContaining({ packages: ['@sentry/cli'] }),
+    )
+    expect(sentry?.runtime?.skillSources).toContainEqual(
+      expect.objectContaining({
+        id: 'sentry-agent-skills',
+        url: 'https://github.com/getsentry/agent-skills.git',
+      }),
+    )
+    expect(firebase?.runtime?.skillSources).toContainEqual(
+      expect.objectContaining({
+        id: 'firebase-agent-skills',
+        url: 'https://github.com/firebase/agent-skills.git',
+      }),
+    )
+    expect(firecrawl?.runtime?.runtimeDependencies).toContainEqual(
+      expect.objectContaining({ packages: ['firecrawl-cli', 'firecrawl-mcp'] }),
+    )
+    expect(playwright?.runtime?.runtimeDependencies).toContainEqual(
+      expect.objectContaining({ packages: ['playwright', '@playwright/mcp'] }),
+    )
+    expect(browserbase?.runtime?.runtimeDependencies).toContainEqual(
+      expect.objectContaining({ packages: ['@browserbasehq/mcp-server-browserbase'] }),
+    )
+    expect(linear?.runtime?.mcpServers).toContainEqual(
+      expect.objectContaining({ id: 'linear-mcp', url: 'https://mcp.linear.app/sse' }),
+    )
+    expect(atlassian?.runtime?.mcpServers).toContainEqual(
+      expect.objectContaining({ id: 'atlassian-mcp', url: 'https://mcp.atlassian.com/v1/sse' }),
+    )
+    expect(posthog?.runtime?.runtimeDependencies).toContainEqual(
+      expect.objectContaining({ packages: ['posthog-cli'] }),
+    )
+    expect(supabase?.runtime?.skillSources).toContainEqual(
+      expect.objectContaining({
+        id: 'supabase-agent-skills',
+        url: 'https://github.com/supabase/agent-skills.git',
       }),
     )
   }, 30_000)

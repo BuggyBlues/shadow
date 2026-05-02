@@ -44,8 +44,35 @@ const manifest = connectorManifest({
 const runtimeDependencies = [
   npmGlobalDependency('wrangler', ['wrangler'], 'Cloudflare Wrangler CLI'),
 ]
+const skillSources = [
+  {
+    id: 'cloudflare-agent-skills',
+    kind: 'git' as const,
+    url: 'https://github.com/cloudflare/skills.git',
+    ref: 'main',
+    from: 'skills',
+    targetPath: '/app/plugin-skills/cloudflare',
+    include: [
+      'cloudflare',
+      'wrangler',
+      'workers-best-practices',
+      'durable-objects',
+      'web-perf',
+      'agents-sdk',
+    ],
+    description: 'Cloudflare official agent skills',
+  },
+]
 const verificationChecks = [
   installedCheck('wrangler-installed', 'Wrangler CLI installed', ['wrangler', '--version']),
+  {
+    id: 'cloudflare-skills-mounted',
+    label: 'Cloudflare skills mounted',
+    kind: 'command' as const,
+    command: ['test', '-f', '/app/plugin-skills/cloudflare/cloudflare/SKILL.md'],
+    timeoutMs: 5_000,
+    risk: 'safe' as const,
+  },
   commandCheck(
     'cloudflare-whoami',
     'Cloudflare token smoke test',
@@ -71,9 +98,14 @@ const plugin = defineConnectorPlugin(manifest, {
     requiredEnv: ['CLOUDFLARE_API_TOKEN'],
   },
   runtimeDependencies,
+  skillSources,
   verificationChecks,
   prompt:
     'Use Cloudflare for DNS, WAF, cache, Workers, access, logs, and edge performance diagnostics. Ask before changing DNS records, firewall rules, routes, Workers, or account settings.',
 })
 
-export default attachConnectorRuntimeAssets(plugin, { runtimeDependencies })
+export default attachConnectorRuntimeAssets(plugin, {
+  runtimeDependencies,
+  skillSources,
+  skillsMountPath: '/app/plugin-skills/cloudflare',
+})

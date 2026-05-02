@@ -8,7 +8,7 @@ interface HourlyDistributionProps {
 }
 
 export function HourlyDistribution({ data }: HourlyDistributionProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
 
   const maxCount = Math.max(...data.map((d) => d.messageCount), 1)
 
@@ -42,7 +42,11 @@ export function HourlyDistribution({ data }: HourlyDistributionProps) {
                     height: `${Math.max(intensity * 100, 4)}%`,
                     opacity,
                   }}
-                  title={`${formatHour(hour.hour)}: ${hour.messageCount} messages`}
+                  title={t('buddyDashboard.dayActivity', '{{date}}: {{count}} {{unit}}', {
+                    date: formatHour(hour.hour),
+                    count: hour.messageCount,
+                    unit: t('buddyDashboard.messages', 'messages'),
+                  })}
                 />
               </div>
               {showLabel(hour.hour) && (

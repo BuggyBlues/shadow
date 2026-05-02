@@ -1,4 +1,12 @@
-import { Badge, Button, cn, GlassPanel } from '@shadowob/ui'
+import {
+  Badge,
+  Button,
+  cn,
+  GlassPanel,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@shadowob/ui'
 import {
   type InfiniteData,
   useInfiniteQuery,
@@ -11,15 +19,19 @@ import {
   Archive,
   ArrowLeft,
   ClipboardCopy,
+  Copy,
   Hash,
   Loader2,
   LogIn,
   LogOut,
+  type LucideProps,
   PawPrint,
+  Smartphone,
   UserPlus,
   Users,
   X,
 } from 'lucide-react'
+import { QRCodeSVG } from 'qrcode.react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSocketEvent } from '../../hooks/use-socket'
@@ -45,6 +57,8 @@ import {
 import { FilePreviewPanel } from './file-preview-panel'
 import { type Message as BubbleMessage, MessageBubble } from './message-bubble'
 import { MessageInput } from './message-input'
+
+const CopyQrIcon = (props: LucideProps) => <Copy {...props} size={14} strokeWidth={2.4} />
 
 interface Author {
   id: string
@@ -181,6 +195,8 @@ export function ChatArea() {
   const [systemEvents, setSystemEvents] = useState<SystemEvent[]>([])
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set())
+  const [showPageQr, setShowPageQr] = useState(false)
+  const pageShareUrl = window.location.href
   const typingTimersRef = useRef<Map<string, number>>(new Map())
   const activityTimersRef = useRef<Map<string, number>>(new Map())
   const initialScrollDoneRef = useRef(false)
@@ -895,6 +911,13 @@ export function ChatArea() {
     [saveToWorkspaceFile, activeServerId],
   )
 
+  const handleCopyPageShareLink = useCallback(() => {
+    navigator.clipboard.writeText(pageShareUrl).then(
+      () => showToast(t('chat.linkCopied'), 'success'),
+      () => showToast(t('chat.copyFailed', '复制失败'), 'error'),
+    )
+  }, [pageShareUrl, t])
+
   const renderTimelineItem = (item: TimelineItem, index: number) => (
     <>
       {lastReadCount > 0 && index === lastReadCount && (
@@ -1015,8 +1038,51 @@ export function ChatArea() {
               </p>
             </>
           )}
-          {/* Right side: members toggle + notification bell */}
+          {/* Right side: mobile QR + members toggle + notification bell */}
           <div className="flex items-center gap-2 ml-auto shrink-0">
+            <Popover open={showPageQr} onOpenChange={setShowPageQr}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full"
+                  title={t('chat.openPageQr')}
+                >
+                  <Smartphone size={18} />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                className="w-72 p-4 rounded-[20px] border border-border-subtle bg-bg-primary/95 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.32)]"
+              >
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-full rounded-xl border border-bg-modifier-hover bg-bg-secondary/45 px-3 py-2 flex items-start gap-2 text-text-primary/90">
+                    <Smartphone size={16} className="text-primary" />
+                    <span className="text-xs font-semibold">{t('chat.openPageQrTitle')}</span>
+                  </div>
+                  <div className="relative rounded-[18px] p-[1px] bg-gradient-to-br from-primary/45 via-sky-300/25 to-primary/45 shadow-[0_0_28px_rgba(14,165,233,0.45)]">
+                    <div className="bg-white p-3 rounded-[17px] border border-primary/30">
+                      <QRCodeSVG
+                        value={pageShareUrl}
+                        size={178}
+                        bgColor="#ffffff"
+                        fgColor="#0f0f1a"
+                        level="H"
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleCopyPageShareLink}
+                    icon={CopyQrIcon}
+                    className="h-8 w-full"
+                  >
+                    {t('common.copy')}
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
             <NotificationBell />
             <Button
               variant="ghost"
