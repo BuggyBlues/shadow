@@ -35,6 +35,8 @@ export interface InfraOptions {
   config: CloudConfig
   namespace: string
   shadowServerUrl?: string
+  /** Per-deployment runtime env resolved from SaaS/user input. */
+  runtimeEnvVars?: Record<string, string>
   /** kubectl context for K8s provider — defaults to KUBECONFIG_CONTEXT or 'rancher-desktop' */
   kubeContext?: string
   /** Path to a kubeconfig YAML file — takes precedence over kubeContext when set */
@@ -53,7 +55,7 @@ export interface InfraOptions {
  */
 export function createInfraProgram(options: InfraOptions) {
   return async () => {
-    const { config, namespace, shadowServerUrl, imagePullPolicy } = options
+    const { config, namespace, shadowServerUrl, runtimeEnvVars, imagePullPolicy } = options
     const agents = config.deployments?.agents ?? []
 
     const outputs: Record<string, pulumi.Output<string>> = {}
@@ -81,7 +83,7 @@ export function createInfraProgram(options: InfraOptions) {
       const healthPort = healthPortForRuntime(agent.runtime)
 
       // Build env vars from agent-level env (populated by plugin onProvision hooks)
-      const env = { ...(agent.env ?? {}) }
+      const env = { ...(agent.env ?? {}), ...(runtimeEnvVars ?? {}) }
 
       // The k8s shadow URL (pod-shadow-url) must override the provision URL
       // that onProvision wrote into agent.env.SHADOW_SERVER_URL.
@@ -163,7 +165,7 @@ export function createInfraProgram(options: InfraOptions) {
  * Returns plain objects that can be serialized to YAML/JSON.
  */
 export function buildManifests(options: InfraOptions) {
-  const { config, namespace, shadowServerUrl, imagePullPolicy } = options
+  const { config, namespace, shadowServerUrl, runtimeEnvVars, imagePullPolicy } = options
   const agents = config.deployments?.agents ?? []
   const manifests: Array<Record<string, unknown>> = []
 
@@ -222,7 +224,7 @@ export function buildManifests(options: InfraOptions) {
 
   for (const agent of agents) {
     const agentName = agent.id
-    const env = { ...(agent.env ?? {}) }
+    const env = { ...(agent.env ?? {}), ...(runtimeEnvVars ?? {}) }
 
     // The k8s shadow URL (pod-shadow-url) must override the provision URL
     // that onProvision wrote into agent.env.SHADOW_SERVER_URL.

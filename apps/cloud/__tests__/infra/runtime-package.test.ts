@@ -307,6 +307,54 @@ describe('buildManifests', () => {
     ).toMatch(/^[a-f0-9]{64}$/)
   })
 
+  it('writes deployment runtime credentials into agent Secret manifests', () => {
+    const config: CloudConfig = {
+      version: '1',
+      use: [{ plugin: 'google-workspace' }],
+      deployments: {
+        agents: [
+          {
+            id: 'workspace-agent',
+            runtime: 'openclaw',
+            configuration: {},
+          },
+        ],
+      },
+    }
+
+    const manifests = buildManifests({
+      config,
+      namespace: 'workspace-runtime-package',
+      runtimeEnvVars: {
+        GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON: '{"installed":{"client_id":"abc"}}',
+      },
+    })
+    const configMap = manifests.find(
+      (manifest) =>
+        manifest.kind === 'ConfigMap' && manifest.metadata?.name === 'workspace-agent-config',
+    )!
+    const secret = manifests.find(
+      (manifest) =>
+        manifest.kind === 'Secret' && manifest.metadata?.name === 'workspace-agent-secrets',
+    )!
+    const deployment = manifests.find(
+      (manifest) => manifest.kind === 'Deployment' && manifest.metadata?.name === 'workspace-agent',
+    )!
+
+    expect(secret.stringData.GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON).toBe(
+      '{"installed":{"client_id":"abc"}}',
+    )
+    expect(secret.stringData.GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE).toBe(
+      '/home/openclaw/.config/gws/credentials.json',
+    )
+    expect(configMap.data['runtime-extensions.json']).toContain(
+      '/home/openclaw/.config/gws/credentials.json',
+    )
+    expect(deployment.spec.template.spec.containers[0].envFrom).toEqual(
+      expect.arrayContaining([{ secretRef: { name: 'workspace-agent-secrets' } }]),
+    )
+  })
+
   it('keeps immutable and local runner images cacheable unless explicitly overridden', () => {
     const baseAgent = {
       id: 'agent-1',

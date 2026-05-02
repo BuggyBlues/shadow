@@ -26,6 +26,9 @@ const SECRET_FIELD_KEYS = {
 const LEGACY_SECRET_FIELD_KEYS = {
   credentialsJson: 'GOOGLE_WORKSPACE_CREDENTIALS_JSON',
   adcJson: 'GOOGLE_WORKSPACE_ADC_JSON',
+  applicationCredentialsJson: 'GOOGLE_APPLICATION_CREDENTIALS_JSON',
+  cliToken: 'GOOGLE_WORKSPACE_CLI_TOKEN',
+  accessToken: 'GOOGLE_WORKSPACE_ACCESS_TOKEN',
 } as const
 const RUNTIME_DEPENDENCIES = [
   {
@@ -80,7 +83,7 @@ function hasWorkspaceCredential(context: PluginBuildContext): boolean {
       SECRET_FIELD_KEYS.credentialsJson,
       LEGACY_SECRET_FIELD_KEYS.credentialsJson,
       LEGACY_SECRET_FIELD_KEYS.adcJson,
-      'GOOGLE_APPLICATION_CREDENTIALS_JSON',
+      LEGACY_SECRET_FIELD_KEYS.applicationCredentialsJson,
     ]),
   )
 }
@@ -107,8 +110,14 @@ const plugin = definePlugin(manifest as PluginManifest, (api) => {
         'Paste credentials.json from `gws auth export --unmasked`, or a service-account JSON.',
       sensitive: true,
       placeholder: '{"installed":{"client_id":"..."}}',
+      aliases: [
+        LEGACY_SECRET_FIELD_KEYS.credentialsJson,
+        LEGACY_SECRET_FIELD_KEYS.adcJson,
+        LEGACY_SECRET_FIELD_KEYS.applicationCredentialsJson,
+      ],
     },
   ])
+  api.ignoreEnvRefs([LEGACY_SECRET_FIELD_KEYS.cliToken, LEGACY_SECRET_FIELD_KEYS.accessToken])
 
   api.addCLI([
     {
@@ -212,11 +221,11 @@ const plugin = definePlugin(manifest as PluginManifest, (api) => {
       SECRET_FIELD_KEYS.credentialsJson,
       LEGACY_SECRET_FIELD_KEYS.credentialsJson,
       LEGACY_SECRET_FIELD_KEYS.adcJson,
-      'GOOGLE_APPLICATION_CREDENTIALS_JSON',
+      LEGACY_SECRET_FIELD_KEYS.applicationCredentialsJson,
     ])
     const adcJson = firstSecret(context, [
       LEGACY_SECRET_FIELD_KEYS.adcJson,
-      'GOOGLE_APPLICATION_CREDENTIALS_JSON',
+      LEGACY_SECRET_FIELD_KEYS.applicationCredentialsJson,
     ])
     if (credentialsJson) env.GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON = credentialsJson
     if (adcJson) env.GOOGLE_APPLICATION_CREDENTIALS_JSON = adcJson

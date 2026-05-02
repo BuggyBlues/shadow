@@ -5,8 +5,10 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   collectRuntimeEnvFields,
+  collectRuntimeEnvRefPolicy,
   collectRuntimeEnvRequirements,
 } from '../../src/application/runtime-env-requirements.js'
+import { extractRequiredEnvVars } from '../../src/application/template-env-refs.js'
 import {
   mergePluginFragments,
   resolveAgentPluginConfig,
@@ -878,9 +880,10 @@ describe('collectRuntimeEnvRequirements', () => {
     })
 
     expect(keys).toEqual(expect.arrayContaining(['GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON']))
-    expect(keys).not.toContain('GOOGLE_WORKSPACE_ADC_JSON')
+    expect(keys).toContain('GOOGLE_WORKSPACE_ADC_JSON')
+    expect(keys).toContain('GOOGLE_WORKSPACE_CREDENTIALS_JSON')
+    expect(keys).toContain('GOOGLE_APPLICATION_CREDENTIALS_JSON')
     expect(keys).not.toContain('GOOGLE_WORKSPACE_ACCESS_TOKEN')
-    expect(keys).not.toContain('GOOGLE_WORKSPACE_CREDENTIALS_JSON')
     expect(keys).not.toContain('GOOGLE_WORKSPACE_CLI_TOKEN')
   })
 
@@ -956,6 +959,33 @@ describe('collectRuntimeEnvRequirements', () => {
         sourceId: 'template',
       }),
     )
+  })
+
+  it('honors plugin-declared env ref aliases and ignored refs in deploy forms', async () => {
+    const config = {
+      version: '1',
+      use: [{ plugin: 'google-workspace' }],
+      legacy: {
+        token: '${env:GOOGLE_WORKSPACE_CLI_TOKEN}',
+        credentials: '${env:GOOGLE_WORKSPACE_CREDENTIALS_JSON}',
+      },
+      deployments: { agents: [{ id: 'agent-1', runtime: 'openclaw', configuration: {} }] },
+    }
+
+    const policy = await collectRuntimeEnvRefPolicy(config)
+    const fields = await collectRuntimeEnvFields(config)
+    const fieldKeys = fields.map((field) => field.key)
+
+    expect(policy.aliases.GOOGLE_WORKSPACE_CREDENTIALS_JSON).toBe(
+      'GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON',
+    )
+    expect(policy.ignoredKeys).toContain('GOOGLE_WORKSPACE_CLI_TOKEN')
+    expect(extractRequiredEnvVars(config, policy)).toEqual([
+      'GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON',
+    ])
+    expect(fieldKeys).toContain('GOOGLE_WORKSPACE_CLI_CREDENTIALS_JSON')
+    expect(fieldKeys).not.toContain('GOOGLE_WORKSPACE_CREDENTIALS_JSON')
+    expect(fieldKeys).not.toContain('GOOGLE_WORKSPACE_CLI_TOKEN')
   })
 })
 

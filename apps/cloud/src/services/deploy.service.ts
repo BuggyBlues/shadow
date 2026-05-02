@@ -106,6 +106,28 @@ function buildEffectiveEnv(envVars?: Record<string, string>): Record<string, str
   }
 }
 
+function configUsesPlugins(value: unknown, depth = 0): boolean {
+  if (depth > 32 || !value || typeof value !== 'object') return false
+
+  if (Array.isArray(value)) {
+    return value.some((item) => configUsesPlugins(item, depth + 1))
+  }
+
+  const record = value as Record<string, unknown>
+  if (typeof record.plugin === 'string') return true
+  return Object.values(record).some((child) => configUsesPlugins(child, depth + 1))
+}
+
+async function ensureBuiltInPluginsLoaded(): Promise<void> {
+  try {
+    const { loadAllPlugins, getPluginRegistry } = await import('../plugins/index.js')
+    const registry = getPluginRegistry()
+    if (registry.size === 0) await loadAllPlugins(registry)
+  } catch {
+    // Keep non-plugin deployments working in minimal/bundled environments.
+  }
+}
+
 function summarizeK8sTarget(options: DeployOptions, kubeConfigPath: string | undefined): string {
   const cluster = options.cluster ?? 'ambient'
   const context = options.k8sContext ?? process.env.KUBECONFIG_CONTEXT ?? 'rancher-desktop'
@@ -212,20 +234,13 @@ export class DeployService {
     // 3. Resolve config (expand extends + templates)
     this.logger.step('Resolving config...')
     emit('Resolving config...\n')
+    const usesPlugins = configUsesPlugins(config)
+    if (usesPlugins) await ensureBuiltInPluginsLoaded()
     const resolved = await this.configService.resolve(config, configCwd, { env: effectiveEnv })
 
     // Always load plugins so the build pipeline (applyPluginPipeline) works regardless
     // of whether provisioning is skipped.
-    try {
-      const { loadAllPlugins, getPluginRegistry } = await import('../plugins/index.js')
-      try {
-        await loadAllPlugins(getPluginRegistry())
-      } catch {
-        /* already loaded */
-      }
-    } catch {
-      // Plugin system unavailable — continue without plugins
-    }
+    if (usesPlugins) await ensureBuiltInPluginsLoaded()
 
     // 3b. Execute plugin lifecycle provisions (async hooks — runs for all plugins)
     if (!options.skipProvision) {
@@ -293,6 +308,7 @@ export class DeployService {
         config: resolved,
         namespace,
         shadowServerUrl: k8sShadowUrl,
+        runtimeEnvVars: normalizeRuntimeEnvVars(options.runtimeEnvVars),
       })
 
       const outDir = resolve(options.outputDir)
@@ -330,6 +346,7 @@ export class DeployService {
         config: resolved,
         namespace,
         shadowServerUrl: k8sShadowUrl,
+        runtimeEnvVars: normalizeRuntimeEnvVars(options.runtimeEnvVars),
         kubeContext: options.k8sContext,
         kubeConfigPath,
         imagePullPolicy: options.imagePullPolicy,
@@ -347,6 +364,7 @@ export class DeployService {
               config: resolved,
               namespace,
               shadowServerUrl: k8sShadowUrl,
+              runtimeEnvVars: normalizeRuntimeEnvVars(options.runtimeEnvVars),
               kubeContext: options.k8sContext,
               kubeConfigPath,
               imagePullPolicy: options.imagePullPolicy,
@@ -379,6 +397,7 @@ export class DeployService {
           config: resolved,
           namespace,
           shadowServerUrl: k8sShadowUrl,
+          runtimeEnvVars: normalizeRuntimeEnvVars(options.runtimeEnvVars),
           kubeContext: options.k8sContext,
           kubeConfigPath,
           imagePullPolicy: options.imagePullPolicy,

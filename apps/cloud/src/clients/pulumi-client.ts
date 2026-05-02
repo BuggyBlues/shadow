@@ -33,6 +33,8 @@ export interface StackOptions {
   config: CloudConfig
   namespace: string
   shadowServerUrl?: string
+  /** Per-deployment runtime env resolved from SaaS/user input. */
+  runtimeEnvVars?: Record<string, string>
   /** Directory to store Pulumi local state — defaults to ~/.shadowob/pulumi */
   stateDir?: string
   /** kubectl context for K8s provider */
@@ -101,6 +103,7 @@ export async function getOrCreateStack(options: StackOptions) {
     config: options.config,
     namespace: options.namespace,
     shadowServerUrl: options.shadowServerUrl,
+    runtimeEnvVars: options.runtimeEnvVars,
     kubeContext: options.kubeContext ?? process.env.KUBECONFIG_CONTEXT ?? 'rancher-desktop',
     kubeConfigPath: options.kubeConfigPath,
     imagePullPolicy: options.imagePullPolicy,

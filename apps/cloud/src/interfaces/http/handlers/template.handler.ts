@@ -5,12 +5,14 @@
 import { Hono } from 'hono'
 import {
   collectRuntimeEnvFields,
+  collectRuntimeEnvRefPolicy,
   collectRuntimeEnvRequirements,
 } from '../../../application/runtime-env-requirements.js'
+import type { TemplateEnvRefPolicy } from '../../../application/template-env-refs.js'
 import type { HandlerContext } from './types.js'
 
 /** Extract all ${env:VAR_NAME} references from a JSON object recursively */
-function extractEnvRefs(obj: unknown): string[] {
+function extractEnvRefs(obj: unknown, policy?: TemplateEnvRefPolicy): string[] {
   const refs = new Set<string>()
   const pattern = /\$\{env:([A-Za-z_][A-Za-z0-9_]*)\}/g
 
@@ -18,7 +20,8 @@ function extractEnvRefs(obj: unknown): string[] {
     if (typeof val === 'string') {
       for (const match of val.matchAll(pattern)) {
         const envKey = match[1]
-        if (envKey) refs.add(envKey)
+        if (!envKey || policy?.ignoredKeys?.includes(envKey)) continue
+        refs.add(policy?.aliases?.[envKey] ?? envKey)
       }
     } else if (Array.isArray(val)) {
       for (const item of val) walk(item)
@@ -64,11 +67,12 @@ export function createTemplateHandler(ctx: HandlerContext): Hono {
     const name = c.req.param('name')
     const content = await ctx.container.template.getTemplate(name)
     if (!content) return c.json({ error: `Template not found: ${name}` }, 404)
-    const refs = extractEnvRefs(content)
-    const [runtimeFields, runtimeEnvVars] = await Promise.all([
+    const [envRefPolicy, runtimeFields, runtimeEnvVars] = await Promise.all([
+      collectRuntimeEnvRefPolicy(content),
       collectRuntimeEnvFields(content),
       collectRuntimeEnvRequirements(content),
     ])
+    const refs = extractEnvRefs(content, envRefPolicy)
     const byKey = new Map(runtimeFields.map((field) => [field.key, field]))
     for (const key of refs) {
       if (!byKey.has(key)) {
@@ -85,11 +89,14 @@ export function createTemplateHandler(ctx: HandlerContext): Hono {
     }
     const fields = [...byKey.values()].sort((a, b) => a.key.localeCompare(b.key))
     const visibleKeys = new Set(fields.map((field) => field.key))
+    const hiddenKeys = new Set(envRefPolicy.hiddenKeys)
     return c.json({
       template: name,
       requiredEnvVars: refs,
       fields,
-      autoDetectedEnvVars: runtimeEnvVars.filter((key) => !visibleKeys.has(key)).sort(),
+      autoDetectedEnvVars: runtimeEnvVars
+        .filter((key) => !visibleKeys.has(key) && !hiddenKeys.has(key))
+        .sort(),
     })
   })
 

@@ -64,6 +64,7 @@ function makeAPI(
     runtime?: PluginRuntimeExtension
     providerCatalogs?: ProviderCatalog[]
     secretFields?: PluginSecretField[]
+    ignoredEnvRefs?: string[]
   },
 ): PluginAPI {
   const mergeRuntime = (fragment: PluginRuntimeExtension) => {
@@ -104,6 +105,9 @@ function makeAPI(
     },
     addSecretFields: (fields) => {
       collected.secretFields = [...(collected.secretFields ?? []), ...fields]
+    },
+    ignoreEnvRefs: (keys) => {
+      collected.ignoredEnvRefs = [...new Set([...(collected.ignoredEnvRefs ?? []), ...keys])]
     },
     onResolveAgent: (fn) => hooks.resolveAgent.push(fn),
     onBuildConfig: (fn) => hooks.buildConfig.push(fn),
@@ -221,6 +225,7 @@ export function definePlugin(
     runtime?: PluginRuntimeExtension
     providerCatalogs?: ProviderCatalog[]
     secretFields?: PluginSecretField[]
+    ignoredEnvRefs?: string[]
   } = {}
   const api = makeAPI(hooks, collected)
   setup(api)
@@ -235,6 +240,7 @@ export function definePlugin(
     runtime: collected.runtime,
     providerCatalogs: collected.providerCatalogs,
     secretFields: collected.secretFields,
+    ignoredEnvRefs: collected.ignoredEnvRefs,
     _hooks: hooks,
     _buildConfig: hooks.buildConfig,
     _buildEnv: hooks.buildEnv,

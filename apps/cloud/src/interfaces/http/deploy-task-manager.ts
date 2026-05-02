@@ -6,6 +6,10 @@
  */
 
 import { resolveCloudSaasShadowRuntime } from '../../application/cloud-saas-config.js'
+import {
+  applyRuntimeEnvRefPolicy,
+  collectRuntimeEnvRefPolicy,
+} from '../../application/runtime-env-requirements.js'
 import type { DeploymentDao } from '../../dao/deployment.dao.js'
 import type { DeploymentLogDao } from '../../dao/deployment-log.dao.js'
 import type { EnvVarDao } from '../../dao/envvar.dao.js'
@@ -153,10 +157,10 @@ export class DeployTaskManager {
     }
   }
 
-  private buildEnvOverrides(config: Record<string, unknown>): {
+  private async buildEnvOverrides(config: Record<string, unknown>): Promise<{
     envOverrides: Record<string, string>
     templateConfig: Record<string, unknown>
-  } {
+  }> {
     const envOverrides: Record<string, string> = {}
     const namespace = typeof config.namespace === 'string' ? config.namespace : undefined
     const scopes = [GLOBAL_ENV_SCOPE]
@@ -175,11 +179,12 @@ export class DeployTaskManager {
     }
 
     const { envVars: _envVars, ...templateConfig } = config
-    return { envOverrides, templateConfig }
+    const policy = await collectRuntimeEnvRefPolicy(templateConfig)
+    return { envOverrides: applyRuntimeEnvRefPolicy(envOverrides, policy), templateConfig }
   }
 
   private async run(taskId: number, config: Record<string, unknown>): Promise<void> {
-    const { envOverrides, templateConfig } = this.buildEnvOverrides(config)
+    const { envOverrides, templateConfig } = await this.buildEnvOverrides(config)
     const { shadowUrl, podShadowUrl, shadowToken } = resolveCloudSaasShadowRuntime(envOverrides)
     const cancelToken = { cancelled: false } as {
       cancelled: boolean
