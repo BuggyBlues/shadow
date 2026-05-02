@@ -306,6 +306,7 @@ export interface PluginSecretField {
   sensitive?: boolean
   placeholder?: string
   helpUrl?: string
+  /** Legacy or compatible env names that should resolve to this canonical field. */
   aliases?: string[]
   /** Whether this value must be present in the runtime container env. Defaults to true. */
   runtime?: boolean
@@ -542,6 +543,9 @@ export interface PluginAPI {
   /** Declare env/secret fields that Cloud can store and inject at runtime. */
   addSecretFields(fields: PluginSecretField[]): void
 
+  /** Declare obsolete template env refs this plugin intentionally ignores. */
+  ignoreEnvRefs(keys: string[]): void
+
   // ── Build hooks (synchronous) ──
 
   /**
@@ -616,6 +620,8 @@ export interface PluginDefinition {
   providerCatalogs?: ProviderCatalog[]
   /** Declared env/secret fields (from api.addSecretFields) */
   secretFields?: PluginSecretField[]
+  /** Obsolete env refs that should not surface as deploy form fields. */
+  ignoredEnvRefs?: string[]
   /** K8s provider — generates pod-level K8s artifacts (init containers, volumes) */
   k8s?: PluginK8sProvider
 

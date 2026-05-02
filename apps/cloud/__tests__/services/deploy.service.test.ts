@@ -173,6 +173,10 @@ describe('DeployService', () => {
     expect(k8s.getOrCreateStack).toHaveBeenCalledWith(
       expect.objectContaining({
         shadowServerUrl: 'http://tenant-agent-url:3002',
+        runtimeEnvVars: expect.objectContaining({
+          ANTHROPIC_API_KEY: 'tenant-key',
+          SHADOW_AGENT_SERVER_URL: 'http://tenant-agent-url:3002',
+        }),
       }),
     )
   })

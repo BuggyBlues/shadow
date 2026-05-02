@@ -8,6 +8,8 @@
  */
 
 import { stat } from 'node:fs/promises'
+import { collectRuntimeEnvRefPolicy } from '../application/runtime-env-requirements.js'
+import { extractRequiredEnvVars } from '../application/template-env-refs.js'
 import { type TemplateMeta, TemplateService } from './template.service.js'
 
 export type TemplateCategoryId =
@@ -950,33 +952,6 @@ function normalizeLocale(locale?: string): 'en' | 'zh-CN' {
   return 'en'
 }
 
-function extractEnvRefs(obj: unknown): string[] {
-  const refs = new Set<string>()
-  const pattern = /\$\{env:([A-Za-z_][A-Za-z0-9_]*)\}/g
-
-  function walk(value: unknown) {
-    if (typeof value === 'string') {
-      for (const match of value.matchAll(pattern)) {
-        const envKey = match[1]
-        if (envKey) refs.add(envKey)
-      }
-      return
-    }
-
-    if (Array.isArray(value)) {
-      for (const item of value) walk(item)
-      return
-    }
-
-    if (value && typeof value === 'object') {
-      for (const child of Object.values(value)) walk(child)
-    }
-  }
-
-  walk(obj)
-  return [...refs].sort()
-}
-
 function buildFallbackCopy(locale: 'en' | 'zh-CN'): TemplateCopy {
   if (locale === 'zh-CN') {
     return {
@@ -1038,6 +1013,7 @@ export class TemplateI18nService {
     const rawTemplate = await this.templateService.getTemplate(name)
     const configPath = await this.templateService.getTemplatePath(name)
     const lastUpdated = await this.safeStat(configPath)
+    const envRefPolicy = await collectRuntimeEnvRefPolicy(rawTemplate)
 
     return {
       ...summary,
@@ -1045,7 +1021,7 @@ export class TemplateI18nService {
       lastUpdated,
       useCases: this.resolveCopy(name, resolvedLocale).useCases,
       requirements: this.resolveCopy(name, resolvedLocale).requirements,
-      requiredEnvVars: extractEnvRefs(rawTemplate),
+      requiredEnvVars: extractRequiredEnvVars(rawTemplate, envRefPolicy),
     }
   }
 

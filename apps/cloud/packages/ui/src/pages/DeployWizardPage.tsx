@@ -116,6 +116,34 @@ function envKeyToLabel(key: string): string {
     .join(' ')
 }
 
+const DEFAULT_ENV_GROUP = 'default'
+
+interface EnvPersistenceConfig {
+  remember: boolean
+  bindNamespace: boolean
+  groupName: string
+}
+
+interface DeployConfig {
+  namespace: string
+  envVars: Record<string, string>
+  envPersistence: EnvPersistenceConfig
+}
+
+const DEFAULT_ENV_PERSISTENCE: EnvPersistenceConfig = {
+  remember: true,
+  bindNamespace: true,
+  groupName: DEFAULT_ENV_GROUP,
+}
+
+function normalizeEnvPersistence(value?: Partial<EnvPersistenceConfig>): EnvPersistenceConfig {
+  return {
+    ...DEFAULT_ENV_PERSISTENCE,
+    ...value,
+    groupName: value?.groupName?.trim() || DEFAULT_ENV_GROUP,
+  }
+}
+
 /** Extract all ${env:VAR_NAME} references from a template content object */
 function extractClientEnvRefs(obj: unknown): string[] {
   const refs = new Set<string>()
@@ -133,6 +161,48 @@ function extractClientEnvRefs(obj: unknown): string[] {
   }
   walk(obj)
   return [...refs].sort()
+}
+
+function sortGroups(groups: Iterable<string>): string[] {
+  return [...new Set(groups)].sort((a, b) =>
+    a === DEFAULT_ENV_GROUP ? -1 : b === DEFAULT_ENV_GROUP ? 1 : a.localeCompare(b),
+  )
+}
+
+function selectBestEnvGroup({
+  groups,
+  envVars,
+  keys,
+}: {
+  groups: string[]
+  envVars: Array<{ key: string; groupName?: string | null }>
+  keys: string[]
+}): string {
+  const candidateGroups = sortGroups(groups.length > 0 ? groups : [DEFAULT_ENV_GROUP])
+  const keySet = new Set(keys.filter(Boolean))
+  if (keySet.size === 0) return candidateGroups[0] ?? DEFAULT_ENV_GROUP
+
+  const matchedByGroup = new Map<string, Set<string>>()
+  for (const variable of envVars) {
+    if (!keySet.has(variable.key)) continue
+    const group = variable.groupName?.trim() || DEFAULT_ENV_GROUP
+    const matches = matchedByGroup.get(group) ?? new Set<string>()
+    matches.add(variable.key)
+    matchedByGroup.set(group, matches)
+  }
+
+  let best = candidateGroups[0] ?? DEFAULT_ENV_GROUP
+  let bestScore = matchedByGroup.get(best)?.size ?? 0
+
+  for (const group of candidateGroups) {
+    const score = matchedByGroup.get(group)?.size ?? 0
+    if (score > bestScore || (score === bestScore && score > 0 && best === DEFAULT_ENV_GROUP)) {
+      best = group
+      bestScore = score
+    }
+  }
+
+  return best
 }
 
 // ── Step 1: Template Overview ─────────────────────────────────────────────────
@@ -236,11 +306,6 @@ function StepOverview({ name }: { name: string }) {
 }
 
 // ── Step 2: Configure — namespace + required env vars ─────────────────────────
-
-interface DeployConfig {
-  namespace: string
-  envVars: Record<string, string>
-}
 
 function isSensitiveEnvVarKey(key: string): boolean {
   return /(TOKEN|SECRET|PASSWORD|PRIVATE|CREDENTIAL|API_KEY|_KEY$|_B64$)/i.test(key)
@@ -458,21 +523,26 @@ function StepConfigure({
     handleSubmit,
     formState: { errors },
   } = useForm<DeployConfig>({
-    defaultValues: config,
+    defaultValues: {
+      namespace: config.namespace,
+      envVars: config.envVars,
+      envPersistence: normalizeEnvPersistence(config.envPersistence),
+    },
     mode: 'onSubmit',
   })
   const namespace = watch('namespace')
   const envVars = watch('envVars') ?? {}
+  const rawEnvPersistence = watch('envPersistence')
+  const envPersistence = useMemo(
+    () => normalizeEnvPersistence(rawEnvPersistence),
+    [rawEnvPersistence?.remember, rawEnvPersistence?.bindNamespace, rawEnvPersistence?.groupName],
+  )
   const { data: detailData } = useQuery({
     queryKey: ['template-detail', name, i18n.language],
     queryFn: () => api.templates.detail(name, i18n.language),
   })
   const template = detailData?.template
   const resolvedNamespace = namespace || template?.namespace || name
-
-  useEffect(() => {
-    onChange({ namespace: namespace ?? '', envVars })
-  }, [namespace, envVars, onChange])
 
   // Fetch required env var refs from template
   const { data: envRefsData, isError: isEnvRefsError } = useQuery({
@@ -501,8 +571,14 @@ function StepConfigure({
     retry: false,
   })
 
-  const [selectedGroup, setSelectedGroup] = useState<string>('')
+  const [selectedGroup, setSelectedGroup] = useState<string>(envPersistence.groupName)
+  const groupTouchedRef = useRef(false)
   const [collapsedFieldGroups, setCollapsedFieldGroups] = useState<Record<string, boolean>>({})
+
+  useEffect(() => {
+    groupTouchedRef.current = false
+    setSelectedGroup(envPersistence.groupName)
+  }, [name])
 
   const enabledProviderProfiles = useMemo(
     () => (providerProfileData?.profiles ?? []).filter((profile) => profile.enabled),
@@ -510,10 +586,10 @@ function StepConfigure({
   )
 
   const groups = useMemo(() => {
-    const set = new Set<string>(['default'])
+    const set = new Set<string>([DEFAULT_ENV_GROUP])
     for (const g of globalEnvData?.groups ?? []) set.add(g)
-    for (const ev of globalEnvData?.envVars ?? []) set.add(ev.groupName ?? 'default')
-    return [...set].sort()
+    for (const ev of globalEnvData?.envVars ?? []) set.add(ev.groupName ?? DEFAULT_ENV_GROUP)
+    return sortGroups(set)
   }, [globalEnvData])
 
   // Auto-fill namespace with template default on first mount
@@ -526,10 +602,10 @@ function StepConfigure({
     }
   }, [template, namespace, setValue, name])
 
-  // Fetch already-saved env vars + secrets from backend
+  // Fetch already-saved namespace-scoped env vars + secrets from backend
   const { data: savedEnvData } = useQuery({
-    queryKey: ['deployment-env', resolvedNamespace, 'effective'],
-    queryFn: () => api.deployments.env.list(resolvedNamespace, 'effective'),
+    queryKey: ['deployment-env', resolvedNamespace, 'scoped'],
+    queryFn: () => api.deployments.env.list(resolvedNamespace, 'scoped'),
     enabled: Boolean(resolvedNamespace),
   })
 
@@ -587,6 +663,17 @@ function StepConfigure({
     [templateEnvFields],
   )
 
+  const expectedSecretKeys = useMemo(() => {
+    const keys = new Set<string>()
+    if (!isSaasMode) {
+      keys.add('SHADOW_SERVER_URL')
+      keys.add('SHADOW_USER_TOKEN')
+    }
+    for (const field of templateEnvFields) keys.add(field.key)
+    for (const key of requiredTemplateVars) keys.add(key)
+    return [...keys]
+  }, [isSaasMode, requiredTemplateVars, templateEnvFields])
+
   const templateEnvFieldGroups = useMemo<EnvFieldGroup[]>(() => {
     const groupsById = new Map<string, EnvFieldGroup>()
     for (const field of templateEnvFields) {
@@ -630,7 +717,7 @@ function StepConfigure({
       })
   }, [templateEnvFields, t])
 
-  // Build a lookup of saved env var keys → masked values (from effective deployment env)
+  // Build a lookup of saved env var keys -> masked values (from namespace-scoped env)
   const savedLookup = useMemo(() => {
     const lookup: Record<string, string> = {}
     for (const ev of savedEnvData?.envVars ?? []) {
@@ -642,25 +729,37 @@ function StepConfigure({
   // Build a lookup from global env (for group-based fill)
   const globalLookup = useMemo(() => {
     const lookup: Record<string, string> = {}
+    const activeGroup = selectedGroup || DEFAULT_ENV_GROUP
     for (const ev of globalEnvData?.envVars ?? []) {
-      if (!selectedGroup || (ev.groupName ?? 'default') === selectedGroup) {
+      if ((ev.groupName ?? DEFAULT_ENV_GROUP) === activeGroup) {
         lookup[ev.key] = ev.maskedValue
       }
     }
     return lookup
   }, [globalEnvData, selectedGroup])
 
-  // Combined lookup: deployment-effective takes priority, then group-filtered global
+  // Combined lookup: namespace-scoped takes priority, then selected group globals
   const combinedLookup = useMemo(
     () => ({ ...globalLookup, ...savedLookup }),
     [globalLookup, savedLookup],
   )
 
+  useEffect(() => {
+    if (groupTouchedRef.current || !globalEnvData) return
+    const bestGroup = selectBestEnvGroup({
+      groups,
+      envVars: globalEnvData.envVars ?? [],
+      keys: expectedSecretKeys,
+    })
+    setSelectedGroup(bestGroup)
+    setValue('envPersistence.groupName', bestGroup, { shouldDirty: false })
+  }, [expectedSecretKeys, globalEnvData, groups, setValue])
+
   // Auto-populate from saved values on first load
   const initializedRef = useRef(false)
   useEffect(() => {
     initializedRef.current = false
-  }, [resolvedNamespace])
+  }, [resolvedNamespace, selectedGroup])
 
   useEffect(() => {
     if (initializedRef.current || Object.keys(combinedLookup).length === 0) return
@@ -684,10 +783,13 @@ function StepConfigure({
 
   // When group changes, re-fill any already-saved marked vars that now have values
   const applyGroup = (group: string) => {
-    setSelectedGroup(group)
+    const nextGroup = group || DEFAULT_ENV_GROUP
+    groupTouchedRef.current = true
+    setSelectedGroup(nextGroup)
+    setValue('envPersistence.groupName', nextGroup, { shouldDirty: true })
     const groupVars: Record<string, string> = {}
     for (const ev of globalEnvData?.envVars ?? []) {
-      if ((ev.groupName ?? 'default') === group) groupVars[ev.key] = ev.maskedValue
+      if ((ev.groupName ?? DEFAULT_ENV_GROUP) === nextGroup) groupVars[ev.key] = ev.maskedValue
     }
     const merged = { ...getValues('envVars') }
     let changed = false
@@ -712,6 +814,25 @@ function StepConfigure({
     })
     clearErrors(`envVars.${key}` as const)
   }
+
+  const updateEnvPersistence = (patch: Partial<EnvPersistenceConfig>) => {
+    const next = normalizeEnvPersistence({ ...envPersistence, ...patch })
+    setValue('envPersistence', next, { shouldDirty: true })
+    if (patch.groupName !== undefined) {
+      setSelectedGroup(next.groupName)
+    }
+  }
+
+  useEffect(() => {
+    onChange({
+      namespace: namespace ?? '',
+      envVars,
+      envPersistence: normalizeEnvPersistence({
+        ...envPersistence,
+        groupName: selectedGroup || envPersistence.groupName,
+      }),
+    })
+  }, [namespace, envVars, envPersistence, selectedGroup, onChange])
 
   const onSubmit = () => {
     const currentEnvVars = getValues('envVars') ?? {}
@@ -778,383 +899,440 @@ function StepConfigure({
             <p className="text-sm text-text-muted">{t('deploy.stepConfigureDescription')}</p>
           </div>
 
-        {/* Namespace */}
+          {/* Namespace */}
           <div className="rounded-xl bg-bg-secondary/10 p-4 space-y-3">
-          <div>
-            <label htmlFor="namespace" className="block text-sm font-semibold mb-0.5">
-              {t('deploy.namespace')}
-            </label>
-            <p className="text-xs text-text-muted">{t('deploy.kubernetesNamespaceDesc')}</p>
-          </div>
-          <Input
-            id="namespace"
-            type="text"
-            value={namespace ?? ''}
-            onChange={(e) => setValue('namespace', e.target.value, { shouldDirty: true })}
-            placeholder={template?.namespace ?? name}
-          />
-        </div>
-
-        {/* Group auto-fill selector */}
-        {groups.length > 0 && (
-          <div className="flex items-center gap-3 rounded-xl bg-bg-secondary/10 px-4 py-3">
-            <Database size={14} className="text-text-muted shrink-0" />
-            <span className="text-xs text-text-secondary shrink-0">
-              {t('deploy.fillFromGroup')}
-            </span>
-            <select
-              value={selectedGroup}
-              onChange={(e) => applyGroup(e.target.value)}
-              className="flex-1 min-w-0 bg-bg-secondary/20 text-xs text-text-primary rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-primary/50"
-            >
-              <option value="">{t('deploy.selectGroup')}</option>
-              {groups.map((g) => (
-                <option key={g} value={g}>
-                  {g}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {isSaasMode && (
-          <div className="rounded-xl bg-bg-secondary/10 px-4 py-3">
-            <div className="flex items-start gap-3">
-              <div
-                className={cn(
-                  'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
-                  enabledProviderProfiles.length > 0
-                    ? 'bg-success/12 text-success'
-                    : 'bg-warning/12 text-warning',
-                )}
-              >
-                {enabledProviderProfiles.length > 0 ? <CheckCircle size={14} /> : <AlertTriangle size={14} />}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-text-primary">
-                  {enabledProviderProfiles.length > 0
-                    ? t('deploy.providerProfilesReady')
-                    : t('deploy.providerProfilesMissing')}
-                </p>
-                <p className="mt-1 text-xs text-text-muted">
-                  {enabledProviderProfiles.length > 0
-                    ? t('deploy.providerProfilesReadyDesc')
-                    : t('deploy.providerProfilesMissingDesc')}
-                </p>
-              </div>
-              <Link
-                to="/providers"
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bg-primary/35 text-primary transition-colors hover:bg-primary/12 hover:text-primary"
-                aria-label={t('deploy.openProviderSettings')}
-                title={t('deploy.openProviderSettings')}
-              >
-                <CircleHelp size={16} />
-              </Link>
+            <div>
+              <label htmlFor="namespace" className="block text-sm font-semibold mb-0.5">
+                {t('deploy.namespace')}
+              </label>
+              <p className="text-xs text-text-muted">{t('deploy.kubernetesNamespaceDesc')}</p>
             </div>
+            <Input
+              id="namespace"
+              type="text"
+              value={namespace ?? ''}
+              onChange={(e) => setValue('namespace', e.target.value, { shouldDirty: true })}
+              placeholder={template?.namespace ?? name}
+            />
           </div>
-        )}
 
-        {/* Shadow Connection */}
-        {!isSaasMode && (
-          <div className="rounded-xl bg-bg-secondary/10 p-4 space-y-4">
-            <div className="flex items-center gap-2">
-              <Unplug size={14} className="text-text-muted" />
+          {/* Group auto-fill selector */}
+          {groups.length > 0 && (
+            <div className="flex items-center gap-3 rounded-xl bg-bg-secondary/10 px-4 py-3">
+              <Database size={14} className="text-text-muted shrink-0" />
+              <span className="text-xs text-text-secondary shrink-0">
+                {t('deploy.fillFromGroup')}
+              </span>
+              <select
+                value={selectedGroup}
+                onChange={(e) => applyGroup(e.target.value)}
+                className="flex-1 min-w-0 bg-bg-secondary/20 text-xs text-text-primary rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-primary/50"
+              >
+                <option value="">{t('deploy.selectGroup')}</option>
+                {groups.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="rounded-xl bg-bg-secondary/10 p-4 space-y-3">
+            <div className="flex items-start gap-2">
+              <Key size={14} className="mt-0.5 text-success" />
               <div>
-                <h3 className="text-sm font-semibold">{t('deploy.shadowConnectionTitle')}</h3>
-                <p className="text-xs text-text-muted">{t('deploy.shadowConnectionDescription')}</p>
+                <h3 className="text-sm font-semibold">{t('deploy.secretPersistenceTitle')}</h3>
+                <p className="text-xs text-text-muted">
+                  {t('deploy.secretPersistenceDescription', {
+                    group: selectedGroup || DEFAULT_ENV_GROUP,
+                  })}
+                </p>
               </div>
             </div>
-            <EnvVarRow
-              envKey="SHADOW_SERVER_URL"
-              placeholder="https://your-shadow-server.example.com"
-              isSecret={false}
-              value={envVars.SHADOW_SERVER_URL ?? ''}
-              hasSaved={Boolean(combinedLookup.SHADOW_SERVER_URL)}
-              error={getEnvFieldError(errors, 'SHADOW_SERVER_URL').hasError}
-              errorMessage={getEnvFieldError(errors, 'SHADOW_SERVER_URL').message}
-              inputRef={(el) => {
-                inputRefs.current.SHADOW_SERVER_URL = el
-              }}
-              onValueChange={(value) => updateVar('SHADOW_SERVER_URL', value)}
-              onInputBlur={() => clearErrors('envVars.SHADOW_SERVER_URL')}
-              onUseSaved={() => updateVar('SHADOW_SERVER_URL', '__SAVED__')}
-              onOverrideSaved={() => updateVar('SHADOW_SERVER_URL', '')}
-              t={t}
-            />
-            <EnvVarRow
-              envKey="SHADOW_USER_TOKEN"
-              placeholder="pat_..."
-              isSecret
-              value={envVars.SHADOW_USER_TOKEN ?? ''}
-              hasSaved={Boolean(combinedLookup.SHADOW_USER_TOKEN)}
-              error={getEnvFieldError(errors, 'SHADOW_USER_TOKEN').hasError}
-              errorMessage={getEnvFieldError(errors, 'SHADOW_USER_TOKEN').message}
-              inputRef={(el) => {
-                inputRefs.current.SHADOW_USER_TOKEN = el
-              }}
-              onValueChange={(value) => updateVar('SHADOW_USER_TOKEN', value)}
-              onInputBlur={() => clearErrors('envVars.SHADOW_USER_TOKEN')}
-              onUseSaved={() => updateVar('SHADOW_USER_TOKEN', '__SAVED__')}
-              onOverrideSaved={() => updateVar('SHADOW_USER_TOKEN', '')}
-              t={t}
-            />
-          </div>
-        )}
-
-        {/* Preset environment variable fields */}
-        {(templateEnvFields.length > 0 || autoDetectedEnvVars.length > 0) && (
-          <div className="rounded-xl bg-bg-secondary/10 p-4 space-y-4">
-            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-              <div className="flex items-start gap-2">
-                <Key size={14} className="mt-0.5 text-warning" />
-                <div>
-                  <h3 className="text-sm font-semibold">{t('deploy.envFieldSlotsTitle')}</h3>
-                  <p className="text-xs text-text-muted">
-                    {t('deploy.envFieldSlotsDescription', {
-                      count: templateEnvFields.length,
-                      required: requiredTemplateVars.length,
+            <div className="grid gap-2 md:grid-cols-2">
+              <label className="flex cursor-pointer items-start gap-2 rounded-lg bg-bg-secondary/12 px-3 py-2.5">
+                <Checkbox
+                  checked={envPersistence.remember}
+                  onCheckedChange={(checked) =>
+                    updateEnvPersistence({ remember: checked === true })
+                  }
+                />
+                <span className="min-w-0">
+                  <span className="block text-xs font-medium text-text-primary">
+                    {t('deploy.rememberSecrets')}
+                  </span>
+                  <span className="block text-[11px] leading-relaxed text-text-muted">
+                    {t('deploy.rememberSecretsDescription', {
+                      group: selectedGroup || DEFAULT_ENV_GROUP,
                     })}
+                  </span>
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-start gap-2 rounded-lg bg-bg-secondary/12 px-3 py-2.5">
+                <Checkbox
+                  checked={envPersistence.bindNamespace}
+                  onCheckedChange={(checked) =>
+                    updateEnvPersistence({ bindNamespace: checked === true })
+                  }
+                />
+                <span className="min-w-0">
+                  <span className="block text-xs font-medium text-text-primary">
+                    {t('deploy.bindSecretsToNamespace')}
+                  </span>
+                  <span className="block text-[11px] leading-relaxed text-text-muted">
+                    {t('deploy.bindSecretsToNamespaceDescription')}
+                  </span>
+                </span>
+              </label>
+            </div>
+          </div>
+
+          {isSaasMode && (
+            <div className="rounded-xl bg-bg-secondary/10 px-4 py-3">
+              <div className="flex items-start gap-3">
+                <div
+                  className={cn(
+                    'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
+                    enabledProviderProfiles.length > 0
+                      ? 'bg-success/12 text-success'
+                      : 'bg-warning/12 text-warning',
+                  )}
+                >
+                  {enabledProviderProfiles.length > 0 ? (
+                    <CheckCircle size={14} />
+                  ) : (
+                    <AlertTriangle size={14} />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-text-primary">
+                    {enabledProviderProfiles.length > 0
+                      ? t('deploy.providerProfilesReady')
+                      : t('deploy.providerProfilesMissing')}
+                  </p>
+                  <p className="mt-1 text-xs text-text-muted">
+                    {enabledProviderProfiles.length > 0
+                      ? t('deploy.providerProfilesReadyDesc')
+                      : t('deploy.providerProfilesMissingDesc')}
+                  </p>
+                </div>
+                <Link
+                  to="/providers"
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bg-primary/35 text-primary transition-colors hover:bg-primary/12 hover:text-primary"
+                  aria-label={t('deploy.openProviderSettings')}
+                  title={t('deploy.openProviderSettings')}
+                >
+                  <CircleHelp size={16} />
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* Shadow Connection */}
+          {!isSaasMode && (
+            <div className="rounded-xl bg-bg-secondary/10 p-4 space-y-4">
+              <div className="flex items-center gap-2">
+                <Unplug size={14} className="text-text-muted" />
+                <div>
+                  <h3 className="text-sm font-semibold">{t('deploy.shadowConnectionTitle')}</h3>
+                  <p className="text-xs text-text-muted">
+                    {t('deploy.shadowConnectionDescription')}
                   </p>
                 </div>
               </div>
-              <div>
-                <span className="rounded-full bg-warning/10 px-2 py-1 text-[11px] font-semibold text-warning">
-                  {t('deploy.requiredCount', { count: requiredTemplateVars.length })}
-                </span>
-              </div>
-            </div>
-
-            {autoDetectedEnvVars.length > 0 && (
-              <div className="rounded-lg bg-bg-secondary/12 px-3 py-2 text-xs text-text-secondary">
-                <div className="flex items-start gap-2">
-                  <CheckCircle2 size={13} className="mt-0.5 shrink-0 text-success" />
-                  <div className="space-y-1">
-                    <p className="font-medium text-success">
-                      {t('deploy.autoDetectedVarsTitle', {
-                        count: autoDetectedEnvVars.length,
-                      })}
-                    </p>
-                    <p>{t('deploy.autoDetectedVarsDescription')}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {templateEnvFieldGroups.map((group) => {
-              const requiredCount = group.fields.filter((field) => field.required).length
-              const collapsed =
-                collapsedFieldGroups[group.id] ?? (group.source === 'plugin' && requiredCount === 0)
-              const filledCount = group.fields.filter((field) => {
-                const value = envVars[field.key]
-                return (
-                  value === '__SAVED__' ||
-                  Boolean(value?.trim()) ||
-                  Boolean(combinedLookup[field.key])
-                )
-              }).length
-              return (
-                <div key={group.id} className="overflow-hidden rounded-xl bg-bg-secondary/10">
-                  <div className="flex items-center gap-2 px-4 py-3 transition-colors hover:bg-bg-secondary/20">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setCollapsedFieldGroups((prev) => ({
-                          ...prev,
-                          [group.id]: !collapsed,
-                        }))
-                      }
-                      className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left"
-                    >
-                      <div className="flex min-w-0 items-start gap-3">
-                        <div
-                          className={cn(
-                            'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
-                            group.source === 'plugin'
-                              ? 'bg-bg-secondary/30 text-primary'
-                              : 'bg-bg-secondary/30 text-warning',
-                          )}
-                        >
-                          {group.source === 'plugin' ? <Unplug size={14} /> : <Key size={14} />}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h4 className="text-sm font-semibold text-text-primary">
-                              {group.title}
-                            </h4>
-                            <span className="rounded-full bg-bg-secondary/30 px-2 py-0.5 text-[10px] font-semibold text-text-muted">
-                              {group.source === 'plugin'
-                                ? t('deploy.pluginSourceBadge')
-                                : t('deploy.templateSourceBadge')}
-                            </span>
-                            {requiredCount > 0 && (
-                              <span className="rounded-full bg-warning/10 px-2 py-0.5 text-[10px] font-semibold text-warning">
-                                {t('deploy.requiredCount', { count: requiredCount })}
-                              </span>
-                            )}
-                          </div>
-                          <p className="mt-1 text-xs leading-relaxed text-text-muted">
-                            {group.description}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2 text-xs text-text-muted">
-                        <span>
-                          {t('deploy.fieldGroupProgress', {
-                            filled: filledCount,
-                            total: group.fields.length,
-                          })}
-                        </span>
-                        <ChevronRight
-                          size={15}
-                          className={cn('transition-transform', !collapsed && 'rotate-90')}
-                        />
-                      </div>
-                    </button>
-                    {group.source === 'plugin' &&
-                      (group.helpUrl ? (
-                        <a
-                          href={group.helpUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex h-8 w-8 shrink-0 self-center items-center justify-center rounded-full bg-bg-primary/35 text-text-muted transition-colors hover:bg-primary/12 hover:text-primary"
-                          aria-label={t('deploy.openConfigHelp')}
-                          title={t('deploy.openConfigHelp')}
-                        >
-                          <CircleHelp size={15} />
-                        </a>
-                      ) : (
-                        <Link
-                          to="/secrets"
-                          className="inline-flex h-8 w-8 shrink-0 self-center items-center justify-center rounded-full bg-bg-primary/35 text-text-muted transition-colors hover:bg-primary/12 hover:text-primary"
-                          aria-label={t('deploy.openConfigHelp')}
-                          title={t('deploy.openConfigHelp')}
-                        >
-                          <CircleHelp size={15} />
-                        </Link>
-                      ))}
-                  </div>
-
-                  {!collapsed && (
-                    <div className="space-y-3 p-3">
-                      {group.fields.map((field) => {
-                        const { key } = field
-                        const fieldError = getEnvFieldError(errors, key)
-                        return (
-                          <EnvVarRow
-                            key={key}
-                            envKey={key}
-                            label={field.label}
-                            description={field.description}
-                            required={field.required}
-                            isSecret={field.sensitive}
-                            placeholder={
-                              field.placeholder ??
-                              (key.includes('KEY') ||
-                              key.includes('TOKEN') ||
-                              key.includes('SECRET')
-                                ? 'sk-...'
-                                : t('deploy.enterValue'))
-                            }
-                            value={envVars[key] ?? ''}
-                            hasSaved={Boolean(combinedLookup[key])}
-                            error={fieldError.hasError}
-                            errorMessage={fieldError.message}
-                            inputRef={(el) => {
-                              inputRefs.current[key] = el
-                            }}
-                            onValueChange={(value) => updateVar(key, value)}
-                            onInputBlur={() => clearErrors(`envVars.${key}` as const)}
-                            onUseSaved={() => updateVar(key, '__SAVED__')}
-                            onOverrideSaved={() => updateVar(key, '')}
-                            t={t}
-                          />
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        {/* Extra env vars (optional) */}
-        <div className="rounded-xl bg-bg-secondary/10 p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold">{t('deploy.additionalVariables')}</h3>
-              <p className="text-xs text-text-muted">{t('deploy.optionalKeyValue')}</p>
-            </div>
-            <Button
-              type="button"
-              onClick={() => setExtraVars([...extraVars, { key: '', value: '' }])}
-              variant="ghost"
-              size="sm"
-            >
-              <Plus size={12} />
-              {t('deploy.addVariable')}
-            </Button>
-          </div>
-          {extraVars.length === 0 ? (
-            <div className="text-center py-3 text-xs text-text-muted rounded-lg bg-bg-secondary/10">
-              {t('deploy.noAdditionalVars')}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {extraVars.map((env, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <Input
-                    type="text"
-                    value={env.key}
-                    onChange={(e) => {
-                      const updated = [...extraVars]
-                      const current = updated[i]
-                      if (!current) return
-                      updated[i] = { ...current, key: e.target.value }
-                      setExtraVars(updated)
-                      if (e.target.value) updateVar(e.target.value, env.value)
-                    }}
-                    placeholder="KEY"
-                    className="flex-1"
-                  />
-                  <span className="text-text-muted text-xs">=</span>
-                  <Input
-                    type="text"
-                    value={env.value}
-                    onChange={(e) => {
-                      const updated = [...extraVars]
-                      const current = updated[i]
-                      if (!current) return
-                      updated[i] = { ...current, value: e.target.value }
-                      setExtraVars(updated)
-                      if (env.key) updateVar(env.key, e.target.value)
-                    }}
-                    placeholder="value"
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      const removed = extraVars[i]
-                      setExtraVars(extraVars.filter((_, j) => j !== i))
-                      if (removed?.key) {
-                        const updated = { ...envVars }
-                        delete updated[removed.key]
-                        setValue('envVars', updated, { shouldDirty: true })
-                      }
-                    }}
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 p-1 text-text-muted hover:text-danger"
-                  >
-                    <Trash2 size={13} />
-                  </Button>
-                </div>
-              ))}
+              <EnvVarRow
+                envKey="SHADOW_SERVER_URL"
+                placeholder="https://your-shadow-server.example.com"
+                isSecret={false}
+                value={envVars.SHADOW_SERVER_URL ?? ''}
+                hasSaved={Boolean(combinedLookup.SHADOW_SERVER_URL)}
+                error={getEnvFieldError(errors, 'SHADOW_SERVER_URL').hasError}
+                errorMessage={getEnvFieldError(errors, 'SHADOW_SERVER_URL').message}
+                inputRef={(el) => {
+                  inputRefs.current.SHADOW_SERVER_URL = el
+                }}
+                onValueChange={(value) => updateVar('SHADOW_SERVER_URL', value)}
+                onInputBlur={() => clearErrors('envVars.SHADOW_SERVER_URL')}
+                onUseSaved={() => updateVar('SHADOW_SERVER_URL', '__SAVED__')}
+                onOverrideSaved={() => updateVar('SHADOW_SERVER_URL', '')}
+                t={t}
+              />
+              <EnvVarRow
+                envKey="SHADOW_USER_TOKEN"
+                placeholder="pat_..."
+                isSecret
+                value={envVars.SHADOW_USER_TOKEN ?? ''}
+                hasSaved={Boolean(combinedLookup.SHADOW_USER_TOKEN)}
+                error={getEnvFieldError(errors, 'SHADOW_USER_TOKEN').hasError}
+                errorMessage={getEnvFieldError(errors, 'SHADOW_USER_TOKEN').message}
+                inputRef={(el) => {
+                  inputRefs.current.SHADOW_USER_TOKEN = el
+                }}
+                onValueChange={(value) => updateVar('SHADOW_USER_TOKEN', value)}
+                onInputBlur={() => clearErrors('envVars.SHADOW_USER_TOKEN')}
+                onUseSaved={() => updateVar('SHADOW_USER_TOKEN', '__SAVED__')}
+                onOverrideSaved={() => updateVar('SHADOW_USER_TOKEN', '')}
+                t={t}
+              />
             </div>
           )}
+
+          {/* Preset environment variable fields */}
+          {(templateEnvFields.length > 0 || autoDetectedEnvVars.length > 0) && (
+            <div className="rounded-xl bg-bg-secondary/10 p-4 space-y-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div className="flex items-start gap-2">
+                  <Key size={14} className="mt-0.5 text-warning" />
+                  <div>
+                    <h3 className="text-sm font-semibold">{t('deploy.envFieldSlotsTitle')}</h3>
+                    <p className="text-xs text-text-muted">
+                      {t('deploy.envFieldSlotsDescription', {
+                        count: templateEnvFields.length,
+                        required: requiredTemplateVars.length,
+                      })}
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <span className="rounded-full bg-warning/10 px-2 py-1 text-[11px] font-semibold text-warning">
+                    {t('deploy.requiredCount', { count: requiredTemplateVars.length })}
+                  </span>
+                </div>
+              </div>
+
+              {autoDetectedEnvVars.length > 0 && (
+                <div className="rounded-lg bg-bg-secondary/12 px-3 py-2 text-xs text-text-secondary">
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 size={13} className="mt-0.5 shrink-0 text-success" />
+                    <div className="space-y-1">
+                      <p className="font-medium text-success">
+                        {t('deploy.autoDetectedVarsTitle', {
+                          count: autoDetectedEnvVars.length,
+                        })}
+                      </p>
+                      <p>{t('deploy.autoDetectedVarsDescription')}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {templateEnvFieldGroups.map((group) => {
+                const requiredCount = group.fields.filter((field) => field.required).length
+                const collapsed =
+                  collapsedFieldGroups[group.id] ??
+                  (group.source === 'plugin' && requiredCount === 0)
+                const filledCount = group.fields.filter((field) => {
+                  const value = envVars[field.key]
+                  return (
+                    value === '__SAVED__' ||
+                    Boolean(value?.trim()) ||
+                    Boolean(combinedLookup[field.key])
+                  )
+                }).length
+                return (
+                  <div key={group.id} className="overflow-hidden rounded-xl bg-bg-secondary/10">
+                    <div className="flex items-center gap-2 px-4 py-3 transition-colors hover:bg-bg-secondary/20">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCollapsedFieldGroups((prev) => ({
+                            ...prev,
+                            [group.id]: !collapsed,
+                          }))
+                        }
+                        className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left"
+                      >
+                        <div className="flex min-w-0 items-start gap-3">
+                          <div
+                            className={cn(
+                              'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
+                              group.source === 'plugin'
+                                ? 'bg-bg-secondary/30 text-primary'
+                                : 'bg-bg-secondary/30 text-warning',
+                            )}
+                          >
+                            {group.source === 'plugin' ? <Unplug size={14} /> : <Key size={14} />}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h4 className="text-sm font-semibold text-text-primary">
+                                {group.title}
+                              </h4>
+                              <span className="rounded-full bg-bg-secondary/30 px-2 py-0.5 text-[10px] font-semibold text-text-muted">
+                                {group.source === 'plugin'
+                                  ? t('deploy.pluginSourceBadge')
+                                  : t('deploy.templateSourceBadge')}
+                              </span>
+                              {requiredCount > 0 && (
+                                <span className="rounded-full bg-warning/10 px-2 py-0.5 text-[10px] font-semibold text-warning">
+                                  {t('deploy.requiredCount', { count: requiredCount })}
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-1 text-xs leading-relaxed text-text-muted">
+                              {group.description}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2 text-xs text-text-muted">
+                          <span>
+                            {t('deploy.fieldGroupProgress', {
+                              filled: filledCount,
+                              total: group.fields.length,
+                            })}
+                          </span>
+                          <ChevronRight
+                            size={15}
+                            className={cn('transition-transform', !collapsed && 'rotate-90')}
+                          />
+                        </div>
+                      </button>
+                      {group.source === 'plugin' &&
+                        (group.helpUrl ? (
+                          <a
+                            href={group.helpUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex h-8 w-8 shrink-0 self-center items-center justify-center rounded-full bg-bg-primary/35 text-text-muted transition-colors hover:bg-primary/12 hover:text-primary"
+                            aria-label={t('deploy.openConfigHelp')}
+                            title={t('deploy.openConfigHelp')}
+                          >
+                            <CircleHelp size={15} />
+                          </a>
+                        ) : (
+                          <Link
+                            to="/secrets"
+                            className="inline-flex h-8 w-8 shrink-0 self-center items-center justify-center rounded-full bg-bg-primary/35 text-text-muted transition-colors hover:bg-primary/12 hover:text-primary"
+                            aria-label={t('deploy.openConfigHelp')}
+                            title={t('deploy.openConfigHelp')}
+                          >
+                            <CircleHelp size={15} />
+                          </Link>
+                        ))}
+                    </div>
+
+                    {!collapsed && (
+                      <div className="space-y-3 p-3">
+                        {group.fields.map((field) => {
+                          const { key } = field
+                          const fieldError = getEnvFieldError(errors, key)
+                          return (
+                            <EnvVarRow
+                              key={key}
+                              envKey={key}
+                              label={field.label}
+                              description={field.description}
+                              required={field.required}
+                              isSecret={field.sensitive}
+                              placeholder={
+                                field.placeholder ??
+                                (key.includes('KEY') ||
+                                key.includes('TOKEN') ||
+                                key.includes('SECRET')
+                                  ? 'sk-...'
+                                  : t('deploy.enterValue'))
+                              }
+                              value={envVars[key] ?? ''}
+                              hasSaved={Boolean(combinedLookup[key])}
+                              error={fieldError.hasError}
+                              errorMessage={fieldError.message}
+                              inputRef={(el) => {
+                                inputRefs.current[key] = el
+                              }}
+                              onValueChange={(value) => updateVar(key, value)}
+                              onInputBlur={() => clearErrors(`envVars.${key}` as const)}
+                              onUseSaved={() => updateVar(key, '__SAVED__')}
+                              onOverrideSaved={() => updateVar(key, '')}
+                              t={t}
+                            />
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Extra env vars (optional) */}
+          <div className="rounded-xl bg-bg-secondary/10 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold">{t('deploy.additionalVariables')}</h3>
+                <p className="text-xs text-text-muted">{t('deploy.optionalKeyValue')}</p>
+              </div>
+              <Button
+                type="button"
+                onClick={() => setExtraVars([...extraVars, { key: '', value: '' }])}
+                variant="ghost"
+                size="sm"
+              >
+                <Plus size={12} />
+                {t('deploy.addVariable')}
+              </Button>
+            </div>
+            {extraVars.length === 0 ? (
+              <div className="text-center py-3 text-xs text-text-muted rounded-lg bg-bg-secondary/10">
+                {t('deploy.noAdditionalVars')}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {extraVars.map((env, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Input
+                      type="text"
+                      value={env.key}
+                      onChange={(e) => {
+                        const updated = [...extraVars]
+                        const current = updated[i]
+                        if (!current) return
+                        updated[i] = { ...current, key: e.target.value }
+                        setExtraVars(updated)
+                        if (e.target.value) updateVar(e.target.value, env.value)
+                      }}
+                      placeholder="KEY"
+                      className="flex-1"
+                    />
+                    <span className="text-text-muted text-xs">=</span>
+                    <Input
+                      type="text"
+                      value={env.value}
+                      onChange={(e) => {
+                        const updated = [...extraVars]
+                        const current = updated[i]
+                        if (!current) return
+                        updated[i] = { ...current, value: e.target.value }
+                        setExtraVars(updated)
+                        if (env.key) updateVar(env.key, e.target.value)
+                      }}
+                      placeholder="value"
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        const removed = extraVars[i]
+                        setExtraVars(extraVars.filter((_, j) => j !== i))
+                        if (removed?.key) {
+                          const updated = { ...envVars }
+                          delete updated[removed.key]
+                          setValue('envVars', updated, { shouldDirty: true })
+                        }
+                      }}
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 p-1 text-text-muted hover:text-danger"
+                    >
+                      <Trash2 size={13} />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
       </GlassPanel>
 
       <div className="flex items-center justify-between gap-3 px-1">
@@ -1470,11 +1648,22 @@ function StepDeploy({
     const envEntries = Object.entries(config.envVars).filter(
       ([, v]) => v && v !== '__SAVED__' && v.trim() !== '',
     )
+
+    const persistence = normalizeEnvPersistence(config.envPersistence)
+    const persistOps: Array<Promise<unknown>> = []
     for (const [key, value] of envEntries) {
-      try {
-        await api.deployments.env.upsert(targetNamespace, key, value, true)
-      } catch {
-        /* non-critical */
+      if (persistence.remember) {
+        persistOps.push(api.env.upsert('global', key, value, true, persistence.groupName))
+      }
+      if (persistence.bindNamespace) {
+        persistOps.push(api.deployments.env.upsert(targetNamespace, key, value, true))
+      }
+    }
+
+    if (persistOps.length > 0) {
+      const results = await Promise.allSettled(persistOps)
+      if (results.some((result) => result.status === 'rejected')) {
+        toast.warning(t('deploy.secretSaveFailed'))
       }
     }
 
@@ -1489,17 +1678,22 @@ function StepDeploy({
 
     queryClient.invalidateQueries({ queryKey: ['deployments'] })
     queryClient.invalidateQueries({ queryKey: ['deployment-env', targetNamespace] })
+    queryClient.invalidateQueries({ queryKey: ['env'] })
     queryClient.invalidateQueries({ queryKey: ['namespace-costs', targetNamespace] })
     queryClient.invalidateQueries({ queryKey: ['cost-overview'] })
     queryClient.invalidateQueries({ queryKey: ['deployment-cost-overview'] })
   }, [
     addActivity,
     addRecentDeploy,
+    api.env,
     api.deployments.env,
+    config.envPersistence,
     config.envVars,
     name,
     queryClient,
     targetNamespace,
+    t,
+    toast,
   ])
 
   const finalizeFailedDeployment = useCallback(
@@ -1885,7 +2079,8 @@ function StepDeploy({
             {!hasEnoughBalance && (
               <div className="mt-4 flex flex-col gap-2.5 rounded-xl bg-danger/8 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <p className="text-xs text-danger">
-                  <strong>{t('deploy.insufficientBalance')}</strong> {t('deploy.insufficientBalanceDesc')}
+                  <strong>{t('deploy.insufficientBalance')}</strong>{' '}
+                  {t('deploy.insufficientBalanceDesc')}
                 </p>
                 <Button
                   type="button"
@@ -2193,6 +2388,7 @@ export function DeployWizardPage() {
   const [deployConfig, setDeployConfig] = useState<DeployConfig>({
     namespace: '',
     envVars: {},
+    envPersistence: DEFAULT_ENV_PERSISTENCE,
   })
 
   // Determine nav button label for current step

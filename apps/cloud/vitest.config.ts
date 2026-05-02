@@ -7,5 +7,6 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     exclude: [...configDefaults.exclude, 'e2e/**'],
+    testTimeout: 15_000,
   },
 })

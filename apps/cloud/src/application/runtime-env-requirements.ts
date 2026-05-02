@@ -21,6 +21,15 @@ export interface RuntimeEnvField {
   helpUrl?: string
 }
 
+export interface RuntimeEnvRefPolicy {
+  /** Env ref aliases that should be satisfied by a canonical field. */
+  aliases: Record<string, string>
+  /** Env refs intentionally ignored by active plugins. */
+  ignoredKeys: string[]
+  /** Env refs that should not be exposed as standalone deploy fields. */
+  hiddenKeys: string[]
+}
+
 function collectPluginIds(value: unknown, out = new Set<string>(), depth = 0): Set<string> {
   if (depth > 32 || !value || typeof value !== 'object') return out
 
@@ -35,9 +44,23 @@ function collectPluginIds(value: unknown, out = new Set<string>(), depth = 0): S
   return out
 }
 
+function collectEnvRefKeys(configSnapshot: unknown): Set<string> {
+  return new Set(
+    collectTemplateRefs(configSnapshot)
+      .filter((ref) => ref.type === 'env')
+      .map((ref) => ref.key),
+  )
+}
+
+let pluginLoadPromise: Promise<void> | null = null
+
 async function ensurePluginsLoaded(): Promise<void> {
   const registry = getPluginRegistry()
-  if (registry.size === 0) await loadAllPlugins(registry)
+  if (registry.size > 0) return
+  pluginLoadPromise ??= loadAllPlugins(registry).finally(() => {
+    pluginLoadPromise = null
+  })
+  await pluginLoadPromise
 }
 
 function addProviderCatalogKeys(keys: Set<string>, catalog: ProviderCatalog): void {
@@ -54,6 +77,34 @@ function addPluginSecretKeys(keys: Set<string>, plugin: PluginDefinition): void 
     if (field.runtime === false) continue
     keys.add(field.key)
     for (const alias of field.aliases ?? []) keys.add(alias)
+  }
+}
+
+function collectEnvRefPolicy(
+  registry: ReturnType<typeof getPluginRegistry>,
+  pluginIds: Set<string>,
+): RuntimeEnvRefPolicy {
+  const aliases = new Map<string, string>()
+  const ignoredKeys = new Set<string>()
+
+  for (const pluginId of pluginIds) {
+    const plugin = registry.get(pluginId)
+    if (!plugin) continue
+
+    for (const field of plugin.secretFields ?? []) {
+      if (field.runtime === false) continue
+      for (const alias of field.aliases ?? []) {
+        if (alias && alias !== field.key) aliases.set(alias, field.key)
+      }
+    }
+
+    for (const key of plugin.ignoredEnvRefs ?? []) ignoredKeys.add(key)
+  }
+
+  return {
+    aliases: Object.fromEntries([...aliases.entries()].sort(([a], [b]) => a.localeCompare(b))),
+    ignoredKeys: [...ignoredKeys].sort(),
+    hiddenKeys: [...new Set([...aliases.keys(), ...ignoredKeys])].sort(),
   }
 }
 
@@ -130,9 +181,9 @@ function mergeSecretField(
     required: field.required ?? base?.required ?? false,
     sensitive: field.sensitive ?? base?.sensitive ?? isSensitiveEnvKey(field.key),
     placeholder: field.placeholder ?? base?.placeholder,
-    source: base?.source ?? 'plugin',
-    sourceId: base?.sourceId ?? plugin.manifest.id,
-    sourceLabel: base?.sourceLabel ?? plugin.manifest.name,
+    source: 'plugin',
+    sourceId: plugin.manifest.id,
+    sourceLabel: plugin.manifest.name,
     helpUrl: field.helpUrl ?? base?.helpUrl ?? plugin.manifest.docs ?? plugin.manifest.website,
   }
 }
@@ -196,6 +247,46 @@ export async function collectRuntimeEnvRequirements(configSnapshot: unknown): Pr
   return [...keys].sort()
 }
 
+export async function collectRuntimeEnvRefPolicy(
+  configSnapshot: unknown,
+): Promise<RuntimeEnvRefPolicy> {
+  const pluginIds = collectPluginIds(configSnapshot)
+  if (pluginIds.size === 0) return { aliases: {}, ignoredKeys: [], hiddenKeys: [] }
+
+  await ensurePluginsLoaded()
+  const policy = collectEnvRefPolicy(getPluginRegistry(), pluginIds)
+  const envRefKeys = collectEnvRefKeys(configSnapshot)
+  const ignoredKeys = policy.ignoredKeys.filter((key) => envRefKeys.has(key))
+  return {
+    ...policy,
+    ignoredKeys,
+    hiddenKeys: [...new Set([...Object.keys(policy.aliases), ...ignoredKeys])].sort(),
+  }
+}
+
+export function applyRuntimeEnvRefPolicy(
+  envVars: Record<string, string>,
+  policy: Pick<RuntimeEnvRefPolicy, 'aliases' | 'ignoredKeys'>,
+): Record<string, string> {
+  const next = { ...envVars }
+
+  for (const [alias, canonical] of Object.entries(policy.aliases)) {
+    const aliasValue = next[alias]
+    const canonicalValue = next[canonical]
+    if (canonicalValue === undefined && aliasValue !== undefined) {
+      next[canonical] = aliasValue
+    } else if (canonicalValue !== undefined && aliasValue === undefined) {
+      next[alias] = canonicalValue
+    }
+  }
+
+  for (const key of policy.ignoredKeys) {
+    if (next[key] === undefined) next[key] = ''
+  }
+
+  return next
+}
+
 /**
  * Collect user-fillable runtime env slots for the deploy UI.
  *
@@ -208,15 +299,24 @@ export async function collectRuntimeEnvFields(configSnapshot: unknown): Promise<
   const fields = new Map<string, RuntimeEnvField>()
   const pluginIds = collectPluginIds(configSnapshot)
   let providerCatalogKeys = new Set<string>()
+  let envRefPolicy: RuntimeEnvRefPolicy = { aliases: {}, ignoredKeys: [], hiddenKeys: [] }
 
   if (pluginIds.size > 0) {
     await ensurePluginsLoaded()
-    providerCatalogKeys = collectProviderCatalogKeys(getPluginRegistry(), pluginIds)
+    const registry = getPluginRegistry()
+    providerCatalogKeys = collectProviderCatalogKeys(registry, pluginIds)
+    envRefPolicy = collectEnvRefPolicy(registry, pluginIds)
   }
+  const aliasToKey = new Map(Object.entries(envRefPolicy.aliases))
+  const ignoredKeys = new Set(envRefPolicy.ignoredKeys)
 
   for (const ref of collectTemplateRefs(configSnapshot)) {
-    if (ref.type === 'env' && !providerCatalogKeys.has(ref.key)) {
-      addField(fields, fieldFromEnvRef(ref.key))
+    if (ref.type !== 'env') continue
+    if (ignoredKeys.has(ref.key)) continue
+
+    const fieldKey = aliasToKey.get(ref.key) ?? ref.key
+    if (!providerCatalogKeys.has(ref.key) && !providerCatalogKeys.has(fieldKey)) {
+      addField(fields, fieldFromEnvRef(fieldKey))
     }
   }
 

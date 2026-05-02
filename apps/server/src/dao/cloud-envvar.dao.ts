@@ -38,10 +38,14 @@ export class CloudEnvVarDao {
     return result[0]
   }
 
-  async update(id: string, userId: string, encryptedValue: string) {
+  async update(id: string, userId: string, encryptedValue: string, groupId?: string | null) {
     const result = await this.db
       .update(cloudEnvVars)
-      .set({ encryptedValue, updatedAt: new Date() })
+      .set({
+        encryptedValue,
+        updatedAt: new Date(),
+        ...(groupId !== undefined ? { groupId } : {}),
+      })
       .where(and(eq(cloudEnvVars.id, id), eq(cloudEnvVars.userId, userId)))
       .returning()
     return result[0] ?? null
@@ -62,7 +66,7 @@ export class CloudEnvVarDao {
   }) {
     const existing = await this.listByUser(data.userId, data.scope)
     const found = existing.find((v) => v.key === data.key)
-    if (found) return this.update(found.id, data.userId, data.encryptedValue)
+    if (found) return this.update(found.id, data.userId, data.encryptedValue, data.groupId)
     return this.create({
       userId: data.userId,
       scope: data.scope,

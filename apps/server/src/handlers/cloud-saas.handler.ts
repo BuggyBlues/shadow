@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { zValidator } from '@hono/zod-validator'
 import {
+  applyRuntimeEnvRefPolicy,
   attachCloudSaasProvisionState,
   collectRuntimeEnvFields,
+  collectRuntimeEnvRefPolicy,
   collectRuntimeEnvRequirements,
   deleteNamespace,
   extractCloudSaasRuntime,
@@ -1053,7 +1055,10 @@ export function createCloudSaasHandler(container: AppContainer) {
     const needsSavedLookup = Object.values(inputEnvVars ?? {}).some(
       (value) => value === '__SAVED__',
     )
-    const runtimeEnvRequirements = await collectRuntimeEnvRequirements(configSnapshot)
+    const [runtimeEnvRequirements, envRefPolicy] = await Promise.all([
+      collectRuntimeEnvRequirements(configSnapshot),
+      collectRuntimeEnvRefPolicy(configSnapshot),
+    ])
     const usesModelProvider = configUsesPlugin(configSnapshot, 'model-provider')
     const explicitProviderProfileIds = [...collectProviderProfileIds(configSnapshot)]
       .map(normalizeProviderProfileId)
@@ -1202,7 +1207,7 @@ export function createCloudSaasHandler(container: AppContainer) {
       envVars[key] = value
     }
 
-    return envVars
+    return applyRuntimeEnvRefPolicy(envVars, envRefPolicy)
   }
 
   // ─── Templates ─────────────────────────────────────────────────────────────
@@ -1325,17 +1330,21 @@ export function createCloudSaasHandler(container: AppContainer) {
     if (!isDeployableTemplateContent(template.content)) {
       return c.json({ ok: false, error: 'Template is not deployable' }, 422)
     }
-    const [requiredEnvVars, fields, runtimeEnvVars] = await Promise.all([
-      Promise.resolve(extractRequiredEnvVars(template.content)),
+    const [envRefPolicy, fields, runtimeEnvVars] = await Promise.all([
+      collectRuntimeEnvRefPolicy(template.content),
       collectRuntimeEnvFields(template.content),
       collectRuntimeEnvRequirements(template.content),
     ])
+    const requiredEnvVars = extractRequiredEnvVars(template.content, envRefPolicy)
     const visibleKeys = new Set(fields.map((field) => field.key))
+    const hiddenKeys = new Set(envRefPolicy.hiddenKeys)
     return c.json({
       template: slug,
       requiredEnvVars,
       fields,
-      autoDetectedEnvVars: runtimeEnvVars.filter((key) => !visibleKeys.has(key)).sort(),
+      autoDetectedEnvVars: runtimeEnvVars
+        .filter((key) => !visibleKeys.has(key) && !hiddenKeys.has(key))
+        .sort(),
     })
   })
 
@@ -2792,7 +2801,7 @@ export function createCloudSaasHandler(container: AppContainer) {
       const existing = await envDao.listByUser(user.userId, 'global')
       const found = existing.find((v) => v.key === key)
       if (found) {
-        await envDao.update(found.id, user.userId, encrypt(value))
+        await envDao.update(found.id, user.userId, encrypt(value), resolvedGroupId)
       } else {
         await envDao.create({
           userId: user.userId,

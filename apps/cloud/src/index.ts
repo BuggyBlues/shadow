@@ -20,9 +20,12 @@ export { summarizeCloudConfigValidation } from './application/config-validation.
 export type { ProviderCatalogEntry } from './application/provider-catalogs.js'
 export { listProviderCatalogs } from './application/provider-catalogs.js'
 export {
+  applyRuntimeEnvRefPolicy,
   collectRuntimeEnvFields,
+  collectRuntimeEnvRefPolicy,
   collectRuntimeEnvRequirements,
   type RuntimeEnvField,
+  type RuntimeEnvRefPolicy,
 } from './application/runtime-env-requirements.js'
 export { extractRequiredEnvVars } from './application/template-env-refs.js'
 export {
