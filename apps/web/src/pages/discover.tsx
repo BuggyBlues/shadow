@@ -1,6 +1,7 @@
 import { Badge, Button, Card, cn, EmptyState, GlassHeader, GlassPanel, Input } from '@shadowob/ui'
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
+import type { TFunction } from 'i18next'
 import { ArrowRight, Flame, Hash, Search, Server, Users, Zap } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -217,14 +218,14 @@ export function DiscoverPage() {
   const ActiveFilterIcon = activeFilterItem.icon
 
   return (
-    <div className="relative flex-1 min-h-0 overflow-hidden">
+    <div className="relative flex h-full min-h-0 overflow-hidden overflow-x-hidden">
       {/* Ambient orb blurs */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden -z-10">
         <div className="absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full bg-primary/5 blur-[180px]" />
         <div className="absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full bg-accent/5 blur-[160px]" />
       </div>
 
-      <div className="flex h-full min-h-0 flex-col gap-3 md:flex-row">
+      <div className="flex h-full min-h-0 flex-col gap-3 md:flex-row flex-1">
         <GlassPanel as="aside" className="hidden w-[240px] shrink-0 md:flex md:flex-col">
           <div className="border-b border-border-subtle px-4 py-4">
             <div className="mb-4 flex items-center gap-3">
@@ -232,12 +233,9 @@ export function DiscoverPage() {
                 <Flame size={20} className="text-primary" strokeWidth={2.5} />
               </div>
               <div className="min-w-0">
-                <h1 className="truncate text-xl font-black tracking-tight text-text-primary">
+                <h1 className="truncate text-base font-black tracking-tight text-text-primary">
                   {t('discover.title')}
                 </h1>
-                <p className="truncate text-[11px] uppercase tracking-[0.18em] text-text-muted">
-                  {t('discover.filters.all')}
-                </p>
               </div>
             </div>
 
@@ -286,7 +284,7 @@ export function DiscoverPage() {
           </div>
         </GlassPanel>
 
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <main className="flex h-full min-h-0 min-w-0 flex-1 w-full flex-col">
           <div className="desktop-drag-titlebar md:hidden px-4 pt-4">
             <GlassPanel className="border-border-subtle/70 px-6 py-5">
               <div className="mb-5 flex items-center justify-between gap-4">
@@ -294,7 +292,7 @@ export function DiscoverPage() {
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
                     <Flame size={20} className="text-primary" strokeWidth={2.5} />
                   </div>
-                  <h1 className="text-2xl font-black tracking-tight text-text-primary">
+                  <h1 className="text-base font-black tracking-tight text-text-primary">
                     {t('discover.title')}
                   </h1>
                 </div>
@@ -340,19 +338,16 @@ export function DiscoverPage() {
             </GlassPanel>
           </div>
 
-          <GlassPanel className="flex-1 min-h-0 overflow-hidden md:h-full">
-            <GlassHeader className="hidden justify-between gap-4 md:flex">
+          <GlassPanel className="flex-1 min-h-0 w-full flex flex-col md:h-full">
+            <GlassHeader className="hidden items-center justify-between gap-4 border-b border-border-subtle/70 px-4 py-4 md:flex">
               <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-bg-tertiary/50 text-primary shadow-inner">
-                  <ActiveFilterIcon size={16} strokeWidth={2.5} />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <ActiveFilterIcon size={20} strokeWidth={2.5} />
                 </div>
                 <div className="min-w-0">
-                  <h2 className="truncate text-[15px] font-black uppercase tracking-tight text-text-primary">
+                  <h2 className="truncate text-base font-black tracking-tight text-text-primary">
                     {t(activeFilterItem.labelKey)}
                   </h2>
-                  <p className="truncate text-xs text-text-muted">
-                    {isSearching ? t('discover.searchPlaceholder') : t('discover.title')}
-                  </p>
                 </div>
               </div>
 
@@ -361,8 +356,8 @@ export function DiscoverPage() {
               </Badge>
             </GlassHeader>
 
-            <div className="flex-1 overflow-y-auto">
-              <div className="mx-auto max-w-6xl px-4 py-4 md:p-6">
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <div className="w-full px-4 py-4 md:p-6">
                 {isSearching && searchLoading ? (
                   <div className="flex items-center justify-center py-16">
                     <div className="flex flex-col items-center gap-4">
@@ -383,7 +378,7 @@ export function DiscoverPage() {
                     }
                   />
                 ) : (
-                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+                  <div className="grid w-full gap-5 [grid-template-columns:repeat(auto-fit,minmax(320px,1fr))]">
                     {allItems.map((item, index) => (
                       <FeedCard
                         key={`${item.type}-${item.id}-${index}`}
@@ -421,7 +416,31 @@ export function DiscoverPage() {
   )
 }
 
-// ── Feed Card ──
+const FEED_CARD_CLASS =
+  'relative overflow-hidden rounded-2xl bg-bg-secondary/90 p-5 min-h-[250px] shadow-sm ring-1 ring-border-subtle/12'
+const FEED_CARD_GLOW =
+  'after:pointer-events-none after:absolute after:inset-0 after:rounded-2xl after:opacity-35 after:transition-opacity after:duration-300 hover:after:opacity-100'
+const FEED_CARD_THEME: Record<
+  FeedItemType,
+  {
+    chipClass: string
+    iconClass: string
+  }
+> = {
+  server: {
+    chipClass: 'bg-primary/12 text-primary',
+    iconClass: 'text-primary',
+  },
+  channel: {
+    chipClass: 'bg-success/12 text-success',
+    iconClass: 'text-success',
+  },
+  rental: {
+    chipClass: 'bg-accent/12 text-accent',
+    iconClass: 'text-accent',
+  },
+}
+
 function FeedCard({
   item,
   joinedServerIds,
@@ -436,7 +455,7 @@ function FeedCard({
     isPending: boolean
   }
   navigate: ReturnType<typeof useNavigate>
-  t: (key: string, options?: Record<string, unknown>) => string
+  t: TFunction
 }) {
   if (item.type === 'server') {
     const server = item.data as ServerData
@@ -444,7 +463,7 @@ function FeedCard({
 
     return (
       <Card
-        variant="glass"
+        variant="default"
         hoverable
         onClick={() => {
           if (isJoined) {
@@ -454,59 +473,75 @@ function FeedCard({
             })
           }
         }}
-        className="rounded-[40px] overflow-hidden cursor-pointer group relative"
+        className={cn(
+          FEED_CARD_CLASS,
+          FEED_CARD_GLOW,
+          'overflow-hidden relative cursor-pointer group',
+        )}
       >
-        {/* Banner */}
-        <div className="h-28 bg-gradient-to-br from-primary/15 to-primary/[0.03] relative overflow-hidden">
-          {server.bannerUrl ? (
-            <img
-              src={server.bannerUrl}
-              alt=""
-              className="w-full h-full object-cover absolute inset-0 group-hover:scale-110 transition-transform duration-500"
-            />
-          ) : null}
-          <div className="absolute bottom-3 right-3 flex items-center gap-1.5 z-10">
-            <Badge
-              variant="neutral"
-              size="sm"
-              className="backdrop-blur-md bg-bg-deep/30 border-border-subtle"
+        <div className="relative z-10 flex h-full flex-col">
+          <div className="mb-4 flex items-center justify-between">
+            <div
+              className={cn(
+                'inline-flex items-center gap-2 rounded-full border bg-bg-tertiary/60 px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.18em]',
+                FEED_CARD_THEME.server.chipClass,
+              )}
             >
-              <Users size={10} />
-              {server.memberCount}
-            </Badge>
-            {server.isPublic && (
-              <Badge
-                variant="neutral"
-                size="sm"
-                className="backdrop-blur-md bg-bg-deep/30 border-border-subtle"
-              >
-                {t('discover.public')}
-              </Badge>
-            )}
+              <Server size={13} className={FEED_CARD_THEME.server.iconClass} />
+              {t('discover.filters.servers', '服务器')}
+            </div>
+            <span className="text-[11px] font-bold text-text-muted/80">
+              {t('discover.score', '热度')}
+            </span>
           </div>
-        </div>
 
-        {/* Icon overlay */}
-        <div className="absolute top-[84px] left-5 z-20">
-          <div className="w-14 h-14 rounded-xl overflow-hidden bg-bg-deep border-4 border-bg-deep shadow-xl">
-            {server.iconUrl ? (
-              <img src={server.iconUrl} alt="" className="w-full h-full object-cover" />
+          <div className="relative h-28 rounded-xl overflow-hidden bg-gradient-to-br from-primary/20 via-primary/5 to-bg-secondary/10 mb-5">
+            {server.bannerUrl ? (
+              <img
+                src={server.bannerUrl}
+                alt=""
+                className="w-full h-full object-cover opacity-75 group-hover:scale-[1.04] transition-transform duration-500"
+              />
             ) : (
-              <img src={getCatAvatar(0)} alt={server.name} className="w-full h-full object-cover" />
+              <div className="absolute inset-0" />
             )}
+            <div className="absolute left-4 top-1/2 -translate-y-1/2">
+              <div className="w-14 h-14 rounded-xl overflow-hidden bg-bg-deep/75 border-4 border-bg-deep shadow-xl">
+                {server.iconUrl ? (
+                  <img src={server.iconUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <img
+                    src={getCatAvatar(0)}
+                    alt={server.name}
+                    className="w-full h-full object-cover"
+                  />
+                )}
+              </div>
+            </div>
+            <div className="absolute left-0 right-0 bottom-2 px-3 flex items-center justify-end gap-1.5">
+              <Badge variant="neutral" size="sm" className="bg-bg-deep/55 border-border-subtle">
+                <Users size={11} />
+                {server.memberCount}
+              </Badge>
+              <Badge variant="neutral" size="sm" className="bg-bg-deep/55 border-border-subtle">
+                {item.heatScore}
+              </Badge>
+              {server.isPublic && (
+                <Badge variant="neutral" size="sm" className="bg-bg-deep/55 border-border-subtle">
+                  {t('discover.public')}
+                </Badge>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Content */}
-        <div className="pt-10 px-5 pb-5 flex flex-col flex-1">
-          <h3 className="font-black text-text-primary text-base mb-1 truncate tracking-tight">
+          <h3 className="font-black text-text-primary text-base mb-2 truncate tracking-tight">
             {server.name}
           </h3>
-          <p className="text-text-muted text-sm mb-4 line-clamp-2 min-h-[2.5rem] flex-1">
+          <p className="text-text-muted text-sm mb-4 line-clamp-2 min-h-[2.6rem]">
             {server.description ?? t('discover.noDescription')}
           </p>
 
-          <div className="flex items-center justify-between mt-auto">
+          <div className="mt-auto flex items-center justify-between">
             {isJoined ? (
               <Button
                 type="button"
@@ -551,7 +586,7 @@ function FeedCard({
 
     return (
       <Card
-        variant="glass"
+        variant="default"
         hoverable
         onClick={() => {
           if (isJoined) {
@@ -569,44 +604,72 @@ function FeedCard({
             })
           }
         }}
-        className="rounded-[40px] overflow-hidden cursor-pointer group relative"
+        className={cn(
+          FEED_CARD_CLASS,
+          FEED_CARD_GLOW,
+          'overflow-hidden cursor-pointer group relative',
+        )}
       >
-        <div className="p-5 flex flex-col flex-1">
-          {/* Channel Header */}
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-              <Hash size={18} className="text-primary" strokeWidth={2.5} />
+        <div className="relative z-10 flex h-full flex-col">
+          <div className="mb-4 flex items-center justify-between">
+            <div
+              className={cn(
+                'inline-flex items-center gap-2 rounded-full border bg-bg-tertiary/60 px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.18em]',
+                FEED_CARD_THEME.channel.chipClass,
+              )}
+            >
+              <Hash size={13} className={FEED_CARD_THEME.channel.iconClass} />
+              {t('discover.filters.channels', '频道')}
             </div>
-            <div className="flex-1 min-w-0">
-              <span className="font-black text-text-primary text-base truncate block tracking-tight">
-                {channel.name}
-              </span>
-              <span className="text-text-muted text-xs truncate block">{channel.server.name}</span>
-            </div>
-            <ArrowRight
-              size={16}
-              className="text-text-muted/30 group-hover:text-primary group-hover:translate-x-1 transition-all shrink-0"
-            />
+            <span className="text-[11px] font-bold text-text-muted/80">
+              {t('discover.score', '热度')}
+            </span>
           </div>
 
-          {channel.topic && (
-            <p className="text-text-muted text-sm mb-3 line-clamp-2">{channel.topic}</p>
-          )}
+          <div className="mb-4 flex items-start gap-3">
+            <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-bg-tertiary border border-border-subtle">
+              {channel.server.iconUrl ? (
+                <img src={channel.server.iconUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <img
+                  src={getCatAvatar(0)}
+                  alt={channel.server.name}
+                  className="w-full h-full object-cover"
+                />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="font-black text-base text-text-primary mb-1 truncate tracking-tight">
+                #{channel.name}
+              </h3>
+              <p className="text-text-muted text-xs truncate">{channel.server.name}</p>
+            </div>
+          </div>
+
+          <p className="text-text-muted text-sm line-clamp-2 min-h-[2.5rem]">
+            {channel.topic || t('discover.channelNoTopic', '暂无主题')}
+          </p>
 
           {channel.lastMessage && (
-            <div className="bg-bg-tertiary/50 rounded-2xl p-3 mb-3">
-              <div className="flex items-center gap-1.5 mb-1">
-                <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
-                <span className="text-[11px] font-black uppercase tracking-widest text-success">
-                  Active
-                </span>
+            <div className="mt-3 flex justify-end">
+              <div className="relative max-w-[92%] rounded-[16px] rounded-bl-lg border border-border-subtle/70 bg-bg-tertiary/70 px-3.5 py-2.5 shadow-sm">
+                <span className="absolute -left-[8px] top-4 h-3.5 w-3.5 rotate-45 border-l border-b border-border-subtle/70 bg-bg-tertiary/70" />
+
+                <div className="mb-1.5 flex items-center gap-1.5">
+                  <span className="inline-flex h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.18em] text-success">
+                    {t('discover.active', '活跃')}
+                  </span>
+                </div>
+                <p className="text-text-muted text-xs leading-relaxed line-clamp-2">
+                  {channel.lastMessage.content}
+                </p>
               </div>
-              <p className="text-text-muted text-xs line-clamp-2">{channel.lastMessage.content}</p>
             </div>
           )}
 
-          <div className="flex items-center justify-between mt-auto pt-3 border-t border-border-subtle">
-            <span className="flex items-center gap-1.5 text-xs font-bold text-text-muted">
+          <div className="mt-auto pt-4 flex items-center justify-between border-t border-border-subtle/60">
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-text-muted">
               <Users size={12} />
               {channel.memberCount}
             </span>
@@ -629,15 +692,28 @@ function FeedCard({
     const rental = item.data as RentalData
 
     return (
-      <Card variant="glass" hoverable className="rounded-[40px] p-5">
+      <Card variant="default" hoverable className={cn(FEED_CARD_CLASS, FEED_CARD_GLOW, 'relative')}>
         <div className="flex gap-4">
-          {/* Agent Avatar */}
-          <div className="w-14 h-14 rounded-xl bg-accent/10 flex items-center justify-center shrink-0 border border-accent/20">
+          <div className="w-14 h-14 rounded-xl bg-accent/10 flex items-center justify-center shrink-0 border border-accent/20 shadow-inner">
             <Zap size={24} className="text-accent" />
           </div>
 
-          {/* Content */}
           <div className="flex-1 min-w-0">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-full border bg-bg-tertiary/60 px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.18em]',
+                  FEED_CARD_THEME.rental.chipClass,
+                )}
+              >
+                <Server size={13} className={FEED_CARD_THEME.rental.iconClass} />
+                {t('discover.filters.rentals', '租赁')}
+              </div>
+              <span className="inline-flex items-center gap-1 text-xs font-black text-text-muted">
+                {t('discover.score', '热度')}: {item.heatScore}
+              </span>
+            </div>
+
             <h3 className="font-black text-text-primary text-base tracking-tight">
               {rental.listing?.title || t('discover.unknownListing')}
             </h3>
@@ -646,7 +722,7 @@ function FeedCard({
             </p>
 
             {rental.listing?.description && (
-              <p className="text-text-muted text-sm mt-2 line-clamp-2">
+              <p className="text-text-muted text-sm mt-2 line-clamp-2 min-h-[2.6rem]">
                 {rental.listing.description}
               </p>
             )}
@@ -696,7 +772,8 @@ function FeedCard({
                 {rental.tenant?.displayName || rental.tenant?.username || t('discover.unknownUser')}
               </span>
               <span className="text-accent text-xs font-black ml-auto">
-                {rental.listing?.hourlyRate}虾币/h
+                {rental.listing?.hourlyRate}
+                <span className="text-text-muted font-normal ml-1">{t('recharge.coins')}/h</span>
               </span>
             </div>
           </div>

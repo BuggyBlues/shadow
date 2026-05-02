@@ -27,7 +27,7 @@ const EVENT_COLORS: Record<string, string> = {
 }
 
 export function RecentActivity({ events }: RecentActivityProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr)
@@ -41,7 +41,7 @@ export function RecentActivity({ events }: RecentActivityProps) {
     if (diffMins < 60) return t('buddyDashboard.minutesAgo', '{{count}}m ago', { count: diffMins })
     if (diffHours < 24) return t('buddyDashboard.hoursAgo', '{{count}}h ago', { count: diffHours })
     if (diffDays < 7) return t('buddyDashboard.daysAgo', '{{count}}d ago', { count: diffDays })
-    return date.toLocaleDateString('default', { month: 'short', day: 'numeric' })
+    return date.toLocaleDateString(i18n.resolvedLanguage, { month: 'short', day: 'numeric' })
   }
 
   const getEventDescription = (event: (typeof events)[0]) => {
@@ -63,7 +63,7 @@ export function RecentActivity({ events }: RecentActivityProps) {
       case 'policy_update':
         return t('buddyDashboard.policyUpdated', 'Policy settings updated')
       default:
-        return event.type
+        return t('buddyDashboard.unknownEvent', 'Unknown event: {{type}}', { type: event.type })
     }
   }
 
@@ -102,8 +102,12 @@ export function RecentActivity({ events }: RecentActivityProps) {
                 <Icon className="w-4 h-4" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-text-primary">{getEventDescription(event)}</p>
-                <p className="text-xs text-text-muted mt-1">{formatTime(event.createdAt)}</p>
+                <p className="text-sm text-text-primary break-words">
+                  {getEventDescription(event)}
+                </p>
+                <p className="text-xs text-text-muted mt-1 break-words">
+                  {formatTime(event.createdAt)}
+                </p>
               </div>
             </div>
           )

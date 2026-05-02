@@ -8,13 +8,13 @@ interface WeeklyActivityChartProps {
 }
 
 export function WeeklyActivityChart({ data }: WeeklyActivityChartProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
 
   const maxCount = Math.max(...data.map((d) => d.messageCount), 1)
 
   const formatDay = (dateStr: string) => {
     const date = new Date(dateStr)
-    return date.toLocaleDateString('default', { weekday: 'short' })
+    return date.toLocaleDateString(i18n.resolvedLanguage, { weekday: 'short' })
   }
 
   return (
@@ -35,7 +35,9 @@ export function WeeklyActivityChart({ data }: WeeklyActivityChartProps) {
                 >
                   {/* Tooltip */}
                   <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-bg-tertiary text-text-primary text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                    {day.messageCount} messages
+                    {t('buddyDashboard.messageCount', '{{count}} messages', {
+                      count: day.messageCount,
+                    })}
                   </div>
                 </div>
               </div>

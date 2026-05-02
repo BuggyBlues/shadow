@@ -8,7 +8,7 @@ interface MonthlyTrendProps {
 }
 
 export function MonthlyTrend({ data }: MonthlyTrendProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
 
   const maxCount = Math.max(...data.map((d) => d.messageCount), 1)
   const minCount = Math.min(...data.map((d) => d.messageCount), 0)
@@ -16,7 +16,7 @@ export function MonthlyTrend({ data }: MonthlyTrendProps) {
   const formatMonth = (monthStr: string) => {
     const [year, month] = monthStr.split('-')
     const date = new Date(Number(year), Number(month) - 1)
-    return date.toLocaleDateString('default', { month: 'short' })
+    return date.toLocaleDateString(i18n.resolvedLanguage, { month: 'short' })
   }
 
   // Generate SVG path for the line chart
@@ -107,7 +107,13 @@ export function MonthlyTrend({ data }: MonthlyTrendProps) {
                 r="1"
                 className="fill-primary hover:fill-primary-hover cursor-pointer"
               >
-                <title>{`${formatMonth(d.month)}: ${d.messageCount} messages`}</title>
+                <title>
+                  {t('buddyDashboard.monthActivity', '{{month}}: {{count}} {{unit}}', {
+                    month: formatMonth(d.month),
+                    count: d.messageCount,
+                    unit: t('buddyDashboard.messages', 'messages'),
+                  })}
+                </title>
               </circle>
             )
           })}

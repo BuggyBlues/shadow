@@ -1,8 +1,8 @@
-import { Button } from '@shadowob/ui'
+import { Badge, Button } from '@shadowob/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
-import { MessageSquare, MoreHorizontal, Reply, Send, Trash2, X } from 'lucide-react'
+import { MoreHorizontal, Reply, Send, Trash2, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../../lib/api'
@@ -150,16 +150,17 @@ export function ProfileCommentSection({ profileUserId }: ProfileCommentSectionPr
   }
 
   return (
-    <div className="mt-8 pt-6 border-t border-border-subtle">
-      <div className="flex items-center gap-2 mb-4">
-        <MessageSquare className="w-5 h-5 text-text-muted" />
-        <h2 className="text-lg font-bold text-text-primary">{t('profile.comments', '留言板')}</h2>
-        <span className="text-sm text-text-muted">({comments.length})</span>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between pb-1 border-b border-border-subtle">
+        <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-text-muted/50">
+          {t('profile.comments', '留言板')}
+        </h2>
+        <span className="text-xs text-text-muted">({comments.length})</span>
       </div>
 
       {/* Reaction Stats */}
       {reactionStats.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-4 p-3 bg-bg-tertiary rounded-lg">
+        <div className="flex flex-wrap gap-2">
           {reactionStats.map((stat) => (
             <div
               key={stat.emoji}
@@ -188,7 +189,7 @@ export function ProfileCommentSection({ profileUserId }: ProfileCommentSectionPr
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
                 placeholder={t('profile.commentPlaceholder', '写下你的留言...')}
-                className="flex-1 px-4 py-2 bg-bg-tertiary border border-border-subtle rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary"
+                className="flex-1 px-4 py-2 bg-bg-tertiary/70 rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/30"
                 maxLength={500}
               />
               <Button
@@ -309,9 +310,9 @@ function CommentItem({
                 {comment.author.displayName}
               </span>
               {comment.author.isBot && (
-                <span className="text-[11px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-medium">
-                  Buddy
-                </span>
+                <Badge variant="info" size="xs">
+                  {t('buddy')}
+                </Badge>
               )}
               <span className="text-xs text-text-muted">
                 {formatDistanceToNow(new Date(comment.createdAt), {
@@ -446,7 +447,7 @@ function CommentItem({
                     value={replyContent}
                     onChange={(e) => setReplyContent(e.target.value)}
                     placeholder={`${t('profile.replyTo', '回复')} ${comment.author.displayName}...`}
-                    className="flex-1 px-3 py-1.5 text-sm bg-bg-tertiary border border-border-subtle rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary"
+                    className="flex-1 px-3 py-1.5 text-sm bg-bg-tertiary/70 rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/30"
                     maxLength={500}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
@@ -480,7 +481,7 @@ function CommentItem({
 
           {/* Replies */}
           {showReplies && replies.length > 0 && (
-            <div className="mt-3 space-y-3 pl-4 border-l-2 border-border-subtle">
+            <div className="mt-3 space-y-3 pl-4">
               {replies.map((reply) => (
                 <ReplyItem
                   key={reply.id}
@@ -537,9 +538,9 @@ function ReplyItem({ reply, currentUserId, onToggleReaction, onDelete }: ReplyIt
               {reply.author.displayName}
             </span>
             {reply.author.isBot && (
-              <span className="text-[11px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-medium">
-                Buddy
-              </span>
+              <Badge variant="info" size="xs">
+                {t('buddy')}
+              </Badge>
             )}
             <span className="text-xs text-text-muted">
               {formatDistanceToNow(new Date(reply.createdAt), {

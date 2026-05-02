@@ -7,6 +7,7 @@ interface ActivityHeatmapProps {
     messageCount: number
     level: 0 | 1 | 2 | 3 | 4
   }>
+  showTitle?: boolean
 }
 
 type ActivityLevel = 0 | 1 | 2 | 3 | 4
@@ -20,15 +21,15 @@ const LEVEL_COLORS: Record<ActivityLevel, string> = {
 }
 
 const LEVEL_LABELS: Record<ActivityLevel, string> = {
-  0: 'No activity',
-  1: '1-10 messages',
-  2: '11-50 messages',
-  3: '51-100 messages',
-  4: '100+ messages',
+  0: 'buddyDashboard.activityLevel0',
+  1: 'buddyDashboard.activityLevel1',
+  2: 'buddyDashboard.activityLevel2',
+  3: 'buddyDashboard.activityLevel3',
+  4: 'buddyDashboard.activityLevel4',
 }
 
-export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
-  const { t } = useTranslation()
+export function ActivityHeatmap({ data, showTitle = true }: ActivityHeatmapProps) {
+  const { t, i18n } = useTranslation()
 
   const weeks = useMemo(() => {
     // Group data by week
@@ -65,7 +66,7 @@ export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
     for (const day of data) {
       if (day.date) {
         const date = new Date(day.date)
-        monthSet.add(date.toLocaleString('default', { month: 'short' }))
+        monthSet.add(date.toLocaleString(i18n.resolvedLanguage, { month: 'short' }))
       }
     }
     return Array.from(monthSet)
@@ -74,7 +75,7 @@ export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
   const formatDate = (dateStr: string) => {
     if (!dateStr) return ''
     const date = new Date(dateStr)
-    return date.toLocaleDateString('default', {
+    return date.toLocaleDateString(i18n.resolvedLanguage, {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
@@ -84,9 +85,11 @@ export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
 
   return (
     <div className="bg-bg-secondary rounded-xl p-6 border border-border-subtle">
-      <h3 className="text-sm font-bold text-text-primary uppercase tracking-widest mb-4">
-        {t('buddyDashboard.activityHeatmap', 'Activity Heatmap')}
-      </h3>
+      {showTitle && (
+        <h3 className="text-sm font-bold text-text-primary uppercase tracking-widest mb-4">
+          {t('buddyDashboard.activityHeatmap', 'Activity Heatmap')}
+        </h3>
+      )}
 
       {/* Month labels */}
       <div className="flex gap-1 mb-1 text-xs text-text-muted">
@@ -106,7 +109,13 @@ export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
                 key={`day-${weekIndex}-${dayIndex}-${day.date || 'empty'}`}
                 className={`w-3 h-3 rounded-sm ${LEVEL_COLORS[day.level]} transition-all hover:ring-2 hover:ring-primary/50 cursor-pointer`}
                 title={
-                  day.date ? `${formatDate(day.date)}: ${day.messageCount} messages` : 'No data'
+                  day.date
+                    ? t('buddyDashboard.dayActivity', '{{date}}: {{count}} {{unit}}', {
+                        date: formatDate(day.date),
+                        count: day.messageCount,
+                        unit: t('buddyDashboard.messages', 'messages'),
+                      })
+                    : t('buddyDashboard.noData', 'No data')
                 }
               />
             ))}
@@ -122,7 +131,7 @@ export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
             <div
               key={level}
               className={`w-3 h-3 rounded-sm ${LEVEL_COLORS[level as keyof typeof LEVEL_COLORS]}`}
-              title={LEVEL_LABELS[level as keyof typeof LEVEL_LABELS]}
+              title={t(LEVEL_LABELS[level as keyof typeof LEVEL_LABELS], 'No activity')}
             />
           ))}
         </div>
