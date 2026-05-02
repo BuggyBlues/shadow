@@ -1,4 +1,5 @@
 import type { ShadowChannelPolicy, ShadowMessage } from '@shadowob/sdk'
+import { getShadowMessageMentions, mentionTargetsBot } from '../mentions.js'
 import type { AgentChainMetadata, ShadowPolicyConfig, ShadowRuntimeLogger } from '../types.js'
 
 export type ShadowMessagePreflightOk = {
@@ -32,6 +33,7 @@ export function evaluateShadowMessagePreflight(params: {
 
   const policy = channelPolicies.get(message.channelId)
   const policyConfig = policy?.config as ShadowPolicyConfig | undefined
+  const structuredMentions = getShadowMessageMentions(message)
   let isProcessingBuddyMessage = false
 
   if (message.author?.isBot) {
@@ -103,7 +105,9 @@ export function evaluateShadowMessagePreflight(params: {
   let wasMentionedExplicitly = false
   if (policy?.mentionOnly) {
     const mentionRegex = new RegExp(`@${escapeRegex(botUsername)}(?:\\s|$)`, 'i')
-    wasMentionedExplicitly = mentionRegex.test(message.content)
+    wasMentionedExplicitly =
+      mentionTargetsBot({ mentions: structuredMentions, botUserId, botUsername }) ||
+      mentionRegex.test(message.content)
     if (!wasMentionedExplicitly) {
       return {
         ok: false,
@@ -141,13 +145,36 @@ export function evaluateShadowMessagePreflight(params: {
   const smartReplyEnabled = policyConfig?.smartReply !== false
   if (smartReplyEnabled && !isProcessingBuddyMessage && !wasMentionedExplicitly) {
     const mentionPattern = /@([a-zA-Z0-9_\-\u4e00-\u9fa5]+)/g
-    const allMentions = message.content.match(mentionPattern) || []
-    const mentionsWithoutSelf = allMentions.filter((m) => {
-      const mentionedUser = m.slice(1).toLowerCase()
-      return mentionedUser !== botUsername.toLowerCase()
+    const userMentions = structuredMentions.filter(
+      (mention) => mention.kind === 'user' || mention.kind === 'buddy',
+    )
+    const allMentions =
+      structuredMentions.length > 0 ? [] : message.content.match(mentionPattern) || []
+    const structuredSelfMentioned = mentionTargetsBot({
+      mentions: userMentions,
+      botUserId,
+      botUsername,
     })
+    if (userMentions.length > 0 && !structuredSelfMentioned) {
+      return {
+        ok: false,
+        reason: `[msg] Smart reply: message mentions other users but not @${botUsername}, skipping (${message.id})`,
+      }
+    }
 
-    if (allMentions.length > 0 && mentionsWithoutSelf.length === allMentions.length) {
+    const mentionsWithoutSelf =
+      userMentions.length > 0
+        ? []
+        : allMentions.filter((m) => {
+            const mentionedUser = m.slice(1).toLowerCase()
+            return mentionedUser !== botUsername.toLowerCase()
+          })
+
+    if (
+      userMentions.length === 0 &&
+      allMentions.length > 0 &&
+      mentionsWithoutSelf.length === allMentions.length
+    ) {
       return {
         ok: false,
         reason: `[msg] Smart reply: message @mentions others (${allMentions.join(', ')}) but not @${botUsername}, skipping (${message.id})`,
@@ -156,10 +183,11 @@ export function evaluateShadowMessagePreflight(params: {
 
     const replyToData = (message as { replyTo?: { authorId?: string } }).replyTo
     if (replyToData?.authorId && replyToData.authorId !== botUserId) {
-      const selfMentioned = allMentions.some((m) => {
-        const mentionedUser = m.slice(1).toLowerCase()
-        return mentionedUser === botUsername.toLowerCase()
-      })
+      const selfMentioned =
+        allMentions.some((m) => {
+          const mentionedUser = m.slice(1).toLowerCase()
+          return mentionedUser === botUsername.toLowerCase()
+        }) || structuredSelfMentioned
       if (!selfMentioned) {
         return {
           ok: false,

@@ -1168,6 +1168,40 @@ describe('Cloud SaaS — deployment + billing', () => {
     }
   })
 
+  it('POST /api/cloud-saas/deployments persists deployment locale and timezone context', async () => {
+    const createRes = await req('POST', '/api/cloud-saas/deployments', {
+      namespace: uniqueName('e2e-runtime-context-ns'),
+      name: uniqueName('e2e-runtime-context-deploy'),
+      templateSlug: officialTemplateSlug,
+      resourceTier: 'lightweight',
+      configSnapshot: makeConfigSnapshot('runtime-context-secret'),
+      runtimeContext: {
+        locale: 'zh-CN',
+        timezone: 'Asia/Shanghai',
+      },
+    })
+
+    expect(createRes.status).toBe(201)
+    const deployment = (await createRes.json()) as {
+      id: string
+      configSnapshot: { __shadowobRuntime?: unknown }
+    }
+    expect(deployment.configSnapshot.__shadowobRuntime).toBeUndefined()
+
+    const [stored] = await db
+      .select()
+      .from(schema.cloudDeployments)
+      .where(eq(schema.cloudDeployments.id, deployment.id))
+      .limit(1)
+
+    const runtime = extractCloudSaasRuntime(stored?.configSnapshot)
+    expect(runtime.context).toEqual({
+      locale: 'zh-CN',
+      timezone: 'Asia/Shanghai',
+    })
+    expect(runtime.configSnapshot?.locale).toBe('zh-CN')
+  })
+
   it('POST /api/cloud-saas/deployments auto-injects saved provider env vars for model-provider templates', async () => {
     const baseUrl = 'https://compatible.example.test/v1'
     const modelId = 'qwen3.6-plus'

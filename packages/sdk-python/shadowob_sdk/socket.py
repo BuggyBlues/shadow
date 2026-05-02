@@ -112,12 +112,18 @@ class ShadowSocket:
         *,
         thread_id: str | None = None,
         reply_to_id: str | None = None,
+        mentions: list[dict[str, Any]] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         data: dict[str, Any] = {"channelId": channel_id, "content": content}
         if thread_id:
             data["threadId"] = thread_id
         if reply_to_id:
             data["replyToId"] = reply_to_id
+        if mentions is not None:
+            data["mentions"] = mentions
+        if metadata is not None:
+            data["metadata"] = metadata
         self._sio.emit("message:send", data)
 
     def send_typing(self, channel_id: str) -> None:

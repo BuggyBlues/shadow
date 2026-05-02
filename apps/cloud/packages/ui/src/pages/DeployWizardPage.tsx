@@ -130,6 +130,25 @@ interface DeployConfig {
   envPersistence: EnvPersistenceConfig
 }
 
+type BrowserRuntimeContext = {
+  locale?: string
+  timezone?: string
+}
+
+function resolveBrowserRuntimeContext(locale?: string): BrowserRuntimeContext {
+  let timezone: string | undefined
+  try {
+    timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+  } catch {
+    timezone = undefined
+  }
+
+  return {
+    ...(locale ? { locale } : {}),
+    ...(timezone ? { timezone } : {}),
+  }
+}
+
 const DEFAULT_ENV_PERSISTENCE: EnvPersistenceConfig = {
   remember: true,
   bindNamespace: true,
@@ -1606,6 +1625,7 @@ function StepDeploy({
       resourceTier: string
       configSnapshot: Record<string, unknown>
       envVars?: Record<string, string>
+      runtimeContext?: BrowserRuntimeContext
     }) => Promise<DeployInvocationResult>
     deploymentStatusFn?: (deploymentId: string) => Promise<{
       id: string
@@ -1802,6 +1822,7 @@ function StepDeploy({
   })
 
   const handleDeploy = async () => {
+    const runtimeContext = resolveBrowserRuntimeContext(i18n.language)
     terminalHandledRef.current = false
     setDeployStarted(true)
     setDeploySuccess(null)
@@ -1822,6 +1843,10 @@ function StepDeploy({
       // Step 2: Deploy — SaaS mode uses api.deployFn if available
       const deployConfig = typeof templateConfig === 'object' ? { ...templateConfig } : {}
       deployConfig.templateSlug = name
+      deployConfig.runtimeContext = runtimeContext
+      if (runtimeContext.locale) {
+        deployConfig.locale = runtimeContext.locale
+      }
       if (config.namespace) {
         deployConfig.namespace = config.namespace
       }
@@ -1844,6 +1869,9 @@ function StepDeploy({
         ...existingDeployments,
         namespace: targetNamespace,
       }
+      if (runtimeContext.locale) {
+        saasConfigSnapshot.locale = runtimeContext.locale
+      }
 
       let result: DeployInvocationResult
 
@@ -1856,6 +1884,7 @@ function StepDeploy({
           resourceTier: 'lightweight',
           configSnapshot: saasConfigSnapshot,
           envVars: config.envVars,
+          runtimeContext,
         })
 
         if (!result.success || !result.deploymentId) {

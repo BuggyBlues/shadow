@@ -317,7 +317,12 @@
     "homepageHtmlPlaceholder": "<h1>歡迎！</h1>\n<p>這是伺服器主頁。</p>",
     "homepageHtmlDesc": "伺服器主頁的自訂 HTML。留空使用預設主頁。",
     "privateChannel": "私有頻道",
-    "privateChannelDesc": "僅受邀成員可加入"
+    "privateChannelDesc": "僅受邀成員可加入",
+    "privateChannelGateDesc": "這個頻道可以被提及，但加入需要頻道成員或伺服器管理員同意。",
+    "requestAccess": "申請加入",
+    "requestPending": "申請等待中",
+    "approveAccess": "同意",
+    "rejectAccess": "拒絕"
   },
   "chat": {
     "selectChannel": "選擇一個頻道開始聊天",
@@ -818,7 +823,25 @@
     "title": "通知",
     "markAllRead": "全部已讀",
     "markRead": "標記已讀",
-    "empty": "暫無通知"
+    "empty": "暫無通知",
+    "messageMention": "{{actorName}} 提到了你",
+    "messageMentionCount": "{{count}} 則新的提及",
+    "messageReply": "{{actorName}} 回覆了你",
+    "messageReplyCount": "{{count}} 則新的回覆",
+    "dmMessage": "{{actorName}} 傳了私訊給你",
+    "dmMessageCount": "{{count}} 則新的私訊",
+    "channelAccessRequested": "{{actorName}} 申請加入 #{{channelName}}",
+    "channelAccessRequestedBody": "請處理這個私有頻道加入申請。",
+    "channelAccessApproved": "#{{channelName}} 的加入申請已通過",
+    "channelAccessRejected": "#{{channelName}} 的加入申請已拒絕",
+    "channelMemberAdded": "你已被加入 #{{channelName}}",
+    "inServer": "位於 {{serverName}}",
+    "serverMemberJoined": "{{actorName}} 加入了 {{serverName}}",
+    "serverMemberJoinedCount": "{{count}} 人加入了 {{serverName}}",
+    "serverInvite": "{{actorName}} 邀請你加入 {{serverName}}",
+    "friendshipRequest": "{{actorName}} 發送了好友申請",
+    "rechargeSucceeded": "儲值成功",
+    "rechargeSucceededBody": "{{amount}} 蝦幣已入帳"
   },
   "agentMgmt": {
     "title": "Buddy 管理",

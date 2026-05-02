@@ -179,6 +179,11 @@ function trimStatusEllipsis(label: string | null | undefined): string | null {
   return trimmed.replace(/[.\u2026\u3002\uff0e]+$/u, '')
 }
 
+const WORK_STATUS_TIMEOUT_MS = {
+  typing: 3_000,
+  activity: 120_000,
+} as const
+
 export function ChatArea() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -247,6 +252,75 @@ export function ChatArea() {
     },
     [activeChannelId, activeServerId, queryClient],
   )
+
+  const getWorkStatusDisplayLabel = useCallback(
+    (status: WorkStatus): string | null => {
+      if (status.typing) {
+        return trimStatusEllipsis(t('member.activityTyping'))
+      }
+      if (!status.activity) return null
+
+      const label =
+        status.activity === 'thinking'
+          ? t('member.activityThinking')
+          : status.activity === 'working'
+            ? t('member.activityWorking')
+            : status.activity === 'ready'
+              ? t('member.activityReady')
+              : status.activity === 'preparing'
+                ? t('member.activityPreparing')
+                : status.activity
+      return trimStatusEllipsis(label)
+    },
+    [t],
+  )
+
+  const updateWorkStatus = useCallback(
+    (
+      payload: WorkStatusPayload,
+      patch: Pick<WorkStatus, 'typing'> | Pick<WorkStatus, 'activity'>,
+    ) => {
+      setWorkStatuses((prev) => {
+        const idx = prev.findIndex((item) => item.userId === payload.userId)
+        const existing = idx >= 0 ? prev[idx] : undefined
+        const name = resolveWorkStatusName(payload, existing?.name)
+
+        const nextStatus: WorkStatus = {
+          userId: payload.userId,
+          name,
+          typing:
+            'typing' in patch
+              ? (patch as Pick<WorkStatus, 'typing'>).typing
+              : (existing?.typing ?? false),
+          activity:
+            'activity' in patch
+              ? (patch as Pick<WorkStatus, 'activity'>).activity
+              : (existing?.activity ?? null),
+        }
+
+        if (!nextStatus.typing && !nextStatus.activity) {
+          if (idx < 0) return prev
+          return prev.filter((item) => item.userId !== payload.userId)
+        }
+
+        if (idx < 0) return [...prev, nextStatus]
+        const next = [...prev]
+        next[idx] = nextStatus
+        return next
+      })
+    },
+    [resolveWorkStatusName],
+  )
+
+  const visibleWorkStatuses = useMemo(() => {
+    const next: (WorkStatus & { label: string })[] = []
+    for (const status of workStatuses) {
+      const label = getWorkStatusDisplayLabel(status)
+      if (!label) continue
+      next.push({ ...status, label })
+    }
+    return next
+  }, [getWorkStatusDisplayLabel, workStatuses])
 
   // Save-to-workspace state
   const [saveToWorkspaceFile, setSaveToWorkspaceFile] = useState<{
@@ -474,29 +548,16 @@ export function ChatArea() {
       const existingTimer = typingTimersRef.current.get(data.userId)
       if (existingTimer) window.clearTimeout(existingTimer)
       const isTyping = data.typing !== false
-      setWorkStatuses((prev) => {
-        const existing = prev.find((u) => u.userId === data.userId)
-        const name = resolveWorkStatusName(data, existing?.name)
-        if (!isTyping) {
-          typingTimersRef.current.delete(data.userId)
-          return prev
-            .map((u) => (u.userId === data.userId ? { ...u, name, typing: false } : u))
-            .filter((u) => u.typing || u.activity)
-        }
-        if (existing) {
-          return prev.map((u) => (u.userId === data.userId ? { ...u, name, typing: true } : u))
-        }
-        return [...prev, { userId: data.userId, name, typing: true, activity: null }]
-      })
-      if (!isTyping) return
+      if (!isTyping) {
+        typingTimersRef.current.delete(data.userId)
+        updateWorkStatus(data, { typing: false })
+        return
+      }
+      updateWorkStatus(data, { typing: true })
       const timer = window.setTimeout(() => {
         typingTimersRef.current.delete(data.userId)
-        setWorkStatuses((prev) =>
-          prev
-            .map((u) => (u.userId === data.userId ? { ...u, typing: false } : u))
-            .filter((u) => u.typing || u.activity),
-        )
-      }, 3000)
+        updateWorkStatus(data, { typing: false })
+      }, WORK_STATUS_TIMEOUT_MS.typing)
       typingTimersRef.current.set(data.userId, timer)
     }
   })
@@ -561,35 +622,18 @@ export function ChatArea() {
     if (data.channelId !== activeChannelId) return
     const existingTimer = activityTimersRef.current.get(data.userId)
     if (existingTimer) window.clearTimeout(existingTimer)
-
-    setWorkStatuses((prev) => {
-      const existing = prev.find((u) => u.userId === data.userId)
-      const name = resolveWorkStatusName(data, existing?.name)
-      if (!data.activity) {
-        activityTimersRef.current.delete(data.userId)
-        return prev
-          .map((u) => (u.userId === data.userId ? { ...u, name, activity: null } : u))
-          .filter((u) => u.typing || u.activity)
-      }
-      if (existing) {
-        return prev.map((u) =>
-          u.userId === data.userId ? { ...u, name, activity: data.activity as string } : u,
-        )
-      }
-      return [...prev, { userId: data.userId, name, typing: false, activity: data.activity }]
-    })
-
-    if (data.activity) {
-      const timer = window.setTimeout(() => {
-        activityTimersRef.current.delete(data.userId)
-        setWorkStatuses((prev) =>
-          prev
-            .map((u) => (u.userId === data.userId ? { ...u, activity: null } : u))
-            .filter((u) => u.typing || u.activity),
-        )
-      }, 120_000)
-      activityTimersRef.current.set(data.userId, timer)
+    const activity = data.activity ?? null
+    if (!activity) {
+      activityTimersRef.current.delete(data.userId)
+      updateWorkStatus(data, { activity: null })
+      return
     }
+    updateWorkStatus(data, { activity })
+    const timer = window.setTimeout(() => {
+      activityTimersRef.current.delete(data.userId)
+      updateWorkStatus(data, { activity: null })
+    }, WORK_STATUS_TIMEOUT_MS.activity)
+    activityTimersRef.current.set(data.userId, timer)
   })
 
   useEffect(() => {
@@ -1179,7 +1223,7 @@ export function ChatArea() {
         </div>
 
         {/* Buddy work indicator */}
-        {workStatuses.length > 0 && (
+        {visibleWorkStatuses.length > 0 && (
           <div className="px-5 pb-2 pt-1">
             <div className="inline-flex max-w-[min(100%,42rem)] items-center gap-2.5 rounded-2xl border border-primary/35 bg-bg-secondary/85 px-4 py-2 text-xs text-primary shadow-[0_0_28px_rgba(0,229,255,0.2)] backdrop-blur-xl">
               <span className="relative flex h-2.5 w-2.5 shrink-0">
@@ -1187,33 +1231,18 @@ export function ChatArea() {
                 <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary shadow-[0_0_14px_rgba(0,229,255,0.9)]" />
               </span>
               <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
-                {workStatuses.map((u, index) => {
-                  const states = [
-                    u.activity === 'thinking'
-                      ? trimStatusEllipsis(t('member.activityThinking'))
-                      : u.activity === 'working'
-                        ? trimStatusEllipsis(t('member.activityWorking'))
-                        : u.activity === 'ready'
-                          ? trimStatusEllipsis(t('member.activityReady'))
-                          : u.activity === 'preparing'
-                            ? trimStatusEllipsis(t('member.activityPreparing'))
-                            : trimStatusEllipsis(u.activity),
-                    u.typing ? trimStatusEllipsis(t('member.activityTyping')) : null,
-                  ].filter(Boolean)
-                  const status = states.join(' / ')
-                  return (
-                    <span
-                      key={u.userId}
-                      className="inline-flex min-w-0 items-center gap-1.5 overflow-hidden"
-                    >
-                      {index > 0 && <span className="shrink-0 text-text-muted">,</span>}
-                      <span className="max-w-44 truncate font-semibold text-text-primary">
-                        {u.name}
-                      </span>
-                      {status && <span className="shrink-0 text-primary/90">{status}</span>}
+                {visibleWorkStatuses.map((u, index) => (
+                  <span
+                    key={u.userId}
+                    className="inline-flex min-w-0 items-center gap-1.5 overflow-hidden"
+                  >
+                    {index > 0 && <span className="shrink-0 text-text-muted">,</span>}
+                    <span className="max-w-44 truncate font-semibold text-text-primary">
+                      {u.name}
                     </span>
-                  )
-                })}
+                    <span className="shrink-0 text-primary/90">{u.label}</span>
+                  </span>
+                ))}
               </span>
               <span className="inline-flex shrink-0 gap-0.5">
                 <span

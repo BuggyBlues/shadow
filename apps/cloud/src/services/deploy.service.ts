@@ -10,6 +10,11 @@ import { dirname, resolve } from 'node:path'
 import { loadKubeconfigPath } from '../cluster/kubeconfig.js'
 import type { CloudConfig } from '../config/schema.js'
 import type { Logger } from '../utils/logger.js'
+import {
+  type DeploymentRuntimeContext,
+  normalizeDeploymentRuntimeContext,
+  runtimeContextEnv,
+} from '../utils/runtime-context.js'
 import { loadProvisionState, type ProvisionState } from '../utils/state.js'
 import type { ConfigService } from './config.service.js'
 import type { K8sService } from './k8s.service.js'
@@ -34,6 +39,8 @@ export interface DeployOptions {
   onOutput?: (out: string) => void
   /** Per-request env overrides used for template/plugin resolution. Never mutates process.env. */
   runtimeEnvVars?: Record<string, string>
+  /** Browser/deployment locale and timezone context. */
+  runtimeContext?: DeploymentRuntimeContext
   /** Named cluster — resolves to kubeconfig in ~/.shadow-cloud/clusters/<name>.yaml */
   cluster?: string
   /** Explicit path to a kubeconfig file (overrides cluster and k8sContext) */
@@ -99,10 +106,27 @@ function normalizeRuntimeEnvVars(envVars?: Record<string, string>): Record<strin
   return normalized
 }
 
-function buildEffectiveEnv(envVars?: Record<string, string>): Record<string, string | undefined> {
+function buildEffectiveEnv(
+  envVars?: Record<string, string>,
+  runtimeContext?: DeploymentRuntimeContext,
+): Record<string, string | undefined> {
+  const normalizedContext = normalizeDeploymentRuntimeContext(runtimeContext)
   return {
     ...process.env,
+    ...runtimeContextEnv(normalizedContext),
     ...normalizeRuntimeEnvVars(envVars),
+  }
+}
+
+function applyRuntimeContextToConfig(
+  config: CloudConfig,
+  runtimeContext?: DeploymentRuntimeContext,
+): CloudConfig {
+  const normalizedContext = normalizeDeploymentRuntimeContext(runtimeContext)
+  if (!normalizedContext.locale) return config
+  return {
+    ...config,
+    locale: normalizedContext.locale,
   }
 }
 
@@ -154,7 +178,8 @@ export class DeployService {
   async up(options: DeployOptions): Promise<DeployResult> {
     const filePath = resolve(options.filePath)
     const emit = options.onOutput ?? (() => {})
-    const effectiveEnv = buildEffectiveEnv(options.runtimeEnvVars)
+    const runtimeContext = normalizeDeploymentRuntimeContext(options.runtimeContext)
+    const effectiveEnv = buildEffectiveEnv(options.runtimeEnvVars, runtimeContext)
 
     if (!existsSync(filePath)) {
       throw new Error(`Config file not found: ${filePath}`)
@@ -179,7 +204,10 @@ export class DeployService {
     // 1. Parse config
     this.logger.step('Parsing config...')
     emit('Parsing config...\n')
-    const config = await this.configService.parseFile(filePath)
+    const config = applyRuntimeContextToConfig(
+      await this.configService.parseFile(filePath),
+      runtimeContext,
+    )
 
     const namespace = options.namespace ?? config.deployments?.namespace ?? 'shadowob-cloud'
     const stackName = resolveStackName(namespace, options.stack)
@@ -309,6 +337,7 @@ export class DeployService {
         namespace,
         shadowServerUrl: k8sShadowUrl,
         runtimeEnvVars: normalizeRuntimeEnvVars(options.runtimeEnvVars),
+        runtimeContext,
       })
 
       const outDir = resolve(options.outputDir)
@@ -347,6 +376,7 @@ export class DeployService {
         namespace,
         shadowServerUrl: k8sShadowUrl,
         runtimeEnvVars: normalizeRuntimeEnvVars(options.runtimeEnvVars),
+        runtimeContext,
         kubeContext: options.k8sContext,
         kubeConfigPath,
         imagePullPolicy: options.imagePullPolicy,
@@ -365,6 +395,7 @@ export class DeployService {
               namespace,
               shadowServerUrl: k8sShadowUrl,
               runtimeEnvVars: normalizeRuntimeEnvVars(options.runtimeEnvVars),
+              runtimeContext,
               kubeContext: options.k8sContext,
               kubeConfigPath,
               imagePullPolicy: options.imagePullPolicy,
@@ -398,6 +429,7 @@ export class DeployService {
           namespace,
           shadowServerUrl: k8sShadowUrl,
           runtimeEnvVars: normalizeRuntimeEnvVars(options.runtimeEnvVars),
+          runtimeContext,
           kubeContext: options.k8sContext,
           kubeConfigPath,
           imagePullPolicy: options.imagePullPolicy,

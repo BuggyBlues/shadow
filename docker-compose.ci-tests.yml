@@ -6,6 +6,12 @@ services:
       file: ./docker-compose.yml
       service: postgres
     ports: []
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U shadow" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 60s
 
   redis:
     extends:
@@ -18,6 +24,12 @@ services:
       file: ./docker-compose.yml
       service: minio
     ports: []
+    healthcheck:
+      test: [ "CMD", "mc", "ready", "local" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 30s
 
   ci-tests:
     build:
@@ -73,16 +85,16 @@ services:
         pnpm build:packages
 
         echo "=== Typecheck (packages - strict) ==="
-        pnpm --filter "./packages/*" --parallel typecheck
+        pnpm --filter "./packages/*" --workspace-concurrency=2 typecheck
 
         echo "=== Typecheck (apps - report only) ==="
-        pnpm --filter "./apps/*" --parallel typecheck || echo "⚠ App typecheck errors exist — non-blocking for now"
+        pnpm --filter "./apps/*" --workspace-concurrency=2 typecheck || echo "⚠ App typecheck errors exist — non-blocking for now"
 
         echo "=== Database migration ==="
         pnpm --filter @shadowob/server db:migrate
 
         echo "=== Package tests ==="
-        pnpm -r --filter "@shadowob/*" exec vitest run --passWithNoTests
+        pnpm -r --filter "@shadowob/*" --workspace-concurrency=2 exec vitest run --passWithNoTests
 
         echo "=== Root tests ==="
         pnpm exec vitest run --passWithNoTests

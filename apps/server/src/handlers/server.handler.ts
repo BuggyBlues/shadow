@@ -132,17 +132,15 @@ export function createServerHandler(container: AppContainer) {
         // Send notification to server owner about the new member
         if (server.ownerId && server.ownerId !== user.userId) {
           try {
-            const notificationService = container.resolve('notificationService')
+            const notificationTriggerService = container.resolve('notificationTriggerService')
             const displayName = fullUser?.displayName ?? fullUser?.username ?? 'unknown'
-            const notification = await notificationService.create({
-              userId: server.ownerId,
-              type: 'system',
-              title: `${displayName} joined your server "${server.name}"`,
-              referenceId: server.id,
-              referenceType: 'server_join',
-              senderId: user.userId,
+            await notificationTriggerService.triggerServerMemberJoined({
+              ownerId: server.ownerId,
+              actorId: user.userId,
+              actorName: displayName,
+              serverId: server.id,
+              serverName: server.name,
             })
-            io.to(`user:${server.ownerId}`).emit('notification:new', notification)
           } catch {
             /* non-critical */
           }
@@ -323,21 +321,18 @@ export function createServerHandler(container: AppContainer) {
 
     // Send notification to the target user
     try {
-      const notificationService = container.resolve('notificationService')
+      const notificationTriggerService = container.resolve('notificationTriggerService')
       const userDao = container.resolve('userDao')
       const inviter = await userDao.findById(user.userId)
       const inviterName = inviter?.displayName ?? inviter?.username ?? 'Someone'
-      const notification = await notificationService.create({
+      await notificationTriggerService.triggerServerInvite({
         userId: targetUserId,
-        type: 'system',
-        title: `${inviterName} invited you to join "${server.name}"`,
-        body: JSON.stringify({ serverId, inviteCode: server.inviteCode }),
-        referenceId: serverId,
-        referenceType: 'server_invite',
-        senderId: user.userId,
+        actorId: user.userId,
+        actorName: inviterName,
+        serverId,
+        serverName: server.name,
+        inviteCode: server.inviteCode,
       })
-      const io = container.resolve('io')
-      io.to(`user:${targetUserId}`).emit('notification:new', notification)
     } catch {
       return c.json({ ok: false, error: 'Failed to send invitation' }, 500)
     }

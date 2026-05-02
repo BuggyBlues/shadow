@@ -43,6 +43,13 @@ const TIER_COST: Record<string, number> = {
   pro: 2800,
 }
 
+const deploymentRuntimeContextSchema = z
+  .object({
+    locale: z.string().optional(),
+    timezone: z.string().optional(),
+  })
+  .optional()
+
 const PROVIDER_PROFILE_SCOPE_PREFIX = 'provider:'
 const PROVIDER_PROFILE_META_KEYS = {
   id: 'SHADOW_PROVIDER_PROFILE_ID',
@@ -1632,6 +1639,7 @@ export function createCloudSaasHandler(container: AppContainer) {
         agentCount: z.number().int().min(0).optional(),
         configSnapshot: z.record(z.unknown()),
         envVars: z.record(z.string()).optional(),
+        runtimeContext: deploymentRuntimeContextSchema,
       }),
     ),
     async (c) => {
@@ -1658,7 +1666,11 @@ export function createCloudSaasHandler(container: AppContainer) {
           c.req.header('authorization'),
           requestOrigin(c),
         )
-        storedConfigSnapshot = prepareCloudSaasConfigSnapshot(input.configSnapshot, runtimeEnvVars)
+        storedConfigSnapshot = prepareCloudSaasConfigSnapshot(
+          input.configSnapshot,
+          runtimeEnvVars,
+          input.runtimeContext,
+        )
       } catch (err) {
         const status =
           typeof (err as { status?: number }).status === 'number'
@@ -2084,7 +2096,11 @@ export function createCloudSaasHandler(container: AppContainer) {
           c.req.header('authorization'),
           requestOrigin(c),
         )
-        configSnapshot = prepareCloudSaasConfigSnapshot(runtime.configSnapshot, runtimeEnvVars)
+        configSnapshot = prepareCloudSaasConfigSnapshot(
+          runtime.configSnapshot,
+          runtimeEnvVars,
+          runtime.context,
+        )
         if (runtime.provisionState) {
           configSnapshot = attachCloudSaasProvisionState(configSnapshot, runtime.provisionState)
         }

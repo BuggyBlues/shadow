@@ -1,3 +1,4 @@
+import type { MessageMention } from '@shadowob/shared'
 import * as SecureStore from 'expo-secure-store'
 import { AppState, type AppStateStatus } from 'react-native'
 import { io, type Socket } from 'socket.io-client'
@@ -95,6 +96,8 @@ export function sendWsMessage(data: {
   content: string
   threadId?: string
   replyToId?: string
+  mentions?: MessageMention[]
+  metadata?: Record<string, unknown>
 }): void {
   getSocket().emit('message:send', data)
 }

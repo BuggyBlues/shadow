@@ -1,4 +1,5 @@
-import type { ShadowClient } from '@shadowob/sdk'
+import type { ShadowClient, ShadowMessageMention } from '@shadowob/sdk'
+import { resolveOutboundMentions } from '../mentions.js'
 import { parseTarget } from '../outbound.js'
 
 export async function sendShadowMessage(params: {
@@ -7,6 +8,7 @@ export async function sendShadowMessage(params: {
   content: string
   threadId?: string
   replyToId?: string
+  mentions?: ShadowMessageMention[]
   metadata?: Record<string, unknown>
 }) {
   const { channelId, threadId: parsedThreadId, dmChannelId } = parseTarget(params.to)
@@ -20,22 +22,39 @@ export async function sendShadowMessage(params: {
   }
 
   if (threadId && channelId) {
+    const mentions =
+      params.mentions ??
+      (await resolveOutboundMentions({
+        client: params.client,
+        channelId,
+        content: params.content,
+      }))
     return params.client.sendMessage(channelId, params.content, {
       threadId,
       replyToId: params.replyToId,
+      ...(mentions ? { mentions } : {}),
       metadata: params.metadata,
     })
   }
 
   if (threadId) {
     return params.client.sendToThread(threadId, params.content, {
+      ...(params.replyToId ? { replyToId: params.replyToId } : {}),
       metadata: params.metadata,
     })
   }
 
   if (channelId) {
+    const mentions =
+      params.mentions ??
+      (await resolveOutboundMentions({
+        client: params.client,
+        channelId,
+        content: params.content,
+      }))
     return params.client.sendMessage(channelId, params.content, {
       replyToId: params.replyToId,
+      ...(mentions ? { mentions } : {}),
       metadata: params.metadata,
     })
   }

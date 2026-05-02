@@ -389,6 +389,9 @@ class ShadowClient:
     def get_channel(self, channel_id: str) -> dict[str, Any]:
         return self._get(f"/api/channels/{channel_id}")
 
+    def get_channel_access(self, channel_id: str) -> dict[str, Any]:
+        return self._get(f"/api/channels/{channel_id}/access")
+
     def get_channel_members(self, channel_id: str) -> list[dict[str, Any]]:
         return self._get(f"/api/channels/{channel_id}/members")
 
@@ -411,6 +414,16 @@ class ShadowClient:
     ) -> dict[str, Any]:
         return self._post(
             f"/api/channels/{channel_id}/members", json={"userId": user_id}
+        )
+
+    def request_channel_access(self, channel_id: str) -> dict[str, Any]:
+        return self._post(f"/api/channels/{channel_id}/join-requests")
+
+    def review_channel_join_request(
+        self, request_id: str, status: str
+    ) -> dict[str, Any]:
+        return self._patch(
+            f"/api/channel-join-requests/{request_id}", json={"status": status}
         )
 
     def remove_channel_member(
@@ -438,6 +451,7 @@ class ShadowClient:
         *,
         thread_id: str | None = None,
         reply_to_id: str | None = None,
+        mentions: list[dict[str, Any]] | None = None,
         metadata: dict[str, Any] | None = None,
         attachments: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
@@ -446,11 +460,40 @@ class ShadowClient:
             data["threadId"] = thread_id
         if reply_to_id:
             data["replyToId"] = reply_to_id
+        if mentions is not None:
+            data["mentions"] = mentions
         if metadata is not None:
             data["metadata"] = metadata
         if attachments is not None:
             data["attachments"] = attachments
         return self._post(f"/api/channels/{channel_id}/messages", json=data)
+
+    def suggest_mentions(
+        self,
+        channel_id: str,
+        trigger: str,
+        *,
+        query: str | None = None,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {"channelId": channel_id, "trigger": trigger}
+        if query:
+            params["q"] = query
+        if limit:
+            params["limit"] = limit
+        return self._get("/api/mentions/suggest", params=params)
+
+    def resolve_mentions(
+        self,
+        channel_id: str,
+        content: str,
+        *,
+        mentions: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        data: dict[str, Any] = {"channelId": channel_id, "content": content}
+        if mentions is not None:
+            data["mentions"] = mentions
+        return self._post("/api/mentions/resolve", json=data)
 
     def get_messages(
         self,
@@ -558,9 +601,15 @@ class ShadowClient:
         self,
         thread_id: str,
         content: str,
+        reply_to_id: str | None = None,
         metadata: dict[str, Any] | None = None,
+        mentions: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         payload: dict[str, Any] = {"content": content}
+        if reply_to_id:
+            payload["replyToId"] = reply_to_id
+        if mentions is not None:
+            payload["mentions"] = mentions
         if metadata is not None:
             payload["metadata"] = metadata
         return self._post(
@@ -615,7 +664,7 @@ class ShadowClient:
         return self._patch(f"/api/notifications/{notification_id}/read")
 
     def mark_all_notifications_read(self) -> dict[str, Any]:
-        return self._patch("/api/notifications/read-all")
+        return self._post("/api/notifications/read-all")
 
     def get_unread_count(self) -> dict[str, Any]:
         return self._get("/api/notifications/unread-count")
@@ -625,12 +674,15 @@ class ShadowClient:
         *,
         server_id: str | None = None,
         channel_id: str | None = None,
+        dm_channel_id: str | None = None,
     ) -> dict[str, Any]:
         data: dict[str, Any] = {}
         if server_id:
             data["serverId"] = server_id
         if channel_id:
             data["channelId"] = channel_id
+        if dm_channel_id:
+            data["dmChannelId"] = dm_channel_id
         return self._post("/api/notifications/read-scope", json=data)
 
     def get_scoped_unread(self) -> dict[str, Any]:

@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { homedir, tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import type { CloudConfig } from '../config/schema.js'
+import type { DeploymentRuntimeContext } from '../utils/runtime-context.js'
 import type { ProvisionState } from '../utils/state.js'
 import type { DeployOptions, DeployResult } from './deploy.service.js'
 import { DeployService } from './deploy.service.js'
@@ -20,6 +21,7 @@ export interface DeployFromSnapshotOptions
   > {
   configSnapshot: unknown
   runtimeEnvVars?: Record<string, string>
+  runtimeContext?: DeploymentRuntimeContext
   shadowUrl?: string
   shadowToken?: string
   cluster?: DeploymentRuntimeCluster | null
@@ -150,6 +152,7 @@ export class DeploymentRuntimeService {
     const {
       configSnapshot: _configSnapshot,
       runtimeEnvVars: _runtimeEnvVars,
+      runtimeContext: _runtimeContext,
       cluster: _cluster,
       provisionState: _provisionState,
       shadowUrl,
@@ -166,6 +169,7 @@ export class DeploymentRuntimeService {
           k8sContext: context.k8sContext,
           kubeConfigPath: context.kubeConfigPath,
           runtimeEnvVars: context.runtimeEnvVars,
+          runtimeContext: options.runtimeContext,
           initialProvisionState: options.provisionState ?? null,
           shadowUrl,
           shadowToken,

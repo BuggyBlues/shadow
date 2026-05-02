@@ -17,6 +17,10 @@ import type { Deployment } from '../../db/schema.js'
 import type { ServiceContainer } from '../../services/container.js'
 import { GLOBAL_ENV_SCOPE, toDeploymentEnvScope } from '../../utils/deployment-scope.js'
 import { redactSecrets } from '../../utils/redact.js'
+import {
+  type DeploymentRuntimeContext,
+  normalizeDeploymentRuntimeContext,
+} from '../../utils/runtime-context.js'
 
 function shouldSkipProgressLine(line: string): boolean {
   const trimmed = line.trim()
@@ -160,6 +164,7 @@ export class DeployTaskManager {
   private async buildEnvOverrides(config: Record<string, unknown>): Promise<{
     envOverrides: Record<string, string>
     templateConfig: Record<string, unknown>
+    runtimeContext: DeploymentRuntimeContext
   }> {
     const envOverrides: Record<string, string> = {}
     const namespace = typeof config.namespace === 'string' ? config.namespace : undefined
@@ -178,13 +183,23 @@ export class DeployTaskManager {
       }
     }
 
-    const { envVars: _envVars, ...templateConfig } = config
+    const runtimeContext = normalizeDeploymentRuntimeContext(
+      config.runtimeContext as DeploymentRuntimeContext | undefined,
+    )
+    const { envVars: _envVars, runtimeContext: _runtimeContext, ...templateConfig } = config
+    if (runtimeContext.locale) {
+      templateConfig.locale = runtimeContext.locale
+    }
     const policy = await collectRuntimeEnvRefPolicy(templateConfig)
-    return { envOverrides: applyRuntimeEnvRefPolicy(envOverrides, policy), templateConfig }
+    return {
+      envOverrides: applyRuntimeEnvRefPolicy(envOverrides, policy),
+      templateConfig,
+      runtimeContext,
+    }
   }
 
   private async run(taskId: number, config: Record<string, unknown>): Promise<void> {
-    const { envOverrides, templateConfig } = await this.buildEnvOverrides(config)
+    const { envOverrides, templateConfig, runtimeContext } = await this.buildEnvOverrides(config)
     const { shadowUrl, podShadowUrl, shadowToken } = resolveCloudSaasShadowRuntime(envOverrides)
     const cancelToken = { cancelled: false } as {
       cancelled: boolean
@@ -206,6 +221,7 @@ export class DeployTaskManager {
       const result = await this.container.deploymentRuntime.deployFromSnapshot({
         configSnapshot: templateConfig,
         runtimeEnvVars: envOverrides,
+        runtimeContext,
         namespace: templateConfig.namespace as string | undefined,
         dryRun: templateConfig.dryRun as boolean | undefined,
         shadowUrl,

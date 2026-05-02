@@ -297,6 +297,7 @@ export const saasApi = {
       agentCount?: number
       configSnapshot: Record<string, unknown>
       envVars?: Record<string, string>
+      runtimeContext?: { locale?: string; timezone?: string }
     }) => post<SaasDeployment>('/deployments', data),
     delete: (id: string) =>
       del<{ ok: boolean; taskId?: string; status?: SaasDeployment['status'] }>(

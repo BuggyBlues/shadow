@@ -1,4 +1,9 @@
 import { z } from 'zod'
+import {
+  type DeploymentRuntimeContext,
+  isDeploymentRuntimeContextEmpty,
+  normalizeDeploymentRuntimeContext,
+} from '../utils/runtime-context.js'
 import type { ProvisionState } from '../utils/state.js'
 
 export const CLOUD_SAAS_RUNTIME_KEY = '__shadowobRuntime'
@@ -24,6 +29,12 @@ const cloudConfigSnapshotSchema = z
 const runtimeMetadataSchema = z
   .object({
     envVars: z.record(z.string()).default({}),
+    context: z
+      .object({
+        locale: z.string().optional(),
+        timezone: z.string().optional(),
+      })
+      .optional(),
     provisionState: z.unknown().optional(),
   })
   .passthrough()
@@ -148,20 +159,26 @@ export function validateCloudSaasConfigSnapshot(configSnapshot: unknown): Record
 export function prepareCloudSaasConfigSnapshot(
   configSnapshot: unknown,
   envVars?: Record<string, string>,
+  context?: DeploymentRuntimeContext,
 ): Record<string, unknown> {
   const validated = validateCloudSaasConfigSnapshot(configSnapshot)
   const runtimeEnvVars = normalizeRuntimeEnvVars(envVars)
+  const runtimeContext = normalizeDeploymentRuntimeContext(context)
   const runtime = runtimeMetadataSchema.safeParse(validated[CLOUD_SAAS_RUNTIME_KEY])
+  const configWithLocale = runtimeContext.locale
+    ? { ...validated, locale: runtimeContext.locale }
+    : validated
 
-  if (Object.keys(runtimeEnvVars).length === 0) {
-    return validated
+  if (Object.keys(runtimeEnvVars).length === 0 && isDeploymentRuntimeContextEmpty(runtimeContext)) {
+    return configWithLocale
   }
 
   return {
-    ...validated,
+    ...configWithLocale,
     [CLOUD_SAAS_RUNTIME_KEY]: {
       ...(runtime.success && runtime.data && typeof runtime.data === 'object' ? runtime.data : {}),
       envVars: runtimeEnvVars,
+      ...(isDeploymentRuntimeContextEmpty(runtimeContext) ? {} : { context: runtimeContext }),
     },
   }
 }
@@ -173,12 +190,16 @@ export function attachCloudSaasProvisionState(
   const validated = validateCloudSaasConfigSnapshot(configSnapshot)
   const runtime = runtimeMetadataSchema.safeParse(validated[CLOUD_SAAS_RUNTIME_KEY])
   const envVars = runtime.success ? normalizeRuntimeEnvVars(runtime.data.envVars) : {}
+  const context = runtime.success
+    ? normalizeDeploymentRuntimeContext(runtime.data.context)
+    : undefined
 
   return {
     ...validated,
     [CLOUD_SAAS_RUNTIME_KEY]: {
       ...(runtime.success && runtime.data && typeof runtime.data === 'object' ? runtime.data : {}),
       envVars,
+      ...(context && !isDeploymentRuntimeContextEmpty(context) ? { context } : {}),
       provisionState,
     },
   }
@@ -187,10 +208,11 @@ export function attachCloudSaasProvisionState(
 export function extractCloudSaasRuntime(configSnapshot: unknown): {
   configSnapshot: Record<string, unknown> | null
   envVars: Record<string, string>
+  context: DeploymentRuntimeContext
   provisionState: ProvisionState | null
 } {
   if (!configSnapshot || typeof configSnapshot !== 'object' || Array.isArray(configSnapshot)) {
-    return { configSnapshot: null, envVars: {}, provisionState: null }
+    return { configSnapshot: null, envVars: {}, context: {}, provisionState: null }
   }
 
   const snapshot = { ...(configSnapshot as Record<string, unknown>) }
@@ -200,6 +222,7 @@ export function extractCloudSaasRuntime(configSnapshot: unknown): {
   return {
     configSnapshot: snapshot,
     envVars: runtime.success ? normalizeRuntimeEnvVars(runtime.data.envVars) : {},
+    context: runtime.success ? normalizeDeploymentRuntimeContext(runtime.data.context) : {},
     provisionState: runtime.success ? normalizeProvisionState(runtime.data.provisionState) : null,
   }
 }

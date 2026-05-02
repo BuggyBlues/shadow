@@ -317,7 +317,12 @@
     "homepageHtmlPlaceholder": "<h1>Welcome!</h1>\n<p>This is the server homepage.</p>",
     "homepageHtmlDesc": "Custom HTML for the server homepage. Leave empty to use the default.",
     "privateChannel": "Private Channel",
-    "privateChannelDesc": "Only invited members can join"
+    "privateChannelDesc": "Only invited members can join",
+    "privateChannelGateDesc": "This channel can be mentioned, but joining it requires approval from a channel member or server admin.",
+    "requestAccess": "Request Access",
+    "requestPending": "Request Pending",
+    "approveAccess": "Approve",
+    "rejectAccess": "Reject"
   },
   "chat": {
     "selectChannel": "Select a channel to start chatting",
@@ -821,7 +826,25 @@
     "title": "Notifications",
     "markAllRead": "Mark All Read",
     "markRead": "Mark as Read",
-    "empty": "No notifications"
+    "empty": "No notifications",
+    "messageMention": "{{actorName}} mentioned you",
+    "messageMentionCount": "{{count}} new mentions",
+    "messageReply": "{{actorName}} replied to you",
+    "messageReplyCount": "{{count}} new replies",
+    "dmMessage": "{{actorName}} sent you a message",
+    "dmMessageCount": "{{count}} new direct messages",
+    "channelAccessRequested": "{{actorName}} requested access to #{{channelName}}",
+    "channelAccessRequestedBody": "Review the private channel access request.",
+    "channelAccessApproved": "Access approved for #{{channelName}}",
+    "channelAccessRejected": "Access declined for #{{channelName}}",
+    "channelMemberAdded": "You have been added to #{{channelName}}",
+    "inServer": "In {{serverName}}",
+    "serverMemberJoined": "{{actorName}} joined {{serverName}}",
+    "serverMemberJoinedCount": "{{count}} people joined {{serverName}}",
+    "serverInvite": "{{actorName}} invited you to join {{serverName}}",
+    "friendshipRequest": "{{actorName}} sent you a friend request",
+    "rechargeSucceeded": "Recharge succeeded",
+    "rechargeSucceededBody": "{{amount}} Shrimp Coins have arrived"
   },
   "agentMgmt": {
     "title": "Buddy Management",

@@ -1103,6 +1103,20 @@
           "description": "User timezone",
           "type": "string"
         },
+        "envelopeTimezone": {
+          "description": "Timezone for inbound message envelope timestamps",
+          "type": "string"
+        },
+        "envelopeTimestamp": {
+          "description": "Whether to include absolute timestamps in inbound message envelopes",
+          "enum": ["off", "on"],
+          "type": "string"
+        },
+        "envelopeElapsed": {
+          "description": "Whether to include elapsed time suffixes in inbound message envelopes",
+          "enum": ["off", "on"],
+          "type": "string"
+        },
         "timeFormat": {
           "description": "Time format",
           "enum": ["12", "24", "auto"],

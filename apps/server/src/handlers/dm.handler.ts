@@ -102,6 +102,16 @@ export function createDmHandler(container: AppContainer) {
         const channel = await dmService.getChannelById(id)
         if (channel) {
           const otherUserId = channel.userAId === user.userId ? channel.userBId : channel.userAId
+          const notificationTriggerService = container.resolve('notificationTriggerService')
+          const senderName = message.author?.displayName ?? message.author?.username ?? 'Someone'
+          await notificationTriggerService.triggerDm({
+            userId: otherUserId,
+            actorId: user.userId,
+            actorName: senderName,
+            dmChannelId: id,
+            preview: content.substring(0, 200),
+          })
+
           await relayDmToBot(io, container, id, user.userId, otherUserId, {
             id: message.id!,
             content: message.content!,

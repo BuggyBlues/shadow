@@ -18,6 +18,70 @@ export interface Message {
   }
   attachments?: Attachment[]
   reactions?: ReactionGroup[]
+  metadata?: MessageMetadata | null
+}
+
+export type MessageMentionKind = 'user' | 'buddy' | 'channel' | 'server' | 'here' | 'everyone'
+
+export interface MessageMentionRange {
+  start: number
+  end: number
+}
+
+export interface MessageMention {
+  kind: MessageMentionKind
+  /** Canonical target id. For users this is userId, for channels channelId, for servers serverId. */
+  targetId: string
+  /** Canonical text persisted in message content, e.g. <@userId>, <#channelId>. */
+  token: string
+  /** Optional display text selected or typed by the sender before canonicalization. */
+  sourceToken?: string
+  /** Human-readable label used by renderers. */
+  label: string
+  /** Optional source range in content. Clients may omit it; servers may recompute later. */
+  range?: MessageMentionRange
+  serverId?: string
+  serverSlug?: string | null
+  serverName?: string | null
+  channelId?: string
+  channelName?: string | null
+  userId?: string
+  username?: string | null
+  displayName?: string | null
+  avatarUrl?: string | null
+  isBot?: boolean
+  isPrivate?: boolean
+}
+
+export interface MessageMetadata {
+  mentions?: MessageMention[]
+  agentChain?: Record<string, unknown>
+  interactive?: Record<string, unknown>
+  interactiveResponse?: Record<string, unknown>
+  interactiveState?: Record<string, unknown>
+  [key: string]: unknown
+}
+
+export type MentionSuggestionTrigger = '@' | '#'
+
+export interface MentionSuggestion {
+  id: string
+  kind: MessageMentionKind
+  targetId: string
+  token: string
+  label: string
+  description?: string | null
+  serverId?: string
+  serverSlug?: string | null
+  serverName?: string | null
+  channelId?: string
+  channelName?: string | null
+  userId?: string
+  username?: string | null
+  displayName?: string | null
+  avatarUrl?: string | null
+  isBot?: boolean
+  isPrivate?: boolean
 }
 
 export interface Attachment {
@@ -53,6 +117,8 @@ export interface SendMessageRequest {
   content: string
   threadId?: string
   replyToId?: string
+  mentions?: MessageMention[]
+  metadata?: MessageMetadata
 }
 
 export interface UpdateMessageRequest {

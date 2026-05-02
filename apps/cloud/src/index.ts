@@ -85,3 +85,4 @@ export {
   TemplateService,
   UsageCostService,
 } from './services/container.js'
+export type { DeploymentRuntimeContext } from './utils/runtime-context.js'

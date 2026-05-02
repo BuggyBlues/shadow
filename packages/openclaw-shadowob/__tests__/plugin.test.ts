@@ -615,6 +615,45 @@ describe('Plugin Entry Point', () => {
     })
   })
 
+  it('should deliver monitored agent replies as channel replies even when the source has a threadId', async () => {
+    const { deliverShadowReply } = await import('../src/monitor/reply-delivery.js')
+    const sendMessage = vi.fn().mockResolvedValue({
+      id: 'reply-msg-1',
+      content: 'Hello from Buddy',
+      channelId: 'ch-1',
+      authorId: 'bot-1',
+      createdAt: '2026-04-27T00:00:00.000Z',
+      updatedAt: '2026-04-27T00:00:00.000Z',
+    })
+    const sendToThread = vi.fn()
+
+    await deliverShadowReply({
+      payload: { text: 'Hello from Buddy' },
+      channelId: 'ch-1',
+      threadId: 'thread-1',
+      replyToId: 'source-message-1',
+      client: { sendMessage, sendToThread } as never,
+      runtime: {},
+      agentId: null,
+      botUserId: 'bot-1',
+    })
+
+    expect(sendToThread).not.toHaveBeenCalled()
+    expect(sendMessage).toHaveBeenCalledWith(
+      'ch-1',
+      'Hello from Buddy',
+      expect.objectContaining({
+        replyToId: 'source-message-1',
+        metadata: expect.objectContaining({
+          shadowDelivery: expect.objectContaining({
+            source: 'openclaw-shadowob',
+            replyToId: 'source-message-1',
+          }),
+        }),
+      }),
+    )
+  })
+
   it('should keep interactive dialogs on the shared send action', async () => {
     const { ShadowClient } = await import('@shadowob/sdk')
     const { shadowPlugin } = await import('../src/channel.js')
@@ -818,6 +857,57 @@ describe('Shadow Outbound', () => {
         channelId: 'ch-123',
       })
     } finally {
+      sendMessage.mockRestore()
+    }
+  })
+
+  it('should resolve outbound Shadow mentions before sending channel text', async () => {
+    const { ShadowClient } = await import('@shadowob/sdk')
+    const { shadowOutbound } = await import('../src/outbound.js')
+    const resolvedMention = {
+      kind: 'user',
+      targetId: 'user-admin',
+      userId: 'user-admin',
+      token: '@admin',
+      label: '@Admin',
+      range: { start: 3, end: 9 },
+    }
+    const resolveMentions = vi
+      .spyOn(ShadowClient.prototype, 'resolveMentions')
+      .mockResolvedValue({ mentions: [resolvedMention] } as never)
+    const sendMessage = vi.spyOn(ShadowClient.prototype, 'sendMessage').mockResolvedValue({
+      id: 'msg-mention',
+      content: 'hi @admin',
+      channelId: 'ch-123',
+      authorId: 'bot-1',
+      createdAt: '2026-04-27T00:00:00.000Z',
+      updatedAt: '2026-04-27T00:00:00.000Z',
+    } as never)
+
+    try {
+      await shadowOutbound.sendText({
+        cfg: {
+          channels: {
+            shadowob: {
+              token: 'tok',
+              serverUrl: 'http://localhost:3002',
+            },
+          },
+        },
+        to: 'shadowob:channel:ch-123',
+        text: 'hi @admin',
+      })
+
+      expect(resolveMentions).toHaveBeenCalledWith({
+        channelId: 'ch-123',
+        content: 'hi @admin',
+      })
+      expect(sendMessage).toHaveBeenCalledWith('ch-123', 'hi @admin', {
+        replyToId: undefined,
+        mentions: [resolvedMention],
+      })
+    } finally {
+      resolveMentions.mockRestore()
       sendMessage.mockRestore()
     }
   })

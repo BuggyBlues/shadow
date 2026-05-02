@@ -36,6 +36,20 @@ class ShadowChannel:
     server_id: str
     description: str | None = None
     position: int | None = None
+    is_private: bool | None = None
+    is_member: bool | None = None
+
+
+@dataclass
+class ShadowChannelAccess:
+    channel: ShadowChannel
+    is_server_member: bool
+    is_channel_member: bool
+    can_manage: bool
+    can_access: bool
+    requires_approval: bool
+    join_request_status: str | None = None
+    join_request_id: str | None = None
 
 
 @dataclass
@@ -48,6 +62,48 @@ class ShadowAttachment:
     width: int | None = None
     height: int | None = None
     workspace_node_id: str | None = None
+
+
+@dataclass
+class ShadowMessageMention:
+    kind: str
+    target_id: str
+    token: str
+    label: str
+    source_token: str | None = None
+    range: dict[str, int] | None = None
+    server_id: str | None = None
+    server_slug: str | None = None
+    server_name: str | None = None
+    channel_id: str | None = None
+    channel_name: str | None = None
+    user_id: str | None = None
+    username: str | None = None
+    display_name: str | None = None
+    avatar_url: str | None = None
+    is_bot: bool | None = None
+    is_private: bool | None = None
+
+
+@dataclass
+class ShadowMentionSuggestion:
+    id: str
+    kind: str
+    target_id: str
+    token: str
+    label: str
+    description: str | None = None
+    server_id: str | None = None
+    server_slug: str | None = None
+    server_name: str | None = None
+    channel_id: str | None = None
+    channel_name: str | None = None
+    user_id: str | None = None
+    username: str | None = None
+    display_name: str | None = None
+    avatar_url: str | None = None
+    is_bot: bool | None = None
+    is_private: bool | None = None
 
 
 @dataclass
@@ -105,12 +161,23 @@ class ShadowNotification:
     id: str
     user_id: str
     type: str
+    kind: str | None
     title: str
-    body: str
+    body: str | None
     is_read: bool
     created_at: str
     reference_id: str | None = None
     reference_type: str | None = None
+    sender_id: str | None = None
+    sender_avatar_url: str | None = None
+    scope_server_id: str | None = None
+    scope_channel_id: str | None = None
+    scope_dm_channel_id: str | None = None
+    aggregation_key: str | None = None
+    aggregated_count: int | None = None
+    last_aggregated_at: str | None = None
+    metadata: dict[str, Any] | None = None
+    expires_at: str | None = None
 
 
 @dataclass

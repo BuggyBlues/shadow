@@ -66,6 +66,12 @@ export interface OpenClawAgentDefaults {
   maxConcurrent?: number & tags.Type<'uint32'>
   /** User timezone */
   userTimezone?: string
+  /** Timezone for inbound message envelope timestamps */
+  envelopeTimezone?: string
+  /** Whether to include absolute timestamps in inbound message envelopes */
+  envelopeTimestamp?: 'on' | 'off'
+  /** Whether to include elapsed time suffixes in inbound message envelopes */
+  envelopeElapsed?: 'on' | 'off'
   /** Time format */
   timeFormat?: 'auto' | '12' | '24'
   /** Heartbeat config */

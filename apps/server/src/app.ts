@@ -19,6 +19,7 @@ import { createFeatureFlagsHandler } from './handlers/feature-flags.handler'
 import { createFriendshipHandler } from './handlers/friendship.handler'
 import { createInviteHandler } from './handlers/invite.handler'
 import { createMediaHandler } from './handlers/media.handler'
+import { createMentionHandler } from './handlers/mention.handler'
 import { createMessageHandler } from './handlers/message.handler'
 import { createNotificationHandler } from './handlers/notification.handler'
 import { createOAuthHandler } from './handlers/oauth.handler'
@@ -143,6 +144,7 @@ export function createApp(container: AppContainer) {
   app.route('/api', createWorkspaceHandler(container))
   app.route('/api/servers', createServerHandler(container))
   app.route('/api', createChannelHandler(container))
+  app.route('/api', createMentionHandler(container))
   app.route('/api', createMessageHandler(container))
   app.route('/api/search', createSearchHandler(container))
   app.route('/api/dm', createDmHandler(container))

@@ -130,5 +130,42 @@ describe('Message validators (reactions)', () => {
       })
       expect(result.success).toBe(true)
     })
+
+    it('should accept structured user and channel mentions', () => {
+      const result = sendMessageSchema.safeParse({
+        content: 'Hello @alice #general',
+        mentions: [
+          {
+            kind: 'user',
+            targetId: '550e8400-e29b-41d4-a716-446655440001',
+            userId: '550e8400-e29b-41d4-a716-446655440001',
+            token: '@alice',
+            label: '@Alice',
+          },
+          {
+            kind: 'channel',
+            targetId: '550e8400-e29b-41d4-a716-446655440002',
+            channelId: '550e8400-e29b-41d4-a716-446655440002',
+            serverId: '550e8400-e29b-41d4-a716-446655440003',
+            token: '#general',
+            label: '#general',
+          },
+        ],
+      })
+      expect(result.success).toBe(true)
+    })
+
+    it('should cap mentions per message', () => {
+      const result = sendMessageSchema.safeParse({
+        content: 'too many',
+        mentions: Array.from({ length: 21 }, (_, index) => ({
+          kind: 'user',
+          targetId: `user-${index}`,
+          token: `@user${index}`,
+          label: `@User ${index}`,
+        })),
+      })
+      expect(result.success).toBe(false)
+    })
   })
 })

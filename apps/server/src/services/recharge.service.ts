@@ -1,4 +1,3 @@
-import type { Server as SocketIOServer } from 'socket.io'
 import type { RechargeDao } from '../dao/recharge.dao'
 import type { WalletDao } from '../dao/wallet.dao'
 import {
@@ -10,16 +9,14 @@ import {
   shrimpCoinsToUsdCents,
   stripe,
 } from '../lib/stripe'
-import { pushNotification } from '../ws/notification.gateway'
-import type { NotificationService } from './notification.service'
+import type { NotificationTriggerService } from './notification-trigger.service'
 
 export class RechargeService {
   constructor(
     private deps: {
       rechargeDao: RechargeDao
       walletDao: WalletDao
-      notificationService: NotificationService
-      io: SocketIOServer
+      notificationTriggerService: NotificationTriggerService
     },
   ) {}
 
@@ -168,26 +165,12 @@ export class RechargeService {
       paidAt: new Date(),
     })
 
-    // Persist notification to DB for offline users
-    await this.deps.notificationService.create({
+    await this.deps.notificationTriggerService.triggerRechargeSucceeded({
       userId: order.userId,
-      type: 'system',
-      title: '充值成功',
-      body: `${order.shrimpCoinAmount} 虾币已到账`,
-      referenceId: order.id,
-      referenceType: 'payment_order',
-    })
-
-    // Send real-time notification via WebSocket
-    pushNotification(this.deps.io, order.userId, {
-      type: 'recharge_success',
-      title: '充值成功',
-      body: `${order.shrimpCoinAmount} 虾币已到账`,
-      data: {
-        orderNo: order.orderNo,
-        shrimpCoins: order.shrimpCoinAmount,
-        newBalance,
-      },
+      orderId: order.id,
+      orderNo: order.orderNo,
+      shrimpCoins: order.shrimpCoinAmount,
+      newBalance,
     })
   }
 

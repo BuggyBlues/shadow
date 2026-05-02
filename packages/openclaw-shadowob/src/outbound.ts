@@ -10,6 +10,7 @@ import type { ShadowMessage } from '@shadowob/sdk'
 import { ShadowClient } from '@shadowob/sdk'
 import type { OpenClawConfig } from 'openclaw/plugin-sdk/core'
 import { DEFAULT_ACCOUNT_ID, getAccountConfig } from './config.js'
+import { resolveOutboundMentions } from './mentions.js'
 import type { ShadowAccountConfig } from './types.js'
 
 /** Max single-message content length (matches server LIMITS.MESSAGE_CONTENT_MAX) */
@@ -135,19 +136,33 @@ async function sendTextChunks(params: {
     const chunk = chunks[i]!
     const replyTo = i === 0 ? (params.replyToMessageId ?? undefined) : lastMessage?.id
     if (threadId && channelId) {
+      const mentions = await resolveOutboundMentions({
+        client: params.client,
+        channelId,
+        content: chunk,
+      })
       lastMessage = await params.client.sendMessage(channelId, chunk, {
         threadId,
         replyToId: replyTo,
+        ...(mentions ? { mentions } : {}),
       })
     } else if (dmChannelId) {
       lastMessage = await params.client.sendDmMessage(dmChannelId, chunk, {
         replyToId: replyTo,
       })
     } else if (threadId) {
-      lastMessage = await params.client.sendToThread(threadId, chunk)
+      lastMessage = replyTo
+        ? await params.client.sendToThread(threadId, chunk, { replyToId: replyTo })
+        : await params.client.sendToThread(threadId, chunk)
     } else if (channelId) {
+      const mentions = await resolveOutboundMentions({
+        client: params.client,
+        channelId,
+        content: chunk,
+      })
       lastMessage = await params.client.sendMessage(channelId, chunk, {
         replyToId: replyTo,
+        ...(mentions ? { mentions } : {}),
       })
     } else {
       throw new Error('Could not resolve target channel, thread, or DM')

@@ -13,8 +13,8 @@ export function SuccessAnimation() {
   const queryClient = useQueryClient()
 
   // Listen for webhook-confirmed recharge notification to refresh wallet data
-  useSocketEvent('notification:new', (data: { type?: string }) => {
-    if (data?.type === 'recharge_success') {
+  useSocketEvent('notification:new', (data: { type?: string; kind?: string }) => {
+    if (data?.type === 'recharge_success' || data?.kind === 'recharge.succeeded') {
       queryClient.invalidateQueries({ queryKey: ['wallet'] })
       queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] })
     }

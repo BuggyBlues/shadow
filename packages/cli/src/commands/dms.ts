@@ -110,7 +110,6 @@ export function createDmsCommand(): Command {
       },
     )
 
-  // Note: SDK markScopeRead doesn't support dmChannelId, marking channel as read instead
   dms
     .command('mark-read')
     .description('Mark DM channel as read')
@@ -120,7 +119,7 @@ export function createDmsCommand(): Command {
     .action(async (dmChannelId: string, options: { profile?: string; json?: boolean }) => {
       try {
         const client = await getClient(options.profile)
-        await client.markScopeRead({ channelId: dmChannelId })
+        await client.markScopeRead({ dmChannelId })
         const outputOpts: OutputOptions = { json: options.json }
         outputSuccess('DM channel marked as read', outputOpts)
       } catch (error) {

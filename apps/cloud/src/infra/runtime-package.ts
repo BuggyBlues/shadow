@@ -6,6 +6,7 @@ import { buildOpenClawConfig } from '../config/parser.js'
 import type { AgentDeployment, CloudConfig, OpenClawConfig } from '../config/schema.js'
 import type { PluginRuntimeExtension } from '../plugins/types.js'
 import { toProviderSecretEnvKey, withLegacyEnvAliases } from '../utils/env-names.js'
+import type { DeploymentRuntimeContext } from '../utils/runtime-context.js'
 
 const SECRET_ENV_MARKERS = [
   'TOKEN',
@@ -87,15 +88,16 @@ export function buildAgentRuntimePackage(options: {
   config: CloudConfig
   extraEnv?: Record<string, string>
   cwd?: string
+  runtimeContext?: DeploymentRuntimeContext
 }): AgentRuntimePackage {
-  const { agent, config, extraEnv, cwd } = options
+  const { agent, config, extraEnv, cwd, runtimeContext } = options
   const registrySecretEnv = collectRegistrySecretEnv(agent, config)
   const runtimeEnv = {
     ...registrySecretEnv,
     ...(agent.env ?? {}),
     ...(extraEnv ?? {}),
   }
-  const openclawConfig = buildOpenClawConfig(agent, config, cwd, runtimeEnv)
+  const openclawConfig = buildOpenClawConfig(agent, config, cwd, runtimeEnv, runtimeContext)
   const runtimeExtensions = collectPluginRuntimeExtensions(agent, config, cwd, runtimeEnv)
 
   const workspaceFiles = (openclawConfig._workspaceFiles ?? {}) as Record<string, string>
