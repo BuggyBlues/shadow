@@ -70,7 +70,9 @@ describe('web socket room rejoin', () => {
       io: vi.fn(() => fakeSocket),
     }))
 
-    const { connectSocket, joinApp, joinChannel, joinDm } = await import('../src/lib/socket')
+    const { connectSocket, disconnectSocket, joinApp, joinChannel, joinDm } = await import(
+      '../src/lib/socket'
+    )
 
     joinChannel('channel-1')
     joinDm('dm-1')
@@ -85,6 +87,8 @@ describe('web socket room rejoin', () => {
       { event: 'dm:join', args: [{ dmChannelId: 'dm-1' }] },
       { event: 'app:join', args: [{ appId: 'app-1' }] },
     ])
+
+    disconnectSocket()
   })
 
   it('does not rejoin rooms after they are left or the socket is disconnected', async () => {

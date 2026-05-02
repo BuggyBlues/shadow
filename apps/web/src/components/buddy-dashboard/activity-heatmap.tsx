@@ -30,6 +30,7 @@ const LEVEL_LABELS: Record<ActivityLevel, string> = {
 
 export function ActivityHeatmap({ data, showTitle = true }: ActivityHeatmapProps) {
   const { t, i18n } = useTranslation()
+  const locale = i18n?.resolvedLanguage || i18n?.language || 'en'
 
   const weeks = useMemo(() => {
     // Group data by week
@@ -66,16 +67,16 @@ export function ActivityHeatmap({ data, showTitle = true }: ActivityHeatmapProps
     for (const day of data) {
       if (day.date) {
         const date = new Date(day.date)
-        monthSet.add(date.toLocaleString(i18n.resolvedLanguage, { month: 'short' }))
+        monthSet.add(date.toLocaleString(locale, { month: 'short' }))
       }
     }
     return Array.from(monthSet)
-  }, [data])
+  }, [data, locale])
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return ''
     const date = new Date(dateStr)
-    return date.toLocaleDateString(i18n.resolvedLanguage, {
+    return date.toLocaleDateString(locale, {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
