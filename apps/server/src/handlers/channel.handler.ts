@@ -1,5 +1,6 @@
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
+import { z } from 'zod'
 import type { AppContainer } from '../container'
 import { authMiddleware } from '../middleware/auth.middleware'
 import { normalizeSlashCommands } from '../services/agent.service'
@@ -10,6 +11,9 @@ import {
 } from '../validators/channel.schema'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const reviewJoinRequestSchema = z.object({
+  status: z.enum(['approved', 'rejected']),
+})
 
 export function createChannelHandler(container: AppContainer) {
   const channelHandler = new Hono()
@@ -23,6 +27,104 @@ export function createChannelHandler(container: AppContainer) {
     const server = await serverDao.findBySlug(param)
     if (!server) throw Object.assign(new Error('Server not found'), { status: 404 })
     return server.id
+  }
+
+  async function getAccessStatus(channelId: string, userId: string) {
+    const channelService = container.resolve('channelService')
+    const serverDao = container.resolve('serverDao')
+    const channelMemberDao = container.resolve('channelMemberDao')
+    const channelJoinRequestDao = container.resolve('channelJoinRequestDao')
+    const channel = await channelService.getById(channelId)
+    const serverMember = await serverDao.getMember(channel.serverId, userId)
+    const channelMember = serverMember ? await channelMemberDao.get(channelId, userId) : null
+    const canManage = serverMember?.role === 'owner' || serverMember?.role === 'admin'
+    const canAccess = Boolean(serverMember && (!channel.isPrivate || channelMember || canManage))
+    const joinRequest =
+      serverMember && channel.isPrivate && !channelMember && !canManage
+        ? await channelJoinRequestDao.findByChannelAndUser(channelId, userId)
+        : null
+
+    return {
+      channel,
+      isServerMember: Boolean(serverMember),
+      isChannelMember: Boolean(channelMember),
+      canManage,
+      canAccess,
+      requiresApproval: Boolean(serverMember && channel.isPrivate && !channelMember && !canManage),
+      joinRequestStatus: joinRequest?.status ?? null,
+      joinRequestId: joinRequest?.id ?? null,
+    }
+  }
+
+  async function notifyChannelJoinRequestReviewers(input: {
+    channelId: string
+    channelName: string
+    serverId: string
+    requestId: string
+    requesterId: string
+  }) {
+    const serverDao = container.resolve('serverDao')
+    const userDao = container.resolve('userDao')
+    const channelMemberDao = container.resolve('channelMemberDao')
+    const notificationTriggerService = container.resolve('notificationTriggerService')
+    const requester = await userDao.findById(input.requesterId)
+    const requesterName = requester?.displayName ?? requester?.username ?? 'Someone'
+    const [members, channelMembers, server] = await Promise.all([
+      serverDao.getMembers(input.serverId),
+      channelMemberDao.getMembers(input.channelId),
+      serverDao.findById(input.serverId),
+    ])
+    const reviewerIds = new Set<string>()
+    for (const member of members) {
+      if (member.role === 'owner' || member.role === 'admin') reviewerIds.add(member.userId)
+    }
+    for (const member of channelMembers) {
+      reviewerIds.add(member.userId)
+    }
+
+    await notificationTriggerService.triggerChannelAccessRequest({
+      reviewerIds: Array.from(reviewerIds),
+      requesterId: input.requesterId,
+      requesterName,
+      requestId: input.requestId,
+      channelId: input.channelId,
+      channelName: input.channelName,
+      serverId: input.serverId,
+      serverName: server?.name,
+    })
+  }
+
+  async function notifyChannelJoinRequestDecision(input: {
+    channelId: string
+    channelName: string
+    serverId: string
+    userId: string
+    reviewerId: string
+    approved: boolean
+  }) {
+    const notificationTriggerService = container.resolve('notificationTriggerService')
+    const serverDao = container.resolve('serverDao')
+    const server = await serverDao.findById(input.serverId)
+    await notificationTriggerService.triggerChannelAccessDecision({
+      userId: input.userId,
+      reviewerId: input.reviewerId,
+      approved: input.approved,
+      channelId: input.channelId,
+      channelName: input.channelName,
+      serverId: input.serverId,
+      serverName: server?.name,
+    })
+    try {
+      const io = container.resolve('io')
+      if (input.approved) {
+        io.to(`user:${input.userId}`).emit('channel:member-added', {
+          channelId: input.channelId,
+          serverId: input.serverId,
+        })
+      }
+    } catch {
+      /* non-critical */
+    }
   }
 
   // POST /api/servers/:serverId/channels
@@ -72,14 +174,107 @@ export function createChannelHandler(container: AppContainer) {
     return c.json(channel)
   })
 
+  // GET /api/channels/:id/access — access gate status for private-channel mentions/deep links
+  channelHandler.get('/channels/:id/access', async (c) => {
+    const id = c.req.param('id')
+    const userId = c.get('user').userId
+    const access = await getAccessStatus(id, userId)
+    return c.json(access)
+  })
+
   // GET /api/channels/:id/members — returns channel members with full user info
   channelHandler.get('/channels/:id/members', async (c) => {
     const channelService = container.resolve('channelService')
     const id = c.req.param('id')
+    const userId = c.get('user').userId
     const channel = await channelService.getById(id)
+    const access = await getAccessStatus(id, userId)
+    if (!access.canAccess) {
+      return c.json({ ok: false, error: 'Not a member of this channel' }, 403)
+    }
     const members = await channelService.getChannelMembers(id, channel.serverId)
     return c.json(members)
   })
+
+  // POST /api/channels/:id/join-requests — request approval to enter a private channel
+  channelHandler.post('/channels/:id/join-requests', async (c) => {
+    const id = c.req.param('id')
+    const userId = c.get('user').userId
+    const channelService = container.resolve('channelService')
+    const channelJoinRequestDao = container.resolve('channelJoinRequestDao')
+    const access = await getAccessStatus(id, userId)
+
+    if (!access.isServerMember) {
+      return c.json({ ok: false, error: 'Join the server before requesting this channel' }, 403)
+    }
+    if (access.canAccess) return c.json({ ok: true, status: 'approved' })
+    if (!access.channel.isPrivate) {
+      await channelService.addMember(id, userId)
+      return c.json({ ok: true, status: 'approved' }, 201)
+    }
+
+    const existing =
+      access.joinRequestStatus === 'pending'
+        ? await channelJoinRequestDao.findByChannelAndUser(id, userId)
+        : null
+    const request = existing ?? (await channelJoinRequestDao.request(id, userId))
+    if (!existing) {
+      await notifyChannelJoinRequestReviewers({
+        channelId: id,
+        channelName: access.channel.name,
+        serverId: access.channel.serverId,
+        requestId: request.id,
+        requesterId: userId,
+      })
+    }
+    return c.json({ ok: true, status: request.status, requestId: request.id }, 202)
+  })
+
+  // PATCH /api/channel-join-requests/:requestId — approve/reject a private-channel request
+  channelHandler.patch(
+    '/channel-join-requests/:requestId',
+    zValidator('json', reviewJoinRequestSchema),
+    async (c) => {
+      const channelService = container.resolve('channelService')
+      const channelJoinRequestDao = container.resolve('channelJoinRequestDao')
+      const serverDao = container.resolve('serverDao')
+      const channelMemberDao = container.resolve('channelMemberDao')
+      const requestId = c.req.param('requestId')
+      const userId = c.get('user').userId
+      const { status } = c.req.valid('json')
+      const request = await channelJoinRequestDao.findById(requestId)
+      if (!request) return c.json({ ok: false, error: 'Join request not found' }, 404)
+
+      const channel = await channelService.getById(request.channelId)
+      const [requesterServerMember, requesterChannelMember] = await Promise.all([
+        serverDao.getMember(channel.serverId, userId),
+        channelMemberDao.get(channel.id, userId),
+      ])
+      const canManage =
+        requesterServerMember?.role === 'owner' || requesterServerMember?.role === 'admin'
+      if (!canManage && !requesterChannelMember) {
+        return c.json({ ok: false, error: 'Not authorized to review this request' }, 403)
+      }
+
+      const reviewed = await channelJoinRequestDao.review(requestId, status, userId)
+      if (!reviewed) return c.json({ ok: false, error: 'Join request not found' }, 404)
+
+      if (status === 'approved') {
+        await channelService.addMember(channel.id, request.userId)
+      }
+
+      await notifyChannelJoinRequestDecision({
+        channelId: channel.id,
+        channelName: channel.name,
+        serverId: channel.serverId,
+        userId: request.userId,
+        reviewerId: userId,
+        approved: status === 'approved',
+      })
+
+      return c.json({ ok: true, request: reviewed })
+    },
+  )
 
   // GET /api/channels/:id/slash-commands — commands registered by Buddies in this channel
   channelHandler.get('/channels/:id/slash-commands', async (c) => {
@@ -204,9 +399,25 @@ export function createChannelHandler(container: AppContainer) {
       requesterServerMember.role === 'owner' || requesterServerMember.role === 'admin'
 
     if (isSelfJoin) {
-      // Self-join is allowed only for public channels
+      // Self-join to a private channel creates an approval request instead of bypassing the wall.
       if (channel.isPrivate) {
-        return c.json({ ok: false, error: 'Private channel requires an invite' }, 403)
+        const existing = await container
+          .resolve('channelJoinRequestDao')
+          .findByChannelAndUser(id, requesterId)
+        const request =
+          existing?.status === 'pending'
+            ? existing
+            : await container.resolve('channelJoinRequestDao').request(id, requesterId)
+        if (existing?.status !== 'pending') {
+          await notifyChannelJoinRequestReviewers({
+            channelId: id,
+            channelName: channel.name,
+            serverId: channel.serverId,
+            requestId: request.id,
+            requesterId,
+          })
+        }
+        return c.json({ ok: true, status: request.status, requestId: request.id }, 202)
       }
     } else {
       // Inviting others requires inviter already in channel
@@ -250,17 +461,17 @@ export function createChannelHandler(container: AppContainer) {
         // Send channel invite notification (skip for bots)
         if (!targetUser.isBot) {
           try {
-            const notificationService = container.resolve('notificationService')
+            const notificationTriggerService = container.resolve('notificationTriggerService')
             const inviter = c.get('user')
-            const notification = await notificationService.create({
+            const server = await serverDao.findById(channel.serverId)
+            await notificationTriggerService.triggerChannelMemberAdded({
               userId: targetUserId,
-              type: 'system',
-              title: `You have been added to channel #${channel.name}`,
-              referenceId: id,
-              referenceType: 'channel_invite',
-              senderId: inviter.userId,
+              actorId: inviter.userId,
+              channelId: id,
+              channelName: channel.name,
+              serverId: channel.serverId,
+              serverName: server?.name,
             })
-            io.to(`user:${targetUserId}`).emit('notification:new', notification)
           } catch {
             /* non-critical */
           }

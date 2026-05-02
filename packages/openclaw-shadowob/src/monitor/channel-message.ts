@@ -3,6 +3,12 @@ import { ShadowClient, ShadowSocket } from '@shadowob/sdk'
 import type { ReplyPayload } from 'openclaw/plugin-sdk'
 import { createChannelReplyPipeline } from 'openclaw/plugin-sdk/channel-reply-pipeline'
 import type { OpenClawConfig, PluginRuntime } from 'openclaw/plugin-sdk/core'
+import {
+  formatShadowMentionsForAgent,
+  getShadowMessageMentions,
+  mentionContextFields,
+  mentionTargetsBot,
+} from '../mentions.js'
 import type {
   AgentChainMetadata,
   ShadowAccountConfig,
@@ -157,13 +163,21 @@ export async function processShadowMessage(params: {
   const baseBodyForAgent = slashCommandMatch
     ? formatSlashCommandPrompt(cleanBody, slashCommandMatch)
     : cleanBody
+  const structuredMentions = getShadowMessageMentions(message)
+  const mentionContext = formatShadowMentionsForAgent(structuredMentions)
   const serverInfo = channelServerMap.get(channelId)
   const channelLabel = serverInfo ? `#${serverInfo.channelName}` : `channel:${channelId}`
   const conversationLabel = serverInfo ? `${serverInfo.serverName} ${channelLabel}` : peerId
   const messageBodyForAgent = interactiveResponseContext.text
     ? `${interactiveResponseContext.text}\n\nUser message:\n${baseBodyForAgent}`
     : baseBodyForAgent
-  const bodyForAgent = `${buildChannelContextForAgent(serverInfo, channelId)}\n\n${messageBodyForAgent}`
+  const bodyForAgent = [
+    buildChannelContextForAgent(serverInfo, channelId),
+    mentionContext,
+    messageBodyForAgent,
+  ]
+    .filter(Boolean)
+    .join('\n\n')
   const body = core.channel.reply.formatAgentEnvelope({
     channel: serverInfo ? `Shadow ${channelLabel}` : 'Shadow',
     from: senderName,
@@ -174,7 +188,9 @@ export async function processShadowMessage(params: {
 
   const escapedBotUsername = botUsername.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const mentionRegex = new RegExp(`@${escapedBotUsername}(?:\\s|$)`, 'i')
-  const wasMentioned = mentionRegex.test(message.content)
+  const wasMentioned =
+    mentionTargetsBot({ mentions: structuredMentions, botUserId, botUsername }) ||
+    mentionRegex.test(message.content)
 
   const ctxPayload = core.channel.reply.finalizeInboundContext({
     Body: body,
@@ -194,6 +210,7 @@ export async function processShadowMessage(params: {
     Surface: 'shadowob',
     MessageSid: message.id,
     WasMentioned: wasMentioned,
+    ...mentionContextFields(structuredMentions),
     OriginatingChannel: 'shadowob',
     OriginatingTo: `shadowob:channel:${channelId}`,
     ...(serverInfo

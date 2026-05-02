@@ -43,6 +43,9 @@ Authorization: Bearer <token>
 | GET    | `/api/servers/:serverId/channels`             | List server channels     |
 | POST   | `/api/servers/:serverId/channels`             | Create a channel         |
 | GET    | `/api/channels/:id`                           | Get channel details      |
+| GET    | `/api/channels/:id/access`                    | Get the current user's channel access status, including whether a private-channel approval request is required or pending. |
+| POST   | `/api/channels/:id/join-requests`             | Request access to a private channel. Private channels can be mentioned, but reading/sending requires channel membership or approval. |
+| PATCH  | `/api/channel-join-requests/:requestId`       | Approve or reject a private-channel access request with `{ "status": "approved" \| "rejected" }`. |
 | PUT    | `/api/channels/:id`                           | Update channel           |
 | DELETE | `/api/channels/:id`                           | Delete channel           |
 
@@ -51,9 +54,11 @@ Authorization: Bearer <token>
 | Method | Endpoint                                      | Description              |
 |--------|-----------------------------------------------|--------------------------|
 | GET    | `/api/channels/:channelId/messages`           | List channel messages    |
-| POST   | `/api/channels/:channelId/messages`           | Send a message; accepts optional `metadata` and arbitrary attachment types. Server-channel attachments are auto-linked into the server workspace and return `workspaceNodeId` on the attachment. Private-channel attachment workspace nodes are visible only to channel members or server admins. |
+| POST   | `/api/channels/:channelId/messages`           | Send a message; accepts optional structured `mentions`, `metadata`, and arbitrary attachment types. Mentions are permission checked and canonicalized before persistence (`<@userId>`, `<#channelId>`, `<@server:serverId>`); the original display token may be sent as `sourceToken`. User/Buddy/broadcast mentions create mention notifications. Server-channel attachments are auto-linked into the server workspace and return `workspaceNodeId` on the attachment. Private-channel attachment workspace nodes are visible only to channel members or server admins. |
+| GET    | `/api/mentions/suggest`                       | Suggest user, Buddy, channel, and server mentions for `channelId`, `trigger` (`@` or `#`), and optional `q`. Results include display insertion tokens plus stable target ids; clients should send structured mentions so the server can persist canonical references. |
+| POST   | `/api/mentions/resolve`                       | Resolve message `content` plus optional client-provided `mentions` into permission-checked structured mentions. |
 | GET    | `/api/threads/:id/messages`                   | List thread messages     |
-| POST   | `/api/threads/:id/messages`                   | Send a thread message; accepts optional `metadata` |
+| POST   | `/api/threads/:id/messages`                   | Send a thread message; accepts optional structured `mentions` and `metadata` |
 | GET    | `/api/messages/:id`                           | Get message by ID        |
 | GET    | `/api/messages/:id/interactive-state`         | Get current user's interactive block state |
 | POST   | `/api/messages/:id/interactive`               | Submit interactive block action |
@@ -116,6 +121,23 @@ The LLM Gateway management APIs above do not expose a public `/v1/chat/completio
 
 Files are stored in MinIO (S3-compatible) and served via presigned URLs.
 
+## Notifications
+
+Notification creation is centralized behind server-side trigger services. Clients should treat each notification as an event record identified by `kind`, not by hardcoded title text.
+
+| Method | Endpoint                                | Description |
+|--------|-----------------------------------------|-------------|
+| GET    | `/api/notifications`                    | List current user's notifications with `limit` and `offset`. Records include `kind`, `metadata`, `scopeServerId`, `scopeChannelId`, `scopeDmChannelId`, `aggregationKey`, and `aggregatedCount`. |
+| PATCH  | `/api/notifications/:id/read`           | Mark one notification as read. The server scopes the update to the authenticated user. |
+| POST   | `/api/notifications/read-all`           | Mark all notifications for the authenticated user as read. |
+| POST   | `/api/notifications/read-scope`         | Mark unread notifications in a server/channel/DM scope as read with `{ serverId?, channelId?, dmChannelId? }`. At least one field is required. |
+| GET    | `/api/notifications/unread-count`       | Return `{ count }` after applying user notification preferences and mute filters. |
+| GET    | `/api/notifications/scoped-unread`      | Return `{ channelUnread, serverUnread, dmUnread }`, counting aggregated notifications by scope. |
+| GET    | `/api/notifications/preferences`        | Get notification preferences: `strategy`, `mutedServerIds`, `mutedChannelIds`. |
+| PATCH  | `/api/notifications/preferences`        | Update notification preferences. `strategy` is `all`, `mention_only`, or `none`. |
+
+Common notification kinds include `message.mention`, `message.reply`, `dm.message`, `channel.access_requested`, `channel.access_approved`, `channel.access_rejected`, `channel.member_added`, `server.member_joined`, `server.invite`, `friendship.request`, and `recharge.succeeded`. User-facing copy should be rendered from i18n keys using `kind` and `metadata`; stored `title` and `body` are fallback text for older clients.
+
 ## WebSocket Events
 
 Shadow uses Socket.IO for real-time communication. Connect to the same server URL with the auth token.
@@ -143,7 +165,7 @@ Shadow uses Socket.IO for real-time communication. Connect to the same server UR
 | `member:left`       | `{ userId, serverId }`         | Member left server        |
 | `typing`            | `{ userId, channelId }`        | User is typing            |
 | `presence:update`   | `{ userId, status }`           | User online/offline       |
-| `notification`      | `{ notification }`             | New notification          |
+| `notification:new`  | `notification`                 | New notification event record |
 
 ## SDK Usage
 

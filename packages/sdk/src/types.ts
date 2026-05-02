@@ -1,5 +1,11 @@
 // ─── Shadow SDK Types ───────────────────────────────────────────────────────
 
+import type {
+  MentionSuggestion as SharedMentionSuggestion,
+  MentionSuggestionTrigger as SharedMentionSuggestionTrigger,
+  MessageMention as SharedMessageMention,
+} from '@shadowob/shared'
+
 // ─── Unified API Response Types ────────────────────────────────────────────
 
 /** Standard success response shape */
@@ -133,12 +139,17 @@ export interface ShadowInteractiveSubmissionPending {
 export type ShadowInteractiveActionResult = ShadowMessage | ShadowInteractiveSubmissionPending
 
 export interface ShadowMessageMetadata {
+  mentions?: ShadowMessageMention[]
   agentChain?: Record<string, unknown>
   interactive?: ShadowInteractiveBlock
   interactiveResponse?: ShadowInteractiveResponse
   interactiveState?: ShadowInteractiveState
   [key: string]: unknown
 }
+
+export type ShadowMessageMention = SharedMessageMention
+export type ShadowMentionSuggestion = SharedMentionSuggestion
+export type ShadowMentionSuggestionTrigger = SharedMentionSuggestionTrigger
 
 export interface ShadowAttachment {
   id: string
@@ -158,6 +169,27 @@ export interface ShadowChannel {
   serverId: string
   description?: string | null
   position?: number
+  isPrivate?: boolean
+  isMember?: boolean
+}
+
+export type ShadowChannelJoinRequestStatus = 'pending' | 'approved' | 'rejected'
+
+export interface ShadowChannelAccess {
+  channel: ShadowChannel
+  isServerMember: boolean
+  isChannelMember: boolean
+  canManage: boolean
+  canAccess: boolean
+  requiresApproval: boolean
+  joinRequestStatus: ShadowChannelJoinRequestStatus | null
+  joinRequestId: string | null
+}
+
+export interface ShadowChannelJoinRequestResult {
+  ok: boolean
+  status: ShadowChannelJoinRequestStatus
+  requestId?: string
 }
 
 export interface ShadowDmChannel {
@@ -217,12 +249,29 @@ export interface ShadowNotification {
   id: string
   userId: string
   type: string
+  kind?: string | null
   title: string
-  body: string
-  referenceId?: string
-  referenceType?: string
+  body: string | null
+  referenceId?: string | null
+  referenceType?: string | null
+  senderId?: string | null
+  senderAvatarUrl?: string | null
+  scopeServerId?: string | null
+  scopeChannelId?: string | null
+  scopeDmChannelId?: string | null
+  aggregationKey?: string | null
+  aggregatedCount?: number | null
+  lastAggregatedAt?: string | null
+  metadata?: Record<string, unknown> | null
   isRead: boolean
   createdAt: string
+  expiresAt?: string | null
+}
+
+export interface ShadowScopedUnread {
+  channelUnread: Record<string, number>
+  serverUnread: Record<string, number>
+  dmUnread?: Record<string, number>
 }
 
 // ─── Channel Policy Types ───────────────────────────────────────────────────
@@ -709,6 +758,8 @@ export interface ClientEventMap {
     content: string
     threadId?: string
     replyToId?: string
+    mentions?: ShadowMessageMention[]
+    metadata?: Record<string, unknown>
   }) => void
   'message:typing': (data: { channelId: string; typing?: boolean }) => void
   'presence:update': (data: { status: 'online' | 'idle' | 'dnd' | 'offline' }) => void

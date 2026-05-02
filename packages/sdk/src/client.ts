@@ -4,6 +4,9 @@ import type {
   ShadowCartItem,
   ShadowCategory,
   ShadowChannel,
+  ShadowChannelAccess,
+  ShadowChannelJoinRequestResult,
+  ShadowChannelJoinRequestStatus,
   ShadowChannelSlashCommand,
   ShadowCloudProviderCatalog,
   ShadowCloudProviderModel,
@@ -17,7 +20,10 @@ import type {
   ShadowInviteCode,
   ShadowListing,
   ShadowMember,
+  ShadowMentionSuggestion,
+  ShadowMentionSuggestionTrigger,
   ShadowMessage,
+  ShadowMessageMention,
   ShadowNotification,
   ShadowNotificationPreferences,
   ShadowOAuthApp,
@@ -31,6 +37,7 @@ import type {
   ShadowRechargeIntent,
   ShadowRemoteConfig,
   ShadowReview,
+  ShadowScopedUnread,
   ShadowServer,
   ShadowShop,
   ShadowSlashCommand,
@@ -502,6 +509,10 @@ export class ShadowClient {
     return { ...ch, description: ch.topic } as unknown as ShadowChannel
   }
 
+  async getChannelAccess(channelId: string): Promise<ShadowChannelAccess> {
+    return this.request<ShadowChannelAccess>(`/api/channels/${channelId}/access`)
+  }
+
   async getChannelMembers(channelId: string): Promise<ShadowMember[]> {
     return this.request(`/api/channels/${channelId}/members`)
   }
@@ -537,6 +548,25 @@ export class ShadowClient {
     })
   }
 
+  async requestChannelAccess(channelId: string): Promise<ShadowChannelJoinRequestResult> {
+    return this.request<ShadowChannelJoinRequestResult>(
+      `/api/channels/${channelId}/join-requests`,
+      {
+        method: 'POST',
+      },
+    )
+  }
+
+  async reviewChannelJoinRequest(
+    requestId: string,
+    status: Exclude<ShadowChannelJoinRequestStatus, 'pending'>,
+  ): Promise<{ ok: boolean }> {
+    return this.request(`/api/channel-join-requests/${requestId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    })
+  }
+
   async removeChannelMember(channelId: string, userId: string): Promise<{ success: boolean }> {
     return this.request(`/api/channels/${channelId}/members/${userId}`, { method: 'DELETE' })
   }
@@ -567,6 +597,7 @@ export class ShadowClient {
     opts?: {
       threadId?: string
       replyToId?: string
+      mentions?: ShadowMessageMention[]
       metadata?: Record<string, unknown>
       attachments?: { filename: string; url: string; contentType: string; size: number }[]
     },
@@ -577,9 +608,36 @@ export class ShadowClient {
         content,
         ...(opts?.threadId ? { threadId: opts.threadId } : {}),
         ...(opts?.replyToId ? { replyToId: opts.replyToId } : {}),
+        ...(opts?.mentions ? { mentions: opts.mentions } : {}),
         ...(opts?.metadata ? { metadata: opts.metadata } : {}),
         ...(opts?.attachments ? { attachments: opts.attachments } : {}),
       }),
+    })
+  }
+
+  async suggestMentions(input: {
+    channelId: string
+    trigger: ShadowMentionSuggestionTrigger
+    query?: string
+    limit?: number
+  }): Promise<{ suggestions: ShadowMentionSuggestion[] }> {
+    const params = new URLSearchParams({
+      channelId: input.channelId,
+      trigger: input.trigger,
+    })
+    if (input.query) params.set('q', input.query)
+    if (input.limit) params.set('limit', String(input.limit))
+    return this.request(`/api/mentions/suggest?${params}`)
+  }
+
+  async resolveMentions(input: {
+    channelId: string
+    content: string
+    mentions?: ShadowMessageMention[]
+  }): Promise<{ mentions: ShadowMessageMention[] }> {
+    return this.request('/api/mentions/resolve', {
+      method: 'POST',
+      body: JSON.stringify(input),
     })
   }
 
@@ -713,12 +771,18 @@ export class ShadowClient {
   async sendToThread(
     threadId: string,
     content: string,
-    options?: { metadata?: Record<string, unknown> },
+    options?: {
+      replyToId?: string
+      metadata?: Record<string, unknown>
+      mentions?: ShadowMessageMention[]
+    },
   ): Promise<ShadowMessage> {
     return this.request<ShadowMessage>(`/api/threads/${threadId}/messages`, {
       method: 'POST',
       body: JSON.stringify({
         content,
+        ...(options?.replyToId ? { replyToId: options.replyToId } : {}),
+        ...(options?.mentions ? { mentions: options.mentions } : {}),
         ...(options?.metadata ? { metadata: options.metadata } : {}),
       }),
     })
@@ -770,11 +834,11 @@ export class ShadowClient {
     return this.request(`/api/notifications?${params}`)
   }
 
-  async markNotificationRead(notificationId: string): Promise<{ success: boolean }> {
+  async markNotificationRead(notificationId: string): Promise<ShadowNotification> {
     return this.request(`/api/notifications/${notificationId}/read`, { method: 'PATCH' })
   }
 
-  async markAllNotificationsRead(): Promise<{ success: boolean }> {
+  async markAllNotificationsRead(): Promise<{ ok: boolean }> {
     return this.request('/api/notifications/read-all', { method: 'POST' })
   }
 
@@ -1248,14 +1312,15 @@ export class ShadowClient {
   async markScopeRead(scope: {
     serverId?: string
     channelId?: string
-  }): Promise<{ success: boolean }> {
+    dmChannelId?: string
+  }): Promise<{ updated: number }> {
     return this.request('/api/notifications/read-scope', {
       method: 'POST',
       body: JSON.stringify(scope),
     })
   }
 
-  async getScopedUnread(): Promise<Record<string, number>> {
+  async getScopedUnread(): Promise<ShadowScopedUnread> {
     return this.request('/api/notifications/scoped-unread')
   }
 

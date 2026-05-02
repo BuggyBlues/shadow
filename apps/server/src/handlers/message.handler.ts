@@ -1,4 +1,5 @@
 import { zValidator } from '@hono/zod-validator'
+import type { MessageMention } from '@shadowob/shared'
 import { Hono } from 'hono'
 import type { AppContainer } from '../container'
 import { authMiddleware } from '../middleware/auth.middleware'
@@ -97,6 +98,46 @@ function formatInteractiveEcho(
   return label
 }
 
+async function getChannelAccess(container: AppContainer, channelId: string, userId: string) {
+  const channelService = container.resolve('channelService')
+  const serverDao = container.resolve('serverDao')
+  const channelMemberDao = container.resolve('channelMemberDao')
+  const channel = await channelService.getById(channelId)
+  const serverMember = await serverDao.getMember(channel.serverId, userId)
+  if (!serverMember) {
+    return { ok: false as const, status: 403 as const, error: 'Not a member of this server' }
+  }
+
+  const channelMember = await channelMemberDao.get(channelId, userId)
+  const canManage = serverMember.role === 'owner' || serverMember.role === 'admin'
+  if (channel.isPrivate && !channelMember && !canManage) {
+    return { ok: false as const, status: 403 as const, error: 'Not a member of this channel' }
+  }
+
+  if (!channel.isPrivate && !channelMember) {
+    await channelMemberDao.add(channelId, userId).catch(() => null)
+  }
+
+  return { ok: true as const, channel }
+}
+
+async function getMessageAccess(
+  container: AppContainer,
+  messageId: string,
+  userId: string,
+  notFoundError = 'Message not found',
+) {
+  const messageService = container.resolve('messageService')
+  const message = await messageService.getById(messageId, userId)
+  if (!message) {
+    return { ok: false as const, status: 404 as const, error: notFoundError }
+  }
+
+  const access = await getChannelAccess(container, message.channelId, userId)
+  if (!access.ok) return access
+  return { ok: true as const, message }
+}
+
 export function createMessageHandler(container: AppContainer) {
   const messageHandler = new Hono()
 
@@ -104,12 +145,11 @@ export function createMessageHandler(container: AppContainer) {
 
   // GET /api/messages/:id — single message lookup (used by notification click-through)
   messageHandler.get('/messages/:id', async (c) => {
-    const messageService = container.resolve('messageService')
     const id = c.req.param('id')
     const user = c.get('user')
-    const message = await messageService.getById(id, user.userId)
-    if (!message) return c.json({ ok: false, error: 'Message not found' }, 404)
-    return c.json(message)
+    const result = await getMessageAccess(container, id, user.userId)
+    if (!result.ok) return c.json({ ok: false, error: result.error }, result.status)
+    return c.json(result.message)
   })
 
   // GET /api/channels/:channelId/messages
@@ -119,6 +159,8 @@ export function createMessageHandler(container: AppContainer) {
     const limit = Number(c.req.query('limit') ?? '50')
     const cursor = c.req.query('cursor')
     const user = c.get('user')
+    const access = await getChannelAccess(container, channelId, user.userId)
+    if (!access.ok) return c.json({ ok: false, error: access.error }, access.status)
     const result = await messageService.getByChannelId(channelId, limit, cursor, user.userId)
     return c.json(result)
   })
@@ -131,8 +173,16 @@ export function createMessageHandler(container: AppContainer) {
     const requestedBlockId = c.req.query('blockId')
     const user = c.get('user')
 
-    const source = await messageService.getById(sourceId, user.userId)
-    if (!source) return c.json({ ok: false, error: 'Source message not found' }, 404)
+    const sourceResult = await getMessageAccess(
+      container,
+      sourceId,
+      user.userId,
+      'Source message not found',
+    )
+    if (!sourceResult.ok) {
+      return c.json({ ok: false, error: sourceResult.error }, sourceResult.status)
+    }
+    const source = sourceResult.message
     const block = asInteractiveBlock(source.metadata?.interactive)
     if (!block) {
       return c.json({ ok: false, error: 'Source message has no interactive block' }, 400)
@@ -150,10 +200,14 @@ export function createMessageHandler(container: AppContainer) {
     zValidator('json', sendMessageSchema),
     async (c) => {
       const messageService = container.resolve('messageService')
+      const mentionService = container.resolve('mentionService')
       const channelId = c.req.param('channelId')
       const input = c.req.valid('json')
       const user = c.get('user')
-      const message = await messageService.send(channelId, user.userId, input)
+      const access = await getChannelAccess(container, channelId, user.userId)
+      if (!access.ok) return c.json({ ok: false, error: access.error }, access.status)
+      const preparedInput = await mentionService.prepareMessageInput(channelId, user.userId, input)
+      const message = await messageService.send(channelId, user.userId, preparedInput)
 
       // Emit WS event so all connected clients (including bots) see the message
       try {
@@ -161,6 +215,44 @@ export function createMessageHandler(container: AppContainer) {
         io.to(`channel:${channelId}`).emit('message:new', message)
       } catch {
         /* io not yet registered */
+      }
+
+      try {
+        if (input.replyToId) {
+          const notificationTriggerService = container.resolve('notificationTriggerService')
+          const originalMessage = await messageService.getById(input.replyToId)
+          if (originalMessage && originalMessage.authorId !== user.userId) {
+            await notificationTriggerService.triggerReply({
+              userId: originalMessage.authorId,
+              actorId: user.userId,
+              actorName: message.author?.displayName ?? message.author?.username ?? 'Someone',
+              messageId: message.id,
+              channelId,
+              serverId: access.channel.serverId,
+              channelName: access.channel.name,
+              preview: message.content.substring(0, 200),
+            })
+          }
+        }
+      } catch {
+        /* reply notification is non-critical */
+      }
+
+      try {
+        const senderName = message.author?.displayName ?? message.author?.username ?? 'Someone'
+        const mentions = Array.isArray(message.metadata?.mentions)
+          ? (message.metadata.mentions as MessageMention[])
+          : []
+        await mentionService.createMentionNotifications({
+          messageId: message.id,
+          channelId,
+          authorId: user.userId,
+          authorName: senderName,
+          content: message.content,
+          mentions,
+        })
+      } catch {
+        /* notification push is non-critical */
       }
 
       return c.json(message, 201)
@@ -180,8 +272,16 @@ export function createMessageHandler(container: AppContainer) {
       const input = c.req.valid('json')
       const user = c.get('user')
 
-      const source = await messageService.getById(sourceId)
-      if (!source) return c.json({ ok: false, error: 'Source message not found' }, 404)
+      const sourceResult = await getMessageAccess(
+        container,
+        sourceId,
+        user.userId,
+        'Source message not found',
+      )
+      if (!sourceResult.ok) {
+        return c.json({ ok: false, error: sourceResult.error }, sourceResult.status)
+      }
+      const source = sourceResult.message
       const block = asInteractiveBlock(source.metadata?.interactive)
       if (!block) {
         return c.json({ ok: false, error: 'Source message has no interactive block' }, 400)
@@ -290,6 +390,8 @@ export function createMessageHandler(container: AppContainer) {
     const id = c.req.param('id')
     const input = c.req.valid('json')
     const user = c.get('user')
+    const access = await getMessageAccess(container, id, user.userId)
+    if (!access.ok) return c.json({ ok: false, error: access.error }, access.status)
     const message = await messageService.update(id, user.userId, input)
 
     // Emit WS event
@@ -311,8 +413,9 @@ export function createMessageHandler(container: AppContainer) {
     const user = c.get('user')
 
     // Check if the requester is the bot's owner (can delete bot's messages)
-    const message = await messageService.getById(id)
-    if (!message) return c.json({ ok: false, error: 'Message not found' }, 404)
+    const access = await getMessageAccess(container, id, user.userId)
+    if (!access.ok) return c.json({ ok: false, error: access.error }, access.status)
+    const message = access.message
 
     let canDelete = message.authorId === user.userId
     if (!canDelete && message.authorId) {
@@ -351,6 +454,8 @@ export function createMessageHandler(container: AppContainer) {
       const channelId = c.req.param('channelId')
       const input = c.req.valid('json')
       const user = c.get('user')
+      const access = await getChannelAccess(container, channelId, user.userId)
+      if (!access.ok) return c.json({ ok: false, error: access.error }, access.status)
       const thread = await messageService.createThread(channelId, user.userId, input)
       return c.json(thread, 201)
     },
@@ -360,6 +465,9 @@ export function createMessageHandler(container: AppContainer) {
   messageHandler.get('/channels/:channelId/threads', async (c) => {
     const messageService = container.resolve('messageService')
     const channelId = c.req.param('channelId')
+    const user = c.get('user')
+    const access = await getChannelAccess(container, channelId, user.userId)
+    if (!access.ok) return c.json({ ok: false, error: access.error }, access.status)
     const threads = await messageService.getThreadsByChannelId(channelId)
     return c.json(threads)
   })
@@ -368,7 +476,10 @@ export function createMessageHandler(container: AppContainer) {
   messageHandler.get('/threads/:id', async (c) => {
     const messageService = container.resolve('messageService')
     const id = c.req.param('id')
+    const user = c.get('user')
     const thread = await messageService.getThread(id)
+    const access = await getChannelAccess(container, thread.channelId, user.userId)
+    if (!access.ok) return c.json({ ok: false, error: access.error }, access.status)
     return c.json(thread)
   })
 
@@ -378,6 +489,9 @@ export function createMessageHandler(container: AppContainer) {
     const id = c.req.param('id')
     const input = c.req.valid('json')
     const user = c.get('user')
+    const threadBeforeUpdate = await messageService.getThread(id)
+    const access = await getChannelAccess(container, threadBeforeUpdate.channelId, user.userId)
+    if (!access.ok) return c.json({ ok: false, error: access.error }, access.status)
     const thread = await messageService.updateThread(id, user.userId, input)
     return c.json(thread)
   })
@@ -387,6 +501,9 @@ export function createMessageHandler(container: AppContainer) {
     const messageService = container.resolve('messageService')
     const id = c.req.param('id')
     const user = c.get('user')
+    const thread = await messageService.getThread(id)
+    const access = await getChannelAccess(container, thread.channelId, user.userId)
+    if (!access.ok) return c.json({ ok: false, error: access.error }, access.status)
     await messageService.deleteThread(id, user.userId)
     return c.json({ ok: true })
   })
@@ -397,6 +514,10 @@ export function createMessageHandler(container: AppContainer) {
     const id = c.req.param('id')
     const limit = Number(c.req.query('limit') ?? '50')
     const cursor = c.req.query('cursor')
+    const user = c.get('user')
+    const thread = await messageService.getThread(id)
+    const access = await getChannelAccess(container, thread.channelId, user.userId)
+    if (!access.ok) return c.json({ ok: false, error: access.error }, access.status)
     const messages = await messageService.getThreadMessages(id, limit, cursor)
     return c.json(messages)
   })
@@ -404,13 +525,78 @@ export function createMessageHandler(container: AppContainer) {
   // POST /api/threads/:id/messages
   messageHandler.post('/threads/:id/messages', zValidator('json', sendMessageSchema), async (c) => {
     const messageService = container.resolve('messageService')
+    const mentionService = container.resolve('mentionService')
     const id = c.req.param('id')
     const input = c.req.valid('json')
     const user = c.get('user')
+    const thread = await messageService.getThread(id)
+    const access = await getChannelAccess(container, thread.channelId, user.userId)
+    if (!access.ok) return c.json({ ok: false, error: access.error }, access.status)
+    const preparedInput = await mentionService.prepareMessageInput(
+      thread.channelId,
+      user.userId,
+      input,
+    )
     const message = await messageService.sendToThread(id, user.userId, {
-      content: input.content,
-      metadata: input.metadata,
+      content: preparedInput.content,
+      replyToId: preparedInput.replyToId,
+      mentions: preparedInput.mentions,
+      metadata: preparedInput.metadata,
     })
+    const messageId = message.id
+    const messageContent = message.content ?? preparedInput.content
+    if (!messageId) {
+      return c.json({ ok: false, error: 'Failed to create thread message' }, 500)
+    }
+
+    try {
+      const io = container.resolve('io')
+      io.to(`thread:${id}`).emit('message:new', message)
+    } catch {
+      /* io not yet registered */
+    }
+
+    try {
+      if (preparedInput.replyToId) {
+        const notificationTriggerService = container.resolve('notificationTriggerService')
+        const originalMessage = await messageService.getById(preparedInput.replyToId)
+        if (
+          originalMessage &&
+          originalMessage.authorId !== user.userId &&
+          originalMessage.channelId === thread.channelId
+        ) {
+          await notificationTriggerService.triggerReply({
+            userId: originalMessage.authorId,
+            actorId: user.userId,
+            actorName: message.author?.displayName ?? message.author?.username ?? 'Someone',
+            messageId,
+            channelId: thread.channelId,
+            serverId: access.channel.serverId,
+            channelName: access.channel.name,
+            preview: messageContent.substring(0, 200),
+          })
+        }
+      }
+    } catch {
+      /* thread reply notification is non-critical */
+    }
+
+    try {
+      const senderName = message.author?.displayName ?? message.author?.username ?? 'Someone'
+      const mentions = Array.isArray(message.metadata?.mentions)
+        ? (message.metadata.mentions as MessageMention[])
+        : []
+      await mentionService.createMentionNotifications({
+        messageId,
+        channelId: thread.channelId,
+        authorId: user.userId,
+        authorName: senderName,
+        content: messageContent,
+        mentions,
+      })
+    } catch {
+      /* thread mention notification is non-critical */
+    }
     return c.json(message, 201)
   })
 
@@ -419,6 +605,9 @@ export function createMessageHandler(container: AppContainer) {
     const messageService = container.resolve('messageService')
     const channelId = c.req.param('channelId')
     const messageId = c.req.param('messageId')
+    const user = c.get('user')
+    const access = await getChannelAccess(container, channelId, user.userId)
+    if (!access.ok) return c.json({ ok: false, error: access.error }, access.status)
     const message = await messageService.pinMessage(channelId, messageId)
     return c.json(message)
   })
@@ -428,6 +617,9 @@ export function createMessageHandler(container: AppContainer) {
     const messageService = container.resolve('messageService')
     const channelId = c.req.param('channelId')
     const messageId = c.req.param('messageId')
+    const user = c.get('user')
+    const access = await getChannelAccess(container, channelId, user.userId)
+    if (!access.ok) return c.json({ ok: false, error: access.error }, access.status)
     const message = await messageService.unpinMessage(channelId, messageId)
     return c.json(message)
   })
@@ -436,6 +628,9 @@ export function createMessageHandler(container: AppContainer) {
   messageHandler.get('/channels/:channelId/pins', async (c) => {
     const messageService = container.resolve('messageService')
     const channelId = c.req.param('channelId')
+    const user = c.get('user')
+    const access = await getChannelAccess(container, channelId, user.userId)
+    if (!access.ok) return c.json({ ok: false, error: access.error }, access.status)
     const messages = await messageService.getPinnedMessages(channelId)
     return c.json(messages)
   })
@@ -446,12 +641,14 @@ export function createMessageHandler(container: AppContainer) {
     const id = c.req.param('id')
     const input = c.req.valid('json')
     const user = c.get('user')
+    const access = await getMessageAccess(container, id, user.userId)
+    if (!access.ok) return c.json({ ok: false, error: access.error }, access.status)
     const reaction = await messageService.addReaction(id, user.userId, input)
 
     // Broadcast reaction via WS
     try {
       const io = container.resolve('io')
-      const message = await messageService.getById(id)
+      const message = access.message
       if (message) {
         const reactions = await messageService.getReactions(id)
         io.to(`channel:${message.channelId}`).emit('reaction:updated', {
@@ -473,12 +670,14 @@ export function createMessageHandler(container: AppContainer) {
     const id = c.req.param('id')
     const emoji = c.req.param('emoji')
     const user = c.get('user')
+    const access = await getMessageAccess(container, id, user.userId)
+    if (!access.ok) return c.json({ ok: false, error: access.error }, access.status)
     await messageService.removeReaction(id, user.userId, emoji)
 
     // Broadcast reaction removal via WS
     try {
       const io = container.resolve('io')
-      const message = await messageService.getById(id)
+      const message = access.message
       if (message) {
         const reactions = await messageService.getReactions(id)
         io.to(`channel:${message.channelId}`).emit('reaction:updated', {
@@ -498,6 +697,9 @@ export function createMessageHandler(container: AppContainer) {
   messageHandler.get('/messages/:id/reactions', async (c) => {
     const messageService = container.resolve('messageService')
     const id = c.req.param('id')
+    const user = c.get('user')
+    const access = await getMessageAccess(container, id, user.userId)
+    if (!access.ok) return c.json({ ok: false, error: access.error }, access.status)
     const reactions = await messageService.getReactions(id)
     return c.json(reactions)
   })

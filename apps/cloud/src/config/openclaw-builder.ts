@@ -22,6 +22,12 @@ import type {
   PluginRuntimeExtension,
 } from '../plugins/types.js'
 import { getRuntime } from '../runtimes/index.js'
+import {
+  buildRuntimeContextPromptSection,
+  type DeploymentRuntimeContext,
+  normalizeDeploymentRuntimeContext,
+  runtimeTimeFormatForLocale,
+} from '../utils/runtime-context.js'
 
 import type {
   AgentDeployment,
@@ -723,6 +729,33 @@ function applyPluginPromptPipeline(
   })
 }
 
+function applyRuntimeContext(
+  openclawConfig: OpenClawConfig,
+  agentEntry: OpenClawAgentConfig,
+  context?: DeploymentRuntimeContext,
+): void {
+  const runtimeContext = normalizeDeploymentRuntimeContext(context)
+  if (!runtimeContext.locale && !runtimeContext.timezone) return
+
+  openclawConfig.agents ??= {}
+  openclawConfig.agents.defaults ??= {}
+  const defaults = openclawConfig.agents.defaults
+
+  if (runtimeContext.timezone) {
+    defaults.userTimezone ??= runtimeContext.timezone
+    defaults.envelopeTimezone ??= 'user'
+  }
+
+  if (runtimeContext.locale) {
+    defaults.timeFormat ??= runtimeTimeFormatForLocale(runtimeContext.locale)
+  }
+
+  const promptSection = buildRuntimeContextPromptSection(runtimeContext)
+  if (promptSection) {
+    agentEntry.instructions = appendPromptSection(agentEntry.instructions, promptSection)
+  }
+}
+
 // ─── Main builder ────────────────────────────────────────────────────────────
 
 /**
@@ -734,6 +767,7 @@ export function buildOpenClawConfig(
   config: CloudConfig,
   cwd?: string,
   env?: RuntimeEnv,
+  runtimeContext?: DeploymentRuntimeContext,
 ): OpenClawConfig {
   const oc = agent.configuration.openclaw
   const openclawConfig: OpenClawConfig = {}
@@ -792,12 +826,15 @@ export function buildOpenClawConfig(
   // 16. Remove bundled plugin config entries not installed in the cloud runner.
   stripCloudRemovedBundledPlugins(openclawConfig)
 
-  // 17. Normalize legacy tool config fragments so historical templates and
+  // 17. Apply deployment runtime locale/time context.
+  applyRuntimeContext(openclawConfig, agentEntry, runtimeContext)
+
+  // 18. Normalize legacy tool config fragments so historical templates and
   //     stored snapshots still produce a valid OpenClaw config.
   normalizeLegacyToolsConfig(openclawConfig.tools)
   normalizeSkillsConfig(openclawConfig.skills)
 
-  // 18. Strip strict-schema-violating fields after plugins have contributed
+  // 19. Strip strict-schema-violating fields after plugins have contributed
   //     their prompt/context additions.
   const workspaceFiles = stripAndCollectWorkspaceFiles(openclawConfig, agent)
   if (Object.keys(workspaceFiles).length > 0) {

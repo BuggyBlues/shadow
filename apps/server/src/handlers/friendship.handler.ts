@@ -33,16 +33,13 @@ export function createFriendshipHandler(container: AppContainer) {
 
           // Also send a notification
           if (result) {
-            const notificationService = container.resolve('notificationService')
-            const notification = await notificationService.create({
+            const notificationTriggerService = container.resolve('notificationTriggerService')
+            await notificationTriggerService.triggerFriendRequest({
               userId: targetUser.id,
-              type: 'system',
-              title: `${senderName} sent you a friend request`,
-              referenceId: result.id,
-              referenceType: 'friendship',
-              senderId: user.userId,
+              actorId: user.userId,
+              actorName: senderName,
+              friendshipId: result.id,
             })
-            io.to(`user:${targetUser.id}`).emit('notification:new', notification)
           }
         }
       } catch {

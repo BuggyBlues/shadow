@@ -209,6 +209,114 @@ def test_report_agent_usage_snapshot_accepts_typed_payload(monkeypatch):
     client.close()
 
 
+def test_send_message_includes_mentions(monkeypatch):
+    client = ShadowClient("https://example.com", "test-token")
+    captured = {}
+
+    def fake_post(path, json=None):
+        captured["path"] = path
+        captured["json"] = json
+        return {"id": "msg-1"}
+
+    monkeypatch.setattr(client, "_post", fake_post)
+
+    result = client.send_message(
+        "channel-1",
+        "hello @alice",
+        mentions=[
+            {
+                "kind": "user",
+                "targetId": "user-1",
+                "userId": "user-1",
+                "token": "<@user-1>",
+                "sourceToken": "@alice",
+                "label": "@Alice",
+            }
+        ],
+    )
+
+    assert captured == {
+        "path": "/api/channels/channel-1/messages",
+        "json": {
+            "content": "hello @alice",
+            "mentions": [
+                {
+                    "kind": "user",
+                    "targetId": "user-1",
+                    "userId": "user-1",
+                    "token": "<@user-1>",
+                    "sourceToken": "@alice",
+                    "label": "@Alice",
+                }
+            ],
+        },
+    }
+    assert result == {"id": "msg-1"}
+    client.close()
+
+
+def test_suggest_and_resolve_mentions(monkeypatch):
+    client = ShadowClient("https://example.com", "test-token")
+    captured = []
+
+    def fake_get(path, params=None):
+        captured.append(("get", path, params))
+        return {"suggestions": []}
+
+    def fake_post(path, json=None):
+        captured.append(("post", path, json))
+        return {"mentions": []}
+
+    monkeypatch.setattr(client, "_get", fake_get)
+    monkeypatch.setattr(client, "_post", fake_post)
+
+    assert client.suggest_mentions("channel-1", "#", query="general", limit=10) == {
+        "suggestions": []
+    }
+    assert client.resolve_mentions("channel-1", "hello #general") == {"mentions": []}
+
+    assert captured == [
+        (
+            "get",
+            "/api/mentions/suggest",
+            {"channelId": "channel-1", "trigger": "#", "q": "general", "limit": 10},
+        ),
+        ("post", "/api/mentions/resolve", {"channelId": "channel-1", "content": "hello #general"}),
+    ]
+    client.close()
+
+
+def test_send_thread_message_includes_mentions(monkeypatch):
+    client = ShadowClient("https://example.com", "test-token")
+    captured = {}
+
+    def fake_post(path, json=None):
+        captured["path"] = path
+        captured["json"] = json
+        return {"id": "msg-1"}
+
+    monkeypatch.setattr(client, "_post", fake_post)
+
+    client.send_to_thread(
+        "thread-1",
+        "hello @alice",
+        mentions=[
+            {
+                "kind": "user",
+                "targetId": "user-1",
+                "userId": "user-1",
+                "token": "<@user-1>",
+                "sourceToken": "@alice",
+                "label": "@Alice",
+            }
+        ],
+    )
+
+    assert captured["path"] == "/api/threads/thread-1/messages"
+    assert captured["json"]["mentions"][0]["sourceToken"] == "@alice"
+    client.close()
+
+
 def test_submit_interactive_action_posts_to_source_message(monkeypatch):
     client = ShadowClient("https://example.com", "test-token")
     captured = {}
@@ -291,6 +399,86 @@ def test_send_to_thread_posts_metadata(monkeypatch):
         },
     }
     assert result == {"id": "thread-message-1"}
+    client.close()
+
+
+def test_send_to_thread_posts_reply_to_id(monkeypatch):
+    client = ShadowClient("https://example.com", "test-token")
+    captured = {}
+
+    def fake_post(path, json=None):
+        captured["path"] = path
+        captured["json"] = json
+        return {"id": "thread-message-1"}
+
+    monkeypatch.setattr(client, "_post", fake_post)
+
+    result = client.send_to_thread("thread-1", "Thread reply", reply_to_id="message-1")
+
+    assert captured == {
+        "path": "/api/threads/thread-1/messages",
+        "json": {"content": "Thread reply", "replyToId": "message-1"},
+    }
+    assert result == {"id": "thread-message-1"}
+    client.close()
+
+
+def test_channel_access_request_and_review(monkeypatch):
+    client = ShadowClient("https://example.com", "test-token")
+    captured = []
+
+    def fake_post(path, json=None):
+        captured.append(("post", path, json))
+        return {"ok": True, "status": "pending", "requestId": "req-1"}
+
+    def fake_patch(path, json=None):
+        captured.append(("patch", path, json))
+        return {"ok": True}
+
+    monkeypatch.setattr(client, "_post", fake_post)
+    monkeypatch.setattr(client, "_patch", fake_patch)
+
+    assert client.request_channel_access("ch-1")["status"] == "pending"
+    assert client.review_channel_join_request("req-1", "approved") == {"ok": True}
+    assert captured == [
+        ("post", "/api/channels/ch-1/join-requests", None),
+        ("patch", "/api/channel-join-requests/req-1", {"status": "approved"}),
+    ]
+    client.close()
+
+
+def test_notifications_mark_scope_read_supports_dm_channel_id(monkeypatch):
+    client = ShadowClient("https://example.com", "test-token")
+    captured = {}
+
+    def fake_post(path, json=None):
+        captured["path"] = path
+        captured["json"] = json
+        return {"updated": 1}
+
+    monkeypatch.setattr(client, "_post", fake_post)
+
+    assert client.mark_scope_read(dm_channel_id="dm-1") == {"updated": 1}
+    assert captured == {
+        "path": "/api/notifications/read-scope",
+        "json": {"dmChannelId": "dm-1"},
+    }
+    client.close()
+
+
+def test_notifications_mark_all_uses_post(monkeypatch):
+    client = ShadowClient("https://example.com", "test-token")
+    captured = {}
+
+    def fake_post(path, json=None):
+        captured["path"] = path
+        captured["json"] = json
+        return {"ok": True}
+
+    monkeypatch.setattr(client, "_post", fake_post)
+
+    assert client.mark_all_notifications_read() == {"ok": True}
+    assert captured == {"path": "/api/notifications/read-all", "json": None}
     client.close()
 
 

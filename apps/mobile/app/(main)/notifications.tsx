@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'expo-router'
-import { AtSign, Bell, CheckCheck, MessageCircle, User } from 'lucide-react-native'
+import { AtSign, Bell, Check, CheckCheck, MessageCircle, User, X } from 'lucide-react-native'
 import { useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -48,14 +48,98 @@ interface Notification {
   id: string
   userId: string
   type: 'mention' | 'reply' | 'dm' | 'system'
+  kind?: string | null
   title: string
   body: string | null
   referenceId: string | null
   referenceType: string | null
   senderId: string | null
   senderAvatarUrl: string | null
+  metadata?: Record<string, unknown> | null
+  aggregatedCount?: number | null
   isRead: boolean
   createdAt: string
+}
+
+function text(value: unknown, fallback = '') {
+  return typeof value === 'string' && value.trim() ? value.trim() : fallback
+}
+
+function getNotificationDisplay(
+  n: Notification,
+  t: (key: string, options?: Record<string, unknown>) => string,
+) {
+  const metadata = n.metadata ?? {}
+  const count = Math.max(n.aggregatedCount ?? 1, 1)
+  const actorName = text(metadata.actorName, 'Someone')
+  const channelName = text(metadata.channelName, 'channel')
+  const serverName = text(metadata.serverName, 'server')
+  const preview = text(metadata.preview, n.body ?? '')
+
+  switch (n.kind) {
+    case 'message.mention':
+      return {
+        title:
+          count > 1
+            ? t('notification.messageMentionCount', { count })
+            : t('notification.messageMention', { actorName }),
+        body: preview,
+      }
+    case 'message.reply':
+      return {
+        title:
+          count > 1
+            ? t('notification.messageReplyCount', { count })
+            : t('notification.messageReply', { actorName }),
+        body: preview,
+      }
+    case 'dm.message':
+      return {
+        title:
+          count > 1
+            ? t('notification.dmMessageCount', { count })
+            : t('notification.dmMessage', { actorName }),
+        body: preview,
+      }
+    case 'channel.access_requested':
+      return {
+        title: t('notification.channelAccessRequested', { actorName, channelName }),
+        body: t('notification.channelAccessRequestedBody'),
+      }
+    case 'channel.access_approved':
+      return { title: t('notification.channelAccessApproved', { channelName }), body: n.body ?? '' }
+    case 'channel.access_rejected':
+      return { title: t('notification.channelAccessRejected', { channelName }), body: n.body ?? '' }
+    case 'channel.member_added':
+      return {
+        title: t('notification.channelMemberAdded', { channelName }),
+        body: serverName ? t('notification.inServer', { serverName }) : (n.body ?? ''),
+      }
+    case 'server.member_joined':
+      return {
+        title:
+          count > 1
+            ? t('notification.serverMemberJoinedCount', { count, serverName })
+            : t('notification.serverMemberJoined', { actorName, serverName }),
+        body: n.body ?? '',
+      }
+    case 'server.invite':
+      return {
+        title: t('notification.serverInvite', { actorName, serverName }),
+        body: n.body ?? '',
+      }
+    case 'friendship.request':
+      return { title: t('notification.friendshipRequest', { actorName }), body: n.body ?? '' }
+    case 'recharge.succeeded':
+      return {
+        title: t('notification.rechargeSucceeded'),
+        body: t('notification.rechargeSucceededBody', {
+          amount: metadata.shrimpCoins ?? '',
+        }),
+      }
+    default:
+      return { title: n.title, body: n.body ?? '' }
+  }
 }
 
 export default function NotificationsScreen() {
@@ -84,6 +168,18 @@ export default function NotificationsScreen() {
 
   const markAllRead = useMutation({
     mutationFn: () => fetchApi('/api/notifications/read-all', { method: 'POST' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
+    },
+  })
+
+  const reviewJoinRequest = useMutation({
+    mutationFn: (input: { requestId: string; status: 'approved' | 'rejected' }) =>
+      fetchApi(`/api/channel-join-requests/${input.requestId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: input.status }),
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
@@ -185,71 +281,111 @@ export default function NotificationsScreen() {
               description="还没有收到任何新消息哦~"
             />
           }
-          renderItem={({ item, index }) => (
-            <Reanimated.View entering={FadeInUp.delay(index * 40).springify()}>
-              <SquishyCard
-                style={[
-                  styles.notifCard,
-                  {
-                    backgroundColor: item.isRead ? `${colors.surface}E6` : `${colors.primary}12`,
-                    borderColor: item.isRead ? colors.border : colors.primary,
-                  },
-                ]}
-                onPress={() => handlePress(item)}
-              >
-                <View style={styles.notifContent}>
-                  {item.senderAvatarUrl ? (
-                    <Avatar
-                      uri={item.senderAvatarUrl}
-                      name={item.title}
-                      size={44}
-                      userId={item.senderId ?? ''}
-                    />
-                  ) : (
-                    <View
-                      style={[
-                        styles.iconBubble,
-                        {
-                          backgroundColor: item.isRead
-                            ? colors.inputBackground
-                            : `${colors.primary}20`,
-                        },
-                      ]}
-                    >
-                      {getNotifIcon(item.type, item.isRead ? colors.textMuted : colors.primary)}
-                    </View>
-                  )}
-
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={[
-                        styles.notifTitle,
-                        { color: colors.text, fontWeight: item.isRead ? '600' : '800' },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {item.title}
-                    </Text>
-                    {item.body && (
-                      <Text
-                        style={[styles.notifBody, { color: colors.textSecondary }]}
-                        numberOfLines={2}
+          renderItem={({ item, index }) => {
+            const display = getNotificationDisplay(item, t)
+            return (
+              <Reanimated.View entering={FadeInUp.delay(index * 40).springify()}>
+                <SquishyCard
+                  style={[
+                    styles.notifCard,
+                    {
+                      backgroundColor: item.isRead ? `${colors.surface}E6` : `${colors.primary}12`,
+                      borderColor: item.isRead ? colors.border : colors.primary,
+                    },
+                  ]}
+                  onPress={() => handlePress(item)}
+                >
+                  <View style={styles.notifContent}>
+                    {item.senderAvatarUrl ? (
+                      <Avatar
+                        uri={item.senderAvatarUrl}
+                        name={display.title}
+                        size={44}
+                        userId={item.senderId ?? ''}
+                      />
+                    ) : (
+                      <View
+                        style={[
+                          styles.iconBubble,
+                          {
+                            backgroundColor: item.isRead
+                              ? colors.inputBackground
+                              : `${colors.primary}20`,
+                          },
+                        ]}
                       >
-                        {item.body}
-                      </Text>
+                        {getNotifIcon(item.type, item.isRead ? colors.textMuted : colors.primary)}
+                      </View>
                     )}
-                    <Text style={[styles.notifTime, { color: colors.textMuted }]}>
-                      {formatTimeAgo(item.createdAt, t)}
-                    </Text>
-                  </View>
 
-                  {!item.isRead && (
-                    <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />
-                  )}
-                </View>
-              </SquishyCard>
-            </Reanimated.View>
-          )}
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[
+                          styles.notifTitle,
+                          { color: colors.text, fontWeight: item.isRead ? '600' : '800' },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {display.title}
+                      </Text>
+                      {display.body && (
+                        <Text
+                          style={[styles.notifBody, { color: colors.textSecondary }]}
+                          numberOfLines={2}
+                        >
+                          {display.body}
+                        </Text>
+                      )}
+                      {item.referenceType === 'channel_join_request' && item.referenceId && (
+                        <View style={styles.requestActions}>
+                          <Pressable
+                            disabled={reviewJoinRequest.isPending}
+                            style={[
+                              styles.requestAction,
+                              { backgroundColor: `${colors.success}20` },
+                            ]}
+                            onPress={() =>
+                              reviewJoinRequest.mutate({
+                                requestId: item.referenceId!,
+                                status: 'approved',
+                              })
+                            }
+                          >
+                            <Check size={14} color={colors.success} />
+                            <Text style={[styles.requestActionText, { color: colors.success }]}>
+                              {t('channel.approveAccess', '同意')}
+                            </Text>
+                          </Pressable>
+                          <Pressable
+                            disabled={reviewJoinRequest.isPending}
+                            style={[styles.requestAction, { backgroundColor: `${colors.error}20` }]}
+                            onPress={() =>
+                              reviewJoinRequest.mutate({
+                                requestId: item.referenceId!,
+                                status: 'rejected',
+                              })
+                            }
+                          >
+                            <X size={14} color={colors.error} />
+                            <Text style={[styles.requestActionText, { color: colors.error }]}>
+                              {t('channel.rejectAccess', '拒绝')}
+                            </Text>
+                          </Pressable>
+                        </View>
+                      )}
+                      <Text style={[styles.notifTime, { color: colors.textMuted }]}>
+                        {formatTimeAgo(item.createdAt, t)}
+                      </Text>
+                    </View>
+
+                    {!item.isRead && (
+                      <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />
+                    )}
+                  </View>
+                </SquishyCard>
+              </Reanimated.View>
+            )
+          }}
         />
       </View>
     </DottedBackground>
@@ -318,5 +454,23 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     marginTop: spacing.sm,
     fontWeight: '600',
+  },
+  requestActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  requestAction: {
+    flex: 1,
+    minHeight: 34,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  requestActionText: {
+    fontSize: fontSize.xs,
+    fontWeight: '800',
   },
 })

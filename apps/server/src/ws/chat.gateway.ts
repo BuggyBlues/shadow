@@ -1,7 +1,23 @@
+import type { MessageMention } from '@shadowob/shared'
 import type { Socket, Server as SocketIOServer } from 'socket.io'
 import type { AppContainer } from '../container'
 import { relayDmToBot } from '../lib/dm-relay'
 import { logger } from '../lib/logger'
+
+async function canUseChannelRoom(container: AppContainer, channelId: string, userId: string) {
+  const channelDao = container.resolve('channelDao')
+  const serverDao = container.resolve('serverDao')
+  const channelMemberDao = container.resolve('channelMemberDao')
+  const channel = await channelDao.findById(channelId)
+  if (!channel) return false
+  const serverMember = await serverDao.getMember(channel.serverId, userId)
+  if (!serverMember) return false
+  const channelMember = await channelMemberDao.get(channelId, userId)
+  const canManage = serverMember.role === 'owner' || serverMember.role === 'admin'
+  if (channel.isPrivate) return Boolean(channelMember || canManage)
+  if (!channelMember) await channelMemberDao.add(channelId, userId).catch(() => null)
+  return true
+}
 
 export function setupChatGateway(io: SocketIOServer, container: AppContainer): void {
   io.on('connection', (socket: Socket) => {
@@ -15,9 +31,8 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
         // Verify channel membership before joining the room
         if (userId) {
           try {
-            const channelMemberDao = container.resolve('channelMemberDao')
-            const membership = await channelMemberDao.get(channelId, userId)
-            if (!membership) {
+            const allowed = await canUseChannelRoom(container, channelId, userId)
+            if (!allowed) {
               logger.warn({ userId, channelId }, 'Denied channel:join — not a member')
               if (typeof ack === 'function') ack({ ok: false })
               return
@@ -25,8 +40,10 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
           } catch (err) {
             logger.warn(
               { err, userId, channelId },
-              'channel:join membership check failed — allowing join as fallback',
+              'channel:join membership check failed — denying join',
             )
+            if (typeof ack === 'function') ack({ ok: false })
+            return
           }
         }
 
@@ -53,71 +70,53 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
         content: string
         threadId?: string
         replyToId?: string
+        mentions?: MessageMention[]
+        metadata?: Record<string, unknown>
       }) => {
         if (!userId) return
 
         try {
           // Verify channel membership before sending
-          const channelMemberDao = container.resolve('channelMemberDao')
-          const membership = await channelMemberDao.get(data.channelId, userId)
-          if (!membership) {
+          const allowed = await canUseChannelRoom(container, data.channelId, userId)
+          if (!allowed) {
             socket.emit('error', { message: 'You are not a member of this channel' })
             return
           }
 
           const messageService = container.resolve('messageService')
+          const mentionService = container.resolve('mentionService')
 
-          let threadId = data.threadId
-
-          // Auto-create thread when replying to a message
-          if (data.replyToId && !threadId) {
-            const parentMessage = await messageService.getById(data.replyToId)
-            if (parentMessage) {
-              // Check if parent message already has a thread
-              if (parentMessage.threadId) {
-                threadId = parentMessage.threadId
-              } else {
-                // Create a new thread
-                const thread = await messageService.createThread(data.channelId, userId, {
-                  name: `Thread`,
-                  parentMessageId: data.replyToId,
-                })
-                threadId = thread?.id
-              }
-            }
-          }
-
-          const message = await messageService.send(data.channelId, userId, {
+          const preparedInput = await mentionService.prepareMessageInput(data.channelId, userId, {
             content: data.content,
-            threadId,
             replyToId: data.replyToId,
+            mentions: data.mentions,
+            metadata: data.metadata,
           })
+          const message = await messageService.send(data.channelId, userId, preparedInput)
 
           // Broadcast to channel room
           io.to(`channel:${data.channelId}`).emit('message:new', message)
 
-          // If it's a thread message, also emit to thread room
-          if (data.threadId) {
-            io.to(`thread:${data.threadId}`).emit('message:new', message)
-          }
-
           // Create notification for reply
           if (data.replyToId) {
             try {
-              const notificationService = container.resolve('notificationService')
+              const notificationTriggerService = container.resolve('notificationTriggerService')
+              const channelDao = container.resolve('channelDao')
               const originalMessage = await messageService.getById(data.replyToId)
               if (originalMessage && originalMessage.authorId !== userId) {
-                const notification = await notificationService.create({
-                  userId: originalMessage.authorId,
-                  type: 'reply',
-                  title: `${message.author?.displayName ?? message.author?.username ?? 'Someone'} replied to your message`,
-                  body: data.content.substring(0, 200),
-                  referenceId: message.id,
-                  referenceType: 'message',
-                  senderId: userId,
-                })
-                // Push notification to the target user via WS
-                io.to(`user:${originalMessage.authorId}`).emit('notification:new', notification)
+                const channel = await channelDao.findById(data.channelId)
+                if (channel) {
+                  await notificationTriggerService.triggerReply({
+                    userId: originalMessage.authorId,
+                    actorId: userId,
+                    actorName: message.author?.displayName ?? message.author?.username ?? 'Someone',
+                    messageId: message.id,
+                    channelId: data.channelId,
+                    serverId: channel.serverId,
+                    channelName: channel.name,
+                    preview: data.content.substring(0, 200),
+                  })
+                }
               }
             } catch (err) {
               logger.warn(
@@ -127,37 +126,20 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
             }
           }
 
-          // Create notifications for @mentions
+          // Create notifications for structured mentions
           try {
-            const userDao = container.resolve('userDao')
-            const notificationService = container.resolve('notificationService')
             const senderName = message.author?.displayName ?? message.author?.username ?? 'Someone'
-
-            const mentionUsernameRegex = /@([A-Za-z0-9_-]+)/g
-            const mentionedUsernames = new Set<string>()
-            let match: RegExpExecArray | null = mentionUsernameRegex.exec(data.content)
-            while (match !== null) {
-              if (match[1]) mentionedUsernames.add(match[1])
-              match = mentionUsernameRegex.exec(data.content)
-            }
-
-            if (mentionedUsernames.size > 0) {
-              for (const username of mentionedUsernames) {
-                const mentionedUser = await userDao.findByUsername(username)
-                if (mentionedUser && mentionedUser.id !== userId) {
-                  const notification = await notificationService.create({
-                    userId: mentionedUser.id,
-                    type: 'mention',
-                    title: `${senderName} mentioned you`,
-                    body: data.content.substring(0, 200),
-                    referenceId: message.id,
-                    referenceType: 'message',
-                    senderId: userId,
-                  })
-                  io.to(`user:${mentionedUser.id}`).emit('notification:new', notification)
-                }
-              }
-            }
+            const mentions = Array.isArray(message.metadata?.mentions)
+              ? (message.metadata.mentions as MessageMention[])
+              : []
+            await mentionService.createMentionNotifications({
+              messageId: message.id,
+              channelId: data.channelId,
+              authorId: userId,
+              authorName: senderName,
+              content: data.content,
+              mentions,
+            })
           } catch (err) {
             logger.warn(
               { err, userId, channelId: data.channelId },
@@ -245,18 +227,15 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
           // Send notification to the other user
           const otherUserId = channel.userAId === userId ? channel.userBId : channel.userAId
           try {
-            const notificationService = container.resolve('notificationService')
+            const notificationTriggerService = container.resolve('notificationTriggerService')
             const senderName = message.author?.displayName ?? message.author?.username ?? 'Someone'
-            const notification = await notificationService.create({
+            await notificationTriggerService.triggerDm({
               userId: otherUserId,
-              type: 'dm',
-              title: `${senderName} sent you a message`,
-              body: data.content.substring(0, 200),
-              referenceId: data.dmChannelId,
-              referenceType: 'dm_channel',
-              senderId: userId,
+              actorId: userId,
+              actorName: senderName,
+              dmChannelId: data.dmChannelId,
+              preview: data.content.substring(0, 200),
             })
-            io.to(`user:${otherUserId}`).emit('notification:new', notification)
           } catch (err) {
             logger.warn(
               { err, userId, dmChannelId: data.dmChannelId },

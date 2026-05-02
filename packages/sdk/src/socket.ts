@@ -1,5 +1,5 @@
 import { io, type Socket } from 'socket.io-client'
-import type { ClientEventMap, ServerEventMap } from './types'
+import type { ClientEventMap, ServerEventMap, ShadowMessageMention } from './types'
 
 export interface ShadowSocketOptions {
   /** Shadow server base URL (e.g. "https://shadowob.shadowob.com") */
@@ -159,6 +159,8 @@ export class ShadowSocket {
     content: string
     threadId?: string
     replyToId?: string
+    mentions?: ShadowMessageMention[]
+    metadata?: Record<string, unknown>
   }): void {
     this.socket.emit('message:send' satisfies keyof ClientEventMap, data)
   }

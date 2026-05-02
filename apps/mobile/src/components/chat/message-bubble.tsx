@@ -524,6 +524,7 @@ function MessageBubbleInner({
               <MarkdownRenderer
                 content={message.content}
                 mentionMap={mentionMap}
+                mentions={message.metadata?.mentions}
                 selectable={!selectionMode}
               />
             </View>

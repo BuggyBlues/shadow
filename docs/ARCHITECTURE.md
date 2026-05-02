@@ -475,7 +475,7 @@ users ─────┬────── servers ──────── chan
 
 | Table | Key Columns | Description |
 |-------|------------|-------------|
-| **notifications** | `id`, `userId`, `type` (mention/reply/dm/system), `title`, `body`, `referenceId`, `referenceType`, `isRead` | In-app and real-time notifications |
+| **notifications** | `id`, `userId`, `type` (mention/reply/dm/system), `kind`, `title`, `body`, `referenceId`, `referenceType`, `scopeServerId`, `scopeChannelId`, `scopeDmChannelId`, `aggregationKey`, `aggregatedCount`, `metadata`, `isRead` | Event-style in-app and real-time notifications with server/channel/DM scope and aggregation |
 | **notification_preferences** | `userId` (PK), `strategy` (all/mention_only/none), `mutedServerIds`, `mutedChannelIds` | Per-user notification settings |
 
 ### Miscellaneous Tables

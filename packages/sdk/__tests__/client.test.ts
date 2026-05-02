@@ -334,6 +334,29 @@ describe('ShadowClient', () => {
         expect.any(Object),
       )
     })
+
+    it('should include replyToId when sending to a thread', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ id: 'tm1' }),
+      })
+      globalThis.fetch = mockFetch as typeof fetch
+
+      await client.sendToThread('thread-1', 'Thread reply', {
+        replyToId: 'message-1',
+      })
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/api/threads/thread-1/messages',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            content: 'Thread reply',
+            replyToId: 'message-1',
+          }),
+        }),
+      )
+    })
   })
 
   describe('agent policy methods', () => {
@@ -500,6 +523,185 @@ describe('ShadowClient', () => {
         3,
         'https://api.example.com/api/channels/channel-1/slash-commands',
         expect.any(Object),
+      )
+    })
+  })
+
+  describe('mentions', () => {
+    beforeEach(() => {
+      globalThis.fetch = vi.fn() as typeof fetch
+    })
+
+    afterEach(() => {
+      restoreStubbedGlobals()
+    })
+
+    it('should call mention suggestion endpoint with encoded trigger', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ suggestions: [] }),
+      })
+      globalThis.fetch = mockFetch as typeof fetch
+
+      await client.suggestMentions({
+        channelId: 'channel-1',
+        trigger: '#',
+        query: 'general',
+        limit: 10,
+      })
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/api/mentions/suggest?channelId=channel-1&trigger=%23&q=general&limit=10',
+        expect.objectContaining({
+          headers: expect.any(Object),
+        }),
+      )
+    })
+
+    it('should include mentions when sending a message', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ id: 'msg-1', content: 'hello @alice' }),
+      })
+      globalThis.fetch = mockFetch as typeof fetch
+
+      await client.sendMessage('channel-1', 'hello @alice', {
+        mentions: [
+          {
+            kind: 'user',
+            targetId: 'user-1',
+            userId: 'user-1',
+            token: '<@user-1>',
+            sourceToken: '@alice',
+            label: '@Alice',
+          },
+        ],
+      })
+
+      const init = mockFetch.mock.calls[0]?.[1] as RequestInit
+      expect(JSON.parse(init.body as string)).toEqual(
+        expect.objectContaining({
+          mentions: [
+            expect.objectContaining({
+              kind: 'user',
+              targetId: 'user-1',
+              sourceToken: '@alice',
+            }),
+          ],
+        }),
+      )
+    })
+
+    it('should include mentions when sending a thread message', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ id: 'msg-1', content: 'hello @alice' }),
+      })
+      globalThis.fetch = mockFetch as typeof fetch
+
+      await client.sendToThread('thread-1', 'hello @alice', {
+        mentions: [
+          {
+            kind: 'user',
+            targetId: 'user-1',
+            userId: 'user-1',
+            token: '<@user-1>',
+            sourceToken: '@alice',
+            label: '@Alice',
+          },
+        ],
+      })
+
+      const init = mockFetch.mock.calls[0]?.[1] as RequestInit
+      expect(JSON.parse(init.body as string)).toEqual(
+        expect.objectContaining({
+          content: 'hello @alice',
+          mentions: [expect.objectContaining({ targetId: 'user-1' })],
+        }),
+      )
+    })
+  })
+
+  describe('channel access methods', () => {
+    beforeEach(() => {
+      globalThis.fetch = vi.fn() as typeof fetch
+    })
+
+    afterEach(() => {
+      restoreStubbedGlobals()
+    })
+
+    it('should request and review private channel access', async () => {
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ ok: true, status: 'pending', requestId: 'req-1' }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ ok: true }),
+        })
+      globalThis.fetch = mockFetch as typeof fetch
+
+      await client.requestChannelAccess('ch1')
+      await client.reviewChannelJoinRequest('req-1', 'approved')
+
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        1,
+        'https://api.example.com/api/channels/ch1/join-requests',
+        expect.objectContaining({ method: 'POST' }),
+      )
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        2,
+        'https://api.example.com/api/channel-join-requests/req-1',
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({ status: 'approved' }),
+        }),
+      )
+    })
+  })
+
+  describe('notification methods', () => {
+    beforeEach(() => {
+      globalThis.fetch = vi.fn() as typeof fetch
+    })
+
+    afterEach(() => {
+      restoreStubbedGlobals()
+    })
+
+    it('should mark all notifications read with POST', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ ok: true }),
+      })
+      globalThis.fetch = mockFetch as typeof fetch
+
+      await client.markAllNotificationsRead()
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/api/notifications/read-all',
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
+
+    it('should include dmChannelId when marking a notification scope read', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ updated: 1 }),
+      })
+      globalThis.fetch = mockFetch as typeof fetch
+
+      await client.markScopeRead({ dmChannelId: 'dm-1' })
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/api/notifications/read-scope',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ dmChannelId: 'dm-1' }),
+        }),
       )
     })
   })

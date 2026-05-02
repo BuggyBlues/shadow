@@ -6,54 +6,31 @@ import {
   createChatChannelPlugin,
   type OpenClawConfig,
 } from 'openclaw/plugin-sdk/core'
-import { DEFAULT_ACCOUNT_ID, listAccountIds } from '../config.js'
+import { DEFAULT_ACCOUNT_ID } from '../config.js'
 import { shadowOutbound } from '../outbound.js'
 import type { ShadowAccountConfig } from '../types.js'
-import { inspectAccount, resolveAccount } from './account.js'
+import { resolveAccount } from './account.js'
 import { shadowMessageActions } from './actions.js'
 import { shadowAgentPromptHints } from './prompt.js'
+import {
+  shadowPluginCapabilities,
+  shadowPluginConfig,
+  shadowPluginConfigSchema,
+  shadowPluginMeta,
+  shadowPluginSetup,
+} from './setup.js'
 
 export const shadowPlugin = createChatChannelPlugin<ShadowAccountConfig>({
   base: {
     id: 'shadowob',
 
-    meta: {
-      id: 'shadowob',
-      label: 'ShadowOwnBuddy',
-      selectionLabel: 'ShadowOwnBuddy (Server)',
-      docsPath: '/channels/shadowob',
-      blurb: 'Shadow server channel integration — chat with AI agents in Shadow channels',
-      aliases: ['shadow-server', 'openclaw-shadowob'],
-    },
+    meta: shadowPluginMeta,
 
-    capabilities: {
-      chatTypes: ['channel', 'thread', 'direct'],
-      reactions: true,
-      threads: true,
-      media: true,
-      reply: true,
-      edit: true,
-      unsend: true,
-    },
+    capabilities: shadowPluginCapabilities,
 
-    config: {
-      listAccountIds: (cfg: OpenClawConfig): string[] => listAccountIds(cfg),
-      inspectAccount,
-      resolveAccount,
-      defaultAccountId: (): string => DEFAULT_ACCOUNT_ID,
-      isConfigured: (account: ShadowAccountConfig): boolean => !!account?.token?.trim(),
-      isEnabled: (account: ShadowAccountConfig): boolean => account?.enabled !== false,
-      describeAccount: (account: ShadowAccountConfig) => ({
-        accountId: DEFAULT_ACCOUNT_ID,
-        enabled: account?.enabled !== false,
-        configured: !!account?.token?.trim(),
-      }),
-    },
+    config: shadowPluginConfig,
 
-    setup: {
-      resolveAccountId: ({ accountId }) => accountId ?? DEFAULT_ACCOUNT_ID,
-      applyAccountConfig: ({ cfg }) => cfg,
-    },
+    setup: shadowPluginSetup,
   },
 
   security: {
@@ -80,24 +57,9 @@ export const shadowPlugin = createChatChannelPlugin<ShadowAccountConfig>({
   outbound: shadowOutbound,
 })
 
-shadowPlugin.meta = {
-  id: 'shadowob',
-  label: 'ShadowOwnBuddy',
-  selectionLabel: 'ShadowOwnBuddy (Server)',
-  docsPath: '/channels/shadowob',
-  blurb: 'Shadow server channel integration — chat with AI agents in Shadow channels',
-  aliases: ['shadow-server', 'openclaw-shadowob'],
-}
+shadowPlugin.meta = shadowPluginMeta
 
-shadowPlugin.capabilities = {
-  chatTypes: ['channel', 'thread', 'direct'],
-  reactions: true,
-  threads: true,
-  media: true,
-  reply: true,
-  edit: true,
-  unsend: true,
-}
+shadowPlugin.capabilities = shadowPluginCapabilities
 
 shadowPlugin.reload = {
   configPrefixes: ['channels.shadowob'],
@@ -107,60 +69,7 @@ shadowPlugin.defaults = {
   queue: { debounceMs: 500 },
 }
 
-shadowPlugin.configSchema = {
-  schema: {
-    type: 'object',
-    properties: {
-      token: { type: 'string', description: 'Agent JWT token' },
-      serverUrl: { type: 'string', description: 'Shadow server URL' },
-      enabled: { type: 'boolean' },
-      capabilities: {
-        type: 'object',
-        additionalProperties: true,
-        properties: {
-          inlineButtons: {
-            anyOf: [
-              { type: 'string', enum: ['off', 'dm', 'group', 'all', 'allowlist'] },
-              { type: 'boolean' },
-            ],
-          },
-          interactive: { type: 'boolean' },
-          forms: { type: 'boolean' },
-        },
-      },
-      accounts: {
-        type: 'object',
-        additionalProperties: {
-          type: 'object',
-          properties: {
-            token: { type: 'string' },
-            serverUrl: { type: 'string' },
-            enabled: { type: 'boolean' },
-            capabilities: {
-              type: 'object',
-              additionalProperties: true,
-            },
-          },
-          required: ['token', 'serverUrl'],
-        },
-      },
-    },
-  },
-  uiHints: {
-    token: {
-      label: 'Agent Token',
-      sensitive: true,
-      placeholder: 'Paste the JWT token generated in Shadow → Agents',
-    },
-    serverUrl: {
-      label: 'Server URL',
-      placeholder: 'https://shadowob.com',
-    },
-    enabled: {
-      label: 'Enabled',
-    },
-  },
-}
+shadowPlugin.configSchema = shadowPluginConfigSchema
 
 shadowPlugin.agentPrompt = {
   messageToolHints: () => shadowAgentPromptHints,

@@ -7,6 +7,7 @@ import { ApiTokenDao } from './dao/api-token.dao'
 import { AppDao } from './dao/app.dao'
 import { CartDao } from './dao/cart.dao'
 import { ChannelDao } from './dao/channel.dao'
+import { ChannelJoinRequestDao } from './dao/channel-join-request.dao'
 import { ChannelMemberDao } from './dao/channel-member.dao'
 import { ClawListingDao } from './dao/claw-listing.dao'
 import { CloudActivityDao } from './dao/cloud-activity.dao'
@@ -57,8 +58,12 @@ import { EntitlementService } from './services/entitlement.service'
 import { ExternalOAuthService } from './services/external-oauth.service'
 import { FriendshipService } from './services/friendship.service'
 import { MediaService } from './services/media.service'
+import { MentionService } from './services/mention.service'
 import { MessageService } from './services/message.service'
 import { NotificationService } from './services/notification.service'
+import { NotificationDeliveryService } from './services/notification-delivery.service'
+import { NotificationTemplateService } from './services/notification-template.service'
+import { NotificationTriggerService } from './services/notification-trigger.service'
 import { OAuthService } from './services/oauth.service'
 import { OrderService } from './services/order.service'
 import { PermissionService } from './services/permission.service'
@@ -85,6 +90,7 @@ export interface Cradle {
   serverDao: ServerDao
   apiTokenDao: ApiTokenDao
   channelDao: ChannelDao
+  channelJoinRequestDao: ChannelJoinRequestDao
   channelMemberDao: ChannelMemberDao
   messageDao: MessageDao
   notificationDao: NotificationDao
@@ -152,7 +158,11 @@ export interface Cradle {
   channelService: ChannelService
   messageService: MessageService
   searchService: SearchService
+  mentionService: MentionService
   notificationService: NotificationService
+  notificationTemplateService: NotificationTemplateService
+  notificationDeliveryService: NotificationDeliveryService
+  notificationTriggerService: NotificationTriggerService
   permissionService: PermissionService
   dmService: DmService
   friendshipService: FriendshipService
@@ -193,6 +203,7 @@ export function createAppContainer(db: Database): AppContainer {
     serverDao: asClass(ServerDao).singleton(),
     apiTokenDao: asClass(ApiTokenDao).singleton(),
     channelDao: asClass(ChannelDao).singleton(),
+    channelJoinRequestDao: asClass(ChannelJoinRequestDao).singleton(),
     channelMemberDao: asClass(ChannelMemberDao).singleton(),
     messageDao: asClass(MessageDao).singleton(),
     notificationDao: asClass(NotificationDao).singleton(),
@@ -258,7 +269,11 @@ export function createAppContainer(db: Database): AppContainer {
     channelService: asClass(ChannelService).singleton(),
     messageService: asClass(MessageService).singleton(),
     searchService: asClass(SearchService).singleton(),
+    mentionService: asClass(MentionService).singleton(),
     notificationService: asClass(NotificationService).singleton(),
+    notificationTemplateService: asClass(NotificationTemplateService).singleton(),
+    notificationDeliveryService: asClass(NotificationDeliveryService).singleton(),
+    notificationTriggerService: asClass(NotificationTriggerService).singleton(),
     permissionService: asClass(PermissionService).singleton(),
     dmService: asClass(DmService).singleton(),
     friendshipService: asClass(FriendshipService).singleton(),

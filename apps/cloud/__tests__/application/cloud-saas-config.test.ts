@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   attachCloudSaasProvisionState,
   extractCloudSaasRuntime,
+  prepareCloudSaasConfigSnapshot,
   resolveCloudSaasShadowRuntime,
   sanitizeCloudSaasDeployment,
 } from '../../src/application/cloud-saas-config'
@@ -105,5 +106,29 @@ describe('resolveCloudSaasShadowRuntime', () => {
 
     const sanitized = sanitizeCloudSaasDeployment({ configSnapshot: snapshot })
     expect((sanitized.configSnapshot as Record<string, unknown>).__shadowobRuntime).toBeUndefined()
+  })
+
+  it('persists deployment locale and timezone in hidden runtime metadata', () => {
+    const snapshot = prepareCloudSaasConfigSnapshot(
+      {
+        version: '1',
+        deployments: {
+          agents: [{ id: 'strategy-buddy', runtime: 'openclaw' }],
+        },
+      },
+      {},
+      {
+        locale: 'zh-CN',
+        timezone: 'Asia/Shanghai',
+      },
+    )
+
+    const runtime = extractCloudSaasRuntime(snapshot)
+    expect(snapshot.locale).toBe('zh-CN')
+    expect(runtime.context).toEqual({
+      locale: 'zh-CN',
+      timezone: 'Asia/Shanghai',
+    })
+    expect((runtime.configSnapshot as Record<string, unknown>).__shadowobRuntime).toBeUndefined()
   })
 })

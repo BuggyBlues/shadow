@@ -1,13 +1,18 @@
+import type { MentionSuggestion, MentionSuggestionTrigger, MessageMention } from '@shadowob/shared'
+import { assignMentionRanges, canonicalMentionToken } from '@shadowob/shared'
 import { Button, cn, InputValley } from '@shadowob/ui'
 import { type InfiniteData, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  AtSign,
   Bot,
   Command as CommandIcon,
   FileText,
   FolderOpen,
+  Hash,
   Image as ImageIcon,
   Plus,
   Send,
+  Server as ServerIcon,
   Smile,
   X,
 } from 'lucide-react'
@@ -15,7 +20,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDraftStorage } from '../../hooks/use-draft-storage'
 import { fetchApi } from '../../lib/api'
-import { matchPinyin } from '../../lib/pinyin'
 import { getSocket, sendTyping, sendWsMessage } from '../../lib/socket'
 import { playSendSound } from '../../lib/sounds'
 import { useAuthStore } from '../../stores/auth.store'
@@ -57,21 +61,6 @@ function getPendingFileKey(pf: PendingFile): string {
     .join('::')
 }
 
-interface MemberUser {
-  id: string
-  username: string
-  displayName: string
-  avatarUrl: string | null
-  status: string
-  isBot: boolean
-}
-
-interface Member {
-  id: string
-  userId: string
-  user?: MemberUser
-}
-
 interface SlashCommand {
   name: string
   description?: string
@@ -81,6 +70,41 @@ interface SlashCommand {
   botUserId: string
   botUsername: string
   botDisplayName?: string | null
+}
+
+function mentionFromSuggestion(
+  suggestion: MentionSuggestion,
+  range?: MessageMention['range'],
+): MessageMention {
+  return {
+    kind: suggestion.kind,
+    targetId: suggestion.targetId,
+    token: canonicalMentionToken(suggestion),
+    sourceToken: suggestion.token,
+    label: suggestion.label,
+    serverId: suggestion.serverId,
+    serverSlug: suggestion.serverSlug,
+    serverName: suggestion.serverName,
+    channelId: suggestion.channelId,
+    channelName: suggestion.channelName,
+    userId: suggestion.userId,
+    username: suggestion.username,
+    displayName: suggestion.displayName,
+    avatarUrl: suggestion.avatarUrl,
+    isBot: suggestion.isBot,
+    isPrivate: suggestion.isPrivate,
+    range,
+  }
+}
+
+function mergeMention(list: MessageMention[], mention: MessageMention): MessageMention[] {
+  const mentionKey = (item: MessageMention) =>
+    `${item.kind}:${item.targetId}:${item.range?.start ?? 'x'}:${item.range?.end ?? 'x'}`
+  return [...list.filter((item) => mentionKey(item) !== mentionKey(mention)), mention]
+}
+
+function mentionsForContent(content: string, mentions: MessageMention[]): MessageMention[] {
+  return assignMentionRanges(content, mentions).slice(0, 20)
 }
 
 export function MessageInput({
@@ -119,7 +143,9 @@ export function MessageInput({
 
   // Mention autocomplete state
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)
+  const [mentionTrigger, setMentionTrigger] = useState<MentionSuggestionTrigger | null>(null)
   const [mentionIndex, setMentionIndex] = useState(0)
+  const [selectedMentions, setSelectedMentions] = useState<MessageMention[]>([])
   const mentionListRef = useRef<HTMLDivElement>(null)
 
   // Slash command autocomplete state
@@ -127,11 +153,19 @@ export function MessageInput({
   const [slashIndex, setSlashIndex] = useState(0)
   const slashListRef = useRef<HTMLDivElement>(null)
 
-  // Fetch members for @mention autocomplete
-  const { data: members = [] } = useQuery({
-    queryKey: ['members', activeServerId],
-    queryFn: () => fetchApi<Member[]>(`/api/servers/${activeServerId}/members`),
-    enabled: !!activeServerId,
+  const { data: mentionSuggestionData } = useQuery({
+    queryKey: ['mention-suggestions', channelId, mentionTrigger, mentionQuery ?? ''],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        channelId,
+        trigger: mentionTrigger ?? '@',
+        q: mentionQuery ?? '',
+        limit: '20',
+      })
+      return fetchApi<{ suggestions: MentionSuggestion[] }>(`/api/mentions/suggest?${params}`)
+    },
+    enabled: Boolean(channelId && mentionTrigger && mentionQuery !== null),
+    staleTime: 5_000,
   })
 
   const { data: slashCommandData } = useQuery({
@@ -169,52 +203,7 @@ export function MessageInput({
     }
   }, [channelId, queryClient])
 
-  // Filter members by mention query — buddies first, pinyin support, show all results
-  const filteredMembers = useMemo(() => {
-    if (mentionQuery === null) return []
-    const q = mentionQuery.trim().toLocaleLowerCase()
-    const scored = members
-      .map((m) => {
-        const username = m.user?.username ?? ''
-        const displayName = m.user?.displayName ?? ''
-        const usernameLc = username.toLocaleLowerCase()
-        const displayNameLc = displayName.toLocaleLowerCase()
-        const isBot = m.user?.isBot ?? false
-
-        // Base bonus: buddies/bots get priority (+500)
-        const botBonus = isBot ? 500 : 0
-
-        // Query empty => show all members, buddies first
-        if (!q) {
-          return { member: m, score: 1000 + botBonus, usernameLc, displayNameLc }
-        }
-
-        let score = -1
-        // Standard text matching
-        if (usernameLc.startsWith(q)) score = Math.max(score, 300)
-        else if (displayNameLc.startsWith(q)) score = Math.max(score, 250)
-        else if (usernameLc.includes(q)) score = Math.max(score, 200)
-        else if (displayNameLc.includes(q)) score = Math.max(score, 150)
-
-        // Pinyin matching for Chinese names
-        if (score < 0) {
-          const pinyinMatch = matchPinyin(displayName, q) || matchPinyin(username, q)
-          if (pinyinMatch === 'start') score = Math.max(score, 240)
-          else if (pinyinMatch === 'partial') score = Math.max(score, 140)
-        }
-
-        if (score >= 0) score += botBonus
-
-        return { member: m, score, usernameLc, displayNameLc }
-      })
-      .filter((x) => x.score >= 0)
-      .sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score
-        return (a.displayNameLc || a.usernameLc).localeCompare(b.displayNameLc || b.usernameLc)
-      })
-
-    return scored.map((x) => x.member)
-  }, [members, mentionQuery])
+  const mentionSuggestions = mentionSuggestionData?.suggestions ?? []
 
   const filteredSlashCommands = useMemo(() => {
     if (slashQuery === null) return []
@@ -274,37 +263,46 @@ export function MessageInput({
     }
   }, [externalFiles, onExternalFilesConsumed])
 
-  // Insert mention at cursor
+  // Insert mention/reference at cursor
   const insertMention = useCallback(
-    (member: Member) => {
+    (suggestion: MentionSuggestion) => {
       const textarea = textareaRef.current
-      if (!textarea) return
+      if (!textarea || !mentionTrigger) return
 
       const cursorPos = textarea.selectionStart
       const text = content
 
-      // Find the @ that triggered this mention
+      // Find the trigger that opened this palette
       const beforeCursor = text.slice(0, cursorPos)
-      const atIndex = beforeCursor.lastIndexOf('@')
-      if (atIndex === -1) return
+      const triggerIndex = beforeCursor.lastIndexOf(mentionTrigger)
+      if (triggerIndex === -1) return
 
-      const before = text.slice(0, atIndex)
+      const before = text.slice(0, triggerIndex)
       const after = text.slice(cursorPos)
-      const username = member.user?.username ?? member.userId
-      const newContent = `${before}@${username} ${after}`
+      const token = `${suggestion.token} `
+      const newContent = `${before}${token}${after}`
       setContent(newContent)
+      setSelectedMentions((prev) =>
+        mergeMention(
+          prev,
+          mentionFromSuggestion(suggestion, {
+            start: triggerIndex,
+            end: triggerIndex + suggestion.token.length,
+          }),
+        ),
+      )
       setMentionQuery(null)
+      setMentionTrigger(null)
       setMentionIndex(0)
 
       // Restore cursor position after React re-render
-      const mentionToken = `@${username} `
-      const newCursorPos = atIndex + mentionToken.length
+      const newCursorPos = triggerIndex + token.length
       requestAnimationFrame(() => {
         textarea.focus()
         textarea.setSelectionRange(newCursorPos, newCursorPos)
       })
     },
-    [content],
+    [content, mentionTrigger],
   )
 
   const insertSlashCommand = useCallback(
@@ -337,6 +335,7 @@ export function MessageInput({
     if (!text && pendingFiles.length === 0) return
 
     setUploading(true)
+    const mentionsToSend = mentionsForContent(text, selectedMentions)
 
     // Insert optimistic message immediately for text-only sends
     const currentUser = useAuthStore.getState().user
@@ -364,6 +363,7 @@ export function MessageInput({
               isBot: false,
             }
           : undefined,
+        metadata: mentionsToSend.length > 0 ? { mentions: mentionsToSend } : undefined,
         sendStatus: 'sending' as const,
       }
 
@@ -383,7 +383,11 @@ export function MessageInput({
     const savedContent = text
     const savedReplyTo = replyToId
     const savedPendingFiles = [...pendingFiles]
+    const savedMentions = mentionsToSend
     setContent('')
+    setSelectedMentions([])
+    setMentionQuery(null)
+    setMentionTrigger(null)
     setPendingFiles([])
     onClearReply?.()
 
@@ -434,6 +438,7 @@ export function MessageInput({
           body: JSON.stringify({
             content: contentToSend,
             ...(savedReplyTo ? { replyToId: savedReplyTo } : {}),
+            ...(savedMentions.length > 0 ? { mentions: savedMentions } : {}),
             attachments: uploadedAttachments,
           }),
         })
@@ -444,6 +449,7 @@ export function MessageInput({
             channelId,
             content: savedContent,
             replyToId: savedReplyTo ?? undefined,
+            mentions: savedMentions,
           })
           // WS: message:new will replace the temp message via dedup in chat-area
           // Set timeout to mark as failed if no confirmation
@@ -478,6 +484,7 @@ export function MessageInput({
             body: JSON.stringify({
               content: savedContent,
               ...(savedReplyTo ? { replyToId: savedReplyTo } : {}),
+              ...(savedMentions.length > 0 ? { mentions: savedMentions } : {}),
             }),
           })
         }
@@ -500,7 +507,16 @@ export function MessageInput({
     } finally {
       setUploading(false)
     }
-  }, [channelId, content, pendingFiles, replyToId, onClearReply, queryClient, clearDraft])
+  }, [
+    channelId,
+    content,
+    pendingFiles,
+    replyToId,
+    selectedMentions,
+    onClearReply,
+    queryClient,
+    clearDraft,
+  ])
 
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
     // Handle pasted files from clipboard
@@ -561,28 +577,29 @@ export function MessageInput({
     }
 
     // Handle mention autocomplete navigation
-    if (mentionQuery !== null && filteredMembers.length > 0) {
+    if (mentionQuery !== null && mentionSuggestions.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault()
-        setMentionIndex((prev) => (prev + 1) % filteredMembers.length)
+        setMentionIndex((prev) => (prev + 1) % mentionSuggestions.length)
         return
       }
       if (e.key === 'ArrowUp') {
         e.preventDefault()
-        setMentionIndex((prev) => (prev - 1 + filteredMembers.length) % filteredMembers.length)
+        setMentionIndex(
+          (prev) => (prev - 1 + mentionSuggestions.length) % mentionSuggestions.length,
+        )
         return
       }
       if (e.key === 'Enter' || e.key === 'Tab') {
         e.preventDefault()
-        const selected = filteredMembers[mentionIndex]
-        if (selected?.user) {
-          insertMention(selected)
-        }
+        const selected = mentionSuggestions[mentionIndex]
+        if (selected) insertMention(selected)
         return
       }
       if (e.key === 'Escape') {
         e.preventDefault()
         setMentionQuery(null)
+        setMentionTrigger(null)
         setMentionIndex(0)
         return
       }
@@ -611,18 +628,21 @@ export function MessageInput({
       setSlashQuery(slashMatch[1] ?? '')
       setSlashIndex(0)
       setMentionQuery(null)
+      setMentionTrigger(null)
       setMentionIndex(0)
     } else {
       setSlashQuery(null)
       setSlashIndex(0)
     }
 
-    const mentionMatch = beforeCursor.match(/(?:^|\s)@([^\s@]{0,32})$/u)
+    const mentionMatch = beforeCursor.match(/(?:^|\s)([@#])([^\s@#]{0,128})$/u)
     if (!slashMatch && mentionMatch) {
-      setMentionQuery(mentionMatch[1] ?? '')
+      setMentionTrigger((mentionMatch[1] as MentionSuggestionTrigger | undefined) ?? '@')
+      setMentionQuery(mentionMatch[2] ?? '')
       setMentionIndex(0)
     } else {
       setMentionQuery(null)
+      setMentionTrigger(null)
       setMentionIndex(0)
     }
 
@@ -766,15 +786,15 @@ export function MessageInput({
           ))}
         </div>
       )}
-      {/* @mention autocomplete popup */}
-      {mentionQuery !== null && filteredMembers.length > 0 && (
+      {/* Mention/reference autocomplete popup */}
+      {mentionQuery !== null && mentionSuggestions.length > 0 && (
         <div
           ref={mentionListRef}
           className="absolute bottom-[calc(100%+8px)] left-4 right-4 bg-white/95 dark:bg-[#1A1D24]/95 backdrop-blur-2xl border border-black/5 dark:border-white/10 rounded-[16px] shadow-[0_12px_48px_rgba(0,0,0,0.12)] dark:shadow-[0_12px_48px_rgba(0,0,0,0.5)] py-2 px-1.5 max-h-[240px] overflow-y-auto z-50 flex flex-col gap-0.5 animate-in fade-in slide-in-from-bottom-2 duration-100"
         >
-          {filteredMembers.map((member, i) => (
+          {mentionSuggestions.map((suggestion, i) => (
             <button
-              key={member.id}
+              key={suggestion.id}
               type="button"
               className={cn(
                 'flex items-center gap-2.5 w-full px-3 py-2 text-[14px] font-medium transition-colors rounded-[10px]',
@@ -785,20 +805,36 @@ export function MessageInput({
               onMouseEnter={() => setMentionIndex(i)}
               onMouseDown={(e) => {
                 e.preventDefault() // prevent textarea blur
-                if (member.user) insertMention(member)
+                insertMention(suggestion)
               }}
             >
-              <UserAvatar
-                userId={member.user?.id}
-                avatarUrl={member.user?.avatarUrl}
-                displayName={member.user?.displayName ?? member.user?.username}
-                size="sm"
-              />
-              <span className="font-medium">
-                {member.user?.displayName ?? member.user?.username}
+              {suggestion.kind === 'user' || suggestion.kind === 'buddy' ? (
+                <UserAvatar
+                  userId={suggestion.userId}
+                  avatarUrl={suggestion.avatarUrl}
+                  displayName={suggestion.displayName ?? suggestion.username ?? suggestion.label}
+                  size="sm"
+                />
+              ) : (
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                  {suggestion.kind === 'channel' ? (
+                    <Hash size={16} />
+                  ) : suggestion.kind === 'server' ? (
+                    <ServerIcon size={16} />
+                  ) : (
+                    <AtSign size={16} />
+                  )}
+                </span>
+              )}
+              <span className="min-w-0 flex-1 text-left">
+                <span className="block truncate font-medium">{suggestion.label}</span>
+                {suggestion.description && (
+                  <span className="block truncate text-xs text-text-muted">
+                    {suggestion.description}
+                  </span>
+                )}
               </span>
-              <span className="text-text-muted text-xs">@{member.user?.username}</span>
-              {member.user?.isBot && (
+              {suggestion.isBot && (
                 <span className="text-[11px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-medium ml-auto">
                   {t('common.bot')}
                 </span>

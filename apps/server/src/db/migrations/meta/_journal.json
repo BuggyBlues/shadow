@@ -330,6 +330,20 @@
       "when": 1777545600000,
       "tag": "0046_cloud_agent_usage_snapshots",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1777651200000,
+      "tag": "0047_channel_join_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1777737600000,
+      "tag": "0048_notification_event_model",
+      "breakpoints": true
     }
   ]
 }

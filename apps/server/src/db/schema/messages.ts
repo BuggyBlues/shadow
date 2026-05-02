@@ -20,6 +20,25 @@ export interface MessageAgentChainMetadata {
   rootMessageId?: string
 }
 
+export interface MessageMentionMetadata {
+  kind: 'user' | 'buddy' | 'channel' | 'server' | 'here' | 'everyone'
+  targetId: string
+  token: string
+  label: string
+  range?: { start: number; end: number }
+  serverId?: string
+  serverSlug?: string | null
+  serverName?: string | null
+  channelId?: string
+  channelName?: string | null
+  userId?: string
+  username?: string | null
+  displayName?: string | null
+  avatarUrl?: string | null
+  isBot?: boolean
+  isPrivate?: boolean
+}
+
 /**
  * Message metadata structure.
  * Can contain various metadata like agent chain info, custom data, etc.
@@ -27,6 +46,8 @@ export interface MessageAgentChainMetadata {
 export interface MessageMetadata {
   /** Agent chain metadata for Buddy-to-Buddy conversations */
   agentChain?: MessageAgentChainMetadata
+  /** Structured user/channel/server mentions resolved and permission-checked at send time. */
+  mentions?: MessageMentionMetadata[]
   /** Custom metadata extensions */
   [key: string]: unknown
 }

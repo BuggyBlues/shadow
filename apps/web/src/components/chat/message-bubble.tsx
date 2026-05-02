@@ -1,13 +1,18 @@
+import type { MessageMention } from '@shadowob/shared'
+import { segmentTextByMentions } from '@shadowob/shared'
 import { Button, cn } from '@shadowob/ui'
 import { type InfiniteData, useQueryClient } from '@tanstack/react-query'
 import { format, formatDistanceToNow, type Locale } from 'date-fns'
 import { enUS, ja, ko, zhCN, zhTW } from 'date-fns/locale'
 import {
   AlertCircle,
+  AtSign,
   Check,
   CheckSquare,
   Copy,
   ExternalLink,
+  Hash,
+  Lock,
   MoreHorizontal,
   Pencil,
   Reply,
@@ -70,6 +75,7 @@ export interface Message {
   attachments?: Attachment[]
   /** Optional metadata blob — includes interactive blocks (Phase 2). */
   metadata?: {
+    mentions?: MessageMention[]
     interactive?: InteractiveBlock
     interactiveResponse?: InteractiveResponseMetadata
     interactiveState?: InteractiveStateMetadata
@@ -471,8 +477,73 @@ function MessageBubbleInner({
     [membersList],
   )
 
+  const structuredMentions = useMemo(() => {
+    return Array.isArray(message.metadata?.mentions)
+      ? (message.metadata.mentions as MessageMention[]).filter((mention) => mention.token)
+      : []
+  }, [message.metadata])
+
+  const resolveLegacyEntityMention = useCallback(
+    (token: string): MessageMention | null => {
+      const key = token.slice(1).toLocaleLowerCase()
+      if (!key) return null
+
+      if (token.startsWith('@')) {
+        const hasUserMatch = membersList.some((member) => {
+          const username = member.user?.username?.toLocaleLowerCase()
+          const displayName = member.user?.displayName?.toLocaleLowerCase()
+          return username === key || displayName === key
+        })
+        if (hasUserMatch) return null
+
+        const serverRows = queryClient.getQueriesData<LegacyServerEntry[]>({
+          queryKey: ['servers'],
+        })
+        const servers = serverRows.flatMap(([, data]) => (Array.isArray(data) ? data : []))
+        const server = servers.find((candidate) => {
+          return (
+            candidate.slug?.toLocaleLowerCase() === key ||
+            candidate.name.toLocaleLowerCase() === key
+          )
+        })
+        if (!server) return null
+        return {
+          kind: 'server',
+          targetId: server.id,
+          token,
+          sourceToken: token,
+          label: `@${server.name}`,
+          serverId: server.id,
+          serverSlug: server.slug,
+          serverName: server.name,
+        }
+      }
+
+      if (!token.startsWith('#')) return null
+      const channelRows = queryClient.getQueriesData<LegacyChannelEntry[]>({
+        queryKey: ['channels'],
+      })
+      const channels = channelRows.flatMap(([, data]) => (Array.isArray(data) ? data : []))
+      const channel = channels.find((candidate) => candidate.name.toLocaleLowerCase() === key)
+      if (!channel || !serverId) return null
+
+      return {
+        kind: 'channel',
+        targetId: channel.id,
+        token,
+        sourceToken: token,
+        label: `#${channel.name}`,
+        channelId: channel.id,
+        channelName: channel.name,
+        serverId,
+        isPrivate: channel.isPrivate,
+      }
+    },
+    [membersList, queryClient, serverId],
+  )
+
   /**
-   * Process react children to highlight @username mention patterns.
+   * Process react children to highlight structured mentions and legacy @username patterns.
    */
   const renderMentions = useCallback(
     (children: React.ReactNode): React.ReactNode => {
@@ -480,19 +551,54 @@ function MessageBubbleInner({
       const childArray = Array.isArray(children) ? children : [children]
       return childArray.map((child, idx) => {
         if (typeof child !== 'string') return child
-        const parts = child.split(/(@[A-Za-z0-9_-]+)/g)
-        if (parts.length === 1) return child
-        return parts.map((part, pi) => {
-          if (/^@[A-Za-z0-9_-]+$/.test(part)) {
-            return (
-              <MentionSpan key={`${idx}-${pi}`} mention={part} label={resolveMentionLabel(part)} />
-            )
+        const structuredSegments = segmentTextByMentions(child, structuredMentions)
+        const hasStructuredMention = structuredSegments.some(
+          (segment) => segment.type === 'mention',
+        )
+        const parts = hasStructuredMention
+          ? structuredSegments
+          : [{ type: 'text' as const, text: child }]
+
+        return parts.flatMap((part, pi) => {
+          if (part.type === 'mention') {
+            const structuredMention = part.mention
+            if (structuredMention.kind === 'user' || structuredMention.kind === 'buddy') {
+              return [
+                <MentionSpan
+                  key={`${idx}-${pi}`}
+                  mention={part.text}
+                  label={structuredMention.label}
+                  structuredMention={structuredMention}
+                />,
+              ]
+            }
+            return [<EntityMentionSpan key={`${idx}-${pi}`} mention={structuredMention} />]
           }
-          return part
+
+          const legacyParts = part.text.split(/([@#][\p{L}\p{N}_-]+)/gu).filter(Boolean)
+          if (legacyParts.length === 1) return [part.text]
+          return legacyParts.map((legacyPart, legacyIndex) => {
+            const legacyEntity = resolveLegacyEntityMention(legacyPart)
+            if (legacyEntity) {
+              return (
+                <EntityMentionSpan key={`${idx}-${pi}-${legacyIndex}`} mention={legacyEntity} />
+              )
+            }
+            if (/^@[\p{L}\p{N}_-]+$/u.test(legacyPart)) {
+              return (
+                <MentionSpan
+                  key={`${idx}-${pi}-${legacyIndex}`}
+                  mention={legacyPart}
+                  label={resolveMentionLabel(legacyPart)}
+                />
+              )
+            }
+            return legacyPart
+          })
         })
       })
     },
-    [resolveMentionLabel],
+    [resolveLegacyEntityMention, resolveMentionLabel, structuredMentions],
   )
 
   const markdownContent = useMemo(() => message.content, [message.content])
@@ -1657,7 +1763,297 @@ interface BuddyAgentEntry {
   } | null
 }
 
-function MentionSpan({ mention, label }: { mention: string; label?: string }) {
+interface LegacyChannelEntry {
+  id: string
+  name: string
+  isPrivate?: boolean
+}
+
+interface LegacyServerEntry {
+  id: string
+  name: string
+  slug?: string | null
+}
+
+type EntityPopoverPosition = {
+  left: number
+  top: number
+  placement: 'top' | 'bottom'
+  arrowLeft: number
+}
+
+const ENTITY_MENTION_POPOVER_WIDTH = 320
+const ENTITY_MENTION_POPOVER_HEIGHT = 178
+const ENTITY_MENTION_POPOVER_GAP = 12
+const ENTITY_MENTION_POPOVER_MARGIN = 12
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max)
+}
+
+function prefixedEntityLabel(prefix: '@' | '#', value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) return prefix
+  return trimmed.startsWith(prefix) ? trimmed : `${prefix}${trimmed}`
+}
+
+function EntityMentionSpan({ mention }: { mention: MessageMention }) {
+  const { t } = useTranslation()
+  const [showCard, setShowCard] = useState(false)
+  const [cardPos, setCardPos] = useState<EntityPopoverPosition | null>(null)
+  const [copied, setCopied] = useState(false)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const spanRef = useRef<HTMLButtonElement>(null)
+
+  const isUnknownPrivateChannel =
+    mention.kind === 'channel' && mention.isPrivate === true && !mention.channelId
+
+  const targetPath = useMemo(() => {
+    if (mention.kind === 'channel' && mention.channelId && mention.serverId) {
+      const serverSegment = mention.serverSlug || mention.serverId
+      return `/app/servers/${serverSegment}/channels/${mention.channelId}`
+    }
+    if (mention.kind === 'server' && mention.serverId) {
+      const serverSegment = mention.serverSlug || mention.serverId
+      return `/app/servers/${serverSegment}`
+    }
+    return null
+  }, [mention])
+
+  const navigate = useCallback(() => {
+    if (!targetPath) return
+    window.location.href = targetPath
+  }, [targetPath])
+
+  const computeCardPos = useCallback(() => {
+    if (!spanRef.current) return
+    const rect = spanRef.current.getBoundingClientRect()
+    const triggerCenter = rect.left + rect.width / 2
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+    const maxLeft = Math.max(
+      ENTITY_MENTION_POPOVER_MARGIN,
+      viewportWidth - ENTITY_MENTION_POPOVER_WIDTH - ENTITY_MENTION_POPOVER_MARGIN,
+    )
+    const left = clamp(
+      triggerCenter - ENTITY_MENTION_POPOVER_WIDTH / 2,
+      ENTITY_MENTION_POPOVER_MARGIN,
+      maxLeft,
+    )
+    const availableTop = rect.top - ENTITY_MENTION_POPOVER_GAP - ENTITY_MENTION_POPOVER_MARGIN
+    const availableBottom =
+      viewportHeight - rect.bottom - ENTITY_MENTION_POPOVER_GAP - ENTITY_MENTION_POPOVER_MARGIN
+    const placement =
+      availableTop >= ENTITY_MENTION_POPOVER_HEIGHT || availableTop > availableBottom
+        ? 'top'
+        : 'bottom'
+    const desiredTop =
+      placement === 'top'
+        ? rect.top - ENTITY_MENTION_POPOVER_HEIGHT - ENTITY_MENTION_POPOVER_GAP
+        : rect.bottom + ENTITY_MENTION_POPOVER_GAP
+    const maxTop = Math.max(
+      ENTITY_MENTION_POPOVER_MARGIN,
+      viewportHeight - ENTITY_MENTION_POPOVER_HEIGHT - ENTITY_MENTION_POPOVER_MARGIN,
+    )
+    setCardPos({
+      left,
+      top: clamp(desiredTop, ENTITY_MENTION_POPOVER_MARGIN, maxTop),
+      placement,
+      arrowLeft: clamp(triggerCenter - left, 24, ENTITY_MENTION_POPOVER_WIDTH - 24),
+    })
+  }, [])
+
+  const handleMouseEnter = useCallback(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    timeoutRef.current = setTimeout(() => {
+      computeCardPos()
+      setShowCard(true)
+    }, 250)
+  }, [computeCardPos])
+
+  const handleMouseLeave = useCallback(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    timeoutRef.current = setTimeout(() => setShowCard(false), 180)
+  }, [])
+
+  useEffect(() => {
+    if (!showCard) return
+    const updatePosition = () => computeCardPos()
+    window.addEventListener('resize', updatePosition)
+    window.addEventListener('scroll', updatePosition, true)
+    return () => {
+      window.removeEventListener('resize', updatePosition)
+      window.removeEventListener('scroll', updatePosition, true)
+    }
+  }, [computeCardPos, showCard])
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current)
+    }
+  }, [])
+
+  const copyTargetLink = useCallback(
+    async (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation()
+      if (!targetPath) return
+      const absoluteUrl = new URL(targetPath, window.location.origin).toString()
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(absoluteUrl)
+      } else {
+        const textarea = document.createElement('textarea')
+        textarea.value = absoluteUrl
+        textarea.setAttribute('readonly', 'true')
+        textarea.style.position = 'fixed'
+        textarea.style.opacity = '0'
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+      }
+      setCopied(true)
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current)
+      copyTimeoutRef.current = setTimeout(() => setCopied(false), 1200)
+    },
+    [targetPath],
+  )
+
+  const channelName =
+    mention.channelName ??
+    mention.label?.replace(/^#/, '') ??
+    mention.sourceToken?.replace(/^#/, '') ??
+    mention.token
+  const serverName =
+    mention.serverName ??
+    mention.label?.replace(/^@/, '') ??
+    mention.sourceToken?.replace(/^@/, '') ??
+    mention.token
+  const displayLabel = isUnknownPrivateChannel
+    ? prefixedEntityLabel('#', t('channel.privateChannel'))
+    : mention.label || mention.sourceToken || mention.token
+  const title = isUnknownPrivateChannel
+    ? prefixedEntityLabel('#', t('channel.privateChannel'))
+    : mention.kind === 'channel'
+      ? prefixedEntityLabel('#', channelName)
+      : prefixedEntityLabel('@', serverName)
+  const subtitle =
+    mention.kind === 'channel'
+      ? (mention.serverName ?? '')
+      : (mention.serverSlug ?? mention.serverId ?? '')
+  const openLabel = mention.kind === 'channel' ? t('channel.openChannel') : t('server.openServer')
+  const copyLabel =
+    mention.kind === 'channel' ? t('channel.copyChannelLink') : t('server.copyServerLink')
+
+  const icon =
+    mention.kind === 'channel' ? (
+      isUnknownPrivateChannel || mention.isPrivate ? (
+        <Lock size={22} strokeWidth={2.4} />
+      ) : (
+        <Hash size={24} strokeWidth={2.6} />
+      )
+    ) : (
+      <AtSign size={24} strokeWidth={2.6} />
+    )
+
+  return (
+    <>
+      <button
+        ref={spanRef}
+        type="button"
+        className={cn(
+          'relative inline-flex items-center align-baseline rounded-[6px] bg-primary/15 px-1 text-primary transition hover:bg-primary/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary/70',
+          targetPath ? 'cursor-pointer' : 'cursor-help',
+        )}
+        onClick={navigate}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onFocus={handleMouseEnter}
+        onBlur={handleMouseLeave}
+      >
+        {displayLabel}
+      </button>
+      {showCard &&
+        cardPos &&
+        createPortal(
+          <div
+            className="fixed z-[80]"
+            style={{ left: cardPos.left, top: cardPos.top }}
+            onMouseEnter={() => {
+              if (timeoutRef.current) clearTimeout(timeoutRef.current)
+            }}
+            onMouseLeave={handleMouseLeave}
+          >
+            <div
+              role="dialog"
+              className="relative w-[320px] rounded-lg border border-white/10 bg-[#111722]/95 p-3 text-left shadow-[0_16px_48px_rgba(0,0,0,0.35)] backdrop-blur-xl"
+            >
+              <div
+                className={cn(
+                  'absolute h-3 w-3 rotate-45 border-white/10 bg-[#111722]/95',
+                  cardPos.placement === 'top'
+                    ? '-bottom-1.5 border-b border-r'
+                    : '-top-1.5 border-l border-t',
+                )}
+                style={{ left: cardPos.arrowLeft - 6 }}
+              />
+              <div className="flex items-center gap-3">
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary">
+                  {icon}
+                </div>
+                <div className="min-w-0">
+                  <div className="truncate text-base font-bold text-text-primary">{title}</div>
+                  {subtitle && <div className="truncate text-sm text-text-muted">{subtitle}</div>}
+                </div>
+              </div>
+              {mention.kind === 'channel' && mention.isPrivate && (
+                <div className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs font-medium text-text-muted">
+                  <Lock size={12} />
+                  <span>{t('channel.privateChannel')}</span>
+                </div>
+              )}
+              {targetPath && (
+                <div className="mt-3 flex gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="h-8 flex-1 cursor-pointer rounded-md bg-white/10 text-text-primary hover:bg-white/15"
+                    onClick={navigate}
+                  >
+                    <ExternalLink size={14} />
+                    <span>{openLabel}</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 flex-1 cursor-pointer rounded-md border border-white/10 text-text-secondary hover:bg-white/10 hover:text-text-primary"
+                    onClick={copyTargetLink}
+                  >
+                    <Copy size={14} />
+                    <span>{copied ? t('common.copied') : copyLabel}</span>
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>,
+          document.body,
+        )}
+    </>
+  )
+}
+
+function MentionSpan({
+  mention,
+  label,
+  structuredMention,
+}: {
+  mention: string
+  label?: string
+  structuredMention?: MessageMention
+}) {
   const { t } = useTranslation()
   const [showCard, setShowCard] = useState(false)
   const [pinned, setPinned] = useState(false)
@@ -1669,14 +2065,30 @@ function MentionSpan({ mention, label }: { mention: string; label?: string }) {
   const currentUser = useAuthStore((s) => s.user)
   const queryClient = useQueryClient()
 
-  const username = mention.startsWith('@') ? mention.slice(1) : undefined
+  const username =
+    structuredMention?.username ??
+    (mention.startsWith('@') ? mention.slice(1) : structuredMention?.sourceToken?.slice(1))
+  const userId = structuredMention?.userId ?? structuredMention?.targetId
 
   // Look up user from cached members query
   const members = queryClient.getQueryData<MemberEntry[]>(['members', activeServerId]) ?? []
   const member = members.find(
-    (m) => m.user?.username === username || m.user?.displayName === username,
+    (m) =>
+      m.user?.id === userId || m.user?.username === username || m.user?.displayName === username,
   )
-  const user = member?.user
+  const user =
+    member?.user ??
+    (userId
+      ? {
+          id: userId,
+          username: structuredMention?.username ?? username ?? userId,
+          displayName:
+            structuredMention?.displayName ?? structuredMention?.username ?? username ?? userId,
+          avatarUrl: structuredMention?.avatarUrl ?? null,
+          status: 'offline',
+          isBot: structuredMention?.isBot ?? structuredMention?.kind === 'buddy',
+        }
+      : undefined)
 
   // Buddy metadata
   const buddyAgentsList =

@@ -1,3 +1,5 @@
+import type { MentionSuggestion, MentionSuggestionTrigger, MessageMention } from '@shadowob/shared'
+import { assignMentionRanges, canonicalMentionToken } from '@shadowob/shared'
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as Clipboard from 'expo-clipboard'
 import * as DocumentPicker from 'expo-document-picker'
@@ -9,8 +11,10 @@ import {
   Copy,
   File,
   Hash,
+  Lock,
   MessageSquare,
   Search,
+  Send,
   UserPlus,
   Users,
   X,
@@ -57,6 +61,41 @@ import { normalizeMessage } from '../../../../../src/types/message'
 
 const PAGE_SIZE = 50
 
+function mentionFromSuggestion(
+  suggestion: MentionSuggestion,
+  range?: MessageMention['range'],
+): MessageMention {
+  return {
+    kind: suggestion.kind,
+    targetId: suggestion.targetId,
+    token: canonicalMentionToken(suggestion),
+    sourceToken: suggestion.token,
+    label: suggestion.label,
+    serverId: suggestion.serverId,
+    serverSlug: suggestion.serverSlug,
+    serverName: suggestion.serverName,
+    channelId: suggestion.channelId,
+    channelName: suggestion.channelName,
+    userId: suggestion.userId,
+    username: suggestion.username,
+    displayName: suggestion.displayName,
+    avatarUrl: suggestion.avatarUrl,
+    isBot: suggestion.isBot,
+    isPrivate: suggestion.isPrivate,
+    range,
+  }
+}
+
+function mergeMention(list: MessageMention[], mention: MessageMention): MessageMention[] {
+  const mentionKey = (item: MessageMention) =>
+    `${item.kind}:${item.targetId}:${item.range?.start ?? 'x'}:${item.range?.end ?? 'x'}`
+  return [...list.filter((item) => mentionKey(item) !== mentionKey(mention)), mention]
+}
+
+function mentionsForContent(content: string, mentions: MessageMention[]): MessageMention[] {
+  return assignMentionRanges(content, mentions).slice(0, 20)
+}
+
 export default function ChannelViewScreen() {
   const { serverSlug, channelId } = useLocalSearchParams<{
     serverSlug: string
@@ -90,6 +129,8 @@ export default function ChannelViewScreen() {
   const [showPlusMenu, setShowPlusMenu] = useState(false)
   const [inviteSearch, setInviteSearch] = useState('')
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)
+  const [mentionTrigger, setMentionTrigger] = useState<MentionSuggestionTrigger | null>(null)
+  const [selectedMentions, setSelectedMentions] = useState<MessageMention[]>([])
   const [keyboardVisible, setKeyboardVisible] = useState(false)
   const [keyboardHeight, setKeyboardHeight] = useState(320)
   const [showSearchPanel, setShowSearchPanel] = useState(false)
@@ -148,6 +189,29 @@ export default function ChannelViewScreen() {
     queryFn: () => fetchApi<Channel>(`/api/channels/${channelId}`),
     enabled: !!channelId,
   })
+  const { data: access } = useQuery({
+    queryKey: ['channel-access', channelId],
+    queryFn: () =>
+      fetchApi<{
+        canAccess: boolean
+        joinRequestStatus: 'pending' | 'approved' | 'rejected' | null
+        channel: Channel
+      }>(`/api/channels/${channelId}/access`),
+    enabled: !!channelId,
+  })
+  const canAccessChannel = access?.canAccess ?? false
+
+  const requestAccessMutation = useMutation({
+    mutationFn: () =>
+      fetchApi(`/api/channels/${channelId}/join-requests`, {
+        method: 'POST',
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['channel-access', channelId] })
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
+    },
+  })
 
   // ---------- Channel members ----------
   interface ChannelMember {
@@ -167,7 +231,7 @@ export default function ChannelViewScreen() {
   const { data: channelMembers = [] } = useQuery({
     queryKey: ['channel-members', channelId],
     queryFn: () => fetchApi<ChannelMember[]>(`/api/channels/${channelId}/members`),
-    enabled: !!channelId,
+    enabled: !!channelId && canAccessChannel,
   })
 
   // Server members for invite panel
@@ -215,28 +279,22 @@ export default function ChannelViewScreen() {
     },
   })
 
-  // @mention autocomplete: filter members based on current mention query
-  const mentionResults = useMemo(() => {
-    if (mentionQuery === null) return []
-    const q = mentionQuery.toLowerCase()
-    return channelMembers
-      .filter((m) => {
-        const name = (m.user.displayName || m.user.username).toLowerCase()
-        const uname = m.user.username.toLowerCase()
-        return uname.startsWith(q) || name.includes(q) || uname.includes(q)
+  const { data: mentionSuggestionData } = useQuery({
+    queryKey: ['mention-suggestions', channelId, mentionTrigger, mentionQuery ?? ''],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        channelId: channelId!,
+        trigger: mentionTrigger ?? '@',
+        q: mentionQuery ?? '',
+        limit: '20',
       })
-      .sort((a, b) => {
-        // Prioritize bots, then startsWith matches, then includes
-        const aName = a.user.username.toLowerCase()
-        const bName = b.user.username.toLowerCase()
-        const aBot = a.user.isBot ? -500 : 0
-        const bBot = b.user.isBot ? -500 : 0
-        const aStart = aName.startsWith(q) ? -100 : 0
-        const bStart = bName.startsWith(q) ? -100 : 0
-        return aBot + aStart - (bBot + bStart)
-      })
-      .slice(0, 8)
-  }, [mentionQuery, channelMembers])
+      return fetchApi<{ suggestions: MentionSuggestion[] }>(`/api/mentions/suggest?${params}`)
+    },
+    enabled: Boolean(channelId && mentionTrigger && mentionQuery !== null),
+    staleTime: 5_000,
+  })
+
+  const mentionResults = mentionSuggestionData?.suggestions ?? []
 
   const onlineMemberCount = useMemo(
     () =>
@@ -289,7 +347,10 @@ export default function ChannelViewScreen() {
       return fetchApi<SearchResult[]>(`/api/search/messages?${params.toString()}`)
     },
     enabled:
-      showSearchPanel && searchTab === 'messages' && debouncedSearchQuery.current.length >= 2,
+      canAccessChannel &&
+      showSearchPanel &&
+      searchTab === 'messages' &&
+      debouncedSearchQuery.current.length >= 2,
   })
 
   // Filter members by search query
@@ -303,12 +364,12 @@ export default function ChannelViewScreen() {
   }, [channelMembers, searchQuery])
 
   useEffect(() => {
-    if (channel) {
+    if (channel && canAccessChannel) {
       setActiveChannel(channel.id)
       void setLastChannel(channel.serverId, channel.id)
     }
     return () => setActiveChannel(null)
-  }, [channel, setActiveChannel])
+  }, [canAccessChannel, channel, setActiveChannel])
 
   // ---------- Keyboard visibility tracking ----------
   useEffect(() => {
@@ -362,7 +423,7 @@ export default function ChannelViewScreen() {
       if (!lastPage.hasMore || lastPage.messages.length === 0) return undefined
       return lastPage.messages[0]?.createdAt
     },
-    enabled: !!channelId,
+    enabled: !!channelId && canAccessChannel,
   })
 
   const messages = useMemo(() => {
@@ -507,19 +568,19 @@ export default function ChannelViewScreen() {
   }, [])
 
   useEffect(() => {
-    if (channelId) {
+    if (channelId && canAccessChannel) {
       joinChannelWithAck(channelId)
       return () => {
         leaveChannel(channelId)
       }
     }
-  }, [channelId, joinChannelWithAck])
+  }, [canAccessChannel, channelId, joinChannelWithAck])
 
   // Reconnection: invalidate messages cache on reconnect to catch any missed while offline
   useEffect(() => {
     const socket = getSocket()
     const onReconnect = () => {
-      if (channelId) {
+      if (channelId && canAccessChannel) {
         joinChannelWithAck(channelId)
         queryClient.invalidateQueries({ queryKey: ['messages', channelId] })
       }
@@ -528,7 +589,7 @@ export default function ChannelViewScreen() {
     return () => {
       socket.off('connect', onReconnect)
     }
-  }, [channelId, joinChannelWithAck, queryClient])
+  }, [canAccessChannel, channelId, joinChannelWithAck, queryClient])
 
   // Listen for socket errors (e.g. message:send denied by server)
   useEffect(() => {
@@ -866,7 +927,7 @@ export default function ChannelViewScreen() {
 
   // ---------- Send message ----------
   const insertOptimisticMessage = useCallback(
-    (content: string, replyToId?: string) => {
+    (content: string, replyToId?: string, mentions?: MessageMention[]) => {
       const tempId = `temp-${Date.now()}`
       const optimisticMsg: Message = {
         id: tempId,
@@ -887,6 +948,7 @@ export default function ChannelViewScreen() {
               avatarUrl: currentUser.avatarUrl ?? null,
             }
           : undefined,
+        metadata: mentions && mentions.length > 0 ? { mentions } : undefined,
         sendStatus: 'sending',
       }
 
@@ -954,15 +1016,20 @@ export default function ChannelViewScreen() {
     if (!content && pendingFiles.length === 0) return
     if (sending) return
     setSending(true)
+    const mentionsToSend = mentionsForContent(content, selectedMentions)
 
     // Insert optimistic message immediately
-    const tempId = content ? insertOptimisticMessage(content, replyTo?.id) : null
+    const tempId = content ? insertOptimisticMessage(content, replyTo?.id, mentionsToSend) : null
 
     // Clear input immediately for responsiveness
     const savedContent = content
     const savedReplyTo = replyTo
     const savedPendingFiles = [...pendingFiles]
+    const savedMentions = mentionsToSend
     setInputText('')
+    setSelectedMentions([])
+    setMentionQuery(null)
+    setMentionTrigger(null)
     setReplyTo(null)
     setPendingFiles([])
 
@@ -998,7 +1065,12 @@ export default function ChannelViewScreen() {
       // Try WebSocket for text-only messages, fall back to REST
       const sock = getSocket()
       if (!uploadedAttachments && sock.connected) {
-        sendWsMessage({ channelId: channelId!, content: savedContent, replyToId: savedReplyTo?.id })
+        sendWsMessage({
+          channelId: channelId!,
+          content: savedContent,
+          replyToId: savedReplyTo?.id,
+          mentions: savedMentions,
+        })
         // WS send: message will be confirmed via message:new event which replaces the temp message
         // Set a timeout to mark as failed if no confirmation arrives
         if (tempId) {
@@ -1033,6 +1105,7 @@ export default function ChannelViewScreen() {
             body: JSON.stringify({
               content: savedContent || '\u200B',
               replyToId: savedReplyTo?.id,
+              ...(savedMentions.length > 0 ? { mentions: savedMentions } : {}),
               ...(uploadedAttachments ? { attachments: uploadedAttachments } : {}),
             }),
           },
@@ -1118,9 +1191,10 @@ export default function ChannelViewScreen() {
     (text: string) => {
       setInputText(text)
       handleTyping()
-      // Detect @mention query
-      const match = text.match(/(?:^|\s)@([^\s@]{0,32})$/u)
-      setMentionQuery(match ? match[1]! : null)
+      // Detect mention/reference query
+      const match = text.match(/(?:^|\s)([@#])([^\s@#]{0,128})$/u)
+      setMentionTrigger((match?.[1] as MentionSuggestionTrigger | undefined) ?? null)
+      setMentionQuery(match ? match[2]! : null)
     },
     [handleTyping],
   )
@@ -1130,18 +1204,32 @@ export default function ChannelViewScreen() {
     scheduleSave(inputText, pendingFiles)
   }, [inputText, pendingFiles, scheduleSave])
 
-  // Insert @mention into input
-  const insertMention = useCallback((username: string) => {
-    setInputText((prev) => {
-      const replaced = prev.replace(/(?:^|\s)@([^\s@]{0,32})$/u, (m) => {
-        const prefix = m.startsWith(' ') ? ' ' : ''
-        return `${prefix}@${username} `
-      })
-      return replaced
-    })
-    setMentionQuery(null)
-    inputRef.current?.focus()
-  }, [])
+  // Insert mention/reference into input
+  const insertMention = useCallback(
+    (suggestion: MentionSuggestion) => {
+      const match = inputText.match(/(?:^|\s)([@#])([^\s@#]{0,128})$/u)
+      if (!match || match.index === undefined) return
+
+      const prefix = match[0].startsWith(' ') ? ' ' : ''
+      const start = match.index + prefix.length
+      const before = inputText.slice(0, start)
+      const next = `${before}${suggestion.token} `
+      setInputText(next)
+      setSelectedMentions((prev) =>
+        mergeMention(
+          prev,
+          mentionFromSuggestion(suggestion, {
+            start,
+            end: start + suggestion.token.length,
+          }),
+        ),
+      )
+      setMentionQuery(null)
+      setMentionTrigger(null)
+      inputRef.current?.focus()
+    },
+    [inputText],
+  )
 
   const handleReply = useCallback((msg: Message) => {
     setReplyTo(msg)
@@ -1275,6 +1363,62 @@ export default function ChannelViewScreen() {
   const getItemKey = useCallback((item: TimelineItem) => {
     return item.data.id
   }, [])
+
+  if (access && !access.canAccess) {
+    const gateChannel = access.channel ?? channel
+    const isPending = access.joinRequestStatus === 'pending' || requestAccessMutation.isSuccess
+    return (
+      <View style={[styles.container, { backgroundColor: colors.chatBackground }]}>
+        <View
+          style={[styles.customHeader, { backgroundColor: colors.surface, paddingTop: insets.top }]}
+        >
+          <Pressable
+            onPress={() => router.back()}
+            hitSlop={8}
+            style={({ pressed }) => [styles.headerBackBtn, pressed && { opacity: 0.5 }]}
+          >
+            <ChevronLeft size={26} color={colors.text} />
+          </Pressable>
+          <View style={styles.headerTitleRow}>
+            <Text style={[styles.headerChannel, { color: colors.text }]} numberOfLines={1}>
+              # {gateChannel?.name ?? t('channel.privateChannel')}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.accessGate}>
+          <View style={[styles.accessGateIcon, { backgroundColor: `${colors.primary}18` }]}>
+            <Lock size={32} color={colors.primary} />
+          </View>
+          <Text style={[styles.accessGateTitle, { color: colors.text }]}>
+            # {gateChannel?.name ?? t('channel.privateChannel')}
+          </Text>
+          <Text style={[styles.accessGateDesc, { color: colors.textMuted }]}>
+            {t('channel.privateChannelGateDesc')}
+          </Text>
+          <Pressable
+            disabled={isPending || requestAccessMutation.isPending}
+            onPress={() => requestAccessMutation.mutate()}
+            style={({ pressed }) => [
+              styles.accessGateButton,
+              {
+                backgroundColor: colors.primary,
+                opacity: isPending || requestAccessMutation.isPending ? 0.58 : pressed ? 0.82 : 1,
+              },
+            ]}
+          >
+            {requestAccessMutation.isPending ? (
+              <ActivityIndicator color="#050508" />
+            ) : (
+              <Send size={16} color="#050508" />
+            )}
+            <Text style={styles.accessGateButtonText}>
+              {isPending ? t('channel.requestPending') : t('channel.requestAccess')}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    )
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.chatBackground }]}>
@@ -1424,21 +1568,31 @@ export default function ChannelViewScreen() {
                 styles.mentionRow,
                 pressed && { backgroundColor: colors.surfaceHover },
               ]}
-              onPress={() => insertMention(m.user.username)}
+              onPress={() => insertMention(m)}
             >
-              <Avatar
-                uri={m.user.avatarUrl}
-                name={m.user.displayName || m.user.username}
-                size={24}
-                userId={m.user.id}
-              />
+              {m.kind === 'user' || m.kind === 'buddy' ? (
+                <Avatar
+                  uri={m.avatarUrl ?? null}
+                  name={m.displayName || m.username || m.label}
+                  size={24}
+                  userId={m.userId}
+                />
+              ) : (
+                <View style={[styles.mentionIcon, { backgroundColor: `${colors.primary}18` }]}>
+                  {m.kind === 'channel' ? (
+                    <Hash size={15} color={colors.primary} />
+                  ) : (
+                    <Users size={15} color={colors.primary} />
+                  )}
+                </View>
+              )}
               <Text style={[styles.mentionName, { color: colors.text }]} numberOfLines={1}>
-                {m.user.displayName || m.user.username}
+                {m.label}
               </Text>
               <Text style={[styles.mentionUsername, { color: colors.textMuted }]} numberOfLines={1}>
-                @{m.user.username}
+                {m.description || m.token}
               </Text>
-              {m.user.isBot && (
+              {m.isBot && (
                 <View style={[styles.mentionBotBadge, { backgroundColor: `${colors.primary}20` }]}>
                   <Text style={[styles.mentionBotText, { color: colors.primary }]}>Buddy</Text>
                 </View>
@@ -2265,6 +2419,13 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     gap: spacing.sm,
   },
+  mentionIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   mentionName: {
     fontSize: fontSize.sm,
     fontWeight: '500',
@@ -2484,6 +2645,47 @@ const styles = StyleSheet.create({
   plusPanelLabel: {
     fontSize: fontSize.xs,
     marginTop: 4,
+  },
+  accessGate: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  accessGateIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: radius.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
+  accessGateTitle: {
+    fontSize: fontSize.xl,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  accessGateDesc: {
+    marginTop: spacing.sm,
+    fontSize: fontSize.md,
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  accessGateButton: {
+    marginTop: spacing.xl,
+    minHeight: 46,
+    minWidth: 180,
+    borderRadius: radius.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+  },
+  accessGateButtonText: {
+    color: '#050508',
+    fontSize: fontSize.sm,
+    fontWeight: '800',
   },
   // Search panel
   searchPanel: {

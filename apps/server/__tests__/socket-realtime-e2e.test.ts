@@ -39,6 +39,7 @@ let userId: string
 let userToken: string
 let user2Id: string
 let user2Token: string
+let user2Username: string
 let serverId: string
 let channelId: string
 
@@ -137,6 +138,7 @@ beforeAll(async () => {
     passwordHash: 'not-used',
   })
   user2Id = user2!.id
+  user2Username = user2!.username
   user2Token = signAccessToken({
     userId: user2Id,
     email: user2!.email,
@@ -197,6 +199,236 @@ describe('Socket.IO Real-time (mobile pattern)', () => {
     expect(res2.ok).toBe(true)
   })
 
+  it('gates private channel entry through an approval request without hiding mentions', async () => {
+    const channelService = container.resolve('channelService')
+    const privateChannel = await channelService.create(
+      serverId,
+      {
+        name: `rtm-private-${Date.now()}`,
+        type: 'text',
+        isPrivate: true,
+      },
+      userId,
+    )
+
+    await Promise.all([ws1.joinChannel(channelId), ws2.joinChannel(channelId)])
+    const receivedMention = waitForRawEventMatching<{
+      content: string
+      metadata?: { mentions?: Array<{ kind: string; channelId?: string; isPrivate?: boolean }> }
+    }>(ws2, 'message:new', (msg) => msg.content.includes(`<#${privateChannel.id}>`))
+    ws1.sendMessage({
+      channelId,
+      content: 'See private-room',
+      mentions: [
+        {
+          kind: 'channel',
+          targetId: privateChannel.id,
+          channelId: privateChannel.id,
+          serverId,
+          token: 'private-room',
+          label: `#${privateChannel.name}`,
+        },
+      ],
+    })
+    const mentionMessage = await receivedMention
+    expect(mentionMessage.metadata?.mentions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'channel',
+          channelId: privateChannel.id,
+          isPrivate: true,
+        }),
+      ]),
+    )
+
+    const deniedJoin = await ws2.joinChannel(privateChannel.id)
+    expect(deniedJoin.ok).toBe(false)
+
+    const deniedMessages = await fetch(`${baseUrl}/api/channels/${privateChannel.id}/messages`, {
+      headers: { Authorization: `Bearer ${user2Token}` },
+    })
+    expect(deniedMessages.status).toBe(403)
+
+    const privateMessageRes = await fetch(`${baseUrl}/api/channels/${privateChannel.id}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${userToken}`,
+      },
+      body: JSON.stringify({ content: 'private channel content' }),
+    })
+    expect(privateMessageRes.status).toBe(201)
+    const privateMessage = (await privateMessageRes.json()) as { id: string }
+
+    const deniedSingleMessage = await fetch(`${baseUrl}/api/messages/${privateMessage.id}`, {
+      headers: { Authorization: `Bearer ${user2Token}` },
+    })
+    expect(deniedSingleMessage.status).toBe(403)
+
+    const deniedInteractiveState = await fetch(
+      `${baseUrl}/api/messages/${privateMessage.id}/interactive-state`,
+      {
+        headers: { Authorization: `Bearer ${user2Token}` },
+      },
+    )
+    expect(deniedInteractiveState.status).toBe(403)
+
+    const deniedReactionList = await fetch(
+      `${baseUrl}/api/messages/${privateMessage.id}/reactions`,
+      {
+        headers: { Authorization: `Bearer ${user2Token}` },
+      },
+    )
+    expect(deniedReactionList.status).toBe(403)
+
+    const deniedReaction = await fetch(`${baseUrl}/api/messages/${privateMessage.id}/reactions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${user2Token}`,
+      },
+      body: JSON.stringify({ emoji: '👍' }),
+    })
+    expect(deniedReaction.status).toBe(403)
+
+    const deniedThreadList = await fetch(`${baseUrl}/api/channels/${privateChannel.id}/threads`, {
+      headers: { Authorization: `Bearer ${user2Token}` },
+    })
+    expect(deniedThreadList.status).toBe(403)
+
+    const deniedThreadCreate = await fetch(`${baseUrl}/api/channels/${privateChannel.id}/threads`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${user2Token}`,
+      },
+      body: JSON.stringify({ name: 'blocked thread', parentMessageId: privateMessage.id }),
+    })
+    expect(deniedThreadCreate.status).toBe(403)
+
+    const deniedPins = await fetch(`${baseUrl}/api/channels/${privateChannel.id}/pins`, {
+      headers: { Authorization: `Bearer ${user2Token}` },
+    })
+    expect(deniedPins.status).toBe(403)
+
+    const deniedPin = await fetch(
+      `${baseUrl}/api/channels/${privateChannel.id}/pins/${privateMessage.id}`,
+      {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${user2Token}` },
+      },
+    )
+    expect(deniedPin.status).toBe(403)
+
+    const accessBefore = await fetch(`${baseUrl}/api/channels/${privateChannel.id}/access`, {
+      headers: { Authorization: `Bearer ${user2Token}` },
+    })
+    expect(accessBefore.status).toBe(200)
+    expect(await accessBefore.json()).toEqual(
+      expect.objectContaining({
+        canAccess: false,
+        requiresApproval: true,
+        joinRequestStatus: null,
+      }),
+    )
+
+    const reviewerNotification = waitForRawEventMatching<{
+      kind: string
+      userId: string
+      referenceId: string
+      scopeServerId: string
+      scopeChannelId: string
+      metadata?: { requestId?: string; channelName?: string }
+    }>(
+      ws1,
+      'notification:new',
+      (notification) =>
+        notification.kind === 'channel.access_requested' &&
+        notification.userId === userId &&
+        notification.scopeChannelId === privateChannel.id,
+    )
+    const requestRes = await fetch(`${baseUrl}/api/channels/${privateChannel.id}/join-requests`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${user2Token}` },
+    })
+    expect(requestRes.status).toBe(202)
+    const requestBody = (await requestRes.json()) as { requestId: string; status: string }
+    expect(requestBody.status).toBe('pending')
+    expect(requestBody.requestId).toBeTruthy()
+    await expect(reviewerNotification).resolves.toEqual(
+      expect.objectContaining({
+        kind: 'channel.access_requested',
+        referenceId: requestBody.requestId,
+        scopeServerId: serverId,
+        scopeChannelId: privateChannel.id,
+        metadata: expect.objectContaining({
+          requestId: requestBody.requestId,
+          channelName: privateChannel.name,
+        }),
+      }),
+    )
+
+    const accessPending = await fetch(`${baseUrl}/api/channels/${privateChannel.id}/access`, {
+      headers: { Authorization: `Bearer ${user2Token}` },
+    })
+    expect(await accessPending.json()).toEqual(
+      expect.objectContaining({
+        canAccess: false,
+        joinRequestStatus: 'pending',
+      }),
+    )
+
+    const requesterNotification = waitForRawEventMatching<{
+      kind: string
+      userId: string
+      referenceId: string
+      scopeChannelId: string
+      metadata?: { approved?: boolean }
+    }>(
+      ws2,
+      'notification:new',
+      (notification) =>
+        notification.kind === 'channel.access_approved' &&
+        notification.userId === user2Id &&
+        notification.scopeChannelId === privateChannel.id,
+    )
+    const reviewRes = await fetch(`${baseUrl}/api/channel-join-requests/${requestBody.requestId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${userToken}`,
+      },
+      body: JSON.stringify({ status: 'approved' }),
+    })
+    expect(reviewRes.status).toBe(200)
+    await expect(requesterNotification).resolves.toEqual(
+      expect.objectContaining({
+        kind: 'channel.access_approved',
+        referenceId: privateChannel.id,
+        scopeChannelId: privateChannel.id,
+        metadata: expect.objectContaining({ approved: true }),
+      }),
+    )
+
+    const accessAfter = await fetch(`${baseUrl}/api/channels/${privateChannel.id}/access`, {
+      headers: { Authorization: `Bearer ${user2Token}` },
+    })
+    expect(await accessAfter.json()).toEqual(expect.objectContaining({ canAccess: true }))
+
+    const approvedJoin = await ws2.joinChannel(privateChannel.id)
+    expect(approvedJoin.ok).toBe(true)
+
+    const sendRes = await fetch(`${baseUrl}/api/channels/${privateChannel.id}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${user2Token}`,
+      },
+      body: JSON.stringify({ content: 'Now approved' }),
+    })
+    expect(sendRes.status).toBe(201)
+  })
+
   it('user2 receives message:new when user1 sends via message:send', async () => {
     const received = waitForRawEventMatching<{ content: string; channelId: string }>(
       ws2,
@@ -250,6 +482,152 @@ describe('Socket.IO Real-time (mobile pattern)', () => {
 
     const msg = await received
     expect(msg.content).toBe('Hello from REST API')
+  })
+
+  it('keeps socket replies in the channel and notifies the replied user', async () => {
+    await Promise.all([ws1.joinChannel(channelId), ws2.joinChannel(channelId)])
+
+    const rootRes = await fetch(`${baseUrl}/api/channels/${channelId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${userToken}`,
+      },
+      body: JSON.stringify({ content: 'Reply target for notification test' }),
+    })
+    expect(rootRes.status).toBe(201)
+    const root = (await rootRes.json()) as { id: string }
+
+    const receivedReply = waitForRawEventMatching<{
+      id: string
+      content: string
+      channelId: string
+      replyToId?: string | null
+      threadId?: string | null
+    }>(
+      ws1,
+      'message:new',
+      (msg) =>
+        msg.content === 'Buddy-style channel reply' &&
+        msg.channelId === channelId &&
+        msg.replyToId === root.id,
+    )
+    const receivedNotification = waitForRawEventMatching<{
+      kind: string
+      userId: string
+      referenceId: string
+      scopeChannelId?: string | null
+      metadata?: { preview?: string }
+    }>(
+      ws1,
+      'notification:new',
+      (notification) =>
+        notification.kind === 'message.reply' &&
+        notification.userId === userId &&
+        notification.scopeChannelId === channelId,
+    )
+
+    ws2.sendMessage({
+      channelId,
+      content: 'Buddy-style channel reply',
+      replyToId: root.id,
+    })
+
+    const reply = await receivedReply
+    expect(reply.replyToId).toBe(root.id)
+    expect(reply.threadId ?? null).toBeNull()
+    await expect(receivedNotification).resolves.toEqual(
+      expect.objectContaining({
+        kind: 'message.reply',
+        referenceId: reply.id,
+        scopeChannelId: channelId,
+        metadata: expect.objectContaining({
+          preview: 'Buddy-style channel reply',
+        }),
+      }),
+    )
+  })
+
+  it('suggests and persists structured channel/user mentions', async () => {
+    await Promise.all([ws1.joinChannel(channelId), ws2.joinChannel(channelId)])
+
+    const suggestRes = await fetch(
+      `${baseUrl}/api/mentions/suggest?channelId=${channelId}&trigger=%23&q=rtm`,
+      {
+        headers: { Authorization: `Bearer ${userToken}` },
+      },
+    )
+    expect(suggestRes.status).toBe(200)
+    const suggestBody = (await suggestRes.json()) as {
+      suggestions: Array<{ kind: string; channelId?: string; token: string }>
+    }
+    expect(suggestBody.suggestions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'channel',
+          channelId,
+          token: '#rtm-test-channel',
+        }),
+      ]),
+    )
+
+    const received = waitForRawEventMatching<{
+      content: string
+      metadata?: {
+        mentions?: Array<{ kind: string; targetId: string; token: string; sourceToken?: string }>
+      }
+    }>(
+      ws2,
+      'message:new',
+      (msg) => msg.content.startsWith('Mention ') && (msg.metadata?.mentions?.length ?? 0) >= 2,
+    )
+    const notified = waitForRawEventMatching<{ type: string; userId: string }>(
+      ws2,
+      'notification:new',
+      (notification) => notification.type === 'mention' && notification.userId === user2Id,
+    )
+
+    ws1.sendMessage({
+      channelId,
+      content: `Mention ${user2Username} and channel`,
+      mentions: [
+        {
+          kind: 'user',
+          targetId: user2Id,
+          userId: user2Id,
+          token: user2Username,
+          label: user2Username,
+        },
+        {
+          kind: 'channel',
+          targetId: channelId,
+          channelId,
+          serverId,
+          token: 'channel',
+          label: '#rtm-test-channel',
+        },
+      ],
+    })
+
+    const msg = await received
+    expect(msg.content).toBe(`Mention <@${user2Id}> and <#${channelId}>`)
+    expect(msg.metadata?.mentions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'user',
+          targetId: user2Id,
+          token: `<@${user2Id}>`,
+          sourceToken: user2Username,
+        }),
+        expect.objectContaining({
+          kind: 'channel',
+          targetId: channelId,
+          token: `<#${channelId}>`,
+          sourceToken: 'channel',
+        }),
+      ]),
+    )
+    await notified
   })
 
   it('user1 receives message:typing from user2', async () => {

@@ -732,6 +732,7 @@ export type CloudApiClient = typeof api & {
     resourceTier?: string
     configSnapshot?: Record<string, unknown>
     envVars?: Record<string, string>
+    runtimeContext?: { locale?: string; timezone?: string }
   }) => Promise<{
     success: boolean
     error?: string

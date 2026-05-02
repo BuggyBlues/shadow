@@ -4,6 +4,11 @@
 
 import type * as pulumi from '@pulumi/pulumi'
 import type { CloudConfig } from '../config/schema.js'
+import {
+  type DeploymentRuntimeContext,
+  normalizeDeploymentRuntimeContext,
+  runtimeContextEnv,
+} from '../utils/runtime-context.js'
 import { createAgentDeployment } from './agent-deployment.js'
 import { createConfigResources } from './config-resources.js'
 import {
@@ -37,6 +42,8 @@ export interface InfraOptions {
   shadowServerUrl?: string
   /** Per-deployment runtime env resolved from SaaS/user input. */
   runtimeEnvVars?: Record<string, string>
+  /** Browser/deployment locale and timezone context. */
+  runtimeContext?: DeploymentRuntimeContext
   /** kubectl context for K8s provider — defaults to KUBECONFIG_CONTEXT or 'rancher-desktop' */
   kubeContext?: string
   /** Path to a kubeconfig YAML file — takes precedence over kubeContext when set */
@@ -56,6 +63,7 @@ export interface InfraOptions {
 export function createInfraProgram(options: InfraOptions) {
   return async () => {
     const { config, namespace, shadowServerUrl, runtimeEnvVars, imagePullPolicy } = options
+    const runtimeContext = normalizeDeploymentRuntimeContext(options.runtimeContext)
     const agents = config.deployments?.agents ?? []
 
     const outputs: Record<string, pulumi.Output<string>> = {}
@@ -83,7 +91,11 @@ export function createInfraProgram(options: InfraOptions) {
       const healthPort = healthPortForRuntime(agent.runtime)
 
       // Build env vars from agent-level env (populated by plugin onProvision hooks)
-      const env = { ...(agent.env ?? {}), ...(runtimeEnvVars ?? {}) }
+      const env = {
+        ...runtimeContextEnv(runtimeContext),
+        ...(agent.env ?? {}),
+        ...(runtimeEnvVars ?? {}),
+      }
 
       // The k8s shadow URL (pod-shadow-url) must override the provision URL
       // that onProvision wrote into agent.env.SHADOW_SERVER_URL.
@@ -95,6 +107,7 @@ export function createInfraProgram(options: InfraOptions) {
         agent,
         config,
         extraEnv: env,
+        runtimeContext,
       })
       const image = agent.image ?? DEFAULT_IMAGES[agent.runtime] ?? DEFAULT_OPENCLAW_RUNNER_IMAGE
       const runtimePackageHash = stableHash({
@@ -166,6 +179,7 @@ export function createInfraProgram(options: InfraOptions) {
  */
 export function buildManifests(options: InfraOptions) {
   const { config, namespace, shadowServerUrl, runtimeEnvVars, imagePullPolicy } = options
+  const runtimeContext = normalizeDeploymentRuntimeContext(options.runtimeContext)
   const agents = config.deployments?.agents ?? []
   const manifests: Array<Record<string, unknown>> = []
 
@@ -224,7 +238,11 @@ export function buildManifests(options: InfraOptions) {
 
   for (const agent of agents) {
     const agentName = agent.id
-    const env = { ...(agent.env ?? {}), ...(runtimeEnvVars ?? {}) }
+    const env = {
+      ...runtimeContextEnv(runtimeContext),
+      ...(agent.env ?? {}),
+      ...(runtimeEnvVars ?? {}),
+    }
 
     // The k8s shadow URL (pod-shadow-url) must override the provision URL
     // that onProvision wrote into agent.env.SHADOW_SERVER_URL.
@@ -236,6 +254,7 @@ export function buildManifests(options: InfraOptions) {
       agent,
       config,
       extraEnv: env,
+      runtimeContext,
     })
 
     manifests.push({

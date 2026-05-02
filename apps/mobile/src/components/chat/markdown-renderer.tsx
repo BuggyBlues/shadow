@@ -1,3 +1,5 @@
+import type { MessageMention } from '@shadowob/shared'
+import { buildMentionMarkdownLinks } from '@shadowob/shared'
 import * as Clipboard from 'expo-clipboard'
 import { useRouter } from 'expo-router'
 import { Check, Copy } from 'lucide-react-native'
@@ -135,12 +137,14 @@ const codeStyles = StyleSheet.create({
 interface MarkdownRendererProps {
   content: string
   mentionMap?: Map<string, string>
+  mentions?: MessageMention[]
   selectable?: boolean
 }
 
 export function MarkdownRenderer({
   content,
   mentionMap,
+  mentions = [],
   selectable = true,
 }: MarkdownRendererProps) {
   const colors = useColors()
@@ -149,12 +153,25 @@ export function MarkdownRenderer({
   // Pre-process @mentions into markdown links
   const processedContent = useMemo(() => {
     if (!content || content === '\u200B') return ''
-    return content.replace(/@(\w+)/g, (_match, username) => {
+    const structured = buildMentionMarkdownLinks(content, mentions, (mention) => {
+      if (mention.kind === 'channel' && mention.channelId && mention.serverId) {
+        return `shadow-channel://${mention.serverSlug || mention.serverId}/${mention.channelId}`
+      }
+      if (mention.kind === 'server' && mention.serverId) {
+        return `shadow-server://${mention.serverSlug || mention.serverId}`
+      }
+      if ((mention.kind === 'user' || mention.kind === 'buddy') && mention.userId) {
+        return `mention://${mention.userId}`
+      }
+      return null
+    }).markdown
+
+    return structured.replace(/(^|[^\[])@(\w+)/g, (_match, prefix, username) => {
       const userId = mentionMap?.get(username)
-      if (userId) return `[@${username}](mention://${userId})`
-      return `**@${username}**`
+      if (userId) return `${prefix}[@${username}](mention://${userId})`
+      return `${prefix}**@${username}**`
     })
-  }, [content, mentionMap])
+  }, [content, mentionMap, mentions])
 
   // Parse into segments
   const segments = useMemo(() => parseSegments(processedContent), [processedContent])
@@ -295,6 +312,19 @@ export function MarkdownRenderer({
       if (url.startsWith('mention://')) {
         const userId = url.replace('mention://', '')
         router.push(`/(main)/profile/${userId}` as never)
+        return
+      }
+      if (url.startsWith('shadow-channel://')) {
+        const path = url.replace('shadow-channel://', '')
+        const [serverIdOrSlug, channelId] = path.split('/')
+        if (serverIdOrSlug && channelId) {
+          router.push(`/(main)/servers/${serverIdOrSlug}/channels/${channelId}` as never)
+        }
+        return
+      }
+      if (url.startsWith('shadow-server://')) {
+        const serverIdOrSlug = url.replace('shadow-server://', '')
+        if (serverIdOrSlug) router.push(`/(main)/servers/${serverIdOrSlug}` as never)
         return
       }
       // Open external URLs in webview previewer

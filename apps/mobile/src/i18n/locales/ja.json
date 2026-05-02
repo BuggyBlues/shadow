@@ -317,7 +317,12 @@
     "homepageHtmlPlaceholder": "<h1>ようこそ！</h1>\n<p>これはサーバーのホームページです。</p>",
     "homepageHtmlDesc": "サーバーホームページのカスタムHTML。空にするとデフォルトが使用されます。",
     "privateChannel": "プライベートチャンネル",
-    "privateChannelDesc": "招待されたメンバーのみ参加可能"
+    "privateChannelDesc": "招待されたメンバーのみ参加可能",
+    "privateChannelGateDesc": "このチャンネルはメンションできますが、参加にはチャンネルメンバーまたはサーバー管理者の承認が必要です。",
+    "requestAccess": "参加を申請",
+    "requestPending": "申請中",
+    "approveAccess": "承認",
+    "rejectAccess": "拒否"
   },
   "chat": {
     "selectChannel": "チャンネルを選んでチャットを始めましょう",
@@ -821,7 +826,25 @@
     "title": "通知",
     "markAllRead": "すべて既読",
     "markRead": "既読にする",
-    "empty": "通知はありません"
+    "empty": "通知はありません",
+    "messageMention": "{{actorName}} さんがあなたをメンションしました",
+    "messageMentionCount": "{{count}} 件の新しいメンション",
+    "messageReply": "{{actorName}} さんが返信しました",
+    "messageReplyCount": "{{count}} 件の新しい返信",
+    "dmMessage": "{{actorName}} さんからダイレクトメッセージ",
+    "dmMessageCount": "{{count}} 件の新しいダイレクトメッセージ",
+    "channelAccessRequested": "{{actorName}} さんが #{{channelName}} への参加を申請しました",
+    "channelAccessRequestedBody": "非公開チャンネルへの参加申請を確認してください。",
+    "channelAccessApproved": "#{{channelName}} への参加が承認されました",
+    "channelAccessRejected": "#{{channelName}} への参加が拒否されました",
+    "channelMemberAdded": "#{{channelName}} に追加されました",
+    "inServer": "{{serverName}} 内",
+    "serverMemberJoined": "{{actorName}} さんが {{serverName}} に参加しました",
+    "serverMemberJoinedCount": "{{count}} 人が {{serverName}} に参加しました",
+    "serverInvite": "{{actorName}} さんが {{serverName}} に招待しました",
+    "friendshipRequest": "{{actorName}} さんからフレンド申請が届きました",
+    "rechargeSucceeded": "チャージが完了しました",
+    "rechargeSucceededBody": "{{amount}} シュリンプコインが反映されました"
   },
   "agentMgmt": {
     "title": "Buddy 管理",

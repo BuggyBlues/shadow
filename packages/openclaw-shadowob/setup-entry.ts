@@ -1,4 +1,4 @@
 import { defineSetupPluginEntry } from 'openclaw/plugin-sdk/core'
-import { shadowPlugin } from './src/channel.js'
+import { shadowSetupPlugin } from './src/channel/setup.js'
 
-export default defineSetupPluginEntry(shadowPlugin)
+export default defineSetupPluginEntry(shadowSetupPlugin)

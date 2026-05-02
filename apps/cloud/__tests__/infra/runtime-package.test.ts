@@ -355,6 +355,56 @@ describe('buildManifests', () => {
     )
   })
 
+  it('writes deployment locale and timezone into OpenClaw config and pod env', () => {
+    const config: CloudConfig = {
+      version: '1',
+      deployments: {
+        agents: [
+          {
+            id: 'local-agent',
+            runtime: 'openclaw',
+            identity: {
+              systemPrompt: 'Follow deployment context.',
+            },
+            configuration: {},
+          },
+        ],
+      },
+    }
+
+    const manifests = buildManifests({
+      config,
+      namespace: 'runtime-context',
+      runtimeContext: {
+        locale: 'zh-CN',
+        timezone: 'Asia/Shanghai',
+      },
+    })
+    const configMap = manifests.find(
+      (manifest) =>
+        manifest.kind === 'ConfigMap' && manifest.metadata?.name === 'local-agent-config',
+    )!
+    const deployment = manifests.find(
+      (manifest) => manifest.kind === 'Deployment' && manifest.metadata?.name === 'local-agent',
+    )!
+    const configData = configMap.data as Record<string, string>
+    const openclawConfig = JSON.parse(configData['config.json']!)
+    const env = (
+      deployment.spec as {
+        template: { spec: { containers: Array<{ env: Array<{ name: string; value: string }> }> } }
+      }
+    ).template.spec.containers[0]!.env
+
+    expect(openclawConfig.agents.defaults).toMatchObject({
+      userTimezone: 'Asia/Shanghai',
+      envelopeTimezone: 'user',
+      timeFormat: '24',
+    })
+    expect(configData['SOUL.md']).toContain('Default user locale: zh-CN')
+    expect(configData['SOUL.md']).toContain('User timezone: Asia/Shanghai')
+    expect(env).toEqual(expect.arrayContaining([{ name: 'TZ', value: 'Asia/Shanghai' }]))
+  })
+
   it('keeps immutable and local runner images cacheable unless explicitly overridden', () => {
     const baseAgent = {
       id: 'agent-1',

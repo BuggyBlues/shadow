@@ -16,6 +16,7 @@ import type { AgentDeployment, CloudConfig, Configuration } from '../config/sche
 import { type SecurityViolation, validateNoInlineKeys } from '../config/security.js'
 import { collectTemplateRefs, type TemplateContext } from '../config/template.js'
 import { deepMerge } from '../utils/deep-merge.js'
+import type { DeploymentRuntimeContext } from '../utils/runtime-context.js'
 
 export class ConfigService {
   /** Parse and validate a cloud config file using typia. */
@@ -38,8 +39,9 @@ export class ConfigService {
     config: CloudConfig,
     cwd?: string,
     env?: Record<string, string | undefined>,
+    runtimeContext?: DeploymentRuntimeContext,
   ) {
-    return buildOpenClawConfig(agent, config, cwd, env)
+    return buildOpenClawConfig(agent, config, cwd, env, runtimeContext)
   }
 
   /**

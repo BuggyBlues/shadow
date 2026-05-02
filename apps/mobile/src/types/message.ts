@@ -3,6 +3,8 @@
  * Canonical shapes used throughout the mobile app.
  */
 
+import type { MessageMention } from '@shadowob/shared'
+
 export interface Author {
   id: string
   username: string
@@ -87,6 +89,7 @@ export interface InteractiveStateMetadata {
 }
 
 export interface MessageMetadata {
+  mentions?: MessageMention[]
   interactive?: InteractiveBlock
   interactiveResponse?: InteractiveResponseMetadata
   interactiveState?: InteractiveStateMetadata

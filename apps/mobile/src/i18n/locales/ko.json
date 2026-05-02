@@ -317,7 +317,12 @@
     "homepageHtmlPlaceholder": "<h1>환영합니다!</h1>\n<p>이것은 서버 홈페이지입니다.</p>",
     "homepageHtmlDesc": "서버 홈페이지의 사용자 정의 HTML. 비워두면 기본값이 사용됩니다.",
     "privateChannel": "비공개 채널",
-    "privateChannelDesc": "초대된 멤버만 참여 가능"
+    "privateChannelDesc": "초대된 멤버만 참여 가능",
+    "privateChannelGateDesc": "이 채널은 멘션할 수 있지만, 참가하려면 채널 멤버 또는 서버 관리자의 승인이 필요합니다.",
+    "requestAccess": "참가 요청",
+    "requestPending": "요청 대기 중",
+    "approveAccess": "승인",
+    "rejectAccess": "거절"
   },
   "chat": {
     "selectChannel": "채널을 선택하여 채팅을 시작하세요",
@@ -821,7 +826,25 @@
     "title": "알림",
     "markAllRead": "모두 읽음",
     "markRead": "읽음 표시",
-    "empty": "알림 없음"
+    "empty": "알림 없음",
+    "messageMention": "{{actorName}}님이 나를 멘션했습니다",
+    "messageMentionCount": "새 멘션 {{count}}개",
+    "messageReply": "{{actorName}}님이 답글을 남겼습니다",
+    "messageReplyCount": "새 답글 {{count}}개",
+    "dmMessage": "{{actorName}}님이 다이렉트 메시지를 보냈습니다",
+    "dmMessageCount": "새 다이렉트 메시지 {{count}}개",
+    "channelAccessRequested": "{{actorName}}님이 #{{channelName}} 참여를 요청했습니다",
+    "channelAccessRequestedBody": "비공개 채널 참여 요청을 검토하세요.",
+    "channelAccessApproved": "#{{channelName}} 참여가 승인되었습니다",
+    "channelAccessRejected": "#{{channelName}} 참여가 거절되었습니다",
+    "channelMemberAdded": "#{{channelName}}에 추가되었습니다",
+    "inServer": "{{serverName}} 서버",
+    "serverMemberJoined": "{{actorName}}님이 {{serverName}}에 참여했습니다",
+    "serverMemberJoinedCount": "{{count}}명이 {{serverName}}에 참여했습니다",
+    "serverInvite": "{{actorName}}님이 {{serverName}}에 초대했습니다",
+    "friendshipRequest": "{{actorName}}님이 친구 요청을 보냈습니다",
+    "rechargeSucceeded": "충전 완료",
+    "rechargeSucceededBody": "새우 코인 {{amount}}개가 입금되었습니다"
   },
   "agentMgmt": {
     "title": "Buddy 관리",

@@ -554,6 +554,7 @@ async function processDeployment(
     const {
       configSnapshot,
       envVars: runtimeEnvVars,
+      context: runtimeContext,
       provisionState,
     } = extractCloudSaasRuntime(deployment.configSnapshot)
 
@@ -591,6 +592,7 @@ async function processDeployment(
     const result = await container.deploymentRuntime.deployFromSnapshot({
       configSnapshot,
       runtimeEnvVars,
+      runtimeContext,
       namespace: deployment.namespace,
       stack: stackName,
       cluster,

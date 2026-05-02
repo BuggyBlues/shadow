@@ -1,22 +1,38 @@
-import type { NotificationDao } from '../dao/notification.dao'
+import type { CreateNotificationRecord, NotificationDao } from '../dao/notification.dao'
 
-type NotificationType = 'mention' | 'reply' | 'dm' | 'system'
-type NotificationStrategy = 'all' | 'mention_only' | 'none'
+export type NotificationType = 'mention' | 'reply' | 'dm' | 'system'
+export type NotificationStrategy = 'all' | 'mention_only' | 'none'
 
-interface NotificationPreference {
+const DEFAULT_AGGREGATION_WINDOW_MS = 5 * 60 * 1000
+
+export interface NotificationPreference {
   userId: string
   strategy: NotificationStrategy
   mutedServerIds: string[]
   mutedChannelIds: string[]
 }
 
-interface NotificationItem {
+export interface NotificationItem {
   id: string
   userId: string
   type: NotificationType
+  kind?: string | null
   referenceId: string | null
   referenceType: string | null
+  scopeServerId?: string | null
+  scopeChannelId?: string | null
+  scopeDmChannelId?: string | null
+  aggregatedCount?: number | null
   isRead: boolean
+}
+
+export interface NotificationCreateInput extends CreateNotificationRecord {
+  type: NotificationType
+  delivery?: {
+    bypassPreferences?: boolean
+    aggregate?: boolean
+    aggregationWindowMs?: number
+  }
 }
 
 export class NotificationService {
@@ -53,6 +69,25 @@ export class NotificationService {
     return true
   }
 
+  private directScopeBlocked(
+    notification: Pick<
+      NotificationItem,
+      'referenceId' | 'referenceType' | 'scopeServerId' | 'scopeChannelId'
+    >,
+    preference: NotificationPreference,
+  ) {
+    if (notification.scopeChannelId) {
+      if (preference.mutedChannelIds.includes(notification.scopeChannelId)) return true
+    }
+    if (notification.scopeServerId) {
+      if (preference.mutedServerIds.includes(notification.scopeServerId)) return true
+    }
+    if (notification.referenceType === 'server_join' && notification.referenceId) {
+      if (preference.mutedServerIds.includes(notification.referenceId)) return true
+    }
+    return false
+  }
+
   private async filterByPreference(
     notifications: NotificationItem[],
     preference: NotificationPreference,
@@ -60,48 +95,84 @@ export class NotificationService {
     const base = notifications.filter((n) => this.shouldKeepByStrategy(n.type, preference.strategy))
     if (base.length === 0) return []
 
-    const messageIds = base
-      .filter((n) => n.referenceType === 'message' && n.referenceId)
+    const directAllowed = base.filter((notification) => {
+      return !this.directScopeBlocked(notification, preference)
+    })
+    if (directAllowed.length === 0) return []
+
+    const messageIds = directAllowed
+      .filter((n) => !n.scopeChannelId && n.referenceType === 'message' && n.referenceId)
       .map((n) => n.referenceId!)
-    const channelInviteChannelIds = base
-      .filter((n) => n.referenceType === 'channel_invite' && n.referenceId)
+    const channelReferenceIds = directAllowed
+      .filter(
+        (n) =>
+          !n.scopeChannelId &&
+          (n.referenceType === 'channel_invite' ||
+            n.referenceType === 'channel_join_request' ||
+            n.referenceType === 'channel_access_request') &&
+          n.referenceId,
+      )
       .map((n) => n.referenceId!)
 
     const [messageScopes, channelScopes] = await Promise.all([
       this.deps.notificationDao.findMessageScopesByMessageIds(messageIds),
-      this.deps.notificationDao.findChannelScopes(channelInviteChannelIds),
+      this.deps.notificationDao.findChannelScopes(channelReferenceIds),
     ])
 
     const messageScopeMap = new Map(
       messageScopes.map((s) => [s.messageId, { channelId: s.channelId, serverId: s.serverId }]),
     )
     const channelScopeMap = new Map(
-      channelScopes.map((s) => [s.channelId, { serverId: s.serverId }]),
+      channelScopes.map((s) => [s.channelId, { channelId: s.channelId, serverId: s.serverId }]),
     )
 
-    return base.filter((n) => {
+    return directAllowed.filter((n) => {
       if (!n.referenceId) return true
 
-      if (n.referenceType === 'message') {
+      if (n.referenceType === 'message' && !n.scopeChannelId) {
         const scope = messageScopeMap.get(n.referenceId)
         if (!scope) return true
         if (preference.mutedChannelIds.includes(scope.channelId)) return false
         if (preference.mutedServerIds.includes(scope.serverId)) return false
       }
 
-      if (n.referenceType === 'channel_invite') {
+      if (
+        (n.referenceType === 'channel_invite' ||
+          n.referenceType === 'channel_join_request' ||
+          n.referenceType === 'channel_access_request') &&
+        !n.scopeChannelId
+      ) {
         const scope = channelScopeMap.get(n.referenceId)
         if (!scope) return true
         if (preference.mutedChannelIds.includes(n.referenceId)) return false
         if (preference.mutedServerIds.includes(scope.serverId)) return false
       }
 
-      if (n.referenceType === 'server_join') {
-        if (preference.mutedServerIds.includes(n.referenceId)) return false
-      }
-
       return true
     })
+  }
+
+  private async isAllowedByPreference(input: NotificationCreateInput) {
+    if (input.delivery?.bypassPreferences) return true
+    const preference = await this.getOrInitPreference(input.userId)
+    const filtered = await this.filterByPreference(
+      [
+        {
+          id: 'candidate',
+          userId: input.userId,
+          type: input.type,
+          kind: input.kind,
+          referenceId: input.referenceId ?? null,
+          referenceType: input.referenceType ?? null,
+          scopeServerId: input.scopeServerId ?? null,
+          scopeChannelId: input.scopeChannelId ?? null,
+          scopeDmChannelId: input.scopeDmChannelId ?? null,
+          isRead: false,
+        },
+      ],
+      preference,
+    )
+    return filtered.length > 0
   }
 
   async getByUserId(userId: string, limit?: number, offset?: number) {
@@ -112,20 +183,26 @@ export class NotificationService {
     return this.filterByPreference(notifications, preference)
   }
 
-  async create(data: {
-    userId: string
-    type: 'mention' | 'reply' | 'dm' | 'system'
-    title: string
-    body?: string
-    referenceId?: string
-    referenceType?: string
-    senderId?: string
-  }) {
+  async create(data: NotificationCreateInput) {
+    const allowed = await this.isAllowedByPreference(data)
+    if (!allowed) return null
+
+    const shouldAggregate = data.delivery?.aggregate !== false && Boolean(data.aggregationKey)
+    if (shouldAggregate && data.aggregationKey) {
+      return this.deps.notificationDao.aggregateOrCreate({
+        ...data,
+        aggregationKey: data.aggregationKey,
+        windowStart: new Date(
+          Date.now() - (data.delivery?.aggregationWindowMs ?? DEFAULT_AGGREGATION_WINDOW_MS),
+        ),
+      })
+    }
+
     return this.deps.notificationDao.create(data)
   }
 
-  async markAsRead(id: string) {
-    return this.deps.notificationDao.markAsRead(id)
+  async markAsRead(userId: string, id: string) {
+    return this.deps.notificationDao.markAsRead(userId, id)
   }
 
   async markAllAsRead(userId: string) {
@@ -169,20 +246,38 @@ export class NotificationService {
     ])
     const filtered = await this.filterByPreference(unread, preference)
 
-    const messageIds = filtered
-      .filter((n) => n.referenceType === 'message' && n.referenceId)
+    const missingMessageScopeIds = filtered
+      .filter((n) => !n.scopeChannelId && n.referenceType === 'message' && n.referenceId)
       .map((n) => n.referenceId!)
-    const scopes = await this.deps.notificationDao.findMessageScopesByMessageIds(messageIds)
+    const fallbackMessageScopes =
+      await this.deps.notificationDao.findMessageScopesByMessageIds(missingMessageScopeIds)
+    const fallbackByMessageId = new Map(
+      fallbackMessageScopes.map((s) => [
+        s.messageId,
+        { channelId: s.channelId, serverId: s.serverId },
+      ]),
+    )
 
     const channelUnread: Record<string, number> = {}
     const serverUnread: Record<string, number> = {}
+    const dmUnread: Record<string, number> = {}
 
-    for (const s of scopes) {
-      channelUnread[s.channelId] = (channelUnread[s.channelId] ?? 0) + 1
-      serverUnread[s.serverId] = (serverUnread[s.serverId] ?? 0) + 1
+    for (const notification of filtered) {
+      const count = Math.max(notification.aggregatedCount ?? 1, 1)
+      const fallback =
+        notification.referenceType === 'message' && notification.referenceId
+          ? fallbackByMessageId.get(notification.referenceId)
+          : undefined
+      const channelId = notification.scopeChannelId ?? fallback?.channelId
+      const serverId = notification.scopeServerId ?? fallback?.serverId
+      const dmChannelId = notification.scopeDmChannelId
+
+      if (channelId) channelUnread[channelId] = (channelUnread[channelId] ?? 0) + count
+      if (serverId) serverUnread[serverId] = (serverUnread[serverId] ?? 0) + count
+      if (dmChannelId) dmUnread[dmChannelId] = (dmUnread[dmChannelId] ?? 0) + count
     }
 
-    return { channelUnread, serverUnread }
+    return { channelUnread, serverUnread, dmUnread }
   }
 
   async markScopeAsRead(
@@ -190,56 +285,55 @@ export class NotificationService {
     scope: {
       serverId?: string
       channelId?: string
+      dmChannelId?: string
     },
   ) {
     const unread = await this.deps.notificationDao.findUnreadByUserId(userId)
     if (unread.length === 0) return { updated: 0 }
 
     const messageIds = unread
-      .filter((n) => n.referenceType === 'message' && n.referenceId)
+      .filter((n) => !n.scopeChannelId && n.referenceType === 'message' && n.referenceId)
       .map((n) => n.referenceId!)
-    const channelInviteChannelIds = unread
-      .filter((n) => n.referenceType === 'channel_invite' && n.referenceId)
+    const channelReferenceIds = unread
+      .filter(
+        (n) =>
+          !n.scopeChannelId &&
+          (n.referenceType === 'channel_invite' ||
+            n.referenceType === 'channel_join_request' ||
+            n.referenceType === 'channel_access_request') &&
+          n.referenceId,
+      )
       .map((n) => n.referenceId!)
 
     const [messageScopes, channelScopes] = await Promise.all([
       this.deps.notificationDao.findMessageScopesByMessageIds(messageIds),
-      this.deps.notificationDao.findChannelScopes(channelInviteChannelIds),
+      this.deps.notificationDao.findChannelScopes(channelReferenceIds),
     ])
 
     const messageScopeMap = new Map(
       messageScopes.map((s) => [s.messageId, { channelId: s.channelId, serverId: s.serverId }]),
     )
     const channelScopeMap = new Map(
-      channelScopes.map((s) => [s.channelId, { serverId: s.serverId }]),
+      channelScopes.map((s) => [s.channelId, { channelId: s.channelId, serverId: s.serverId }]),
     )
 
     const matched: string[] = []
 
     for (const n of unread) {
-      if (!n.referenceId) continue
+      const fallback =
+        n.referenceType === 'message' && n.referenceId
+          ? messageScopeMap.get(n.referenceId)
+          : n.referenceId
+            ? channelScopeMap.get(n.referenceId)
+            : undefined
+      const channelId = n.scopeChannelId ?? fallback?.channelId
+      const serverId = n.scopeServerId ?? fallback?.serverId
+      const dmChannelId = n.scopeDmChannelId
 
-      if (n.referenceType === 'message') {
-        const s = messageScopeMap.get(n.referenceId)
-        if (!s) continue
-        const byChannel = scope.channelId ? s.channelId === scope.channelId : true
-        const byServer = scope.serverId ? s.serverId === scope.serverId : true
-        if (byChannel && byServer) matched.push(n.id)
-        continue
-      }
-
-      if (n.referenceType === 'channel_invite') {
-        const s = channelScopeMap.get(n.referenceId)
-        if (!s) continue
-        const byChannel = scope.channelId ? n.referenceId === scope.channelId : true
-        const byServer = scope.serverId ? s.serverId === scope.serverId : true
-        if (byChannel && byServer) matched.push(n.id)
-        continue
-      }
-
-      if (n.referenceType === 'server_join') {
-        if (scope.serverId && n.referenceId === scope.serverId) matched.push(n.id)
-      }
+      const byChannel = scope.channelId ? channelId === scope.channelId : true
+      const byServer = scope.serverId ? serverId === scope.serverId : true
+      const byDm = scope.dmChannelId ? dmChannelId === scope.dmChannelId : true
+      if (byChannel && byServer && byDm) matched.push(n.id)
     }
 
     await this.deps.notificationDao.markAsReadByIds(matched)

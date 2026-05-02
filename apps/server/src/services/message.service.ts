@@ -215,13 +215,17 @@ export class MessageService {
   }
 
   async send(channelId: string, authorId: string, input: SendMessageInput) {
+    const metadata =
+      input.mentions && input.mentions.length > 0
+        ? { ...(input.metadata ?? {}), mentions: input.mentions }
+        : input.metadata
     const message = await this.deps.messageDao.create({
       content: input.content,
       channelId,
       authorId,
       threadId: input.threadId,
       replyToId: input.replyToId,
-      metadata: input.metadata,
+      metadata,
     })
     if (!message) {
       throw Object.assign(new Error('Failed to create message'), { status: 500 })
@@ -347,6 +351,11 @@ export class MessageService {
     if (!message) {
       throw Object.assign(new Error('Parent message not found'), { status: 404 })
     }
+    if (message.channelId !== channelId) {
+      throw Object.assign(new Error('Parent message does not belong to this channel'), {
+        status: 400,
+      })
+    }
 
     return this.deps.messageDao.createThread({
       name: input.name,
@@ -393,7 +402,12 @@ export class MessageService {
   async sendToThread(
     threadId: string,
     userId: string,
-    input: { content: string; metadata?: Record<string, unknown> },
+    input: {
+      content: string
+      replyToId?: string
+      mentions?: SendMessageInput['mentions']
+      metadata?: Record<string, unknown>
+    },
   ) {
     const thread = await this.deps.messageDao.findThreadById(threadId)
     if (!thread) {
@@ -403,12 +417,17 @@ export class MessageService {
       throw Object.assign(new Error('Thread is archived'), { status: 400 })
     }
 
+    const metadata =
+      input.mentions && input.mentions.length > 0
+        ? { ...(input.metadata ?? {}), mentions: input.mentions }
+        : input.metadata
     const message = await this.deps.messageDao.create({
       content: input.content,
       channelId: thread.channelId,
       authorId: userId,
       threadId,
-      metadata: input.metadata,
+      replyToId: input.replyToId,
+      metadata,
     })
 
     const user = await this.deps.userDao.findById(userId)

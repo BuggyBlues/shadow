@@ -809,6 +809,7 @@ export const saasApiAdapter: CloudApiClient & WalletApiExtension = {
     resourceTier?: string
     configSnapshot?: Record<string, unknown>
     envVars?: Record<string, string>
+    runtimeContext?: { locale?: string; timezone?: string }
   }) => {
     try {
       const created = await saasApi.deployments.create({
@@ -819,6 +820,7 @@ export const saasApiAdapter: CloudApiClient & WalletApiExtension = {
         agentCount: 1,
         configSnapshot: config.configSnapshot ?? {},
         envVars: config.envVars,
+        runtimeContext: config.runtimeContext,
       })
       syncDeploymentCache([created])
 

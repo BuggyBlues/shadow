@@ -14,9 +14,10 @@ const readScopeSchema = z
   .object({
     serverId: z.string().uuid().optional(),
     channelId: z.string().uuid().optional(),
+    dmChannelId: z.string().uuid().optional(),
   })
-  .refine((v) => !!v.serverId || !!v.channelId, {
-    message: 'serverId or channelId is required',
+  .refine((v) => !!v.serverId || !!v.channelId || !!v.dmChannelId, {
+    message: 'serverId, channelId, or dmChannelId is required',
   })
 
 export function createNotificationHandler(container: AppContainer) {
@@ -38,7 +39,9 @@ export function createNotificationHandler(container: AppContainer) {
   notificationHandler.patch('/:id/read', async (c) => {
     const notificationService = container.resolve('notificationService')
     const id = c.req.param('id')
-    const notification = await notificationService.markAsRead(id)
+    const user = c.get('user')
+    const notification = await notificationService.markAsRead(user.userId, id)
+    if (!notification) return c.json({ ok: false, error: 'Notification not found' }, 404)
     return c.json(notification)
   })
 

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { ShadowClient, ShadowMessage } from '@shadowob/sdk'
+import { resolveOutboundMentions } from '../mentions.js'
 import type { AgentChainMetadata, ReplyPayload, ShadowRuntimeLogger } from '../types.js'
 
 const DELIVERY_RETRY_DELAYS_MS = [500, 1000, 2000]
@@ -46,12 +47,9 @@ function messageDeliveryId(message: ShadowMessage): string | null {
 async function findDeliveredChannelMessage(params: {
   client: ShadowClient
   channelId: string
-  threadId?: string
   deliveryId: string
 }): Promise<ShadowMessage | null> {
-  const messages = params.threadId
-    ? await params.client.getThreadMessages(params.threadId, 20)
-    : (await params.client.getMessages(params.channelId, 20)).messages
+  const messages = (await params.client.getMessages(params.channelId, 20)).messages
   return messages.find((message) => messageDeliveryId(message) === params.deliveryId) ?? null
 }
 
@@ -109,17 +107,7 @@ export async function deliverShadowReply(params: {
   agentId: string | null
   botUserId: string
 }): Promise<void> {
-  const {
-    payload,
-    channelId,
-    threadId,
-    replyToId,
-    client,
-    runtime,
-    agentChain,
-    agentId,
-    botUserId,
-  } = params
+  const { payload, channelId, replyToId, client, runtime, agentChain, agentId, botUserId } = params
 
   try {
     if (!payload.text && !(payload.mediaUrl || payload.mediaUrls?.length)) {
@@ -148,21 +136,23 @@ export async function deliverShadowReply(params: {
       const contentToSend = text || '\u200B'
       const deliveryId = randomUUID()
       const metadata = replyMetadata({ deliveryId, agentChain: newAgentChain, replyToId })
-      if (threadId) {
-        sentMessage = await withDeliveryRetry({
-          label: 'reply',
-          runtime,
-          operation: () => client.sendToThread(threadId, contentToSend, { metadata }),
-          recover: () => findDeliveredChannelMessage({ client, channelId, threadId, deliveryId }),
-        })
-      } else {
-        sentMessage = await withDeliveryRetry({
-          label: 'reply',
-          runtime,
-          operation: () => client.sendMessage(channelId, contentToSend, { replyToId, metadata }),
-          recover: () => findDeliveredChannelMessage({ client, channelId, deliveryId }),
-        })
-      }
+      const mentions = await resolveOutboundMentions({
+        client,
+        channelId,
+        content: contentToSend,
+        runtime,
+      })
+      sentMessage = await withDeliveryRetry({
+        label: 'reply',
+        runtime,
+        operation: () =>
+          client.sendMessage(channelId, contentToSend, {
+            replyToId,
+            metadata,
+            ...(mentions ? { mentions } : {}),
+          }),
+        recover: () => findDeliveredChannelMessage({ client, channelId, deliveryId }),
+      })
       runtime.log?.(
         `[reply] Message created (${sentMessage.id})${text ? '' : ' [media-only placeholder]'}${newAgentChain ? ` [chain depth: ${newAgentChain.depth}]` : ''}`,
       )
@@ -190,24 +180,23 @@ export async function deliverShadowReply(params: {
             agentChain: newAgentChain,
             replyToId: fallbackReplyToId,
           })
-          const fallbackMessage = threadId
-            ? await withDeliveryRetry({
-                label: 'reply-media-fallback',
-                runtime,
-                operation: () => client.sendToThread(threadId, mediaUrl, { metadata }),
-                recover: () =>
-                  findDeliveredChannelMessage({ client, channelId, threadId, deliveryId }),
-              })
-            : await withDeliveryRetry({
-                label: 'reply-media-fallback',
-                runtime,
-                operation: () =>
-                  client.sendMessage(channelId, mediaUrl, {
-                    replyToId: fallbackReplyToId,
-                    metadata,
-                  }),
-                recover: () => findDeliveredChannelMessage({ client, channelId, deliveryId }),
-              })
+          const mentions = await resolveOutboundMentions({
+            client,
+            channelId,
+            content: mediaUrl,
+            runtime,
+          })
+          const fallbackMessage = await withDeliveryRetry({
+            label: 'reply-media-fallback',
+            runtime,
+            operation: () =>
+              client.sendMessage(channelId, mediaUrl, {
+                replyToId: fallbackReplyToId,
+                metadata,
+                ...(mentions ? { mentions } : {}),
+              }),
+            recover: () => findDeliveredChannelMessage({ client, channelId, deliveryId }),
+          })
           fallbackReplyToId = fallbackMessage.id
         }
       }

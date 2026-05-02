@@ -2,6 +2,33 @@ import { LIMITS } from '@shadowob/shared'
 import { z } from 'zod'
 
 const idLikeSchema = z.string().min(1)
+const mentionKindSchema = z.enum(['user', 'buddy', 'channel', 'server', 'here', 'everyone'])
+
+export const messageMentionSchema = z.object({
+  kind: mentionKindSchema,
+  targetId: idLikeSchema,
+  token: z.string().min(1).max(160),
+  label: z.string().min(1).max(160),
+  range: z
+    .object({
+      start: z.number().int().min(0),
+      end: z.number().int().min(0),
+    })
+    .optional(),
+  serverId: z.string().uuid().optional(),
+  serverSlug: z.string().max(100).nullable().optional(),
+  serverName: z.string().max(100).nullable().optional(),
+  channelId: z.string().uuid().optional(),
+  channelName: z.string().max(100).nullable().optional(),
+  userId: z.string().uuid().optional(),
+  username: z.string().max(32).nullable().optional(),
+  displayName: z.string().max(64).nullable().optional(),
+  avatarUrl: z.string().nullable().optional(),
+  isBot: z.boolean().optional(),
+  isPrivate: z.boolean().optional(),
+})
+
+export const messageMentionsSchema = z.array(messageMentionSchema).max(20)
 
 /** Agent chain metadata for tracking Buddy-to-Buddy conversations */
 const agentChainSchema = z.object({
@@ -78,6 +105,7 @@ const metadataSchema = z
     agentChain: agentChainSchema.optional(),
     interactive: interactiveBlockSchema.optional(),
     interactiveResponse: interactiveResponseSchema.optional(),
+    mentions: messageMentionsSchema.optional(),
   })
   .passthrough() // Allow additional custom metadata
 
@@ -101,6 +129,7 @@ export const sendMessageSchema = z.object({
       }),
     )
     .optional(),
+  mentions: messageMentionsSchema.optional(),
   metadata: metadataSchema.optional(),
 })
 
@@ -129,6 +158,7 @@ export const reactionSchema = z.object({
 })
 
 export type SendMessageInput = z.infer<typeof sendMessageSchema>
+export type MessageMentionInput = z.infer<typeof messageMentionSchema>
 export type UpdateMessageInput = z.infer<typeof updateMessageSchema>
 export type CreateThreadInput = z.infer<typeof createThreadSchema>
 export type UpdateThreadInput = z.infer<typeof updateThreadSchema>

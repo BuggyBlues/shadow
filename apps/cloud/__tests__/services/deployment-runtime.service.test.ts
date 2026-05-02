@@ -395,6 +395,7 @@ users:
 
     const up = vi.fn().mockImplementation(async (options) => {
       expect(options.runtimeEnvVars).toEqual({ SHADOW_RUNTIME_TEST_TOKEN: 'tenant-a-token' })
+      expect(options.runtimeContext).toEqual({ locale: 'zh-CN', timezone: 'Asia/Shanghai' })
       expect(options.initialProvisionState).toEqual(provisionState)
       expect(process.env.SHADOW_RUNTIME_TEST_TOKEN).toBeUndefined()
 
@@ -425,6 +426,10 @@ users:
         SHADOW_RUNTIME_TEST_TOKEN: 'tenant-a-token',
         EMPTY_RUNTIME_VALUE: '',
         SAVED_RUNTIME_VALUE: '__SAVED__',
+      },
+      runtimeContext: {
+        locale: 'zh-CN',
+        timezone: 'Asia/Shanghai',
       },
       provisionState,
     })

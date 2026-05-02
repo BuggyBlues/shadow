@@ -1,3 +1,4 @@
+import type { MessageMention } from '@shadowob/shared'
 import { io, type Socket } from 'socket.io-client'
 
 let socket: Socket | null = null
@@ -113,6 +114,8 @@ export function sendWsMessage(data: {
   content: string
   threadId?: string
   replyToId?: string
+  mentions?: MessageMention[]
+  metadata?: Record<string, unknown>
 }): void {
   getSocket().emit('message:send', data)
 }
