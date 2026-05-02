@@ -28,6 +28,7 @@ const EVENT_COLORS: Record<string, string> = {
 
 export function RecentActivity({ events }: RecentActivityProps) {
   const { t, i18n } = useTranslation()
+  const locale = i18n?.resolvedLanguage || i18n?.language || 'en'
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr)
@@ -41,7 +42,7 @@ export function RecentActivity({ events }: RecentActivityProps) {
     if (diffMins < 60) return t('buddyDashboard.minutesAgo', '{{count}}m ago', { count: diffMins })
     if (diffHours < 24) return t('buddyDashboard.hoursAgo', '{{count}}h ago', { count: diffHours })
     if (diffDays < 7) return t('buddyDashboard.daysAgo', '{{count}}d ago', { count: diffDays })
-    return date.toLocaleDateString(i18n.resolvedLanguage, { month: 'short', day: 'numeric' })
+    return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' })
   }
 
   const getEventDescription = (event: (typeof events)[0]) => {

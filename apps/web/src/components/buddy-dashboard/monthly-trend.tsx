@@ -9,6 +9,7 @@ interface MonthlyTrendProps {
 
 export function MonthlyTrend({ data }: MonthlyTrendProps) {
   const { t, i18n } = useTranslation()
+  const locale = i18n?.resolvedLanguage || i18n?.language || 'en'
 
   const maxCount = Math.max(...data.map((d) => d.messageCount), 1)
   const minCount = Math.min(...data.map((d) => d.messageCount), 0)
@@ -16,7 +17,7 @@ export function MonthlyTrend({ data }: MonthlyTrendProps) {
   const formatMonth = (monthStr: string) => {
     const [year, month] = monthStr.split('-')
     const date = new Date(Number(year), Number(month) - 1)
-    return date.toLocaleDateString(i18n.resolvedLanguage, { month: 'short' })
+    return date.toLocaleDateString(locale, { month: 'short' })
   }
 
   // Generate SVG path for the line chart
