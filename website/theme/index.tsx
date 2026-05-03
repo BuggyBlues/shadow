@@ -179,9 +179,14 @@ function GlobalFooter() {
 }
 
 const Layout = () => {
-  const { page } = usePageData()
-  // Homepage uses pageType: custom — give it a completely custom capsule nav
-  const isHomepage = page.pageType === 'custom'
+  const { page, siteData } = usePageData()
+  const { pathname } = useLocation()
+  const base = (siteData.base || '/').replace(/\/$/, '')
+  const routePath =
+    base && pathname.startsWith(base) ? pathname.slice(base.length) || '/' : pathname
+  // Only locale index pages use the custom homepage shell. Other custom MDX pages must render normally.
+  const isHomepage =
+    page.pageType === 'custom' && /^(\/|\/index\.html|\/zh\/?|\/zh\/index\.html)$/.test(routePath)
 
   if (isHomepage) {
     const isZh =
@@ -199,13 +204,8 @@ const Layout = () => {
 
   // Doc pages — full-width rspress nav with custom logo text + Launch button
   // (.translation lang switcher hidden via CSS; lang in footer only)
-  return (
-    <Theme.Layout
-      navTitle={<DocNavTitle />}
-      afterNavMenu={<LaunchButton />}
-      bottom={<GlobalFooter />}
-    />
-  )
+  const footer = page.pageType === 'custom' ? undefined : <GlobalFooter />
+  return <Theme.Layout navTitle={<DocNavTitle />} afterNavMenu={<LaunchButton />} bottom={footer} />
 }
 
 export default {

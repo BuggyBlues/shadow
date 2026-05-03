@@ -2,6 +2,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 type Listener = (...args: unknown[]) => void
+type FakeSocket = ReturnType<typeof createFakeSocket>
+
+const socketMockState = vi.hoisted(() => ({
+  current: null as FakeSocket | null,
+}))
+
+vi.mock('socket.io-client', () => ({
+  io: vi.fn(() => {
+    if (!socketMockState.current) {
+      throw new Error('Fake socket not configured')
+    }
+    return socketMockState.current
+  }),
+}))
 
 function createFakeSocket() {
   const listeners = new Map<string, Listener[]>()
@@ -56,19 +70,18 @@ function createFakeSocket() {
 
 beforeEach(() => {
   vi.resetModules()
+  socketMockState.current = null
 })
 
 afterEach(() => {
-  vi.doUnmock('socket.io-client')
+  socketMockState.current = null
   vi.restoreAllMocks()
 })
 
-describe('web socket room rejoin', () => {
+describe.sequential('web socket room rejoin', () => {
   it('replays channel, DM, and app joins after the socket connects', async () => {
     const fakeSocket = createFakeSocket()
-    vi.doMock('socket.io-client', () => ({
-      io: vi.fn(() => fakeSocket),
-    }))
+    socketMockState.current = fakeSocket
 
     const { connectSocket, disconnectSocket, joinApp, joinChannel, joinDm } = await import(
       '../src/lib/socket'
@@ -93,9 +106,7 @@ describe('web socket room rejoin', () => {
 
   it('does not rejoin rooms after they are left or the socket is disconnected', async () => {
     const fakeSocket = createFakeSocket()
-    vi.doMock('socket.io-client', () => ({
-      io: vi.fn(() => fakeSocket),
-    }))
+    socketMockState.current = fakeSocket
 
     const { connectSocket, disconnectSocket, joinChannel, leaveChannel } = await import(
       '../src/lib/socket'

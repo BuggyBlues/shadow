@@ -5,8 +5,7 @@
 
 const API_BASE =
   typeof window !== 'undefined'
-    ? ((window as unknown as Record<string, string>).__SHADOW_API_URL__ ??
-      'https://api.shadow.chat')
+    ? ((window as unknown as Record<string, string>).__SHADOW_API_URL__ ?? '')
     : 'https://api.shadow.chat'
 
 export async function fetchConfig<T>(schemaName: string, fallback: T): Promise<T> {
@@ -17,6 +16,19 @@ export async function fetchConfig<T>(schemaName: string, fallback: T): Promise<T
     if (!res.ok) return fallback
     const json = (await res.json()) as { data: T; version: number }
     return json.data as T
+  } catch {
+    return fallback
+  }
+}
+
+export async function fetchPlayCatalog<T>(fallback: T): Promise<T> {
+  try {
+    const res = await fetch(`${API_BASE}/api/play/catalog`, {
+      next: { revalidate: 300 },
+    } as RequestInit)
+    if (!res.ok) return fallback
+    const json = (await res.json()) as { plays: T }
+    return json.plays
   } catch {
     return fallback
   }

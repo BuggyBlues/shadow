@@ -1,6 +1,7 @@
 import type {
   ShadowAgentUsageSnapshotInput,
   ShadowApp,
+  ShadowAuthResponse,
   ShadowCartItem,
   ShadowCategory,
   ShadowChannel,
@@ -14,16 +15,22 @@ import type {
   ShadowContract,
   ShadowDmChannel,
   ShadowFriendship,
+  ShadowHomePlayCatalogItem,
   ShadowInteractiveActionInput,
   ShadowInteractiveActionResult,
   ShadowInteractiveState,
   ShadowInviteCode,
   ShadowListing,
   ShadowMember,
+  ShadowMembership,
   ShadowMentionSuggestion,
   ShadowMentionSuggestionTrigger,
   ShadowMessage,
   ShadowMessageMention,
+  ShadowModelProxyBilling,
+  ShadowModelProxyChatCompletionRequest,
+  ShadowModelProxyChatCompletionResponse,
+  ShadowModelProxyModelsResponse,
   ShadowNotification,
   ShadowNotificationPreferences,
   ShadowOAuthApp,
@@ -31,6 +38,7 @@ import type {
   ShadowOAuthToken,
   ShadowOrder,
   ShadowPaymentOrder,
+  ShadowPlayLaunchResult,
   ShadowProduct,
   ShadowRechargeConfig,
   ShadowRechargeHistory,
@@ -147,28 +155,50 @@ export class ShadowClient {
   async register(data: {
     email: string
     password: string
-    username: string
+    username?: string
     displayName?: string
-    inviteCode: string
-  }): Promise<{ token: string; user: ShadowUser }> {
+    inviteCode?: string
+  }): Promise<ShadowAuthResponse> {
     return this.request('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   }
 
-  async login(data: {
-    email: string
-    password: string
-  }): Promise<{ token: string; user: ShadowUser }> {
+  async login(data: { email: string; password: string }): Promise<ShadowAuthResponse> {
     return this.request('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   }
 
-  async refreshToken(): Promise<{ token: string }> {
-    return this.request('/api/auth/refresh', { method: 'POST' })
+  async startEmailLogin(data: { email: string; locale?: string }): Promise<{
+    ok: true
+    expiresIn: number
+    devCode?: string
+  }> {
+    return this.request('/api/auth/email/start', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async verifyEmailLogin(data: {
+    email: string
+    code: string
+    displayName?: string
+  }): Promise<ShadowAuthResponse> {
+    return this.request('/api/auth/email/verify', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async refreshToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
+    return this.request('/api/auth/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken }),
+    })
   }
 
   async getMe(): Promise<ShadowUser> {
@@ -189,6 +219,62 @@ export class ShadowClient {
     success: boolean
   }> {
     return this.request('/api/auth/disconnect', { method: 'POST' })
+  }
+
+  async getMembership(): Promise<ShadowMembership> {
+    return this.request('/api/membership/me')
+  }
+
+  async redeemInviteCode(code: string): Promise<ShadowMembership> {
+    return this.request('/api/membership/redeem-invite', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    })
+  }
+
+  async launchPlay(data: {
+    playId?: string
+    launchSessionId?: string
+    locale?: string
+  }): Promise<ShadowPlayLaunchResult> {
+    return this.request('/api/play/launch', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async getPlayCatalog(): Promise<ShadowHomePlayCatalogItem[]> {
+    const response = await this.request<{ plays: ShadowHomePlayCatalogItem[] }>('/api/play/catalog')
+    return response.plays
+  }
+
+  // ── Official Model Proxy ──────────────────────────────────────────────
+
+  async listOfficialModelProxyModels(): Promise<ShadowModelProxyModelsResponse> {
+    return this.request('/api/ai/v1/models')
+  }
+
+  async getOfficialModelProxyBilling(): Promise<ShadowModelProxyBilling> {
+    return this.request('/api/ai/v1/billing')
+  }
+
+  async createOfficialChatCompletion(
+    data: ShadowModelProxyChatCompletionRequest,
+  ): Promise<ShadowModelProxyChatCompletionResponse> {
+    return this.request('/api/ai/v1/chat/completions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async createOfficialChatCompletionStream(
+    data: ShadowModelProxyChatCompletionRequest,
+  ): Promise<Response> {
+    return this.requestRaw('/api/ai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...data, stream: true }),
+    })
   }
 
   // ── Agents ────────────────────────────────────────────────────────────
@@ -493,7 +579,7 @@ export class ShadowClient {
 
   async createChannel(
     serverId: string,
-    data: { name: string; type?: string; description?: string },
+    data: { name: string; type?: string; description?: string; isPrivate?: boolean },
   ): Promise<ShadowChannel> {
     const { description, ...rest } = data
     const body = { ...rest, ...(description !== undefined ? { topic: description } : {}) }

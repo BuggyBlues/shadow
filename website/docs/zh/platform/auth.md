@@ -99,18 +99,17 @@ POST /api/auth/register
 |------|------|------|------|
 | `email` | string | 是 | 邮箱地址 |
 | `password` | string | 是 | 密码 |
-| `username` | string | 是 | 唯一用户名 |
+| `username` | string | 否 | 唯一用户名，未填写时自动生成 |
 | `displayName` | string | 否 | 显示名称 |
-| `inviteCode` | string | 是 | 有效邀请码 |
+| `inviteCode` | string | 否 | 可选会员邀请码，用于解锁 Cloud 和创建服务器等能力 |
 
 :::code-group
 
 ```ts [TypeScript]
-const { token, user } = await client.register({
+const { accessToken, refreshToken, user } = await client.register({
   email: 'alice@example.com',
   password: 'secure-password',
-  username: 'alice',
-  inviteCode: 'ABC123',
+  displayName: 'Alice',
 })
 ```
 
@@ -118,13 +117,31 @@ const { token, user } = await client.register({
 result = client.register(
     email="alice@example.com",
     password="secure-password",
-    username="alice",
-    invite_code="ABC123",
+    display_name="Alice",
 )
-token = result["token"]
+access_token = result["accessToken"]
 ```
 
 :::
+
+---
+
+## 邮箱验证码登录
+
+```
+POST /api/auth/email/start
+POST /api/auth/email/verify
+```
+
+邮箱验证码会登录已有用户，或创建一个普通游客账号。
+
+```ts
+await client.startEmailLogin({ email: 'alice@example.com' })
+const { accessToken, refreshToken, user } = await client.verifyEmailLogin({
+  email: 'alice@example.com',
+  code: '123456',
+})
+```
 
 ---
 
@@ -144,7 +161,7 @@ POST /api/auth/login
 :::code-group
 
 ```ts [TypeScript]
-const { token, user } = await client.login({
+const { accessToken, refreshToken, user } = await client.login({
   email: 'alice@example.com',
   password: 'secret',
 })
@@ -164,19 +181,38 @@ result = client.login(email="alice@example.com", password="secret")
 POST /api/auth/refresh
 ```
 
-返回新的 JWT 令牌。
+返回新的访问令牌和刷新令牌。
 
 :::code-group
 
 ```ts [TypeScript]
-const { token } = await client.refreshToken()
+const tokens = await client.refreshToken(refreshToken)
 ```
 
 ```python [Python]
-result = client.refresh_token()
+result = client.refresh_token(refresh_token)
 ```
 
 :::
+
+---
+
+## 会员能力
+
+注册不再需要邀请码。邀请码通过会员 API 兑换，用于解锁高阶能力：
+
+```
+GET /api/membership/me
+POST /api/membership/redeem-invite
+```
+
+会员响应包含 `status`、`tier`、`level`、`isMember` 和最终生效的 `capabilities`。
+高阶操作应以 `capabilities` 为准；后续新增更多等级时无需改变这个响应结构。
+
+常见高阶能力包括 `cloud:deploy`、`server:create`、`invite:create` 和 `oauth_app:create`。
+缺少能力时应展示升级或兑换邀请码路径，而不是把它当成登录失败。
+
+快速认证接口有频控保护。`429` 响应会包含 `RATE_LIMITED` 和 `Retry-After`。
 
 ---
 

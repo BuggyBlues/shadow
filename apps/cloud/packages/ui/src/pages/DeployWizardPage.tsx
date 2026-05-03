@@ -117,6 +117,13 @@ function envKeyToLabel(key: string): string {
 }
 
 const DEFAULT_ENV_GROUP = 'default'
+const OFFICIAL_MODEL_PROXY_ENV_KEYS = new Set([
+  'OPENAI_COMPATIBLE_API_KEY',
+  'OPENAI_COMPATIBLE_BASE_URL',
+  'OPENAI_COMPATIBLE_MODEL_ID',
+])
+
+type ModelProviderMode = 'official' | 'custom'
 
 interface EnvPersistenceConfig {
   remember: boolean
@@ -128,11 +135,63 @@ interface DeployConfig {
   namespace: string
   envVars: Record<string, string>
   envPersistence: EnvPersistenceConfig
+  modelProviderMode: ModelProviderMode
 }
 
 type BrowserRuntimeContext = {
   locale?: string
   timezone?: string
+}
+
+type ModelProxyBilling = {
+  enabled: boolean
+  currency: 'shrimp'
+  model: string
+  models: string[]
+  shrimpMicrosPerCoin: number
+  shrimpPerCny: number
+  inputTokensPerShrimp: number | null
+  outputTokensPerShrimp: number | null
+  inputCacheHitCnyPerMillionTokens: number
+  inputCacheMissCnyPerMillionTokens: number
+  outputCnyPerMillionTokens: number
+  inputCacheHitShrimpPerMillionTokens: number
+  inputCacheMissShrimpPerMillionTokens: number
+  outputShrimpPerMillionTokens: number
+}
+
+type ModelProxyPricingSummary =
+  | { kind: 'loading' }
+  | { kind: 'tokens'; input: string; output: string }
+  | { kind: 'usage'; cacheHit: string; cacheMiss: string; output: string; shrimpPerCny: string }
+
+type ModelProxyApiExtension = {
+  modelProxy?: {
+    billing: () => Promise<ModelProxyBilling>
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value))
+}
+
+function shouldHideOfficialModelEnvKey(key: string, mode: ModelProviderMode) {
+  return mode === 'official' && OFFICIAL_MODEL_PROXY_ENV_KEYS.has(key)
+}
+
+function filterOfficialModelEnvVars(
+  envVars: Record<string, string>,
+  mode: ModelProviderMode,
+): Record<string, string> {
+  if (mode !== 'official') return envVars
+  return Object.fromEntries(
+    Object.entries(envVars).filter(([key]) => !OFFICIAL_MODEL_PROXY_ENV_KEYS.has(key)),
+  )
+}
+
+function formatBillingNumber(value: number) {
+  if (Number.isInteger(value)) return String(value)
+  return value.toFixed(2).replace(/\.?0+$/, '')
 }
 
 function resolveBrowserRuntimeContext(locale?: string): BrowserRuntimeContext {
@@ -531,6 +590,7 @@ function StepConfigure({
   const api = useApiClient()
   const { t, i18n } = useTranslation()
   const toast = useToast()
+  const navigate = useNavigate()
   const isSaasMode = typeof (api as { deployFn?: unknown }).deployFn === 'function'
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const {
@@ -546,11 +606,13 @@ function StepConfigure({
       namespace: config.namespace,
       envVars: config.envVars,
       envPersistence: normalizeEnvPersistence(config.envPersistence),
+      modelProviderMode: config.modelProviderMode,
     },
     mode: 'onSubmit',
   })
   const namespace = watch('namespace')
   const envVars = watch('envVars') ?? {}
+  const modelProviderMode = watch('modelProviderMode') ?? 'official'
   const rawEnvPersistence = watch('envPersistence')
   const envPersistence = useMemo(
     () => normalizeEnvPersistence(rawEnvPersistence),
@@ -586,6 +648,14 @@ function StepConfigure({
   const { data: providerProfileData } = useQuery({
     queryKey: ['provider-profiles'],
     queryFn: api.providerProfiles.list,
+    enabled: isSaasMode,
+    retry: false,
+  })
+  const { data: modelProxyBilling } = useQuery({
+    queryKey: ['model-proxy-billing'],
+    queryFn: () =>
+      (api as ModelProxyApiExtension).modelProxy?.billing?.() ??
+      Promise.resolve(null as ModelProxyBilling | null),
     enabled: isSaasMode,
     retry: false,
   })
@@ -638,6 +708,7 @@ function StepConfigure({
 
     for (const field of envRefsData?.fields ?? []) {
       if (field.key === 'SHADOW_SERVER_URL' || field.key === 'SHADOW_USER_TOKEN') continue
+      if (shouldHideOfficialModelEnvKey(field.key, modelProviderMode)) continue
       fields.set(field.key, {
         key: field.key,
         label: field.label || envKeyToLabel(field.key),
@@ -658,6 +729,7 @@ function StepConfigure({
 
     for (const key of requiredVars) {
       if (key === 'SHADOW_SERVER_URL' || key === 'SHADOW_USER_TOKEN') continue
+      if (shouldHideOfficialModelEnvKey(key, modelProviderMode)) continue
       if (!fields.has(key) && !autoDetectedKeys.has(key)) {
         fields.set(key, {
           key,
@@ -673,9 +745,15 @@ function StepConfigure({
     }
 
     return [...fields.values()].sort((a, b) => a.key.localeCompare(b.key))
-  }, [envRefsData?.autoDetectedEnvVars, envRefsData?.fields, requiredVars, t])
+  }, [envRefsData?.autoDetectedEnvVars, envRefsData?.fields, modelProviderMode, requiredVars, t])
 
-  const autoDetectedEnvVars = envRefsData?.autoDetectedEnvVars ?? []
+  const autoDetectedEnvVars = useMemo(
+    () =>
+      (envRefsData?.autoDetectedEnvVars ?? []).filter(
+        (key) => !shouldHideOfficialModelEnvKey(key, modelProviderMode),
+      ),
+    [envRefsData?.autoDetectedEnvVars, modelProviderMode],
+  )
 
   const requiredTemplateVars = useMemo(
     () => templateEnvFields.filter((field) => field.required).map((field) => field.key),
@@ -850,10 +928,58 @@ function StepConfigure({
         ...envPersistence,
         groupName: selectedGroup || envPersistence.groupName,
       }),
+      modelProviderMode,
     })
-  }, [namespace, envVars, envPersistence, selectedGroup, onChange])
+  }, [namespace, envVars, envPersistence, selectedGroup, modelProviderMode, onChange])
+
+  const modelProxyPricing = useMemo<ModelProxyPricingSummary>(() => {
+    if (!modelProxyBilling) return { kind: 'loading' }
+    if (modelProxyBilling.inputTokensPerShrimp || modelProxyBilling.outputTokensPerShrimp) {
+      return {
+        kind: 'tokens',
+        input: formatBillingNumber(
+          modelProxyBilling.inputTokensPerShrimp ?? modelProxyBilling.outputTokensPerShrimp ?? 1000,
+        ),
+        output: formatBillingNumber(
+          modelProxyBilling.outputTokensPerShrimp ?? modelProxyBilling.inputTokensPerShrimp ?? 1000,
+        ),
+      }
+    }
+    return {
+      kind: 'usage',
+      cacheHit: formatBillingNumber(modelProxyBilling.inputCacheHitShrimpPerMillionTokens),
+      cacheMiss: formatBillingNumber(modelProxyBilling.inputCacheMissShrimpPerMillionTokens),
+      output: formatBillingNumber(modelProxyBilling.outputShrimpPerMillionTokens),
+      shrimpPerCny: formatBillingNumber(modelProxyBilling.shrimpPerCny),
+    }
+  }, [modelProxyBilling])
+
+  const openRecharge = () => {
+    if (typeof window === 'undefined') return
+    let acked = false
+    const onAck = () => {
+      acked = true
+      window.removeEventListener('shadow:open-recharge:ack', onAck)
+    }
+    window.addEventListener('shadow:open-recharge:ack', onAck)
+    window.dispatchEvent(
+      new CustomEvent('shadow:open-recharge', {
+        detail: { source: 'deploy-wizard-provider', amount: 10000 },
+      }),
+    )
+    window.setTimeout(() => {
+      window.removeEventListener('shadow:open-recharge:ack', onAck)
+      if (!acked) {
+        navigate({ to: '/wallet' })
+      }
+    }, 500)
+  }
 
   const onSubmit = () => {
+    if (isSaasMode && modelProviderMode === 'custom' && enabledProviderProfiles.length === 0) {
+      toast.warning(t('deploy.customProviderRequired'))
+      return
+    }
     const currentEnvVars = getValues('envVars') ?? {}
     const shadowUrl = currentEnvVars.SHADOW_SERVER_URL
     const shadowToken = currentEnvVars.SHADOW_USER_TOKEN
@@ -1008,42 +1134,265 @@ function StepConfigure({
           </div>
 
           {isSaasMode && (
-            <div className="rounded-xl bg-bg-secondary/10 px-4 py-3">
-              <div className="flex items-start gap-3">
-                <div
+            <div className="rounded-xl bg-bg-secondary/10 p-4 space-y-4">
+              <div className="flex items-start gap-2">
+                <Wallet size={14} className="mt-0.5 text-primary" />
+                <div>
+                  <h3 className="text-sm font-semibold">{t('deploy.modelProviderTitle')}</h3>
+                  <p className="text-xs text-text-muted">{t('deploy.modelProviderDescription')}</p>
+                </div>
+              </div>
+
+              <div
+                role="tablist"
+                aria-label={t('deploy.modelProviderTitle')}
+                className="grid gap-3 md:grid-cols-2"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={modelProviderMode === 'official'}
+                  onClick={() => setValue('modelProviderMode', 'official', { shouldDirty: true })}
                   className={cn(
-                    'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
-                    enabledProviderProfiles.length > 0
-                      ? 'bg-success/12 text-success'
-                      : 'bg-warning/12 text-warning',
+                    'group rounded-2xl p-3 text-left transition-all shadow-[0_0_0_1px_rgba(255,255,255,0.08)_inset]',
+                    modelProviderMode === 'official'
+                      ? 'bg-primary/12 text-text-primary shadow-[0_0_0_1px_rgba(34,211,238,0.45)_inset]'
+                      : 'bg-bg-primary/25 text-text-muted hover:bg-bg-primary/35 hover:text-text-primary',
                   )}
                 >
-                  {enabledProviderProfiles.length > 0 ? (
-                    <CheckCircle size={14} />
-                  ) : (
-                    <AlertTriangle size={14} />
+                  <span className="mb-3 flex items-center justify-between gap-3">
+                    <span
+                      className={cn(
+                        'flex h-9 w-9 items-center justify-center rounded-xl',
+                        modelProviderMode === 'official'
+                          ? 'bg-primary text-bg-primary'
+                          : 'bg-bg-secondary/30 text-text-secondary group-hover:text-primary',
+                      )}
+                    >
+                      <Wallet size={17} />
+                    </span>
+                    <Badge variant={modelProviderMode === 'official' ? 'primary' : 'neutral'}>
+                      {t('deploy.modelProviderOfficialBadge')}
+                    </Badge>
+                  </span>
+                  <span className="block text-sm font-semibold">
+                    {t('deploy.modelProviderOfficialTitle')}
+                  </span>
+                  <span className="mt-1 block text-xs leading-relaxed text-text-muted">
+                    {t('deploy.modelProviderOfficialDescription')}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={modelProviderMode === 'custom'}
+                  onClick={() => setValue('modelProviderMode', 'custom', { shouldDirty: true })}
+                  className={cn(
+                    'group rounded-2xl p-3 text-left transition-all shadow-[0_0_0_1px_rgba(255,255,255,0.08)_inset]',
+                    modelProviderMode === 'custom'
+                      ? 'bg-primary/12 text-text-primary shadow-[0_0_0_1px_rgba(34,211,238,0.45)_inset]'
+                      : 'bg-bg-primary/25 text-text-muted hover:bg-bg-primary/35 hover:text-text-primary',
                   )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-text-primary">
-                    {enabledProviderProfiles.length > 0
-                      ? t('deploy.providerProfilesReady')
-                      : t('deploy.providerProfilesMissing')}
-                  </p>
-                  <p className="mt-1 text-xs text-text-muted">
-                    {enabledProviderProfiles.length > 0
-                      ? t('deploy.providerProfilesReadyDesc')
-                      : t('deploy.providerProfilesMissingDesc')}
-                  </p>
-                </div>
-                <Link
-                  to="/providers"
-                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bg-primary/35 text-primary transition-colors hover:bg-primary/12 hover:text-primary"
-                  aria-label={t('deploy.openProviderSettings')}
-                  title={t('deploy.openProviderSettings')}
                 >
-                  <CircleHelp size={16} />
-                </Link>
+                  <span className="mb-3 flex items-center justify-between gap-3">
+                    <span
+                      className={cn(
+                        'flex h-9 w-9 items-center justify-center rounded-xl',
+                        modelProviderMode === 'custom'
+                          ? 'bg-primary text-bg-primary'
+                          : 'bg-bg-secondary/30 text-text-secondary group-hover:text-primary',
+                      )}
+                    >
+                      <Key size={17} />
+                    </span>
+                    <Badge variant={modelProviderMode === 'custom' ? 'primary' : 'neutral'}>
+                      {t('deploy.modelProviderCustomBadge')}
+                    </Badge>
+                  </span>
+                  <span className="block text-sm font-semibold">
+                    {t('deploy.modelProviderCustomTitle')}
+                  </span>
+                  <span className="mt-1 block text-xs leading-relaxed text-text-muted">
+                    {t('deploy.modelProviderCustomDescription')}
+                  </span>
+                </button>
+              </div>
+
+              <div
+                role="tabpanel"
+                className="rounded-2xl bg-bg-primary/25 p-4 shadow-[0_0_0_1px_rgba(255,255,255,0.06)_inset]"
+              >
+                {modelProviderMode === 'official' ? (
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary">
+                        <Wallet size={17} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="text-sm font-semibold text-text-primary">
+                            {t('deploy.modelProviderOfficialTitle')}
+                          </h4>
+                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                            {t('deploy.modelProviderOfficialBadge')}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs leading-relaxed text-text-muted">
+                          {t('deploy.modelProviderOfficialDescription')}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      {modelProxyPricing.kind === 'loading' && (
+                        <div className="rounded-xl bg-bg-secondary/16 px-3 py-2 text-xs leading-relaxed text-text-secondary sm:col-span-3">
+                          {t('deploy.modelProviderOfficialPricingLoading')}
+                        </div>
+                      )}
+                      {modelProxyPricing.kind === 'tokens' && (
+                        <>
+                          <div className="rounded-xl bg-bg-secondary/16 px-3 py-2">
+                            <p className="text-[11px] font-semibold text-text-muted">
+                              {t('deploy.modelProviderRateInput')}
+                            </p>
+                            <p className="mt-1 text-sm font-black text-text-primary">
+                              {t('deploy.modelProviderRateTokensValue', {
+                                tokenCount: modelProxyPricing.input,
+                              })}
+                            </p>
+                          </div>
+                          <div className="rounded-xl bg-bg-secondary/16 px-3 py-2">
+                            <p className="text-[11px] font-semibold text-text-muted">
+                              {t('deploy.modelProviderRateOutput')}
+                            </p>
+                            <p className="mt-1 text-sm font-black text-text-primary">
+                              {t('deploy.modelProviderRateTokensValue', {
+                                tokenCount: modelProxyPricing.output,
+                              })}
+                            </p>
+                          </div>
+                        </>
+                      )}
+                      {modelProxyPricing.kind === 'usage' && (
+                        <>
+                          <div className="rounded-xl bg-bg-secondary/16 px-3 py-2">
+                            <p className="text-[11px] font-semibold text-text-muted">
+                              {t('deploy.modelProviderRateCacheHit')}
+                            </p>
+                            <p className="mt-1 text-sm font-black text-text-primary">
+                              {t('deploy.modelProviderRatePerMillionValue', {
+                                amount: modelProxyPricing.cacheHit,
+                              })}
+                            </p>
+                          </div>
+                          <div className="rounded-xl bg-bg-secondary/16 px-3 py-2">
+                            <p className="text-[11px] font-semibold text-text-muted">
+                              {t('deploy.modelProviderRateCacheMiss')}
+                            </p>
+                            <p className="mt-1 text-sm font-black text-text-primary">
+                              {t('deploy.modelProviderRatePerMillionValue', {
+                                amount: modelProxyPricing.cacheMiss,
+                              })}
+                            </p>
+                          </div>
+                          <div className="rounded-xl bg-bg-secondary/16 px-3 py-2">
+                            <p className="text-[11px] font-semibold text-text-muted">
+                              {t('deploy.modelProviderRateOutput')}
+                            </p>
+                            <p className="mt-1 text-sm font-black text-text-primary">
+                              {t('deploy.modelProviderRatePerMillionValue', {
+                                amount: modelProxyPricing.output,
+                              })}
+                            </p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    {modelProxyPricing.kind === 'usage' && (
+                      <div className="rounded-xl bg-primary/8 px-3 py-2 text-xs leading-relaxed text-primary">
+                        {t('deploy.modelProviderExchangeRate', {
+                          shrimpPerCny: modelProxyPricing.shrimpPerCny,
+                        })}
+                      </div>
+                    )}
+                    <div className="rounded-xl bg-bg-secondary/12 px-3 py-2 text-xs leading-relaxed text-text-secondary">
+                      {t('deploy.modelProviderOfficialWalletHint')}
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigate({ to: '/wallet' })}
+                      >
+                        <Wallet size={13} />
+                        {t('deploy.viewWalletAndBilling')}
+                      </Button>
+                      <Button type="button" onClick={openRecharge} variant="ghost" size="sm">
+                        <DollarSign size={13} />
+                        {t('deploy.topUp')}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-bg-secondary/30 text-text-secondary">
+                        <Key size={17} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="text-sm font-semibold text-text-primary">
+                            {t('deploy.modelProviderCustomTitle')}
+                          </h4>
+                          <span className="rounded-full bg-bg-secondary/30 px-2 py-0.5 text-[10px] font-semibold text-text-muted">
+                            {t('deploy.modelProviderCustomBadge')}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs leading-relaxed text-text-muted">
+                          {t('deploy.modelProviderCustomDescription')}
+                        </p>
+                      </div>
+                    </div>
+                    <div
+                      className={cn(
+                        'flex items-start gap-2 rounded-xl px-3 py-2 text-xs',
+                        enabledProviderProfiles.length > 0
+                          ? 'bg-success/8 text-success'
+                          : 'bg-warning/8 text-warning',
+                      )}
+                    >
+                      {enabledProviderProfiles.length > 0 ? (
+                        <CheckCircle size={13} className="mt-0.5 shrink-0" />
+                      ) : (
+                        <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+                      )}
+                      <span>
+                        {enabledProviderProfiles.length > 0
+                          ? t('deploy.providerProfilesReadyDesc')
+                          : t('deploy.providerProfilesMissingDesc')}
+                      </span>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <div className="rounded-xl bg-bg-secondary/16 px-3 py-2 text-xs leading-relaxed text-text-secondary">
+                        {t('deploy.modelProviderCustomSelfPaidNote')}
+                      </div>
+                      <div className="rounded-xl bg-bg-secondary/16 px-3 py-2 text-xs leading-relaxed text-text-secondary">
+                        {t('deploy.modelProviderCustomSecureNote')}
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigate({ to: '/providers' })}
+                      className="w-full justify-center"
+                    >
+                      <CircleHelp size={13} />
+                      {t('deploy.manageProviderProfiles')}
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1590,9 +1939,17 @@ function StepDeploy({
   const TIER_COSTS: Record<string, number> = { lightweight: 500, standard: 1200, pro: 2800 }
   const monthlyCost = TIER_COSTS['lightweight'] ?? 500
   const hasEnoughBalance = walletBalance === null || walletBalance >= monthlyCost
-  const configuredEnvCount = Object.keys(config.envVars).filter((key) =>
-    Boolean(config.envVars[key]),
+  const deploymentEnvVars = useMemo(
+    () => filterOfficialModelEnvVars(config.envVars, config.modelProviderMode),
+    [config.envVars, config.modelProviderMode],
+  )
+  const configuredEnvCount = Object.keys(deploymentEnvVars).filter((key) =>
+    Boolean(deploymentEnvVars[key]),
   ).length
+  const modelProviderSummary =
+    config.modelProviderMode === 'official'
+      ? t('deploy.modelProviderOfficialSummary')
+      : t('deploy.modelProviderCustomSummary')
   const agentSummary =
     template?.features && template.features.length > 0
       ? `${t('deploy.includes')}: ${(template.features ?? []).slice(0, 2).join(', ')}`
@@ -1665,7 +2022,7 @@ function StepDeploy({
     setDeploymentStatus('deployed')
     setSuccessModalOpen(true)
 
-    const envEntries = Object.entries(config.envVars).filter(
+    const envEntries = Object.entries(deploymentEnvVars).filter(
       ([, v]) => v && v !== '__SAVED__' && v.trim() !== '',
     )
 
@@ -1708,7 +2065,7 @@ function StepDeploy({
     api.env,
     api.deployments.env,
     config.envPersistence,
-    config.envVars,
+    deploymentEnvVars,
     name,
     queryClient,
     targetNamespace,
@@ -1851,8 +2208,8 @@ function StepDeploy({
         deployConfig.namespace = config.namespace
       }
       // Include env vars so the backend can resolve ${env:VAR} placeholders
-      if (config.envVars && Object.keys(config.envVars).length > 0) {
-        deployConfig.envVars = config.envVars
+      if (deploymentEnvVars && Object.keys(deploymentEnvVars).length > 0) {
+        deployConfig.envVars = deploymentEnvVars
       }
 
       const saasConfigSnapshot =
@@ -1872,6 +2229,14 @@ function StepDeploy({
       if (runtimeContext.locale) {
         saasConfigSnapshot.locale = runtimeContext.locale
       }
+      const existingRuntime = isRecord(saasConfigSnapshot.__shadowobRuntime)
+        ? saasConfigSnapshot.__shadowobRuntime
+        : {}
+      saasConfigSnapshot.__shadowobRuntime = {
+        ...existingRuntime,
+        modelProviderMode: config.modelProviderMode,
+        officialModelProxy: config.modelProviderMode === 'official',
+      }
 
       let result: DeployInvocationResult
 
@@ -1883,7 +2248,7 @@ function StepDeploy({
           name: `${targetNamespace}-${Date.now()}`,
           resourceTier: 'lightweight',
           configSnapshot: saasConfigSnapshot,
-          envVars: config.envVars,
+          envVars: deploymentEnvVars,
           runtimeContext,
         })
 
@@ -2074,6 +2439,16 @@ function StepDeploy({
                   icon={<Users size={11} />}
                   iconClassName="text-text-muted"
                   value={agentSummary}
+                  valueClassName="text-sm"
+                />
+              </MetricCardWrapper>
+
+              <MetricCardWrapper>
+                <MetricCardContent
+                  label={t('deploy.modelProviderSummaryLabel')}
+                  icon={<Key size={11} />}
+                  iconClassName="text-text-muted"
+                  value={modelProviderSummary}
                   valueClassName="text-sm"
                 />
               </MetricCardWrapper>
@@ -2418,6 +2793,7 @@ export function DeployWizardPage() {
     namespace: '',
     envVars: {},
     envPersistence: DEFAULT_ENV_PERSISTENCE,
+    modelProviderMode: 'official',
   })
 
   // Determine nav button label for current step

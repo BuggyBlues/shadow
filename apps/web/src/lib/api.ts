@@ -2,6 +2,42 @@ import { queryClient } from './query-client'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
+export class ApiError extends Error {
+  status: number
+  code?: string
+  capability?: string
+  membership?: unknown
+  requiredAmount?: number
+  balance?: number
+  shortfall?: number
+  nextAction?: string
+
+  constructor(
+    message: string,
+    input: {
+      status: number
+      code?: string
+      capability?: string
+      membership?: unknown
+      requiredAmount?: number
+      balance?: number
+      shortfall?: number
+      nextAction?: string
+    },
+  ) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = input.status
+    this.code = input.code
+    this.capability = input.capability
+    this.membership = input.membership
+    this.requiredAmount = input.requiredAmount
+    this.balance = input.balance
+    this.shortfall = input.shortfall
+    this.nextAction = input.nextAction
+  }
+}
+
 function getApiUrl(path: string): string {
   if (/^https?:\/\//.test(path)) return path
   if (API_BASE) return `${API_BASE}${path}`
@@ -25,6 +61,15 @@ function getTestFetchApiMock():
 
 let isRefreshing = false
 let refreshPromise: Promise<string | null> | null = null
+
+function isAuthEntryEndpoint(path: string) {
+  return (
+    path.endsWith('/auth/login') ||
+    path.endsWith('/auth/register') ||
+    path.includes('/auth/email/') ||
+    path.endsWith('/auth/google/id-token')
+  )
+}
 
 function clearAuthState() {
   localStorage.removeItem('accessToken')
@@ -81,11 +126,7 @@ export async function fetchApi<T>(path: string, options?: RequestInit): Promise<
   })
 
   // Auto-refresh on 401 (skip for login/register endpoints only)
-  if (
-    response.status === 401 &&
-    !path.endsWith('/auth/login') &&
-    !path.endsWith('/auth/register')
-  ) {
+  if (response.status === 401 && !isAuthEntryEndpoint(path)) {
     if (!isRefreshing) {
       isRefreshing = true
       refreshPromise = refreshAccessToken().finally(() => {
@@ -107,19 +148,29 @@ export async function fetchApi<T>(path: string, options?: RequestInit): Promise<
   }
 
   // Refresh may succeed but token can still be unauthorized (revoked/expired server-side).
-  if (
-    response.status === 401 &&
-    !path.endsWith('/auth/login') &&
-    !path.endsWith('/auth/register')
-  ) {
+  if (response.status === 401 && !isAuthEntryEndpoint(path)) {
     clearAuthState()
   }
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}))
     let errorMessage = `Request failed (${response.status})`
+    let code: string | undefined
+    let capability: string | undefined
+    let membership: unknown
+    let requiredAmount: number | undefined
+    let balance: number | undefined
+    let shortfall: number | undefined
+    let nextAction: string | undefined
     if (typeof body === 'object' && body !== null) {
       const b = body as Record<string, unknown>
+      if (typeof b.code === 'string') code = b.code
+      if (typeof b.capability === 'string') capability = b.capability
+      if ('membership' in b) membership = b.membership
+      if (typeof b.requiredAmount === 'number') requiredAmount = b.requiredAmount
+      if (typeof b.balance === 'number') balance = b.balance
+      if (typeof b.shortfall === 'number') shortfall = b.shortfall
+      if (typeof b.nextAction === 'string') nextAction = b.nextAction
       if (typeof b.detail === 'string') {
         // Beta: show server error detail for easier debugging
         errorMessage = b.detail
@@ -137,8 +188,15 @@ export async function fetchApi<T>(path: string, options?: RequestInit): Promise<
         errorMessage = b.message
       }
     }
-    throw Object.assign(new Error(errorMessage), {
+    throw new ApiError(errorMessage, {
       status: response.status,
+      code,
+      capability,
+      membership,
+      requiredAmount,
+      balance,
+      shortfall,
+      nextAction,
     })
   }
 

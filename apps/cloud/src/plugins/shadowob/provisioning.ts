@@ -276,6 +276,7 @@ async function provisionChannel(
     title: string
     type?: string
     description?: string
+    isPrivate?: boolean
   },
   state: ShadowobState | null,
 ): Promise<string> {
@@ -313,10 +314,15 @@ async function provisionChannel(
     // Continue to create
   }
 
-  const channel = await client.createChannel(serverId, {
+  const createChannel = client.createChannel.bind(client) as (
+    targetServerId: string,
+    data: { name: string; type?: string; description?: string; isPrivate?: boolean },
+  ) => Promise<AccessibleShadowChannel>
+  const channel = await createChannel(serverId, {
     name: channelDef.title,
     type: channelDef.type,
     description: channelDef.description,
+    isPrivate: channelDef.isPrivate,
   })
   log.success(`    Created channel: ${channelDef.title} (${channel.id})`)
   return channel.id

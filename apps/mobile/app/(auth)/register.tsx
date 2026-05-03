@@ -30,7 +30,7 @@ export default function RegisterScreen() {
   const [error, setError] = useState('')
 
   const handleRegister = async () => {
-    if (!email.trim() || !password.trim() || !inviteCode.trim()) return
+    if (!email.trim() || !password.trim()) return
     setError('')
     setLoading(true)
     try {
@@ -50,7 +50,7 @@ export default function RegisterScreen() {
           email: email.trim(),
           password,
           displayName: displayName.trim() || undefined,
-          inviteCode: inviteCode.trim(),
+          inviteCode: inviteCode.trim() || undefined,
           referralCode: params.code,
         }),
       })
@@ -151,7 +151,10 @@ export default function RegisterScreen() {
           />
 
           <Text style={[styles.label, { color: colors.textSecondary }]}>
-            {t('auth.inviteCodeLabel')} <Text style={{ color: '#f23f43' }}>*</Text>
+            {t('auth.inviteCodeLabel')}{' '}
+            <Text style={{ color: colors.textMuted, fontWeight: '400', fontStyle: 'italic' }}>
+              {t('auth.optional')}
+            </Text>
           </Text>
           <TextInput
             style={[

@@ -38,8 +38,10 @@ export function createInviteHandler(container: AppContainer) {
     ),
     async (c) => {
       const inviteCodeDao = container.resolve('inviteCodeDao')
+      const membershipService = container.resolve('membershipService')
       const user = c.get('user') as { userId: string }
       const { count, note } = c.req.valid('json')
+      await membershipService.requireMember(user.userId, 'invite:create')
       const codes = []
       for (let i = 0; i < count; i++) {
         const code = await inviteCodeDao.create({

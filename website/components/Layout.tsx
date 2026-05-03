@@ -340,7 +340,6 @@ export function PublicFooter({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
             links: [
               { text: '产品文档', href: `${base}${prefix}/product/` },
               { text: 'API 文档', href: `${base}${prefix}/platform/introduction` },
-              { text: '定价', href: `${base}${prefix}/pricing` },
             ],
           },
           {
@@ -382,7 +381,6 @@ export function PublicFooter({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
             links: [
               { text: 'Product Docs', href: `${base}${prefix}/product/` },
               { text: 'API Reference', href: `${base}${prefix}/platform/introduction` },
-              { text: 'Pricing', href: `${base}${prefix}/pricing` },
             ],
           },
           {

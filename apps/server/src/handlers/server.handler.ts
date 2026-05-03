@@ -51,8 +51,10 @@ export function createServerHandler(container: AppContainer) {
   // POST /api/servers
   serverHandler.post('/', zValidator('json', createServerSchema), async (c) => {
     const serverService = container.resolve('serverService')
+    const membershipService = container.resolve('membershipService')
     const input = c.req.valid('json')
     const user = c.get('user')
+    await membershipService.requireMember(user.userId, 'server:create')
     const server = await serverService.create(input, user.userId)
     return c.json(server, 201)
   })

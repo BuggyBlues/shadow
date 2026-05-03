@@ -138,8 +138,8 @@ export class TaskCenterService {
       userId,
       rewardKey: 'welcome_signup',
       referenceId: null,
-      amount: 500,
-      note: '注册赠送 500 虾币',
+      amount: 1000,
+      note: '注册赠送 1000 虾币',
     })
   }
 

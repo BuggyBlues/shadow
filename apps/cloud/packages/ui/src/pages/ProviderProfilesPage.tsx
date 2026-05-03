@@ -28,11 +28,13 @@ import {
 } from '@shadowob/ui'
 import { EmptyState } from '@shadowob/ui/components/ui/empty-state'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import {
   ArrowLeft,
   CheckCircle,
   ChevronRight,
   Copy,
+  DollarSign,
   Globe2,
   KeyRound,
   Loader2,
@@ -41,6 +43,7 @@ import {
   ShieldCheck,
   TestTube2,
   Trash2,
+  Wallet,
   XCircle,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
@@ -77,6 +80,21 @@ interface ProviderProfileModelFormState {
   reasoning: boolean
 }
 
+type ModelProxyBilling = {
+  shrimpPerCny: number
+  inputTokensPerShrimp: number | null
+  outputTokensPerShrimp: number | null
+  inputCacheHitShrimpPerMillionTokens: number
+  inputCacheMissShrimpPerMillionTokens: number
+  outputShrimpPerMillionTokens: number
+}
+
+type ModelProxyApiExtension = {
+  modelProxy?: {
+    billing: () => Promise<ModelProxyBilling>
+  }
+}
+
 const MODEL_TAGS = ['default', 'fast', 'flash', 'reasoning', 'vision', 'tools'] as const
 
 const EMPTY_FORM: ProviderProfileFormState = {
@@ -88,6 +106,11 @@ const EMPTY_FORM: ProviderProfileFormState = {
   authType: 'api_key',
   models: [],
   enabled: true,
+}
+
+function formatBillingNumber(value: number) {
+  if (Number.isInteger(value)) return String(value)
+  return value.toFixed(2).replace(/\.?0+$/, '')
 }
 
 function defaultProfileName(providerId: string): string {
@@ -393,9 +416,35 @@ export function ProviderProfilesPage() {
     queryKey: ['provider-profiles'],
     queryFn: api.providerProfiles.list,
   })
+  const { data: modelProxyBilling } = useQuery({
+    queryKey: ['model-proxy-billing'],
+    queryFn: () =>
+      (api as ModelProxyApiExtension).modelProxy?.billing?.() ??
+      Promise.resolve(null as ModelProxyBilling | null),
+    retry: false,
+  })
 
   const catalogs = catalogData?.providers ?? []
   const profiles = profileData?.profiles ?? []
+  const modelProxyPricingText = useMemo(() => {
+    if (!modelProxyBilling) return t('providers.officialPricingLoading')
+    if (modelProxyBilling.inputTokensPerShrimp || modelProxyBilling.outputTokensPerShrimp) {
+      return t('providers.officialPricingTokens', {
+        input: formatBillingNumber(
+          modelProxyBilling.inputTokensPerShrimp ?? modelProxyBilling.outputTokensPerShrimp ?? 1000,
+        ),
+        output: formatBillingNumber(
+          modelProxyBilling.outputTokensPerShrimp ?? modelProxyBilling.inputTokensPerShrimp ?? 1000,
+        ),
+      })
+    }
+    return t('providers.officialPricingDeepSeek', {
+      cacheHit: formatBillingNumber(modelProxyBilling.inputCacheHitShrimpPerMillionTokens),
+      cacheMiss: formatBillingNumber(modelProxyBilling.inputCacheMissShrimpPerMillionTokens),
+      output: formatBillingNumber(modelProxyBilling.outputShrimpPerMillionTokens),
+      shrimpPerCny: formatBillingNumber(modelProxyBilling.shrimpPerCny),
+    })
+  }, [modelProxyBilling, t])
   const catalogById = useMemo(
     () => new Map(catalogs.map((catalog) => [catalog.provider.id, catalog])),
     [catalogs],
@@ -549,6 +598,24 @@ export function ProviderProfilesPage() {
     modelValidation.hasDuplicateModel
   const providerModelNames = (profile: ProviderProfile) =>
     profileModels(profile).map((model) => model.id)
+  const openRecharge = () => {
+    if (typeof window === 'undefined') return
+    let acked = false
+    const onAck = () => {
+      acked = true
+      window.removeEventListener('shadow:open-recharge:ack', onAck)
+    }
+    window.addEventListener('shadow:open-recharge:ack', onAck)
+    window.dispatchEvent(
+      new CustomEvent('shadow:open-recharge', {
+        detail: { source: 'provider-profiles', amount: 10000 },
+      }),
+    )
+    window.setTimeout(() => {
+      window.removeEventListener('shadow:open-recharge:ack', onAck)
+      if (!acked) toast.error(t('deploy.rechargeUnavailable'))
+    }, 500)
+  }
 
   return (
     <PageShell
@@ -568,21 +635,53 @@ export function ProviderProfilesPage() {
         </Button>
       }
       headerContent={
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-success/20 bg-success/5 px-4 py-2.5">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-success/10 text-success">
-            <ShieldCheck size={13} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <span className="text-sm font-semibold text-success">
-              {t('providers.encryptionActive')}
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-success/20 bg-success/5 px-4 py-2.5">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-success/10 text-success">
+              <ShieldCheck size={13} />
             </span>
-            <span className="ml-2 text-xs text-text-muted">
-              {t('providers.encryptionDescription')}
+            <div className="min-w-0 flex-1">
+              <span className="text-sm font-semibold text-success">
+                {t('providers.encryptionActive')}
+              </span>
+              <span className="ml-2 text-xs text-text-muted">
+                {t('providers.encryptionDescription')}
+              </span>
+            </div>
+            <span className="shrink-0 rounded-full border border-success/20 bg-success/10 px-2.5 py-0.5 text-[11px] font-semibold text-success">
+              {profiles.filter((profile) => profile.enabled).length}{' '}
+              {t('providers.enabledProfiles')}
             </span>
           </div>
-          <span className="shrink-0 rounded-full border border-success/20 bg-success/10 px-2.5 py-0.5 text-[11px] font-semibold text-success">
-            {profiles.filter((profile) => profile.enabled).length} {t('providers.enabledProfiles')}
-          </span>
+
+          <div className="flex flex-col gap-3 rounded-xl bg-primary/8 px-4 py-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary">
+                <Wallet size={15} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-text-primary">
+                  {t('providers.officialProviderTitle')}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-text-muted">
+                  {t('providers.officialProviderDescription')}
+                </p>
+                <p className="mt-2 text-xs font-medium text-primary">{modelProxyPricingText}</p>
+              </div>
+            </div>
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <Button asChild variant="ghost" size="sm">
+                <Link to="/wallet">
+                  <Wallet size={13} />
+                  {t('deploy.viewWalletAndBilling')}
+                </Link>
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={openRecharge}>
+                <DollarSign size={13} />
+                {t('deploy.topUp')}
+              </Button>
+            </div>
+          </div>
         </div>
       }
     >

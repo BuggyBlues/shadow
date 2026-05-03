@@ -1,9 +1,40 @@
-import { useLayoutEffect } from 'react'
-import { ServerHome } from '../components/server/server-home'
+import { EmptyState } from '@shadowob/ui'
+import { useQuery } from '@tanstack/react-query'
+import { useNavigate, useParams } from '@tanstack/react-router'
+import { Hash, Loader2 } from 'lucide-react'
+import { useEffect, useLayoutEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
+import { fetchApi } from '../lib/api'
 import { leaveChannel } from '../lib/socket'
 import { useChatStore } from '../stores/chat.store'
 
+type ChannelMeta = {
+  id: string
+  name: string
+  position?: number | null
+  isArchived?: boolean | null
+}
+
 export function ServerHomeView() {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const { serverSlug } = useParams({ strict: false }) as { serverSlug: string }
+  const { data: channels, isLoading } = useQuery({
+    queryKey: ['server-home-channels', serverSlug],
+    queryFn: () =>
+      fetchApi<ChannelMeta[]>(`/api/servers/${encodeURIComponent(serverSlug)}/channels`),
+    enabled: !!serverSlug,
+    retry: false,
+  })
+
+  const firstChannel = useMemo(() => {
+    return (
+      channels
+        ?.filter((channel) => !channel.isArchived)
+        .sort((left, right) => (left.position ?? 0) - (right.position ?? 0))[0] ?? null
+    )
+  }, [channels])
+
   // Clear channel state when entering server home
   useLayoutEffect(() => {
     const prev = useChatStore.getState().activeChannelId
@@ -13,5 +44,30 @@ export function ServerHomeView() {
     }
   }, [])
 
-  return <ServerHome />
+  useEffect(() => {
+    if (!serverSlug || isLoading || !channels || !firstChannel) return
+    navigate({
+      to: '/servers/$serverSlug/channels/$channelId',
+      params: { serverSlug, channelId: firstChannel.id },
+      replace: true,
+    })
+  }, [channels, firstChannel, isLoading, navigate, serverSlug])
+
+  if (isLoading || firstChannel) {
+    return (
+      <div className="flex flex-1 items-center justify-center bg-bg-primary/70 text-text-muted backdrop-blur-xl">
+        <Loader2 size={18} className="animate-spin opacity-60" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-1 items-center justify-center bg-bg-primary/70 px-6 backdrop-blur-xl">
+      <EmptyState
+        icon={Hash}
+        title={t('serverHome.noChannelsTitle')}
+        description={t('serverHome.noChannelsDesc')}
+      />
+    </div>
+  )
 }

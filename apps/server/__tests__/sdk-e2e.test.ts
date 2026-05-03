@@ -15,6 +15,7 @@
 import { createServer } from 'node:http'
 import { CLIENT_EVENTS, SERVER_EVENTS, ShadowClient, ShadowSocket } from '@shadowob/sdk'
 import { asValue } from 'awilix'
+import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { Server as SocketIOServer } from 'socket.io'
@@ -108,6 +109,7 @@ beforeAll(async () => {
     passwordHash: 'not-used',
   })
   userId = user1!.id
+  await db.update(schema.users).set({ isAdmin: true }).where(eq(schema.users.id, userId))
   userToken = signAccessToken({
     userId,
     email: user1!.email,

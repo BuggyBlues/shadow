@@ -76,7 +76,7 @@ let orderA2Id: string // Buyer A entitlement order
 let orderB1Id: string // Buyer B physical order
 let orderBCancelId: string // Buyer B order to cancel
 
-const INITIAL_WALLET_BALANCE = 10000
+const INITIAL_WALLET_BALANCE = 0
 
 /* ── Helpers ── */
 
@@ -897,7 +897,7 @@ describe('7. Order creation — multi-user purchases', () => {
       token: buyerBToken,
       body: { items: [{ productId: expProduct.id, quantity: 1 }] },
     })
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(402)
 
     // Cleanup
     await req('DELETE', `/api/servers/${serverId}/shop/products/${expProduct.id}`, {
@@ -1311,13 +1311,13 @@ describe('13. Financial audit', () => {
     const walletA = await json<{ balance: number }>(
       await req('GET', '/api/wallet', { token: buyerAToken }),
     )
-    expect(walletA.balance).toBe(INITIAL_WALLET_BALANCE + 25000 - 4198 - 500 - 99 + 500) // = 30703
+    expect(walletA.balance).toBe(INITIAL_WALLET_BALANCE + 25000 - 4198 - 500 - 99 + 500) // = 20703
 
     // Buyer B: 15000 + 5000 (extra topup) - 5197 (phone+case) - 199 (bundle) + 199 (refund)
     const walletB = await json<{ balance: number }>(
       await req('GET', '/api/wallet', { token: buyerBToken }),
     )
-    expect(walletB.balance).toBe(INITIAL_WALLET_BALANCE + 15000 + 5000 - 5197 - 199 + 199) // = 24803
+    expect(walletB.balance).toBe(INITIAL_WALLET_BALANCE + 15000 + 5000 - 5197 - 199 + 199) // = 14803
   })
 })
 

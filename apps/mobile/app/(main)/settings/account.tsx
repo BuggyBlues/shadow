@@ -9,9 +9,13 @@ import { fontSize, radius, spacing, useColors } from '../../../src/theme'
 export default function AccountSettingsScreen() {
   const { t } = useTranslation()
   const colors = useColors()
-  const { user } = useAuthStore()
+  const { user, setUser } = useAuthStore()
 
   // Change password state
+  const [inviteCode, setInviteCode] = useState('')
+  const [inviteLoading, setInviteLoading] = useState(false)
+  const [inviteError, setInviteError] = useState<string | null>(null)
+  const [inviteSuccess, setInviteSuccess] = useState(false)
   const [showPasswordForm, setShowPasswordForm] = useState(false)
   const [passwordForm, setPasswordForm] = useState({
     oldPassword: '',
@@ -53,14 +57,46 @@ export default function AccountSettingsScreen() {
         setPasswordSuccess(false)
       }, 2000)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to change password'
+      const msg = err instanceof Error ? err.message : t('settings.passwordChangeFailed')
       setPasswordError(msg)
     } finally {
       setPasswordLoading(false)
     }
   }
 
+  const handleRedeemInvite = async () => {
+    if (!inviteCode.trim() || !user) return
+    setInviteLoading(true)
+    setInviteError(null)
+    setInviteSuccess(false)
+    try {
+      const membership = await fetchApi<NonNullable<typeof user>['membership']>(
+        '/api/membership/redeem-invite',
+        {
+          method: 'POST',
+          body: JSON.stringify({ code: inviteCode.trim() }),
+        },
+      )
+      if (membership) setUser({ ...user, membership })
+      setInviteCode('')
+      setInviteSuccess(true)
+    } catch (err) {
+      setInviteError(err instanceof Error ? err.message : t('settings.membershipRedeemFailed'))
+    } finally {
+      setInviteLoading(false)
+    }
+  }
+
   if (!user) return null
+
+  const membership = user.membership
+  const tierKey = membership?.status ?? 'visitor'
+  const tierLabel = t(`settings.membershipTiers.${tierKey}`, membership?.tier?.label ?? tierKey)
+  const capabilityLabels =
+    membership?.capabilities.map((capability) => {
+      const capabilityKey = capability.replace(/[:.]/g, '_')
+      return t(`settings.membershipCapabilityLabels.${capabilityKey}`, capability)
+    }) ?? []
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -82,6 +118,31 @@ export default function AccountSettingsScreen() {
             </Text>
             <Text style={{ color: colors.text, fontSize: fontSize.sm }}>@{user.username}</Text>
           </View>
+          <View style={[styles.row, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.label, { color: colors.textMuted }]}>
+              {t('settings.membershipStatusLabel')}
+            </Text>
+            <Text style={{ color: membership?.isMember ? colors.success : colors.textMuted }}>
+              {`${tierLabel} · ${t('settings.membershipLevelLabel', { level: membership?.level ?? 0 })}`}
+            </Text>
+          </View>
+          <View style={[styles.row, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.label, { color: colors.textMuted }]}>
+              {t('settings.membershipCapabilitiesLabel')}
+            </Text>
+            <Text
+              style={{
+                color: colors.textMuted,
+                fontSize: fontSize.xs,
+                flex: 1,
+                textAlign: 'right',
+              }}
+            >
+              {capabilityLabels.length
+                ? capabilityLabels.join(', ')
+                : t('settings.membershipNoCapabilities')}
+            </Text>
+          </View>
           <View style={[styles.row, { borderBottomWidth: 0 }]}>
             <Text style={[styles.label, { color: colors.textMuted }]}>
               {t('settings.userIdLabel')}
@@ -91,6 +152,54 @@ export default function AccountSettingsScreen() {
             </Text>
           </View>
         </View>
+
+        {!membership?.isMember ? (
+          <View style={[styles.card, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.label, { color: colors.text, marginBottom: spacing.sm }]}>
+              {t('settings.membershipRedeemTitle')}
+            </Text>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.background,
+                  borderColor: colors.border,
+                  color: colors.text,
+                },
+              ]}
+              value={inviteCode}
+              onChangeText={setInviteCode}
+              placeholder={t('settings.membershipRedeemPlaceholder')}
+              placeholderTextColor={colors.textMuted}
+              autoCapitalize="characters"
+              editable={!inviteLoading}
+            />
+            {inviteError ? (
+              <Text style={{ color: colors.error, fontSize: fontSize.xs }}>{inviteError}</Text>
+            ) : inviteSuccess ? (
+              <Text style={{ color: colors.success, fontSize: fontSize.xs }}>
+                {t('settings.membershipRedeemedSuccess')}
+              </Text>
+            ) : (
+              <Text style={{ color: colors.textMuted, fontSize: fontSize.xs }}>
+                {t('settings.membershipVisitorHint')}
+              </Text>
+            )}
+            <TouchableOpacity
+              style={[
+                styles.actionButton,
+                {
+                  backgroundColor: colors.primary,
+                  opacity: inviteLoading || !inviteCode.trim() ? 0.6 : 1,
+                },
+              ]}
+              onPress={handleRedeemInvite}
+              disabled={inviteLoading || !inviteCode.trim()}
+            >
+              <Text style={styles.actionButtonText}>{t('settings.membershipRedeemAction')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         {/* Change Password Section */}
         <Text style={[styles.groupTitle, { color: colors.textMuted }]}>
@@ -254,6 +363,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: 10,
     borderRadius: radius.md,
+  },
+  actionButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.md,
+    paddingVertical: 12,
+    marginTop: spacing.sm,
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontSize: fontSize.sm,
+    fontWeight: '700',
   },
   cancelButton: {
     borderWidth: 1,

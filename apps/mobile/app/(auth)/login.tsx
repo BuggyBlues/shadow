@@ -97,9 +97,13 @@ export default function LoginScreen() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const { signInWithGoogle, signInWithGitHub, isLoading: oauthLoading } = useOAuth()
 
+  const [mode, setMode] = useState<'email-code' | 'password'>('email-code')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [code, setCode] = useState('')
+  const [codeSent, setCodeSent] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [codeLoading, setCodeLoading] = useState(false)
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -124,6 +128,50 @@ export default function LoginScreen() {
       }>('/api/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email: email.trim(), password }),
+      })
+      setAuth(data.user, data.accessToken, data.refreshToken)
+      router.replace('/(main)')
+    } catch (err) {
+      showToast((err as Error).message || t('auth.loginFailed'), 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSendCode = async () => {
+    if (!email.trim()) return
+    setCodeLoading(true)
+    try {
+      await fetchApi('/api/auth/email/start', {
+        method: 'POST',
+        body: JSON.stringify({ email: email.trim() }),
+      })
+      setCodeSent(true)
+      showToast(t('auth.emailCodeSent'), 'success')
+    } catch (err) {
+      showToast((err as Error).message || t('auth.loginFailed'), 'error')
+    } finally {
+      setCodeLoading(false)
+    }
+  }
+
+  const handleVerifyCode = async () => {
+    if (!email.trim() || !code.trim()) return
+    setLoading(true)
+    try {
+      const data = await fetchApi<{
+        user: {
+          id: string
+          email: string
+          username: string
+          displayName: string | null
+          avatarUrl: string | null
+        }
+        accessToken: string
+        refreshToken: string
+      }>('/api/auth/email/verify', {
+        method: 'POST',
+        body: JSON.stringify({ email: email.trim(), code: code.trim() }),
       })
       setAuth(data.user, data.accessToken, data.refreshToken)
       router.replace('/(main)')
@@ -169,6 +217,41 @@ export default function LoginScreen() {
             </Text>
           </View>
 
+          <View style={[styles.segmented, { backgroundColor: colors.background }]}>
+            <Pressable
+              style={[
+                styles.segment,
+                mode === 'email-code' ? { backgroundColor: colors.primary } : null,
+              ]}
+              onPress={() => setMode('email-code')}
+            >
+              <Text
+                style={[
+                  styles.segmentText,
+                  { color: mode === 'email-code' ? '#fff' : colors.textSecondary },
+                ]}
+              >
+                {t('auth.emailCodeTab')}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.segment,
+                mode === 'password' ? { backgroundColor: colors.primary } : null,
+              ]}
+              onPress={() => setMode('password')}
+            >
+              <Text
+                style={[
+                  styles.segmentText,
+                  { color: mode === 'password' ? '#fff' : colors.textSecondary },
+                ]}
+              >
+                {t('auth.passwordLoginTab')}
+              </Text>
+            </Pressable>
+          </View>
+
           <View style={styles.form}>
             <Text style={[styles.label, { color: colors.textSecondary }]}>
               {t('auth.emailLabel')} <Text style={{ color: '#f23f43' }}>*</Text>
@@ -184,30 +267,74 @@ export default function LoginScreen() {
               autoCorrect={false}
             />
 
-            <Text style={[styles.label, { color: colors.textSecondary }]}>
-              {t('auth.passwordLabel')} <Text style={{ color: '#f23f43' }}>*</Text>
-            </Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.background, color: colors.text }]}
-              value={password}
-              onChangeText={setPassword}
-              placeholder="••••••••"
-              placeholderTextColor={colors.textMuted}
-              secureTextEntry
-            />
+            {mode === 'password' ? (
+              <>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>
+                  {t('auth.passwordLabel')} <Text style={{ color: '#f23f43' }}>*</Text>
+                </Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.background, color: colors.text }]}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="••••••••"
+                  placeholderTextColor={colors.textMuted}
+                  secureTextEntry
+                />
+              </>
+            ) : (
+              <>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>
+                  {t('auth.emailCodeLabel')} <Text style={{ color: '#f23f43' }}>*</Text>
+                </Text>
+                <View style={styles.codeRow}>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      styles.codeInput,
+                      { backgroundColor: colors.background, color: colors.text },
+                    ]}
+                    value={code}
+                    onChangeText={setCode}
+                    placeholder={t('auth.emailCodePlaceholder')}
+                    placeholderTextColor={colors.textMuted}
+                    keyboardType="number-pad"
+                    autoCapitalize="none"
+                  />
+                  <Pressable
+                    style={[
+                      styles.codeButton,
+                      { borderColor: colors.border, opacity: codeLoading ? 0.6 : 1 },
+                    ]}
+                    onPress={handleSendCode}
+                    disabled={codeLoading}
+                  >
+                    <Text style={[styles.codeButtonText, { color: colors.text }]}>
+                      {codeLoading ? t('auth.sendingEmailCode') : t('auth.sendEmailCode')}
+                    </Text>
+                  </Pressable>
+                </View>
+                {codeSent ? (
+                  <Text style={{ color: colors.textMuted, fontSize: fontSize.xs }}>
+                    {t('auth.emailCodeSent')}
+                  </Text>
+                ) : null}
+              </>
+            )}
 
             <Pressable
               style={[
                 styles.button,
                 { backgroundColor: '#5865F2', opacity: isButtonDisabled ? 0.6 : 1 },
               ]}
-              onPress={handleLogin}
+              onPress={mode === 'password' ? handleLogin : handleVerifyCode}
               disabled={isButtonDisabled}
             >
               {loading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.buttonText}>{t('auth.loginSubmit')}</Text>
+                <Text style={styles.buttonText}>
+                  {mode === 'password' ? t('auth.loginSubmit') : t('auth.verifyEmailCode')}
+                </Text>
               )}
             </Pressable>
           </View>
@@ -306,6 +433,23 @@ const styles = StyleSheet.create({
   form: {
     gap: spacing.sm,
   },
+  segmented: {
+    flexDirection: 'row',
+    borderRadius: radius.lg,
+    padding: 4,
+    marginBottom: spacing.lg,
+  },
+  segment: {
+    flex: 1,
+    height: 40,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentText: {
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+  },
   label: {
     fontSize: fontSize.xs,
     fontWeight: '700',
@@ -317,6 +461,26 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     paddingHorizontal: spacing.md,
     fontSize: fontSize.md,
+  },
+  codeRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  codeInput: {
+    flex: 1,
+  },
+  codeButton: {
+    minWidth: 112,
+    height: 48,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.sm,
+  },
+  codeButtonText: {
+    fontSize: fontSize.sm,
+    fontWeight: '700',
   },
   button: {
     height: 48,

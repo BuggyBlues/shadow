@@ -6,7 +6,15 @@ import { verifyToken } from '../lib/jwt'
 import { logger } from '../lib/logger'
 import { getRedisClient, presenceKeys } from '../lib/redis'
 import { authMiddleware } from '../middleware/auth.middleware'
-import { changePasswordSchema, loginSchema, registerSchema } from '../validators/auth.schema'
+import { createRateLimitMiddleware } from '../middleware/rate-limit.middleware'
+import {
+  changePasswordSchema,
+  emailLoginStartSchema,
+  emailLoginVerifySchema,
+  googleIdTokenSchema,
+  loginSchema,
+  registerSchema,
+} from '../validators/auth.schema'
 import { forceDisconnectUser } from '../ws/presence.gateway'
 
 async function resolveLiveUserStatus(
@@ -26,22 +34,76 @@ async function resolveLiveUserStatus(
 
 export function createAuthHandler(container: AppContainer) {
   const authHandler = new Hono()
-
-  // POST /api/auth/register
-  authHandler.post('/register', zValidator('json', registerSchema), async (c) => {
-    const authService = container.resolve('authService')
-    const input = c.req.valid('json')
-    const result = await authService.register(input)
-    return c.json(result, 201)
+  const authEntryRateLimit = createRateLimitMiddleware({
+    namespace: 'auth-entry',
+    windowMs: 60_000,
+    limit: 20,
+  })
+  const emailCodeRateLimit = createRateLimitMiddleware({
+    namespace: 'auth-email-code',
+    windowMs: 10 * 60_000,
+    limit: 5,
   })
 
+  // POST /api/auth/register
+  authHandler.post(
+    '/register',
+    authEntryRateLimit,
+    zValidator('json', registerSchema),
+    async (c) => {
+      const authService = container.resolve('authService')
+      const input = c.req.valid('json')
+      const result = await authService.register(input)
+      return c.json(result, 201)
+    },
+  )
+
   // POST /api/auth/login
-  authHandler.post('/login', zValidator('json', loginSchema), async (c) => {
+  authHandler.post('/login', authEntryRateLimit, zValidator('json', loginSchema), async (c) => {
     const authService = container.resolve('authService')
     const input = c.req.valid('json')
     const result = await authService.login(input)
     return c.json(result)
   })
+
+  // POST /api/auth/email/start — send a one-time email verification code
+  authHandler.post(
+    '/email/start',
+    emailCodeRateLimit,
+    zValidator('json', emailLoginStartSchema),
+    async (c) => {
+      const authService = container.resolve('authService')
+      const input = c.req.valid('json')
+      const result = await authService.startEmailLogin(input)
+      return c.json(result)
+    },
+  )
+
+  // POST /api/auth/email/verify — verify code and sign in or create a visitor account
+  authHandler.post(
+    '/email/verify',
+    authEntryRateLimit,
+    zValidator('json', emailLoginVerifySchema),
+    async (c) => {
+      const authService = container.resolve('authService')
+      const input = c.req.valid('json')
+      const result = await authService.verifyEmailLogin(input)
+      return c.json(result)
+    },
+  )
+
+  // POST /api/auth/google/id-token — Google One Tap credential login
+  authHandler.post(
+    '/google/id-token',
+    authEntryRateLimit,
+    zValidator('json', googleIdTokenSchema),
+    async (c) => {
+      const externalOAuthService = container.resolve('externalOAuthService')
+      const { credential } = c.req.valid('json')
+      const result = await externalOAuthService.handleGoogleIdToken(credential)
+      return c.json(result)
+    },
+  )
 
   // POST /api/auth/refresh
   authHandler.post(

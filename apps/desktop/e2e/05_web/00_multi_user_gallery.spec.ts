@@ -53,11 +53,13 @@ async function ensureScreenshotDir() {
 }
 
 async function loginViaUi(page: import('@playwright/test').Page, user: UserCredentials) {
-  await page.goto('login')
+  await page.goto('/app/login')
+  await page.getByRole('button', { name: /Password|密码/ }).click()
   await page.locator('input[autocomplete="username"]').fill(user.email)
   await page.locator('input[autocomplete="current-password"]').fill(user.password)
   await page.locator('form button[type="submit"]').click()
-  await page.waitForURL(/\/app\/settings/)
+  await page.waitForFunction(() => Boolean(localStorage.getItem('accessToken')))
+  await page.waitForURL((url) => url.pathname.startsWith('/app/') && url.pathname !== '/app/login')
 }
 
 async function registerViaUi(

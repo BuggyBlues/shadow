@@ -17,11 +17,132 @@ Authorization: Bearer <token>
 
 ### Auth Endpoints
 
-| Method | Endpoint             | Description          |
-|--------|----------------------|----------------------|
-| POST   | `/api/auth/register` | Create new account   |
-| POST   | `/api/auth/login`    | Login, returns JWT   |
-| GET    | `/api/auth/me`       | Get current user     |
+| Method | Endpoint                         | Description                                               |
+|--------|----------------------------------|-----------------------------------------------------------|
+| POST   | `/api/auth/register`             | Create visitor account; invite code is optional           |
+| POST   | `/api/auth/login`                | Password login; returns access and refresh tokens         |
+| POST   | `/api/auth/email/start`          | Send email verification code                              |
+| POST   | `/api/auth/email/verify`         | Verify email code and sign in or create visitor account   |
+| POST   | `/api/auth/google/id-token`      | Google One Tap credential login                           |
+| GET    | `/api/auth/me`                   | Get current user and membership status                    |
+| GET    | `/api/membership/me`             | Get visitor/member capabilities                           |
+| POST   | `/api/membership/redeem-invite`  | Redeem invite code for member capabilities                |
+| GET    | `/api/play/catalog`              | Get git-backed homepage play catalog                      |
+| POST   | `/api/play/launch`               | Launch a configured website play                          |
+| GET    | `/api/ai/v1/models`              | List official OpenAI-compatible model proxy models         |
+| GET    | `/api/ai/v1/billing`             | Show official proxy Shrimp Coin billing rates              |
+| POST   | `/api/ai/v1/chat/completions`    | Create an official proxied chat completion                 |
+
+Membership responses are tier-based and capability-driven. Clients should render the returned tier
+instead of assuming only two states:
+
+```json
+{
+  "status": "member",
+  "tier": {
+    "id": "member",
+    "level": 10,
+    "label": "Member",
+    "capabilities": ["cloud:deploy", "server:create", "invite:create", "oauth_app:create"]
+  },
+  "level": 10,
+  "isMember": true,
+  "memberSince": "2026-05-03T00:00:00.000Z",
+  "inviteCodeId": "invite-id",
+  "capabilities": ["cloud:deploy", "server:create", "invite:create", "oauth_app:create"]
+}
+```
+
+Advanced endpoints return `403` with code `INVITE_REQUIRED` when the current account is missing the
+required capability.
+
+Fast auth and play-launch paths can return `429` with code `RATE_LIMITED`. Clients should honor the
+`Retry-After` header before retrying.
+
+`GET /api/play/catalog` returns play cards, launch status, gates, action metadata, and linked git
+templates. Every homepage play has a matching git-tracked template under
+`apps/cloud/templates/*.template.json`; the app presents them through a unified landing page and keeps
+internal setup out of the customer-facing flow.
+
+`POST /api/play/launch` accepts a published `playId` and optional `launchSessionId`:
+
+```json
+{
+  "playId": "daily-brief",
+  "launchSessionId": "launch-session-1"
+}
+```
+
+Raw play action objects are not accepted by the public endpoint. Actions must be published through
+admin-managed website play config or the git-backed catalog. Missing actions return structured
+codes such as `PLAY_NOT_CONFIGURED`, `PLAY_COMING_SOON`, `PLAY_MISCONFIGURED`, or
+`PLAY_TARGET_UNAVAILABLE`; launch no longer falls back to Discover. Cloud template plays queue a real
+Cloud SaaS deployment from the approved template content and return `deploymentId` while provisioning.
+Once the deployment status is `deployed` and exposes `shadowServerId` plus `shadowChannelId`, clients
+should redirect directly into that channel. Public channel and private room plays must point to an
+already configured server; private rooms must also configure deployed `buddyUserIds`. The launcher
+only joins, creates the private channel, adds the configured Buddy, and posts the greeting. It does
+not create fake servers or fake Buddies for these actions. Cloud deploy plays post one provisioned
+Buddy greeting after the deployment is ready. If the wallet cannot cover the deploy cost, the API returns `402` with
+`WALLET_INSUFFICIENT_BALANCE`, `requiredAmount`, `balance`, and `shortfall` so clients can show a
+task or recharge paywall. A user's second new Cloud deployment requires at least 1000 Shrimp Coins
+before launch, while the lightweight deploy charge remains 500, so the starter balance can still
+cover model usage after the first deployment.
+
+## Official Model Proxy
+
+The official model proxy exposes an OpenAI-compatible surface backed by server-side provider
+configuration. Set `SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL` and `SHADOW_MODEL_PROXY_UPSTREAM_API_KEY`
+for the upstream provider; DeepSeek-compatible aliases `DEEPSEEK_BASE_URL` and `DEEPSEEK_API_KEY`
+are also supported. The default model id is `deepseek-v4-flash`, and can be changed with
+`SHADOW_MODEL_PROXY_MODEL`. Cloud templates and Pods receive a limited `smp_...` model-proxy token
+in `OPENAI_COMPATIBLE_API_KEY`, never the real upstream key.
+
+| Method | Endpoint                        | Description                            |
+|--------|---------------------------------|----------------------------------------|
+| GET    | `/api/ai/v1/models`             | List allowed official models           |
+| GET    | `/api/ai/v1/billing`            | Show configured billing rates          |
+| POST   | `/api/ai/v1/chat/completions`   | Proxy OpenAI-compatible chat requests  |
+
+Requests accept either a normal Shadow bearer token or a limited model-proxy bearer token:
+
+```http
+Authorization: Bearer <shadow-token-or-smp-token>
+```
+
+The proxy reserves whole Shrimp Coins before calling upstream, settles against reported token usage
+after the response, and refunds the reservation if the upstream request fails. Fractional model usage
+is stored as micro-Shrimp accruals, so small requests are not rounded up forever just because wallet
+balances are integers. By default the rates follow the official DeepSeek-style token categories:
+cached input, uncached input, and output. Configure them with
+`SHADOW_MODEL_PROXY_INPUT_CACHE_HIT_CNY_PER_MILLION`,
+`SHADOW_MODEL_PROXY_INPUT_CACHE_MISS_CNY_PER_MILLION`,
+`SHADOW_MODEL_PROXY_OUTPUT_CNY_PER_MILLION`, and `SHADOW_MODEL_PROXY_SHRIMP_PER_CNY`; the default
+exchange rate is 1 CNY = 10 Shrimp Coins. You can also configure the derived Shrimp rates directly
+with `SHADOW_MODEL_PROXY_INPUT_CACHE_HIT_SHRIMP_PER_MILLION`,
+`SHADOW_MODEL_PROXY_INPUT_CACHE_MISS_SHRIMP_PER_MILLION`, and
+`SHADOW_MODEL_PROXY_OUTPUT_SHRIMP_PER_MILLION`. Legacy token-per-coin overrides are only used when
+`SHADOW_MODEL_PROXY_BILLING_MODE=token_ratio`, through `SHADOW_MODEL_PROXY_TOKENS_PER_SHRIMP`, or
+the separate `SHADOW_MODEL_PROXY_INPUT_TOKENS_PER_SHRIMP` and
+`SHADOW_MODEL_PROXY_OUTPUT_TOKENS_PER_SHRIMP` values.
+
+When the wallet cannot cover the reserve, the proxy does not expose an upstream-style error to chat.
+It returns an OpenAI-compatible completion with `shadow.type = "wallet_recharge_required"` and
+`X-Shadow-Recharge-Required: true`; Shadow clients turn the embedded marker into a recharge card:
+
+```json
+{
+  "id": "chatcmpl-shadow-recharge-...",
+  "object": "chat.completion",
+  "choices": [{ "message": { "role": "assistant", "content": "<!-- shadow:wallet-recharge ... -->" } }],
+  "shadow": {
+    "type": "wallet_recharge_required",
+    "requiredAmount": 2,
+    "balance": 0,
+    "shortfall": 2
+  }
+}
+```
 
 ## Servers
 
@@ -96,7 +217,7 @@ Cloud cost dashboards read Buddy usage from `usage-snapshot` rows. They do not e
 | POST   | `/api/cloud-saas/deployments/:id/cancel`      | Request cancellation of a pending or deploying attempt |
 | GET    | `/api/cloud-saas/deployments/:id/logs`        | Stream deployment logs |
 
-Deployment rows are attempt history; the stable deployment instance is identified by user, cluster, and namespace. `GET /api/cloud-saas/deployments` and `GET /api/cloud-saas/deployments/:id` include `blockedBy` when an earlier active task is holding the namespace queue, and `shadowServerId` when the completed deployment provisioned a Shadow server through the shadowob plugin. Creating a second live instance in the same namespace, redeploying a historical attempt, destroying a historical attempt, or mutating a namespace while another operation is active returns `409`.
+Deployment rows are attempt history; the stable deployment instance is identified by user, cluster, and namespace. `GET /api/cloud-saas/deployments` and `GET /api/cloud-saas/deployments/:id` include `blockedBy` when an earlier active task is holding the namespace queue, and `shadowServerId` / `shadowChannelId` when the completed deployment provisioned a Shadow server through the shadowob plugin. Creating a second live instance in the same namespace, redeploying a historical attempt, destroying a historical attempt, or mutating a namespace while another operation is active returns `409`.
 
 ## Cloud SaaS Provider Profiles
 
@@ -111,7 +232,7 @@ Deployment rows are attempt history; the stable deployment instance is identifie
 
 Provider profile secrets are stored through the Cloud env var KMS path. Phase 1 supports API-key provider profiles only. Templates using the `model-provider` plugin receive matching runtime secrets and model metadata, including user-defined tags such as `default`, `fast`, `reasoning`, `vision`, and `tools`.
 
-The LLM Gateway management APIs above do not expose a public `/v1/chat/completions` proxy token or base URL. Current profiles are used for encrypted storage, model discovery, model tags, and deployment-time injection.
+Provider profile APIs above are for user-owned encrypted credentials, model discovery, model tags, and deployment-time injection. The official server-owned proxy is exposed separately at `/api/ai/v1` and injects only limited model-proxy tokens into one-click Cloud plays.
 
 ## File Upload
 

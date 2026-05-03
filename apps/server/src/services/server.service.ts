@@ -170,6 +170,47 @@ export class ServerService {
     return server
   }
 
+  async joinPublic(serverId: string, userId: string) {
+    const server = await this.deps.serverDao.findById(serverId)
+    if (!server) {
+      throw Object.assign(new Error('Server not found'), { status: 404 })
+    }
+    if (!server.isPublic) {
+      throw Object.assign(new Error('Server is not public'), { status: 403 })
+    }
+
+    const existingMember = await this.deps.serverDao.getMember(server.id, userId)
+    if (existingMember) return server
+
+    await this.deps.serverDao.addMember(server.id, userId, 'member')
+    try {
+      const channels = await this.deps.channelDao.findByServerId(server.id)
+      const channelIds = channels.filter((ch) => !ch.isPrivate).map((ch) => ch.id)
+      await this.deps.channelMemberDao.addBulk(channelIds, userId)
+    } catch {
+      /* channel_members table may not exist yet */
+    }
+
+    return server
+  }
+
+  async ensureMember(serverId: string, userId: string, options?: { allowPrivatePlay?: boolean }) {
+    const server = await this.deps.serverDao.findById(serverId)
+    if (!server) {
+      throw Object.assign(new Error('Server not found'), { status: 404 })
+    }
+
+    const existingMember = await this.deps.serverDao.getMember(server.id, userId)
+    if (existingMember) return server
+
+    if (!server.isPublic && !options?.allowPrivatePlay) {
+      throw Object.assign(new Error('Server is not public'), { status: 403 })
+    }
+
+    await this.deps.serverDao.addMember(server.id, userId, 'member')
+    return server
+  }
+
   async leave(serverId: string, userId: string) {
     const server = await this.deps.serverDao.findById(serverId)
     if (!server) {

@@ -32,11 +32,13 @@ async function ensureScreenshotDir() {
 }
 
 async function loginViaUi(page: import('@playwright/test').Page, user: Session['owner']) {
-  await page.goto('login')
+  await page.goto('/app/login')
+  await page.getByRole('button', { name: /Password|密码/ }).click()
   await page.locator('input[autocomplete="username"]').fill(user.email)
   await page.locator('input[autocomplete="current-password"]').fill(user.password)
   await page.locator('form button[type="submit"]').click()
-  await page.waitForURL(/\/app\/settings/)
+  await page.waitForFunction(() => Boolean(localStorage.getItem('accessToken')))
+  await page.waitForURL((url) => url.pathname.startsWith('/app/') && url.pathname !== '/app/login')
 }
 
 async function screenshot(page: import('@playwright/test').Page, name: string) {
@@ -205,7 +207,7 @@ test.describe
         // Navigate to authorize page with all necessary scopes
         const scopes =
           'user:read servers:read servers:write channels:read channels:write messages:read messages:write buddies:create buddies:manage'
-        const authorizeUrl = `oauth/authorize?response_type=code&client_id=${encodeURIComponent(app.clientId)}&redirect_uri=${encodeURIComponent(CALLBACK_URL)}&scope=${encodeURIComponent(scopes)}&state=tavern_setup`
+        const authorizeUrl = `/app/oauth/authorize?response_type=code&client_id=${encodeURIComponent(app.clientId)}&redirect_uri=${encodeURIComponent(CALLBACK_URL)}&scope=${encodeURIComponent(scopes)}&state=tavern_setup`
 
         await page.goto(authorizeUrl)
 

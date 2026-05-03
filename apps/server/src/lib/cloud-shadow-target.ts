@@ -1,0 +1,147 @@
+import { CLOUD_SAAS_RUNTIME_KEY, extractCloudSaasRuntime } from '@shadowob/cloud'
+
+type PlayLaunchRuntimeMetadata = {
+  defaultChannelName?: string
+  greeting?: string
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value))
+}
+
+function normalizeName(value: string | undefined | null) {
+  return value?.trim().toLowerCase() || ''
+}
+
+export function attachPlayLaunchRuntimeMetadata(
+  configSnapshot: Record<string, unknown>,
+  metadata: PlayLaunchRuntimeMetadata,
+) {
+  if (!metadata.defaultChannelName && !metadata.greeting) return configSnapshot
+  const runtime = isRecord(configSnapshot[CLOUD_SAAS_RUNTIME_KEY])
+    ? (configSnapshot[CLOUD_SAAS_RUNTIME_KEY] as Record<string, unknown>)
+    : {}
+
+  return {
+    ...configSnapshot,
+    [CLOUD_SAAS_RUNTIME_KEY]: {
+      ...runtime,
+      playLaunch: {
+        ...(isRecord(runtime.playLaunch) ? runtime.playLaunch : {}),
+        ...(metadata.defaultChannelName ? { defaultChannelName: metadata.defaultChannelName } : {}),
+        ...(metadata.greeting ? { greeting: metadata.greeting } : {}),
+      },
+    },
+  }
+}
+
+function playLaunchRuntimeMetadata(configSnapshot: unknown): PlayLaunchRuntimeMetadata {
+  if (!isRecord(configSnapshot)) return {}
+  const runtime = configSnapshot[CLOUD_SAAS_RUNTIME_KEY]
+  if (!isRecord(runtime) || !isRecord(runtime.playLaunch)) return {}
+  return {
+    ...(typeof runtime.playLaunch.defaultChannelName === 'string'
+      ? { defaultChannelName: runtime.playLaunch.defaultChannelName }
+      : {}),
+    ...(typeof runtime.playLaunch.greeting === 'string'
+      ? { greeting: runtime.playLaunch.greeting }
+      : {}),
+  }
+}
+
+export function extractPlayLaunchRuntimeMetadata(
+  configSnapshot: unknown,
+): PlayLaunchRuntimeMetadata {
+  return playLaunchRuntimeMetadata(configSnapshot)
+}
+
+function shadowobOptions(configSnapshot: unknown): Record<string, unknown> | null {
+  const { configSnapshot: cleanSnapshot } = extractCloudSaasRuntime(configSnapshot)
+  const use = cleanSnapshot?.use
+  if (!Array.isArray(use)) return null
+  const shadowobEntry = use.find((entry) => isRecord(entry) && entry.plugin === 'shadowob')
+  return isRecord(shadowobEntry) && isRecord(shadowobEntry.options) ? shadowobEntry.options : null
+}
+
+function resolvePreferredChannelConfigId(
+  configSnapshot: unknown,
+  defaultChannelName?: string | null,
+): string | null {
+  const options = shadowobOptions(configSnapshot)
+  const servers = Array.isArray(options?.servers) ? options.servers : []
+  const channels = servers.flatMap((server) =>
+    isRecord(server) && Array.isArray(server.channels) ? server.channels : [],
+  )
+  const normalizedDefault = normalizeName(
+    defaultChannelName ?? playLaunchRuntimeMetadata(configSnapshot).defaultChannelName,
+  )
+
+  if (normalizedDefault) {
+    for (const channel of channels) {
+      if (!isRecord(channel)) continue
+      const id = typeof channel.id === 'string' ? channel.id : undefined
+      const title = typeof channel.title === 'string' ? channel.title : undefined
+      const name = typeof channel.name === 'string' ? channel.name : undefined
+      if (
+        normalizeName(id) === normalizedDefault ||
+        normalizeName(title) === normalizedDefault ||
+        normalizeName(name) === normalizedDefault
+      ) {
+        return id ?? title ?? name ?? null
+      }
+    }
+  }
+
+  for (const channel of channels) {
+    if (!isRecord(channel)) continue
+    const id = typeof channel.id === 'string' ? channel.id : undefined
+    if (id) return id
+  }
+  return null
+}
+
+export function extractShadowProvisionTarget(
+  configSnapshot: unknown,
+  defaultChannelName?: string | null,
+): {
+  serverId: string | null
+  channelId: string | null
+} {
+  const { provisionState } = extractCloudSaasRuntime(configSnapshot)
+  const shadowob = provisionState?.plugins?.shadowob
+  if (!shadowob || typeof shadowob !== 'object' || Array.isArray(shadowob)) {
+    return { serverId: null, channelId: null }
+  }
+
+  const servers = (shadowob as Record<string, unknown>).servers
+  const channels = (shadowob as Record<string, unknown>).channels
+  const serverId =
+    servers && typeof servers === 'object' && !Array.isArray(servers)
+      ? (Object.values(servers).find((value): value is string => typeof value === 'string') ?? null)
+      : null
+
+  if (!channels || typeof channels !== 'object' || Array.isArray(channels)) {
+    return { serverId, channelId: null }
+  }
+
+  const channelMap = channels as Record<string, unknown>
+  const preferredConfigId = resolvePreferredChannelConfigId(configSnapshot, defaultChannelName)
+  const preferredChannelId =
+    preferredConfigId && typeof channelMap[preferredConfigId] === 'string'
+      ? (channelMap[preferredConfigId] as string)
+      : null
+  const fallbackChannelId =
+    Object.values(channelMap).find((value): value is string => typeof value === 'string') ?? null
+
+  return { serverId, channelId: preferredChannelId ?? fallbackChannelId }
+}
+
+export function extractShadowProvisionBuddyUserIds(configSnapshot: unknown): string[] {
+  const { provisionState } = extractCloudSaasRuntime(configSnapshot)
+  const shadowob = provisionState?.plugins?.shadowob
+  if (!isRecord(shadowob) || !isRecord(shadowob.buddies)) return []
+
+  return Object.values(shadowob.buddies)
+    .map((value) => (isRecord(value) && typeof value.userId === 'string' ? value.userId : null))
+    .filter((value): value is string => Boolean(value))
+}

@@ -22,6 +22,12 @@ async function get<T>(path: string): Promise<T> {
   return res.json() as Promise<T>
 }
 
+async function getRoot<T>(path: string): Promise<T> {
+  const res = await fetch(path, { headers: getAuthHeaders() })
+  if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`)
+  return res.json() as Promise<T>
+}
+
 async function post<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method: 'POST',
@@ -119,6 +125,23 @@ export interface SaasEnvVar {
 
 export interface SaasWallet {
   balance: number
+}
+
+export interface SaasModelProxyBilling {
+  enabled: boolean
+  currency: 'shrimp'
+  model: string
+  models: string[]
+  shrimpMicrosPerCoin: number
+  shrimpPerCny: number
+  inputTokensPerShrimp: number | null
+  outputTokensPerShrimp: number | null
+  inputCacheHitCnyPerMillionTokens: number
+  inputCacheMissCnyPerMillionTokens: number
+  outputCnyPerMillionTokens: number
+  inputCacheHitShrimpPerMillionTokens: number
+  inputCacheMissShrimpPerMillionTokens: number
+  outputShrimpPerMillionTokens: number
 }
 
 export interface SaasTransaction {
@@ -395,6 +418,10 @@ export const saasApi = {
         limit: number
         offset: number
       }>(`/wallet/transactions?limit=${params.limit ?? 50}&offset=${params.offset ?? 0}`),
+  },
+
+  modelProxy: {
+    billing: () => getRoot<SaasModelProxyBilling>('/api/ai/v1/billing'),
   },
 
   // Activity

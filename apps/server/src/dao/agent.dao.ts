@@ -84,6 +84,16 @@ export class AgentDao {
     return this.db.select().from(agents).where(inArray(agents.userId, userIds))
   }
 
+  async findPlayCatalogBuddyByTemplateSlug(templateSlug: string) {
+    const result = await this.db
+      .select({ agent: agents, user: users })
+      .from(agents)
+      .innerJoin(users, eq(agents.userId, users.id))
+      .where(sql`${agents.config}->>'playTemplateSlug' = ${templateSlug} AND ${users.isBot} = true`)
+      .limit(1)
+    return result[0] ?? null
+  }
+
   async findByLastToken(token: string) {
     const result = await this.db
       .select()

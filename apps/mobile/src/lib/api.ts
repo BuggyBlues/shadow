@@ -5,6 +5,25 @@ import { queryClient } from './query-client'
 
 export const API_BASE = Constants.expoConfig?.extra?.apiBase ?? 'https://shadowob.com'
 
+export class ApiError extends Error {
+  status: number
+  code?: string
+  capability?: string
+  membership?: unknown
+
+  constructor(
+    message: string,
+    input: { status: number; code?: string; capability?: string; membership?: unknown },
+  ) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = input.status
+    this.code = input.code
+    this.capability = input.capability
+    this.membership = input.membership
+  }
+}
+
 /** Resolve a media path (e.g. `/shadow/uploads/...`) to a full URL */
 export function getImageUrl(path: string | null | undefined): string | null {
   if (!path) return null
@@ -89,8 +108,14 @@ export async function fetchApi<T>(path: string, options?: RequestInit): Promise<
   if (!response.ok) {
     const body = await response.json().catch(() => ({}))
     let errorMessage = `Request failed (${response.status})`
+    let code: string | undefined
+    let capability: string | undefined
+    let membership: unknown
     if (typeof body === 'object' && body !== null) {
       const b = body as Record<string, unknown>
+      if (typeof b.code === 'string') code = b.code
+      if (typeof b.capability === 'string') capability = b.capability
+      if ('membership' in b) membership = b.membership
       if (typeof b.detail === 'string') {
         errorMessage = b.detail
       } else if (typeof b.error === 'string') {
@@ -106,9 +131,7 @@ export async function fetchApi<T>(path: string, options?: RequestInit): Promise<
         errorMessage = b.message
       }
     }
-    throw Object.assign(new Error(errorMessage), {
-      status: response.status,
-    })
+    throw new ApiError(errorMessage, { status: response.status, code, capability, membership })
   }
 
   return response.json() as Promise<T>

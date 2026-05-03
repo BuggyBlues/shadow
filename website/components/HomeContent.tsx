@@ -1,6 +1,19 @@
 import confetti from 'canvas-confetti'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Crown,
+  Dice5,
+  Flame,
+  Lightbulb,
+  Play,
+  RotateCcw,
+  Sparkles,
+  Trophy,
+  X,
+} from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { fetchConfig } from '../lib/config-client'
+import { fetchConfig, fetchPlayCatalog } from '../lib/config-client'
 
 /* ─── Scroll reveal ─── */
 function ScrollReveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
@@ -25,6 +38,7 @@ function ScrollReveal({ children, delay = 0 }: { children: React.ReactNode; dela
     <div
       ref={ref}
       style={{
+        height: '100%',
         opacity: visible ? 1 : 0,
         transform: visible ? 'translateY(0) scale(1)' : 'translateY(22px) scale(0.97)',
         transition: `opacity 0.52s ease ${delay}ms, transform 0.56s cubic-bezier(0.25, 0.46, 0.45, 0.94) ${delay}ms`,
@@ -49,13 +63,89 @@ interface Play {
   starts: string
   accentColor: string
   hot?: boolean
+  status?: 'available' | 'gated' | 'coming_soon' | 'misconfigured'
+  action?: {
+    kind: string
+    templateSlug?: string
+  }
+}
+
+declare const __SHADOW_APP_BASE_URL__: string | undefined
+
+const DOCS_BASE = (
+  (typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL) ||
+  '/'
+).replace(/\/$/, '')
+const HOME_ASSETS_BASE = `${DOCS_BASE}/home-assets`
+const playCover = (id: string) => `${HOME_ASSETS_BASE}/plays/${id}.jpg`
+const topicCover = (id: string) => `${HOME_ASSETS_BASE}/topics/${id}.jpg`
+const configuredAppBase = () =>
+  (typeof __SHADOW_APP_BASE_URL__ !== 'undefined' ? __SHADOW_APP_BASE_URL__ : '').replace(/\/$/, '')
+const playLaunchUrl = (play: Play) =>
+  `${configuredAppBase()}/app/play/launch?play=${encodeURIComponent(play.id)}`
+const canLaunchPlay = (play: Play) => play.status === 'available' || play.status === 'gated'
+const playCtaLabel = (play: Play, isZh: boolean, short = false) => {
+  if (!play.status) return isZh ? '加载中' : 'Loading'
+  if (play.status === 'coming_soon') return isZh ? '即将开放' : 'Coming Soon'
+  if (play.status === 'misconfigured') return isZh ? '配置中' : 'Configuring'
+  if (play.status === 'gated') return isZh ? '解锁玩法' : 'Unlock'
+  return isZh ? (short ? '启动' : '进入玩法') : 'Launch'
+}
+const handlePlayLaunchClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+  event.preventDefault()
+  window.location.assign(event.currentTarget.href)
+}
+
+function PlayLaunchCta({
+  play,
+  isZh,
+  short = false,
+  style,
+}: {
+  play: Play
+  isZh: boolean
+  short?: boolean
+  style?: React.CSSProperties
+}) {
+  const launchable = canLaunchPlay(play)
+  const ctaStyle: React.CSSProperties = {
+    ...style,
+    gap: '8px',
+    opacity: launchable ? 1 : 0.62,
+    cursor: launchable ? 'pointer' : 'not-allowed',
+  }
+  const content = (
+    <>
+      <Play size={short ? 14 : 15} fill="currentColor" strokeWidth={short ? 2.7 : 2.6} />
+      {playCtaLabel(play, isZh, short)}
+    </>
+  )
+
+  if (!launchable) {
+    return (
+      <button type="button" className="btn-primary" disabled aria-disabled="true" style={ctaStyle}>
+        {content}
+      </button>
+    )
+  }
+
+  return (
+    <a
+      href={playLaunchUrl(play)}
+      onClick={handlePlayLaunchClick}
+      className="btn-primary"
+      style={{ ...ctaStyle, textDecoration: 'none' }}
+    >
+      {content}
+    </a>
+  )
 }
 
 const PLAYS: Play[] = [
   /* 心理疗愈 */
   {
     id: 'retire-buddy',
-    image: 'https://picsum.photos/seed/retire/600/360',
+    image: playCover('retire-buddy'),
     title: '退休助手',
     titleEn: 'RetireBuddy',
     desc: '帮你规划退休生活、财务自由路径，24小时温暖陪伴，让告别职场变成人生新章节。',
@@ -68,7 +158,7 @@ const PLAYS: Play[] = [
   },
   {
     id: 'financial-freedom',
-    image: 'https://picsum.photos/seed/finance/600/360',
+    image: playCover('financial-freedom'),
     title: '我财富自由了吗？',
     titleEn: 'Am I Free?',
     desc: '输入你的资产与支出，AI 为你计算财务自由距离，给出清晰的达成路线图。',
@@ -80,7 +170,7 @@ const PLAYS: Play[] = [
   },
   {
     id: 'brain-fix',
-    image: 'https://picsum.photos/seed/brain/600/360',
+    image: playCover('brain-fix'),
     title: '一分钟修复你的大脑！',
     titleEn: '1-Min Brain Fix',
     desc: '科学冥想 + 微呼吸练习，60秒内从焦虑模式切换到专注状态，屡试不爽。',
@@ -93,7 +183,7 @@ const PLAYS: Play[] = [
   /* 世界资讯 */
   {
     id: 'world-pulse',
-    image: 'https://picsum.photos/seed/globe/600/360',
+    image: playCover('world-pulse'),
     title: '地球脉搏',
     titleEn: 'World Pulse',
     desc: '实时抓取全球重大事件，用三句话告诉你今天真正发生了什么，无废话。',
@@ -105,7 +195,7 @@ const PLAYS: Play[] = [
   },
   {
     id: 'daily-brief',
-    image: 'https://picsum.photos/seed/newspaper/600/360',
+    image: playCover('daily-brief'),
     title: '晨间简报',
     titleEn: 'Morning Brief',
     desc: '每天 7:00 推送一份定制早报：国际、科技、市场三大板块，读完只需 3 分钟。',
@@ -118,7 +208,7 @@ const PLAYS: Play[] = [
   /* 互动游戏 */
   {
     id: 'ai-werewolf',
-    image: 'https://picsum.photos/seed/wolf/600/360',
+    image: playCover('ai-werewolf'),
     title: 'AI 狼人杀',
     titleEn: 'AI Werewolf',
     desc: 'AI 担任主持，随机分配身份，在聊天中展开推理与博弈，3 人即可开局。',
@@ -131,7 +221,7 @@ const PLAYS: Play[] = [
   },
   {
     id: 'code-arena',
-    image: 'https://picsum.photos/seed/arena/600/360',
+    image: playCover('code-arena'),
     title: '代码擂台',
     titleEn: 'Code Arena',
     desc: '实时编程对战，AI 出题、计时、自动评测，挑战好友或匹配陌生对手。',
@@ -144,7 +234,7 @@ const PLAYS: Play[] = [
   /* 黑客与画家 */
   {
     id: 'gitstory',
-    image: 'https://picsum.photos/seed/code/600/360',
+    image: playCover('gitstory'),
     title: 'GitStory',
     titleEn: 'GitStory',
     desc: '把你的 GitHub 提交历史变成一本自传小说——AI 帮你回顾每一段代码背后的故事。',
@@ -157,7 +247,7 @@ const PLAYS: Play[] = [
   },
   {
     id: 'gstack',
-    image: 'https://picsum.photos/seed/startup/600/360',
+    image: playCover('gstack'),
     title: 'gstack',
     titleEn: 'gstack',
     desc: '创业者的 AI 参谋，帮你快速验证商业想法、分析竞争格局、生成融资文件。',
@@ -167,10 +257,194 @@ const PLAYS: Play[] = [
     starts: '9.3k',
     accentColor: '#f97316',
   },
+  /* Shadow Cloud / Buddy teams */
+  {
+    id: 'agent-marketplace-buddy',
+    image: playCover('agent-marketplace-buddy'),
+    title: 'Agent Marketplace Buddy',
+    titleEn: 'Agent Marketplace Buddy',
+    desc: '可组合专家 agent 市场，覆盖开发、安全、基础设施、数据、文档、SEO 和 workflow 编排。',
+    descEn:
+      'A composable specialist-agent marketplace for development, security, infra, data, docs, SEO, and workflow orchestration.',
+    category: 'Buddy 团队',
+    categoryEn: 'Buddy Teams',
+    starts: '16.4k',
+    accentColor: '#22d3ee',
+    hot: true,
+  },
+  {
+    id: 'bmad-method-buddy',
+    image: playCover('bmad-method-buddy'),
+    title: 'BMAD 方法 Buddy',
+    titleEn: 'BMAD Method Buddy',
+    desc: '基于 BMAD Method 覆盖分析、PRD、UX、架构、故事拆解、实现、QA 和复盘。',
+    descEn:
+      'Agile AI development across analysis, PRD, UX, architecture, story shaping, implementation, QA, and retros.',
+    category: 'Buddy 团队',
+    categoryEn: 'Buddy Teams',
+    starts: '10.8k',
+    accentColor: '#a78bfa',
+  },
+  {
+    id: 'claude-ads-buddy',
+    image: playCover('claude-ads-buddy'),
+    title: 'Claude Ads Buddy',
+    titleEn: 'Claude Ads Buddy',
+    desc: '付费广告审计与优化团队，支持平台检查、预算建模、创意评审、追踪问题和落地页瓶颈分析。',
+    descEn:
+      'Paid advertising audits for platform checks, budget models, creative review, tracking issues, and landing-page bottlenecks.',
+    category: 'Buddy 团队',
+    categoryEn: 'Buddy Teams',
+    starts: '7.9k',
+    accentColor: '#fb7185',
+  },
+  {
+    id: 'claude-seo-buddy',
+    image: playCover('claude-seo-buddy'),
+    title: 'Claude SEO Buddy',
+    titleEn: 'Claude SEO Buddy',
+    desc: '技术 SEO 与 GEO/AEO 审计团队，覆盖内容、技术、增长检查和扩展指引。',
+    descEn:
+      'Technical SEO and GEO/AEO audits across content, technical checks, growth review, and expansion guidance.',
+    category: 'Buddy 团队',
+    categoryEn: 'Buddy Teams',
+    starts: '8.7k',
+    accentColor: '#34d399',
+  },
+  {
+    id: 'everything-claude-code-buddy',
+    image: playCover('everything-claude-code-buddy'),
+    title: 'Everything Claude Code Buddy',
+    titleEn: 'Everything Claude Code Buddy',
+    desc: '全栈工程协作工作台，帮助研发团队沉淀自动化流程、质量检查和交付规范。',
+    descEn:
+      'A broad engineering workspace for automation flows, quality checks, and delivery discipline.',
+    category: 'Buddy 团队',
+    categoryEn: 'Buddy Teams',
+    starts: '13.2k',
+    accentColor: '#60a5fa',
+  },
+  {
+    id: 'google-workspace-buddy',
+    image: playCover('google-workspace-buddy'),
+    title: 'Google Workspace Buddy',
+    titleEn: 'Google Workspace Buddy',
+    desc: '日常办公自动化团队，支持 Gmail 分诊、日程准备、Drive 检索、Docs 起草和 Sheets 更新。',
+    descEn:
+      'Workspace operations for Gmail triage, calendar planning, Drive search, Docs drafting, and Sheets updates.',
+    category: 'Buddy 团队',
+    categoryEn: 'Buddy Teams',
+    starts: '12.5k',
+    accentColor: '#fbbf24',
+  },
+  {
+    id: 'gsd-buddy',
+    image: playCover('gsd-buddy'),
+    title: 'GSD 规格驱动 Buddy',
+    titleEn: 'GSD Spec Buddy',
+    desc: '规格驱动开发团队，串联项目上下文、里程碑、规划、执行、验证和交付流程。',
+    descEn:
+      'Spec-driven development across project context, milestones, planning, execution, verification, and delivery loops.',
+    category: 'Buddy 团队',
+    categoryEn: 'Buddy Teams',
+    starts: '9.8k',
+    accentColor: '#f97316',
+  },
+  {
+    id: 'gstack-buddy',
+    image: playCover('gstack-buddy'),
+    title: 'gstack 战略 Buddy',
+    titleEn: 'gstack Strategy Buddy',
+    desc: '虚拟产品团队，支持产品压力测试、CEO 视角范围评审、系统化调查、周复盘和辅助工具。',
+    descEn:
+      'A virtual product team for pressure tests, CEO-style scope review, investigation discipline, retros, and helper scripts.',
+    category: 'Buddy 团队',
+    categoryEn: 'Buddy Teams',
+    starts: '11.6k',
+    accentColor: '#e879f9',
+  },
+  {
+    id: 'marketingskills-buddy',
+    image: playCover('marketingskills-buddy'),
+    title: '营销技能 Buddy',
+    titleEn: 'Marketing Skills Buddy',
+    desc: '为增长团队提供持续更新的营销协作智能体，覆盖 CRO、文案、SEO、付费、邮件和增长决策。',
+    descEn:
+      'An always-current marketing copilot for CRO, copy, SEO, paid, email, and growth decisions.',
+    category: 'Buddy 团队',
+    categoryEn: 'Buddy Teams',
+    starts: '8.2k',
+    accentColor: '#fb923c',
+  },
+  {
+    id: 'scientific-skills-buddy',
+    image: playCover('scientific-skills-buddy'),
+    title: '科研技能 Buddy',
+    titleEn: 'Scientific Skills Buddy',
+    desc: '科研协作团队，覆盖数据分析、生物、化学、医学、可视化和科学写作。',
+    descEn:
+      'A scientific research team for data analysis, biology, chemistry, medicine, visualization, and writing.',
+    category: 'Buddy 团队',
+    categoryEn: 'Buddy Teams',
+    starts: '6.9k',
+    accentColor: '#38bdf8',
+  },
+  {
+    id: 'seomachine-buddy',
+    image: playCover('seomachine-buddy'),
+    title: 'SEO 机器 Buddy',
+    titleEn: 'SEO Machine Buddy',
+    desc: '将 seomachine playbook 转化为关键词研究、内容简报、站内审计和主题权威规划。',
+    descEn:
+      'Turns SEO playbooks into keyword research, content briefs, on-page audits, and topical authority plans.',
+    category: 'Buddy 团队',
+    categoryEn: 'Buddy Teams',
+    starts: '7.4k',
+    accentColor: '#10b981',
+  },
+  {
+    id: 'slavingia-skills-buddy',
+    image: playCover('slavingia-skills-buddy'),
+    title: 'Solo 技能 Buddy',
+    titleEn: 'Solo Skills Buddy',
+    desc: '为独立操作者配备高杠杆 AI 伙伴，用精选技能辅助写作、决策、设计品味和聚焦执行。',
+    descEn:
+      'A high-leverage AI partner for solo operators, applying curated skills to writing, decisions, taste, and focused execution.',
+    category: 'Buddy 团队',
+    categoryEn: 'Buddy Teams',
+    starts: '6.3k',
+    accentColor: '#f59e0b',
+  },
+  {
+    id: 'superclaude-buddy',
+    image: playCover('superclaude-buddy'),
+    title: 'SuperClaude Buddy',
+    titleEn: 'SuperClaude Buddy',
+    desc: '结构化开发工作台，支持角色分工、协作流程、质量检查和交付复盘。',
+    descEn:
+      'A structured development workbench for role-based collaboration, quality checks, and delivery retros.',
+    category: 'Buddy 团队',
+    categoryEn: 'Buddy Teams',
+    starts: '14.9k',
+    accentColor: '#8b5cf6',
+  },
+  {
+    id: 'superpowers-buddy',
+    image: playCover('superpowers-buddy'),
+    title: 'Superpowers 工程 Buddy',
+    titleEn: 'Superpowers Engineering Buddy',
+    desc: '围绕 Superpowers 工作流提供需求澄清、规格、TDD、计划、subagent 执行和代码审查能力。',
+    descEn:
+      'An engineering method for clarification, specs, TDD, planning, subagent execution, and code review discipline.',
+    category: 'Buddy 团队',
+    categoryEn: 'Buddy Teams',
+    starts: '9.1k',
+    accentColor: '#ef4444',
+  },
   /* AI 陪伴 */
   {
     id: 'e-wife',
-    image: 'https://picsum.photos/seed/companion/600/360',
+    image: playCover('e-wife'),
     title: '电子老婆',
     titleEn: 'Digital Partner',
     desc: '永远理解你、陪伴你、记住你所有小事的 AI 伴侣。情感细腻，回应真诚。',
@@ -182,7 +456,7 @@ const PLAYS: Play[] = [
   },
 ]
 
-/* ─── Category metadata (order: 心理疗愈 > 世界资讯 > 互动游戏 > 黑客与画家 > AI 陪伴) ─── */
+/* ─── Category metadata (order: 心理疗愈 > 世界资讯 > 互动游戏 > 黑客与画家 > Buddy 团队 > AI 陪伴) ─── */
 
 interface CategoryMeta {
   zh: string
@@ -212,6 +486,12 @@ const CATEGORY_META: CategoryMeta[] = [
     labelEn: 'Create · Build · Express',
   },
   {
+    zh: 'Buddy 团队',
+    en: 'Buddy Teams',
+    label: '部署 · 自动化 · 专家协作',
+    labelEn: 'Deploy · Automate · Specialist Teams',
+  },
+  {
     zh: 'AI 陪伴',
     en: 'AI Companion',
     label: '陪伴 · 理解 · 共鸣',
@@ -235,7 +515,7 @@ interface Topic {
 const TOPICS: Topic[] = [
   {
     id: 'workplace-relief',
-    cover: 'https://picsum.photos/seed/workplace/600/340',
+    cover: topicCover('workplace-relief'),
     titleZh: '职场减压合集',
     titleEn: 'Workplace Relief',
     descZh: '打工人下班必备的解压神器合集',
@@ -245,7 +525,7 @@ const TOPICS: Topic[] = [
   },
   {
     id: 'hacker-pack',
-    cover: 'https://picsum.photos/seed/hacker/600/340',
+    cover: topicCover('hacker-pack'),
     titleZh: '程序员必玩',
     titleEn: 'Hacker Pack',
     descZh: '写代码的你，值得更好玩的工具',
@@ -255,7 +535,7 @@ const TOPICS: Topic[] = [
   },
   {
     id: 'night-radio',
-    cover: 'https://picsum.photos/seed/nightsky/600/340',
+    cover: topicCover('night-radio'),
     titleZh: '深夜电台',
     titleEn: 'Night Radio',
     descZh: '凌晨两点，聊聊那些不敢说的话',
@@ -282,7 +562,7 @@ async function loadRemoteConfig() {
   configLoaded = true
   try {
     const [playsData, topicsData, categoryData] = await Promise.all([
-      fetchConfig<Play[]>('homepage-plays', PLAYS),
+      fetchPlayCatalog<Play[]>(PLAYS),
       fetchConfig<Topic[]>('homepage-topics', TOPICS),
       fetchConfig<CategoryMeta[]>('homepage-category-meta', CATEGORY_META),
     ])
@@ -425,14 +705,13 @@ const PIPS: Array<Array<[number, number]>> = [
   ],
 ]
 
-// Face transforms for a 120px cube (half = 60px)
 const FACE_TRANSFORMS = [
-  'rotateY(0deg) translateZ(60px)', // front  = 1
-  'rotateY(90deg) translateZ(60px)', // right  = 2
-  'rotateX(90deg) translateZ(60px)', // top    = 3
-  'rotateX(-90deg) translateZ(60px)', // bottom = 4
-  'rotateY(-90deg) translateZ(60px)', // left   = 5
-  'rotateY(180deg) translateZ(60px)', // back   = 6
+  'rotateY(0deg) translateZ(60px)',
+  'rotateY(90deg) translateZ(60px)',
+  'rotateX(90deg) translateZ(60px)',
+  'rotateX(-90deg) translateZ(60px)',
+  'rotateY(-90deg) translateZ(60px)',
+  'rotateY(180deg) translateZ(60px)',
 ]
 
 function DiceFace({ faceIdx }: { faceIdx: number }) {
@@ -442,10 +721,9 @@ function DiceFace({ faceIdx }: { faceIdx: number }) {
   const CELL = 30
   const PIP = 14
 
-  // Face 2 (index 1) = heterochromia: top-right pip is yellow, bottom-left is cyan — matching the cat logo
   const getPipStyle = (pipIdx: number) => {
     if (faceIdx === 1) {
-      const isYellow = pipIdx === 0 // top-right = yellow eye (#f8e71c)
+      const isYellow = pipIdx === 0
       return {
         background: isYellow ? '#f8e71c' : '#00f3ff',
         boxShadow: isYellow ? '0 0 10px rgba(248,231,28,0.95)' : '0 0 10px rgba(0,243,255,0.95)',
@@ -510,7 +788,7 @@ function DiceSection({ isZh }: { isZh: boolean }) {
     setDiceRot({ ...rotRef.current })
 
     setTimeout(() => {
-      const randomPlay = PLAYS[Math.floor(Math.random() * PLAYS.length)]
+      const randomPlay = _plays[Math.floor(Math.random() * _plays.length)]
       setModalPlay(randomPlay)
       setRolling(false)
     }, 2000)
@@ -529,7 +807,10 @@ function DiceSection({ isZh }: { isZh: boolean }) {
             textAlign: 'center',
           }}
         >
-          <span className="section-label">🎲 {isZh ? '随机探索' : 'Random Discovery'}</span>
+          <span className="section-label section-label-inline">
+            <Dice5 size={15} strokeWidth={2.7} />
+            {isZh ? '随机探索' : 'Random Discovery'}
+          </span>
           <h2
             style={{
               fontSize: '26px',
@@ -553,7 +834,6 @@ function DiceSection({ isZh }: { isZh: boolean }) {
             {isZh ? '点击骰子，落地之后随机一个玩法' : 'Click the dice and land on a random play'}
           </p>
 
-          {/* 3D Dice */}
           <div
             style={{
               perspective: '800px',
@@ -604,9 +884,10 @@ function DiceSection({ isZh }: { isZh: boolean }) {
               type="button"
               className="btn-secondary"
               onClick={rollDice}
-              style={{ fontSize: '13px', padding: '12px 32px' }}
+              style={{ fontSize: '13px', padding: '12px 28px', gap: '8px' }}
             >
-              {isZh ? '投骰子！' : 'Roll the Dice!'}
+              <Dice5 size={16} strokeWidth={2.8} />
+              {isZh ? '投骰子' : 'Roll the Dice'}
             </button>
           )}
         </div>
@@ -745,9 +1026,13 @@ function DiceModal({
               color: '#050508',
               letterSpacing: '0.05em',
               textTransform: 'uppercase',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
             }}
           >
-            🎲 {isZh ? '落地结果' : 'You Landed On'}
+            <Dice5 size={13} strokeWidth={3} />
+            {isZh ? '落地结果' : 'You Landed On'}
           </div>
           {/* Close button */}
           <button
@@ -770,7 +1055,7 @@ function DiceModal({
               justifyContent: 'center',
             }}
           >
-            ✕
+            <X size={17} strokeWidth={2.6} />
           </button>
         </div>
 
@@ -801,20 +1086,22 @@ function DiceModal({
             {desc}
           </p>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            <a
-              href="/app"
-              className="btn-primary"
-              style={{ textDecoration: 'none', flex: 1, justifyContent: 'center' }}
-            >
-              {isZh ? '进入玩法' : 'Launch'}
-            </a>
+            <PlayLaunchCta
+              play={play}
+              isZh={isZh}
+              style={{
+                flex: 1,
+                justifyContent: 'center',
+              }}
+            />
             <button
               type="button"
               className="btn-secondary"
               onClick={onRollAgain}
-              style={{ flex: 1, justifyContent: 'center' }}
+              style={{ flex: 1, justifyContent: 'center', gap: '8px' }}
             >
-              {isZh ? '再来一次 🎲' : 'Roll Again 🎲'}
+              <RotateCcw size={15} strokeWidth={2.7} />
+              {isZh ? '再来一次' : 'Roll Again'}
             </button>
           </div>
         </div>
@@ -884,6 +1171,8 @@ function PlayCard({
         display: 'flex',
         flexDirection: 'column',
         willChange: 'transform',
+        height: '100%',
+        minHeight: '438px',
       }}
       onMouseMove={handleMove}
       onMouseLeave={handleLeave}
@@ -912,7 +1201,9 @@ function PlayCard({
             marginBottom: '8px',
             color: 'var(--rp-c-text-1)',
             fontFamily: '"Nunito", "Noto Sans SC", sans-serif',
+            minHeight: '1.35em',
           }}
+          className="home-card-title"
         >
           {title}
         </h3>
@@ -925,16 +1216,20 @@ function PlayCard({
             flex: 1,
             marginBottom: '18px',
           }}
+          className="home-card-desc"
         >
           {desc}
         </p>
-        <button
-          type="button"
-          className="btn-primary"
-          style={{ width: '100%', justifyContent: 'center' }}
-        >
-          {isZh ? '启动' : 'Launch'}
-        </button>
+        <PlayLaunchCta
+          play={play}
+          isZh={isZh}
+          short
+          style={{
+            width: '100%',
+            justifyContent: 'center',
+            marginTop: 'auto',
+          }}
+        />
       </div>
     </div>
   )
@@ -943,7 +1238,7 @@ function PlayCard({
 /* ─── Featured carousel (3 hot plays, 3 columns) ─── */
 
 function FeaturedCarousel({ isZh }: { isZh: boolean }) {
-  const featured = PLAYS.filter((p) => p.hot)
+  const featured = _plays.filter((p) => p.hot)
   const [active, setActive] = useState(0)
   const pauseRef = useRef(false)
 
@@ -986,7 +1281,10 @@ function FeaturedCarousel({ isZh }: { isZh: boolean }) {
   return (
     <section style={{ marginBottom: '56px' }}>
       <div style={{ marginBottom: '20px' }}>
-        <span className="section-label">✨ {isZh ? '本周精选' : "This Week's Top"}</span>
+        <span className="section-label section-label-inline">
+          <Sparkles size={15} strokeWidth={2.7} />
+          {isZh ? '本周精选' : "This Week's Top"}
+        </span>
         <h2
           style={{
             fontSize: '26px',
@@ -1059,8 +1357,14 @@ function FeaturedCarousel({ isZh }: { isZh: boolean }) {
               <a
                 href="/app"
                 className="btn-primary"
-                style={{ textDecoration: 'none', fontSize: '15px', padding: '12px 32px' }}
+                style={{
+                  textDecoration: 'none',
+                  fontSize: '15px',
+                  padding: '12px 28px',
+                  gap: '8px',
+                }}
               >
+                <Play size={15} fill="currentColor" strokeWidth={2.7} />
                 {isZh ? '开始探索' : 'Start Exploring'}
               </a>
               <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', fontWeight: 700 }}>
@@ -1082,7 +1386,7 @@ function FeaturedCarousel({ isZh }: { isZh: boolean }) {
         }}
       >
         <button type="button" aria-label="Previous" onClick={prev} style={arrowBtn}>
-          ‹
+          <ChevronLeft size={22} strokeWidth={2.7} />
         </button>
         {featured.map((_, i) => (
           <button
@@ -1103,7 +1407,7 @@ function FeaturedCarousel({ isZh }: { isZh: boolean }) {
           />
         ))}
         <button type="button" aria-label="Next" onClick={next} style={arrowBtn}>
-          ›
+          <ChevronRight size={22} strokeWidth={2.7} />
         </button>
       </div>
     </section>
@@ -1190,7 +1494,8 @@ function FeaturedTopics({ isZh }: { isZh: boolean }) {
     <section style={{ marginBottom: '56px' }}>
       <div style={{ marginBottom: '20px' }}>
         <span className="section-label">
-          ✦ {isZh ? '精心策划的主题合集' : 'Curated Theme Collections'}
+          <Sparkles size={15} strokeWidth={2.7} />
+          {isZh ? '精心策划的主题合集' : 'Curated Theme Collections'}
         </span>
         <h2
           style={{
@@ -1208,7 +1513,7 @@ function FeaturedTopics({ isZh }: { isZh: boolean }) {
         style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}
         className="home-topics-grid"
       >
-        {TOPICS.map((topic, i) => (
+        {_topics.map((topic, i) => (
           <ScrollReveal key={topic.id} delay={i * 100}>
             <TopicCard topic={topic} isZh={isZh} />
           </ScrollReveal>
@@ -1221,7 +1526,7 @@ function FeaturedTopics({ isZh }: { isZh: boolean }) {
 /* ─── Category section ─── */
 
 function CategorySection({ meta, isZh }: { meta: CategoryMeta; isZh: boolean }) {
-  const plays = PLAYS.filter((p) => (isZh ? p.category === meta.zh : p.categoryEn === meta.en))
+  const plays = _plays.filter((p) => (isZh ? p.category === meta.zh : p.categoryEn === meta.en))
   if (plays.length === 0) return null
 
   const title = isZh ? meta.zh : meta.en
@@ -1259,9 +1564,13 @@ function CategorySection({ meta, isZh }: { meta: CategoryMeta; isZh: boolean }) 
             fontWeight: 800,
             color: 'var(--shadow-accent)',
             textDecoration: 'none',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
           }}
         >
-          {isZh ? '查看全部 →' : 'View All →'}
+          {isZh ? '查看全部' : 'View All'}
+          <ChevronRight size={15} strokeWidth={2.8} />
         </a>
       </div>
       <div
@@ -1294,7 +1603,8 @@ function Leaderboard({ isZh }: { isZh: boolean }) {
   return (
     <div style={{ marginBottom: '32px' }}>
       <span className="section-label" style={{ color: '#FF2A55' }}>
-        🔥 {isZh ? '热门' : 'Trending'}
+        <Flame size={15} strokeWidth={2.8} />
+        {isZh ? '热门' : 'Trending'}
       </span>
       <h2
         style={{
@@ -1311,7 +1621,7 @@ function Leaderboard({ isZh }: { isZh: boolean }) {
         className="glass-card"
         style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}
       >
-        {PLAYS.slice(0, 5).map((play, i) => (
+        {_plays.slice(0, 5).map((play, i) => (
           <div
             key={play.id}
             className="leaderboard-row"
@@ -1329,21 +1639,47 @@ function Leaderboard({ isZh }: { isZh: boolean }) {
           >
             <div
               style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '50%',
-                background: i < 3 ? rankColors[i] : 'transparent',
-                border: i < 3 ? 'none' : '2px solid var(--shadow-card-border)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 900,
-                fontSize: '15px',
-                color: i < 3 ? rankTextColors[i] : 'var(--shadow-text-muted)',
+                position: 'relative',
+                width: '62px',
+                height: '62px',
                 flexShrink: 0,
               }}
             >
-              {i + 1}
+              <img
+                src={play.image}
+                alt={isZh ? play.title : play.titleEn}
+                style={{
+                  width: '62px',
+                  height: '62px',
+                  borderRadius: '18px',
+                  objectFit: 'cover',
+                  border: '1px solid rgba(255,255,255,0.16)',
+                  boxShadow: '0 8px 18px rgba(0,0,0,0.18)',
+                }}
+                loading="lazy"
+              />
+              <div
+                className="leaderboard-rank-badge"
+                style={{
+                  position: 'absolute',
+                  left: '-8px',
+                  top: '-8px',
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '11px',
+                  background: i < 3 ? rankColors[i] : 'rgba(10,12,20,0.82)',
+                  border: i < 3 ? 'none' : '2px solid var(--shadow-card-border)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 900,
+                  fontSize: '13px',
+                  color: i < 3 ? rankTextColors[i] : 'var(--shadow-text-muted)',
+                  boxShadow: i === 0 ? '0 8px 18px rgba(248,231,28,0.32)' : undefined,
+                }}
+              >
+                {i === 0 ? <Crown size={15} fill="currentColor" strokeWidth={2.7} /> : i + 1}
+              </div>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div
@@ -1384,10 +1720,13 @@ function Leaderboard({ isZh }: { isZh: boolean }) {
 }
 
 function EditorPicks({ isZh }: { isZh: boolean }) {
-  const picks = PLAYS.slice(0, 3)
+  const picks = _plays.slice(0, 3)
   return (
     <div>
-      <span className="section-label">✦ {isZh ? '编辑精选' : "Editor's Picks"}</span>
+      <span className="section-label section-label-inline">
+        <Sparkles size={15} strokeWidth={2.7} />
+        {isZh ? '编辑精选' : "Editor's Picks"}
+      </span>
       <h2
         style={{
           fontSize: '22px',
@@ -1457,8 +1796,9 @@ function EditorPicks({ isZh }: { isZh: boolean }) {
             <button
               type="button"
               className="btn-primary"
-              style={{ fontSize: '11px', padding: '6px 14px', flexShrink: 0 }}
+              style={{ fontSize: '11px', padding: '6px 12px', flexShrink: 0, gap: '6px' }}
             >
+              <Play size={12} fill="currentColor" strokeWidth={2.8} />
               {isZh ? '启动' : 'Go'}
             </button>
           </div>
@@ -1490,7 +1830,10 @@ function DevCta({ isZh }: { isZh: boolean }) {
         className="home-dev-cta"
       >
         <div>
-          <span className="section-label">💡 {isZh ? '开放平台' : 'Open Platform'}</span>
+          <span className="section-label section-label-inline">
+            <Lightbulb size={15} strokeWidth={2.7} />
+            {isZh ? '开放平台' : 'Open Platform'}
+          </span>
           <h2
             style={{
               fontSize: '28px',
@@ -1520,23 +1863,16 @@ function DevCta({ isZh }: { isZh: boolean }) {
         <a
           href={`${prefix}/platform/introduction`}
           className="btn-primary"
-          style={{ textDecoration: 'none', flexShrink: 0, fontSize: '14px', padding: '14px 32px' }}
-        >
-          {isZh ? '探索开放平台 →' : 'Explore Open Platform →'}
-        </a>
-        {/* Shadow Cloud CTA — jumps straight into the creator console. */}
-        <a
-          href="/app/developers/cloud"
-          className="btn-secondary"
           style={{
             textDecoration: 'none',
             flexShrink: 0,
             fontSize: '14px',
-            padding: '14px 32px',
-            marginLeft: '12px',
+            padding: '14px 28px',
+            gap: '8px',
           }}
         >
-          {isZh ? '部署到 Shadow Cloud →' : 'Deploy to Shadow Cloud →'}
+          <Trophy size={16} strokeWidth={2.7} />
+          {isZh ? '探索开放平台' : 'Explore Open Platform'}
         </a>
       </div>
     </section>
@@ -1586,7 +1922,8 @@ export function HomeContent({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
         <TypingSlogan isZh={isZh} />
 
         <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <a href="/app" className="btn-secondary" style={{ textDecoration: 'none' }}>
+          <a href="/app" className="btn-secondary" style={{ textDecoration: 'none', gap: '8px' }}>
+            <Sparkles size={15} strokeWidth={2.7} />
             {isZh ? '开始探索' : 'Start Exploring'}
           </a>
         </div>
@@ -1609,7 +1946,7 @@ export function HomeContent({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
         <main>
           <FeaturedCarousel isZh={isZh} />
           <FeaturedTopics isZh={isZh} />
-          {CATEGORY_META.map((meta) => (
+          {_categoryMeta.map((meta) => (
             <CategorySection key={meta.zh} meta={meta} isZh={isZh} />
           ))}
         </main>

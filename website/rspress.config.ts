@@ -4,13 +4,15 @@ import remarkCodeGroup from './plugins/remarkCodeGroup'
 import remarkMermaid from './plugins/remarkMermaid'
 
 const BASE = process.env.DOCS_BASE ?? '/'
+const APP_BASE_URL =
+  process.env.PUBLIC_APP_BASE_URL ??
+  process.env.WEBSITE_APP_BASE_URL ??
+  (process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : '')
 
 export default defineConfig({
   root: 'docs',
   base: BASE,
   title: 'Shadow',
-  // Inject dark-mode default script (runs before paint to avoid flash)
-  // biome-ignore lint/suspicious/noExplicitAny: rspress head supports [tag, attrs, content] but types only declare [tag, attrs]
   head: [
     [
       'script',
@@ -18,6 +20,13 @@ export default defineConfig({
       `(function(){try{var s=localStorage.getItem('rspress-theme-appearance');if(s==='light'){document.documentElement.classList.remove('dark');document.documentElement.style.colorScheme='light';}else{document.documentElement.classList.add('dark');document.documentElement.style.colorScheme='dark';if(!s)localStorage.setItem('rspress-theme-appearance','dark');}}catch(e){document.documentElement.classList.add('dark');}})();`,
     ],
   ] as never,
+  builderConfig: {
+    source: {
+      define: {
+        __SHADOW_APP_BASE_URL__: JSON.stringify(APP_BASE_URL.replace(/\/$/, '')),
+      },
+    },
+  },
   description:
     'Shadow — AI-native community platform with Buddy collaboration, P2P rental, and shared workspace',
   icon: '/Logo.svg',
@@ -58,6 +67,7 @@ export default defineConfig({
               items: [
                 { text: 'Overview', link: '/product/' },
                 { text: 'Quick Start', link: '/product/quick-start' },
+                { text: 'Play Launch', link: '/product/play-launch' },
                 { text: 'FAQ', link: '/product/faq' },
               ],
             },
@@ -101,6 +111,7 @@ export default defineConfig({
               items: [
                 { text: 'Introduction', link: '/platform/introduction' },
                 { text: 'Authentication', link: '/platform/authentication' },
+                { text: 'Official Model Proxy', link: '/platform/model-proxy' },
                 { text: 'SDKs', link: '/platform/sdks' },
                 { text: 'CLI', link: '/platform/cli' },
                 { text: 'Errors', link: '/platform/errors' },
@@ -169,6 +180,7 @@ export default defineConfig({
               items: [
                 { text: '产品概览', link: '/zh/product/' },
                 { text: '新手入门', link: '/zh/product/quick-start' },
+                { text: '首页玩法', link: '/zh/product/play-launch' },
                 { text: '常见问题', link: '/zh/product/faq' },
               ],
             },
@@ -212,6 +224,7 @@ export default defineConfig({
               items: [
                 { text: '简介', link: '/zh/platform/introduction' },
                 { text: '认证', link: '/zh/platform/authentication' },
+                { text: '官方模型代理', link: '/zh/platform/model-proxy' },
                 { text: 'SDK', link: '/zh/platform/sdks' },
                 { text: 'CLI', link: '/zh/platform/cli' },
                 { text: '错误处理', link: '/zh/platform/errors' },

@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next'
 import { AvatarEditor } from '../components/common/avatar-editor'
 import { useAppStatus } from '../hooks/use-app-status'
 import { fetchApi } from '../lib/api'
+import { getApiErrorMessage } from '../lib/api-errors'
 import { generateRandomCatConfig, renderCatSvg } from '../lib/avatar-generator'
 import { queryClient } from '../lib/query-client'
 import { useAuthStore } from '../stores/auth.store'
@@ -57,7 +58,7 @@ export function RegisterPage() {
           email,
           password,
           displayName: displayName || undefined,
-          inviteCode,
+          inviteCode: inviteCode.trim() || undefined,
           referralCode: searchParams.code,
         }),
       })
@@ -84,12 +85,12 @@ export function RegisterPage() {
       queryClient.clear()
       const redirectTo = searchParams.redirect
       if (redirectTo && redirectTo.startsWith('/')) {
-        navigate({ to: redirectTo })
+        navigate({ to: redirectTo.startsWith('/app/') ? redirectTo.slice(4) : redirectTo })
       } else {
-        navigate({ to: '/settings' })
+        navigate({ to: '/discover' })
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('auth.registerFailed'))
+      setError(getApiErrorMessage(err, t, 'auth.registerFailed'))
     } finally {
       setLoading(false)
     }
@@ -147,7 +148,7 @@ export function RegisterPage() {
             />
 
             <Input
-              label={`${t('auth.displayNameLabel')} (${t('auth.optional')})`}
+              label={`${t('auth.displayNameLabel')} ${t('auth.optional')}`}
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
@@ -171,11 +172,10 @@ export function RegisterPage() {
 
             <div>
               <Input
-                label={t('auth.inviteCodeLabel')}
+                label={`${t('auth.inviteCodeLabel')} ${t('auth.optional')}`}
                 type="text"
                 value={inviteCode}
                 onChange={(e) => setInviteCode(e.target.value)}
-                required
                 placeholder={t('auth.inviteCodePlaceholder')}
                 className="font-mono tracking-widest"
               />
@@ -199,7 +199,7 @@ export function RegisterPage() {
           <div className="flex flex-col gap-3">
             <Button variant="glass" asChild>
               <a
-                href={`${import.meta.env.VITE_API_BASE ?? ''}/api/auth/oauth/google?redirect=${encodeURIComponent(searchParams.redirect ?? '/app/settings')}`}
+                href={`${import.meta.env.VITE_API_BASE ?? ''}/api/auth/oauth/google?redirect=${encodeURIComponent(searchParams.redirect ?? '/app/discover')}`}
               >
                 <svg
                   className="w-[18px] h-[18px]"
@@ -230,7 +230,7 @@ export function RegisterPage() {
             </Button>
             <Button variant="glass" asChild>
               <a
-                href={`${import.meta.env.VITE_API_BASE ?? ''}/api/auth/oauth/github?redirect=${encodeURIComponent(searchParams.redirect ?? '/app/settings')}`}
+                href={`${import.meta.env.VITE_API_BASE ?? ''}/api/auth/oauth/github?redirect=${encodeURIComponent(searchParams.redirect ?? '/app/discover')}`}
               >
                 <svg
                   className="w-[18px] h-[18px]"
