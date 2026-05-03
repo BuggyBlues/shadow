@@ -1,12 +1,54 @@
 import { Alert, AlertDescription, Button, Card, Divider, Input } from '@shadowob/ui'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStatus } from '../hooks/use-app-status'
 import { fetchApi } from '../lib/api'
+import { getApiErrorMessage } from '../lib/api-errors'
 import { queryClient } from '../lib/query-client'
 import { useAuthStore } from '../stores/auth.store'
 import { useChatStore } from '../stores/chat.store'
+
+type AuthResult = {
+  user: {
+    id: string
+    email: string
+    username: string
+    displayName: string | null
+    avatarUrl: string | null
+    membership?: {
+      status: string
+      tier?: {
+        id: string
+        level: number
+        label: string
+        capabilities: string[]
+      }
+      level?: number
+      isMember: boolean
+      capabilities: string[]
+    }
+  }
+  accessToken: string
+  refreshToken: string
+}
+
+type GoogleCredentialResponse = {
+  credential?: string
+}
+
+type GoogleAccounts = {
+  accounts?: {
+    id?: {
+      initialize: (input: {
+        client_id: string
+        callback: (response: GoogleCredentialResponse) => void
+        use_fedcm_for_prompt?: boolean
+      }) => void
+      prompt: () => void
+    }
+  }
+}
 
 export function LoginPage() {
   const { t } = useTranslation()
@@ -14,10 +56,72 @@ export function LoginPage() {
   const navigate = useNavigate()
   const searchParams = useSearch({ strict: false }) as { redirect?: string }
   const setAuth = useAuthStore((s) => s.setAuth)
+  const [mode, setMode] = useState<'password' | 'email-code'>('email-code')
   const [email, setEmail] = useState('') // Can be email or username
   const [password, setPassword] = useState('')
+  const [code, setCode] = useState('')
+  const [codeSent, setCodeSent] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [codeLoading, setCodeLoading] = useState(false)
+
+  const redirectAfterAuth = () => {
+    const redirectTo = searchParams.redirect
+    if (!redirectTo?.startsWith('/')) return '/discover'
+    return redirectTo.startsWith('/app/') ? redirectTo.slice(4) : redirectTo
+  }
+
+  const completeAuth = (result: AuthResult) => {
+    setAuth(result.user, result.accessToken, result.refreshToken)
+    // Clear stale state from any previous session
+    useChatStore.getState().setActiveServer(null)
+    queryClient.removeQueries()
+    queryClient.clear()
+    navigate({ to: redirectAfterAuth() })
+  }
+
+  useEffect(() => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+    if (!clientId) return
+
+    const initialize = () => {
+      const google = (window as Window & { google?: GoogleAccounts }).google
+      const identity = google?.accounts?.id
+      if (!identity) return
+      identity.initialize({
+        client_id: clientId,
+        use_fedcm_for_prompt: true,
+        callback: async (response) => {
+          if (!response.credential) return
+          try {
+            const result = await fetchApi<AuthResult>('/api/auth/google/id-token', {
+              method: 'POST',
+              body: JSON.stringify({ credential: response.credential }),
+            })
+            completeAuth(result)
+          } catch {
+            // One Tap is an enhancement; keep the visible email/OAuth paths available.
+          }
+        },
+      })
+      identity.prompt()
+    }
+
+    if ((window as Window & { google?: GoogleAccounts }).google?.accounts?.id) {
+      initialize()
+      return
+    }
+
+    const script = document.createElement('script')
+    script.src = 'https://accounts.google.com/gsi/client'
+    script.async = true
+    script.defer = true
+    script.onload = initialize
+    document.head.appendChild(script)
+    return () => {
+      script.onload = null
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,34 +129,49 @@ export function LoginPage() {
     setLoading(true)
 
     try {
-      const result = await fetchApi<{
-        user: {
-          id: string
-          email: string
-          username: string
-          displayName: string | null
-          avatarUrl: string | null
-        }
-        accessToken: string
-        refreshToken: string
-      }>('/api/auth/login', {
+      const result = await fetchApi<AuthResult>('/api/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       })
 
-      setAuth(result.user, result.accessToken, result.refreshToken)
-      // Clear stale state from any previous session
-      useChatStore.getState().setActiveServer(null)
-      queryClient.removeQueries()
-      queryClient.clear()
-      const redirectTo = searchParams.redirect
-      if (redirectTo && redirectTo.startsWith('/')) {
-        navigate({ to: redirectTo })
-      } else {
-        navigate({ to: '/settings' })
-      }
+      completeAuth(result)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('auth.loginFailed'))
+      setError(getApiErrorMessage(err, t, 'auth.loginFailed'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSendCode = async () => {
+    if (!email.trim()) return
+    setError('')
+    setCodeLoading(true)
+    try {
+      await fetchApi('/api/auth/email/start', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      })
+      setCodeSent(true)
+    } catch (err) {
+      setError(getApiErrorMessage(err, t, 'auth.loginFailed'))
+    } finally {
+      setCodeLoading(false)
+    }
+  }
+
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!email.trim() || !code.trim()) return
+    setError('')
+    setLoading(true)
+    try {
+      const result = await fetchApi<AuthResult>('/api/auth/email/verify', {
+        method: 'POST',
+        body: JSON.stringify({ email, code }),
+      })
+      completeAuth(result)
+    } catch (err) {
+      setError(getApiErrorMessage(err, t, 'auth.loginFailed'))
     } finally {
       setLoading(false)
     }
@@ -79,7 +198,27 @@ export function LoginPage() {
           <p className="text-white/50 text-[15px]">{t('auth.loginSubtitle')}</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="grid grid-cols-2 gap-2 mb-5 rounded-full bg-white/5 p-1">
+          <button
+            type="button"
+            className={`h-10 rounded-full text-sm font-bold transition-colors ${mode === 'email-code' ? 'bg-primary text-black' : 'text-white/60 hover:text-white'}`}
+            onClick={() => setMode('email-code')}
+          >
+            {t('auth.emailCodeTab')}
+          </button>
+          <button
+            type="button"
+            className={`h-10 rounded-full text-sm font-bold transition-colors ${mode === 'password' ? 'bg-primary text-black' : 'text-white/60 hover:text-white'}`}
+            onClick={() => setMode('password')}
+          >
+            {t('auth.passwordLoginTab')}
+          </button>
+        </div>
+
+        <form
+          onSubmit={mode === 'password' ? handleSubmit : handleVerifyCode}
+          className="space-y-5"
+        >
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
@@ -87,30 +226,60 @@ export function LoginPage() {
           )}
 
           <Input
-            label={t('auth.emailOrUsernameLabel', '用户名或邮箱')}
-            type="text"
+            label={mode === 'password' ? t('auth.emailOrUsernameLabel') : t('auth.emailLabel')}
+            type={mode === 'password' ? 'text' : 'email'}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            autoComplete="username"
-            placeholder={t('auth.emailOrUsernamePlaceholder', '用户名或邮箱')}
+            autoComplete={mode === 'password' ? 'username' : 'email'}
+            placeholder={
+              mode === 'password' ? t('auth.emailOrUsernamePlaceholder') : 'you@shadowob.com'
+            }
           />
 
-          <Input
-            label={t('auth.passwordLabel')}
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            autoComplete="current-password"
-            data-1p-ignore
-            data-lpignore="true"
-            data-form-type="other"
-            placeholder="••••••••"
-          />
+          {mode === 'password' ? (
+            <Input
+              label={t('auth.passwordLabel')}
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+              data-1p-ignore
+              data-lpignore="true"
+              data-form-type="other"
+              placeholder="••••••••"
+            />
+          ) : (
+            <div className="grid grid-cols-[1fr_auto] gap-3 items-end">
+              <Input
+                label={t('auth.emailCodeLabel')}
+                type="text"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                required
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder={t('auth.emailCodePlaceholder')}
+              />
+              <Button type="button" variant="glass" disabled={codeLoading} onClick={handleSendCode}>
+                {codeLoading ? t('auth.sendingEmailCode') : t('auth.sendEmailCode')}
+              </Button>
+            </div>
+          )}
+
+          {codeSent && mode === 'email-code' ? (
+            <p className="text-[12px] text-white/45">{t('auth.emailCodeSent')}</p>
+          ) : null}
 
           <Button type="submit" size="lg" disabled={loading} className="w-full rounded-full">
-            {loading ? t('auth.loginLoading') : t('auth.loginSubmit')}
+            {mode === 'password'
+              ? loading
+                ? t('auth.loginLoading')
+                : t('auth.loginSubmit')
+              : loading
+                ? t('auth.verifyingEmailCode')
+                : t('auth.verifyEmailCode')}
           </Button>
         </form>
 
@@ -120,7 +289,7 @@ export function LoginPage() {
         <div className="flex flex-col gap-3">
           <Button variant="glass" asChild>
             <a
-              href={`${import.meta.env.VITE_API_BASE ?? ''}/api/auth/oauth/google?redirect=${encodeURIComponent(searchParams.redirect ?? '/app/settings')}`}
+              href={`${import.meta.env.VITE_API_BASE ?? ''}/api/auth/oauth/google?redirect=${encodeURIComponent(searchParams.redirect ?? '/app/discover')}`}
             >
               <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" role="img" aria-label="Google">
                 <title>Google</title>
@@ -146,7 +315,7 @@ export function LoginPage() {
           </Button>
           <Button variant="glass" asChild>
             <a
-              href={`${import.meta.env.VITE_API_BASE ?? ''}/api/auth/oauth/github?redirect=${encodeURIComponent(searchParams.redirect ?? '/app/settings')}`}
+              href={`${import.meta.env.VITE_API_BASE ?? ''}/api/auth/oauth/github?redirect=${encodeURIComponent(searchParams.redirect ?? '/app/discover')}`}
             >
               <svg
                 className="w-[18px] h-[18px]"

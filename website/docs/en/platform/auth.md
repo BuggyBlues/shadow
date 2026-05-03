@@ -99,18 +99,17 @@ POST /api/auth/register
 |-------|------|----------|-------------|
 | `email` | string | Yes | Email address |
 | `password` | string | Yes | Password |
-| `username` | string | Yes | Unique username |
+| `username` | string | No | Unique username. Generated when omitted. |
 | `displayName` | string | No | Display name |
-| `inviteCode` | string | Yes | Valid invite code |
+| `inviteCode` | string | No | Optional membership invite. Unlocks Cloud and server creation. |
 
 :::code-group
 
 ```ts [TypeScript]
-const { token, user } = await client.register({
+const { accessToken, refreshToken, user } = await client.register({
   email: 'alice@example.com',
   password: 'secure-password',
-  username: 'alice',
-  inviteCode: 'ABC123',
+  displayName: 'Alice',
 })
 ```
 
@@ -118,13 +117,31 @@ const { token, user } = await client.register({
 result = client.register(
     email="alice@example.com",
     password="secure-password",
-    username="alice",
-    invite_code="ABC123",
+    display_name="Alice",
 )
-token = result["token"]
+access_token = result["accessToken"]
 ```
 
 :::
+
+---
+
+## Email code login
+
+```
+POST /api/auth/email/start
+POST /api/auth/email/verify
+```
+
+Email code verification signs in an existing user or creates a visitor account.
+
+```ts
+await client.startEmailLogin({ email: 'alice@example.com' })
+const { accessToken, refreshToken, user } = await client.verifyEmailLogin({
+  email: 'alice@example.com',
+  code: '123456',
+})
+```
 
 ---
 
@@ -144,7 +161,7 @@ POST /api/auth/login
 :::code-group
 
 ```ts [TypeScript]
-const { token, user } = await client.login({
+const { accessToken, refreshToken, user } = await client.login({
   email: 'alice@example.com',
   password: 'secret',
 })
@@ -169,14 +186,35 @@ Returns a new JWT token.
 :::code-group
 
 ```ts [TypeScript]
-const { token } = await client.refreshToken()
+const tokens = await client.refreshToken(refreshToken)
 ```
 
 ```python [Python]
-result = client.refresh_token()
+result = client.refresh_token(refresh_token)
 ```
 
 :::
+
+---
+
+## Membership
+
+Invite codes are not required to register. Use membership APIs to unlock advanced capabilities:
+
+```
+GET /api/membership/me
+POST /api/membership/redeem-invite
+```
+
+Membership responses include `status`, `tier`, `level`, `isMember`, and effective
+`capabilities`. Treat `capabilities` as the source of truth for advanced actions; new tiers can be
+added later without changing this response shape.
+
+Common advanced capabilities include `cloud:deploy`, `server:create`, `invite:create`, and
+`oauth_app:create`. A missing capability should be rendered as an upgrade or invite redemption path,
+not as a failed login.
+
+Fast auth endpoints are rate limited. A `429` response includes `RATE_LIMITED` and `Retry-After`.
 
 ---
 

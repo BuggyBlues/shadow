@@ -15,13 +15,9 @@ describe('WalletService', () => {
     updatedAt: new Date(),
   }
 
-  const mockTx = {
+  const mockDb = {
     update: vi.fn(),
     insert: vi.fn(),
-  }
-
-  const mockDb = {
-    transaction: vi.fn(async (fn: (tx: typeof mockTx) => unknown) => fn(mockTx)),
   } as unknown as Mocked<Database>
 
   const mockWalletDao: Mocked<WalletDao> = {
@@ -32,6 +28,12 @@ describe('WalletService', () => {
   } as unknown as Mocked<WalletDao>
 
   let service: WalletService
+  const mockUpdateReturn = (value: unknown) => {
+    ;(mockDb.update as unknown as ReturnType<typeof vi.fn>).mockReturnValue(value)
+  }
+  const mockInsertReturn = (value: unknown) => {
+    ;(mockDb.insert as unknown as ReturnType<typeof vi.fn>).mockReturnValue(value)
+  }
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -51,13 +53,12 @@ describe('WalletService', () => {
         where: vi.fn().mockReturnThis(),
         returning: vi.fn().mockResolvedValue([{ balance: 1500 }]),
       }
-      mockTx.update.mockReturnValue(chain)
-      mockTx.insert.mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) })
+      mockUpdateReturn(chain)
+      mockInsertReturn({ values: vi.fn().mockResolvedValue(undefined) })
 
       const result = await service.topUp('user-1', 500, 'Test top-up')
 
-      expect(mockDb.transaction).toHaveBeenCalled()
-      expect(mockTx.update).toHaveBeenCalledWith(wallets)
+      expect(mockDb.update).toHaveBeenCalledWith(wallets)
       expect(chain.set).toHaveBeenCalled()
       expect(chain.returning).toHaveBeenCalled()
       expect(result).toEqual(mockWallet)
@@ -71,12 +72,12 @@ describe('WalletService', () => {
         where: vi.fn().mockReturnThis(),
         returning: vi.fn().mockResolvedValue([{ balance: 500 }]),
       }
-      mockTx.update.mockReturnValue(chain)
-      mockTx.insert.mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) })
+      mockUpdateReturn(chain)
+      mockInsertReturn({ values: vi.fn().mockResolvedValue(undefined) })
 
       const result = await service.debit('user-1', 500, 'order-1', 'order', 'Purchase')
 
-      expect(mockTx.update).toHaveBeenCalledWith(wallets)
+      expect(mockDb.update).toHaveBeenCalledWith(wallets)
       expect(chain.where).toHaveBeenCalledWith(expect.stringContaining('balance'))
       expect(result).toBe(500)
     })
@@ -87,11 +88,19 @@ describe('WalletService', () => {
         where: vi.fn().mockReturnThis(),
         returning: vi.fn().mockResolvedValue([]),
       }
-      mockTx.update.mockReturnValue(chain)
+      mockUpdateReturn(chain)
 
-      await expect(service.debit('user-1', 9999, 'order-1', 'order', 'Purchase')).rejects.toThrow(
-        'Insufficient balance',
-      )
+      await expect(
+        service.debit('user-1', 9999, 'order-1', 'order', 'Purchase'),
+      ).rejects.toMatchObject({
+        message: 'Insufficient balance',
+        status: 402,
+        code: 'WALLET_INSUFFICIENT_BALANCE',
+        requiredAmount: 9999,
+        balance: 1000,
+        shortfall: 8999,
+        nextAction: 'earn_or_recharge',
+      })
     })
   })
 
@@ -102,12 +111,12 @@ describe('WalletService', () => {
         where: vi.fn().mockReturnThis(),
         returning: vi.fn().mockResolvedValue([{ balance: 1200 }]),
       }
-      mockTx.update.mockReturnValue(chain)
-      mockTx.insert.mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) })
+      mockUpdateReturn(chain)
+      mockInsertReturn({ values: vi.fn().mockResolvedValue(undefined) })
 
       const result = await service.refund('user-1', 200, 'order-1', 'order', 'Refund')
 
-      expect(mockTx.update).toHaveBeenCalledWith(wallets)
+      expect(mockDb.update).toHaveBeenCalledWith(wallets)
       expect(chain.set).toHaveBeenCalledWith(
         expect.objectContaining({ updatedAt: expect.any(Date) }),
       )
@@ -122,12 +131,12 @@ describe('WalletService', () => {
         where: vi.fn().mockReturnThis(),
         returning: vi.fn().mockResolvedValue([{ balance: 2000 }]),
       }
-      mockTx.update.mockReturnValue(chain)
-      mockTx.insert.mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) })
+      mockUpdateReturn(chain)
+      mockInsertReturn({ values: vi.fn().mockResolvedValue(undefined) })
 
       const result = await service.settle('user-1', 1000, 'contract-1', 'rental', 'Settlement')
 
-      expect(mockTx.update).toHaveBeenCalledWith(wallets)
+      expect(mockDb.update).toHaveBeenCalledWith(wallets)
       expect(result).toBe(2000)
     })
   })

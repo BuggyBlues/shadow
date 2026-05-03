@@ -28,8 +28,10 @@ export function createOAuthHandler(container: AppContainer) {
     zValidator('json', createOAuthAppSchema),
     async (c) => {
       const oauthService = container.resolve('oauthService')
+      const membershipService = container.resolve('membershipService')
       const user = c.get('user')
       const input = c.req.valid('json')
+      await membershipService.requireMember(user.userId, 'oauth_app:create')
       const result = await oauthService.createApp(user.userId, input)
       return c.json(result, 201)
     },
@@ -203,8 +205,10 @@ export function createOAuthHandler(container: AppContainer) {
     oauthScopeMiddleware(['servers:write']),
     async (c) => {
       const oauthService = container.resolve('oauthService')
+      const membershipService = container.resolve('membershipService')
       const token = c.get('oauthToken')
       const body = await c.req.json<{ name: string; description?: string }>()
+      await membershipService.requireMember(token.userId, 'server:create')
       const result = await oauthService.createServer(token.userId, body)
       return c.json(result, 201)
     },

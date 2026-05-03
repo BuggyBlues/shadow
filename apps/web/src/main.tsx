@@ -26,6 +26,7 @@ import { MarketplaceDetailPage } from './pages/marketplace-detail'
 import { MyRentalsPage } from './pages/my-rentals'
 import { OAuthAuthorizePage } from './pages/oauth-authorize'
 import { OAuthCallbackPage } from './pages/oauth-callback'
+import { PlayLaunchPage } from './pages/play-launch'
 import { RegisterPage } from './pages/register'
 import { ServerLayout } from './pages/server'
 import { ServerHomePage } from './pages/server-home'
@@ -53,7 +54,7 @@ const indexRoute = createRoute({
   component: () => null,
   beforeLoad: () => {
     if (useAuthStore.getState().isAuthenticated) {
-      throw redirect({ to: '/settings' })
+      throw redirect({ to: '/discover' })
     }
     throw redirect({ to: '/login' })
   },
@@ -65,7 +66,7 @@ const loginRoute = createRoute({
   component: LoginPage,
   beforeLoad: () => {
     if (useAuthStore.getState().isAuthenticated) {
-      throw redirect({ to: '/settings' })
+      throw redirect({ to: '/discover' })
     }
   },
 })
@@ -76,7 +77,7 @@ const registerRoute = createRoute({
   component: RegisterPage,
   beforeLoad: () => {
     if (useAuthStore.getState().isAuthenticated) {
-      throw redirect({ to: '/settings' })
+      throw redirect({ to: '/discover' })
     }
   },
 })
@@ -115,9 +116,18 @@ const appRoute = createRoute({
   component: AppLayout,
   beforeLoad: () => {
     if (!useAuthStore.getState().isAuthenticated) {
-      throw redirect({ to: '/login' })
+      throw redirect({
+        to: '/login',
+        search: { redirect: window.location.pathname + window.location.search },
+      })
     }
   },
+})
+
+const playLaunchRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/play/launch',
+  component: PlayLaunchPage,
 })
 
 // --- Server layout with nested child routes ---
@@ -314,6 +324,7 @@ const routeTree = rootRoute.addChildren([
     ]),
     settingsRoute,
     ...settingsSubRoutes,
+    playLaunchRoute,
     buddyMgmtRoute,
     discoverRoute,
     myRentalsRoute,

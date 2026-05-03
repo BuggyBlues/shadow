@@ -58,8 +58,10 @@ import { EntitlementService } from './services/entitlement.service'
 import { ExternalOAuthService } from './services/external-oauth.service'
 import { FriendshipService } from './services/friendship.service'
 import { MediaService } from './services/media.service'
+import { MembershipService } from './services/membership.service'
 import { MentionService } from './services/mention.service'
 import { MessageService } from './services/message.service'
+import { ModelProxyService } from './services/model-proxy.service'
 import { NotificationService } from './services/notification.service'
 import { NotificationDeliveryService } from './services/notification-delivery.service'
 import { NotificationTemplateService } from './services/notification-template.service'
@@ -67,6 +69,7 @@ import { NotificationTriggerService } from './services/notification-trigger.serv
 import { OAuthService } from './services/oauth.service'
 import { OrderService } from './services/order.service'
 import { PermissionService } from './services/permission.service'
+import { PlayLaunchService } from './services/play-launch.service'
 import { ProductService } from './services/product.service'
 import { RechargeService } from './services/recharge.service'
 import { RentalService } from './services/rental.service'
@@ -183,6 +186,9 @@ export interface Cradle {
   rechargeService: RechargeService
   voiceEnhanceService: VoiceEnhanceService
   agentDashboardService: AgentDashboardService
+  membershipService: MembershipService
+  playLaunchService: PlayLaunchService
+  modelProxyService: ModelProxyService
 }
 
 export type AppContainer = AwilixContainer<Cradle>
@@ -296,6 +302,9 @@ export function createAppContainer(db: Database): AppContainer {
     agentDashboardService: asClass(AgentDashboardService).singleton(),
     cloudService: asClass(CloudService).singleton(),
     cloudUsageService: asClass(CloudUsageService).singleton(),
+    membershipService: asClass(MembershipService).singleton(),
+    playLaunchService: asClass(PlayLaunchService).singleton(),
+    modelProxyService: asClass(ModelProxyService).singleton(),
   })
 
   return container

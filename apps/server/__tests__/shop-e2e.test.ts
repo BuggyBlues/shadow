@@ -63,7 +63,7 @@ let orderId1: string
 let orderId2: string // for cancel test
 let orderNo1: string
 
-const INITIAL_WALLET_BALANCE = 10000
+const INITIAL_WALLET_BALANCE = 0
 
 /* ── Helper: make HTTP request through Hono ── */
 
@@ -774,7 +774,7 @@ describe('Order — creation & payment', () => {
       token: buyerToken,
       body: { items: [{ productId: expensiveProduct.id, quantity: 1 }] },
     })
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(402)
 
     // Cleanup
     await req('DELETE', `/api/servers/${serverId}/shop/products/${expensiveProduct.id}`, {

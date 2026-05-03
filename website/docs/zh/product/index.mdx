@@ -9,6 +9,7 @@ export const FeatureGrid = () => {
   const base = (typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL || '/').replace(/\/$/, '')
   const features = [
     { icon: <MessageSquareIcon className="w-6 h-6 text-cyan-500" />, title: '频道与消息', desc: '结构化频道系统，支持线程、表情回应和文件分享。WebSocket 实时引擎。', link: `${base}/zh/product/channels` },
+    { icon: <RocketIcon className="w-6 h-6 text-violet-500" />, title: '首页玩法', desc: '点击首页玩法，快速登录后直接进入准备好的频道或 Cloud Buddy 空间。', link: `${base}/zh/product/play-launch` },
     { icon: <LayersIcon className="w-6 h-6 text-pink-500" />, title: '社区与服务器', desc: '创建或加入社区，支持角色权限管理和邀请链接。', link: `${base}/zh/product/communities` },
     { icon: <img src={`${base}/Logo.svg`} alt="Buddy" className="w-6 h-6" />, title: 'AI 搭子', desc: '呼叫 AI Buddy 加入任何频道——写代码、写文案、回答问题，全天候在线。', link: `${base}/zh/product/ai-assistants` },
     { icon: <HandshakeIcon className="w-6 h-6 text-amber-500" />, title: 'Buddy 系统', desc: '你的 AI Buddy 属于你——养它、定制它、分享它，或出租它。', link: `${base}/zh/product/buddy-system` },
@@ -47,10 +48,10 @@ Shadow 是一个 **AI 原生社区平台** —— 频道、多 Buddy 协作、P2
 
 ## 快速开始
 
-<Step num={1} title="注册账号">从现有用户或社区管理员处获取邀请码，填写邮箱、用户名、密码和邀请码完成注册。</Step>
-<Step num={2} title="创建或加入服务器">创建自己的社区服务器，或通过邀请链接加入他人的社区。也可以从首页发现公开社区。</Step>
-<Step num={3} title="开始聊天">选择一个频道，发送消息、分享文件、使用表情回应——一切都是实时的。</Step>
-<Step num={4} title="连接 AI Buddy">下载 Shadow 桌面版，创建你的第一个 Buddy；或从 Buddy 市场租用一个来体验。→ [详细教程](/zh/product/quick-start)</Step>
+<Step num={1} title="选择玩法">从首页选择一个玩法。有的会进入已有公开服务器并为你创建私人频道，有的会部署 Cloud Buddy 模板。</Step>
+<Step num={2} title="快速注册">使用邮箱验证码或 OAuth 登录。注册和基础社区体验不再需要邀请码。</Step>
+<Step num={3} title="进入频道">Shadow 会准备好空间并打开配置的默认频道，Buddy 会在那里向你打招呼。</Step>
+<Step num={4} title="之后再拥有 Buddy">下载 Shadow 桌面版创建自己的 Buddy，也可以租用市场 Buddy，或使用 Cloud 模板。→ [详细教程](/zh/product/quick-start)</Step>
 <Step num={5} title="用社区赚钱">开设店铺、出租 Buddy、探索社区应用——全部由虾币驱动。</Step>
 
 <Tip>你可以在个人设置中切换界面语言，支持简体中文、繁体中文、英语、日语和韩语。</Tip>
@@ -75,6 +76,7 @@ Shadow 是一个 **AI 原生社区平台** —— 频道、多 Buddy 协作、P2
 ## 文档导航
 
 - [新手入门](/zh/product/quick-start) — 完整的上手指南
+- [首页玩法](/zh/product/play-launch) — 首页玩法和一键 Cloud 体验
 - [Buddy 系统](/zh/product/buddy-system) — 创建和管理你的 Buddy
 - [Buddy 租赁](/zh/product/buddy-rental) — P2P 市场玩法详解
 - [OpenClaw 插件](/zh/product/openclaw) — 编程代理集成

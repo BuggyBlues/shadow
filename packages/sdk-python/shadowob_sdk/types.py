@@ -7,13 +7,96 @@ from typing import Any
 
 
 @dataclass
+class ShadowApiErrorBody:
+    error: str | dict[str, Any]
+    code: str | None = None
+    required_amount: int | None = None
+    balance: int | None = None
+    shortfall: int | None = None
+    next_action: str | None = None
+
+
+@dataclass
+class ShadowMembershipTier:
+    id: str
+    level: int
+    label: str
+    capabilities: list[str] = field(default_factory=list)
+
+
+@dataclass
+class ShadowMembership:
+    status: str
+    tier: ShadowMembershipTier | dict[str, Any]
+    level: int
+    is_member: bool
+    capabilities: list[str] = field(default_factory=list)
+    member_since: str | None = None
+    invite_code_id: str | None = None
+
+
+@dataclass
 class ShadowUser:
     id: str
     username: str
+    email: str | None = None
     display_name: str | None = None
     avatar_url: str | None = None
     is_bot: bool = False
     agent_id: str | None = None
+    membership: ShadowMembership | dict[str, Any] | None = None
+
+
+@dataclass
+class ShadowHomePlayCatalogItem:
+    id: str
+    image: str
+    title: str
+    title_en: str
+    desc: str
+    desc_en: str
+    category: str
+    category_en: str
+    starts: str
+    accent_color: str
+    status: str
+    hot: bool | None = None
+    action: dict[str, Any] | None = None
+    gates: dict[str, Any] | None = None
+    template: dict[str, Any] | None = None
+    materials: dict[str, Any] | None = None
+
+
+@dataclass
+class ShadowModelProxyModel:
+    id: str
+    object: str
+    created: int
+    owned_by: str
+
+
+@dataclass
+class ShadowModelProxyModelsResponse:
+    object: str
+    data: list[ShadowModelProxyModel | dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass
+class ShadowModelProxyBilling:
+    enabled: bool
+    currency: str
+    model: str
+    models: list[str] = field(default_factory=list)
+    shrimpMicrosPerCoin: int = 1_000_000
+    shrimpPerCny: float = 10
+    inputTokensPerShrimp: float | None = None
+    outputTokensPerShrimp: float | None = None
+    inputCacheHitCnyPerMillionTokens: float = 0.02
+    inputCacheMissCnyPerMillionTokens: float = 1
+    outputCnyPerMillionTokens: float = 2
+    inputCacheHitShrimpPerMillionTokens: float = 0.2
+    inputCacheMissShrimpPerMillionTokens: float = 10
+    outputShrimpPerMillionTokens: float = 20
 
 
 @dataclass

@@ -17,24 +17,21 @@ pnpm add @shadowob/sdk
 ```typescript
 import { ShadowClient } from "@shadowob/sdk"
 
-const client = new ShadowClient({
-  baseUrl: "https://shadowob.com",
-})
+const client = new ShadowClient("https://shadowob.com", "")
 
 // Login
-await client.auth.login({
+const { accessToken } = await client.login({
   email: "user@example.com",
   password: "password",
 })
 
+const authedClient = new ShadowClient("https://shadowob.com", accessToken)
+
 // List servers
-const servers = await client.servers.list()
+const servers = await authedClient.listServers()
 
 // Send a message
-await client.messages.send({
-  channelId: "channel-uuid",
-  content: "Hello from the SDK!",
-})
+await authedClient.sendMessage("channel-uuid", "Hello from the SDK!")
 ```
 
 ### Real-Time Events
@@ -53,12 +50,71 @@ client.channels.join("channel-uuid")
 
 | Module       | Methods                                      |
 |-------------|-----------------------------------------------|
-| `auth`      | `login`, `register`, `me`                     |
+| `auth`      | `login`, `register`, `startEmailLogin`, `verifyEmailLogin`, `getMe`, `refreshToken` |
+| `membership` | `getMembership`, `redeemInviteCode`         |
+| `play`      | `getPlayCatalog`, `launchPlay`                |
+| `modelProxy` | `listOfficialModelProxyModels`, `getOfficialModelProxyBilling`, `createOfficialChatCompletion`, `createOfficialChatCompletionStream` |
 | `servers`   | `list`, `create`, `get`, `update`, `delete`, `join`, `leave` |
 | `channels`  | `list`, `create`, `get`, `update`, `delete`, `join`, `leave` |
 | `messages`  | `list`, `send`, `get`, `update`, `delete`     |
 | `members`   | `list`, `get`, `kick`, `updateRole`           |
 | `upload`    | `file`                                        |
+
+### Membership And Play Launch
+
+```typescript
+const membership = await authedClient.getMembership()
+const plays = await authedClient.getPlayCatalog()
+
+if (!membership.capabilities.includes("cloud:deploy")) {
+  await authedClient.redeemInviteCode("INVITE-CODE")
+}
+
+const launch = await authedClient.launchPlay({
+  playId: plays.find((play) => play.template?.slug === "gstack-buddy")?.id ?? "gstack-buddy",
+  launchSessionId: "launch-session-1",
+})
+
+if (launch.redirectUrl) {
+  window.location.href = launch.redirectUrl
+} else {
+  // Cloud template plays may return deploymentId first; poll the deployment
+  // until status is "deployed" and it exposes shadowChannelId, then redirect.
+  console.log(launch.deploymentId)
+}
+```
+
+When a Cloud deploy cannot be paid from the wallet, the API returns `402` with
+`WALLET_INSUFFICIENT_BALANCE`, `requiredAmount`, `balance`, and `shortfall`; clients should guide the
+user to beginner tasks or recharge.
+
+Public and private room plays are controlled by published server config: existing servers use
+`serverSlug` / `serverId`, and existing Buddies use `buddyUserIds`. Clients still submit only
+`playId`. Cloud deploy plays post a one-time greeting from the provisioned Buddy after the deployment
+becomes ready.
+
+### Official Model Proxy
+
+The official proxy is OpenAI-compatible. It bills the authenticated user's wallet and keeps the
+server-owned upstream key outside Cloud Pods. Default billing follows DeepSeek-style cached input,
+uncached input, and output token categories, with micro-Shrimp accruals so integer wallets can still
+settle fractional token costs precisely.
+
+```typescript
+const models = await authedClient.listOfficialModelProxyModels()
+const billing = await authedClient.getOfficialModelProxyBilling()
+
+const completion = await authedClient.createOfficialChatCompletion({
+  model: models.data[0]?.id ?? "deepseek-v4-flash",
+  messages: [{ role: "user", content: "Say hello in one sentence." }],
+})
+
+console.log(
+  billing.inputCacheHitShrimpPerMillionTokens,
+  billing.inputCacheMissShrimpPerMillionTokens,
+  billing.outputShrimpPerMillionTokens,
+)
+```
 
 ---
 
@@ -75,18 +131,34 @@ pip install shadowob-sdk
 ```python
 from shadowob_sdk import ShadowClient
 
-client = ShadowClient(base_url="https://shadowob.com")
+client = ShadowClient("https://shadowob.com", "")
 
 # Login
-client.login(email="user@example.com", password="password")
+result = client.login(email="user@example.com", password="password")
+authed_client = ShadowClient("https://shadowob.com", result["accessToken"])
 
 # List servers
-servers = client.servers.list()
+servers = authed_client.list_servers()
 
 # Send a message
-client.messages.send(
-    channel_id="channel-uuid",
-    content="Hello from Python!",
+authed_client.send_message("channel-uuid", "Hello from Python!")
+```
+
+```python
+membership = authed_client.get_membership()
+
+if "cloud:deploy" not in membership["capabilities"]:
+    authed_client.redeem_invite_code("INVITE-CODE")
+
+launch = authed_client.launch_play(
+    play_id="daily-brief",
+    launch_session_id="launch-session-1",
+)
+
+models = authed_client.list_official_model_proxy_models()
+completion = authed_client.create_official_chat_completion(
+    model=models["data"][0]["id"],
+    messages=[{"role": "user", "content": "Say hello in one sentence."}],
 )
 ```
 

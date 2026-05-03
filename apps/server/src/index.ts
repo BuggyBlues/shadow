@@ -17,6 +17,7 @@ import { resolveCloudTemplatesDir } from './lib/cloud-templates'
 import { randomFixedDigits } from './lib/id'
 import { verifyToken } from './lib/jwt'
 import { logger } from './lib/logger'
+import { seedPlayCatalogResources } from './lib/play-catalog-seed'
 import { setupWebSocket } from './ws'
 
 const PORT = Number(process.env.PORT ?? 3002)
@@ -110,6 +111,13 @@ async function main() {
     logger.info({ result }, 'Cloud templates seeded')
   } catch (err) {
     logger.warn({ err }, 'Cloud template seeding skipped')
+  }
+
+  try {
+    const result = await seedPlayCatalogResources(container)
+    logger.info({ result }, 'Play catalog resources seeded')
+  } catch (err) {
+    logger.warn({ err }, 'Play catalog resource seeding skipped')
   }
 
   // Create Hono app with DI container

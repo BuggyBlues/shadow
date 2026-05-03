@@ -31,11 +31,13 @@ async function ensureScreenshotDir() {
 }
 
 async function loginViaUi(page: import('@playwright/test').Page, user: Session['owner']) {
-  await page.goto('login')
+  await page.goto('/app/login')
+  await page.getByRole('button', { name: /Password|密码/ }).click()
   await page.locator('input[autocomplete="username"]').fill(user.email)
   await page.locator('input[autocomplete="current-password"]').fill(user.password)
   await page.locator('form button[type="submit"]').click()
-  await page.waitForURL(/\/app\/settings/)
+  await page.waitForFunction(() => Boolean(localStorage.getItem('accessToken')))
+  await page.waitForURL((url) => url.pathname.startsWith('/app/') && url.pathname !== '/app/login')
 }
 
 async function screenshot(page: import('@playwright/test').Page, name: string) {
@@ -120,7 +122,7 @@ test.describe
       await loginViaUi(page, session.owner)
 
       // Navigate directly to developer settings tab via URL
-      await page.goto('settings?tab=developer')
+      await page.goto('/app/settings?tab=developer')
       await page.waitForURL(/\/app\/settings/)
       await page.waitForTimeout(1000)
 
@@ -255,7 +257,7 @@ test.describe
       await page.waitForTimeout(1000)
 
       // Reload the page to verify the app is gone
-      await page.goto('settings?tab=developer')
+      await page.goto('/app/settings?tab=developer')
       await page.waitForURL(/\/app\/settings/)
       await page.waitForTimeout(1000)
       await expect(page.getByText('E2E Test OAuth App')).not.toBeVisible({ timeout: 10_000 })
@@ -307,7 +309,7 @@ test.describe
         let capturedCode = ''
         const scopes =
           'user:read user:email servers:read servers:write channels:read channels:write'
-        const authorizeUrl = `oauth/authorize?response_type=code&client_id=${encodeURIComponent(app.clientId)}&redirect_uri=${encodeURIComponent(CALLBACK_URL)}&scope=${encodeURIComponent(scopes)}&state=e2e_flow_test`
+        const authorizeUrl = `/app/oauth/authorize?response_type=code&client_id=${encodeURIComponent(app.clientId)}&redirect_uri=${encodeURIComponent(CALLBACK_URL)}&scope=${encodeURIComponent(scopes)}&state=e2e_flow_test`
 
         await page.goto(authorizeUrl)
 

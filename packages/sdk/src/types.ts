@@ -36,6 +36,10 @@ export interface ApiError {
   ok: false
   error: string | { code: ApiErrorCode; message: string }
   code?: ApiErrorCode
+  requiredAmount?: number
+  balance?: number
+  shortfall?: number
+  nextAction?: string
 }
 
 /** Union type for all API responses */
@@ -238,12 +242,157 @@ export interface ShadowServer {
 
 export interface ShadowUser {
   id: string
+  email?: string
   username: string
   displayName?: string
   avatarUrl?: string
   isBot?: boolean
   agentId?: string
+  membership?: ShadowMembership
 }
+
+export interface ShadowMembership {
+  status: string
+  tier: {
+    id: string
+    level: number
+    label: string
+    capabilities: string[]
+  }
+  level: number
+  isMember: boolean
+  memberSince?: string | null
+  inviteCodeId?: string | null
+  capabilities: string[]
+}
+
+export interface ShadowAuthResponse {
+  user: ShadowUser
+  accessToken: string
+  refreshToken: string
+}
+
+export type ShadowPlayAction =
+  | {
+      kind: 'public_channel'
+      serverId?: string
+      serverSlug?: string
+      channelId?: string
+      channelName?: string
+      inviteCode?: string
+      buddyUserIds?: string[]
+      buddyTemplateSlug?: string
+      greeting?: string
+    }
+  | {
+      kind: 'private_room'
+      serverId?: string
+      serverSlug?: string
+      namePrefix?: string
+      buddyUserIds?: string[]
+      buddyTemplateSlug?: string
+      greeting?: string
+    }
+  | {
+      kind: 'cloud_deploy'
+      templateSlug: string
+      buddyTemplateSlug?: string
+      buddyUserIds?: string[]
+      greeting?: string
+      resourceTier?: 'lightweight' | 'standard' | 'pro'
+      defaultChannelName?: string
+    }
+  | {
+      kind: 'external_oauth_app'
+      clientId: string
+      redirectUri: string
+      scopes?: string[]
+      state?: string
+    }
+  | {
+      kind: 'landing_page'
+      url: string
+    }
+
+export type ShadowPlayAvailability = 'available' | 'gated' | 'coming_soon' | 'misconfigured'
+
+export interface ShadowHomePlayCatalogItem {
+  id: string
+  image: string
+  title: string
+  titleEn: string
+  desc: string
+  descEn: string
+  category: string
+  categoryEn: string
+  starts: string
+  accentColor: string
+  hot?: boolean
+  status: ShadowPlayAvailability
+  action?: ShadowPlayAction
+  gates?: {
+    auth?: 'optional' | 'required'
+    membership?: 'none' | 'required'
+    profile?: 'optional' | 'required'
+  }
+  template?: {
+    kind: 'cloud'
+    slug: string
+    path: string
+  }
+  materials?: {
+    cover: string
+  }
+}
+
+export interface ShadowPlayLaunchResult {
+  ok: boolean
+  status: string
+  playId?: string | null
+  redirectUrl?: string
+  serverId?: string
+  channelId?: string
+  deploymentId?: string
+  deploymentStatus?: string
+  templateSlug?: string
+}
+
+export interface ShadowModelProxyModel {
+  id: string
+  object: 'model'
+  created: number
+  owned_by: string
+}
+
+export interface ShadowModelProxyModelsResponse {
+  object: 'list'
+  data: ShadowModelProxyModel[]
+}
+
+export interface ShadowModelProxyBilling {
+  enabled: boolean
+  currency: 'shrimp'
+  model: string
+  models: string[]
+  shrimpMicrosPerCoin: number
+  shrimpPerCny: number
+  inputTokensPerShrimp: number | null
+  outputTokensPerShrimp: number | null
+  inputCacheHitCnyPerMillionTokens: number
+  inputCacheMissCnyPerMillionTokens: number
+  outputCnyPerMillionTokens: number
+  inputCacheHitShrimpPerMillionTokens: number
+  inputCacheMissShrimpPerMillionTokens: number
+  outputShrimpPerMillionTokens: number
+}
+
+export type ShadowModelProxyChatCompletionRequest = Record<string, unknown> & {
+  model?: string
+  messages: unknown[]
+  stream?: boolean
+}
+
+export type ShadowModelProxyChatCompletionResponse = Record<string, unknown>
 
 export interface ShadowNotification {
   id: string

@@ -15,6 +15,7 @@ import { randomUUID } from 'node:crypto'
 import { createServer } from 'node:http'
 import {
   attachCloudSaasProvisionState,
+  CLOUD_SAAS_RUNTIME_KEY,
   type DeployFromSnapshotOptions,
   type DeployResult,
   extractCloudSaasRuntime,
@@ -147,6 +148,13 @@ beforeAll(async () => {
 
   // Create wallet for test user
   await db.insert(schema.wallets).values({ userId, balance: 50000 }).onConflictDoNothing()
+  await db.insert(schema.inviteCodes).values({
+    code: `E2E-${randomUUID().slice(0, 12)}`,
+    createdBy: userId,
+    usedBy: userId,
+    usedAt: new Date(),
+    note: 'Cloud SaaS e2e membership',
+  })
 
   // Seed an official template for tests
   const [tmpl] = await db
@@ -1254,6 +1262,58 @@ describe('Cloud SaaS — deployment + billing', () => {
     expect(runtime.OPENAI_COMPATIBLE_API_KEY).toBe('saved-compatible-key')
     expect(runtime.OPENAI_COMPATIBLE_MODEL_ID).toBe(modelId)
     expect(runtime.DEEPSEEK_API_KEY).toBe('saved-deepseek-key')
+  })
+
+  it('POST /api/cloud-saas/deployments injects official proxy env for official model mode', async () => {
+    const previousShadowServerUrl = process.env.SHADOW_SERVER_URL
+    const previousModel = process.env.SHADOW_MODEL_PROXY_MODEL
+    const previousProxyEnabled = process.env.SHADOW_MODEL_PROXY_ENABLED
+    process.env.SHADOW_SERVER_URL = 'http://shadow.test'
+    process.env.SHADOW_MODEL_PROXY_MODEL = 'deepseek-v4-flash'
+    process.env.SHADOW_MODEL_PROXY_ENABLED = 'true'
+
+    try {
+      const namespace = uniqueName('e2e-official-provider-ns')
+      const createRes = await req('POST', '/api/cloud-saas/deployments', {
+        namespace,
+        name: uniqueName('e2e-official-provider-deploy'),
+        templateSlug: officialTemplateSlug,
+        resourceTier: 'lightweight',
+        envVars: {
+          OPENAI_COMPATIBLE_API_KEY: 'user-supplied-key',
+          DEEPSEEK_API_KEY: 'user-supplied-deepseek-key',
+        },
+        configSnapshot: {
+          ...makeConfigSnapshot('official-provider-secret'),
+          use: [{ plugin: 'model-provider' }],
+          [CLOUD_SAAS_RUNTIME_KEY]: {
+            modelProviderMode: 'official',
+          },
+        },
+      })
+
+      expect(createRes.status).toBe(201)
+      const deployment = (await createRes.json()) as { id: string }
+      const [stored] = await db
+        .select()
+        .from(schema.cloudDeployments)
+        .where(eq(schema.cloudDeployments.id, deployment.id))
+        .limit(1)
+
+      const runtime = extractCloudSaasRuntime(stored?.configSnapshot).envVars
+      expect(runtime.OPENAI_COMPATIBLE_BASE_URL).toBe('http://shadow.test/api/ai/v1')
+      expect(runtime.OPENAI_COMPATIBLE_API_KEY).toMatch(/^smp_/)
+      expect(runtime.OPENAI_COMPATIBLE_API_KEY).not.toBe('user-supplied-key')
+      expect(runtime.OPENAI_COMPATIBLE_MODEL_ID).toBe('deepseek-v4-flash')
+      expect(runtime.DEEPSEEK_API_KEY).toBeUndefined()
+    } finally {
+      if (previousShadowServerUrl === undefined) delete process.env.SHADOW_SERVER_URL
+      else process.env.SHADOW_SERVER_URL = previousShadowServerUrl
+      if (previousModel === undefined) delete process.env.SHADOW_MODEL_PROXY_MODEL
+      else process.env.SHADOW_MODEL_PROXY_MODEL = previousModel
+      if (previousProxyEnabled === undefined) delete process.env.SHADOW_MODEL_PROXY_ENABLED
+      else process.env.SHADOW_MODEL_PROXY_ENABLED = previousProxyEnabled
+    }
   })
 
   it('stores provider profiles and injects selected real provider env during deploy', async () => {

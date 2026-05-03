@@ -45,6 +45,8 @@ export interface ShadowChannel {
   type?: string
   /** Channel description */
   description?: string
+  /** Whether the channel should be private and invitation-only */
+  isPrivate?: boolean
 }
 
 export interface ShadowBuddy {

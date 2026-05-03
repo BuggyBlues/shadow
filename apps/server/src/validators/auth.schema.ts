@@ -16,13 +16,28 @@ export const registerSchema = z.object({
     .min(8, 'Password must be at least 8 characters')
     .max(128, 'Password must be at most 128 characters'),
   displayName: z.string().max(64).optional(),
-  inviteCode: z.string().min(1, 'Invite code is required'),
+  inviteCode: z.string().max(64).optional(),
   referralCode: z.string().max(64).optional(),
 })
 
 export const loginSchema = z.object({
   email: z.string().min(1, 'Username or email is required').max(128, 'Input is too long'),
   password: z.string().min(1, 'Password is required'),
+})
+
+export const emailLoginStartSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  locale: z.string().max(16).optional(),
+})
+
+export const emailLoginVerifySchema = z.object({
+  email: z.string().email('Invalid email address'),
+  code: z.string().min(4).max(12),
+  displayName: z.string().max(64).optional(),
+})
+
+export const googleIdTokenSchema = z.object({
+  credential: z.string().min(1),
 })
 
 export const changePasswordSchema = z
@@ -41,4 +56,7 @@ export const changePasswordSchema = z
 
 export type RegisterInput = z.infer<typeof registerSchema>
 export type LoginInput = z.infer<typeof loginSchema>
+export type EmailLoginStartInput = z.infer<typeof emailLoginStartSchema>
+export type EmailLoginVerifyInput = z.infer<typeof emailLoginVerifySchema>
+export type GoogleIdTokenInput = z.infer<typeof googleIdTokenSchema>
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>

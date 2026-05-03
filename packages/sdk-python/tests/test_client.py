@@ -32,6 +32,50 @@ def test_client_context_manager():
         assert client._base_url == "https://example.com"
 
 
+def test_launch_play_posts_launch_session_id(monkeypatch):
+    client = ShadowClient("https://example.com", "test-token")
+    captured = {}
+
+    def fake_post(path, json=None):
+        captured["path"] = path
+        captured["json"] = json
+        return {"ok": True, "status": "fallback"}
+
+    monkeypatch.setattr(client, "_post", fake_post)
+
+    result = client.launch_play(
+        play_id="daily-brief",
+        launch_session_id="launch-session-1",
+    )
+
+    assert captured == {
+        "path": "/api/play/launch",
+        "json": {
+            "playId": "daily-brief",
+            "launchSessionId": "launch-session-1",
+        },
+    }
+    assert result["ok"] is True
+    client.close()
+
+
+def test_get_play_catalog_returns_plays(monkeypatch):
+    client = ShadowClient("https://example.com", "test-token")
+    captured = {}
+
+    def fake_get(path):
+        captured["path"] = path
+        return {"plays": [{"id": "gstack-buddy", "status": "gated"}]}
+
+    monkeypatch.setattr(client, "_get", fake_get)
+
+    result = client.get_play_catalog()
+
+    assert captured == {"path": "/api/play/catalog"}
+    assert result == [{"id": "gstack-buddy", "status": "gated"}]
+    client.close()
+
+
 def test_socket_creation():
     sock = ShadowSocket("https://example.com", "test-token")
     assert sock.connected is False

@@ -1,19 +1,21 @@
-import { Button, FormField, Input } from '@shadowob/ui'
+import { Badge, Button, FormField, Input } from '@shadowob/ui'
 import { useMutation } from '@tanstack/react-query'
-import { Key, Mail, User } from 'lucide-react'
+import { Key, Mail, ShieldCheck, Ticket, User } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../../lib/api'
+import { getApiErrorMessage } from '../../lib/api-errors'
 import { showToast } from '../../lib/toast'
 import { useAuthStore } from '../../stores/auth.store'
 import { SettingsCard, SettingsPanel } from './_shared'
 
 export function AccountSettings() {
   const { t } = useTranslation()
-  const { user } = useAuthStore()
+  const { user, setUser } = useAuthStore()
   const [oldPassword, setOldPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [inviteCode, setInviteCode] = useState('')
   const [touched, setTouched] = useState<Record<string, boolean>>({})
 
   const passwordErrors = {
@@ -41,17 +43,42 @@ export function AccountSettings() {
       })
     },
     onSuccess: () => {
-      showToast(t('settings.passwordChangedSuccess', '密码修改成功'), 'success')
+      showToast(t('settings.passwordChangedSuccess'), 'success')
       setOldPassword('')
       setNewPassword('')
       setConfirmPassword('')
     },
     onError: (err) => {
-      showToast(err instanceof Error ? err.message : 'Failed to change password', 'error')
+      showToast(err instanceof Error ? err.message : t('settings.passwordChangeFailed'), 'error')
+    },
+  })
+
+  const redeemInviteMutation = useMutation({
+    mutationFn: async () =>
+      fetchApi<NonNullable<typeof user>['membership']>('/api/membership/redeem-invite', {
+        method: 'POST',
+        body: JSON.stringify({ code: inviteCode }),
+      }),
+    onSuccess: (membership) => {
+      if (membership) setUser({ ...user!, membership })
+      setInviteCode('')
+      showToast(t('settings.membershipRedeemedSuccess'), 'success')
+    },
+    onError: (err) => {
+      showToast(getApiErrorMessage(err, t, 'settings.membershipRedeemFailed'), 'error')
     },
   })
 
   if (!user) return null
+
+  const membership = user.membership
+  const tierKey = membership?.status ?? 'visitor'
+  const tierLabel = t(`settings.membershipTiers.${tierKey}`, membership?.tier?.label ?? tierKey)
+  const capabilityLabels =
+    membership?.capabilities.map((capability) => {
+      const capabilityKey = capability.replace(/[:.]/g, '_')
+      return t(`settings.membershipCapabilityLabels.${capabilityKey}`, capability)
+    }) ?? []
 
   return (
     <SettingsPanel>
@@ -60,7 +87,7 @@ export function AccountSettings() {
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-3">
             <Mail size={16} className="text-text-muted shrink-0" />
-            <span className="text-sm text-text-muted">{t('settings.emailLabel', '邮箱')}</span>
+            <span className="text-sm text-text-muted">{t('settings.emailLabel')}</span>
             <span className="text-sm font-bold text-text-primary ml-auto truncate max-w-[240px]">
               {user.email}
             </span>
@@ -68,11 +95,62 @@ export function AccountSettings() {
           <div className="border-t border-border-subtle" />
           <div className="flex items-center gap-3">
             <User size={16} className="text-text-muted shrink-0" />
-            <span className="text-sm text-text-muted">{t('settings.usernameLabel', '用户名')}</span>
+            <span className="text-sm text-text-muted">{t('settings.usernameLabel')}</span>
             <span className="text-sm font-bold text-text-primary ml-auto">@{user.username}</span>
+          </div>
+          <div className="border-t border-border-subtle" />
+          <div className="flex items-center gap-3">
+            <ShieldCheck size={16} className="text-text-muted shrink-0" />
+            <span className="text-sm text-text-muted">{t('settings.membershipStatusLabel')}</span>
+            <div className="ml-auto flex items-center gap-2">
+              <Badge variant={membership?.isMember ? 'success' : 'neutral'}>{tierLabel}</Badge>
+              <span className="text-xs font-bold text-text-muted">
+                {t('settings.membershipLevelLabel', { level: membership?.level ?? 0 })}
+              </span>
+            </div>
+          </div>
+          <div className="border-t border-border-subtle" />
+          <div className="flex items-center gap-3">
+            <Ticket size={16} className="text-text-muted shrink-0" />
+            <span className="text-sm text-text-muted">
+              {t('settings.membershipCapabilitiesLabel')}
+            </span>
+            <span className="text-xs font-bold text-text-primary ml-auto">
+              {capabilityLabels.length
+                ? capabilityLabels.join(', ')
+                : t('settings.membershipNoCapabilities')}
+            </span>
           </div>
         </div>
       </SettingsCard>
+
+      {!membership?.isMember ? (
+        <SettingsCard>
+          <div className="space-y-4">
+            <span className="block text-[11px] font-black uppercase tracking-[0.2em] text-text-muted/60">
+              {t('settings.membershipRedeemTitle')}
+            </span>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Input
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value)}
+                placeholder={t('settings.membershipRedeemPlaceholder')}
+                className="font-mono tracking-widest"
+              />
+              <Button
+                type="button"
+                icon={Ticket}
+                disabled={!inviteCode.trim()}
+                loading={redeemInviteMutation.isPending}
+                onClick={() => redeemInviteMutation.mutate()}
+              >
+                {t('settings.membershipRedeemAction')}
+              </Button>
+            </div>
+            <p className="text-xs text-text-muted">{t('settings.membershipVisitorHint')}</p>
+          </div>
+        </SettingsCard>
+      ) : null}
 
       {/* Change Password */}
       <SettingsCard>

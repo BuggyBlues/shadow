@@ -95,6 +95,7 @@ export {
   wallets,
   walletTransactions,
   walletTxTypeEnum,
+  walletUsageAccruals,
 } from './shops'
 export { userRewardLogs, userTaskClaims } from './task-center'
 export { threads } from './threads'

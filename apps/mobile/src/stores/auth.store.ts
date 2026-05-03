@@ -10,6 +10,20 @@ interface User {
   displayName: string | null
   avatarUrl: string | null
   status?: string
+  membership?: {
+    status: string
+    tier?: {
+      id: string
+      level: number
+      label: string
+      capabilities: string[]
+    }
+    level?: number
+    isMember: boolean
+    memberSince?: string | null
+    inviteCodeId?: string | null
+    capabilities: string[]
+  }
 }
 
 interface AuthState {

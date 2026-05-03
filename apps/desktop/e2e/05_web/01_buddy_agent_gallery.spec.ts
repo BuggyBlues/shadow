@@ -32,11 +32,13 @@ async function ensureScreenshotDir() {
 }
 
 async function loginViaUi(page: import('@playwright/test').Page, user: Session['owner']) {
-  await page.goto('login')
+  await page.goto('/app/login')
+  await page.getByRole('button', { name: /Password|密码/ }).click()
   await page.locator('input[autocomplete="username"]').fill(user.email)
   await page.locator('input[autocomplete="current-password"]').fill(user.password)
   await page.locator('form button[type="submit"]').click()
-  await page.waitForURL(/\/app\/settings/)
+  await page.waitForFunction(() => Boolean(localStorage.getItem('accessToken')))
+  await page.waitForURL((url) => url.pathname.startsWith('/app/') && url.pathname !== '/app/login')
 }
 
 async function screenshot(page: import('@playwright/test').Page, name: string) {
@@ -58,7 +60,7 @@ test.describe
       await loginViaUi(ownerPage, session.owner)
 
       // Buddy management page — shows created agents with status badges
-      await ownerPage.goto('buddies')
+      await ownerPage.goto('/app/buddies')
       await ownerPage.waitForURL(/\/app\/buddies/)
       await ownerPage.waitForTimeout(1000)
       await screenshot(ownerPage, '13-buddy-agent-management.png')
@@ -78,7 +80,7 @@ test.describe
       }
 
       // Settings page — buddy tab
-      await ownerPage.goto('settings?tab=buddy')
+      await ownerPage.goto('/app/settings?tab=buddy')
       await ownerPage.waitForURL(/\/app\/settings/)
       await ownerPage.waitForTimeout(1000)
       await screenshot(ownerPage, '15-settings-buddy-tab.png')

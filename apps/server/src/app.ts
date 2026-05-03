@@ -19,10 +19,13 @@ import { createFeatureFlagsHandler } from './handlers/feature-flags.handler'
 import { createFriendshipHandler } from './handlers/friendship.handler'
 import { createInviteHandler } from './handlers/invite.handler'
 import { createMediaHandler } from './handlers/media.handler'
+import { createMembershipHandler } from './handlers/membership.handler'
 import { createMentionHandler } from './handlers/mention.handler'
 import { createMessageHandler } from './handlers/message.handler'
+import { createModelProxyHandler } from './handlers/model-proxy.handler'
 import { createNotificationHandler } from './handlers/notification.handler'
 import { createOAuthHandler } from './handlers/oauth.handler'
+import { createPlayHandler } from './handlers/play.handler'
 import { createProfileCommentHandler } from './handlers/profile-comment.handler'
 import { createRechargeHandler } from './handlers/recharge.handler'
 import { createRentalHandler } from './handlers/rental.handler'
@@ -44,7 +47,17 @@ export function createApp(container: AppContainer) {
   // Global error handler (Hono's onError ensures proper JSON responses)
   app.onError((error, c) => {
     const message = error instanceof Error ? error.message : 'Internal Server Error'
-    const status = (error as { status?: number }).status ?? 500
+    const appError = error as {
+      status?: number
+      code?: string
+      capability?: string
+      membership?: unknown
+      requiredAmount?: number
+      balance?: number
+      shortfall?: number
+      nextAction?: string
+    }
+    const status = appError.status ?? 500
 
     logger.error({ err: error, path: c.req.path, method: c.req.method }, message)
 
@@ -52,6 +65,15 @@ export function createApp(container: AppContainer) {
       {
         ok: false,
         error: status >= 500 ? 'Internal Server Error' : message,
+        ...(appError.code ? { code: appError.code } : {}),
+        ...(appError.capability ? { capability: appError.capability } : {}),
+        ...(appError.membership ? { membership: appError.membership } : {}),
+        ...(typeof appError.requiredAmount === 'number'
+          ? { requiredAmount: appError.requiredAmount }
+          : {}),
+        ...(typeof appError.balance === 'number' ? { balance: appError.balance } : {}),
+        ...(typeof appError.shortfall === 'number' ? { shortfall: appError.shortfall } : {}),
+        ...(appError.nextAction ? { nextAction: appError.nextAction } : {}),
       },
       status as 400,
     )
@@ -136,6 +158,8 @@ export function createApp(container: AppContainer) {
   // API routes
   app.route('/api/auth', createAuthHandler(container))
   app.route('/api/oauth', createOAuthHandler(container))
+  app.route('/api/ai/v1', createModelProxyHandler(container))
+  app.route('/api/play', createPlayHandler(container))
   app.route('/api/tokens', createApiTokenHandler(container))
   // IMPORTANT: Mount app/workspace handlers before /api/servers base handler
   // so nested routes like /api/servers/:serverId/apps/* and
@@ -154,6 +178,7 @@ export function createApp(container: AppContainer) {
   app.route('/api/agents', createAgentHandler(container))
   app.route('/api/agents', createAgentDashboardHandler(container))
   app.route('/api/invite-codes', createInviteHandler(container))
+  app.route('/api/membership', createMembershipHandler(container))
   app.route('/api/admin', createAdminHandler(container))
   app.route('/api', createTaskCenterHandler(container))
   app.route('/api', createShopHandler(container))

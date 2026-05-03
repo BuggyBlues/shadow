@@ -12,6 +12,7 @@
  */
 
 import { createServer } from 'node:http'
+import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -99,6 +100,7 @@ beforeAll(async () => {
     passwordHash: 'not-used',
   })
   userId = dev!.id
+  await db.update(schema.users).set({ isAdmin: true }).where(eq(schema.users.id, userId))
   userToken = signAccessToken({ userId, email: userEmail, username: userName })
 
   const endUserEmail = `oauth-user-${ts}@test.local`
@@ -109,6 +111,7 @@ beforeAll(async () => {
     passwordHash: 'not-used',
   })
   endUserId = end!.id
+  await db.update(schema.users).set({ isAdmin: true }).where(eq(schema.users.id, endUserId))
   endUserToken = signAccessToken({
     userId: endUserId,
     email: endUserEmail,

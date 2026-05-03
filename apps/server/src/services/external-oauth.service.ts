@@ -3,6 +3,8 @@ import type { OAuthAccountDao } from '../dao/oauth-account.dao'
 import type { UserDao } from '../dao/user.dao'
 import { randomFixedDigits } from '../lib/id'
 import { type JwtPayload, signAccessToken, signRefreshToken } from '../lib/jwt'
+import type { MembershipService } from './membership.service'
+import type { TaskCenterService } from './task-center.service'
 
 interface OAuthProfile {
   provider: string
@@ -56,6 +58,8 @@ export class ExternalOAuthService {
     private deps: {
       oauthAccountDao: OAuthAccountDao
       userDao: UserDao
+      membershipService: MembershipService
+      taskCenterService: TaskCenterService
     },
   ) {}
 
@@ -124,7 +128,8 @@ export class ExternalOAuthService {
     const profile = await this.fetchProfile(provider, providerAccessToken)
 
     // Find or create user
-    const { user } = await this.findOrCreateUser(profile)
+    const { user, isNew } = await this.findOrCreateUser(profile)
+    if (isNew) await this.deps.taskCenterService.grantWelcomeReward(user.id)
 
     // Generate Shadow tokens
     const jwtPayload: JwtPayload = { userId: user.id, email: user.email, username: user.username }
@@ -154,6 +159,54 @@ export class ExternalOAuthService {
     }
 
     return { accessToken, refreshToken, redirect }
+  }
+
+  async handleGoogleIdToken(
+    credential: string,
+  ): Promise<{ accessToken: string; refreshToken: string; user: unknown }> {
+    const clientId = process.env.GOOGLE_CLIENT_ID ?? ''
+    if (!clientId) {
+      throw Object.assign(new Error('Google OAuth not configured'), { status: 501 })
+    }
+
+    const tokenInfoRes = await fetch(
+      `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`,
+    )
+    if (!tokenInfoRes.ok) {
+      throw Object.assign(new Error('Invalid Google credential'), { status: 401 })
+    }
+
+    const tokenInfo = (await tokenInfoRes.json()) as {
+      aud?: string
+      sub?: string
+      email?: string
+      email_verified?: string
+      name?: string
+      picture?: string
+    }
+
+    if (tokenInfo.aud !== clientId || !tokenInfo.sub || !tokenInfo.email) {
+      throw Object.assign(new Error('Invalid Google credential'), { status: 401 })
+    }
+    if (tokenInfo.email_verified !== 'true') {
+      throw Object.assign(new Error('Google email is not verified'), { status: 401 })
+    }
+
+    const { user, isNew } = await this.findOrCreateUser({
+      provider: 'google',
+      providerAccountId: tokenInfo.sub,
+      email: tokenInfo.email,
+      displayName: tokenInfo.name,
+      avatarUrl: tokenInfo.picture,
+    })
+    if (isNew) await this.deps.taskCenterService.grantWelcomeReward(user.id)
+
+    const jwtPayload: JwtPayload = { userId: user.id, email: user.email, username: user.username }
+    return {
+      user: await this.serializeUser(user),
+      accessToken: signAccessToken(jwtPayload),
+      refreshToken: signRefreshToken(jwtPayload),
+    }
   }
 
   private async fetchProfile(provider: string, accessToken: string): Promise<OAuthProfile> {
@@ -294,6 +347,23 @@ export class ExternalOAuthService {
     await userDao.updateStatus(newUser.id, 'online')
 
     return { user: newUser, isNew: true }
+  }
+
+  private async serializeUser(user: {
+    id: string
+    email: string
+    username: string
+    displayName: string | null
+    avatarUrl: string | null
+  }) {
+    return {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      displayName: user.displayName,
+      avatarUrl: user.avatarUrl,
+      membership: await this.deps.membershipService.getMembership(user.id),
+    }
   }
 
   async listLinkedAccounts(userId: string) {

@@ -16,22 +16,46 @@ POST /api/auth/register
 |-------|------|----------|-------------|
 | `email` | string | Yes | Email address |
 | `password` | string | Yes | Password |
-| `username` | string | Yes | Unique username |
+| `username` | string | No | Unique username. Generated when omitted. |
 | `displayName` | string | No | Display name |
-| `inviteCode` | string | Yes | Invite code |
+| `inviteCode` | string | No | Optional membership invite for advanced capabilities |
 
 **Response:**
 
 ```json
 {
-  "token": "eyJhbGciOiJIUzI1NiI...",
+  "accessToken": "eyJhbGciOiJIUzI1NiI...",
+  "refreshToken": "eyJhbGciOiJIUzI1NiI...",
   "user": {
     "id": "uuid",
     "username": "alice",
-    "displayName": "Alice"
+    "displayName": "Alice",
+    "membership": {
+      "status": "visitor",
+      "tier": { "id": "visitor", "level": 0, "label": "Visitor", "capabilities": [] },
+      "level": 0,
+      "isMember": false,
+      "capabilities": []
+    }
   }
 }
 ```
+
+Invite codes are no longer required for registration. Redeem one later with `POST /api/membership/redeem-invite` to unlock Cloud deployment and server creation.
+Membership is tier-based; future tiers can add capabilities without changing the auth response shape.
+
+Visitors can still join public communities and start basic homepage plays. Member capabilities are
+checked only when an action needs long-lived Cloud resources, new server creation, invite creation,
+or OAuth app creation.
+
+### Email code login
+
+```
+POST /api/auth/email/start
+POST /api/auth/email/verify
+```
+
+Email code verification signs in an existing user or creates a visitor account.
 
 ### Login
 
@@ -54,7 +78,7 @@ POST /api/auth/login
 POST /api/auth/refresh
 ```
 
-Returns a new JWT token. Requires an existing valid token.
+Returns new access and refresh tokens. Send the existing refresh token in the request body.
 
 ## Using the Token
 
@@ -73,13 +97,13 @@ import { ShadowClient } from '@shadowob/sdk'
 
 // Login and get a token
 const client = new ShadowClient('https://shadowob.com', '')
-const { token, user } = await client.login({
+const { accessToken, user } = await client.login({
   email: 'alice@example.com',
   password: 'secret',
 })
 
 // Use the token for subsequent requests
-const authedClient = new ShadowClient('https://shadowob.com', token)
+const authedClient = new ShadowClient('https://shadowob.com', accessToken)
 const me = await authedClient.getMe()
 ```
 
@@ -89,7 +113,7 @@ from shadowob_sdk import ShadowClient
 # Login and get a token
 client = ShadowClient("https://shadowob.com", "")
 result = client.login(email="alice@example.com", password="secret")
-token = result["token"]
+token = result["accessToken"]
 
 # Use the token for subsequent requests
 client = ShadowClient("https://shadowob.com", token)
@@ -107,3 +131,10 @@ GET /api/auth/oauth/:provider
 ```
 
 The callback URL will return a JWT token after successful authentication.
+
+## Official Model Proxy Tokens
+
+Cloud plays can receive a limited `smp_...` token for the official model proxy. These tokens are not
+general user sessions; they only authorize `/api/ai/v1` model proxy calls for the target user and
+play/template context. See [Official Model Proxy](/platform/model-proxy) for billing and safety
+details.

@@ -31,6 +31,14 @@
       "require": "./dist/constants/index.cjs",
       "default": "./dist/constants/index.js"
     },
+    "./play-catalog": {
+      "types": "./dist/play-catalog/index.d.ts",
+      "development": "./src/play-catalog/index.ts",
+      "react-native": "./src/play-catalog/index.ts",
+      "import": "./dist/play-catalog/index.js",
+      "require": "./dist/play-catalog/index.cjs",
+      "default": "./dist/play-catalog/index.js"
+    },
     "./utils": {
       "types": "./dist/utils/index.d.ts",
       "development": "./src/utils/index.ts",

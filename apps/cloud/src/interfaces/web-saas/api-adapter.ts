@@ -33,6 +33,12 @@ type WalletApiExtension = {
   }
 }
 
+type ModelProxyApiExtension = {
+  modelProxy: {
+    billing: () => ReturnType<typeof saasApi.modelProxy.billing>
+  }
+}
+
 type Deployment = Awaited<ReturnType<CloudApiClient['deployments']['list']>>[number]
 type Pod = Awaited<ReturnType<CloudApiClient['deployments']['pods']>>[number]
 type EnvVarListEntry = Awaited<ReturnType<CloudApiClient['env']['list']>>['envVars'][number]
@@ -331,7 +337,7 @@ const now = () => new Date().toISOString()
 // Build a partial override that matches CloudApiClient shape
 // for the saas-relevant subset, falling back to the local `api`
 // for anything not reachable from the web-saas router.
-export const saasApiAdapter: CloudApiClient & WalletApiExtension = {
+export const saasApiAdapter: CloudApiClient & WalletApiExtension & ModelProxyApiExtension = {
   health: async () => ({ status: 'ok', timestamp: now() }),
 
   // ── Community (StorePage uses api.community.catalog) ─────────────────────
@@ -859,5 +865,9 @@ export const saasApiAdapter: CloudApiClient & WalletApiExtension = {
     get: () => saasApi.wallet.get(),
     transactions: (params?: { limit?: number; offset?: number }) =>
       saasApi.wallet.transactions(params),
+  },
+
+  modelProxy: {
+    billing: () => saasApi.modelProxy.billing(),
   },
 }

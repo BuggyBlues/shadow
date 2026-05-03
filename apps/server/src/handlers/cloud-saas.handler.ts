@@ -3,6 +3,7 @@ import { zValidator } from '@hono/zod-validator'
 import {
   applyRuntimeEnvRefPolicy,
   attachCloudSaasProvisionState,
+  CLOUD_SAAS_RUNTIME_KEY,
   collectRuntimeEnvFields,
   collectRuntimeEnvRefPolicy,
   collectRuntimeEnvRequirements,
@@ -26,7 +27,9 @@ import { z } from 'zod'
 import type { AppContainer } from '../container'
 import { cloudDeployments, cloudTemplates } from '../db/schema'
 import { requestCloudDeploymentCancellation } from '../lib/cloud-deployment-processor'
+import { extractShadowProvisionTarget } from '../lib/cloud-shadow-target'
 import { decrypt, encrypt } from '../lib/kms'
+import { officialModelProxyEnvVars, shouldCopyServerRuntimeEnvKey } from '../lib/model-proxy-config'
 import { authMiddleware } from '../middleware/auth.middleware'
 import {
   type LlmProviderApiFormat,
@@ -42,6 +45,40 @@ const TIER_COST: Record<string, number> = {
   standard: 1200,
   pro: 2800,
 }
+
+const OFFICIAL_MODEL_PROXY_ENV_KEYS = new Set([
+  'OPENAI_COMPATIBLE_API_KEY',
+  'OPENAI_COMPATIBLE_BASE_URL',
+  'OPENAI_COMPATIBLE_MODEL_ID',
+])
+
+type CloudStoreModelProviderMode = 'official' | 'custom'
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value))
+}
+
+function readCloudStoreModelProviderMode(
+  configSnapshot: unknown,
+): CloudStoreModelProviderMode | null {
+  if (!isRecord(configSnapshot)) return null
+  const runtime = configSnapshot[CLOUD_SAAS_RUNTIME_KEY]
+  if (!isRecord(runtime)) return null
+
+  if (runtime.modelProviderMode === 'official' || runtime.modelProviderMode === 'custom') {
+    return runtime.modelProviderMode
+  }
+  if (runtime.officialModelProxy === true) return 'official'
+  return null
+}
+const SECOND_CLOUD_DEPLOY_MIN_BALANCE = 1000
+const CURRENT_CLOUD_DEPLOYMENT_STATUSES = new Set([
+  'pending',
+  'deploying',
+  'deployed',
+  'destroying',
+  'cancelling',
+])
 
 const deploymentRuntimeContextSchema = z
   .object({
@@ -828,10 +865,11 @@ function sanitizeCloudSaasDeploymentWithBlocker<
   T extends Parameters<typeof sanitizeCloudSaasDeployment>[0] & BlockingDeploymentRow,
 >(deployment: T, rows: T[]) {
   const blocker = findBlockingDeployment(deployment, rows)
-  const shadowServerId = extractShadowServerId(deployment.configSnapshot)
+  const shadowTarget = extractShadowProvisionTarget(deployment.configSnapshot)
   return {
     ...sanitizeCloudSaasDeployment(deployment),
-    shadowServerId,
+    shadowServerId: shadowTarget.serverId,
+    shadowChannelId: shadowTarget.channelId,
     blockedBy: blocker
       ? {
           id: blocker.id,
@@ -842,20 +880,6 @@ function sanitizeCloudSaasDeploymentWithBlocker<
         }
       : null,
   }
-}
-
-function extractShadowServerId(configSnapshot: unknown): string | null {
-  const { provisionState } = extractCloudSaasRuntime(configSnapshot)
-  const shadowob = provisionState?.plugins?.shadowob
-  if (!shadowob || typeof shadowob !== 'object' || Array.isArray(shadowob)) return null
-
-  const servers = shadowob.servers
-  if (!servers || typeof servers !== 'object' || Array.isArray(servers)) return null
-
-  for (const value of Object.values(servers)) {
-    if (typeof value === 'string' && value.trim()) return value
-  }
-  return null
 }
 
 function newestVisibleDeploymentsByNamespace<
@@ -892,6 +916,35 @@ function requestOrigin(c: Context): string | undefined {
   if (!host) return undefined
   const proto = c.req.header('x-forwarded-proto') ?? 'http'
   return `${proto}://${host}`
+}
+
+async function enforceSecondCloudDeployStarterBalance(
+  container: AppContainer,
+  userId: string,
+  monthlyCost: number,
+) {
+  if (monthlyCost <= 0) return
+  const deploymentDao = container.resolve('cloudDeploymentDao')
+  const existingDeployments = await deploymentDao.listByUser(userId, 20, 0)
+  const hasCurrentDeployment = existingDeployments.some((deployment) =>
+    CURRENT_CLOUD_DEPLOYMENT_STATUSES.has(deployment.status),
+  )
+  if (!hasCurrentDeployment) return
+
+  const requiredAmount = Math.max(monthlyCost, SECOND_CLOUD_DEPLOY_MIN_BALANCE)
+  const walletService = container.resolve('walletService')
+  const wallet = await walletService.getWallet(userId)
+  const balance = wallet?.balance ?? 0
+  if (balance >= requiredAmount) return
+
+  throw Object.assign(new Error('Insufficient balance'), {
+    status: 402,
+    code: 'WALLET_INSUFFICIENT_BALANCE',
+    requiredAmount,
+    balance,
+    shortfall: Math.max(requiredAmount - balance, 0),
+    nextAction: 'earn_or_recharge',
+  })
 }
 
 function getBearerToken(authHeader: string | undefined): string | undefined {
@@ -1047,6 +1100,11 @@ export function createCloudSaasHandler(container: AppContainer) {
     configSnapshot: unknown,
     requestAuthHeader: string | undefined,
     fallbackOrigin: string | undefined,
+    options: {
+      templateSlug?: string | null
+      namespace?: string | null
+      modelProviderMode?: CloudStoreModelProviderMode | null
+    } = {},
   ): Promise<Record<string, string>> {
     const envVars: Record<string, string> = {}
     const shadowServerUrl = process.env.SHADOW_SERVER_URL ?? fallbackOrigin
@@ -1067,11 +1125,30 @@ export function createCloudSaasHandler(container: AppContainer) {
       collectRuntimeEnvRefPolicy(configSnapshot),
     ])
     const usesModelProvider = configUsesPlugin(configSnapshot, 'model-provider')
+    const modelProviderMode =
+      options.modelProviderMode ?? readCloudStoreModelProviderMode(configSnapshot)
+    const usesOfficialModelProxy = usesModelProvider && modelProviderMode === 'official'
+    if (usesOfficialModelProxy) {
+      const runtimeServerUrl = shadowAgentServerUrl ?? shadowServerUrl
+      const proxyEnvVars = officialModelProxyEnvVars({
+        runtimeServerUrl,
+        userId,
+        templateSlug: options.templateSlug ?? undefined,
+        namespace: options.namespace ?? undefined,
+      })
+      if (Object.keys(proxyEnvVars).length === 0) {
+        const err = new Error('Official model provider is unavailable')
+        ;(err as { status?: number }).status = 503
+        throw err
+      }
+      Object.assign(envVars, proxyEnvVars)
+    }
     const explicitProviderProfileIds = [...collectProviderProfileIds(configSnapshot)]
       .map(normalizeProviderProfileId)
       .filter(Boolean)
-    const providerProfileIds =
-      explicitProviderProfileIds.length > 0
+    const providerProfileIds = usesOfficialModelProxy
+      ? []
+      : explicitProviderProfileIds.length > 0
         ? explicitProviderProfileIds
         : usesModelProvider
           ? (await readProviderProfiles(userId))
@@ -1086,10 +1163,13 @@ export function createCloudSaasHandler(container: AppContainer) {
       models: ProviderProfileModelView[]
     }> = []
     const providerCatalogs =
-      providerProfileIds.length > 0
+      providerProfileIds.length > 0 || usesOfficialModelProxy
         ? (await listProviderCatalogs()).map((entry) => entry.provider)
         : []
     const providerManagedEnvKeys = new Set<string>([PROVIDER_PROFILE_MODELS_ENV_KEY])
+    if (usesOfficialModelProxy) {
+      for (const key of OFFICIAL_MODEL_PROXY_ENV_KEYS) providerManagedEnvKeys.add(key)
+    }
     for (const provider of providerCatalogs)
       addProviderManagedEnvKeys(providerManagedEnvKeys, provider)
 
@@ -1176,6 +1256,7 @@ export function createCloudSaasHandler(container: AppContainer) {
     const explicitKeys = new Set(Object.keys(inputEnvVars ?? {}))
     for (const key of runtimeEnvRequirements) {
       if (explicitKeys.has(key)) continue
+      if (usesOfficialModelProxy && providerManagedEnvKeys.has(key)) continue
       if (
         usesModelProvider &&
         providerProfileIds.length > 0 &&
@@ -1185,7 +1266,9 @@ export function createCloudSaasHandler(container: AppContainer) {
         continue
       }
       const value =
-        providerProfileValues.get(key) ?? savedValues.get(key) ?? nonEmptyProcessEnv(key)
+        providerProfileValues.get(key) ??
+        savedValues.get(key) ??
+        (shouldCopyServerRuntimeEnvKey(key) ? nonEmptyProcessEnv(key) : undefined)
       if (value !== undefined) envVars[key] = value
     }
 
@@ -1199,6 +1282,8 @@ export function createCloudSaasHandler(container: AppContainer) {
 
     for (const [key, value] of Object.entries(inputEnvVars ?? {})) {
       if (typeof value !== 'string') continue
+
+      if (usesOfficialModelProxy && providerManagedEnvKeys.has(key)) continue
 
       if (usesModelProvider && providerManagedEnvKeys.has(key) && providerProfileValues.has(key)) {
         continue
@@ -1597,6 +1682,12 @@ export function createCloudSaasHandler(container: AppContainer) {
     const dao = container.resolve('cloudDeploymentDao')
     const deployment = await dao.findById(id, user.userId)
     if (!deployment) return c.json({ ok: false, error: 'Deployment not found' }, 404)
+    if (deployment.status === 'deployed') {
+      await container
+        .resolve('playLaunchService')
+        .ensureCloudDeploymentGreeting(user.userId, deployment)
+        .catch(() => null)
+    }
     const rows = await container
       .resolve('db')
       .select()
@@ -1656,6 +1747,7 @@ export function createCloudSaasHandler(container: AppContainer) {
       if (!isDeployableTemplateContent(template.content)) {
         return c.json({ ok: false, error: 'Template is not deployable' }, 422)
       }
+      await container.resolve('membershipService').requireMember(user.userId, 'cloud:deploy')
 
       let storedConfigSnapshot: Record<string, unknown>
       try {
@@ -1665,6 +1757,10 @@ export function createCloudSaasHandler(container: AppContainer) {
           input.configSnapshot,
           c.req.header('authorization'),
           requestOrigin(c),
+          {
+            templateSlug: input.templateSlug,
+            namespace: input.namespace,
+          },
         )
         storedConfigSnapshot = prepareCloudSaasConfigSnapshot(
           input.configSnapshot,
@@ -1723,6 +1819,7 @@ export function createCloudSaasHandler(container: AppContainer) {
         }
 
         // Deduct Shrimp Coins
+        await enforceSecondCloudDeployStarterBalance(container, user.userId, monthlyCost)
         const walletService = container.resolve('walletService')
         const deployRefId = crypto.randomUUID()
         let charged = false
@@ -1831,10 +1928,24 @@ export function createCloudSaasHandler(container: AppContainer) {
             typeof (err as { status?: number }).status === 'number'
               ? (err as { status: number }).status
               : 500
+          const appError = err as {
+            code?: string
+            requiredAmount?: number
+            balance?: number
+            shortfall?: number
+            nextAction?: string
+          }
           return c.json(
             {
               ok: false,
               error: err instanceof Error ? err.message : 'Failed to create deployment',
+              ...(appError.code ? { code: appError.code } : {}),
+              ...(typeof appError.requiredAmount === 'number'
+                ? { requiredAmount: appError.requiredAmount }
+                : {}),
+              ...(typeof appError.balance === 'number' ? { balance: appError.balance } : {}),
+              ...(typeof appError.shortfall === 'number' ? { shortfall: appError.shortfall } : {}),
+              ...(appError.nextAction ? { nextAction: appError.nextAction } : {}),
             },
             { status: status as 400 | 404 | 409 | 422 | 500 },
           )
@@ -2063,6 +2174,7 @@ export function createCloudSaasHandler(container: AppContainer) {
           409,
         )
       }
+      const currentDeployment = current ?? deployment
       const activeOperation = await dao.findActiveOperationInNamespace({
         userId: user.userId,
         clusterId: deployment.clusterId,
@@ -2095,6 +2207,11 @@ export function createCloudSaasHandler(container: AppContainer) {
           runtime.configSnapshot,
           c.req.header('authorization'),
           requestOrigin(c),
+          {
+            templateSlug: currentDeployment.templateSlug,
+            namespace: currentDeployment.namespace,
+            modelProviderMode: readCloudStoreModelProviderMode(currentDeployment.configSnapshot),
+          },
         )
         configSnapshot = prepareCloudSaasConfigSnapshot(
           runtime.configSnapshot,

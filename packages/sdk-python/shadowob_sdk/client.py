@@ -141,16 +141,18 @@ class ShadowClient:
         *,
         email: str,
         password: str,
-        username: str,
-        invite_code: str,
+        username: str | None = None,
+        invite_code: str | None = None,
         display_name: str | None = None,
     ) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "email": email,
             "password": password,
-            "username": username,
-            "inviteCode": invite_code,
         }
+        if username:
+            payload["username"] = username
+        if invite_code:
+            payload["inviteCode"] = invite_code
         if display_name:
             payload["displayName"] = display_name
         return self._post("/api/auth/register", json=payload)
@@ -158,8 +160,26 @@ class ShadowClient:
     def login(self, *, email: str, password: str) -> dict[str, Any]:
         return self._post("/api/auth/login", json={"email": email, "password": password})
 
-    def refresh_token(self) -> dict[str, Any]:
-        return self._post("/api/auth/refresh")
+    def start_email_login(self, *, email: str, locale: str | None = None) -> dict[str, Any]:
+        payload: dict[str, Any] = {"email": email}
+        if locale:
+            payload["locale"] = locale
+        return self._post("/api/auth/email/start", json=payload)
+
+    def verify_email_login(
+        self,
+        *,
+        email: str,
+        code: str,
+        display_name: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"email": email, "code": code}
+        if display_name:
+            payload["displayName"] = display_name
+        return self._post("/api/auth/email/verify", json=payload)
+
+    def refresh_token(self, refresh_token: str) -> dict[str, Any]:
+        return self._post("/api/auth/refresh", json={"refreshToken": refresh_token})
 
     def get_me(self) -> dict[str, Any]:
         return self._get("/api/auth/me")
@@ -179,6 +199,40 @@ class ShadowClient:
 
     def disconnect(self) -> dict[str, Any]:
         return self._post("/api/auth/disconnect")
+
+    def get_membership(self) -> dict[str, Any]:
+        return self._get("/api/membership/me")
+
+    def redeem_invite_code(self, code: str) -> dict[str, Any]:
+        return self._post("/api/membership/redeem-invite", json={"code": code})
+
+    def launch_play(
+        self,
+        *,
+        play_id: str | None = None,
+        launch_session_id: str | None = None,
+        locale: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        if play_id:
+            payload["playId"] = play_id
+        if launch_session_id:
+            payload["launchSessionId"] = launch_session_id
+        if locale:
+            payload["locale"] = locale
+        return self._post("/api/play/launch", json=payload)
+
+    def get_play_catalog(self) -> list[dict[str, Any]]:
+        return self._get("/api/play/catalog")["plays"]
+
+    def list_official_model_proxy_models(self) -> dict[str, Any]:
+        return self._get("/api/ai/v1/models")
+
+    def get_official_model_proxy_billing(self) -> dict[str, Any]:
+        return self._get("/api/ai/v1/billing")
+
+    def create_official_chat_completion(self, **kwargs: Any) -> dict[str, Any]:
+        return self._post("/api/ai/v1/chat/completions", json=kwargs)
 
     def get_user_profile(self, user_id: str) -> dict[str, Any]:
         return self._get(f"/api/auth/users/{user_id}")
@@ -380,10 +434,13 @@ class ShadowClient:
         name: str,
         type: str = "text",
         description: str | None = None,
+        is_private: bool | None = None,
     ) -> dict[str, Any]:
         data: dict[str, Any] = {"name": name, "type": type}
         if description:
             data["description"] = description
+        if is_private is not None:
+            data["isPrivate"] = is_private
         return self._post(f"/api/servers/{server_id}/channels", json=data)
 
     def get_channel(self, channel_id: str) -> dict[str, Any]:

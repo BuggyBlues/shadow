@@ -7,6 +7,7 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core'
@@ -102,7 +103,9 @@ export const products = pgTable(
     shopId: uuid('shop_id')
       .notNull()
       .references(() => shops.id, { onDelete: 'cascade' }),
-    categoryId: uuid('category_id').references(() => productCategories.id, { onDelete: 'set null' }),
+    categoryId: uuid('category_id').references(() => productCategories.id, {
+      onDelete: 'set null',
+    }),
     name: varchar('name', { length: 200 }).notNull(),
     slug: varchar('slug', { length: 200 }).notNull(),
     type: productTypeEnum('type').default('physical').notNull(),
@@ -234,6 +237,28 @@ export const walletTransactions = pgTable(
   (t) => ({
     walletTransactionsWalletIdIdx: index('wallet_transactions_wallet_id_idx').on(t.walletId),
     walletTransactionsCreatedAtIdx: index('wallet_transactions_created_at_idx').on(t.createdAt),
+  }),
+)
+
+export const walletUsageAccruals = pgTable(
+  'wallet_usage_accruals',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    walletId: uuid('wallet_id')
+      .notNull()
+      .references(() => wallets.id, { onDelete: 'cascade' }),
+    source: varchar('source', { length: 50 }).notNull(),
+    accruedMicros: integer('accrued_micros').default(0).notNull(),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    walletUsageAccrualsWalletSourceUnique: unique('wallet_usage_accruals_wallet_source_unique').on(
+      t.walletId,
+      t.source,
+    ),
+    walletUsageAccrualsWalletIdIdx: index('wallet_usage_accruals_wallet_id_idx').on(t.walletId),
   }),
 )
 

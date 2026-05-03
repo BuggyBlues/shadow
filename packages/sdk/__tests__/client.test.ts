@@ -179,6 +179,68 @@ describe('ShadowClient', () => {
         }),
       )
     })
+
+    it('should call email-code auth endpoints', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ ok: true, expiresIn: 600 }),
+      })
+      globalThis.fetch = mockFetch as typeof fetch
+
+      await client.startEmailLogin({ email: 'test@example.com', locale: 'en' })
+      await client.verifyEmailLogin({ email: 'test@example.com', code: '123456' })
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/api/auth/email/start',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ email: 'test@example.com', locale: 'en' }),
+        }),
+      )
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/api/auth/email/verify',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ email: 'test@example.com', code: '123456' }),
+        }),
+      )
+    })
+
+    it('should call membership and play launch endpoints', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ status: 'visitor', capabilities: [] }),
+      })
+      globalThis.fetch = mockFetch as typeof fetch
+
+      await client.getMembership()
+      await client.redeemInviteCode('ABCD1234')
+      await client.launchPlay({ playId: 'daily-brief', launchSessionId: 'launch-session-1' })
+      await client.getPlayCatalog()
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/api/membership/me',
+        expect.any(Object),
+      )
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/api/membership/redeem-invite',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ code: 'ABCD1234' }),
+        }),
+      )
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/api/play/launch',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ playId: 'daily-brief', launchSessionId: 'launch-session-1' }),
+        }),
+      )
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/api/play/catalog',
+        expect.any(Object),
+      )
+    })
   })
 
   describe('server methods', () => {

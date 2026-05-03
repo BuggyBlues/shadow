@@ -6,6 +6,7 @@ import type { PasswordChangeLogDao } from '../dao/password-change-log.dao'
 import type { UserDao } from '../dao/user.dao'
 import type { TaskCenterService } from '../services/task-center.service'
 import { AuthService } from './auth.service'
+import type { MembershipService } from './membership.service'
 
 // Mock bcryptjs
 vi.mock('bcryptjs', () => ({
@@ -60,10 +61,12 @@ describe('AuthService', () => {
     findByUsername: vi.fn(),
     findById: vi.fn(),
     create: vi.fn(),
+    updateStatus: vi.fn(),
   } as unknown as Mocked<UserDao>
 
   const mockInviteCodeDao: Mocked<InviteCodeDao> = {
     findAvailable: vi.fn(),
+    findByUsedBy: vi.fn(),
     markUsed: vi.fn(),
   } as unknown as Mocked<InviteCodeDao>
 
@@ -79,15 +82,36 @@ describe('AuthService', () => {
     create: vi.fn(),
   } as unknown as Mocked<PasswordChangeLogDao>
 
+  const mockMembershipService: Mocked<MembershipService> = {
+    getMembership: vi.fn(),
+  } as unknown as Mocked<MembershipService>
+
   let service: AuthService
 
   beforeEach(() => {
     vi.clearAllMocks()
     mockUserDao.findByEmail.mockResolvedValue(null)
     mockUserDao.findByUsername.mockResolvedValue(null)
+    mockUserDao.findById.mockResolvedValue(mockUser)
     mockUserDao.create.mockResolvedValue(mockUser)
+    mockUserDao.updateStatus.mockResolvedValue(mockUser)
     mockInviteCodeDao.findAvailable.mockResolvedValue(mockInviteCode)
+    mockInviteCodeDao.findByUsedBy.mockResolvedValue(null)
     mockTaskCenterService.grantWelcomeReward.mockResolvedValue(false)
+    mockMembershipService.getMembership.mockResolvedValue({
+      status: 'visitor',
+      tier: {
+        id: 'visitor',
+        level: 0,
+        label: 'Visitor',
+        capabilities: [],
+      },
+      level: 0,
+      isMember: false,
+      memberSince: null,
+      inviteCodeId: null,
+      capabilities: [],
+    })
 
     service = new AuthService({
       userDao: mockUserDao,
@@ -95,6 +119,7 @@ describe('AuthService', () => {
       agentDao: mockAgentDao,
       taskCenterService: mockTaskCenterService,
       passwordChangeLogDao: mockPasswordChangeLogDao,
+      membershipService: mockMembershipService,
     })
   })
 
@@ -154,8 +179,19 @@ describe('AuthService', () => {
       )
       expect(mockInviteCodeDao.markUsed).toHaveBeenCalledWith('invite-1', 'user-1')
       expect(mockTaskCenterService.grantWelcomeReward).toHaveBeenCalledWith('user-1')
-      expect(result).toHaveProperty('token')
+      expect(result).toHaveProperty('accessToken')
       expect(result).toHaveProperty('user')
+    })
+
+    it('creates visitor user without invite code', async () => {
+      const result = await service.register({
+        email: 'visitor@test.com',
+        password: 'password123',
+      })
+
+      expect(mockInviteCodeDao.findAvailable).not.toHaveBeenCalled()
+      expect(mockInviteCodeDao.markUsed).not.toHaveBeenCalled()
+      expect(result.user.membership.status).toBe('visitor')
     })
   })
 
@@ -165,7 +201,7 @@ describe('AuthService', () => {
 
       await expect(
         service.login({ email: 'nope@test.com', password: 'password123' }),
-      ).rejects.toThrow('Invalid email or password')
+      ).rejects.toThrow('Invalid credentials')
     })
 
     it('returns tokens for valid credentials', async () => {
@@ -173,7 +209,7 @@ describe('AuthService', () => {
 
       const result = await service.login({ email: 'test@test.com', password: 'password123' })
 
-      expect(result).toHaveProperty('token', 'mock-access-token')
+      expect(result).toHaveProperty('accessToken', 'mock-access-token')
       expect(result).toHaveProperty('refreshToken', 'mock-refresh-token')
       expect(result).toHaveProperty('user')
     })
@@ -183,7 +219,7 @@ describe('AuthService', () => {
     it('returns new access token for valid refresh token', async () => {
       const result = await service.refresh('mock-refresh-token')
 
-      expect(result).toHaveProperty('token', 'mock-access-token')
+      expect(result).toHaveProperty('accessToken', 'mock-access-token')
     })
   })
 })
