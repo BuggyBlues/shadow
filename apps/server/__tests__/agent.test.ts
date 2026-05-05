@@ -22,6 +22,7 @@ function createMockAgentDao(overrides = {}) {
     findByUserId: vi.fn(),
     findByUserIds: vi.fn(),
     findByLastToken: vi.fn(),
+    findByTokenHash: vi.fn(),
     findAll: vi.fn(),
     create: vi.fn(),
     updateStatus: vi.fn(),
@@ -647,6 +648,7 @@ describe('Agent Handler (HTTP)', () => {
     )
     const app = new Hono()
     const agentDao = createMockAgentDao({
+      findByTokenHash: vi.fn().mockResolvedValue(null),
       findByLastToken: vi.fn().mockResolvedValue({ userId: 'bot-legacy' }),
     })
     const container = {
@@ -674,6 +676,7 @@ describe('Agent Handler (HTTP)', () => {
 
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ id: 'bot-legacy' })
+    expect(agentDao.findByTokenHash).toHaveBeenCalled()
     expect(agentDao.findByLastToken).toHaveBeenCalledWith('legacy-agent-token')
   })
 
@@ -692,6 +695,7 @@ describe('Agent Handler (HTTP)', () => {
       findById: vi.fn().mockResolvedValue(null),
     })
     const agentDao = createMockAgentDao({
+      findByTokenHash: vi.fn().mockResolvedValue(null),
       findByLastToken: vi.fn().mockResolvedValue({ userId: 'current-bot-user' }),
     })
     const container = {
@@ -721,6 +725,7 @@ describe('Agent Handler (HTTP)', () => {
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ id: 'current-bot-user' })
     expect(userDao.findById).toHaveBeenCalledWith('deleted-bot-user')
+    expect(agentDao.findByTokenHash).toHaveBeenCalled()
     expect(agentDao.findByLastToken).toHaveBeenCalledWith(staleToken)
   })
 

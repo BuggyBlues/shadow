@@ -13,6 +13,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ChannelService } from '../src/services/channel.service'
 import { MessageService } from '../src/services/message.service'
+import { PolicyService } from '../src/services/policy.service'
 import { ServerService } from '../src/services/server.service'
 import { channelPositionsSchema } from '../src/validators/channel.schema'
 import { createThreadSchema, updateThreadSchema } from '../src/validators/message.schema'
@@ -83,6 +84,56 @@ function createMockChannelDao(overrides = {}) {
     updatePositions: vi.fn(),
     ...overrides,
   }
+}
+
+function createMockChannelMemberDao(overrides = {}) {
+  return {
+    add: vi.fn(),
+    addBulk: vi.fn(),
+    remove: vi.fn(),
+    get: vi.fn(),
+    getMembers: vi.fn(),
+    getUserChannelIds: vi.fn().mockResolvedValue([]),
+    ...overrides,
+  }
+}
+
+function createPolicyService(
+  serverDao = createMockServerDao(),
+  channelDao = createMockChannelDao(),
+  channelMemberDao = createMockChannelMemberDao(),
+) {
+  return new PolicyService({
+    serverDao: serverDao as any,
+    channelDao: channelDao as any,
+    channelMemberDao: channelMemberDao as any,
+  })
+}
+
+function createServerService(
+  serverDao: ReturnType<typeof createMockServerDao>,
+  channelDao = createMockChannelDao(),
+  channelMemberDao = createMockChannelMemberDao(),
+) {
+  return new ServerService({
+    serverDao: serverDao as any,
+    channelDao: channelDao as any,
+    channelMemberDao: channelMemberDao as any,
+    policyService: createPolicyService(serverDao, channelDao, channelMemberDao) as any,
+  })
+}
+
+function createChannelService(
+  channelDao: ReturnType<typeof createMockChannelDao>,
+  serverDao = createMockServerDao(),
+  channelMemberDao = createMockChannelMemberDao(),
+) {
+  return new ChannelService({
+    channelDao: channelDao as any,
+    serverDao: serverDao as any,
+    channelMemberDao: channelMemberDao as any,
+    policyService: createPolicyService(serverDao, channelDao, channelMemberDao) as any,
+  })
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -449,10 +500,7 @@ describe('Member Management API', () => {
         removeMember: vi.fn().mockResolvedValue(undefined),
       })
       const channelDao = createMockChannelDao()
-      const service = new ServerService({
-        serverDao: serverDao as any,
-        channelDao: channelDao as any,
-      })
+      const service = createServerService(serverDao, channelDao)
 
       await expect(service.kickMember('srv-1', 'user-target', 'admin-1')).resolves.toBeUndefined()
       expect(serverDao.removeMember).toHaveBeenCalledWith('srv-1', 'user-target')
@@ -466,10 +514,7 @@ describe('Member Management API', () => {
           .mockResolvedValueOnce({ ...mockMember, userId: 'regular-1', role: 'member' }),
       })
       const channelDao = createMockChannelDao()
-      const service = new ServerService({
-        serverDao: serverDao as any,
-        channelDao: channelDao as any,
-      })
+      const service = createServerService(serverDao, channelDao)
 
       await expect(service.kickMember('srv-1', 'user-target', 'regular-1')).rejects.toThrow(
         'Requires admin role or higher',
@@ -485,10 +530,7 @@ describe('Member Management API', () => {
           .mockResolvedValueOnce({ ...mockMember, userId: 'owner-1', role: 'owner' }), // target is owner
       })
       const channelDao = createMockChannelDao()
-      const service = new ServerService({
-        serverDao: serverDao as any,
-        channelDao: channelDao as any,
-      })
+      const service = createServerService(serverDao, channelDao)
 
       await expect(service.kickMember('srv-1', 'owner-1', 'admin-1')).rejects.toThrow(
         'Cannot kick the server owner',
@@ -504,10 +546,7 @@ describe('Member Management API', () => {
           .mockResolvedValueOnce(null), // target not found
       })
       const channelDao = createMockChannelDao()
-      const service = new ServerService({
-        serverDao: serverDao as any,
-        channelDao: channelDao as any,
-      })
+      const service = createServerService(serverDao, channelDao)
 
       await expect(service.kickMember('srv-1', 'ghost', 'admin-1')).rejects.toThrow(
         'Member not found',
@@ -527,10 +566,7 @@ describe('Member Management API', () => {
         updateMember: vi.fn().mockResolvedValue(updated),
       })
       const channelDao = createMockChannelDao()
-      const service = new ServerService({
-        serverDao: serverDao as any,
-        channelDao: channelDao as any,
-      })
+      const service = createServerService(serverDao, channelDao)
 
       const result = await service.updateMember('srv-1', 'user-target', 'owner-1', {
         role: 'admin',
@@ -549,10 +585,7 @@ describe('Member Management API', () => {
         updateMember: vi.fn().mockResolvedValue(updated),
       })
       const channelDao = createMockChannelDao()
-      const service = new ServerService({
-        serverDao: serverDao as any,
-        channelDao: channelDao as any,
-      })
+      const service = createServerService(serverDao, channelDao)
 
       const result = await service.updateMember('srv-1', 'user-target', 'admin-1', {
         nickname: 'Nickname',
@@ -568,10 +601,7 @@ describe('Member Management API', () => {
           .mockResolvedValueOnce({ ...mockMember, userId: 'admin-1', role: 'admin' }),
       })
       const channelDao = createMockChannelDao()
-      const service = new ServerService({
-        serverDao: serverDao as any,
-        channelDao: channelDao as any,
-      })
+      const service = createServerService(serverDao, channelDao)
 
       await expect(
         service.updateMember('srv-1', 'user-target', 'admin-1', { role: 'owner' }),
@@ -586,10 +616,7 @@ describe('Member Management API', () => {
           .mockResolvedValueOnce({ ...mockMember, userId: 'regular-1', role: 'member' }),
       })
       const channelDao = createMockChannelDao()
-      const service = new ServerService({
-        serverDao: serverDao as any,
-        channelDao: channelDao as any,
-      })
+      const service = createServerService(serverDao, channelDao)
 
       await expect(
         service.updateMember('srv-1', 'user-target', 'regular-1', { role: 'admin' }),
@@ -618,18 +645,21 @@ describe('Channel Reorder API', () => {
           { id: 'ch-1', position: 2, name: 'ch1' },
         ]),
       })
-      const service = new ChannelService({ channelDao: channelDao as any })
+      const serverDao = createMockServerDao({
+        getMember: vi.fn().mockResolvedValue({ role: 'admin', userId: 'admin-1' }),
+      })
+      const service = createChannelService(channelDao, serverDao)
 
-      const result = await service.updatePositions('srv-1', positions)
+      const result = await service.updatePositions('srv-1', positions, 'admin-1')
       expect(channelDao.updatePositions).toHaveBeenCalledWith(positions)
       expect(result).toHaveLength(3)
     })
 
     it('should throw 400 when positions array is empty', async () => {
       const channelDao = createMockChannelDao()
-      const service = new ChannelService({ channelDao: channelDao as any })
+      const service = createChannelService(channelDao)
 
-      await expect(service.updatePositions('srv-1', [])).rejects.toThrow(
+      await expect(service.updatePositions('srv-1', [], 'admin-1')).rejects.toThrow(
         'Positions array cannot be empty',
       )
     })
@@ -658,10 +688,7 @@ describe('Invite Regeneration API', () => {
         regenerateInviteCode: vi.fn().mockResolvedValue(updated),
       })
       const channelDao = createMockChannelDao()
-      const service = new ServerService({
-        serverDao: serverDao as any,
-        channelDao: channelDao as any,
-      })
+      const service = createServerService(serverDao, channelDao)
 
       const result = await service.regenerateInvite('srv-1', 'owner-1')
       expect(result.inviteCode).toBe('newcode1')
@@ -676,10 +703,7 @@ describe('Invite Regeneration API', () => {
         regenerateInviteCode: vi.fn().mockResolvedValue(updated),
       })
       const channelDao = createMockChannelDao()
-      const service = new ServerService({
-        serverDao: serverDao as any,
-        channelDao: channelDao as any,
-      })
+      const service = createServerService(serverDao, channelDao)
 
       const result = await service.regenerateInvite('srv-1', 'admin-1')
       expect(result.inviteCode).toBe('admcode1')
@@ -691,10 +715,7 @@ describe('Invite Regeneration API', () => {
         getMember: vi.fn().mockResolvedValue({ role: 'member', userId: 'regular-1' }),
       })
       const channelDao = createMockChannelDao()
-      const service = new ServerService({
-        serverDao: serverDao as any,
-        channelDao: channelDao as any,
-      })
+      const service = createServerService(serverDao, channelDao)
 
       await expect(service.regenerateInvite('srv-1', 'regular-1')).rejects.toThrow(
         'Requires admin role or higher',
@@ -706,10 +727,7 @@ describe('Invite Regeneration API', () => {
         findById: vi.fn().mockResolvedValue(null),
       })
       const channelDao = createMockChannelDao()
-      const service = new ServerService({
-        serverDao: serverDao as any,
-        channelDao: channelDao as any,
-      })
+      const service = createServerService(serverDao, channelDao)
 
       await expect(service.regenerateInvite('nonexistent', 'owner-1')).rejects.toThrow(
         'Server not found',
