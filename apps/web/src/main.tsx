@@ -19,6 +19,7 @@ import { ContractDetailPage } from './pages/contract-detail'
 import { CreateListingPage } from './pages/create-listing'
 import { DevelopersCloudPage } from './pages/developers-cloud'
 import { DiscoverPage } from './pages/discover'
+import { DiyCloudPage } from './pages/diy-cloud'
 import { DmChatPage } from './pages/dm-chat'
 import { InvitePage } from './pages/invite'
 import { LoginPage } from './pages/login'
@@ -288,6 +289,12 @@ const cloudRoute = createRoute({
   ),
 })
 
+const diyCloudRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/cloud/diy',
+  component: DiyCloudPage,
+})
+
 const cloudSplatRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/cloud/$',
@@ -335,6 +342,7 @@ const routeTree = rootRoute.addChildren([
     userProfileRoute,
     dmChatRoute,
     cloudRoute,
+    diyCloudRoute,
     cloudSplatRoute,
     developersCloudRoute,
   ]),

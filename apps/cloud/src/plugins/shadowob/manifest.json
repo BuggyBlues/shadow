@@ -40,6 +40,10 @@
       "bindings": {
         "type": "array",
         "description": "Binding rules connecting buddies to agents and channels"
+      },
+      "playLaunch": {
+        "type": "object",
+        "description": "Landing behavior for play launch flows, including default channel and greeting"
       }
     }
   },

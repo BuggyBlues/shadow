@@ -1866,5 +1866,121 @@
       "pricingTitle": "算力你全有。",
       "pricingDesc": "Shop 的收入覆蓋算力成本——創作者承擔基礎設施，同時保留資源歸屬。"
     }
+  },
+  "diyCloud": {
+    "eyebrow": "DIY Cloud",
+    "title": "描述你的空间，虾豆生成可部署模版",
+    "subtitle": "先拆解目标、匹配官方插件和技能，再生成 Cloud 配置与指南书。确认后会保存到我的模版，并直接部署到可聊天的频道。",
+    "openCloud": "打开 Cloud",
+    "promptLabel": "你的需求",
+    "promptPlaceholder": "例如：帮我搭一个每天整理竞品、生成增长周报、能接 Google Drive 的空间",
+    "requestHint": "先生成方案，不会直接扣费。",
+    "requestLocked": "请求已锁定；需要修改时请在 Review 中反馈并重新生成。",
+    "autocompleteLabel": "灵感和自动补全",
+    "suggestions": [
+      "帮我搭一个每天整理竞品、生成增长周报、能接 Google Drive 的空间",
+      "创建一个科研助手空间，能检索资料、沉淀论文笔记，并生成每周阅读简报",
+      "给独立开发者做一个产品增长作战室，跟踪站点 SEO、转化线索和待办",
+      "搭一个客服知识库 Buddy，能读取文档、回答常见问题，并提示缺失资料",
+      "创建一个设计评审空间，接入 Figma 链接，输出可执行的 UI 修改建议"
+    ],
+    "generate": "生成方案",
+    "regenerate": "重新生成",
+    "realProgress": "真实执行中",
+    "steps": {
+      "think": {
+        "title": "思考",
+        "detail": "拆解目标、使用场景、默认频道和 Buddy 角色。"
+      },
+      "search": {
+        "title": "检索插件和技能",
+        "detail": "读取官方插件目录，匹配可能需要的连接器、技能和密钥。"
+      },
+      "generate": {
+        "title": "生成配置",
+        "detail": "调用官方生成服务，产出服务器、频道、Buddy、运行时和插件配置。"
+      },
+      "validate": {
+        "title": "审查和校验",
+        "detail": "校验 Cloud 模版结构、运行时配置、插件引用和部署边界。"
+      },
+      "review": {
+        "title": "用户 Review",
+        "detail": "确认配置、指南书和密钥准备项；如果不满意，可以反馈后重新生成。"
+      }
+    },
+    "emptyTitle": "从一个清晰目标开始",
+    "emptyBody": "虾豆不会直接跳到部署页。你会先看到完整方案、匹配到的插件、需要准备的密钥，以及可一键部署的 Cloud 模版。",
+    "sourceTitle": "能力来源",
+    "sourceBody": "生成器会使用真实的官方插件库和官方模版库。目前可用插件 {{count}} 个、模版 {{templateCount}} 个。",
+    "sourceBodyPending": "生成器会使用真实的官方插件库和官方模版库。点击生成后会先检索可用能力。",
+    "score": "配置评分 {{score}}/100",
+    "validationPassed": "结构校验通过",
+    "validationNeedsReview": "需要人工复核",
+    "validationChecklistTitle": "校验结果",
+    "validationAgents": "Buddy",
+    "validationConfigurations": "配置项",
+    "validationSecrets": "密钥引用",
+    "validationIssues": "问题",
+    "keyProgress": "密钥准备 {{done}}/{{total}}",
+    "guidebookTitle": "指南书",
+    "guidebook": {
+      "beforeDeploy": "部署前准备",
+      "howToUse": "如何使用",
+      "reviewNotes": "复核建议"
+    },
+    "feedbackTitle": "反馈并重新生成",
+    "feedbackBody": "如果频道、Buddy 角色、插件或指南书不符合预期，写下修改意见后会从生成配置步骤重新开始。",
+    "feedbackPlaceholder": "例如：频道少一点；把默认频道改成增长简报；不要使用 Google Drive。",
+    "applyFeedback": "应用反馈",
+    "pluginsTitle": "匹配到的插件",
+    "referenceTemplatesTitle": "参考的官方模版",
+    "keysTitle": "需要准备的密钥",
+    "keyChecklistTitle": "部署前密钥清单",
+    "keyFilled": "已填写",
+    "keySkipped": "已跳过",
+    "keyValuePlaceholder": "粘贴密钥或访问令牌。内容只会随本次部署提交，不会展示给其他用户。",
+    "skipKey": "先跳过这个能力",
+    "keysRequiredBeforeDeploy": "请先填写所有必备密钥，或者确认跳过对应能力后再部署。",
+    "stage": {
+      "goalTitle": "目标拆解",
+      "spaceShapeTitle": "空间轮廓",
+      "channelsTitle": "频道",
+      "buddiesTitle": "Buddy",
+      "pluginsTitle": "插件",
+      "focus": "当前步骤",
+      "outcome": "产出",
+      "toolPluginSearch": "检索插件库",
+      "toolTemplateSearch": "检索模版库",
+      "runtimeTitle": "运行方式",
+      "runtimeBody": "默认使用官方模型供应商和 Shadow 社区运行时；具体的频道、Buddy、默认落点和欢迎语都写在 shadowob 插件配置里，部署时不会再暴露旧的运行时补丁字段。"
+    },
+    "noKeys": "当前方案默认使用官方模型供应商，暂时不需要你准备额外密钥。",
+    "saveTemplate": "保存到我的模版",
+    "saveTemplateHint": "默认保存，方便下次复用和二次编辑；取消勾选时只用于本次部署。",
+    "deploy": "保存并部署",
+    "deployReady": "配置和密钥已准备好，可以保存并部署。",
+    "deployPhases": {
+      "saving": "正在保存 Cloud 模版",
+      "deploying": "正在创建部署任务",
+      "polling": "正在等待 Kubernetes 部署完成",
+      "redirecting": "部署完成，正在进入频道",
+      "error": "部署未完成"
+    },
+    "gates": {
+      "membershipTitle": "需要邀请码解锁 Cloud 部署",
+      "membershipBody": "社区体验可以直接使用，创建新的 Cloud 空间需要先兑换邀请码成为正式会员。",
+      "walletTitle": "虾币余额不足",
+      "walletBody": "当前余额 {{balance}}，还差 {{shortfall}}。可以先完成新手任务获取虾币，之后也可以通过充值继续使用。",
+      "goInvite": "兑换邀请码",
+      "goTasks": "去做新手任务",
+      "goWallet": "查看钱包"
+    },
+    "errors": {
+      "generateFailed": "生成方案失败，请稍后再试。",
+      "deployFailed": "部署失败，请稍后再试。",
+      "deployInfrastructureFailed": "部署服务暂时遇到环境问题，虾币会自动退回。你可以稍后再试，或从 Cloud 页面查看部署记录。",
+      "deployTimeout": "部署还在进行中，请稍后从 Cloud 页面查看。"
+    }
   }
 }

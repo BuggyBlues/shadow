@@ -16,6 +16,7 @@ import {
   PULUMI_MANAGED_ANNOTATIONS,
   probesForRuntime,
 } from './constants.js'
+import { dedupeEnvVars } from './env-vars.js'
 import { resolveImagePullPolicy } from './image-pull-policy.js'
 import { collectPluginK8sArtifacts } from './plugin-k8s.js'
 import { buildContainerSecurityContext, buildSecurityContext } from './security.js'
@@ -192,7 +193,7 @@ export function createAgentDeployment(options: AgentDeploymentOptions) {
                 image,
                 imagePullPolicy,
                 ports: [{ containerPort: healthPort, name: 'health' }],
-                env: envVars,
+                env: dedupeEnvVars(envVars),
                 envFrom: [{ secretRef: { name: secretName } }],
                 volumeMounts,
                 resources: (agent.resources ?? DEFAULT_RESOURCES) as Record<string, unknown>,
@@ -210,7 +211,7 @@ export function createAgentDeployment(options: AgentDeploymentOptions) {
                     imagePullPolicy: sc.imagePullPolicy,
                     command: sc.command,
                     args: sc.args,
-                    env: sc.env,
+                    env: sc.env ? dedupeEnvVars(sc.env) : undefined,
                     volumeMounts: sc.volumeMounts,
                     resources: sc.resources,
                     securityContext: sc.securityContext,

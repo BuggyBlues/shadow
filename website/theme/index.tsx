@@ -1,41 +1,8 @@
-import { useLang, useLocation, usePageData } from 'rspress/runtime'
+import { Helmet, useLang, useLocation, usePageData } from 'rspress/runtime'
 import Theme from 'rspress/theme'
 import { HomeContent } from '../components/HomeContent'
 import { PublicFooter } from '../components/Layout'
 import './index.css'
-
-/**
- * Replicates @rspress/shared replaceLang — computes equivalent URL in another locale.
- * Source-reversed from @rspress/theme-default@1.47.1 bundle.
- * Works with no versioning and cleanUrls=false (rspress default for static builds).
- */
-function getLangUrl(
-  pathname: string,
-  search: string,
-  currentLang: string,
-  targetLang: string,
-  defaultLang: string,
-  base: string,
-): string {
-  const normalBase = base.endsWith('/') ? base.slice(0, -1) : base
-  let url = pathname.startsWith(normalBase) ? pathname.slice(normalBase.length) : pathname
-  if (!url) url = '/index.html'
-  if (url.endsWith('/')) url += 'index.html'
-
-  const parts = url.split('/').filter(Boolean)
-  let langPart = ''
-
-  if (targetLang !== defaultLang) {
-    langPart = targetLang
-    if (currentLang !== defaultLang) parts.shift() // strip current non-default lang prefix
-  } else {
-    parts.shift() // strip current non-default lang prefix (target IS default)
-  }
-
-  const purePath = parts.join('/') || ''
-  const combined = [langPart, purePath].filter(Boolean).join('/')
-  return `${normalBase}/${combined}${search}`
-}
 
 /**
  * Background orbs — injected only on the homepage to avoid showing on doc pages.
@@ -50,22 +17,166 @@ function HomeOrbs() {
   )
 }
 
+type HomeNavItem = {
+  label: string
+  href: string
+  desc: string
+}
+
+function HomeNavDropdown({ label, items }: { label: string; items: HomeNavItem[] }) {
+  return (
+    <div className="shadow-home-nav-dropdown">
+      <button className="shadow-home-nav-link shadow-home-nav-dropdown-trigger" type="button">
+        <span>{label}</span>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <path
+            d="M3 4.5L6 7.5L9 4.5"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+      <div className="shadow-home-nav-dropdown-menu">
+        {items.map((item) => (
+          <a
+            key={item.href}
+            href={item.href}
+            className="shadow-home-nav-dropdown-item"
+            style={{ textDecoration: 'none' }}
+          >
+            <span>{item.label}</span>
+            <small>{item.desc}</small>
+          </a>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 /**
  * Floating capsule nav — homepage only (rspress nav hidden via uiSwitch).
  * Matches preview.html: centered full-width pill, logo left, links+launch right.
- * Lang switcher uses same replaceLang logic as rspress's native Translation component
- * so switching preserves the current page path.
  */
 function HomeCapsuleNav() {
   const { siteData } = usePageData()
-  const { pathname, search } = useLocation()
   const currentLang = useLang()
   const base = (siteData.base || '/').replace(/\/$/, '')
-  const defaultLang = siteData.lang || 'en'
-  const locales: Array<{ lang: string; label: string }> =
-    (siteData.locales as Array<{ lang: string; label: string }>) || []
   const isZh = currentLang === 'zh'
   const prefix = isZh ? '/zh' : ''
+  const docsHref = (path: string) => `${base}${prefix}${path}`
+  const productItems = isZh
+    ? [
+        {
+          label: '产品介绍',
+          href: docsHref('/product/'),
+          desc: '了解虾豆如何连接社区、Buddy 和玩法',
+        },
+        { label: '帮助中心', href: docsHref('/product/'), desc: '新用户、频道、虾币和 Buddy 指南' },
+        {
+          label: '首页玩法',
+          href: docsHref('/product/play-launch'),
+          desc: '点玩法后直接进入可用空间',
+        },
+        {
+          label: 'DIY Cloud',
+          href: '/app/cloud/diy',
+          desc: '描述需求，生成自己的 Cloud 空间',
+        },
+        { label: '下载桌面端', href: docsHref('/product/download'), desc: '连接本地 Buddy 和工具' },
+      ]
+    : [
+        {
+          label: 'Product Overview',
+          href: docsHref('/product/'),
+          desc: 'See how Shadow connects communities, Buddies, and plays',
+        },
+        {
+          label: 'Help Center',
+          href: docsHref('/product/'),
+          desc: 'Guides for channels, coins, and Buddies',
+        },
+        {
+          label: 'Play Launch',
+          href: docsHref('/product/play-launch'),
+          desc: 'Start from a play and land in a ready space',
+        },
+        {
+          label: 'DIY Cloud',
+          href: '/app/cloud/diy',
+          desc: 'Describe a space and generate a Cloud plan',
+        },
+        {
+          label: 'Desktop App',
+          href: docsHref('/product/download'),
+          desc: 'Connect local Buddies and tools',
+        },
+      ]
+  const platformItems = isZh
+    ? [
+        {
+          label: '开发者平台',
+          href: docsHref('/platform/introduction'),
+          desc: 'API、OAuth、SDK 和实时事件',
+        },
+        {
+          label: '虾豆 Cloud',
+          href: docsHref('/platform/cloud'),
+          desc: '用模版一键部署 Buddy 空间',
+        },
+        {
+          label: 'Cloud CLI',
+          href: docsHref('/platform/cloud-cli'),
+          desc: '独立命令行与 Kubernetes 部署',
+        },
+        {
+          label: '模版与插件',
+          href: docsHref('/platform/cloud-templates'),
+          desc: '沉淀玩法资产和扩展能力',
+        },
+      ]
+    : [
+        {
+          label: 'Developer Platform',
+          href: docsHref('/platform/introduction'),
+          desc: 'APIs, OAuth, SDKs, and real-time events',
+        },
+        {
+          label: 'Shadow Cloud',
+          href: docsHref('/platform/cloud'),
+          desc: 'Deploy Buddy spaces from templates',
+        },
+        {
+          label: 'Cloud CLI',
+          href: docsHref('/platform/cloud-cli'),
+          desc: 'Standalone Kubernetes deployment workflow',
+        },
+        {
+          label: 'Templates & Plugins',
+          href: docsHref('/platform/cloud-templates'),
+          desc: 'Package repeatable plays and capabilities',
+        },
+      ]
+  const resourceItems = isZh
+    ? [
+        { label: '价格', href: docsHref('/pricing'), desc: '查看虾币和会员权益' },
+        { label: '博客', href: docsHref('/blog/'), desc: '产品进展与实践文章' },
+        { label: 'GitHub', href: 'https://github.com/buggyblues/shadow', desc: '源代码和开发路线' },
+      ]
+    : [
+        {
+          label: 'Pricing',
+          href: docsHref('/pricing'),
+          desc: 'Coins, membership, and usage plans',
+        },
+        { label: 'Blog', href: docsHref('/blog/'), desc: 'Product updates and field notes' },
+        {
+          label: 'GitHub',
+          href: 'https://github.com/buggyblues/shadow',
+          desc: 'Source code and roadmap',
+        },
+      ]
 
   return (
     <header className="shadow-home-capsule-nav">
@@ -93,33 +204,9 @@ function HomeCapsuleNav() {
 
         {/* Right group: nav links + launch */}
         <div className="shadow-home-nav-right">
-          <a
-            href={`${base}/product/`}
-            className="shadow-home-nav-link"
-            style={{ textDecoration: 'none' }}
-          >
-            {isZh ? '产品' : 'PRODUCT'}
-          </a>
-          <a
-            href={`${base}/platform/introduction`}
-            className="shadow-home-nav-link"
-            style={{ textDecoration: 'none' }}
-          >
-            {isZh ? '开放平台' : 'PLATFORM'}
-          </a>
-          {/* Lang switcher — same replaceLang logic as rspress Translation component */}
-          {locales
-            .filter((l) => l.lang !== currentLang)
-            .map((l) => (
-              <a
-                key={l.lang}
-                href={getLangUrl(pathname, search, currentLang, l.lang, defaultLang, base)}
-                className="shadow-home-nav-link"
-                style={{ textDecoration: 'none' }}
-              >
-                {l.label}
-              </a>
-            ))}
+          <HomeNavDropdown label={isZh ? '产品' : 'PRODUCT'} items={productItems} />
+          <HomeNavDropdown label={isZh ? '开放平台' : 'PLATFORM'} items={platformItems} />
+          <HomeNavDropdown label={isZh ? '资源' : 'RESOURCES'} items={resourceItems} />
           <a href="/app" className="btn-primary" style={{ textDecoration: 'none' }}>
             {isZh ? '启动！' : 'Launch'}
           </a>
@@ -192,8 +279,14 @@ const Layout = () => {
     const isZh =
       page.lang === 'zh' ||
       (typeof window !== 'undefined' && window.location.pathname.startsWith('/zh'))
+    const title = isZh
+      ? '虾豆 OwnBuddy - 可玩的 AI 社区'
+      : 'Shadow OwnBuddy - Playable AI Communities'
     return (
       <>
+        <Helmet htmlAttributes={{ lang: isZh ? 'zh' : 'en' }}>
+          <title>{title}</title>
+        </Helmet>
         <HomeOrbs />
         <HomeCapsuleNav />
         <HomeContent lang={isZh ? 'zh' : 'en'} />

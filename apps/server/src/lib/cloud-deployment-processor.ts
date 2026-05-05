@@ -16,10 +16,14 @@ import {
   resolveCloudSaasShadowRuntime,
   type ServiceContainer,
 } from '@shadowob/cloud'
+import { and, eq } from 'drizzle-orm'
 import { CloudClusterDao } from '../dao/cloud-cluster.dao'
 import { CloudDeploymentDao } from '../dao/cloud-deployment.dao'
+import { WalletDao } from '../dao/wallet.dao'
 import type { Database } from '../db'
 import { db } from '../db'
+import { walletTransactions } from '../db/schema'
+import { WalletService } from '../services/wallet.service'
 import { decrypt } from './kms'
 import { logger } from './logger'
 
@@ -53,6 +57,7 @@ type CloudDeploymentProcessorRuntime = {
   deploymentDao: CloudDeploymentDao
   clusterDao: CloudClusterDao
   container: ServiceContainer
+  database: Database
   lastReconcileAt: number
 }
 
@@ -80,6 +85,65 @@ function resolveDeploymentStackName(deployment: CloudDeploymentRecord): string {
   const clusterHash = createHash('sha256').update(clusterKey).digest('hex').slice(0, 10)
   const namespace = sanitizePulumiStackPart(deployment.namespace).slice(0, 60) || 'deployment'
   return `saas-${namespace}-${clusterHash}`
+}
+
+async function refundFailedCloudDeploymentCharge(
+  deployment: CloudDeploymentRecord,
+  database: Database,
+  reason: string,
+) {
+  const amount = deployment.monthlyCost ?? 0
+  if (!deployment.saasMode || amount <= 0) return
+
+  try {
+    const walletDao = new WalletDao({ db: database })
+    const wallet = await walletDao.getOrCreate(deployment.userId)
+    const existingRefund = await database
+      .select({ id: walletTransactions.id })
+      .from(walletTransactions)
+      .where(
+        and(
+          eq(walletTransactions.walletId, wallet.id),
+          eq(walletTransactions.referenceId, deployment.id),
+          eq(walletTransactions.referenceType, 'cloud_deploy_failed'),
+        ),
+      )
+      .limit(1)
+
+    if (existingRefund.length > 0) return
+
+    const walletService = new WalletService({ walletDao, db: database })
+    await walletService.refund(
+      deployment.userId,
+      amount,
+      deployment.id,
+      'cloud_deploy_failed',
+      `Cloud deployment refund: ${deployment.name} (${reason})`,
+    )
+    await deploymentDaoSafeLog(
+      deployment.id,
+      `[billing] Refunded ${amount} Shrimp Coins after ${reason}`,
+      database,
+    )
+  } catch (err) {
+    logger.error(
+      {
+        deploymentId: deployment.id,
+        userId: deployment.userId,
+        amount,
+        err,
+      },
+      'Failed to refund SaaS deployment charge',
+    )
+  }
+}
+
+async function deploymentDaoSafeLog(deploymentId: string, message: string, database: Database) {
+  try {
+    await new CloudDeploymentDao({ db: database }).appendLog(deploymentId, message, 'info')
+  } catch {
+    // Billing refund must not fail just because deployment logs are unavailable.
+  }
 }
 
 export async function probeDeploymentRuntimeResources(
@@ -205,6 +269,7 @@ function createProcessorRuntime(options?: {
   const database = options?.database ?? (db as Database)
   return {
     container: options?.container ?? createContainer(),
+    database,
     deploymentDao: new CloudDeploymentDao({ db: database }),
     clusterDao: new CloudClusterDao({ db: database }),
     lastReconcileAt: 0,
@@ -270,7 +335,7 @@ async function processCloudDeploymentQueueTick(
   runtime: CloudDeploymentProcessorRuntime,
   options: { reconcile: boolean; deploymentIds?: string[] },
 ): Promise<CloudDeploymentProcessorTickResult> {
-  const { deploymentDao, clusterDao, container } = runtime
+  const { deploymentDao, clusterDao, container, database } = runtime
   const deploymentIdFilter = options.deploymentIds ? new Set(options.deploymentIds) : null
   const includeDeployment = (deployment: CloudDeploymentRecord) =>
     !deploymentIdFilter || deploymentIdFilter.has(deployment.id)
@@ -282,7 +347,7 @@ async function processCloudDeploymentQueueTick(
       ['pending'],
       deploymentDao,
       async (latestDeployment) => {
-        await processDeployment(latestDeployment, deploymentDao, clusterDao, container)
+        await processDeployment(latestDeployment, deploymentDao, clusterDao, container, database)
       },
     )
   }
@@ -504,6 +569,7 @@ async function processDeployment(
   deploymentDao: CloudDeploymentDao,
   clusterDao: CloudClusterDao,
   container: ServiceContainer,
+  database: Database,
 ) {
   logger.info({ deploymentId: deployment.id, deploymentName: deployment.name }, 'Deploying stack')
 
@@ -517,6 +583,11 @@ async function processDeployment(
       const message = `Superseded by newer deployment ${newer.id}; skipping stale deploy for namespace "${deployment.namespace}"`
       await deploymentDao.appendLog(deployment.id, message, 'warn')
       await deploymentDao.updateStatus(deployment.id, 'failed', 'superseded-by-newer-deployment')
+      await refundFailedCloudDeploymentCharge(
+        deployment,
+        database,
+        'superseded by a newer deployment',
+      )
       logger.warn({ deploymentId: deployment.id, newerDeploymentId: newer.id }, message)
       return
     }
@@ -661,6 +732,11 @@ async function processDeployment(
       cancelled ? 'warn' : 'error',
     )
     await deploymentDao.updateStatus(deployment.id, 'failed', cancelled ? 'cancelled by user' : msg)
+    await refundFailedCloudDeploymentCharge(
+      deployment,
+      database,
+      cancelled ? 'cancelled by user' : 'deployment failed',
+    )
   } finally {
     stopWatchingCancellation()
     runningOperations.delete(deployment.id)

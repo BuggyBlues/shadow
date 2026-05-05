@@ -183,6 +183,122 @@
     "redeemInvite": "Redeem and continue",
     "redeemingInvite": "Redeeming..."
   },
+  "diyCloud": {
+    "eyebrow": "DIY Cloud",
+    "title": "Describe your space. Shadow generates a deployable template.",
+    "subtitle": "Shadow breaks down the goal, matches official plugins and skills, then generates a Cloud config and guidebook. After review, it saves to My Templates and deploys straight into a chat-ready channel.",
+    "openCloud": "Open Cloud",
+    "promptLabel": "Your request",
+    "promptPlaceholder": "Example: Build a growth space that monitors competitors, drafts weekly reports, and connects Google Drive",
+    "requestHint": "Draft first. Nothing is billed here.",
+    "requestLocked": "The request is locked. Add feedback in Review to regenerate.",
+    "autocompleteLabel": "Ideas and autocomplete",
+    "suggestions": [
+      "Build a growth space that monitors competitors, drafts weekly reports, and connects Google Drive",
+      "Create a research assistant space that finds sources, keeps paper notes, and writes a weekly reading brief",
+      "Set up an indie founder growth room for SEO, conversion leads, and action tracking",
+      "Create a support knowledge-base Buddy that reads docs, answers FAQs, and flags missing material",
+      "Build a design review space that reads Figma links and returns actionable UI fixes"
+    ],
+    "generate": "Generate plan",
+    "regenerate": "Regenerate",
+    "realProgress": "Running for real",
+    "steps": {
+      "think": {
+        "title": "Think",
+        "detail": "Break down the goal, use case, default channels, and Buddy role."
+      },
+      "search": {
+        "title": "Search plugins and skills",
+        "detail": "Read the official plugin catalog and match connectors, skills, and required keys."
+      },
+      "generate": {
+        "title": "Generate config",
+        "detail": "Call the official generator and create the server, channels, Buddy, runtime, and plugin config."
+      },
+      "validate": {
+        "title": "Review and validate",
+        "detail": "Check Cloud template structure, runtime metadata, plugin references, and deployability."
+      },
+      "review": {
+        "title": "User review",
+        "detail": "Review the config, guidebook, and key checklist. Add feedback to regenerate if needed."
+      }
+    },
+    "emptyTitle": "Start with a clear goal",
+    "emptyBody": "Shadow will not jump straight to deployment. You review the plan, matched plugins, key checklist, and one-click Cloud template first.",
+    "sourceTitle": "Capability source",
+    "sourceBody": "The generator uses the real official plugin library and template library. Available plugins: {{count}}; templates: {{templateCount}}.",
+    "sourceBodyPending": "The generator uses the real official plugin library and template library. Generate a plan to search available capabilities first.",
+    "score": "Config score {{score}}/100",
+    "validationPassed": "Structure validated",
+    "validationNeedsReview": "Needs review",
+    "validationChecklistTitle": "Validation result",
+    "validationAgents": "Buddies",
+    "validationConfigurations": "Config entries",
+    "validationSecrets": "Secret refs",
+    "validationIssues": "Issues",
+    "keyProgress": "Keys ready {{done}}/{{total}}",
+    "guidebookTitle": "Guidebook",
+    "guidebook": {
+      "beforeDeploy": "Before deployment",
+      "howToUse": "How to use",
+      "reviewNotes": "Review notes"
+    },
+    "feedbackTitle": "Give feedback and regenerate",
+    "feedbackBody": "If channels, Buddy role, plugins, or guidebook are off, add feedback and Shadow restarts from the config generation step.",
+    "feedbackPlaceholder": "Example: fewer channels; make Growth Brief the default channel; avoid Google Drive.",
+    "applyFeedback": "Apply feedback",
+    "pluginsTitle": "Matched plugins",
+    "referenceTemplatesTitle": "Official templates referenced",
+    "keysTitle": "Required keys",
+    "keyChecklistTitle": "Pre-deploy key checklist",
+    "keyFilled": "Filled",
+    "keySkipped": "Skipped",
+    "keyValuePlaceholder": "Paste the key or access token. It is submitted only for this deployment and is never shown to other users.",
+    "skipKey": "Skip this capability for now",
+    "keysRequiredBeforeDeploy": "Fill every required key, or explicitly skip the related capability before deploying.",
+    "stage": {
+      "goalTitle": "Goal breakdown",
+      "spaceShapeTitle": "Space shape",
+      "channelsTitle": "Channels",
+      "buddiesTitle": "Buddies",
+      "pluginsTitle": "Plugins",
+      "focus": "Current step",
+      "outcome": "Outcome",
+      "toolPluginSearch": "Plugin library search",
+      "toolTemplateSearch": "Template library search",
+      "runtimeTitle": "Runtime",
+      "runtimeBody": "By default this uses the official model provider and Shadow community runtime. Channels, Buddy, default landing channel, and greeting now live inside the shadowob plugin options, without exposing the old runtime patch field."
+    },
+    "noKeys": "This plan uses the official model provider by default, so no extra key is required right now.",
+    "saveTemplate": "Save to My Templates",
+    "saveTemplateHint": "On by default for reuse and editing. If disabled, the template is used only for this deployment.",
+    "deploy": "Save and deploy",
+    "deployReady": "Config and keys are ready. You can save and deploy.",
+    "deployPhases": {
+      "saving": "Saving Cloud template",
+      "deploying": "Creating deployment task",
+      "polling": "Waiting for Kubernetes deployment",
+      "redirecting": "Deployment ready. Opening the channel",
+      "error": "Deployment did not finish"
+    },
+    "gates": {
+      "membershipTitle": "Invite code required for Cloud deployment",
+      "membershipBody": "Community features remain available, but creating a new Cloud space requires redeeming an invite code.",
+      "walletTitle": "Not enough Shrimp Coins",
+      "walletBody": "Current balance {{balance}}, shortfall {{shortfall}}. Complete beginner tasks to earn coins, then recharge when you need more.",
+      "goInvite": "Redeem invite",
+      "goTasks": "Do beginner tasks",
+      "goWallet": "Open wallet"
+    },
+    "errors": {
+      "generateFailed": "Failed to generate the plan. Please try again later.",
+      "deployFailed": "Deployment failed. Please try again later.",
+      "deployInfrastructureFailed": "The deployment service hit an environment issue. Your Shrimp Coins will be refunded automatically. Try again later or check the deployment record in Cloud.",
+      "deployTimeout": "Deployment is still running. Check Cloud later."
+    }
+  },
   "apiErrors": {
     "INVALID_VERIFICATION_CODE": "That verification code is not correct.",
     "VERIFICATION_CODE_EXPIRED": "That verification code has expired. Request a new one.",

@@ -435,10 +435,17 @@ describe('play launch orchestration', () => {
                 OPENAI_COMPATIBLE_API_KEY: expect.stringMatching(/^smp_/),
                 OPENAI_COMPATIBLE_MODEL_ID: 'deepseek-v4-flash',
               }),
-              playLaunch: expect.objectContaining({
-                greeting: expect.stringContaining('Alice'),
-              }),
             }),
+            use: expect.arrayContaining([
+              expect.objectContaining({
+                plugin: 'shadowob',
+                options: expect.objectContaining({
+                  playLaunch: expect.objectContaining({
+                    greeting: expect.stringContaining('Alice'),
+                  }),
+                }),
+              }),
+            ]),
           }),
         }),
       )

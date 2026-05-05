@@ -31,6 +31,13 @@ import { extractShadowProvisionTarget } from '../lib/cloud-shadow-target'
 import { decrypt, encrypt } from '../lib/kms'
 import { officialModelProxyEnvVars, shouldCopyServerRuntimeEnvKey } from '../lib/model-proxy-config'
 import { authMiddleware } from '../middleware/auth.middleware'
+import { createRateLimitMiddleware } from '../middleware/rate-limit.middleware'
+import {
+  generateDiyCloudDraft,
+  listDiyCloudPlugins,
+  listDiyCloudTemplates,
+  searchDiyCloudPlugins,
+} from '../services/diy-cloud.service'
 import {
   type LlmProviderApiFormat,
   normalizeLlmProviderConfig,
@@ -86,6 +93,13 @@ const deploymentRuntimeContextSchema = z
     timezone: z.string().optional(),
   })
   .optional()
+
+const diyCloudGenerateSchema = z.object({
+  prompt: z.string().min(4).max(2000),
+  feedback: z.string().max(2000).optional(),
+  previousConfig: z.record(z.unknown()).optional(),
+  locale: z.string().max(16).optional(),
+})
 
 const PROVIDER_PROFILE_SCOPE_PREFIX = 'provider:'
 const PROVIDER_PROFILE_META_KEYS = {
@@ -961,6 +975,12 @@ function addProviderManagedEnvKeys(keys: Set<string>, provider: ProviderCatalogV
 
 export function createCloudSaasHandler(container: AppContainer) {
   const h = new Hono()
+  const diyRateLimit = createRateLimitMiddleware({
+    namespace: 'cloud-diy',
+    windowMs: 60_000,
+    limit: 12,
+    keyGenerator: (c) => c.get('user')?.userId ?? 'anonymous',
+  })
 
   h.use('*', authMiddleware)
 
@@ -1305,6 +1325,25 @@ export function createCloudSaasHandler(container: AppContainer) {
   // ─── Templates ─────────────────────────────────────────────────────────────
 
   h.get('/schema', (c) => c.json(getPrimarySchema()))
+
+  h.get('/diy/plugins', diyRateLimit, async (c) => {
+    const plugins = listDiyCloudPlugins()
+    return c.json({ plugins })
+  })
+
+  h.get('/diy/plugins/search', diyRateLimit, async (c) => {
+    const query = c.req.query('q') ?? ''
+    return c.json({ plugins: searchDiyCloudPlugins(query) })
+  })
+
+  h.get('/diy/templates', diyRateLimit, async (c) => {
+    return c.json({ templates: listDiyCloudTemplates() })
+  })
+
+  h.post('/diy/generate', diyRateLimit, zValidator('json', diyCloudGenerateSchema), async (c) => {
+    const input = c.req.valid('json')
+    return c.json(await generateDiyCloudDraft(input))
+  })
 
   h.post('/validate', async (c) => {
     try {
