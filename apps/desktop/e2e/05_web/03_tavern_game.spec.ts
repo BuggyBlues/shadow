@@ -2,6 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { expect, test } from '@playwright/test'
 import { io, type Socket } from 'socket.io-client'
+import { loginWithStoredTokens } from './auth-helpers'
 
 type Session = {
   origin: string
@@ -29,16 +30,6 @@ async function readSession(): Promise<Session> {
 
 async function ensureScreenshotDir() {
   await fs.mkdir(screenshotDir, { recursive: true })
-}
-
-async function loginViaUi(page: import('@playwright/test').Page, user: Session['owner']) {
-  await page.goto('/app/login')
-  await page.getByRole('button', { name: /Password|密码/ }).click()
-  await page.locator('input[autocomplete="username"]').fill(user.email)
-  await page.locator('input[autocomplete="current-password"]').fill(user.password)
-  await page.locator('form button[type="submit"]').click()
-  await page.waitForFunction(() => Boolean(localStorage.getItem('accessToken')))
-  await page.waitForURL((url) => url.pathname.startsWith('/app/') && url.pathname !== '/app/login')
 }
 
 async function screenshot(page: import('@playwright/test').Page, name: string) {
@@ -202,7 +193,7 @@ test.describe
         // Set locale to zh-CN so i18n renders Chinese text for assertions/screenshots
         const ctx = await browser.newContext({ locale: 'zh-CN' })
         const page = await ctx.newPage()
-        await loginViaUi(page, session.owner)
+        await loginWithStoredTokens(page, session.origin, session.owner)
 
         // Navigate to authorize page with all necessary scopes
         const scopes =

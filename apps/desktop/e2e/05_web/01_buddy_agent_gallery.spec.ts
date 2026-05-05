@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { test } from '@playwright/test'
+import { loginWithStoredTokens } from './auth-helpers'
 
 type Session = {
   origin: string
@@ -31,16 +32,6 @@ async function ensureScreenshotDir() {
   await fs.mkdir(screenshotDir, { recursive: true })
 }
 
-async function loginViaUi(page: import('@playwright/test').Page, user: Session['owner']) {
-  await page.goto('/app/login')
-  await page.getByRole('button', { name: /Password|密码/ }).click()
-  await page.locator('input[autocomplete="username"]').fill(user.email)
-  await page.locator('input[autocomplete="current-password"]').fill(user.password)
-  await page.locator('form button[type="submit"]').click()
-  await page.waitForFunction(() => Boolean(localStorage.getItem('accessToken')))
-  await page.waitForURL((url) => url.pathname.startsWith('/app/') && url.pathname !== '/app/login')
-}
-
 async function screenshot(page: import('@playwright/test').Page, name: string) {
   await page.screenshot({
     path: path.join(screenshotDir, name),
@@ -57,7 +48,7 @@ test.describe
       const ownerContext = await browser.newContext()
       const ownerPage = await ownerContext.newPage()
 
-      await loginViaUi(ownerPage, session.owner)
+      await loginWithStoredTokens(ownerPage, session.origin, session.owner)
 
       // Buddy management page — shows created agents with status badges
       await ownerPage.goto('/app/buddies')
