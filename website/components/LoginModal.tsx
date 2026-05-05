@@ -17,8 +17,6 @@ declare const __SHADOW_APP_BASE_URL__: string | undefined
 const CODE_LENGTH = 6
 const RESEND_SECONDS = 60
 
-type AuthMode = 'email-code' | 'password'
-
 type AuthSession = {
   user: unknown
   accessToken: string
@@ -174,8 +172,7 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
   const digitRefs = useRef<Array<HTMLInputElement | null>>([])
   const lastSubmittedCodeRef = useRef('')
 
-  const [step, setStep] = useState<'choose' | 'code'>('choose')
-  const [mode, setMode] = useState<AuthMode>('email-code')
+  const [step, setStep] = useState<'choose' | 'code' | 'password'>('choose')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [digits, setDigits] = useState<string[]>(() => Array(CODE_LENGTH).fill(''))
@@ -193,7 +190,6 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
   useEffect(() => {
     if (!open) {
       setStep('choose')
-      setMode('email-code')
       setError('')
       setDigits(Array(CODE_LENGTH).fill(''))
       setPassword('')
@@ -324,17 +320,35 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
 
   const goBack = () => {
     setError('')
+    if (step === 'password') {
+      setPassword('')
+      setStep('code')
+      return
+    }
     setDigits(Array(CODE_LENGTH).fill(''))
     lastSubmittedCodeRef.current = ''
     setStep('choose')
+  }
+
+  const showPasswordLogin = () => {
+    setError('')
+    setPassword('')
+    setStep('password')
+  }
+
+  const showEmailCode = () => {
+    setError('')
+    setPassword('')
+    setStep('code')
+    window.setTimeout(() => digitRefs.current[0]?.focus(), 80)
   }
 
   return (
     <Dialog isOpen={open} onClose={onClose}>
       <DialogContent
         hideCloseButton
-        maxWidth="max-w-[600px]"
-        className="max-h-[calc(100dvh-32px)] overflow-y-auto border-white/70 px-5 py-8 sm:px-12 sm:py-10"
+        maxWidth="max-w-[560px]"
+        className="max-h-[calc(100dvh-40px)] overflow-hidden border-white/70 px-5 py-6 sm:px-9 sm:py-7"
       >
         <div
           className="pointer-events-none absolute -left-24 -top-28 h-72 w-72 rounded-full bg-primary/35 blur-[95px]"
@@ -345,7 +359,7 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
           aria-hidden="true"
         />
 
-        {step === 'code' ? (
+        {step !== 'choose' ? (
           <Button
             type="button"
             variant="ghost"
@@ -368,8 +382,8 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
           <X size={22} />
         </Button>
 
-        <div className="relative z-10 mx-auto flex max-w-[486px] flex-col items-center">
-          <div className="mb-10 flex items-center gap-2 text-[24px] font-black tracking-normal text-text-primary">
+        <div className="relative z-10 mx-auto flex max-w-[440px] flex-col items-center">
+          <div className="mb-6 flex items-center gap-2 text-[22px] font-black tracking-normal text-text-primary">
             <img src="/Logo.svg" alt={text.brand} className="h-8 w-8 rounded-full" />
             <span>
               {text.brand} <strong>OwnBuddy</strong>
@@ -378,16 +392,16 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
 
           {step === 'choose' ? (
             <>
-              <div className="mb-8 text-center">
-                <DialogTitle className="text-[34px] normal-case leading-tight tracking-normal sm:text-[38px]">
+              <div className="mb-5 text-center">
+                <DialogTitle className="text-[30px] normal-case leading-tight tracking-normal sm:text-[34px]">
                   {text.welcomeTitle}
                 </DialogTitle>
-                <DialogDescription className="mt-4 text-[15px] not-italic leading-6">
+                <DialogDescription className="mt-2 text-[15px] not-italic leading-6">
                   {text.welcomeSubtitle}
                 </DialogDescription>
               </div>
 
-              <div className="flex w-full flex-col gap-3">
+              <div className="flex w-full flex-col gap-2.5">
                 <Button
                   asChild
                   variant="glass"
@@ -412,88 +426,36 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
                 </Button>
               </div>
 
-              <Divider label={text.or} className="w-full" />
+              <Divider label={text.or} className="my-4 w-full" />
 
-              {mode === 'email-code' ? (
-                <form className="w-full space-y-4" onSubmit={startEmailLogin}>
-                  {error ? (
-                    <Alert variant="destructive">
-                      <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                  ) : null}
-                  <Input
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder={text.emailPlaceholder}
-                    autoComplete="email"
-                    required
-                    icon={Mail}
-                    label={text.emailLabel}
-                  />
-                  <Button
-                    type="submit"
-                    size="xl"
-                    className="w-full"
-                    loading={sending}
-                    disabled={!trimmedEmail || sending}
-                  >
-                    {sending ? text.continuingEmail : text.continueEmail}
-                  </Button>
-                </form>
-              ) : (
-                <form className="w-full space-y-4" onSubmit={loginWithPassword}>
-                  {error ? (
-                    <Alert variant="destructive">
-                      <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                  ) : null}
-                  <Input
-                    type="text"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder={text.emailOrUsernamePlaceholder}
-                    autoComplete="username"
-                    required
-                    icon={Mail}
-                    label={text.emailOrUsernameLabel}
-                  />
-                  <Input
-                    type="password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    placeholder={text.passwordLabel}
-                    autoComplete="current-password"
-                    required
-                    icon={KeyRound}
-                    label={text.passwordLabel}
-                  />
-                  <Button
-                    type="submit"
-                    size="xl"
-                    className="w-full"
-                    loading={verifying}
-                    disabled={!trimmedEmail || !password || verifying}
-                  >
-                    {verifying ? text.loggingIn : text.login}
-                  </Button>
-                </form>
-              )}
+              <form className="w-full space-y-3" onSubmit={startEmailLogin}>
+                {error ? (
+                  <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                ) : null}
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder={text.emailPlaceholder}
+                  autoComplete="email"
+                  required
+                  icon={Mail}
+                  label={text.emailLabel}
+                />
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="w-full"
+                  loading={sending}
+                  disabled={!trimmedEmail || sending}
+                >
+                  {sending ? text.continuingEmail : text.continueEmail}
+                </Button>
+              </form>
 
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="mt-3 normal-case tracking-normal text-text-muted"
-                onClick={() => {
-                  setMode(mode === 'email-code' ? 'password' : 'email-code')
-                  setError('')
-                }}
-              >
-                {mode === 'email-code' ? text.switchToPassword : text.switchToEmailCode}
-              </Button>
-
-              <p className="mt-7 max-w-[430px] text-center text-[12px] font-bold leading-5 text-text-muted">
+              <p className="mt-5 max-w-[430px] text-center text-[12px] font-bold leading-5 text-text-muted">
                 {text.termsPrefix}{' '}
                 <a className="text-primary hover:underline" href={legalHref('terms', lang)}>
                   {text.terms}
@@ -504,13 +466,13 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
                 </a>
               </p>
             </>
-          ) : (
+          ) : step === 'code' ? (
             <>
-              <div className="mb-9 text-center">
-                <DialogTitle className="text-[32px] normal-case leading-tight tracking-normal sm:text-[36px]">
+              <div className="mb-6 text-center">
+                <DialogTitle className="text-[30px] normal-case leading-tight tracking-normal sm:text-[34px]">
                   {text.checkEmailTitle}
                 </DialogTitle>
-                <DialogDescription className="mt-5 text-[15px] not-italic leading-7">
+                <DialogDescription className="mt-3 text-[15px] not-italic leading-6">
                   {text.checkEmailMessage}
                   <br />
                   <span className="text-text-secondary">{trimmedEmail}</span>
@@ -543,12 +505,12 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
                       }
                     }}
                     aria-label={text.codeDigit(index + 1)}
-                    className="h-16 min-w-0 rounded-2xl border border-border-subtle/60 bg-bg-primary/50 text-center text-[24px] font-black text-text-primary outline-none transition-all focus:border-primary/70 focus:shadow-[0_0_0_4px_rgba(0,198,209,0.12)]"
+                    className="h-14 min-w-0 rounded-2xl border border-border-subtle/60 bg-bg-primary/50 text-center text-[22px] font-black text-text-primary outline-none transition-all focus:border-primary/70 focus:shadow-[0_0_0_4px_rgba(0,198,209,0.12)]"
                   />
                 ))}
               </div>
 
-              <div className="mt-8 min-h-8 text-center">
+              <div className="mt-5 min-h-8 text-center">
                 {verifying ? (
                   <div className="inline-flex items-center gap-2 text-[15px] font-black text-text-muted">
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
@@ -566,10 +528,68 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
                 )}
               </div>
 
-              <div className="mt-6 inline-flex items-center gap-2 text-[13px] font-bold text-text-muted">
+              <div className="mt-5 inline-flex items-center gap-2 text-[13px] font-bold text-text-muted">
                 <Mail size={15} aria-hidden="true" />
                 {text.codeSent}
               </div>
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="mt-3 normal-case tracking-normal text-text-muted"
+                onClick={showPasswordLogin}
+              >
+                {text.switchToPassword}
+              </Button>
+            </>
+          ) : (
+            <>
+              <div className="mb-6 text-center">
+                <DialogTitle className="text-[30px] normal-case leading-tight tracking-normal sm:text-[34px]">
+                  {text.passwordTab}
+                </DialogTitle>
+                <DialogDescription className="mt-3 text-[15px] not-italic leading-6">
+                  <span className="text-text-secondary">{trimmedEmail}</span>
+                </DialogDescription>
+              </div>
+
+              <form className="w-full space-y-3" onSubmit={loginWithPassword}>
+                {error ? (
+                  <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                ) : null}
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder={text.passwordLabel}
+                  autoComplete="current-password"
+                  required
+                  icon={KeyRound}
+                  label={text.passwordLabel}
+                />
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="w-full"
+                  loading={verifying}
+                  disabled={!trimmedEmail || !password || verifying}
+                >
+                  {verifying ? text.loggingIn : text.login}
+                </Button>
+              </form>
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="mt-3 normal-case tracking-normal text-text-muted"
+                onClick={showEmailCode}
+              >
+                {text.switchToEmailCode}
+              </Button>
             </>
           )}
         </div>

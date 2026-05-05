@@ -1,6 +1,7 @@
 import { createHash, randomInt, randomUUID } from 'node:crypto'
 import { compare, hash } from 'bcryptjs'
 import nodemailer from 'nodemailer'
+import { Resend } from 'resend'
 import type { AgentDao } from '../dao/agent.dao'
 import type { InviteCodeDao } from '../dao/invite-code.dao'
 import type { PasswordChangeLogDao } from '../dao/password-change-log.dao'
@@ -460,6 +461,32 @@ export class AuthService {
         body: JSON.stringify({ to: email, code, locale }),
       })
       if (!res.ok) {
+        throw Object.assign(new Error('Failed to send verification email'), {
+          status: 502,
+          code: 'EMAIL_SEND_FAILED',
+        })
+      }
+      return
+    }
+
+    const resendApiKey = envValue('RESEND_API_KEY', 'EMAIL_RESEND_API_KEY')
+    const resendFrom = envValue('RESEND_FROM', 'EMAIL_RESEND_FROM')
+    if (resendApiKey && resendFrom) {
+      const content = emailOtpContent(code, locale)
+      const resend = new Resend(resendApiKey)
+      try {
+        const result = await resend.emails.send({
+          from: resendFrom,
+          to: email,
+          subject: content.subject,
+          text: content.text,
+          html: content.html,
+        })
+        if (result.error) {
+          throw result.error
+        }
+      } catch (err) {
+        logger.error({ err, email }, 'Failed to send email verification code via Resend')
         throw Object.assign(new Error('Failed to send verification email'), {
           status: 502,
           code: 'EMAIL_SEND_FAILED',

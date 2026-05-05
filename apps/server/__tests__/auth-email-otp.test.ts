@@ -9,10 +9,25 @@ const nodemailerMock = vi.hoisted(() => {
   }
 })
 
+const resendMock = vi.hoisted(() => {
+  const send = vi.fn()
+  function Resend(this: { emails: { send: typeof send } }) {
+    this.emails = { send }
+  }
+  return {
+    send,
+    Resend: vi.fn(Resend),
+  }
+})
+
 vi.mock('nodemailer', () => ({
   default: {
     createTransport: nodemailerMock.createTransport,
   },
+}))
+
+vi.mock('resend', () => ({
+  Resend: resendMock.Resend,
 }))
 
 vi.mock('../src/lib/jwt', () => ({
@@ -40,6 +55,7 @@ describe('AuthService email OTP delivery', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     nodemailerMock.sendMail.mockResolvedValue({})
+    resendMock.send.mockResolvedValue({ data: { id: 'email_test' }, error: null })
   })
 
   afterEach(() => {
@@ -73,9 +89,30 @@ describe('AuthService email OTP delivery', () => {
     )
   })
 
+  it('sends verification codes through Resend when configured', async () => {
+    vi.stubEnv('RESEND_API_KEY', 're_test')
+    vi.stubEnv('RESEND_FROM', 'Shadow <no-reply@mail.shadowob.com>')
+
+    await createAuthService().startEmailLogin({ email: 'User@Test.com', locale: 'en' })
+
+    expect(resendMock.Resend).toHaveBeenCalledWith('re_test')
+    expect(resendMock.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        from: 'Shadow <no-reply@mail.shadowob.com>',
+        to: 'user@test.com',
+        subject: 'Your Shadow login code',
+      }),
+    )
+    expect(nodemailerMock.createTransport).not.toHaveBeenCalled()
+  })
+
   it('fails explicitly in production when no email delivery channel is configured', async () => {
     vi.stubEnv('NODE_ENV', 'production')
     vi.stubEnv('EMAIL_OTP_WEBHOOK_URL', '')
+    vi.stubEnv('RESEND_API_KEY', '')
+    vi.stubEnv('RESEND_FROM', '')
+    vi.stubEnv('EMAIL_RESEND_API_KEY', '')
+    vi.stubEnv('EMAIL_RESEND_FROM', '')
     vi.stubEnv('EMAIL_SMTP_HOST', '')
     vi.stubEnv('EMAIL_SMTP_FROM', '')
     vi.stubEnv('SMTP_HOST', '')

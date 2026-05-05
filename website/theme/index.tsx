@@ -262,6 +262,13 @@ function LaunchButton() {
   )
 }
 
+function hasStoredAuthSession() {
+  if (typeof window === 'undefined') return false
+  return Boolean(
+    window.localStorage.getItem('accessToken') && window.localStorage.getItem('refreshToken'),
+  )
+}
+
 function GlobalFooter() {
   const { pathname } = useLocation()
   const isZh = pathname.includes('/zh')
@@ -294,6 +301,7 @@ const Layout = () => {
       const url = new URL(anchor.href, window.location.href)
       const isAppPath = url.pathname === '/app' || url.pathname.startsWith('/app/')
       if (url.origin !== window.location.origin || !isAppPath) return
+      if (hasStoredAuthSession()) return
       event.preventDefault()
       setLoginRedirect(`${url.pathname}${url.search}${url.hash}`)
       setLoginOpen(true)
