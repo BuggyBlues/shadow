@@ -4,7 +4,75 @@ import type { AgentPolicyDao } from '../dao/agent-policy.dao'
 import type { ChannelDao } from '../dao/channel.dao'
 import type { ChannelMemberDao } from '../dao/channel-member.dao'
 import type { ServerDao } from '../dao/server.dao'
+import { validateJsonLimits } from '../lib/json-limits'
 import { normalizeSlashCommands } from './agent.service'
+
+const AGENT_POLICY_CONFIG_KEYS = new Set([
+  'replyToUsers',
+  'keywords',
+  'mentionOnly',
+  'replyToBuddy',
+  'maxBuddyChainDepth',
+  'buddyBlacklist',
+  'buddyWhitelist',
+  'smartReply',
+])
+
+function stringArray(value: unknown, key: string): string[] | undefined {
+  if (value === undefined) return undefined
+  if (!Array.isArray(value) || value.length > 50) {
+    throw Object.assign(new Error(`Invalid policy config ${key}`), { status: 400 })
+  }
+  return value.map((item) => {
+    if (typeof item !== 'string' || item.length > 120) {
+      throw Object.assign(new Error(`Invalid policy config ${key}`), { status: 400 })
+    }
+    return item
+  })
+}
+
+function validatePolicyConfig(config: Record<string, unknown> | undefined) {
+  if (!config) return {}
+  const limits = validateJsonLimits(config, {
+    maxBytes: 8 * 1024,
+    maxDepth: 4,
+    maxObjectKeys: 32,
+    maxArrayItems: 64,
+  })
+  if (!limits.ok) {
+    throw Object.assign(new Error(limits.error), { status: 400 })
+  }
+
+  const sanitized: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(config)) {
+    if (!AGENT_POLICY_CONFIG_KEYS.has(key)) {
+      throw Object.assign(new Error(`Unsupported policy config key: ${key}`), { status: 400 })
+    }
+    if (
+      key === 'replyToUsers' ||
+      key === 'keywords' ||
+      key === 'buddyBlacklist' ||
+      key === 'buddyWhitelist'
+    ) {
+      sanitized[key] = stringArray(value, key)
+      continue
+    }
+    if (key === 'mentionOnly' || key === 'replyToBuddy' || key === 'smartReply') {
+      if (typeof value !== 'boolean') {
+        throw Object.assign(new Error(`Invalid policy config ${key}`), { status: 400 })
+      }
+      sanitized[key] = value
+      continue
+    }
+    if (key === 'maxBuddyChainDepth') {
+      if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 8) {
+        throw Object.assign(new Error('Invalid policy config maxBuddyChainDepth'), { status: 400 })
+      }
+      sanitized[key] = value
+    }
+  }
+  return sanitized
+}
 
 export class AgentPolicyService {
   constructor(
@@ -40,13 +108,44 @@ export class AgentPolicyService {
     if (!agent) {
       throw Object.assign(new Error('Agent not found'), { status: 404 })
     }
+    for (const policy of policies) {
+      const serverMember = await this.deps.serverDao.getMember(policy.serverId, agent.userId)
+      if (!serverMember) {
+        throw Object.assign(new Error('Agent must join the target server before policy upsert'), {
+          status: 403,
+        })
+      }
+      if (policy.channelId) {
+        const channel = await this.deps.channelDao.findById(policy.channelId)
+        if (!channel || channel.serverId !== policy.serverId) {
+          throw Object.assign(new Error('Policy channel does not belong to target server'), {
+            status: 400,
+          })
+        }
+        const channelMember = await this.deps.channelMemberDao.get(policy.channelId, agent.userId)
+        if (!channelMember) {
+          throw Object.assign(
+            new Error('Agent must join the target channel before policy upsert'),
+            {
+              status: 403,
+            },
+          )
+        }
+      }
+    }
 
-    return this.deps.agentPolicyDao.batchUpsert(policies.map((p) => ({ agentId, ...p })))
+    return this.deps.agentPolicyDao.batchUpsert(
+      policies.map((p) => ({ agentId, ...p, config: validatePolicyConfig(p.config) })),
+    )
   }
 
   /** Delete a specific policy */
-  async deletePolicy(policyId: string) {
-    await this.deps.agentPolicyDao.delete(policyId)
+  async deletePolicy(agentId: string, policyId: string) {
+    const policy = await this.deps.agentPolicyDao.findById(policyId)
+    if (!policy || policy.agentId !== agentId) {
+      throw Object.assign(new Error('Policy not found'), { status: 404 })
+    }
+    await this.deps.agentPolicyDao.delete(policyId, agentId)
   }
 
   /**

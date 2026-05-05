@@ -7,6 +7,8 @@ import type { TaskCenterDao } from '../dao/task-center.dao'
 import type { WalletDao } from '../dao/wallet.dao'
 import type { Database } from '../db'
 import { channels, messages, products, servers, shops } from '../db/schema'
+import { userRewardLogs } from '../db/schema/task-center'
+import type { LedgerService } from './ledger.service'
 
 export type TaskType = 'one_time' | 'repeatable'
 
@@ -83,6 +85,7 @@ export class TaskCenterService {
       db: Database
       taskCenterDao: TaskCenterDao
       walletDao: WalletDao
+      ledgerService: LedgerService
       inviteCodeDao: InviteCodeDao
       agentDao: AgentDao
       clawListingDao: ClawListingDao
@@ -99,38 +102,43 @@ export class TaskCenterService {
     metadata?: Record<string, unknown>
     isRepeatable?: boolean
   }) {
-    const exists = await this.deps.taskCenterDao.hasRewardLog(
-      data.userId,
-      data.rewardKey,
-      data.referenceId ?? null,
-    )
-    if (exists) return false
+    const referenceKey = this.normalizeRewardReferenceKey(data.referenceId)
+    return this.deps.db.transaction(async (tx) => {
+      const [rewardLog] = await tx
+        .insert(userRewardLogs)
+        .values({
+          userId: data.userId,
+          rewardKey: data.rewardKey,
+          referenceId: data.referenceId ?? null,
+          referenceKey,
+          amount: data.amount,
+          note: data.note,
+          metadata: data.metadata ?? {},
+          isRepeatable: data.isRepeatable ?? false,
+        })
+        .onConflictDoNothing()
+        .returning()
+      if (!rewardLog) return false
 
-    const wallet = await this.deps.walletDao.getOrCreate(data.userId)
-    const nextBalance = wallet.balance + data.amount
+      await this.deps.ledgerService.credit(
+        {
+          userId: data.userId,
+          amount: data.amount,
+          type: 'reward',
+          referenceId: rewardLog.id,
+          referenceType: 'task_reward',
+          note: data.note,
+        },
+        tx,
+      )
 
-    const rewardLog = await this.deps.taskCenterDao.createRewardLog({
-      userId: data.userId,
-      rewardKey: data.rewardKey,
-      referenceId: data.referenceId ?? null,
-      amount: data.amount,
-      note: data.note,
-      metadata: data.metadata,
-      isRepeatable: data.isRepeatable,
+      return true
     })
-    if (!rewardLog) return false
+  }
 
-    await this.deps.walletDao.credit(wallet.id, data.amount)
-    await this.deps.walletDao.addTransaction({
-      walletId: wallet.id,
-      type: 'reward',
-      amount: data.amount,
-      balanceAfter: nextBalance,
-      referenceType: 'task_reward',
-      note: data.note,
-    })
-
-    return true
+  private normalizeRewardReferenceKey(referenceId: string | null | undefined) {
+    const trimmed = referenceId?.trim()
+    return trimmed ? trimmed : '__none__'
   }
 
   async grantWelcomeReward(userId: string) {

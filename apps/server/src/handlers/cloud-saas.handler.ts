@@ -28,11 +28,16 @@ import type { AppContainer } from '../container'
 import { cloudDeployments, cloudTemplates } from '../db/schema'
 import { requestCloudDeploymentCancellation } from '../lib/cloud-deployment-processor'
 import { extractShadowProvisionTarget } from '../lib/cloud-shadow-target'
+import { validateJsonLimits } from '../lib/json-limits'
 import { decrypt, encrypt } from '../lib/kms'
 import { officialModelProxyEnvVars, shouldCopyServerRuntimeEnvKey } from '../lib/model-proxy-config'
+import { assertSafeHttpUrl } from '../lib/ssrf'
 import { authMiddleware } from '../middleware/auth.middleware'
 import { createRateLimitMiddleware } from '../middleware/rate-limit.middleware'
+import { assertCloudTemplatePolicy } from '../services/cloud-template-policy.service'
 import {
+  DIY_CLOUD_MAX_ESTIMATED_TOKENS,
+  estimateDiyCloudInputBudget,
   generateDiyCloudDraft,
   listDiyCloudPlugins,
   listDiyCloudTemplates,
@@ -59,10 +64,67 @@ const OFFICIAL_MODEL_PROXY_ENV_KEYS = new Set([
   'OPENAI_COMPATIBLE_MODEL_ID',
 ])
 
+const RESERVED_RUNTIME_ENV_KEYS = new Set([
+  'SHADOW_AGENT_ID',
+  'SHADOW_AGENT_TOKEN',
+  'SHADOW_SERVER_URL',
+  'SHADOW_AGENT_SERVER_URL',
+  'SHADOW_WORKSPACE',
+  'SHADOW_RUNTIME',
+  'SHADOW_PROVISION_URL',
+  'SHADOW_USER_TOKEN',
+  'SHARED_WORKSPACE_PATH',
+  'SKILLS_DIR',
+  'NODE_ENV',
+  'HOSTNAME',
+  ...OFFICIAL_MODEL_PROXY_ENV_KEYS,
+])
+
+const DEFAULT_DIY_CLOUD_DAILY_LIMIT = 24
+
+function isReservedRuntimeEnvKey(name: string): boolean {
+  return RESERVED_RUNTIME_ENV_KEYS.has(name)
+}
+
+function diyCloudDailyLimit() {
+  const limit = Number.parseInt(process.env.SHADOW_DIY_CLOUD_DAILY_LIMIT ?? '', 10)
+  return Number.isFinite(limit) && limit > 0 ? limit : DEFAULT_DIY_CLOUD_DAILY_LIMIT
+}
+
+function validateTemplateContentForWrite(content: Record<string, unknown>) {
+  const limits = validateJsonLimits(content, {
+    maxBytes: 256 * 1024,
+    maxDepth: 12,
+    maxObjectKeys: 1200,
+    maxArrayItems: 400,
+  })
+  if (!limits.ok) {
+    throw Object.assign(new Error(limits.error), { status: 413 })
+  }
+  const snapshot = validateCloudSaasConfigSnapshot(content)
+  assertCloudTemplatePolicy(snapshot)
+  return snapshot
+}
+
 type CloudStoreModelProviderMode = 'official' | 'custom'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value))
+}
+
+const PROVISION_STATE_SECRET_KEY_RE =
+  /(?:token|secret|password|api[_-]?key|authorization|bearer|kubeconfig)/i
+
+function sanitizeLegacyProvisionState(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map((item) => sanitizeLegacyProvisionState(item))
+  if (!isRecord(value)) return value
+
+  const sanitized: Record<string, unknown> = {}
+  for (const [key, child] of Object.entries(value)) {
+    if (PROVISION_STATE_SECRET_KEY_RE.test(key)) continue
+    sanitized[key] = sanitizeLegacyProvisionState(child)
+  }
+  return sanitized
 }
 
 function readCloudStoreModelProviderMode(
@@ -94,12 +156,31 @@ const deploymentRuntimeContextSchema = z
   })
   .optional()
 
-const diyCloudGenerateSchema = z.object({
-  prompt: z.string().min(4).max(2000),
-  feedback: z.string().max(2000).optional(),
-  previousConfig: z.record(z.unknown()).optional(),
-  locale: z.string().max(16).optional(),
-})
+const diyCloudGenerateSchema = z
+  .object({
+    prompt: z.string().min(4).max(2000),
+    feedback: z.string().max(2000).optional(),
+    previousConfig: z.record(z.unknown()).optional(),
+    locale: z.string().max(16).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.previousConfig) return
+    const limits = validateJsonLimits(value.previousConfig, {
+      maxBytes: 64 * 1024,
+      maxDepth: 8,
+      maxObjectKeys: 512,
+      maxArrayItems: 128,
+    })
+    if (!limits.ok) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['previousConfig'],
+        message: limits.error,
+      })
+    }
+  })
+
+const K8S_NAMESPACE_RE = /^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$/
 
 const PROVIDER_PROFILE_SCOPE_PREFIX = 'provider:'
 const PROVIDER_PROFILE_META_KEYS = {
@@ -513,6 +594,15 @@ async function testProviderConnection(
   if (!baseUrl) {
     return { ok: false, message: 'Missing provider base URL', checkedAt }
   }
+  try {
+    await assertSafeHttpUrl(baseUrl)
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : 'Unsafe provider base URL',
+      checkedAt,
+    }
+  }
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 8_000)
@@ -521,7 +611,7 @@ async function testProviderConnection(
     const headers: Record<string, string> = { Accept: 'application/json' }
 
     if (provider.api === 'google' || provider.api === 'google-generative-ai') {
-      url = `${baseUrl}/models?key=${encodeURIComponent(apiKey.value)}`
+      headers['x-goog-api-key'] = apiKey.value
     } else if (provider.api === 'anthropic-messages') {
       headers['x-api-key'] = apiKey.value
       headers['anthropic-version'] = '2023-06-01'
@@ -529,7 +619,7 @@ async function testProviderConnection(
       headers.Authorization = `Bearer ${apiKey.value}`
     }
 
-    const response = await fetch(url, { headers, signal: controller.signal })
+    const response = await fetch(url, { headers, redirect: 'manual', signal: controller.signal })
     if (response.ok) {
       return {
         ok: true,
@@ -548,7 +638,9 @@ async function testProviderConnection(
     return {
       ok: false,
       status: response.status,
-      message: body.trim().slice(0, 240) || `Provider returned ${response.status}`,
+      message: body.trim()
+        ? `Provider returned ${response.status}`
+        : `Provider returned ${response.status}`,
       checkedAt,
     }
   } catch (err) {
@@ -594,7 +686,8 @@ async function testProviderModelRequest(
     }
   } else if (apiFormat === 'gemini') {
     const modelPath = model.startsWith('models/') ? model : `models/${model}`
-    url = `${baseUrl}/${modelPath}:generateContent?key=${encodeURIComponent(apiKey.value)}`
+    url = `${baseUrl}/${modelPath}:generateContent`
+    headers['x-goog-api-key'] = apiKey.value
     body = {
       contents: [{ role: 'user', parts: [{ text: 'ping' }] }],
       generationConfig: { maxOutputTokens: 1 },
@@ -617,6 +710,7 @@ async function testProviderModelRequest(
       method: 'POST',
       headers,
       body: JSON.stringify(body),
+      redirect: 'manual',
       signal: controller.signal,
     })
     if (response.ok) {
@@ -627,11 +721,11 @@ async function testProviderModelRequest(
         checkedAt,
       }
     }
-    const responseBody = await response.text().catch(() => '')
+    await response.text().catch(() => '')
     return {
       ok: false,
       status: response.status,
-      message: responseBody.trim().slice(0, 240) || `Provider returned ${response.status}`,
+      message: `Provider returned ${response.status}`,
       checkedAt,
     }
   } catch (err) {
@@ -673,6 +767,15 @@ async function discoverProviderProfileModels(
 
   if (!baseUrl) return { ok: false, message: 'Missing provider base URL', models: [] }
   if (!apiKey) return { ok: false, message: 'Missing provider API key', models: [] }
+  try {
+    await assertSafeHttpUrl(baseUrl)
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : 'Unsafe provider base URL',
+      models: [],
+    }
+  }
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 8_000)
@@ -681,25 +784,27 @@ async function discoverProviderProfileModels(
       apiFormat === 'anthropic'
         ? `${baseUrl}/models?limit=100`
         : apiFormat === 'gemini'
-          ? `${baseUrl}/models${apiKey ? `?key=${encodeURIComponent(apiKey.value)}` : ''}`
+          ? `${baseUrl}/models`
           : `${baseUrl}/models`
     const headers: Record<string, string> = { Accept: 'application/json' }
     if (apiKey) {
       if (apiFormat === 'anthropic') {
         headers['x-api-key'] = apiKey.value
         headers['anthropic-version'] = '2023-06-01'
+      } else if (apiFormat === 'gemini') {
+        headers['x-goog-api-key'] = apiKey.value
       } else if (apiFormat === 'openai') {
         headers.Authorization = `Bearer ${apiKey.value}`
       }
     }
 
-    const response = await fetch(url, { headers, signal: controller.signal })
+    const response = await fetch(url, { headers, redirect: 'manual', signal: controller.signal })
     if (!response.ok) {
-      const body = await response.text().catch(() => '')
+      await response.text().catch(() => '')
       return {
         ok: false,
         status: response.status,
-        message: body.trim().slice(0, 240) || `Provider returned ${response.status}`,
+        message: `Provider returned ${response.status}`,
         models: [],
       }
     }
@@ -776,6 +881,99 @@ function collectModelProviderSelectors(
 
   for (const child of Object.values(record)) collectModelProviderSelectors(child, out, depth + 1)
   return out
+}
+
+function firstModelProviderOptions(value: unknown, depth = 0): Record<string, unknown> | null {
+  if (depth > 32 || !value || typeof value !== 'object') return null
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = firstModelProviderOptions(item, depth + 1)
+      if (found) return found
+    }
+    return null
+  }
+
+  const record = value as Record<string, unknown>
+  if (record.plugin === 'model-provider' && isRecord(record.options)) {
+    return record.options
+  }
+  for (const child of Object.values(record)) {
+    const found = firstModelProviderOptions(child, depth + 1)
+    if (found) return found
+  }
+  return null
+}
+
+function sanitizeModelProviderPreferences(options: Record<string, unknown>) {
+  const sanitized: Record<string, unknown> = {}
+  const profileId = options.profileId
+  if (typeof profileId === 'string') {
+    const normalized = normalizeProviderProfileId(profileId)
+    if (normalized) sanitized.profileId = normalized
+  }
+  const profileIds = options.profileIds
+  if (Array.isArray(profileIds)) {
+    const normalized = profileIds
+      .filter((id): id is string => typeof id === 'string')
+      .map(normalizeProviderProfileId)
+      .filter(Boolean)
+      .slice(0, 8)
+    if (normalized.length > 0) sanitized.profileIds = normalized
+  }
+  for (const key of ['selector', 'tag', 'model']) {
+    const value = options[key]
+    if (typeof value === 'string' && value.trim()) {
+      sanitized[key] = value.trim().slice(0, 120)
+    }
+  }
+  return sanitized
+}
+
+function applyModelProviderPreferences(value: unknown, preferences: Record<string, unknown>) {
+  if (!value || typeof value !== 'object') return
+  if (Array.isArray(value)) {
+    for (const item of value) applyModelProviderPreferences(item, preferences)
+    return
+  }
+
+  const record = value as Record<string, unknown>
+  if (record.plugin === 'model-provider') {
+    record.options = {
+      ...(isRecord(record.options) ? record.options : {}),
+      ...preferences,
+    }
+  }
+  for (const child of Object.values(record)) applyModelProviderPreferences(child, preferences)
+}
+
+function applySafeDeploymentPreferences(
+  serverTemplateSnapshot: Record<string, unknown>,
+  clientConfigSnapshot: unknown,
+) {
+  const snapshot = structuredClone(serverTemplateSnapshot) as Record<string, unknown>
+  if (!configUsesPlugin(snapshot, 'model-provider') || !isRecord(clientConfigSnapshot)) {
+    return snapshot
+  }
+
+  const clientOptions = firstModelProviderOptions(clientConfigSnapshot)
+  if (clientOptions) {
+    const preferences = sanitizeModelProviderPreferences(clientOptions)
+    if (Object.keys(preferences).length > 0) {
+      applyModelProviderPreferences(snapshot, preferences)
+    }
+  }
+
+  const modelProviderMode = readCloudStoreModelProviderMode(clientConfigSnapshot)
+  if (modelProviderMode) {
+    snapshot[CLOUD_SAAS_RUNTIME_KEY] = {
+      ...(isRecord(snapshot[CLOUD_SAAS_RUNTIME_KEY])
+        ? (snapshot[CLOUD_SAAS_RUNTIME_KEY] as Record<string, unknown>)
+        : {}),
+      modelProviderMode,
+    }
+  }
+
+  return snapshot
 }
 
 function providerModelMatchesSelector(
@@ -961,11 +1159,6 @@ async function enforceSecondCloudDeployStarterBalance(
   })
 }
 
-function getBearerToken(authHeader: string | undefined): string | undefined {
-  const match = authHeader?.match(/^Bearer\s+(.+)$/i)
-  return match?.[1]?.trim() || undefined
-}
-
 function addProviderManagedEnvKeys(keys: Set<string>, provider: ProviderCatalogView): void {
   keys.add(provider.envKey)
   for (const alias of provider.envKeyAliases ?? []) keys.add(alias)
@@ -1097,6 +1290,7 @@ export function createCloudSaasHandler(container: AppContainer) {
       const baseUrl = providerProfileBaseUrl(provider, values, config)
       const models = normalizeProviderProfileModels(config)
       if (!apiKey || !baseUrl || models.length === 0) continue
+      await assertSafeHttpUrl(baseUrl)
 
       const name = values.get(PROVIDER_PROFILE_META_KEYS.name) ?? providerId
       profiles.push({
@@ -1126,16 +1320,24 @@ export function createCloudSaasHandler(container: AppContainer) {
       modelProviderMode?: CloudStoreModelProviderMode | null
     } = {},
   ): Promise<Record<string, string>> {
+    for (const key of Object.keys(inputEnvVars ?? {})) {
+      if (isReservedRuntimeEnvKey(key)) {
+        throw Object.assign(
+          new Error(`User env cannot override reserved runtime env var: ${key}`),
+          {
+            status: 422,
+          },
+        )
+      }
+    }
     const envVars: Record<string, string> = {}
     const shadowServerUrl = process.env.SHADOW_SERVER_URL ?? fallbackOrigin
     const shadowAgentServerUrl = process.env.SHADOW_AGENT_SERVER_URL
     const shadowProvisionUrl = process.env.SHADOW_PROVISION_URL
-    const requestToken = getBearerToken(requestAuthHeader)
 
     if (shadowServerUrl) envVars.SHADOW_SERVER_URL = shadowServerUrl
     if (shadowAgentServerUrl) envVars.SHADOW_AGENT_SERVER_URL = shadowAgentServerUrl
     if (shadowProvisionUrl) envVars.SHADOW_PROVISION_URL = shadowProvisionUrl
-    if (requestToken) envVars.SHADOW_USER_TOKEN = requestToken
 
     const needsSavedLookup = Object.values(inputEnvVars ?? {}).some(
       (value) => value === '__SAVED__',
@@ -1245,6 +1447,7 @@ export function createCloudSaasHandler(container: AppContainer) {
         )
         const baseUrl = provider ? providerProfileBaseUrl(provider, values, config) : undefined
         if (provider?.baseUrlEnvKey && baseUrl) {
+          await assertSafeHttpUrl(baseUrl)
           providerProfileValues.set(provider.baseUrlEnvKey, baseUrl)
         }
         const models = normalizeProviderProfileModels(config)
@@ -1341,7 +1544,58 @@ export function createCloudSaasHandler(container: AppContainer) {
   })
 
   h.post('/diy/generate', diyRateLimit, zValidator('json', diyCloudGenerateSchema), async (c) => {
+    const user = c.get('user') as { userId: string }
     const input = c.req.valid('json')
+    await container.resolve('membershipService').requireMember(user.userId, 'cloud:diy_generate')
+    const payloadLimits = validateJsonLimits(input, {
+      maxBytes: 80 * 1024,
+      maxDepth: 9,
+      maxObjectKeys: 560,
+      maxArrayItems: 160,
+    })
+    if (!payloadLimits.ok) {
+      return c.json({ ok: false, error: payloadLimits.error }, 413)
+    }
+    const budget = estimateDiyCloudInputBudget(input)
+    if (budget.estimatedTokens > DIY_CLOUD_MAX_ESTIMATED_TOKENS) {
+      return c.json(
+        {
+          ok: false,
+          error: 'DIY Cloud prompt is too large',
+          code: 'DIY_CLOUD_TOKEN_BUDGET_EXCEEDED',
+          estimatedTokens: budget.estimatedTokens,
+          maxEstimatedTokens: DIY_CLOUD_MAX_ESTIMATED_TOKENS,
+        },
+        413,
+      )
+    }
+    const activityDao = container.resolve('cloudActivityDao')
+    const limit = diyCloudDailyLimit()
+    const usedToday = await activityDao.countByUserTypeSince(
+      user.userId,
+      'diy_generate',
+      new Date(Date.now() - 24 * 60 * 60 * 1000),
+    )
+    if (usedToday >= limit) {
+      return c.json(
+        {
+          ok: false,
+          error: 'DIY Cloud daily generation quota exceeded',
+          code: 'DIY_CLOUD_DAILY_QUOTA_EXCEEDED',
+          limit,
+        },
+        429,
+      )
+    }
+    await activityDao.log({
+      userId: user.userId,
+      type: 'diy_generate',
+      meta: {
+        estimatedTokens: budget.estimatedTokens,
+        characters: budget.characters,
+        hasPreviousConfig: Boolean(input.previousConfig),
+      },
+    })
     return c.json(await generateDiyCloudDraft(input))
   })
 
@@ -1509,6 +1763,13 @@ export function createCloudSaasHandler(container: AppContainer) {
       if (existing) {
         return c.json({ ok: false, error: 'Template slug already exists' }, 409)
       }
+      let content: Record<string, unknown>
+      try {
+        content = validateTemplateContentForWrite(input.content)
+      } catch (err) {
+        const status = (err as { status?: 413 | 422 }).status ?? 422
+        return c.json({ ok: false, error: (err as Error).message }, status)
+      }
       const db = container.resolve('db')
       const [template] = await db
         .insert(cloudTemplates)
@@ -1516,7 +1777,7 @@ export function createCloudSaasHandler(container: AppContainer) {
           slug: input.slug,
           name: input.name,
           description: input.description,
-          content: input.content,
+          content,
           tags: input.tags ?? [],
           source: 'community',
           reviewStatus: 'draft',
@@ -1566,6 +1827,15 @@ export function createCloudSaasHandler(container: AppContainer) {
       if (template.reviewStatus === 'approved' || template.reviewStatus === 'pending') {
         return c.json({ ok: false, error: 'Cannot edit an approved or pending template' }, 422)
       }
+      let content: Record<string, unknown> | undefined
+      if (input.content !== undefined) {
+        try {
+          content = validateTemplateContentForWrite(input.content)
+        } catch (err) {
+          const status = (err as { status?: 413 | 422 }).status ?? 422
+          return c.json({ ok: false, error: (err as Error).message }, status)
+        }
+      }
       const db = container.resolve('db')
       const [updated] = await db
         .update(cloudTemplates)
@@ -1574,7 +1844,7 @@ export function createCloudSaasHandler(container: AppContainer) {
           ...(input.description !== undefined && {
             description: input.description,
           }),
-          ...(input.content !== undefined && { content: input.content }),
+          ...(content !== undefined && { content }),
           ...(input.tags !== undefined && { tags: input.tags }),
           ...(input.category !== undefined && { category: input.category }),
           ...(input.baseCost !== undefined && { baseCost: input.baseCost }),
@@ -1609,6 +1879,12 @@ export function createCloudSaasHandler(container: AppContainer) {
     }
     if (template.reviewStatus === 'approved') {
       return c.json({ ok: false, error: 'Template already approved' }, 422)
+    }
+    try {
+      validateTemplateContentForWrite(template.content as Record<string, unknown>)
+    } catch (err) {
+      const status = (err as { status?: 413 | 422 }).status ?? 422
+      return c.json({ ok: false, error: (err as Error).message }, status)
     }
     // Clear reviewNote when resubmitting
     const updated = await dao.updateReviewStatus(template.id, 'pending', null)
@@ -1786,14 +2062,33 @@ export function createCloudSaasHandler(container: AppContainer) {
       if (!isDeployableTemplateContent(template.content)) {
         return c.json({ ok: false, error: 'Template is not deployable' }, 422)
       }
+      if (!K8S_NAMESPACE_RE.test(input.namespace)) {
+        return c.json({ ok: false, error: 'Invalid deployment namespace' }, 422)
+      }
       await container.resolve('membershipService').requireMember(user.userId, 'cloud:deploy')
 
       let storedConfigSnapshot: Record<string, unknown>
       try {
+        const serverTemplateSnapshot = applySafeDeploymentPreferences(
+          validateCloudSaasConfigSnapshot(template.content),
+          input.configSnapshot,
+        )
+        assertCloudTemplatePolicy(serverTemplateSnapshot)
+        const allowedEnvKeys = new Set(await collectRuntimeEnvRequirements(serverTemplateSnapshot))
+        const submittedEnvKeys = Object.keys(input.envVars ?? {})
+        const illegalEnvKey = submittedEnvKeys.find(
+          (key) => isReservedRuntimeEnvKey(key) || !allowedEnvKeys.has(key),
+        )
+        if (illegalEnvKey) {
+          const reservedHint = RESERVED_RUNTIME_ENV_KEYS.has(illegalEnvKey)
+            ? 'reserved runtime env var'
+            : 'env var not declared by template'
+          return c.json({ ok: false, error: `Rejected ${reservedHint}: ${illegalEnvKey}` }, 422)
+        }
         const runtimeEnvVars = await resolveCreateRuntimeEnvVars(
           user.userId,
           input.envVars,
-          input.configSnapshot,
+          serverTemplateSnapshot,
           c.req.header('authorization'),
           requestOrigin(c),
           {
@@ -1802,7 +2097,7 @@ export function createCloudSaasHandler(container: AppContainer) {
           },
         )
         storedConfigSnapshot = prepareCloudSaasConfigSnapshot(
-          input.configSnapshot,
+          serverTemplateSnapshot,
           runtimeEnvVars,
           input.runtimeContext,
         )
@@ -2237,6 +2532,7 @@ export function createCloudSaasHandler(container: AppContainer) {
       delete redeployEnvVars.SHADOW_SERVER_URL
       delete redeployEnvVars.SHADOW_AGENT_SERVER_URL
       delete redeployEnvVars.SHADOW_PROVISION_URL
+      for (const key of OFFICIAL_MODEL_PROXY_ENV_KEYS) delete redeployEnvVars[key]
 
       let configSnapshot: Record<string, unknown>
       try {
@@ -2258,7 +2554,10 @@ export function createCloudSaasHandler(container: AppContainer) {
           runtime.context,
         )
         if (runtime.provisionState) {
-          configSnapshot = attachCloudSaasProvisionState(configSnapshot, runtime.provisionState)
+          const sanitizedProvisionState = sanitizeLegacyProvisionState(
+            runtime.provisionState,
+          ) as Parameters<typeof attachCloudSaasProvisionState>[1]
+          configSnapshot = attachCloudSaasProvisionState(configSnapshot, sanitizedProvisionState)
         }
       } catch (err) {
         const status =
@@ -3083,6 +3382,16 @@ export function createCloudSaasHandler(container: AppContainer) {
       const normalizedConfig = validateProviderProfileConfigForSave(input.config)
       if (!normalizedConfig.ok) {
         return c.json({ ok: false, error: normalizedConfig.error }, 422)
+      }
+      if (typeof normalizedConfig.config.baseUrl === 'string') {
+        try {
+          await assertSafeHttpUrl(normalizedConfig.config.baseUrl)
+        } catch (err) {
+          return c.json(
+            { ok: false, error: err instanceof Error ? err.message : 'Unsafe Base URL' },
+            422,
+          )
+        }
       }
 
       const profileId =

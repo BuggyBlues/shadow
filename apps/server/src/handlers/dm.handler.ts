@@ -18,8 +18,16 @@ export function createDmHandler(container: AppContainer) {
     zValidator('json', z.object({ userId: z.string().uuid() })),
     async (c) => {
       const dmService = container.resolve('dmService')
+      const userDao = container.resolve('userDao')
       const { userId: targetUserId } = c.req.valid('json')
       const user = c.get('user')
+      if (targetUserId === user.userId) {
+        return c.json({ ok: false, error: 'Cannot create a DM with yourself' }, 400)
+      }
+      const targetUser = await userDao.findById(targetUserId)
+      if (!targetUser) {
+        return c.json({ ok: false, error: 'User not found' }, 404)
+      }
       const channel = await dmService.getOrCreateChannel(user.userId, targetUserId)
       return c.json(channel, 201)
     },

@@ -1,4 +1,4 @@
-import { desc, eq } from 'drizzle-orm'
+import { and, count, desc, eq, gte } from 'drizzle-orm'
 import type { Database } from '../db'
 import { cloudActivities } from '../db/schema'
 
@@ -34,6 +34,7 @@ export class CloudActivityDao {
       | 'template_approved'
       | 'template_rejected'
       | 'billing_deduct'
+      | 'diy_generate'
     namespace?: string
     meta?: Record<string, unknown>
   }) {
@@ -47,5 +48,23 @@ export class CloudActivityDao {
       })
       .returning()
     return result[0]
+  }
+
+  async countByUserTypeSince(
+    userId: string,
+    type: Parameters<CloudActivityDao['log']>[0]['type'],
+    since: Date,
+  ) {
+    const result = await this.db
+      .select({ count: count() })
+      .from(cloudActivities)
+      .where(
+        and(
+          eq(cloudActivities.userId, userId),
+          eq(cloudActivities.type, type),
+          gte(cloudActivities.createdAt, since),
+        ),
+      )
+    return result[0]?.count ?? 0
   }
 }

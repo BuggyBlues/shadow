@@ -522,7 +522,7 @@ export class ModelProxyService {
     }
 
     const { verifyToken } = await import('../lib/jwt')
-    const payload = verifyToken(token)
+    const payload = verifyToken(token, 'access')
     const user = await this.deps.userDao.findById(payload.userId)
     if (!user) {
       throw Object.assign(new Error('Invalid bearer token'), {

@@ -2,6 +2,11 @@ import { and, desc, eq, sql } from 'drizzle-orm'
 import type { Database } from '../db'
 import { userRewardLogs, userTaskClaims } from '../db/schema/task-center'
 
+function normalizeReferenceKey(referenceId: string | null | undefined) {
+  const trimmed = referenceId?.trim()
+  return trimmed ? trimmed : '__none__'
+}
+
 export class TaskCenterDao {
   constructor(private deps: { db: Database }) {}
   private get db() {
@@ -47,23 +52,16 @@ export class TaskCenterDao {
   }
 
   async hasRewardLog(userId: string, rewardKey: string, referenceId: string | null = null) {
-    const cond =
-      referenceId == null
-        ? and(
-            eq(userRewardLogs.userId, userId),
-            eq(userRewardLogs.rewardKey, rewardKey),
-            sql`${userRewardLogs.referenceId} IS NULL`,
-          )
-        : and(
-            eq(userRewardLogs.userId, userId),
-            eq(userRewardLogs.rewardKey, rewardKey),
-            eq(userRewardLogs.referenceId, referenceId),
-          )
-
     const r = await this.db
       .select({ id: userRewardLogs.id })
       .from(userRewardLogs)
-      .where(cond)
+      .where(
+        and(
+          eq(userRewardLogs.userId, userId),
+          eq(userRewardLogs.rewardKey, rewardKey),
+          eq(userRewardLogs.referenceKey, normalizeReferenceKey(referenceId)),
+        ),
+      )
       .limit(1)
     return !!r[0]
   }
@@ -83,6 +81,7 @@ export class TaskCenterDao {
         userId: data.userId,
         rewardKey: data.rewardKey,
         referenceId: data.referenceId ?? null,
+        referenceKey: normalizeReferenceKey(data.referenceId),
         amount: data.amount,
         note: data.note,
         metadata: data.metadata ?? {},

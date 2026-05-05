@@ -37,7 +37,11 @@ import { createTaskCenterHandler } from './handlers/task-center.handler'
 import { createVoiceEnhanceHandler } from './handlers/voice-enhance.handler'
 import { createWorkspaceHandler } from './handlers/workspace.handler'
 import { logger } from './lib/logger'
-import { createPatMiddleware, createStoredAgentTokenMiddleware } from './middleware/auth.middleware'
+import {
+  authMiddleware,
+  createPatMiddleware,
+  createStoredAgentTokenMiddleware,
+} from './middleware/auth.middleware'
 import { loggerMiddleware } from './middleware/logger.middleware'
 import { securityHeadersMiddleware } from './middleware/security-headers.middleware'
 
@@ -111,18 +115,24 @@ export function createApp(container: AppContainer) {
   // Health check
   app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }))
 
-  // Public media content refs returned by MediaService.upload(), e.g. /shadow/uploads/file.txt.
-  app.get('/:bucket/uploads/:filename', async (c) => {
+  // Media content refs returned by MediaService.upload(), e.g. /shadow/uploads/file.txt.
+  // Downloads go through the app layer so future contentRef authorization can be enforced here.
+  app.get('/:bucket/uploads/:filename', authMiddleware, async (c) => {
     const bucket = c.req.param('bucket')
     const filename = c.req.param('filename')
+    if (!bucket || !filename) return c.json({ ok: false, error: 'Invalid media path' }, 400)
     const mediaService = container.resolve('mediaService')
     const contentRef = `/${bucket}/uploads/${filename}`
     const buffer = await mediaService.getFileBuffer(contentRef)
     if (!buffer) return c.json({ ok: false, error: 'File not found' }, 404)
 
+    const contentType = lookup(filename) || 'application/octet-stream'
+    const activeContent = /(?:html|xml|svg|javascript|ecmascript)/i.test(contentType)
+
     return c.body(new Uint8Array(buffer), 200, {
-      'Cache-Control': 'public, max-age=31536000, immutable',
-      'Content-Type': lookup(filename) || 'application/octet-stream',
+      'Cache-Control': 'private, max-age=300',
+      'Content-Type': contentType,
+      ...(activeContent ? { 'Content-Disposition': 'attachment' } : {}),
     })
   })
 

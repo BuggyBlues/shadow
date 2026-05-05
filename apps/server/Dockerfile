@@ -68,10 +68,11 @@ RUN --mount=type=cache,id=shadow-pnpm-store,target=/pnpm/store \
 
 # Prewarm Pulumi's CLI and Kubernetes provider during image build so the first
 # deployment does not spend user-visible time downloading them.
-RUN mkdir -p /root/.shadowob/pulumi/home && \
-    node --input-type=module -e "import { PulumiCommand } from './apps/cloud/node_modules/@pulumi/pulumi/automation/index.js'; await PulumiCommand.install({ root: '/root/.shadowob/pulumi/cli', skipVersionCheck: true })" && \
+RUN mkdir -p /home/node/.shadowob/pulumi/home && \
+    node --input-type=module -e "import { PulumiCommand } from './apps/cloud/node_modules/@pulumi/pulumi/automation/index.js'; await PulumiCommand.install({ root: '/home/node/.shadowob/pulumi/cli', skipVersionCheck: true })" && \
     K8S_PROVIDER_VERSION="$(node -e "console.log(require('./apps/cloud/node_modules/@pulumi/kubernetes/package.json').version)")" && \
-    PULUMI_HOME=/root/.shadowob/pulumi/home /root/.shadowob/pulumi/cli/bin/pulumi plugin install resource kubernetes "v${K8S_PROVIDER_VERSION}" --non-interactive
+    PULUMI_HOME=/home/node/.shadowob/pulumi/home /home/node/.shadowob/pulumi/cli/bin/pulumi plugin install resource kubernetes "v${K8S_PROVIDER_VERSION}" --non-interactive && \
+    chown -R node:node /home/node/.shadowob
 
 COPY --from=builder /app/packages/shared/dist packages/shared/dist
 COPY --from=builder /app/packages/sdk/dist packages/sdk/dist
@@ -84,7 +85,8 @@ COPY --from=builder /app/apps/server/src/db/migrations apps/server/migrations
 EXPOSE 3002
 ENV NODE_ENV=production
 ENV CLOUD_TEMPLATES_DIR=/app/apps/cloud/templates
-ENV PULUMI_HOME=/root/.shadowob/pulumi/home
-ENV PULUMI_BACKEND_URL=file:///root/.shadowob/pulumi
-ENV PATH=/root/.shadowob/pulumi/cli/bin:$PATH
+ENV PULUMI_HOME=/home/node/.shadowob/pulumi/home
+ENV PULUMI_BACKEND_URL=file:///home/node/.shadowob/pulumi
+ENV PATH=/home/node/.shadowob/pulumi/cli/bin:$PATH
+USER node
 CMD ["node", "apps/server/dist/index.js"]

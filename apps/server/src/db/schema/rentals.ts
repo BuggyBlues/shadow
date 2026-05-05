@@ -7,6 +7,7 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core'
@@ -212,6 +213,7 @@ export const rentalUsageRecords = pgTable(
     contractId: uuid('contract_id')
       .notNull()
       .references(() => rentalContracts.id, { onDelete: 'cascade' }),
+    usageEventId: varchar('usage_event_id', { length: 120 }),
 
     startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
     endedAt: timestamp('ended_at', { withTimezone: true }),
@@ -243,6 +245,10 @@ export const rentalUsageRecords = pgTable(
   },
   (t) => ({
     rentalUsageRecordsContractIdIdx: index('rental_usage_records_contract_id_idx').on(t.contractId),
+    rentalUsageRecordsUsageEventUnique: unique('rental_usage_records_usage_event_unique').on(
+      t.contractId,
+      t.usageEventId,
+    ),
   }),
 )
 

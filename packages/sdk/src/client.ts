@@ -1819,11 +1819,10 @@ export class ShadowClient {
     return this.request('/api/wallet')
   }
 
-  async topUpWallet(amount: number): Promise<ShadowWallet> {
-    return this.request('/api/wallet/topup', {
-      method: 'POST',
-      body: JSON.stringify({ amount }),
-    })
+  async topUpWallet(_amount: number): Promise<ShadowWallet> {
+    throw new Error(
+      'Public wallet top-up is disabled. Use a verified payment flow, refund, settlement, or admin grant.',
+    )
   }
 
   async getWalletTransactions(): Promise<ShadowTransaction[]> {

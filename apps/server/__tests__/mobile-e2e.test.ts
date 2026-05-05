@@ -352,11 +352,7 @@ describe('Shop cart lifecycle (mobile)', () => {
 
 describe('Shop order lifecycle (mobile)', () => {
   it('setup: topup wallet + add to cart', async () => {
-    // Topup member wallet
-    await req('POST', `/api/wallet/topup`, {
-      token: memberToken,
-      body: { amount: 5000 },
-    })
+    await container.resolve('walletService').topUp(memberUserId, 5000, 'Test balance seed')
 
     // Re-add to cart
     const res = await req('POST', `/api/servers/${serverId}/shop/cart`, {
@@ -629,18 +625,19 @@ describe('Wallet for mobile profile', () => {
     expect(w.balance).toBeGreaterThanOrEqual(0)
   })
 
-  it('topup increases balance', async () => {
+  it('ordinary topup endpoint is rejected', async () => {
     const before = await json<{ balance: number }>(
       await req('GET', `/api/wallet`, { token: ownerToken }),
     )
-    await req('POST', `/api/wallet/topup`, {
+    const topupRes = await req('POST', `/api/wallet/topup`, {
       token: ownerToken,
       body: { amount: 1000 },
     })
+    expect(topupRes.status).toBe(403)
     const after = await json<{ balance: number }>(
       await req('GET', `/api/wallet`, { token: ownerToken }),
     )
-    expect(after.balance).toBe(before.balance + 1000)
+    expect(after.balance).toBe(before.balance)
   })
 
   it('wallet transactions are listed', async () => {

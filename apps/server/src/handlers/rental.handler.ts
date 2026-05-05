@@ -302,8 +302,16 @@ export function createRentalHandler(container: AppContainer) {
     '/marketplace/contracts/:contractId/usage',
     zValidator('json', recordUsageSchema),
     async (c) => {
+      const actor = c.get('actor')
+      if (actor.kind !== 'agent') {
+        return c.json({ ok: false, error: 'Usage can only be recorded by the bound agent' }, 403)
+      }
       const rentalService = container.resolve('rentalService')
-      const usage = await rentalService.recordUsage(c.req.param('contractId'), c.req.valid('json'))
+      const usage = await rentalService.recordUsage(
+        c.req.param('contractId'),
+        c.req.valid('json'),
+        actor,
+      )
       return c.json(usage, 201)
     },
   )

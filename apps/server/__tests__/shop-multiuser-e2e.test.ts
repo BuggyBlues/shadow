@@ -555,35 +555,26 @@ describe('5. Wallet setup', () => {
     expect(w.balance).toBe(INITIAL_WALLET_BALANCE)
   })
 
-  it('buyer A tops up 20000 虾币', async () => {
-    const res = await req('POST', '/api/wallet/topup', {
-      token: buyerAToken,
-      body: { amount: 20000, note: '首次充值' },
-    })
-    expect(res.status).toBe(200)
-    const w = await json<{ balance: number }>(res)
-    expect(w.balance).toBe(INITIAL_WALLET_BALANCE + 20000)
+  it('test grant seeds buyer A wallet with 20000 虾币', async () => {
+    const w = await container
+      .resolve('walletService')
+      .topUp(buyerAUserId, 20000, 'Test balance seed')
+    expect(w?.balance).toBe(INITIAL_WALLET_BALANCE + 20000)
   })
 
-  it('buyer B tops up 15000 虾币', async () => {
+  it('test grant seeds buyer B wallet with 15000 虾币', async () => {
     await req('GET', '/api/wallet', { token: buyerBToken }) // auto-create
-    const res = await req('POST', '/api/wallet/topup', {
-      token: buyerBToken,
-      body: { amount: 15000, note: '初始充值' },
-    })
-    expect(res.status).toBe(200)
-    const w = await json<{ balance: number }>(res)
-    expect(w.balance).toBe(INITIAL_WALLET_BALANCE + 15000)
+    const w = await container
+      .resolve('walletService')
+      .topUp(buyerBUserId, 15000, 'Test balance seed')
+    expect(w?.balance).toBe(INITIAL_WALLET_BALANCE + 15000)
   })
 
-  it('buyer A tops up again (accumulation)', async () => {
-    const res = await req('POST', '/api/wallet/topup', {
-      token: buyerAToken,
-      body: { amount: 5000 },
-    })
-    expect(res.status).toBe(200)
-    const w = await json<{ balance: number }>(res)
-    expect(w.balance).toBe(INITIAL_WALLET_BALANCE + 25000)
+  it('test grant seeds buyer A again (accumulation)', async () => {
+    const w = await container
+      .resolve('walletService')
+      .topUp(buyerAUserId, 5000, 'Test balance seed')
+    expect(w?.balance).toBe(INITIAL_WALLET_BALANCE + 25000)
   })
 
   it('transaction history shows topups', async () => {
@@ -1164,8 +1155,7 @@ describe('10. Reviews — multi-user', () => {
 
 describe('11. Order cancellation & refund', () => {
   it('buyer B creates a new order (to cancel)', async () => {
-    // Top up enough
-    await req('POST', '/api/wallet/topup', { token: buyerBToken, body: { amount: 5000 } })
+    await container.resolve('walletService').topUp(buyerBUserId, 5000, 'Test balance seed')
 
     const res = await req('POST', `/api/servers/${serverId}/shop/orders`, {
       token: buyerBToken,
@@ -1440,28 +1430,12 @@ describe('15. Edge cases & validation', () => {
     expect(res.status).toBe(400)
   })
 
-  it('topup with negative amount rejected', async () => {
+  it('ordinary wallet topup endpoint is rejected', async () => {
     const res = await req('POST', '/api/wallet/topup', {
       token: buyerAToken,
-      body: { amount: -100 },
+      body: { amount: 100 },
     })
-    expect(res.status).toBe(400)
-  })
-
-  it('topup with 0 amount rejected', async () => {
-    const res = await req('POST', '/api/wallet/topup', {
-      token: buyerAToken,
-      body: { amount: 0 },
-    })
-    expect(res.status).toBe(400)
-  })
-
-  it('topup exceeding max rejected', async () => {
-    const res = await req('POST', '/api/wallet/topup', {
-      token: buyerAToken,
-      body: { amount: 1_000_001 },
-    })
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(403)
   })
 
   it('unauthenticated requests rejected', async () => {

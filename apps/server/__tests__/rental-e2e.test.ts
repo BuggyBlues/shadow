@@ -578,7 +578,7 @@ describe('P2P Rental E2E', () => {
 
   /* ─────── 9. Record Usage ─────── */
 
-  it('should record a usage session', async () => {
+  it('should reject usage sessions from normal user tokens', async () => {
     const now = new Date()
     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000)
 
@@ -592,15 +592,10 @@ describe('P2P Rental E2E', () => {
       },
     })
 
-    expect(res.status).toBe(201)
-    const data = await json<{
-      rentalCost: number
-      tokenCost: number
-      electricityCost: number
-      totalCost: number
-    }>(res)
-    expect(data.totalCost).toBeGreaterThan(0)
-    expect(data.rentalCost).toBeGreaterThan(0)
+    expect(res.status).toBe(403)
+    const data = await json<{ ok: boolean; error: string }>(res)
+    expect(data.ok).toBe(false)
+    expect(data.error).toContain('bound agent')
   })
 
   /* ─────── 10. My Listings ─────── */

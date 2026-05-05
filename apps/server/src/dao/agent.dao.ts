@@ -103,6 +103,15 @@ export class AgentDao {
     return result[0] ?? null
   }
 
+  async findByTokenHash(tokenHash: string) {
+    const result = await this.db
+      .select()
+      .from(agents)
+      .where(sql`${agents.config}->>'lastTokenHash' = ${tokenHash}`)
+      .limit(1)
+    return result[0] ?? null
+  }
+
   async delete(id: string) {
     await this.db.delete(agents).where(eq(agents.id, id))
   }

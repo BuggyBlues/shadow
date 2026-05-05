@@ -76,6 +76,7 @@ export const terminateContractSchema = z.object({
 /* ═══════════════ Usage Record ═══════════════ */
 
 export const recordUsageSchema = z.object({
+  usageEventId: z.string().min(8).max(120).optional(),
   startedAt: z.string(),
   endedAt: z.string().optional(),
   durationMinutes: z.number().int().min(1).max(1440),

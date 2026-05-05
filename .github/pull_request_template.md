@@ -30,3 +30,13 @@
 - [ ] I have added tests that cover my changes (if applicable)
 - [ ] All existing tests pass
 - [ ] I have updated documentation (if applicable)
+
+## Security checklist
+
+- [ ] New or changed routes/events/jobs declare the actor, resource, action, scope/capability, and data class.
+- [ ] Sensitive service writes accept an `Actor` or go through `PolicyService`; handlers do not make ad hoc authorization decisions only at the route layer.
+- [ ] API changes are synced to API docs, TypeScript SDK, and Python SDK.
+- [ ] Financial mutations do not credit wallets from ordinary user routes; use verified payment, refund, settlement, task reward, or admin grant paths.
+- [ ] Cloud/AI/media/provider changes use existing guards for SSRF, reserved env vars, JSON limits, private media access, and secret redaction.
+- [ ] Added or updated tests include at least one denied/unauthorized case for the affected resource.
+- [ ] `pnpm check:security-pr` passes locally for security-sensitive changes.

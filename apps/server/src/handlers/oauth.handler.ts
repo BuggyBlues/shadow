@@ -192,8 +192,7 @@ export function createOAuthHandler(container: AppContainer) {
     oauthScopeMiddleware(['servers:read']),
     async (c) => {
       const oauthService = container.resolve('oauthService')
-      const token = c.get('oauthToken')
-      const result = await oauthService.getServers(token.userId)
+      const result = await oauthService.getServers(c.get('actor'))
       return c.json(result)
     },
   )
@@ -206,10 +205,11 @@ export function createOAuthHandler(container: AppContainer) {
     async (c) => {
       const oauthService = container.resolve('oauthService')
       const membershipService = container.resolve('membershipService')
+      const actor = c.get('actor')
       const token = c.get('oauthToken')
       const body = await c.req.json<{ name: string; description?: string }>()
       await membershipService.requireMember(token.userId, 'server:create')
-      const result = await oauthService.createServer(token.userId, body)
+      const result = await oauthService.createServer(actor, body)
       return c.json(result, 201)
     },
   )
@@ -223,7 +223,7 @@ export function createOAuthHandler(container: AppContainer) {
       const oauthService = container.resolve('oauthService')
       const serverId = c.req.param('id')!
       const body = await c.req.json<{ userId: string }>()
-      const result = await oauthService.inviteToServer(serverId, body.userId)
+      const result = await oauthService.inviteToServer(c.get('actor'), serverId, body.userId)
       return c.json(result)
     },
   )
@@ -236,7 +236,7 @@ export function createOAuthHandler(container: AppContainer) {
     async (c) => {
       const oauthService = container.resolve('oauthService')
       const serverId = c.req.param('id')!
-      const result = await oauthService.getChannels(serverId)
+      const result = await oauthService.getChannels(c.get('actor'), serverId)
       return c.json(result)
     },
   )
@@ -248,9 +248,8 @@ export function createOAuthHandler(container: AppContainer) {
     oauthScopeMiddleware(['channels:write']),
     async (c) => {
       const oauthService = container.resolve('oauthService')
-      const token = c.get('oauthToken')
       const body = await c.req.json<{ serverId: string; name: string; type?: string }>()
-      const result = await oauthService.createChannel(token.userId, body)
+      const result = await oauthService.createChannel(c.get('actor'), body)
       return c.json(result, 201)
     },
   )
@@ -265,7 +264,7 @@ export function createOAuthHandler(container: AppContainer) {
       const channelId = c.req.param('id')!
       const limit = c.req.query('limit') ? Number(c.req.query('limit')) : undefined
       const cursor = c.req.query('cursor') ?? undefined
-      const result = await oauthService.getMessages(channelId, limit, cursor)
+      const result = await oauthService.getMessages(c.get('actor'), channelId, limit, cursor)
       return c.json(result)
     },
   )
@@ -277,10 +276,9 @@ export function createOAuthHandler(container: AppContainer) {
     oauthScopeMiddleware(['messages:write']),
     async (c) => {
       const oauthService = container.resolve('oauthService')
-      const token = c.get('oauthToken')
       const channelId = c.req.param('id')!
       const body = await c.req.json<{ content: string }>()
-      const result = await oauthService.sendMessage(channelId, token.userId, body)
+      const result = await oauthService.sendMessage(c.get('actor'), channelId, body)
       return c.json(result, 201)
     },
   )
@@ -293,7 +291,7 @@ export function createOAuthHandler(container: AppContainer) {
     async (c) => {
       const oauthService = container.resolve('oauthService')
       const workspaceId = c.req.param('id')!
-      const result = await oauthService.getWorkspace(workspaceId)
+      const result = await oauthService.getWorkspace(c.get('actor'), workspaceId)
       return c.json(result)
     },
   )
@@ -305,9 +303,8 @@ export function createOAuthHandler(container: AppContainer) {
     oauthScopeMiddleware(['buddies:create']),
     async (c) => {
       const oauthService = container.resolve('oauthService')
-      const token = c.get('oauthToken')
       const body = await c.req.json<{ name: string; kernelType?: string }>()
-      const result = await oauthService.createBuddy(token.userId, token.appId, body)
+      const result = await oauthService.createBuddy(c.get('actor'), body)
       return c.json(result, 201)
     },
   )
@@ -321,7 +318,7 @@ export function createOAuthHandler(container: AppContainer) {
       const oauthService = container.resolve('oauthService')
       const buddyId = c.req.param('id')!
       const body = await c.req.json<{ channelId: string; content: string }>()
-      const result = await oauthService.sendBuddyMessage(buddyId, body)
+      const result = await oauthService.sendBuddyMessage(c.get('actor'), buddyId, body)
       return c.json(result, 201)
     },
   )

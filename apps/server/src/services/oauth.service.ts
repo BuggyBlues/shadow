@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import { compare, hash } from 'bcryptjs'
 import type { OAuthAppDao } from '../dao/oauth.dao'
 import type { UserDao } from '../dao/user.dao'
+import { type ActorInput, actorUserId, type OAuthActor } from '../security/actor'
 import type {
   AuthorizeApproveInput,
   CreateOAuthAppInput,
@@ -10,6 +11,7 @@ import type {
 import type { AgentService } from './agent.service'
 import type { ChannelService } from './channel.service'
 import type { MessageService } from './message.service'
+import type { PolicyService } from './policy.service'
 import type { ServerService } from './server.service'
 import type { WorkspaceService } from './workspace.service'
 
@@ -27,6 +29,11 @@ function generateClientId(): string {
 
 function generateClientSecret(): string {
   return `shsec_${randomBytes(32).toString('hex')}`
+}
+
+function requireOAuthActor(actor: ActorInput): OAuthActor {
+  if (typeof actor !== 'string' && actor.kind === 'oauth') return actor
+  throw Object.assign(new Error('OAuth actor is required'), { status: 401 })
 }
 
 const ACCESS_TOKEN_TTL_MS = 60 * 60 * 1000 // 1 hour
@@ -60,6 +67,7 @@ export class OAuthService {
       messageService: MessageService
       workspaceService: WorkspaceService
       agentService: AgentService
+      policyService: PolicyService
     },
   ) {}
 
@@ -392,8 +400,9 @@ export class OAuthService {
 
   // ─── OAuth API: Servers ───────────────────────────
 
-  async getServers(userId: string) {
+  async getServers(actor: ActorInput) {
     const { serverService } = this.deps
+    const userId = actorUserId(actor)
     const servers = await serverService.getUserServers(userId)
     return servers.map((s) => ({
       id: s.server.id,
@@ -404,8 +413,9 @@ export class OAuthService {
     }))
   }
 
-  async createServer(userId: string, input: { name: string; description?: string }) {
+  async createServer(actor: ActorInput, input: { name: string; description?: string }) {
     const { serverService } = this.deps
+    const userId = actorUserId(actor)
     const server = await serverService.create(
       { name: input.name, description: input.description },
       userId,
@@ -422,13 +432,14 @@ export class OAuthService {
     }
   }
 
-  async inviteToServer(serverId: string, targetUserId: string) {
-    const { serverService } = this.deps
+  async inviteToServer(actor: ActorInput, serverId: string, targetUserId: string) {
+    const { policyService, serverService } = this.deps
     // Get server to verify it exists and get the invite code
     const server = await serverService.getById(serverId)
     if (!server) {
       throw Object.assign(new Error('Server not found'), { status: 404 })
     }
+    await policyService.requireServerRole(actor, serverId, 'admin')
     // Add user as a member
     await serverService.join(server.inviteCode, targetUserId)
     return { ok: true }
@@ -436,18 +447,22 @@ export class OAuthService {
 
   // ─── OAuth API: Channels ──────────────────────────
 
-  async getChannels(serverId: string) {
-    const { channelService } = this.deps
+  async getChannels(actor: ActorInput, serverId: string) {
+    const { channelService, policyService } = this.deps
+    await policyService.requireServerMember(actor, serverId)
+    const allowedIds = new Set(await policyService.accessibleChannelIds(actor, serverId))
     const channels = await channelService.getByServerId(serverId)
-    return channels.map((ch) => ({
-      id: ch.id,
-      name: ch.name,
-      type: ch.type,
-      topic: ch.topic,
-    }))
+    return channels
+      .filter((ch) => allowedIds.has(ch.id))
+      .map((ch) => ({
+        id: ch.id,
+        name: ch.name,
+        type: ch.type,
+        topic: ch.topic,
+      }))
   }
 
-  async createChannel(userId: string, input: { serverId: string; name: string; type?: string }) {
+  async createChannel(actor: ActorInput, input: { serverId: string; name: string; type?: string }) {
     const { channelService } = this.deps
     const channel = await channelService.create(
       input.serverId,
@@ -455,7 +470,7 @@ export class OAuthService {
         name: input.name,
         type: (input.type as 'text' | 'voice' | 'announcement') ?? 'text',
       },
-      userId,
+      actor,
     )
     if (!channel) {
       throw Object.assign(new Error('Failed to create channel'), { status: 500 })
@@ -470,9 +485,11 @@ export class OAuthService {
 
   // ─── OAuth API: Messages ──────────────────────────
 
-  async getMessages(channelId: string, limit?: number, cursor?: string) {
-    const { messageService } = this.deps
-    const result = await messageService.getByChannelId(channelId, limit, cursor)
+  async getMessages(actor: ActorInput, channelId: string, limit?: number, cursor?: string) {
+    const { messageService, policyService } = this.deps
+    await policyService.requireChannelRead(actor, channelId)
+    const userId = actorUserId(actor)
+    const result = await messageService.getByChannelId(channelId, limit, cursor, userId)
     return {
       messages: result.messages.map((m) => ({
         id: m.id,
@@ -485,8 +502,10 @@ export class OAuthService {
     }
   }
 
-  async sendMessage(channelId: string, authorId: string, input: { content: string }) {
-    const { messageService } = this.deps
+  async sendMessage(actor: ActorInput, channelId: string, input: { content: string }) {
+    const { messageService, policyService } = this.deps
+    await policyService.requireChannelRead(actor, channelId)
+    const authorId = actorUserId(actor)
     const message = await messageService.send(channelId, authorId, { content: input.content })
     return {
       id: message.id,
@@ -499,12 +518,13 @@ export class OAuthService {
 
   // ─── OAuth API: Workspaces ────────────────────────
 
-  async getWorkspace(workspaceId: string) {
-    const { workspaceService } = this.deps
+  async getWorkspace(actor: ActorInput, workspaceId: string) {
+    const { policyService, workspaceService } = this.deps
     const workspace = await workspaceService.getById(workspaceId)
     if (!workspace) {
       throw Object.assign(new Error('Workspace not found'), { status: 404 })
     }
+    await policyService.requireServerMember(actor, workspace.serverId)
     return {
       id: workspace.id,
       name: workspace.name,
@@ -515,8 +535,11 @@ export class OAuthService {
 
   // ─── OAuth API: Buddies ───────────────────────────
 
-  async createBuddy(userId: string, appId: string, input: { name: string; kernelType?: string }) {
+  async createBuddy(actor: ActorInput, input: { name: string; kernelType?: string }) {
     const { agentService, userDao } = this.deps
+    const oauthActor = requireOAuthActor(actor)
+    const userId = oauthActor.userId
+    const appId = oauthActor.appId
 
     // Create bot sub-account
     const botUsername = `buddy_${randomBytes(4).toString('hex')}`
@@ -558,12 +581,20 @@ export class OAuthService {
     }
   }
 
-  async sendBuddyMessage(buddyAgentId: string, input: { channelId: string; content: string }) {
-    const { agentService, messageService, oauthAppDao } = this.deps
+  async sendBuddyMessage(
+    actor: ActorInput,
+    buddyAgentId: string,
+    input: { channelId: string; content: string },
+  ) {
+    const { agentService, messageService, oauthAppDao, policyService } = this.deps
+    const oauthActor = requireOAuthActor(actor)
 
     // Verify the agent exists and is a buddy
     const agent = await agentService.getById(buddyAgentId)
     if (!agent) {
+      throw Object.assign(new Error('Buddy not found'), { status: 404 })
+    }
+    if (agent.oauthAppId !== oauthActor.appId) {
       throw Object.assign(new Error('Buddy not found'), { status: 404 })
     }
 
@@ -571,6 +602,7 @@ export class OAuthService {
     if (!buddyUserId) {
       throw Object.assign(new Error('Buddy user not found'), { status: 404 })
     }
+    await policyService.requireChannelRead(actor, input.channelId)
 
     const message = await messageService.send(input.channelId, buddyUserId, {
       content: input.content,

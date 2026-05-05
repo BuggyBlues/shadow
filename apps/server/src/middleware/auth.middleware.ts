@@ -2,11 +2,63 @@ import { createHash } from 'node:crypto'
 import type { Context, Next } from 'hono'
 import type { AppContainer } from '../container'
 import { type JwtPayload, verifyToken } from '../lib/jwt'
+import { type Actor, actorFromAuthenticatedUser } from '../security/actor'
 
 declare module 'hono' {
   interface ContextVariableMap {
-    user: JwtPayload
+    user: AuthenticatedUser
+    actor: Actor
   }
+}
+
+export type AuthenticatedUser = JwtPayload & {
+  tokenKind?: 'jwt' | 'pat'
+  tokenId?: string
+  scopes?: string[]
+  expiresAt?: string | null
+  agentId?: string
+  ownerId?: string
+}
+
+function parseScopes(scope: string | null | undefined): string[] {
+  return (scope ?? '')
+    .split(/[\s,]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function isReadMethod(method: string) {
+  return method === 'GET' || method === 'HEAD' || method === 'OPTIONS'
+}
+
+function patAllowsMethod(user: AuthenticatedUser, method: string) {
+  if (user.tokenKind !== 'pat') return true
+  const scopes = user.scopes ?? []
+  if (scopes.includes('*') || scopes.includes('admin:*')) return true
+  if (isReadMethod(method)) {
+    return scopes.some((scope) => scope === 'user:read' || scope.endsWith(':read'))
+  }
+  return scopes.some((scope) => {
+    if (scope === 'user:read' || scope.endsWith(':read')) return false
+    return scope.length > 0
+  })
+}
+
+function enforcePatScope(c: Context, user: AuthenticatedUser): Response | null {
+  if (patAllowsMethod(user, c.req.method)) return null
+  return c.json(
+    {
+      ok: false,
+      error: 'Forbidden: API token scope does not allow this operation',
+      code: 'INSUFFICIENT_PAT_SCOPE',
+    },
+    403,
+  )
+}
+
+function setAuthenticatedContext(c: Context, user: AuthenticatedUser) {
+  c.set('user', user)
+  c.set('actor', actorFromAuthenticatedUser(user))
 }
 
 export async function authMiddleware(c: Context, next: Next): Promise<Response | undefined> {
@@ -14,6 +66,9 @@ export async function authMiddleware(c: Context, next: Next): Promise<Response |
   try {
     const existing = c.get('user')
     if (existing) {
+      const denied = enforcePatScope(c, existing)
+      if (denied) return denied
+      c.set('actor', actorFromAuthenticatedUser(existing))
       await next()
       return
     }
@@ -30,8 +85,8 @@ export async function authMiddleware(c: Context, next: Next): Promise<Response |
   const token = authHeader.slice(7)
 
   try {
-    const payload = verifyToken(token)
-    c.set('user', payload)
+    const payload = verifyToken(token, ['access', 'agent'])
+    setAuthenticatedContext(c, { ...payload, tokenKind: 'jwt' })
     await next()
   } catch {
     return c.json({ ok: false, error: 'Unauthorized: Invalid or expired token' }, 401)
@@ -66,8 +121,13 @@ export function createPatMiddleware(container: AppContainer) {
     // Update last used timestamp (fire and forget)
     apiTokenDao.updateLastUsed(token.id).catch(() => {})
 
-    // Set user context compatible with JwtPayload
-    c.set('user', { userId: token.userId } as JwtPayload)
+    setAuthenticatedContext(c, {
+      userId: token.userId,
+      tokenKind: 'pat',
+      tokenId: token.id,
+      scopes: parseScopes(token.scope),
+      expiresAt: token.expiresAt?.toISOString?.() ?? null,
+    })
 
     await next()
   }
@@ -77,8 +137,8 @@ export function createPatMiddleware(container: AppContainer) {
  * Compatibility fallback for previously deployed agents.
  *
  * Agent tokens are signed JWTs, but older deployments can keep running with a token signed by a
- * rotated JWT secret. Since AgentService persists the issued token in agent.config.lastToken, treat
- * that exact value as an opaque bearer credential when normal JWT verification would fail.
+ * rotated JWT secret. New tokens are stored as hashes; legacy plaintext lastToken entries are only
+ * accepted as a migration fallback when normal JWT verification would fail.
  */
 export function createStoredAgentTokenMiddleware(container: AppContainer) {
   return async (c: Context, next: Next): Promise<Response | undefined> => {
@@ -91,7 +151,7 @@ export function createStoredAgentTokenMiddleware(container: AppContainer) {
     const tokenValue = authHeader.slice(7)
     let verifiedPayload: JwtPayload | null = null
     try {
-      verifiedPayload = verifyToken(tokenValue)
+      verifiedPayload = verifyToken(tokenValue, ['access', 'agent'])
     } catch {
       // Fall through to the stored opaque token lookup.
     }
@@ -107,9 +167,20 @@ export function createStoredAgentTokenMiddleware(container: AppContainer) {
       }
     }
 
-    const agent = await container.resolve('agentDao').findByLastToken(tokenValue)
+    const tokenHash = createHash('sha256').update(tokenValue).digest('hex')
+    const agentDao = container.resolve('agentDao')
+    const agent =
+      (await agentDao.findByTokenHash(tokenHash).catch(() => null)) ??
+      (await agentDao.findByLastToken(tokenValue))
     if (agent) {
-      c.set('user', { userId: agent.userId } as JwtPayload)
+      setAuthenticatedContext(c, {
+        userId: agent.userId,
+        typ: 'agent',
+        tokenKind: 'jwt',
+        agentId: agent.id,
+        ownerId: agent.ownerId,
+        scopes: ['rental:usage:write'],
+      })
     }
 
     await next()

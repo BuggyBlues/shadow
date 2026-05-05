@@ -1,11 +1,13 @@
 import type { ChannelDao } from '../dao/channel.dao'
 import type { ChannelMemberDao } from '../dao/channel-member.dao'
 import type { ServerDao } from '../dao/server.dao'
+import type { ActorInput } from '../security/actor'
 import type {
   CreateServerInput,
   UpdateMemberInput,
   UpdateServerInput,
 } from '../validators/server.schema'
+import type { PolicyService } from './policy.service'
 
 /** Convert a name to a URL-safe slug (lowercase, spaces → hyphens, strip non-alphanumeric). */
 function toSlug(name: string): string {
@@ -26,6 +28,7 @@ export class ServerService {
       serverDao: ServerDao
       channelDao: ChannelDao
       channelMemberDao: ChannelMemberDao
+      policyService: PolicyService
     },
   ) {}
 
@@ -111,11 +114,12 @@ export class ServerService {
     return this.deps.serverDao.findByUserId(userId)
   }
 
-  async update(id: string, input: UpdateServerInput, _userId: string) {
+  async update(id: string, input: UpdateServerInput, actor: ActorInput) {
     const server = await this.deps.serverDao.findById(id)
     if (!server) {
       throw Object.assign(new Error('Server not found'), { status: 404 })
     }
+    await this.deps.policyService.requireServerRole(actor, id, 'admin')
 
     // Handle slug changes: null/empty clears it; non-empty validates uniqueness
     const updateData: typeof input & { slug?: string | null } = { ...input }
@@ -133,14 +137,12 @@ export class ServerService {
     )
   }
 
-  async delete(id: string, userId: string) {
+  async delete(id: string, actor: ActorInput) {
     const server = await this.deps.serverDao.findById(id)
     if (!server) {
       throw Object.assign(new Error('Server not found'), { status: 404 })
     }
-    if (server.ownerId !== userId) {
-      throw Object.assign(new Error('Only the owner can delete this server'), { status: 403 })
-    }
+    await this.deps.policyService.requireServerOwner(actor, id)
 
     await this.deps.serverDao.delete(id)
   }
@@ -237,17 +239,13 @@ export class ServerService {
     return this.deps.serverDao.getMembers(serverId)
   }
 
-  async kickMember(serverId: string, targetUserId: string, requesterId: string) {
+  async kickMember(serverId: string, targetUserId: string, actor: ActorInput) {
     const server = await this.deps.serverDao.findById(serverId)
     if (!server) {
       throw Object.assign(new Error('Server not found'), { status: 404 })
     }
 
-    // Check requester has admin or owner role
-    const requester = await this.deps.serverDao.getMember(serverId, requesterId)
-    if (!requester || (requester.role !== 'admin' && requester.role !== 'owner')) {
-      throw Object.assign(new Error('Requires admin role or higher'), { status: 403 })
-    }
+    await this.deps.policyService.requireServerRole(actor, serverId, 'admin')
 
     // Cannot kick the owner
     const target = await this.deps.serverDao.getMember(serverId, targetUserId)
@@ -274,7 +272,7 @@ export class ServerService {
   async updateMember(
     serverId: string,
     targetUserId: string,
-    requesterId: string,
+    actor: ActorInput,
     input: UpdateMemberInput,
   ) {
     const server = await this.deps.serverDao.findById(serverId)
@@ -282,11 +280,7 @@ export class ServerService {
       throw Object.assign(new Error('Server not found'), { status: 404 })
     }
 
-    // Check requester has admin or owner role
-    const requester = await this.deps.serverDao.getMember(serverId, requesterId)
-    if (!requester || (requester.role !== 'admin' && requester.role !== 'owner')) {
-      throw Object.assign(new Error('Requires admin role or higher'), { status: 403 })
-    }
+    const requester = await this.deps.policyService.requireServerRole(actor, serverId, 'admin')
 
     // Only owner can assign owner role
     if (input.role === 'owner' && requester.role !== 'owner') {
@@ -304,17 +298,13 @@ export class ServerService {
     return this.deps.serverDao.updateMember(serverId, targetUserId, input)
   }
 
-  async regenerateInvite(serverId: string, requesterId: string) {
+  async regenerateInvite(serverId: string, actor: ActorInput) {
     const server = await this.deps.serverDao.findById(serverId)
     if (!server) {
       throw Object.assign(new Error('Server not found'), { status: 404 })
     }
 
-    // Check requester has admin or owner role
-    const requester = await this.deps.serverDao.getMember(serverId, requesterId)
-    if (!requester || (requester.role !== 'admin' && requester.role !== 'owner')) {
-      throw Object.assign(new Error('Requires admin role or higher'), { status: 403 })
-    }
+    await this.deps.policyService.requireServerRole(actor, serverId, 'admin')
 
     return this.deps.serverDao.regenerateInviteCode(serverId)
   }

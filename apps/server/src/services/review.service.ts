@@ -68,6 +68,10 @@ export class ReviewService {
     if (!['delivered', 'completed'].includes(order.status)) {
       throw Object.assign(new Error('Order must be completed before review'), { status: 400 })
     }
+    const orderItems = await this.deps.orderDao.getItems(orderId)
+    if (!orderItems.some((item) => item.productId === productId)) {
+      throw Object.assign(new Error('Product was not purchased in this order'), { status: 400 })
+    }
 
     // Check duplicate
     const existing = await this.deps.reviewDao.findByUserAndOrder(userId, orderId)

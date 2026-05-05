@@ -3,6 +3,7 @@ import type { UserDao } from '../dao/user.dao'
 
 export type MembershipCapability =
   | 'cloud:deploy'
+  | 'cloud:diy_generate'
   | 'server:create'
   | 'invite:create'
   | 'oauth_app:create'
@@ -38,7 +39,13 @@ export const MEMBERSHIP_TIERS = {
     id: 'member',
     level: 10,
     label: 'Member',
-    capabilities: ['cloud:deploy', 'server:create', 'invite:create', 'oauth_app:create'],
+    capabilities: [
+      'cloud:deploy',
+      'cloud:diy_generate',
+      'server:create',
+      'invite:create',
+      'oauth_app:create',
+    ],
   },
 } satisfies Record<string, MembershipTier>
 

@@ -7,6 +7,7 @@ import type {
   RentalViolationDao,
 } from '../dao/rental-contract.dao'
 import type { UserDao } from '../dao/user.dao'
+import { type Actor, actorHasScope } from '../security/actor'
 import type { WalletService } from './wallet.service'
 
 /* ──────────────── Pricing Constants ──────────────── */
@@ -89,6 +90,12 @@ export class RentalService {
       pricingVersion?: number
     },
   ) {
+    if (data.agentId) {
+      const agent = await this.deps.agentDao.findById(data.agentId)
+      if (!agent || agent.ownerId !== ownerId) {
+        throw Object.assign(new Error('Agent does not belong to listing owner'), { status: 403 })
+      }
+    }
     return this.deps.clawListingDao.create({
       ownerId,
       ...data,
@@ -463,12 +470,37 @@ export class RentalService {
       endedAt?: string
       durationMinutes: number
       tokensConsumed?: number
+      usageEventId?: string
     },
+    actor?: Actor,
   ) {
     const contract = await this.deps.rentalContractDao.findById(contractId)
     if (!contract) throw Object.assign(new Error('Contract not found'), { status: 404 })
     if (contract.status !== 'active') {
       throw Object.assign(new Error('Contract is not active'), { status: 400 })
+    }
+    if (!actor || actor.kind !== 'agent') {
+      throw Object.assign(new Error('Usage recording requires an agent actor'), { status: 403 })
+    }
+    if (!actorHasScope(actor, 'rental:usage:write')) {
+      throw Object.assign(new Error('Agent actor is missing rental usage capability'), {
+        status: 403,
+      })
+    }
+    const listing = await this.deps.clawListingDao.findById(contract.listingId)
+    if (!listing?.agentId) {
+      throw Object.assign(new Error('Contract is not bound to an agent listing'), { status: 403 })
+    }
+    const agent = await this.deps.agentDao.findByUserId(actor.userId)
+    if (!agent || agent.id !== listing.agentId) {
+      throw Object.assign(new Error('Agent is not bound to this rental contract'), { status: 403 })
+    }
+    if (data.usageEventId) {
+      const existingUsage = await this.deps.rentalUsageDao.findByUsageEventId(
+        contractId,
+        data.usageEventId,
+      )
+      if (existingUsage) return existingUsage
     }
 
     const durationHours = data.durationMinutes / 60
@@ -484,6 +516,7 @@ export class RentalService {
     // Create usage record
     const usage = await this.deps.rentalUsageDao.create({
       contractId,
+      usageEventId: data.usageEventId,
       startedAt: new Date(data.startedAt),
       endedAt: data.endedAt ? new Date(data.endedAt) : undefined,
       durationMinutes: data.durationMinutes,
@@ -560,9 +593,11 @@ export class RentalService {
           `违约金 - 合同 ${contract.contractNo}`,
         )
         // Pay penalty to tenant
-        await this.deps.walletService.topUp(
+        await this.deps.walletService.refund(
           contract.tenantId,
           contract.depositAmount,
+          contract.id,
+          'rental_penalty',
           `违约赔偿 - 合同 ${contract.contractNo}`,
         )
         await this.deps.rentalViolationDao.resolve(violation!.id)

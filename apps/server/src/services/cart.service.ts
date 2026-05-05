@@ -56,10 +56,16 @@ export class CartService {
     if (!product || product.status !== 'active') {
       throw Object.assign(new Error('Product is not available'), { status: 400 })
     }
+    if (product.shopId !== shopId) {
+      throw Object.assign(new Error('Product does not belong to this shop'), { status: 400 })
+    }
     if (skuId) {
       const sku = await this.deps.skuDao.findById(skuId)
       if (!sku || !sku.isActive) {
         throw Object.assign(new Error('SKU is not available'), { status: 400 })
+      }
+      if (sku.productId !== productId) {
+        throw Object.assign(new Error('SKU does not belong to this product'), { status: 400 })
       }
     }
     return this.deps.cartDao.upsert({ userId, shopId, productId, skuId, quantity })

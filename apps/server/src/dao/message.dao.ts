@@ -203,12 +203,19 @@ export class MessageDao {
     options?: {
       serverId?: string
       channelId?: string
+      accessibleChannelIds?: string[]
       from?: string
       hasAttachment?: boolean
       limit?: number
     },
   ) {
     const conditions = [ilike(messages.content, `%${query}%`)]
+    if (!options?.accessibleChannelIds || options.accessibleChannelIds.length === 0) {
+      throw Object.assign(new Error('Message search requires accessibleChannelIds'), {
+        status: 500,
+      })
+    }
+    conditions.push(inArray(messages.channelId, options.accessibleChannelIds))
     if (options?.channelId) {
       conditions.push(eq(messages.channelId, options.channelId))
     }

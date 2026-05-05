@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import type { Socket, Server as SocketIOServer } from 'socket.io'
 import type { AppContainer } from '../container'
 import { verifyToken } from '../lib/jwt'
@@ -33,7 +34,7 @@ async function authenticateSocketUser(socket: Socket, container: AppContainer, t
   let tokenError: unknown = null
 
   try {
-    const payload = verifyToken(token)
+    const payload = verifyToken(token, ['access', 'agent'])
     const user = await userDao.findById(payload.userId).catch(() => null)
     if (user) {
       await hydrateSocketUser(socket, payload.userId, user, payload.username)
@@ -44,7 +45,10 @@ async function authenticateSocketUser(socket: Socket, container: AppContainer, t
     tokenError = err
   }
 
-  const agent = await agentDao.findByLastToken(token)
+  const tokenHash = createHash('sha256').update(token).digest('hex')
+  const agent =
+    (await agentDao.findByTokenHash(tokenHash).catch(() => null)) ??
+    (await agentDao.findByLastToken(token))
   if (agent) {
     const user = await userDao.findById(agent.userId).catch(() => null)
     if (user) {

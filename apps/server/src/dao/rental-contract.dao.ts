@@ -252,6 +252,7 @@ export class RentalUsageDao {
 
   async create(data: {
     contractId: string
+    usageEventId?: string
     startedAt: Date
     endedAt?: Date
     durationMinutes: number
@@ -267,6 +268,20 @@ export class RentalUsageDao {
     baseRentalCost?: number
   }) {
     const r = await this.db.insert(rentalUsageRecords).values(data).returning()
+    return r[0] ?? null
+  }
+
+  async findByUsageEventId(contractId: string, usageEventId: string) {
+    const r = await this.db
+      .select()
+      .from(rentalUsageRecords)
+      .where(
+        and(
+          eq(rentalUsageRecords.contractId, contractId),
+          eq(rentalUsageRecords.usageEventId, usageEventId),
+        ),
+      )
+      .limit(1)
     return r[0] ?? null
   }
 

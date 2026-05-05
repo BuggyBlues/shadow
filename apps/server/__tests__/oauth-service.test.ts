@@ -83,6 +83,27 @@ function createMockAgentService(overrides = {}) {
   }
 }
 
+function createMockPolicyService(overrides = {}) {
+  return {
+    requireServerMember: vi.fn(),
+    requireServerRole: vi.fn(),
+    requireChannelRead: vi.fn(),
+    accessibleChannelIds: vi.fn().mockResolvedValue([]),
+    ...overrides,
+  }
+}
+
+function oauthActor(overrides = {}) {
+  return {
+    kind: 'oauth' as const,
+    userId: 'user-1',
+    appId: 'app-1',
+    tokenId: 'token-1',
+    scopes: ['*'],
+    ...overrides,
+  }
+}
+
 function createService(overrides: Record<string, unknown> = {}) {
   const deps = {
     oauthAppDao: createMockOAuthAppDao(overrides.oauthAppDao as Record<string, unknown>),
@@ -94,6 +115,7 @@ function createService(overrides: Record<string, unknown> = {}) {
       overrides.workspaceService as Record<string, unknown>,
     ),
     agentService: createMockAgentService(overrides.agentService as Record<string, unknown>),
+    policyService: createMockPolicyService(overrides.policyService as Record<string, unknown>),
   }
   return { service: new OAuthService(deps as any), ...deps }
 }
@@ -637,7 +659,11 @@ describe('OAuthService — Resource API', () => {
   })
 
   it('getChannels delegates to channelService', async () => {
-    const { service } = createService({
+    const { policyService, service } = createService({
+      policyService: {
+        requireServerMember: vi.fn(),
+        accessibleChannelIds: vi.fn().mockResolvedValue(['ch1']),
+      },
       channelService: {
         getByServerId: vi
           .fn()
@@ -645,9 +671,28 @@ describe('OAuthService — Resource API', () => {
       },
     })
 
-    const result = await service.getChannels('s1')
+    const result = await service.getChannels('user-1', 's1')
     expect(result).toHaveLength(1)
     expect(result[0].name).toBe('general')
+    expect(policyService.requireServerMember).toHaveBeenCalledWith('user-1', 's1')
+  })
+
+  it('getChannels filters channels outside the actor access set', async () => {
+    const { service } = createService({
+      policyService: {
+        requireServerMember: vi.fn(),
+        accessibleChannelIds: vi.fn().mockResolvedValue(['ch1']),
+      },
+      channelService: {
+        getByServerId: vi.fn().mockResolvedValue([
+          { id: 'ch1', name: 'general', type: 'text', topic: null },
+          { id: 'ch2', name: 'private', type: 'text', topic: null },
+        ]),
+      },
+    })
+
+    const result = await service.getChannels('user-1', 's1')
+    expect(result.map((channel) => channel.id)).toEqual(['ch1'])
   })
 
   it('createChannel delegates to channelService', async () => {
@@ -671,7 +716,7 @@ describe('OAuthService — Resource API', () => {
   })
 
   it('getMessages delegates to messageService', async () => {
-    const { service } = createService({
+    const { policyService, service } = createService({
       messageService: {
         getByChannelId: vi.fn().mockResolvedValue({
           messages: [
@@ -682,9 +727,23 @@ describe('OAuthService — Resource API', () => {
       },
     })
 
-    const result = await service.getMessages('ch1')
+    const result = await service.getMessages('user-1', 'ch1')
     expect(result.messages).toHaveLength(1)
     expect(result.messages[0].content).toBe('hi')
+    expect(policyService.requireChannelRead).toHaveBeenCalledWith('user-1', 'ch1')
+  })
+
+  it('getMessages rejects when the actor cannot read the channel', async () => {
+    const { messageService, service } = createService({
+      policyService: {
+        requireChannelRead: vi
+          .fn()
+          .mockRejectedValue(Object.assign(new Error('denied'), { status: 403 })),
+      },
+    })
+
+    await expect(service.getMessages('user-1', 'ch1')).rejects.toThrow('denied')
+    expect(messageService.getByChannelId).not.toHaveBeenCalled()
   })
 
   it('sendMessage delegates to messageService', async () => {
@@ -701,7 +760,7 @@ describe('OAuthService — Resource API', () => {
       },
     })
 
-    const result = await service.sendMessage('ch1', 'u1', { content: 'hello' })
+    const result = await service.sendMessage('user-1', 'ch1', { content: 'hello' })
     expect(result.id).toBe('m2')
     expect(result.content).toBe('hello')
   })
@@ -718,7 +777,7 @@ describe('OAuthService — Resource API', () => {
       },
     })
 
-    const result = await service.getWorkspace('w1')
+    const result = await service.getWorkspace('user-1', 'w1')
     expect(result.id).toBe('w1')
     expect(result.name).toBe('Workspace 1')
   })
@@ -727,7 +786,7 @@ describe('OAuthService — Resource API', () => {
     const { service } = createService({
       workspaceService: { getById: vi.fn().mockResolvedValue(null) },
     })
-    await expect(service.getWorkspace('missing')).rejects.toThrow('Workspace not found')
+    await expect(service.getWorkspace('user-1', 'missing')).rejects.toThrow('Workspace not found')
   })
 
   it('inviteToServer joins target user', async () => {
@@ -741,7 +800,7 @@ describe('OAuthService — Resource API', () => {
       },
     })
 
-    const result = await service.inviteToServer('s1', 'target-user')
+    const result = await service.inviteToServer('user-1', 's1', 'target-user')
     expect(result.ok).toBe(true)
     expect(serverService.join).toHaveBeenCalledWith('abc12345', 'target-user')
   })
@@ -750,7 +809,9 @@ describe('OAuthService — Resource API', () => {
     const { service } = createService({
       serverService: { getById: vi.fn().mockResolvedValue(null) },
     })
-    await expect(service.inviteToServer('missing', 'u1')).rejects.toThrow('Server not found')
+    await expect(service.inviteToServer('user-1', 'missing', 'u1')).rejects.toThrow(
+      'Server not found',
+    )
   })
 })
 
@@ -773,7 +834,7 @@ describe('OAuthService — Buddies', () => {
       },
     })
 
-    const result = await service.createBuddy('user-1', 'app-1', { name: 'My Buddy' })
+    const result = await service.createBuddy(oauthActor(), { name: 'My Buddy' })
     expect(result.userId).toBe('bot-user-1')
     expect(result.agentId).toBe('agent-1')
     expect(userDao.create).toHaveBeenCalledOnce()
@@ -793,7 +854,7 @@ describe('OAuthService — Buddies', () => {
     const now = new Date()
     const { service } = createService({
       agentService: {
-        getById: vi.fn().mockResolvedValue({ id: 'agent-1' }),
+        getById: vi.fn().mockResolvedValue({ id: 'agent-1', oauthAppId: 'app-1' }),
       },
       oauthAppDao: {
         getBuddyUserId: vi.fn().mockResolvedValue('bot-user-1'),
@@ -809,7 +870,7 @@ describe('OAuthService — Buddies', () => {
       },
     })
 
-    const result = await service.sendBuddyMessage('agent-1', {
+    const result = await service.sendBuddyMessage(oauthActor(), 'agent-1', {
       channelId: 'ch1',
       content: 'Hi from buddy',
     })
@@ -822,18 +883,30 @@ describe('OAuthService — Buddies', () => {
       agentService: { getById: vi.fn().mockResolvedValue(null) },
     })
     await expect(
-      service.sendBuddyMessage('missing', { channelId: 'ch1', content: 'hi' }),
+      service.sendBuddyMessage(oauthActor(), 'missing', { channelId: 'ch1', content: 'hi' }),
     ).rejects.toThrow('Buddy not found')
   })
 
   it('sendBuddyMessage throws 404 if buddy user not found', async () => {
     const { service } = createService({
-      agentService: { getById: vi.fn().mockResolvedValue({ id: 'agent-1' }) },
+      agentService: { getById: vi.fn().mockResolvedValue({ id: 'agent-1', oauthAppId: 'app-1' }) },
       oauthAppDao: { getBuddyUserId: vi.fn().mockResolvedValue(null) },
     })
     await expect(
-      service.sendBuddyMessage('agent-1', { channelId: 'ch1', content: 'hi' }),
+      service.sendBuddyMessage(oauthActor(), 'agent-1', { channelId: 'ch1', content: 'hi' }),
     ).rejects.toThrow('Buddy user not found')
+  })
+
+  it('sendBuddyMessage hides buddies owned by a different OAuth app', async () => {
+    const { oauthAppDao, service } = createService({
+      agentService: {
+        getById: vi.fn().mockResolvedValue({ id: 'agent-1', oauthAppId: 'other-app' }),
+      },
+    })
+    await expect(
+      service.sendBuddyMessage(oauthActor(), 'agent-1', { channelId: 'ch1', content: 'hi' }),
+    ).rejects.toThrow('Buddy not found')
+    expect(oauthAppDao.getBuddyUserId).not.toHaveBeenCalled()
   })
 })
 

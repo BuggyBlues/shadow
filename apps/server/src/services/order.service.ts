@@ -1,6 +1,17 @@
+import { and, eq, sql } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import type { OrderDao } from '../dao/order.dao'
 import type { ServerDao } from '../dao/server.dao'
+import type { Database } from '../db'
+import {
+  cartItems,
+  orderItems,
+  orders,
+  products,
+  skus,
+  wallets,
+  walletTransactions,
+} from '../db/schema'
 import type { CartService } from './cart.service'
 import type { EntitlementService } from './entitlement.service'
 import type { ProductService } from './product.service'
@@ -32,6 +43,7 @@ export class OrderService {
   constructor(
     private deps: {
       orderDao: OrderDao
+      db: Database
       serverDao: ServerDao
       productService: ProductService
       walletService: WalletService
@@ -71,6 +83,11 @@ export class OrderService {
           status: 400,
         })
       }
+      if (product.shopId !== shopId) {
+        throw Object.assign(new Error(`Product "${product.name}" does not belong to this shop`), {
+          status: 400,
+        })
+      }
 
       let price = product.basePrice
       let specValues: string[] = []
@@ -80,6 +97,11 @@ export class OrderService {
         const sku = await this.deps.productService.getSkuById(item.skuId)
         if (!sku || !sku.isActive) {
           throw Object.assign(new Error(`SKU ${item.skuId} is not available`), { status: 400 })
+        }
+        if (sku.productId !== product.id) {
+          throw Object.assign(new Error(`SKU ${item.skuId} does not belong to this product`), {
+            status: 400,
+          })
         }
         if (sku.stock < item.quantity) {
           throw Object.assign(new Error(`Insufficient stock for "${product.name}"`), {
@@ -111,43 +133,80 @@ export class OrderService {
     // 2. Generate order number
     const orderNo = `SH${Date.now().toString(36).toUpperCase()}${nanoid(6).toUpperCase()}`
 
-    // 3. Create the order
-    const order = await this.deps.orderDao.create({
-      orderNo,
-      shopId,
-      buyerId,
-      totalAmount,
-      buyerNote,
-    })
-    if (!order) throw new Error('Failed to create order')
+    const wallet = await this.deps.walletService.getOrCreateWallet(buyerId)
 
-    // 4. Create order items (snapshot)
-    const itemsWithOrderId = orderItemsData.map((i) => ({ ...i, orderId: order.id }))
-    await this.deps.orderDao.createItems(itemsWithOrderId)
-
-    // 5. Debit wallet
-    await this.deps.walletService.debit(
-      buyerId,
-      totalAmount,
-      order.id,
-      'order',
-      `购买商品 - 订单 ${orderNo}`,
-    )
-
-    // 6. Mark order as paid
-    await this.deps.orderDao.update(order.id, { status: 'paid', paidAt: new Date() })
-
-    // 7. Decrement stock
-    for (const item of items) {
-      if (item.skuId) {
-        await this.deps.productService.decrementSkuStock(item.skuId, item.quantity)
+    const order = await this.deps.db.transaction(async (tx) => {
+      for (const item of items) {
+        if (!item.skuId) continue
+        const stockRows = await tx
+          .update(skus)
+          .set({ stock: sql`${skus.stock} - ${item.quantity}`, updatedAt: new Date() })
+          .where(and(eq(skus.id, item.skuId), sql`${skus.stock} >= ${item.quantity}`))
+          .returning({ id: skus.id })
+        if (stockRows.length === 0) {
+          throw Object.assign(new Error('Insufficient stock'), { status: 400 })
+        }
       }
-    }
 
-    // 8. Increment sales count
-    for (const item of items) {
-      await this.deps.productService.incrementSalesCount(item.productId, item.quantity)
-    }
+      const debitRows = await tx
+        .update(wallets)
+        .set({ balance: sql`${wallets.balance} - ${totalAmount}`, updatedAt: new Date() })
+        .where(and(eq(wallets.id, wallet.id), sql`${wallets.balance} >= ${totalAmount}`))
+        .returning({ balance: wallets.balance })
+      if (debitRows.length === 0) {
+        throw Object.assign(new Error('Insufficient balance'), {
+          status: 402,
+          code: 'WALLET_INSUFFICIENT_BALANCE',
+          requiredAmount: totalAmount,
+          balance: wallet.balance,
+          shortfall: Math.max(totalAmount - wallet.balance, 0),
+          nextAction: 'earn_or_recharge',
+        })
+      }
+
+      const [createdOrder] = await tx
+        .insert(orders)
+        .values({
+          orderNo,
+          shopId,
+          buyerId,
+          totalAmount,
+          buyerNote,
+          status: 'paid',
+          paidAt: new Date(),
+        })
+        .returning()
+      if (!createdOrder) throw new Error('Failed to create order')
+
+      const itemsWithOrderId = orderItemsData.map((item) => ({
+        ...item,
+        orderId: createdOrder.id,
+      }))
+      await tx.insert(orderItems).values(itemsWithOrderId)
+
+      await tx.insert(walletTransactions).values({
+        walletId: wallet.id,
+        type: 'purchase',
+        amount: -totalAmount,
+        balanceAfter: debitRows[0]!.balance,
+        referenceId: createdOrder.id,
+        referenceType: 'order',
+        note: `购买商品 - 订单 ${orderNo}`,
+      })
+
+      for (const item of items) {
+        await tx
+          .update(products)
+          .set({ salesCount: sql`${products.salesCount} + ${item.quantity}` })
+          .where(eq(products.id, item.productId))
+      }
+
+      await tx
+        .delete(cartItems)
+        .where(and(eq(cartItems.userId, buyerId), eq(cartItems.shopId, shopId)))
+
+      return createdOrder
+    })
 
     // 9. Provision entitlements for entitlement-type products
     for (const item of items) {
@@ -175,9 +234,6 @@ export class OrderService {
         }
       }
     }
-
-    // 10. Clear user's cart for this shop
-    await this.deps.cartService.clearCart(buyerId, shopId)
 
     return this.getOrderDetail(order.id)
   }

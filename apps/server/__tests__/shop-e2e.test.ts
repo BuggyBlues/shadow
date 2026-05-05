@@ -555,24 +555,18 @@ describe('Wallet', () => {
     expect(wallet.balance).toBe(INITIAL_WALLET_BALANCE)
   })
 
-  it('top up wallet', async () => {
-    const res = await req('POST', '/api/wallet/topup', {
-      token: buyerToken,
-      body: { amount: 5000, note: '测试充值' },
-    })
-    expect(res.status).toBe(200)
-    const wallet = await json<{ balance: number }>(res)
-    expect(wallet.balance).toBe(INITIAL_WALLET_BALANCE + 5000)
+  it('test grant seeds wallet balance', async () => {
+    const wallet = await container
+      .resolve('walletService')
+      .topUp(buyerUserId, 5000, 'Test balance seed')
+    expect(wallet?.balance).toBe(INITIAL_WALLET_BALANCE + 5000)
   })
 
-  it('top up again and verify accumulation', async () => {
-    const res = await req('POST', '/api/wallet/topup', {
-      token: buyerToken,
-      body: { amount: 1000 },
-    })
-    expect(res.status).toBe(200)
-    const wallet = await json<{ balance: number }>(res)
-    expect(wallet.balance).toBe(INITIAL_WALLET_BALANCE + 6000)
+  it('test grant again and verify accumulation', async () => {
+    const wallet = await container
+      .resolve('walletService')
+      .topUp(buyerUserId, 1000, 'Test balance seed')
+    expect(wallet?.balance).toBe(INITIAL_WALLET_BALANCE + 6000)
   })
 
   it('check transaction history', async () => {
@@ -882,10 +876,7 @@ describe('Order status management', () => {
   })
 
   it('rejects invalid transition from paid directly to completed', async () => {
-    await req('POST', '/api/wallet/topup', {
-      token: buyerToken,
-      body: { amount: 500 },
-    })
+    await container.resolve('walletService').topUp(buyerUserId, 500, 'Test balance seed')
     const createRes = await req('POST', `/api/servers/${serverId}/shop/orders`, {
       token: buyerToken,
       body: { items: [{ productId: productId1, skuId: skuId1, quantity: 1 }] },
@@ -918,11 +909,7 @@ describe('Order cancellation & refund', () => {
   let cancelOrderId: string
 
   it('create an order to cancel', async () => {
-    // Top up enough balance
-    await req('POST', '/api/wallet/topup', {
-      token: buyerToken,
-      body: { amount: 500 },
-    })
+    await container.resolve('walletService').topUp(buyerUserId, 500, 'Test balance seed')
 
     const res = await req('POST', `/api/servers/${serverId}/shop/orders`, {
       token: buyerToken,
@@ -965,7 +952,7 @@ describe('Order cancellation & refund', () => {
 
   it('other user cannot cancel someone else order', async () => {
     // Create a new order as buyer so it's in 'paid' status
-    await req('POST', '/api/wallet/topup', { token: buyerToken, body: { amount: 500 } })
+    await container.resolve('walletService').topUp(buyerUserId, 500, 'Test balance seed')
     const createRes = await req('POST', `/api/servers/${serverId}/shop/orders`, {
       token: buyerToken,
       body: { items: [{ productId: productId1, skuId: skuId1, quantity: 1 }] },

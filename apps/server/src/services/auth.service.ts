@@ -223,7 +223,7 @@ export class AuthService {
     const { userDao } = this.deps
 
     try {
-      const payload = verifyToken(refreshToken)
+      const payload = verifyToken(refreshToken, 'refresh')
       const user = await userDao.findById(payload.userId)
       if (!user) {
         throw Object.assign(new Error('User not found'), { status: 401 })

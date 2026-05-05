@@ -1,0 +1,30 @@
+rules:
+  - id: shadow-verify-token-requires-type
+    message: verifyToken calls must pass an expected token type/audience.
+    severity: ERROR
+    languages: [typescript]
+    paths:
+      include:
+        - apps/server/src/**/*.ts
+      exclude:
+        - apps/server/src/lib/jwt.ts
+    pattern: verifyToken($TOKEN)
+
+  - id: shadow-no-public-minio-policy
+    message: Server code must not make MinIO buckets public.
+    severity: ERROR
+    languages: [typescript]
+    paths:
+      include:
+        - apps/server/src/**/*.ts
+    pattern: $CLIENT.setBucketPolicy(...)
+
+  - id: shadow-no-workload-user-token-injection
+    message: Cloud/Play workloads must not receive full SHADOW_USER_TOKEN values from server code.
+    severity: ERROR
+    languages: [typescript]
+    paths:
+      include:
+        - apps/server/src/**/*.ts
+    pattern: |
+      { ..., SHADOW_USER_TOKEN: $VALUE, ... }

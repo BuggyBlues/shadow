@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import type { Context, Next } from 'hono'
 import type { AppContainer } from '../container'
+import type { Actor } from '../security/actor'
 
 export interface OAuthTokenPayload {
   tokenId: string
@@ -12,7 +13,15 @@ export interface OAuthTokenPayload {
 declare module 'hono' {
   interface ContextVariableMap {
     oauthToken: OAuthTokenPayload
+    actor: Actor
   }
+}
+
+function parseScopes(scope: string | null | undefined): string[] {
+  return (scope ?? '')
+    .split(/[\s,]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
 }
 
 /**
@@ -38,11 +47,20 @@ export function createOAuthAuthMiddleware(container: AppContainer) {
       return c.json({ ok: false, error: 'Access token expired' }, 401)
     }
 
-    c.set('oauthToken', {
+    const payload = {
       tokenId: token.id,
       userId: token.userId,
       appId: token.appId,
       scope: token.scope,
+    }
+
+    c.set('oauthToken', payload)
+    c.set('actor', {
+      kind: 'oauth',
+      userId: payload.userId,
+      appId: payload.appId,
+      tokenId: payload.tokenId,
+      scopes: parseScopes(payload.scope),
     })
 
     await next()
@@ -60,7 +78,7 @@ export function oauthScopeMiddleware(requiredScopes: string[]) {
       return c.json({ ok: false, error: 'Missing OAuth context' }, 401)
     }
 
-    const grantedScopes = token.scope.split(' ')
+    const grantedScopes = parseScopes(token.scope)
     const hasAllScopes = requiredScopes.every((s) => grantedScopes.includes(s))
     if (!hasAllScopes) {
       return c.json(

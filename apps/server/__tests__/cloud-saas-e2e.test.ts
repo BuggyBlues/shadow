@@ -26,7 +26,7 @@ import { eq, like } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { Hono } from 'hono'
 import postgres from 'postgres'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { type AppContainer, createAppContainer } from '../src/container'
 import type { Database } from '../src/db'
 import * as schema from '../src/db/schema'
@@ -36,6 +36,10 @@ import { processCloudDeploymentQueueOnce } from '../src/lib/cloud-deployment-pro
 import { signAccessToken, signAgentToken } from '../src/lib/jwt'
 
 process.env.KMS_MASTER_KEY = process.env.KMS_MASTER_KEY ?? 'a'.repeat(64)
+
+vi.mock('../src/lib/ssrf', () => ({
+  assertSafeHttpUrl: async (rawUrl: string) => new URL(rawUrl),
+}))
 
 const TEST_DB_URL = process.env.DATABASE_URL ?? 'postgresql://shadow:shadow@127.0.0.1:5432/shadow'
 
@@ -56,6 +60,7 @@ function uniqueName(prefix: string): string {
 function makeConfigSnapshot(secret = 'super-secret'): Record<string, unknown> {
   return {
     version: '1',
+    use: [{ plugin: 'model-provider' }],
     deployments: {
       agents: [
         {
@@ -1155,7 +1160,7 @@ describe('Cloud SaaS — deployment + billing', () => {
       const runtime = extractCloudSaasRuntime(stored?.configSnapshot).envVars
       expect(runtime.SHADOW_SERVER_URL).toBe('http://server.test:3002')
       expect(runtime.SHADOW_AGENT_SERVER_URL).toBe('http://agent.test:3002')
-      expect(runtime.SHADOW_USER_TOKEN).toBe(token)
+      expect(runtime.SHADOW_USER_TOKEN).toBeUndefined()
       expect(runtime.OPENAI_API_KEY).toBe('saved-openai-key')
     } finally {
       if (previousShadowServerUrl === undefined) {
@@ -1279,10 +1284,6 @@ describe('Cloud SaaS — deployment + billing', () => {
         name: uniqueName('e2e-official-provider-deploy'),
         templateSlug: officialTemplateSlug,
         resourceTier: 'lightweight',
-        envVars: {
-          OPENAI_COMPATIBLE_API_KEY: 'user-supplied-key',
-          DEEPSEEK_API_KEY: 'user-supplied-deepseek-key',
-        },
         configSnapshot: {
           ...makeConfigSnapshot('official-provider-secret'),
           use: [{ plugin: 'model-provider' }],
@@ -1519,7 +1520,8 @@ describe('Cloud SaaS — deployment + billing', () => {
         return
       }
       if (url.pathname === '/gemini/models') {
-        expect(url.searchParams.get('key')).toBe('mock-gemini-key')
+        expect(url.searchParams.get('key')).toBeNull()
+        expect(request.headers['x-goog-api-key']).toBe('mock-gemini-key')
         expect(request.headers.authorization).toBeUndefined()
         response.writeHead(200, { 'Content-Type': 'application/json' })
         response.end(
@@ -1711,9 +1713,6 @@ describe('Cloud SaaS — deployment + billing', () => {
       templateSlug: officialTemplateSlug,
       resourceTier: 'lightweight',
       configSnapshot,
-      envVars: {
-        SHADOW_USER_TOKEN: 'runtime-only-secret',
-      },
     })
     expect(res.status).toBe(201)
     const deployment = (await res.json()) as {
@@ -2021,8 +2020,10 @@ describe('Cloud SaaS — deployment + billing', () => {
         .limit(1)
 
       const runtime = extractCloudSaasRuntime(storedRedeploy?.configSnapshot)
-      expect(runtime.provisionState?.plugins.shadowob).toEqual(provisionState.plugins.shadowob)
-      expect(runtime.envVars.SHADOW_USER_TOKEN).toBe(token)
+      expect(
+        runtime.provisionState?.plugins.shadowob.buddies['strategy-buddy'].token,
+      ).toBeUndefined()
+      expect(runtime.envVars.SHADOW_USER_TOKEN).toBeUndefined()
 
       const redeployAgainRes = await req(
         'POST',
@@ -2115,11 +2116,13 @@ describe('Cloud SaaS — deployment + billing', () => {
         .limit(1)
 
       const runtime = extractCloudSaasRuntime(storedRedeploy?.configSnapshot)
-      expect(runtime.envVars.SHADOW_USER_TOKEN).toBe(token)
+      expect(runtime.envVars.SHADOW_USER_TOKEN).toBeUndefined()
       expect(runtime.envVars.SHADOW_SERVER_URL).not.toBe('http://stale-shadow.local')
       expect(runtime.envVars.ANTHROPIC_API_KEY).toBe('fresh-redeploy-anthropic-key')
       expect(runtime.envVars.ANTHROPIC_BASE_URL).toBe('https://anthropic-redeploy.example.test')
-      expect(runtime.provisionState?.plugins.shadowob).toEqual(provisionState.plugins.shadowob)
+      expect(
+        runtime.provisionState?.plugins.shadowob.buddies['strategy-buddy'].token,
+      ).toBeUndefined()
     } finally {
       await db
         .delete(schema.cloudDeployments)
@@ -2212,7 +2215,7 @@ describe('Cloud SaaS — deployment + billing', () => {
     expect(detail).toMatchObject({ status: 'failed', errorMessage: 'cancelled by user' })
   })
 
-  it('POST /api/cloud-saas/deployments rejects invalid config without charging wallet', async () => {
+  it('POST /api/cloud-saas/deployments ignores client-tampered configSnapshot', async () => {
     const walletBefore = (await (await req('GET', '/api/cloud-saas/wallet')).json()) as {
       balance: number
     }
@@ -2230,15 +2233,16 @@ describe('Cloud SaaS — deployment + billing', () => {
       },
     })
 
-    expect(res.status).toBe(422)
-    const body = (await res.json()) as { ok: boolean; error: string }
-    expect(body.ok).toBe(false)
-    expect(body.error).toContain('Invalid configSnapshot')
+    expect(res.status).toBe(201)
+    const body = (await res.json()) as {
+      configSnapshot: { deployments?: { agents?: unknown[] } }
+    }
+    expect(body.configSnapshot.deployments?.agents).toHaveLength(1)
 
     const walletAfter = (await (await req('GET', '/api/cloud-saas/wallet')).json()) as {
       balance: number
     }
-    expect(walletAfter.balance).toBe(walletBefore.balance)
+    expect(walletAfter.balance).toBe(walletBefore.balance - 500)
   })
 
   it('POST /api/cloud-saas/deployments rejects undeployable templates before charging wallet', async () => {

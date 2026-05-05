@@ -1,5 +1,7 @@
+import { and, eq, ne } from 'drizzle-orm'
 import type { RechargeDao } from '../dao/recharge.dao'
-import type { WalletDao } from '../dao/wallet.dao'
+import type { Database } from '../db'
+import { paymentOrders } from '../db/schema'
 import {
   CUSTOM_AMOUNT_MAX,
   CUSTOM_AMOUNT_MIN,
@@ -9,13 +11,15 @@ import {
   shrimpCoinsToUsdCents,
   stripe,
 } from '../lib/stripe'
+import type { LedgerService } from './ledger.service'
 import type { NotificationTriggerService } from './notification-trigger.service'
 
 export class RechargeService {
   constructor(
     private deps: {
       rechargeDao: RechargeDao
-      walletDao: WalletDao
+      db: Database
+      ledgerService: LedgerService
       notificationTriggerService: NotificationTriggerService
     },
   ) {}
@@ -146,31 +150,36 @@ export class RechargeService {
     // Idempotency: skip if already succeeded
     if (order.status === 'succeeded') return
 
-    // Credit wallet
-    const wallet = await this.deps.walletDao.getOrCreate(order.userId)
-    const newBalance = wallet.balance + order.shrimpCoinAmount
-    await this.deps.walletDao.credit(wallet.id, order.shrimpCoinAmount)
-    await this.deps.walletDao.addTransaction({
-      walletId: wallet.id,
-      type: 'topup',
-      amount: order.shrimpCoinAmount,
-      balanceAfter: newBalance,
-      referenceId: order.id,
-      referenceType: 'payment_order',
-      note: `充值 ${order.shrimpCoinAmount} 虾币 (${order.orderNo})`,
-    })
+    const paidAt = new Date()
+    const credited = await this.deps.db.transaction(async (tx) => {
+      const [updatedOrder] = await tx
+        .update(paymentOrders)
+        .set({ status: 'succeeded', paidAt, updatedAt: new Date() })
+        .where(and(eq(paymentOrders.id, order.id), ne(paymentOrders.status, 'succeeded')))
+        .returning()
+      if (!updatedOrder) return null
 
-    // Update order status
-    await this.deps.rechargeDao.updateStatus(order.id, 'succeeded', {
-      paidAt: new Date(),
+      const balanceAfter = await this.deps.ledgerService.credit(
+        {
+          userId: updatedOrder.userId,
+          amount: updatedOrder.shrimpCoinAmount,
+          type: 'topup',
+          referenceId: updatedOrder.id,
+          referenceType: 'payment_order',
+          note: `充值 ${updatedOrder.shrimpCoinAmount} 虾币 (${updatedOrder.orderNo})`,
+        },
+        tx,
+      )
+      return { order: updatedOrder, balanceAfter }
     })
+    if (!credited) return
 
     await this.deps.notificationTriggerService.triggerRechargeSucceeded({
-      userId: order.userId,
-      orderId: order.id,
-      orderNo: order.orderNo,
-      shrimpCoins: order.shrimpCoinAmount,
-      newBalance,
+      userId: credited.order.userId,
+      orderId: credited.order.id,
+      orderNo: credited.order.orderNo,
+      shrimpCoins: credited.order.shrimpCoinAmount,
+      newBalance: credited.balanceAfter,
     })
   }
 

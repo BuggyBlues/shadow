@@ -16,7 +16,7 @@ import {
   PULUMI_MANAGED_ANNOTATIONS,
   probesForRuntime,
 } from './constants.js'
-import { dedupeEnvVars } from './env-vars.js'
+import { assertNoReservedEnvOverrides, dedupeEnvVars } from './env-vars.js'
 import { resolveImagePullPolicy } from './image-pull-policy.js'
 import { collectPluginK8sArtifacts } from './plugin-k8s.js'
 import { buildContainerSecurityContext, buildSecurityContext } from './security.js'
@@ -88,6 +88,18 @@ export function createAgentDeployment(options: AgentDeploymentOptions) {
   // Collect K8s artifacts from all plugins (init containers, volumes, env vars, labels)
   const ns = namespaceName ?? (typeof namespace === 'string' ? namespace : 'default')
   const pluginArtifacts = collectPluginK8sArtifacts(agent, config, ns)
+  assertNoReservedEnvOverrides(envVars, pluginArtifacts.envVars, 'Plugin env')
+  for (const volume of pluginArtifacts.volumes) {
+    if ('hostPath' in (volume.spec as Record<string, unknown>)) {
+      throw new Error(`Plugin volume ${volume.name} uses forbidden hostPath`)
+    }
+  }
+  for (const container of [...pluginArtifacts.initContainers, ...pluginArtifacts.sidecars]) {
+    const securityContext = (container.securityContext ?? {}) as Record<string, unknown>
+    if (securityContext.privileged === true || securityContext.allowPrivilegeEscalation === true) {
+      throw new Error(`Plugin container ${container.name} requests privileged security context`)
+    }
+  }
   const pluginConfigMaps = pluginArtifacts.configMaps.map(
     (configMap) =>
       new k8s.core.v1.ConfigMap(
