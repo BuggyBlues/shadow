@@ -18,28 +18,40 @@ export function attachPlayLaunchRuntimeMetadata(
   metadata: PlayLaunchRuntimeMetadata,
 ) {
   if (!metadata.defaultChannelName && !metadata.greeting) return configSnapshot
-  const runtime = isRecord(configSnapshot[CLOUD_SAAS_RUNTIME_KEY])
-    ? (configSnapshot[CLOUD_SAAS_RUNTIME_KEY] as Record<string, unknown>)
-    : {}
+  const use = Array.isArray(configSnapshot.use)
+    ? configSnapshot.use.map((entry) => {
+        if (!isRecord(entry) || entry.plugin !== 'shadowob') return entry
+        const options = isRecord(entry.options) ? entry.options : {}
+        const playLaunch = isRecord(options.playLaunch) ? options.playLaunch : {}
+        return {
+          ...entry,
+          options: {
+            ...options,
+            playLaunch: {
+              ...playLaunch,
+              ...(metadata.defaultChannelName
+                ? { defaultChannelName: metadata.defaultChannelName }
+                : {}),
+              ...(metadata.greeting ? { greeting: metadata.greeting } : {}),
+            },
+          },
+        }
+      })
+    : configSnapshot.use
 
   return {
     ...configSnapshot,
-    [CLOUD_SAAS_RUNTIME_KEY]: {
-      ...runtime,
-      playLaunch: {
-        ...(isRecord(runtime.playLaunch) ? runtime.playLaunch : {}),
-        ...(metadata.defaultChannelName ? { defaultChannelName: metadata.defaultChannelName } : {}),
-        ...(metadata.greeting ? { greeting: metadata.greeting } : {}),
-      },
-    },
+    ...(use ? { use } : {}),
   }
 }
 
 function playLaunchRuntimeMetadata(configSnapshot: unknown): PlayLaunchRuntimeMetadata {
   if (!isRecord(configSnapshot)) return {}
+  const shadowobPlayLaunch = shadowobPlayLaunchMetadata(configSnapshot)
   const runtime = configSnapshot[CLOUD_SAAS_RUNTIME_KEY]
-  if (!isRecord(runtime) || !isRecord(runtime.playLaunch)) return {}
+  if (!isRecord(runtime) || !isRecord(runtime.playLaunch)) return shadowobPlayLaunch
   return {
+    ...shadowobPlayLaunch,
     ...(typeof runtime.playLaunch.defaultChannelName === 'string'
       ? { defaultChannelName: runtime.playLaunch.defaultChannelName }
       : {}),
@@ -61,6 +73,18 @@ function shadowobOptions(configSnapshot: unknown): Record<string, unknown> | nul
   if (!Array.isArray(use)) return null
   const shadowobEntry = use.find((entry) => isRecord(entry) && entry.plugin === 'shadowob')
   return isRecord(shadowobEntry) && isRecord(shadowobEntry.options) ? shadowobEntry.options : null
+}
+
+function shadowobPlayLaunchMetadata(configSnapshot: unknown): PlayLaunchRuntimeMetadata {
+  const options = shadowobOptions(configSnapshot)
+  const playLaunch = options?.playLaunch
+  if (!isRecord(playLaunch)) return {}
+  return {
+    ...(typeof playLaunch.defaultChannelName === 'string'
+      ? { defaultChannelName: playLaunch.defaultChannelName }
+      : {}),
+    ...(typeof playLaunch.greeting === 'string' ? { greeting: playLaunch.greeting } : {}),
+  }
 }
 
 function resolvePreferredChannelConfigId(

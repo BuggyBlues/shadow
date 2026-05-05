@@ -24,7 +24,7 @@ The `apps/cloud` package provides a CLI (`shadow-cloud`) for deploying OpenClaw 
 | Kubernetes cluster | Rancher Desktop (k3s v1.33.5) |
 | kubectl context | `rancher-desktop` |
 | Container runtime | Docker (moby) via Rancher Desktop |
-| Pulumi | v3.228.0, logged in as `maopeng` |
+| Pulumi | v3.228.0, logged in as `<REDACTED_USER>` |
 | nerdctl | Available at `~/.rd/bin/nerdctl` |
 
 **Key finding**: Docker images built with `docker build` are directly accessible to the k3s cluster on Rancher Desktop (moby is used as the CRI). Pods with `imagePullPolicy: IfNotPresent` can use locally built images without registry push.

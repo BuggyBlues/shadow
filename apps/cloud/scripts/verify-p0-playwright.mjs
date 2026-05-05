@@ -5,7 +5,10 @@ import { chromium } from '@playwright/test'
 const WEB_BASE = 'http://localhost:3000'
 const SERVER_BASE = 'http://localhost:3002'
 const SCREENSHOT_DIR = path.resolve(
-  '/Users/maopeng/Projects/shadow/.research/shadow-cloud-qa-2026-04-22/screenshots',
+  process.cwd(),
+  '.research',
+  'shadow-cloud-qa-2026-04-22',
+  'screenshots',
 )
 
 const adminEmail = 'admin@shadowob.app'

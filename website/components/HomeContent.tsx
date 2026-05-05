@@ -1,5 +1,6 @@
 import confetti from 'canvas-confetti'
 import {
+  ArrowRight,
   ChevronLeft,
   ChevronRight,
   Crown,
@@ -8,11 +9,14 @@ import {
   Lightbulb,
   Play,
   RotateCcw,
+  Search,
   Sparkles,
   Trophy,
+  WandSparkles,
   X,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { fetchConfig, fetchPlayCatalog } from '../lib/config-client'
 
 /* ─── Scroll reveal ─── */
@@ -83,6 +87,10 @@ const configuredAppBase = () =>
   (typeof __SHADOW_APP_BASE_URL__ !== 'undefined' ? __SHADOW_APP_BASE_URL__ : '').replace(/\/$/, '')
 const playLaunchUrl = (play: Play) =>
   `${configuredAppBase()}/app/play/launch?play=${encodeURIComponent(play.id)}`
+const docsUrl = (path: string, isZh: boolean) => {
+  const prefix = isZh ? '/zh' : ''
+  return `${DOCS_BASE}${prefix}${path}`.replace(/\/{2,}/g, '/')
+}
 const canLaunchPlay = (play: Play) => play.status === 'available' || play.status === 'gated'
 const playCtaLabel = (play: Play, isZh: boolean, short = false) => {
   if (!play.status) return isZh ? '加载中' : 'Loading'
@@ -1808,6 +1816,730 @@ function EditorPicks({ isZh }: { isZh: boolean }) {
   )
 }
 
+/* ─── DIY Cloud prompt ─── */
+
+function DiyPromptSection({ isZh }: { isZh: boolean }) {
+  const [prompt, setPrompt] = useState('')
+  const [immersive, setImmersive] = useState(false)
+  const [closing, setClosing] = useState(false)
+  const [casePanelOpen, setCasePanelOpen] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [autocompleteDismissed, setAutocompleteDismissed] = useState(false)
+  const [placeholderIndex, setPlaceholderIndex] = useState(0)
+  const [typedPlaceholder, setTypedPlaceholder] = useState('')
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const closeTimerRef = useRef<number | null>(null)
+  const trimmed = prompt.trim()
+  const examples = useMemo(() => {
+    const groups = isZh
+      ? [
+          {
+            tag: '增长',
+            items: [
+              ['竞品与周报', '帮我搭一个每天整理竞品、生成增长周报、能接 Google Drive 的空间'],
+              ['SEO 作战室', '给独立站做一个 SEO 增长空间，监控关键词、页面改动和内容机会'],
+              ['线索跟进', '创建销售线索跟进空间，汇总表单、邮件和待办，每天提醒最该推进的人'],
+              ['投放复盘', '搭一个投放复盘空间，整理素材表现、花费异常和下周实验计划'],
+              ['用户访谈', '做一个用户访谈分析空间，沉淀录音摘要、痛点标签和产品机会'],
+              ['转化漏斗', '创建转化漏斗诊断空间，追踪注册、激活、付费和流失原因'],
+              ['社群增长', '搭一个社群增长空间，整理群内问题、热门话题和可复用回复'],
+              ['上新节奏', '为电商团队生成上新作战室，协调选品、素材、库存和复盘'],
+            ],
+          },
+          {
+            tag: '科研',
+            items: [
+              ['阅读与论文', '创建一个科研助手空间，能检索资料、沉淀论文笔记，并生成每周阅读简报'],
+              ['课题追踪', '搭一个课题追踪空间，记录研究假设、实验进展和下一步问题'],
+              ['文献综述', '帮我建立文献综述空间，按主题归档论文、方法、数据集和争议点'],
+              ['实验日志', '创建实验日志空间，跟踪参数、结果、失败原因和复现实验步骤'],
+              ['基金申请', '搭一个基金申请协作空间，整理立项依据、预算说明和材料清单'],
+              ['论文写作', '生成论文写作空间，管理大纲、引用、图表和审稿回复'],
+              ['读书小组', '创建研究小组空间，每周分配阅读任务并生成讨论问题'],
+              ['数据标注', '搭一个数据标注质检空间，检查样本一致性、争议样本和标注规范'],
+            ],
+          },
+          {
+            tag: '独立开发',
+            items: [
+              ['产品作战室', '给独立开发者做一个产品增长作战室，跟踪站点 SEO、转化线索和待办'],
+              ['MVP 冲刺', '搭一个 MVP 冲刺空间，把需求、技术债、发布清单和用户反馈串起来'],
+              ['Bug 收敛', '创建 Bug 收敛空间，读取 GitHub Issue、归因重复问题并安排修复优先级'],
+              ['定价实验', '帮我做定价实验空间，记录套餐假设、用户异议和转化数据'],
+              ['发布雷达', '搭一个发布雷达空间，追踪 Product Hunt、社区反馈和媒体线索'],
+              ['用户支持', '创建早期用户支持空间，把反馈、工单和路线图建议合并整理'],
+              ['竞品雷达', '给 SaaS 做竞品雷达，监控版本更新、定价变化和差异化机会'],
+              ['投资人更新', '搭一个月度投资人更新空间，自动汇总指标、进展、风险和需求'],
+            ],
+          },
+          {
+            tag: '客服',
+            items: [
+              ['知识库 Buddy', '搭一个客服知识库 Buddy，能读取文档、回答常见问题，并提示缺失资料'],
+              ['工单分流', '创建工单分流空间，识别紧急问题、退款诉求和需要人工介入的对话'],
+              ['退款挽留', '搭一个退款挽留空间，总结流失原因并生成可执行的补救方案'],
+              ['新人客服', '建立客服培训空间，用真实案例训练新人回答、升级和记录问题'],
+              ['质量抽检', '创建客服质检空间，抽查对话是否准确、礼貌、按流程处理'],
+              ['多语言支持', '搭一个多语言客服空间，把英文问题翻译、归类并生成中文处理建议'],
+              ['故障通报', '创建故障响应空间，汇总用户影响、状态页文案和补偿建议'],
+              ['FAQ 更新', '做一个 FAQ 更新空间，从重复问题里提炼新文档和产品改进线索'],
+            ],
+          },
+          {
+            tag: '设计',
+            items: [
+              ['设计评审', '创建一个设计评审空间，接入 Figma 链接，输出可执行的 UI 修改建议'],
+              ['品牌资产', '搭一个品牌资产空间，整理 Logo、色彩、字体、语气和使用边界'],
+              ['落地页审查', '创建落地页审查空间，检查首屏信息、转化路径和视觉层次'],
+              ['组件质检', '建立设计系统质检空间，发现组件不一致、状态缺失和文案溢出'],
+              ['用户旅程', '搭一个用户旅程空间，整理关键触点、情绪波动和改版机会'],
+              ['图标审核', '创建图标审核空间，检查语义、尺寸、线宽和跨端一致性'],
+              ['广告素材', '做一个广告素材评审空间，按人群、卖点和视觉冲击力打分'],
+              ['无障碍检查', '搭一个无障碍检查空间，审查对比度、焦点状态和键盘路径'],
+            ],
+          },
+          {
+            tag: '财务',
+            items: [
+              ['现金流复盘', '搭一个个人财务复盘空间，整理账单、预算和每周现金流提醒'],
+              ['报销助手', '创建报销整理空间，归档发票、检查缺项并生成提交清单'],
+              ['订阅巡检', '搭一个订阅巡检空间，发现闲置 SaaS、重复扣费和续费风险'],
+              ['团队预算', '创建团队预算空间，跟踪项目花费、采购审批和余额预警'],
+              ['应收跟进', '搭一个应收账款跟进空间，提醒逾期客户并生成催款记录'],
+              ['税务材料', '建立税务材料准备空间，整理收入、成本、合同和凭证缺口'],
+              ['家庭账本', '创建家庭账本空间，每周总结消费结构和节省建议'],
+              ['投资记录', '搭一个投资复盘空间，记录买卖理由、风险假设和复盘提醒'],
+            ],
+          },
+          {
+            tag: '项目',
+            items: [
+              ['项目战情室', '创建一个项目战情室，能看 GitHub Issue、沉淀决策并提醒阻塞项'],
+              ['周会助手', '搭一个周会空间，汇总进展、风险、依赖和会后行动项'],
+              ['上线清单', '创建上线清单空间，追踪测试、灰度、回滚和公告准备'],
+              ['跨团队协作', '搭一个跨团队项目空间，把需求、设计、工程和运营同步到一个节奏'],
+              ['客户交付', '创建客户交付空间，管理里程碑、验收材料和风险沟通'],
+              ['招聘流程', '搭一个招聘项目空间，跟踪候选人、面试反馈和 Offer 进度'],
+              ['活动筹备', '创建活动筹备空间，管理嘉宾、物料、宣传和现场清单'],
+              ['OKR 跟踪', '搭一个 OKR 跟踪空间，把目标、关键结果和每周更新串起来'],
+            ],
+          },
+          {
+            tag: '内容',
+            items: [
+              ['内容运营', '帮我做一个内容运营空间，追踪选题、资料、发布排期和复盘'],
+              ['短视频脚本', '搭一个短视频脚本空间，从热点、素材和产品卖点生成脚本'],
+              ['播客制作', '创建播客制作空间，整理嘉宾资料、采访提纲和发布文案'],
+              ['Newsletter', '搭一个 Newsletter 空间，收集链接、提炼观点并生成每周邮件'],
+              ['知识星球', '创建社群内容空间，整理成员问题、课程更新和答疑素材'],
+              ['案例研究', '搭一个客户案例空间，沉淀访谈、成效数据和发布版本'],
+              ['社媒日历', '创建社媒排期空间，管理平台差异、素材状态和复盘指标'],
+              ['课程研发', '搭一个课程研发空间，规划大纲、作业、案例和学员反馈'],
+            ],
+          },
+        ]
+      : [
+          {
+            tag: 'Growth',
+            items: [
+              [
+                'Competitor Briefs',
+                'Build a growth space that monitors competitors, drafts weekly reports, and connects Google Drive',
+              ],
+              [
+                'SEO Room',
+                'Create an SEO room that tracks keywords, page changes, content gaps, and publishing tasks',
+              ],
+              [
+                'Lead Follow-up',
+                'Build a lead follow-up space that summarizes forms, emails, objections, and next actions',
+              ],
+              [
+                'Campaign Review',
+                'Set up a campaign review room for spend anomalies, creative performance, and next experiments',
+              ],
+              [
+                'User Interviews',
+                'Create an interview analysis space that tags pain points and extracts product opportunities',
+              ],
+              [
+                'Activation Funnel',
+                'Build a funnel diagnosis room for signup, activation, payment, and churn reasons',
+              ],
+              [
+                'Community Growth',
+                'Set up a community growth room that detects repeated questions and reusable replies',
+              ],
+              [
+                'Launch Calendar',
+                'Create an ecommerce launch room for products, inventory, assets, and post-launch review',
+              ],
+            ],
+          },
+          {
+            tag: 'Research',
+            items: [
+              [
+                'Reading Room',
+                'Create a research assistant space that finds sources, keeps paper notes, and writes a weekly reading brief',
+              ],
+              [
+                'Thesis Tracker',
+                'Build a thesis tracker for hypotheses, experiments, blockers, and next research questions',
+              ],
+              [
+                'Literature Review',
+                'Create a literature review room organized by topics, methods, datasets, and disputes',
+              ],
+              [
+                'Experiment Log',
+                'Set up an experiment log for parameters, results, failures, and reproducibility notes',
+              ],
+              [
+                'Grant Drafting',
+                'Build a grant workspace for rationale, budget notes, collaborators, and missing materials',
+              ],
+              [
+                'Paper Writing',
+                'Create a paper-writing room for outline, citations, figures, and reviewer responses',
+              ],
+              [
+                'Reading Group',
+                'Set up a reading-group room with assignments, summaries, and weekly discussion prompts',
+              ],
+              [
+                'Data Labeling',
+                'Create a labeling QA room for consistency checks, disputed samples, and guidelines',
+              ],
+            ],
+          },
+          {
+            tag: 'Founder',
+            items: [
+              [
+                'Product War Room',
+                'Set up an indie founder growth room for SEO, conversion leads, and action tracking',
+              ],
+              [
+                'MVP Sprint',
+                'Create an MVP sprint room that connects requirements, tech debt, releases, and feedback',
+              ],
+              [
+                'Bug Triage',
+                'Build a bug triage room that reads GitHub issues, clusters duplicates, and prioritizes fixes',
+              ],
+              [
+                'Pricing Lab',
+                'Set up a pricing experiment room for package hypotheses, objections, and conversion signals',
+              ],
+              [
+                'Launch Radar',
+                'Create a launch radar for Product Hunt, community feedback, and press leads',
+              ],
+              [
+                'Early Support',
+                'Build an early-user support room that merges feedback, tickets, and roadmap ideas',
+              ],
+              [
+                'Competitor Radar',
+                'Set up a SaaS competitor radar for release notes, pricing changes, and positioning gaps',
+              ],
+              [
+                'Investor Update',
+                'Create a monthly investor update room for metrics, progress, risks, and asks',
+              ],
+            ],
+          },
+          {
+            tag: 'Support',
+            items: [
+              [
+                'Knowledge Buddy',
+                'Create a support knowledge-base Buddy that reads docs, answers FAQs, and flags missing material',
+              ],
+              [
+                'Ticket Routing',
+                'Build a ticket routing room that detects urgent issues, refunds, and handoff needs',
+              ],
+              [
+                'Refund Recovery',
+                'Create a refund recovery room that summarizes churn reasons and suggests save offers',
+              ],
+              [
+                'Agent Training',
+                'Set up a support training room using real cases for replies, escalation, and notes',
+              ],
+              [
+                'QA Review',
+                'Build a support QA room that audits accuracy, tone, and process compliance',
+              ],
+              [
+                'Multilingual Support',
+                'Create a multilingual support room that translates, classifies, and drafts responses',
+              ],
+              [
+                'Incident Comms',
+                'Set up an incident response room for impact summary, status updates, and compensation notes',
+              ],
+              [
+                'FAQ Updates',
+                'Build an FAQ update room that turns repeated questions into docs and product insights',
+              ],
+            ],
+          },
+          {
+            tag: 'Design',
+            items: [
+              [
+                'Design Review',
+                'Build a design review space that reads Figma links and returns actionable UI fixes',
+              ],
+              [
+                'Brand Assets',
+                'Create a brand asset room for logo, colors, typography, voice, and usage rules',
+              ],
+              [
+                'Landing Audit',
+                'Set up a landing-page audit room for first-screen clarity, conversion path, and hierarchy',
+              ],
+              [
+                'Component QA',
+                'Build a design-system QA room for inconsistent components, missing states, and overflow',
+              ],
+              [
+                'Journey Map',
+                'Create a user journey room for key touchpoints, emotions, and redesign opportunities',
+              ],
+              [
+                'Icon Review',
+                'Set up an icon review room for meaning, size, stroke, and cross-platform consistency',
+              ],
+              [
+                'Ad Creative',
+                'Build an ad creative review room that scores audience fit, message, and visual impact',
+              ],
+              [
+                'Accessibility',
+                'Create an accessibility audit room for contrast, focus states, and keyboard paths',
+              ],
+            ],
+          },
+          {
+            tag: 'Finance',
+            items: [
+              [
+                'Cash Review',
+                'Create a personal finance review space for bills, budget, and weekly cash-flow reminders',
+              ],
+              [
+                'Expense Prep',
+                'Build an expense room that organizes receipts, checks gaps, and prepares submission notes',
+              ],
+              [
+                'Subscription Audit',
+                'Create a subscription audit room for unused tools, duplicate billing, and renewals',
+              ],
+              [
+                'Team Budget',
+                'Set up a team budget room for project spend, approvals, and low-balance warnings',
+              ],
+              [
+                'Receivables',
+                'Build an AR follow-up room for overdue customers, reminders, and payment notes',
+              ],
+              [
+                'Tax Prep',
+                'Create a tax material room for income, costs, contracts, and missing evidence',
+              ],
+              [
+                'Family Ledger',
+                'Set up a household ledger room with weekly spend summaries and saving suggestions',
+              ],
+              [
+                'Investment Journal',
+                'Build an investment journal room for trade rationale, risk assumptions, and reviews',
+              ],
+            ],
+          },
+          {
+            tag: 'Project',
+            items: [
+              [
+                'Project Room',
+                'Create a project war room that reads GitHub issues, records decisions, and flags blockers',
+              ],
+              [
+                'Weekly Sync',
+                'Build a weekly sync room for progress, risks, dependencies, and follow-up tasks',
+              ],
+              [
+                'Release Checklist',
+                'Create a release room for QA, rollout, rollback, and announcement readiness',
+              ],
+              [
+                'Cross-team Work',
+                'Set up a cross-team room connecting requirements, design, engineering, and ops',
+              ],
+              [
+                'Client Delivery',
+                'Build a client delivery room for milestones, acceptance materials, and risks',
+              ],
+              [
+                'Hiring Pipeline',
+                'Create a hiring project room for candidates, interview feedback, and offer progress',
+              ],
+              [
+                'Event Planning',
+                'Set up an event room for speakers, assets, promotion, and run-of-show details',
+              ],
+              [
+                'OKR Tracking',
+                'Build an OKR tracking room that connects goals, key results, and weekly updates',
+              ],
+            ],
+          },
+          {
+            tag: 'Content',
+            items: [
+              [
+                'Content Ops',
+                'Build a content operations space for topics, sources, publishing calendar, and retros',
+              ],
+              [
+                'Video Scripts',
+                'Create a short-video script room from trends, assets, and product angles',
+              ],
+              [
+                'Podcast Production',
+                'Set up a podcast room for guest research, interview outlines, and launch copy',
+              ],
+              [
+                'Newsletter',
+                'Build a newsletter room that collects links, extracts views, and drafts weekly emails',
+              ],
+              [
+                'Community Content',
+                'Create a community content room for member questions, updates, and answer material',
+              ],
+              [
+                'Case Studies',
+                'Set up a case-study room for interviews, proof points, and publishable stories',
+              ],
+              [
+                'Social Calendar',
+                'Build a social calendar room for channel variants, asset status, and metrics review',
+              ],
+              [
+                'Course Design',
+                'Create a course design room for syllabus, assignments, cases, and learner feedback',
+              ],
+            ],
+          },
+        ]
+
+    return groups.flatMap(({ tag, items }) => items.map(([title, text]) => ({ tag, title, text })))
+  }, [isZh])
+  const placeholderExamples = useMemo(() => examples.slice(0, 4), [examples])
+  const categories = useMemo(
+    () => [
+      { id: 'all', label: isZh ? '全部' : 'All' },
+      ...Array.from(new Set(examples.map((item) => item.tag))).map((tag) => ({
+        id: tag,
+        label: tag,
+      })),
+    ],
+    [examples, isZh],
+  )
+  const visibleExamples = useMemo(
+    () =>
+      selectedCategory === 'all'
+        ? examples
+        : examples.filter((item) => item.tag === selectedCategory),
+    [examples, selectedCategory],
+  )
+  const autocompleteExamples = useMemo(() => {
+    const normalized = trimmed.toLowerCase()
+    const matched = normalized
+      ? examples.filter(
+          (item) =>
+            item.text.toLowerCase().includes(normalized) ||
+            item.title.toLowerCase().includes(normalized) ||
+            item.tag.toLowerCase().includes(normalized),
+        )
+      : examples
+    return matched.slice(0, 4)
+  }, [examples, trimmed])
+  const showAutocomplete = trimmed.length > 0 && !casePanelOpen && !autocompleteDismissed
+  const placeholder = `${isZh ? '例如：' : 'Example: '}${typedPlaceholder}`
+
+  useEffect(() => {
+    const current = placeholderExamples[placeholderIndex % placeholderExamples.length]?.text ?? ''
+    setTypedPlaceholder('')
+    let index = 0
+    const typeTimer = window.setInterval(() => {
+      index += 1
+      setTypedPlaceholder(current.slice(0, index))
+      if (index >= current.length) window.clearInterval(typeTimer)
+    }, 32)
+    const nextTimer = window.setTimeout(
+      () => {
+        setPlaceholderIndex((value) => (value + 1) % placeholderExamples.length)
+      },
+      Math.max(3200, current.length * 32 + 1200),
+    )
+    return () => {
+      window.clearInterval(typeTimer)
+      window.clearTimeout(nextTimer)
+    }
+  }, [placeholderIndex, placeholderExamples])
+
+  const target = `/app/cloud/diy${trimmed ? `?prompt=${encodeURIComponent(trimmed)}` : ''}`
+
+  const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (trimmed) window.location.assign(target)
+  }
+
+  const closeImmersive = useCallback(() => {
+    if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current)
+    setClosing(true)
+    setAutocompleteDismissed(true)
+    closeTimerRef.current = window.setTimeout(() => {
+      setImmersive(false)
+      setCasePanelOpen(false)
+      setClosing(false)
+      closeTimerRef.current = null
+    }, 220)
+  }, [])
+
+  const openImmersive = useCallback(() => {
+    if (closeTimerRef.current) {
+      window.clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
+    }
+    setImmersive(true)
+    setClosing(false)
+    setCasePanelOpen(true)
+    setAutocompleteDismissed(false)
+  }, [])
+
+  useEffect(() => {
+    if (!immersive) return
+    window.requestAnimationFrame(() => textareaRef.current?.focus({ preventScroll: true }))
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeImmersive()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [closeImmersive, immersive])
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current)
+    }
+  }, [])
+
+  const panel = (
+    <div
+      className={[
+        'home-diy-panel',
+        casePanelOpen ? 'home-diy-panel-expanded' : '',
+        immersive ? 'home-diy-panel-immersive' : '',
+        closing ? 'home-diy-panel-closing' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      onClick={(event) => {
+        if (immersive && event.target === event.currentTarget) closeImmersive()
+      }}
+    >
+      {immersive && (
+        <button
+          type="button"
+          className="home-diy-close"
+          aria-label={isZh ? '关闭 DIY Cloud' : 'Close DIY Cloud'}
+          onClick={closeImmersive}
+        >
+          <X size={18} strokeWidth={2.8} />
+        </button>
+      )}
+      <div className="home-diy-copy">
+        <span className="section-label section-label-inline">
+          <WandSparkles size={15} strokeWidth={2.7} />
+          {isZh ? 'DIY Cloud' : 'DIY Cloud'}
+        </span>
+        <h2>{isZh ? '想要一个专属空间？' : 'Describe the space you want.'}</h2>
+        <p>
+          {isZh
+            ? '输入目标，虾豆会先生成可审查的 Cloud 模版和指南书，再带你一键部署。'
+            : 'Describe the goal. Shadow drafts a reviewable Cloud template and guidebook before one-click deployment.'}
+        </p>
+      </div>
+      <form className="home-diy-form" onSubmit={onSubmit}>
+        <textarea
+          ref={textareaRef}
+          value={prompt}
+          onChange={(event) => {
+            setPrompt(event.currentTarget.value)
+            if (immersive) setCasePanelOpen(true)
+            setAutocompleteDismissed(false)
+          }}
+          onFocus={() => {
+            openImmersive()
+          }}
+          onClick={() => {
+            openImmersive()
+          }}
+          onBlur={() => {
+            window.setTimeout(() => {
+              if (!document.activeElement?.closest('.home-diy-panel'))
+                setAutocompleteDismissed(true)
+            }, 120)
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Tab') setCasePanelOpen(true)
+          }}
+          placeholder={placeholder}
+          aria-label={isZh ? '描述你想创建的虾豆 Cloud 空间' : 'Describe your Shadow Cloud space'}
+        />
+        {showAutocomplete && (
+          <div className="home-diy-popover" role="listbox">
+            {autocompleteExamples.map((item) => (
+              <button
+                key={item.text}
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  setPrompt(item.text)
+                  setAutocompleteDismissed(true)
+                }}
+              >
+                <Search size={14} strokeWidth={2.5} />
+                <span className="home-diy-case-tag">{item.tag}</span>
+                <span>{item.text}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="home-diy-actions">
+          <small>
+            {isZh ? '先生成方案，不会直接扣费。' : 'Draft first. Nothing is billed here.'}
+          </small>
+          <div className="home-diy-action-buttons">
+            <button
+              type="button"
+              className="home-diy-more"
+              onClick={() => {
+                setAutocompleteDismissed(true)
+                if (!immersive) {
+                  openImmersive()
+                  setCasePanelOpen(true)
+                  return
+                }
+                setCasePanelOpen((value) => !value)
+              }}
+            >
+              {isZh ? '更多案例' : 'More examples'}
+            </button>
+            <button
+              type="submit"
+              className="btn-primary"
+              style={{ gap: '8px' }}
+              disabled={!trimmed}
+            >
+              {isZh ? '生成我的空间' : 'Generate My Space'}
+              <ArrowRight size={15} strokeWidth={2.7} />
+            </button>
+          </div>
+        </div>
+      </form>
+      {(immersive || casePanelOpen) && (
+        <div
+          className={['home-diy-case-board', casePanelOpen ? '' : 'home-diy-case-board-collapsed']
+            .filter(Boolean)
+            .join(' ')}
+        >
+          <div className="home-diy-case-board-head">
+            <div>
+              <span>{isZh ? '从一个具体目标开始' : 'Start from a concrete goal'}</span>
+              <strong>
+                {isZh
+                  ? '选择一个接近的场景，再改成你的版本。'
+                  : 'Pick a close scenario, then make it yours.'}
+              </strong>
+            </div>
+            <button type="button" onClick={() => setCasePanelOpen(false)}>
+              <X size={16} strokeWidth={2.6} />
+            </button>
+          </div>
+          <div className="home-diy-case-tabs" role="tablist">
+            {categories.map((category) => (
+              <button
+                key={category.id}
+                type="button"
+                role="tab"
+                aria-selected={selectedCategory === category.id}
+                className={selectedCategory === category.id ? 'home-diy-case-tab-active' : ''}
+                onClick={() => setSelectedCategory(category.id)}
+              >
+                {category.label}
+              </button>
+            ))}
+          </div>
+          <div className="home-diy-case-grid">
+            {visibleExamples.map((item, index) => (
+              <button
+                key={item.text}
+                type="button"
+                className="home-diy-case-card"
+                onClick={() => {
+                  setPrompt(item.text)
+                  setCasePanelOpen(false)
+                }}
+              >
+                <span className="home-diy-case-card-tag">{item.tag}</span>
+                <strong>{item.title}</strong>
+                <span>{item.text}</span>
+                <i style={{ '--case-index': index } as React.CSSProperties} />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
+  const immersivePortal =
+    immersive && typeof document !== 'undefined'
+      ? createPortal(
+          <>
+            <button
+              type="button"
+              className={['home-diy-scrim', closing ? 'home-diy-scrim-closing' : '']
+                .filter(Boolean)
+                .join(' ')}
+              aria-label={isZh ? '关闭 DIY Cloud' : 'Close DIY Cloud'}
+              onClick={closeImmersive}
+            />
+            {panel}
+          </>,
+          document.body,
+        )
+      : null
+
+  return (
+    <section
+      className={['home-diy-shell', immersive ? 'home-diy-shell-immersive' : '']
+        .filter(Boolean)
+        .join(' ')}
+    >
+      {immersive ? immersivePortal : panel}
+    </section>
+  )
+}
+
 /* ─── Developer CTA ─── */
 
 function DevCta({ isZh }: { isZh: boolean }) {
@@ -1928,6 +2660,8 @@ export function HomeContent({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
           </a>
         </div>
       </section>
+
+      <DiyPromptSection isZh={isZh} />
 
       {/* ── Main two-column layout ── */}
       <div

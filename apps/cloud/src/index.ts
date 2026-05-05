@@ -17,6 +17,14 @@ export {
 } from './application/cloud-saas-config.js'
 export { loadCloudConfigSchema } from './application/config-schema.js'
 export { summarizeCloudConfigValidation } from './application/config-validation.js'
+export type { PluginCatalogEntry } from './application/plugin-catalogs.js'
+export { listPluginCatalogs } from './application/plugin-catalogs.js'
+export type { PluginLibraryEntry, PluginLibrarySearchResult } from './application/plugin-library.js'
+export {
+  getPluginLibraryEntry,
+  listPluginLibrary,
+  searchPluginLibrary,
+} from './application/plugin-library.js'
 export type { ProviderCatalogEntry } from './application/provider-catalogs.js'
 export { listProviderCatalogs } from './application/provider-catalogs.js'
 export {
@@ -28,6 +36,11 @@ export {
   type RuntimeEnvRefPolicy,
 } from './application/runtime-env-requirements.js'
 export { extractRequiredEnvVars } from './application/template-env-refs.js'
+export type {
+  TemplateLibraryEntry,
+  TemplateLibrarySearchResult,
+} from './application/template-library.js'
+export { listTemplateLibrary, searchTemplateLibrary } from './application/template-library.js'
 export {
   type BillingUnit,
   collectAgentUsage,

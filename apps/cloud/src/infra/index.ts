@@ -24,6 +24,7 @@ import {
   PULUMI_SKIP_AWAIT_ANNOTATIONS,
   probesForRuntime,
 } from './constants.js'
+import { dedupeEnvVars } from './env-vars.js'
 import { stableHash } from './hash.js'
 import { resolveImagePullPolicy } from './image-pull-policy.js'
 import { createNetworking } from './networking.js'
@@ -389,7 +390,7 @@ export function buildManifests(options: InfraOptions) {
                 image,
                 imagePullPolicy: resolvedImagePullPolicy,
                 ports: [{ containerPort: healthPort, name: 'health' }],
-                env: envList,
+                env: dedupeEnvVars(envList),
                 envFrom: [{ secretRef: { name: `${agentName}-secrets` } }],
                 volumeMounts,
                 resources: agent.resources ?? DEFAULT_RESOURCES,
@@ -405,7 +406,7 @@ export function buildManifests(options: InfraOptions) {
                 imagePullPolicy: sc.imagePullPolicy,
                 command: sc.command,
                 args: sc.args,
-                env: sc.env,
+                env: sc.env ? dedupeEnvVars(sc.env) : undefined,
                 volumeMounts: sc.volumeMounts,
                 resources: sc.resources,
                 securityContext: sc.securityContext,

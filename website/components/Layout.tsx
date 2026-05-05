@@ -166,40 +166,17 @@ function SearchButton({ lang }: { lang: 'zh' | 'en' }) {
   )
 }
 
-/* ─── Language Switcher dropdown ─── */
-function LangSwitcher({ lang }: { lang: 'zh' | 'en' }) {
-  const [open, setOpen] = useState(false)
-
-  useEffect(() => {
-    if (!open) return
-    const close = () => setOpen(false)
-    document.addEventListener('click', close)
-    return () => document.removeEventListener('click', close)
-  }, [open])
-
+function FooterLanguageSwitcher({ lang }: { lang: 'zh' | 'en' }) {
   const otherUrl = getOtherLangUrl(lang)
-  const currentLabel = lang === 'zh' ? '中文' : 'EN'
-  const otherLabel = lang === 'zh' ? 'EN' : '中文'
+  const currentLabel = lang === 'zh' ? '简体中文' : 'English'
+  const otherLabel = lang === 'zh' ? 'English' : '简体中文'
 
   return (
-    <div className="relative" style={{ zIndex: 100 }}>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation()
-          setOpen(!open)
-        }}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-100 transition"
-      >
+    <div className="shadow-footer-language">
+      <button className="shadow-footer-language-trigger" type="button">
         <GlobeIcon className="w-4 h-4" />
         <span>{currentLabel}</span>
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 12 12"
-          fill="none"
-          style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}
-        >
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
           <path
             d="M3 4.5L6 7.5L9 4.5"
             stroke="currentColor"
@@ -209,23 +186,12 @@ function LangSwitcher({ lang }: { lang: 'zh' | 'en' }) {
           />
         </svg>
       </button>
-      {open && (
-        <div
-          className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-gray-100 py-1 min-w-[100px]"
-          style={{ zIndex: 101 }}
-        >
-          <span className="block px-4 py-2 text-sm font-bold text-cyan-600 bg-cyan-50">
-            {lang === 'zh' ? '🇨🇳' : '🇺🇸'} {currentLabel}
-          </span>
-          <a
-            href={otherUrl}
-            className="block px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-50 transition"
-            style={{ textDecoration: 'none', color: 'inherit' }}
-          >
-            {lang === 'zh' ? '🇺🇸' : '🇨🇳'} {otherLabel}
-          </a>
-        </div>
-      )}
+      <div className="shadow-footer-language-menu">
+        <span className="shadow-footer-language-item is-current">{currentLabel}</span>
+        <a href={otherUrl} className="shadow-footer-language-item">
+          {otherLabel}
+        </a>
+      </div>
     </div>
   )
 }
@@ -302,7 +268,6 @@ export function PublicNav({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
         <SearchButton lang={lang} />
         <DarkModeToggle />
         <GitHubLink />
-        <LangSwitcher lang={lang} />
         <a
           href="/app"
           className="btn-primary zcool text-lg px-6 py-2 hover:scale-105 transition-transform duration-300 shadow-lg hover:shadow-cyan-500/30"
@@ -327,19 +292,22 @@ export function PublicFooter({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
           {
             title: '产品',
             links: [
-              { text: '频道', href: `${base}${prefix}/product/channels` },
+              { text: '帮助中心', href: `${base}${prefix}/product/` },
+              { text: '新手入门', href: `${base}${prefix}/product/quick-start` },
+              { text: '首页玩法', href: `${base}${prefix}/product/play-launch` },
               { text: 'AI 搭子', href: `${base}${prefix}/product/ai-assistants` },
-              { text: '社区', href: `${base}${prefix}/product/communities` },
-              { text: '工作区', href: `${base}${prefix}/product/workspace` },
-              { text: '店铺', href: `${base}${prefix}/product/shop` },
+              { text: '频道与消息', href: `${base}${prefix}/product/channels` },
               { text: '桌面端下载', href: `${base}${prefix}/product/download` },
             ],
           },
           {
             title: '资源',
             links: [
-              { text: '产品文档', href: `${base}${prefix}/product/` },
-              { text: 'API 文档', href: `${base}${prefix}/platform/introduction` },
+              { text: '开放平台', href: `${base}${prefix}/platform/introduction` },
+              { text: '虾豆 Cloud', href: `${base}${prefix}/platform/cloud` },
+              { text: 'Cloud CLI', href: `${base}${prefix}/platform/cloud-cli` },
+              { text: '模版文档', href: `${base}${prefix}/platform/cloud-templates` },
+              { text: '插件文档', href: `${base}${prefix}/platform/cloud-plugins` },
             ],
           },
           {
@@ -368,19 +336,22 @@ export function PublicFooter({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
           {
             title: 'Product',
             links: [
-              { text: 'Channels', href: `${base}${prefix}/product/channels` },
+              { text: 'Help Center', href: `${base}${prefix}/product/` },
+              { text: 'Quick Start', href: `${base}${prefix}/product/quick-start` },
+              { text: 'Play Launch', href: `${base}${prefix}/product/play-launch` },
               { text: 'AI Buddies', href: `${base}${prefix}/product/ai-assistants` },
-              { text: 'Communities', href: `${base}${prefix}/product/communities` },
-              { text: 'Workspace', href: `${base}${prefix}/product/workspace` },
-              { text: 'Shop', href: `${base}${prefix}/product/shop` },
+              { text: 'Channels', href: `${base}${prefix}/product/channels` },
               { text: 'Desktop Download', href: `${base}${prefix}/product/download` },
             ],
           },
           {
             title: 'Resources',
             links: [
-              { text: 'Product Docs', href: `${base}${prefix}/product/` },
-              { text: 'API Reference', href: `${base}${prefix}/platform/introduction` },
+              { text: 'Developer Platform', href: `${base}${prefix}/platform/introduction` },
+              { text: 'Shadow Cloud', href: `${base}${prefix}/platform/cloud` },
+              { text: 'Cloud CLI', href: `${base}${prefix}/platform/cloud-cli` },
+              { text: 'Template Docs', href: `${base}${prefix}/platform/cloud-templates` },
+              { text: 'Plugin Docs', href: `${base}${prefix}/platform/cloud-plugins` },
             ],
           },
           {
@@ -456,6 +427,7 @@ export function PublicFooter({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
           <span className="text-xs font-medium" style={{ color: 'var(--shadow-text-dim)' }}>
             {brandLegal}
           </span>
+          <FooterLanguageSwitcher lang={lang} />
         </div>
       </div>
     </footer>
