@@ -33,8 +33,6 @@ type GoogleAccounts = {
   }
 }
 
-type AuthMode = 'email-code' | 'password'
-
 type LoginPanelProps = {
   variant: 'modal' | 'page'
   redirect?: string | null
@@ -80,8 +78,7 @@ export function LoginPanel({ variant, redirect, onClose, onComplete }: LoginPane
   const digitRefs = useRef<Array<HTMLInputElement | null>>([])
   const lastSubmittedCodeRef = useRef('')
 
-  const [step, setStep] = useState<'choose' | 'code'>('choose')
-  const [mode, setMode] = useState<AuthMode>('email-code')
+  const [step, setStep] = useState<'choose' | 'code' | 'password'>('choose')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [digits, setDigits] = useState<string[]>(() => Array(CODE_LENGTH).fill(''))
@@ -263,17 +260,29 @@ export function LoginPanel({ variant, redirect, onClose, onComplete }: LoginPane
     }
   }
 
-  const goBackToEmail = () => {
+  const goBack = () => {
     setError('')
+    if (step === 'password') {
+      setPassword('')
+      setStep('code')
+      return
+    }
     setStep('choose')
     setDigits(Array(CODE_LENGTH).fill(''))
     lastSubmittedCodeRef.current = ''
   }
 
-  const handleModeChange = (value: string) => {
-    if (value !== 'email-code' && value !== 'password') return
-    setMode(value)
+  const showPasswordLogin = () => {
     setError('')
+    setPassword('')
+    setStep('password')
+  }
+
+  const showEmailCode = () => {
+    setError('')
+    setPassword('')
+    setStep('code')
+    window.setTimeout(() => digitRefs.current[0]?.focus(), 80)
   }
 
   const terms = (
@@ -307,13 +316,13 @@ export function LoginPanel({ variant, redirect, onClose, onComplete }: LoginPane
         aria-hidden="true"
       />
 
-      {step === 'code' ? (
+      {step !== 'choose' ? (
         <Button
           type="button"
           variant="ghost"
           size="icon"
           className="absolute left-5 top-5 z-10"
-          onClick={goBackToEmail}
+          onClick={goBack}
           aria-label={t('common.back')}
         >
           <ChevronLeft size={22} strokeWidth={2.5} />
@@ -381,87 +390,36 @@ export function LoginPanel({ variant, redirect, onClose, onComplete }: LoginPane
 
             <Divider label={t('auth.orContinueWith')} className="w-full" />
 
-            {mode === 'email-code' ? (
-              <form className="w-full space-y-4" onSubmit={startEmailLogin}>
-                {error ? (
-                  <Alert variant="destructive">
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                ) : null}
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  autoComplete="email"
-                  required
-                  icon={Mail}
-                  label={t('auth.emailLabel')}
-                  placeholder={t('auth.emailPlaceholder')}
-                />
-                <Button
-                  type="submit"
-                  size="xl"
-                  className="w-full"
-                  loading={sending}
-                  disabled={!trimmedEmail || sending}
-                >
-                  {sending ? t('auth.continuingWithEmail') : t('auth.continueWithEmail')}
-                </Button>
-              </form>
-            ) : (
-              <form className="w-full space-y-4" onSubmit={loginWithPassword}>
-                {error ? (
-                  <Alert variant="destructive">
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                ) : null}
-                <Input
-                  type="text"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  autoComplete="username"
-                  required
-                  icon={Mail}
-                  label={t('auth.emailOrUsernameLabel')}
-                  placeholder={t('auth.emailOrUsernamePlaceholder')}
-                />
-                <Input
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  autoComplete="current-password"
-                  required
-                  icon={KeyRound}
-                  label={t('auth.passwordLabel')}
-                  placeholder={t('auth.passwordLabel')}
-                />
-                <Button
-                  type="submit"
-                  size="xl"
-                  className="w-full"
-                  loading={verifying}
-                  disabled={!trimmedEmail || !password || verifying}
-                >
-                  {verifying ? t('auth.loginLoading') : t('auth.loginSubmit')}
-                </Button>
-              </form>
-            )}
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="mt-3 normal-case tracking-normal text-text-muted"
-              onClick={() => handleModeChange(mode === 'email-code' ? 'password' : 'email-code')}
-            >
-              {mode === 'email-code'
-                ? t('auth.switchToPasswordLogin')
-                : t('auth.switchToEmailCodeLogin')}
-            </Button>
+            <form className="w-full space-y-4" onSubmit={startEmailLogin}>
+              {error ? (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              ) : null}
+              <Input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                autoComplete="email"
+                required
+                icon={Mail}
+                label={t('auth.emailLabel')}
+                placeholder={t('auth.emailPlaceholder')}
+              />
+              <Button
+                type="submit"
+                size="xl"
+                className="w-full"
+                loading={sending}
+                disabled={!trimmedEmail || sending}
+              >
+                {sending ? t('auth.continuingWithEmail') : t('auth.continueWithEmail')}
+              </Button>
+            </form>
 
             {terms}
           </>
-        ) : (
+        ) : step === 'code' ? (
           <>
             <div className="mb-9 text-center">
               <h1 className="text-[32px] font-black leading-tight tracking-normal text-text-primary sm:text-[36px]">
@@ -525,6 +483,64 @@ export function LoginPanel({ variant, redirect, onClose, onComplete }: LoginPane
               <Mail size={15} aria-hidden="true" />
               {t('auth.emailCodeSent')}
             </div>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="mt-3 normal-case tracking-normal text-text-muted"
+              onClick={showPasswordLogin}
+            >
+              {t('auth.switchToPasswordLogin')}
+            </Button>
+          </>
+        ) : (
+          <>
+            <div className="mb-9 text-center">
+              <h1 className="text-[32px] font-black leading-tight tracking-normal text-text-primary sm:text-[36px]">
+                {t('auth.passwordLoginTab')}
+              </h1>
+              <p className="mt-5 text-[15px] font-bold leading-7 text-text-muted">
+                <span className="text-text-secondary">{trimmedEmail}</span>
+              </p>
+            </div>
+
+            <form className="w-full space-y-4" onSubmit={loginWithPassword}>
+              {error ? (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              ) : null}
+              <Input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+                required
+                icon={KeyRound}
+                label={t('auth.passwordLabel')}
+                placeholder={t('auth.passwordLabel')}
+              />
+              <Button
+                type="submit"
+                size="xl"
+                className="w-full"
+                loading={verifying}
+                disabled={!trimmedEmail || !password || verifying}
+              >
+                {verifying ? t('auth.loginLoading') : t('auth.loginSubmit')}
+              </Button>
+            </form>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="mt-3 normal-case tracking-normal text-text-muted"
+              onClick={showEmailCode}
+            >
+              {t('auth.switchToEmailCodeLogin')}
+            </Button>
           </>
         )}
       </div>
