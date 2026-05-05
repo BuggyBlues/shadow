@@ -430,7 +430,6 @@ describe('play launch orchestration', () => {
             __shadowobRuntime: expect.objectContaining({
               envVars: expect.objectContaining({
                 SHADOW_SERVER_URL: 'http://localhost:3002',
-                SHADOW_USER_TOKEN: 'user-access-token',
                 OPENAI_COMPATIBLE_BASE_URL: 'http://localhost:3002/api/ai/v1',
                 OPENAI_COMPATIBLE_API_KEY: expect.stringMatching(/^smp_/),
                 OPENAI_COMPATIBLE_MODEL_ID: 'deepseek-v4-flash',
@@ -451,6 +450,10 @@ describe('play launch orchestration', () => {
       )
       const createArg = deps.cloudDeploymentDao.create.mock.calls[0]?.[0]
       expect(createArg?.configSnapshot.__shadowobRuntime.envVars.DEEPSEEK_API_KEY).toBeUndefined()
+      expect(createArg?.configSnapshot.__shadowobRuntime.envVars.SHADOW_USER_TOKEN).toBeUndefined()
+      expect(createArg?.configSnapshot.use[0]?.options.playLaunch.greeting).not.toContain(
+        'undefined',
+      )
       expect(deps.channelService.create).not.toHaveBeenCalled()
       expect(result).toMatchObject({
         status: 'deploying',

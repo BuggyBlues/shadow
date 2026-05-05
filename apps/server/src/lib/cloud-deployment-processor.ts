@@ -23,7 +23,7 @@ import { WalletDao } from '../dao/wallet.dao'
 import type { Database } from '../db'
 import { db } from '../db'
 import { walletTransactions } from '../db/schema'
-import { WalletService } from '../services/wallet.service'
+import { LedgerService } from '../services/ledger.service'
 import { decrypt } from './kms'
 import { logger } from './logger'
 
@@ -87,6 +87,16 @@ function resolveDeploymentStackName(deployment: CloudDeploymentRecord): string {
   return `saas-${namespace}-${clusterHash}`
 }
 
+function assertNoSecretsInProvisionState(state: unknown) {
+  const serialized = JSON.stringify(state)
+  if (
+    /(?:token|secret|password|api[_-]?key|authorization|bearer|kubeconfig)/i.test(serialized) ||
+    /(?:sk-[A-Za-z0-9_-]{16,}|eyJ[A-Za-z0-9_-]{20,})/.test(serialized)
+  ) {
+    throw new Error('Provision state contains secret-like data and cannot be persisted')
+  }
+}
+
 async function refundFailedCloudDeploymentCharge(
   deployment: CloudDeploymentRecord,
   database: Database,
@@ -112,14 +122,15 @@ async function refundFailedCloudDeploymentCharge(
 
     if (existingRefund.length > 0) return
 
-    const walletService = new WalletService({ walletDao, db: database })
-    await walletService.refund(
-      deployment.userId,
+    const ledgerService = new LedgerService({ walletDao, db: database })
+    await ledgerService.credit({
+      userId: deployment.userId,
       amount,
-      deployment.id,
-      'cloud_deploy_failed',
-      `Cloud deployment refund: ${deployment.name} (${reason})`,
-    )
+      type: 'refund',
+      referenceId: deployment.id,
+      referenceType: 'cloud_deploy_failed',
+      note: `Cloud deployment refund: ${deployment.name} (${reason})`,
+    })
     await deploymentDaoSafeLog(
       deployment.id,
       `[billing] Refunded ${amount} Shrimp Coins after ${reason}`,
@@ -648,6 +659,7 @@ async function processDeployment(
 
     let provisionStatePersisted = false
     const persistProvisionState = async (state: NonNullable<typeof provisionState>) => {
+      assertNoSecretsInProvisionState(state)
       await deploymentDao.updateConfigSnapshot(
         deployment.id,
         attachCloudSaasProvisionState(deployment.configSnapshot, state),
@@ -705,7 +717,7 @@ async function processDeployment(
     const cancelled = cancelToken.cancelled || /cancel/i.test(msg)
     logger.error({ deploymentId: deployment.id, error: msg }, 'Deployment failed')
 
-    if (!cancelled) {
+    if (!cancelled && process.env.CLOUD_DEPLOYMENT_RECOVERY_MODE === '1') {
       const recovery = await probeDeploymentRuntimeResources(
         deployment.namespace,
         activeKubeconfig,
@@ -724,6 +736,12 @@ async function processDeployment(
         await deploymentDao.markDeployed(deployment.id, recovery.agentCount)
         return
       }
+    } else if (!cancelled) {
+      await deploymentDao.appendLog(
+        deployment.id,
+        '[reconcile] Recovery probe skipped because CLOUD_DEPLOYMENT_RECOVERY_MODE is not enabled',
+        'warn',
+      )
     }
 
     await deploymentDao.appendLog(

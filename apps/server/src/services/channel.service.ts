@@ -1,7 +1,9 @@
 import type { ChannelDao } from '../dao/channel.dao'
 import type { ChannelMemberDao } from '../dao/channel-member.dao'
 import type { ServerDao } from '../dao/server.dao'
+import { type ActorInput, actorUserId } from '../security/actor'
 import type { CreateChannelInput, UpdateChannelInput } from '../validators/channel.schema'
+import type { PolicyService } from './policy.service'
 
 export class ChannelService {
   constructor(
@@ -9,6 +11,7 @@ export class ChannelService {
       channelDao: ChannelDao
       channelMemberDao: ChannelMemberDao
       serverDao: ServerDao
+      policyService: PolicyService
     },
   ) {}
 
@@ -38,7 +41,11 @@ export class ChannelService {
     return `${name}-${Date.now()}`
   }
 
-  async create(serverId: string, input: CreateChannelInput, creatorUserId?: string) {
+  async create(serverId: string, input: CreateChannelInput, creator?: ActorInput) {
+    if (!creator) {
+      throw Object.assign(new Error('Authenticated actor is required'), { status: 401 })
+    }
+    await this.deps.policyService.requireServerRole(creator, serverId, 'admin')
     const uniqueName = await this.generateUniqueName(serverId, input.name)
     const channel = await this.deps.channelDao.create({
       name: uniqueName,
@@ -51,11 +58,11 @@ export class ChannelService {
 
     // Add only the creator to the new channel
     // Other members (including bots) need to be explicitly invited
-    if (channel && creatorUserId) {
+    if (channel) {
       try {
-        await this.deps.channelMemberDao.add(channel.id, creatorUserId)
+        await this.deps.channelMemberDao.add(channel.id, actorUserId(creator))
       } catch {
-        /* channel_members table may not exist yet */
+        /* channel_members table may not exist yet, or system actor has no user id */
       }
     }
 
@@ -100,11 +107,8 @@ export class ChannelService {
     return channel
   }
 
-  async update(id: string, input: UpdateChannelInput) {
-    const channel = await this.deps.channelDao.findById(id)
-    if (!channel) {
-      throw Object.assign(new Error('Channel not found'), { status: 404 })
-    }
+  async update(id: string, input: UpdateChannelInput, actor: ActorInput) {
+    const channel = await this.deps.policyService.requireChannelManage(actor, id)
     // Auto-rename if the new name conflicts with an existing channel in the same server
     if (input.name) {
       input = { ...input, name: await this.generateUniqueName(channel.serverId, input.name, id) }
@@ -112,18 +116,20 @@ export class ChannelService {
     return this.deps.channelDao.update(id, input)
   }
 
-  async delete(id: string) {
-    const channel = await this.deps.channelDao.findById(id)
-    if (!channel) {
-      throw Object.assign(new Error('Channel not found'), { status: 404 })
-    }
+  async delete(id: string, actor: ActorInput) {
+    await this.deps.policyService.requireChannelManage(actor, id)
     await this.deps.channelDao.delete(id)
   }
 
-  async updatePositions(serverId: string, positions: { id: string; position: number }[]) {
+  async updatePositions(
+    serverId: string,
+    positions: { id: string; position: number }[],
+    actor: ActorInput,
+  ) {
     if (positions.length === 0) {
       throw Object.assign(new Error('Positions array cannot be empty'), { status: 400 })
     }
+    await this.deps.policyService.requireServerRole(actor, serverId, 'admin')
     await this.deps.channelDao.updatePositions(positions)
     return this.deps.channelDao.findByServerId(serverId)
   }
@@ -134,7 +140,11 @@ export class ChannelService {
   }
 
   /** Remove a user from a channel. */
-  async removeMember(channelId: string, userId: string) {
+  async removeMember(channelId: string, userId: string, actor?: ActorInput) {
+    const requesterUserId = actor ? actorUserId(actor) : null
+    if (actor && requesterUserId !== userId) {
+      await this.deps.policyService.requireChannelManage(actor, channelId)
+    }
     return this.deps.channelMemberDao.remove(channelId, userId)
   }
 
@@ -173,23 +183,17 @@ export class ChannelService {
   }
 
   /** Archive a channel */
-  async archive(id: string, userId: string, _reason?: string) {
-    const channel = await this.deps.channelDao.findById(id)
-    if (!channel) {
-      throw Object.assign(new Error('Channel not found'), { status: 404 })
-    }
+  async archive(id: string, actor: ActorInput, _reason?: string) {
+    const channel = await this.deps.policyService.requireChannelManage(actor, id)
     if (channel.isArchived) {
       throw Object.assign(new Error('Channel is already archived'), { status: 400 })
     }
-    return this.deps.channelDao.archive(id, userId)
+    return this.deps.channelDao.archive(id, actorUserId(actor))
   }
 
   /** Unarchive a channel */
-  async unarchive(id: string) {
-    const channel = await this.deps.channelDao.findById(id)
-    if (!channel) {
-      throw Object.assign(new Error('Channel not found'), { status: 404 })
-    }
+  async unarchive(id: string, actor: ActorInput) {
+    const channel = await this.deps.policyService.requireChannelManage(actor, id)
     if (!channel.isArchived) {
       throw Object.assign(new Error('Channel is not archived'), { status: 400 })
     }

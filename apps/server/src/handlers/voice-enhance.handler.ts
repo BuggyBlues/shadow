@@ -2,6 +2,7 @@ import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { AppContainer } from '../container'
+import { assertSafeHttpUrl } from '../lib/ssrf'
 import { authMiddleware } from '../middleware/auth.middleware'
 import { EnhanceRequestSchema } from '../services/voice-enhance.service'
 
@@ -39,6 +40,13 @@ const ConfigUpdateSchema = z.object({
 
 export function createVoiceEnhanceHandler(container: AppContainer) {
   const router = new Hono()
+
+  async function requireAdmin(userId: string) {
+    const user = await container.resolve('userDao').findById(userId)
+    if (!user?.isAdmin) {
+      throw Object.assign(new Error('Forbidden: admin access required'), { status: 403 })
+    }
+  }
 
   /**
    * POST /api/voice/enhance
@@ -189,11 +197,15 @@ export function createVoiceEnhanceHandler(container: AppContainer) {
    * Update LLM configuration (admin only)
    */
   router.post('/config', authMiddleware, zValidator('json', ConfigUpdateSchema), async (c) => {
-    // TODO: Add admin check
     const voiceEnhanceService = container.resolve('voiceEnhanceService')
+    const user = c.get('user')
     const body = c.req.valid('json')
 
     try {
+      await requireAdmin(user.userId)
+      if (body.baseUrl) {
+        await assertSafeHttpUrl(body.baseUrl)
+      }
       voiceEnhanceService.setConfig({
         ...body,
         model: body.model ?? 'gpt-4',
@@ -224,9 +236,11 @@ export function createVoiceEnhanceHandler(container: AppContainer) {
    * GET /api/voice/health
    * Health check endpoint
    */
-  router.get('/health', async (c) => {
+  router.get('/health', authMiddleware, async (c) => {
+    const user = c.get('user')
+    await requireAdmin(user.userId)
     const voiceEnhanceService = container.resolve('voiceEnhanceService')
-    const health = await voiceEnhanceService.healthCheck()
+    const health = voiceEnhanceService.healthCheck()
 
     return c.json({
       ok: health.status === 'ok',

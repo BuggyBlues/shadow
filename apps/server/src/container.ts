@@ -57,6 +57,7 @@ import { DmService } from './services/dm.service'
 import { EntitlementService } from './services/entitlement.service'
 import { ExternalOAuthService } from './services/external-oauth.service'
 import { FriendshipService } from './services/friendship.service'
+import { LedgerService } from './services/ledger.service'
 import { MediaService } from './services/media.service'
 import { MembershipService } from './services/membership.service'
 import { MentionService } from './services/mention.service'
@@ -70,6 +71,7 @@ import { OAuthService } from './services/oauth.service'
 import { OrderService } from './services/order.service'
 import { PermissionService } from './services/permission.service'
 import { PlayLaunchService } from './services/play-launch.service'
+import { PolicyService } from './services/policy.service'
 import { ProductService } from './services/product.service'
 import { RechargeService } from './services/recharge.service'
 import { RentalService } from './services/rental.service'
@@ -167,6 +169,7 @@ export interface Cradle {
   notificationDeliveryService: NotificationDeliveryService
   notificationTriggerService: NotificationTriggerService
   permissionService: PermissionService
+  policyService: PolicyService
   dmService: DmService
   friendshipService: FriendshipService
   mediaService: MediaService
@@ -175,6 +178,7 @@ export interface Cradle {
   appService: AppService
   shopService: ShopService
   productService: ProductService
+  ledgerService: LedgerService
   walletService: WalletService
   cartService: CartService
   orderService: OrderService
@@ -281,6 +285,7 @@ export function createAppContainer(db: Database): AppContainer {
     notificationDeliveryService: asClass(NotificationDeliveryService).singleton(),
     notificationTriggerService: asClass(NotificationTriggerService).singleton(),
     permissionService: asClass(PermissionService).singleton(),
+    policyService: asClass(PolicyService).singleton(),
     dmService: asClass(DmService).singleton(),
     friendshipService: asClass(FriendshipService).singleton(),
     mediaService: asClass(MediaService).singleton(),
@@ -289,6 +294,7 @@ export function createAppContainer(db: Database): AppContainer {
     appService: asClass(AppService).singleton(),
     shopService: asClass(ShopService).singleton(),
     productService: asClass(ProductService).singleton(),
+    ledgerService: asClass(LedgerService).singleton(),
     walletService: asClass(WalletService).singleton(),
     cartService: asClass(CartService).singleton(),
     orderService: asClass(OrderService).singleton(),

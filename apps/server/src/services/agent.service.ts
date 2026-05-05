@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import type { Logger } from 'pino'
 import type { AgentDao } from '../dao/agent.dao'
 import type { UserDao } from '../dao/user.dao'
@@ -316,12 +317,20 @@ export class AgentService {
       userId: botUser.id,
       email: botUser.email,
       username: botUser.username,
+      scopes: ['rental:usage:write'],
     })
+    const tokenHash = createHash('sha256').update(token).digest('hex')
+    const currentConfig = ((agent.config as Record<string, unknown>) ?? {}) as Record<
+      string,
+      unknown
+    >
+    const { lastToken: _lastToken, ...safeConfig } = currentConfig
 
-    // Persist the token in agent config so it can be viewed again later
+    // Persist only a hash. The plaintext token is returned once to the owner.
     await this.deps.agentDao.updateConfig(agentId, {
-      ...((agent.config as Record<string, unknown>) ?? {}),
-      lastToken: token,
+      ...safeConfig,
+      lastTokenHash: tokenHash,
+      lastTokenIssuedAt: new Date().toISOString(),
     })
 
     return { token, agent, botUser }

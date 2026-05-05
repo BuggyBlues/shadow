@@ -50,6 +50,7 @@ export const cloudActivityTypeEnum = pgEnum('cloud_activity_type', [
   'template_approved',
   'template_rejected',
   'billing_deduct',
+  'diy_generate',
 ])
 
 // ─── Tables ─────────────────────────────────────────────────────────────────

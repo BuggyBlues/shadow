@@ -39,6 +39,7 @@ export const userRewardLogs = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     rewardKey: varchar('reward_key', { length: 100 }).notNull(),
     referenceId: varchar('reference_id', { length: 100 }),
+    referenceKey: varchar('reference_key', { length: 100 }).notNull().default('__none__'),
     amount: integer('amount').notNull(),
     note: text('note'),
     metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}),
@@ -47,5 +48,10 @@ export const userRewardLogs = pgTable(
   },
   (t) => ({
     userRewardUnique: uniqueIndex('user_reward_unique').on(t.userId, t.rewardKey, t.referenceId),
+    userRewardReferenceKeyUnique: uniqueIndex('user_reward_reference_key_unique').on(
+      t.userId,
+      t.rewardKey,
+      t.referenceKey,
+    ),
   }),
 )

@@ -156,8 +156,10 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
     // message:typing
     socket.on(
       'message:typing',
-      ({ channelId, typing }: { channelId: string; typing?: boolean }) => {
+      async ({ channelId, typing }: { channelId: string; typing?: boolean }) => {
         if (!userId) return
+        const allowed = await canUseChannelRoom(container, channelId, userId).catch(() => false)
+        if (!allowed) return
         const username = socket.data.username as string
         const displayName = socket.data.displayName as string | undefined
         socket.to(`channel:${channelId}`).emit('message:typing', {
@@ -319,18 +321,24 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
     })
 
     // dm:typing — typing indicator in DM
-    socket.on('dm:typing', ({ dmChannelId, typing }: { dmChannelId: string; typing?: boolean }) => {
-      if (!userId) return
-      const username = socket.data.username as string
-      const displayName = socket.data.displayName as string | undefined
-      socket.to(`dm:${dmChannelId}`).emit('dm:typing', {
-        dmChannelId,
-        userId,
-        username,
-        displayName: displayName ?? username,
-        typing: typing !== false,
-      })
-    })
+    socket.on(
+      'dm:typing',
+      async ({ dmChannelId, typing }: { dmChannelId: string; typing?: boolean }) => {
+        if (!userId) return
+        const dmService = container.resolve('dmService')
+        const isParticipant = await dmService.isParticipant(dmChannelId, userId).catch(() => false)
+        if (!isParticipant) return
+        const username = socket.data.username as string
+        const displayName = socket.data.displayName as string | undefined
+        socket.to(`dm:${dmChannelId}`).emit('dm:typing', {
+          dmChannelId,
+          userId,
+          username,
+          displayName: displayName ?? username,
+          typing: typing !== false,
+        })
+      },
+    )
 
     // dm:react — add a reaction to a DM message
     socket.on(

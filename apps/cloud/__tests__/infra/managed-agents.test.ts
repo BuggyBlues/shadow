@@ -11,12 +11,16 @@ import { buildNetworkPolicy } from '../../src/infra/security'
 // ─── P1: Networking Policies ────────────────────────────────────────────────
 
 describe('buildNetworkPolicy — per-agent networking', () => {
-  it('unrestricted: only limits ingress, allows all egress', () => {
+  it('unrestricted is treated as limited instead of allowing all egress', () => {
     const np = buildNetworkPolicy('test-agent', 'test-ns', 3100, [], {
       type: 'unrestricted',
     })
-    expect(np.spec.policyTypes).toEqual(['Ingress'])
-    expect(np.spec.egress).toBeUndefined()
+    expect(np.spec.policyTypes).toContain('Egress')
+    const egressPorts = np.spec.egress.flatMap((r: { ports: Array<{ port: number }> }) =>
+      r.ports.map((p) => p.port),
+    )
+    expect(egressPorts).toContain(443)
+    expect(egressPorts).toContain(53)
     expect(np.spec.ingress[0].ports[0].port).toBe(3100)
   })
 

@@ -239,11 +239,6 @@ function cloudPlayNamespace(templateSlug: string, userId: string) {
   return `${base}-${userHash}`
 }
 
-function getBearerToken(authHeader?: string) {
-  const match = authHeader?.match(/^Bearer\s+(.+)$/i)
-  return match?.[1]?.trim() || undefined
-}
-
 function nonEmptyProcessEnv(key: string): string | undefined {
   const value = process.env[key]
   return value && value.trim() !== '' ? value : undefined
@@ -290,7 +285,8 @@ function resolveTemplateText(
 }
 
 function localizedPlayTitle(play: ShadowHomePlayCatalogItem, locale?: string) {
-  return locale?.startsWith('zh') ? play.title : play.titleEn || play.title
+  const fallback = play.title || play.titleEn || play.id || 'Buddy'
+  return locale?.startsWith('zh') ? play.title || fallback : play.titleEn || fallback
 }
 
 function defaultLaunchGreeting(input: {
@@ -858,12 +854,10 @@ export class PlayLaunchService {
     const shadowServerUrl = process.env.SHADOW_SERVER_URL ?? origin
     const shadowAgentServerUrl = process.env.SHADOW_AGENT_SERVER_URL
     const shadowProvisionUrl = process.env.SHADOW_PROVISION_URL
-    const requestToken = getBearerToken(authHeader)
 
     if (shadowServerUrl) envVars.SHADOW_SERVER_URL = shadowServerUrl
     if (shadowAgentServerUrl) envVars.SHADOW_AGENT_SERVER_URL = shadowAgentServerUrl
     if (shadowProvisionUrl) envVars.SHADOW_PROVISION_URL = shadowProvisionUrl
-    if (requestToken) envVars.SHADOW_USER_TOKEN = requestToken
     if (launchContext) {
       Object.assign(
         envVars,

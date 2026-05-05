@@ -58,7 +58,7 @@ export async function seedPlayCatalogResources(container: AppContainer) {
       continue
     }
     if (existing.topic !== channelTemplate.topic) {
-      await channelService.update(existing.id, { topic: channelTemplate.topic })
+      await channelService.update(existing.id, { topic: channelTemplate.topic }, owner.id)
       updatedChannels.push(channelTemplate.name)
     }
   }

@@ -63,6 +63,11 @@ export {
   readPodLogsAsync,
   spawnPodLogStream,
 } from './clients/kubectl-runtime.js'
+export {
+  assertNoReservedEnvOverrides,
+  isReservedRuntimeEnvKey,
+  RESERVED_RUNTIME_ENV_KEYS,
+} from './infra/env-vars.js'
 export { createCLI } from './interfaces/cli/index.js'
 export {
   type AgentCostSummary,

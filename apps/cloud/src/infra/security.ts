@@ -56,28 +56,6 @@ export function buildNetworkPolicy(
     allowPackageManagers?: boolean
   },
 ): Record<string, unknown> {
-  // P1: Per-agent networking policy
-  if (networking?.type === 'unrestricted') {
-    // Unrestricted: allow all egress, only limit ingress to health port
-    return {
-      apiVersion: 'networking.k8s.io/v1',
-      kind: 'NetworkPolicy',
-      metadata: {
-        name: `${agentName}-netpol`,
-        namespace,
-        labels: { app: 'shadowob-cloud', agent: agentName },
-        annotations: PULUMI_MANAGED_ANNOTATIONS,
-      },
-      spec: {
-        podSelector: {
-          matchLabels: { app: 'shadowob-cloud', agent: agentName },
-        },
-        policyTypes: ['Ingress'],
-        ingress: [{ ports: [{ protocol: 'TCP', port: healthPort }] }],
-      },
-    }
-  }
-
   if (networking?.type === 'deny-all') {
     // Deny all egress except DNS
     return {

@@ -2,6 +2,7 @@ import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { AppContainer } from '../container'
+import { validateJsonLimits } from '../lib/json-limits'
 import { encrypt } from '../lib/kms'
 import { authMiddleware } from '../middleware/auth.middleware'
 
@@ -21,6 +22,8 @@ function resolveI18nValue(value: unknown, i18nDict: Record<string, string>): str
   if (!match?.[1]) return value
   return i18nDict[match[1]] ?? value
 }
+
+const K8S_NAMESPACE_RE = /^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$/
 
 export function createCloudHandler(container: AppContainer) {
   const h = new Hono()
@@ -108,6 +111,19 @@ export function createCloudHandler(container: AppContainer) {
     async (c) => {
       const user = c.get('user') as { userId: string }
       const input = c.req.valid('json')
+      await container.resolve('membershipService').requireMember(user.userId, 'cloud:deploy')
+      if (!K8S_NAMESPACE_RE.test(input.namespace)) {
+        return c.json({ ok: false, error: 'Invalid deployment namespace' }, 422)
+      }
+      if (input.configSnapshot) {
+        const limits = validateJsonLimits(input.configSnapshot, {
+          maxBytes: 256 * 1024,
+          maxDepth: 16,
+          maxObjectKeys: 2000,
+          maxArrayItems: 500,
+        })
+        if (!limits.ok) return c.json({ ok: false, error: limits.error }, 413)
+      }
       const cloudService = container.resolve('cloudService')
       const deployment = await cloudService.createDeployment({
         userId: user.userId,

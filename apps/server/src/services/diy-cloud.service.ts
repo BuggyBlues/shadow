@@ -11,6 +11,7 @@ import {
   type TemplateLibrarySearchResult,
   validateCloudSaasConfigSnapshot,
 } from '@shadowob/cloud'
+import { assertCloudTemplatePolicy } from './cloud-template-policy.service'
 
 export type DiyCloudStepId = 'think' | 'search' | 'generate' | 'validate' | 'review'
 
@@ -135,6 +136,7 @@ type NormalizedLlmDraft = {
 const DEFAULT_GENERATOR_MODEL = 'deepseek-v4-flash'
 const ALWAYS_ON_PLUGINS = ['model-provider', 'shadowob']
 const TOOL_SEARCH_LIMIT = 8
+export const DIY_CLOUD_MAX_ESTIMATED_TOKENS = 16_000
 
 function firstNonEmptyEnv(...keys: string[]) {
   for (const key of keys) {
@@ -177,6 +179,16 @@ function chatCompletionsUrl(baseUrl: string) {
 
 function isZh(locale?: string) {
   return locale?.toLowerCase().startsWith('zh')
+}
+
+export function estimateDiyCloudInputBudget(input: DiyCloudGenerateInput) {
+  const serializedPreviousConfig = input.previousConfig ? JSON.stringify(input.previousConfig) : ''
+  const characters =
+    input.prompt.length + (input.feedback?.length ?? 0) + serializedPreviousConfig.length
+  return {
+    characters,
+    estimatedTokens: Math.ceil(characters / 4),
+  }
 }
 
 function compactText(input: string, maxLength: number) {
@@ -1062,6 +1074,7 @@ export async function generateDiyCloudDraft(input: DiyCloudGenerateInput): Promi
   })
 
   validateCloudSaasConfigSnapshot(template)
+  assertCloudTemplatePolicy(template)
   const validation = summarizeCloudConfigValidation(template)
   const requiredKeys = requiredKeysForPlugins(selectedPlugins, input.locale).filter(
     (key) =>

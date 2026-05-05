@@ -1071,7 +1071,10 @@ class ShadowClient:
         return self._get("/api/wallet")
 
     def top_up_wallet(self, amount: float) -> dict[str, Any]:
-        return self._post("/api/wallet/topup", json={"amount": amount})
+        raise RuntimeError(
+            "Public wallet top-up is disabled. Use a verified payment flow, "
+            "refund, settlement, or admin grant."
+        )
 
     def get_wallet_transactions(self) -> list[dict[str, Any]]:
         return self._get("/api/wallet/transactions")

@@ -535,23 +535,18 @@ wallet = client.get_wallet()
 
 ### 充值
 
-```
-POST /api/wallet/topup
-```
+普通钱包充值接口已禁用。余额增加必须来自已验证的支付流程、退款、结算、任务奖励或管理员发放。
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `amount` | number | 是 | 充值金额 |
-| `note` | string | 否 | 备注 |
+旧的 `POST /api/wallet/topup` 路由现在返回 `403`。
 
 :::code-group
 
 ```ts [TypeScript]
-await client.topUpWallet(100, 'Monthly deposit')
+await client.topUpWallet(100) // 会抛错；请使用支付流程
 ```
 
 ```python [Python]
-client.top_up_wallet(100, note="Monthly deposit")
+client.top_up_wallet(100)  # 会抛错；请使用支付流程
 ```
 
 :::

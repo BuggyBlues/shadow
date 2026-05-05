@@ -22,10 +22,12 @@ function buildApp(container: any, requiredScopes?: string[]) {
 
   if (requiredScopes) {
     app.get('/test', authMiddleware, oauthScopeMiddleware(requiredScopes), (c) =>
-      c.json({ ok: true, token: c.get('oauthToken') }),
+      c.json({ ok: true, token: c.get('oauthToken'), actor: c.get('actor') }),
     )
   } else {
-    app.get('/test', authMiddleware, (c) => c.json({ ok: true, token: c.get('oauthToken') }))
+    app.get('/test', authMiddleware, (c) =>
+      c.json({ ok: true, token: c.get('oauthToken'), actor: c.get('actor') }),
+    )
   }
 
   return app
@@ -104,6 +106,13 @@ describe('createOAuthAuthMiddleware', () => {
       userId: 'u1',
       appId: 'app-1',
       scope: 'user:read servers:read',
+    })
+    expect(json.actor).toEqual({
+      kind: 'oauth',
+      userId: 'u1',
+      appId: 'app-1',
+      tokenId: 't1',
+      scopes: ['user:read', 'servers:read'],
     })
   })
 

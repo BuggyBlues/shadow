@@ -10,7 +10,6 @@ import {
   createReviewSchema,
   createSupportTicketSchema,
   replyReviewSchema,
-  topUpSchema,
   updateCartItemSchema,
   updateCategorySchema,
   updateOrderStatusSchema,
@@ -288,8 +287,22 @@ export function createShopHandler(container: AppContainer) {
   })
 
   h.get('/servers/:serverId/shop/orders/:orderId', async (c) => {
+    const serverId = await resolveServerId(c.req.param('serverId'))
+    const user = c.get('user')
+    const shopService = container.resolve('shopService')
     const orderService = container.resolve('orderService')
-    return c.json(await orderService.getOrderDetail(c.req.param('orderId')))
+    const shop = await shopService.getShopByServerId(serverId)
+    if (!shop) return c.json({ ok: false, error: 'Shop not found' }, 404)
+    const order = await orderService.getOrderDetail(c.req.param('orderId'))
+    const isAdmin = await container
+      .resolve('permissionService')
+      .requireRole(serverId, user.userId, 'admin')
+      .then(() => true)
+      .catch(() => false)
+    if (order.shopId !== shop.id || (order.buyerId !== user.userId && !isAdmin)) {
+      return c.json({ ok: false, error: 'Order not found' }, 404)
+    }
+    return c.json(order)
   })
 
   h.put(
@@ -379,11 +392,14 @@ export function createShopHandler(container: AppContainer) {
     return c.json(await walletService.getWallet(user.userId))
   })
 
-  h.post('/wallet/topup', zValidator('json', topUpSchema), async (c) => {
-    const user = c.get('user')
-    const walletService = container.resolve('walletService')
-    const input = c.req.valid('json')
-    return c.json(await walletService.topUp(user.userId, input.amount, input.note))
+  h.post('/wallet/topup', async (c) => {
+    return c.json(
+      {
+        ok: false,
+        error: 'Wallet top-up must be completed through a verified payment or admin grant',
+      },
+      403,
+    )
   })
 
   h.get('/wallet/transactions', async (c) => {
@@ -448,23 +464,34 @@ export function createShopHandler(container: AppContainer) {
       const serverDao = container.resolve('serverDao')
       const agentDao = container.resolve('agentDao')
 
+      const members = await serverDao.getMembers(serverId)
+      if (!members.some((member) => member.userId === user.userId)) {
+        return c.json({ ok: false, error: 'Not a member of this server' }, 403)
+      }
+      const server = await serverDao.findById(serverId)
+      const ownerId = server?.ownerId || members.find((m) => m.role === 'owner')?.userId || null
+
       const existing = await channelService.getByServerId(serverId)
       const channelName = `shop-support-${user.userId.slice(0, 8)}`
       let channel = existing.find((ch) => ch.name === channelName)
       if (!channel) {
-        channel = await channelService.create(serverId, {
-          name: channelName,
-          type: 'text',
-          topic: 'Shop customer support ticket',
-        })
+        const creatorUserId = ownerId ?? members.find((m) => m.role === 'admin')?.userId
+        if (!creatorUserId) return c.json({ ok: false, error: 'Shop owner not found' }, 422)
+        channel = await channelService.create(
+          serverId,
+          {
+            name: channelName,
+            type: 'text',
+            topic: 'Shop customer support ticket',
+          },
+          creatorUserId,
+        )
       }
 
       // channel is definitely defined here (either found or just created)
       const ch = channel!
 
       // Keep channel private-ish: buyer + owner/admin + configured buddy
-      const members = await serverDao.getMembers(serverId)
-      const server = await serverDao.findById(serverId)
       const settings = (shop.settings || {}) as Record<string, unknown>
       const configuredBuddyId =
         typeof settings.supportBuddyUserId === 'string' ? settings.supportBuddyUserId : null
@@ -472,7 +499,6 @@ export function createShopHandler(container: AppContainer) {
         configuredBuddyId && members.some((m) => m.userId === configuredBuddyId)
           ? configuredBuddyId
           : null
-      const ownerId = server?.ownerId || members.find((m) => m.role === 'owner')?.userId || null
       const adminIds = members
         .filter((m) => m.role === 'owner' || m.role === 'admin')
         .map((m) => m.userId)

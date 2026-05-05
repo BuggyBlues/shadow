@@ -15,7 +15,7 @@ import { users } from './db/schema'
 import { startCloudDeploymentProcessor } from './lib/cloud-deployment-processor'
 import { resolveCloudTemplatesDir } from './lib/cloud-templates'
 import { randomFixedDigits } from './lib/id'
-import { verifyToken } from './lib/jwt'
+import { type JwtPayload, verifyToken } from './lib/jwt'
 import { logger } from './lib/logger'
 import { seedPlayCatalogResources } from './lib/play-catalog-seed'
 import { setupWebSocket } from './ws'
@@ -143,15 +143,13 @@ async function main() {
    * Extract and verify JWT token from WebSocket upgrade request.
    * Supports both query parameter (?token=...) and Authorization Bearer header.
    */
-  function extractWsAuthToken(
-    req: import('http').IncomingMessage,
-  ): { userId: string; email: string; username: string } | null {
+  function extractWsAuthToken(req: import('http').IncomingMessage): JwtPayload | null {
     // Try query parameter first (browser WebSocket API can't set custom headers)
     const reqUrl = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`)
     const queryToken = reqUrl.searchParams.get('token')
     if (queryToken) {
       try {
-        return verifyToken(queryToken)
+        return verifyToken(queryToken, 'access')
       } catch {
         return null
       }
@@ -161,7 +159,7 @@ async function main() {
     const authHeader = req.headers['authorization']
     if (authHeader?.startsWith('Bearer ')) {
       try {
-        return verifyToken(authHeader.slice(7))
+        return verifyToken(authHeader.slice(7), 'access')
       } catch {
         return null
       }

@@ -409,7 +409,7 @@ export function createAgentHandler(container: AppContainer) {
       return c.json({ ok: false, error: 'Forbidden' }, 403)
     }
 
-    await agentPolicyService.deletePolicy(policyId)
+    await agentPolicyService.deletePolicy(id, policyId)
     return c.json({ ok: true })
   })
 

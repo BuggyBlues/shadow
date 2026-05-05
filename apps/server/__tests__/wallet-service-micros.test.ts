@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WalletDao } from '../src/dao/wallet.dao'
 import type { Database } from '../src/db'
 import { wallets, walletTransactions, walletUsageAccruals } from '../src/db/schema'
+import { LedgerService } from '../src/services/ledger.service'
 import { WalletService } from '../src/services/wallet.service'
 
 describe('WalletService micro-Shrimp settlement', () => {
@@ -29,9 +30,13 @@ describe('WalletService micro-Shrimp settlement', () => {
     vi.clearAllMocks()
     mockWalletDao.getOrCreate.mockResolvedValue(mockWallet)
     mockDb = {} as Mocked<Database>
-    service = new WalletService({
+    const ledgerService = new LedgerService({
       walletDao: mockWalletDao,
       db: mockDb,
+    })
+    service = new WalletService({
+      walletDao: mockWalletDao,
+      ledgerService,
     })
   })
 

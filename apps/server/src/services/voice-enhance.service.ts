@@ -311,6 +311,7 @@ Respond in JSON format:
               max_tokens: maxTokens,
               response_format: { type: 'json_object' },
             }),
+            redirect: 'manual',
             signal: controller.signal,
           })
           break
@@ -334,6 +335,7 @@ Respond in JSON format:
                 },
               ],
             }),
+            redirect: 'manual',
             signal: controller.signal,
           })
           break
@@ -359,6 +361,7 @@ Respond in JSON format:
                 result_format: 'json',
               },
             }),
+            redirect: 'manual',
             signal: controller.signal,
           })
           break
@@ -427,29 +430,11 @@ Respond in JSON format:
   /**
    * Health check
    */
-  async healthCheck(): Promise<{ status: 'ok' | 'error'; message: string }> {
+  healthCheck(): { status: 'ok' | 'error'; message: string } {
     if (!this.isEnabled()) {
       return { status: 'error', message: 'Service not configured' }
     }
 
-    try {
-      // Try a simple enhancement
-      await this.enhance({
-        transcript: 'Hello world',
-        language: 'en',
-        options: {
-          enableSelfCorrection: true,
-          enableListFormatting: true,
-          enableFillerRemoval: false,
-          enableToneAdjustment: false,
-        },
-      })
-      return { status: 'ok', message: 'Service is healthy' }
-    } catch (error) {
-      return {
-        status: 'error',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      }
-    }
+    return { status: 'ok', message: 'Service is configured' }
   }
 }

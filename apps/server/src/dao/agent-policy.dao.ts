@@ -14,6 +14,15 @@ export class AgentPolicyDao {
     return this.db.select().from(agentPolicies).where(eq(agentPolicies.agentId, agentId))
   }
 
+  async findById(id: string) {
+    const result = await this.db
+      .select()
+      .from(agentPolicies)
+      .where(eq(agentPolicies.id, id))
+      .limit(1)
+    return result[0] ?? null
+  }
+
   /** Find all policies for a given agent in a specific server */
   async findByAgentAndServer(agentId: string, serverId: string) {
     return this.db
@@ -122,8 +131,14 @@ export class AgentPolicyDao {
   }
 
   /** Delete a specific policy */
-  async delete(id: string) {
-    await this.db.delete(agentPolicies).where(eq(agentPolicies.id, id))
+  async delete(id: string, agentId?: string) {
+    await this.db
+      .delete(agentPolicies)
+      .where(
+        agentId
+          ? and(eq(agentPolicies.id, id), eq(agentPolicies.agentId, agentId))
+          : eq(agentPolicies.id, id),
+      )
   }
 
   /** Delete all policies for an agent in a server */

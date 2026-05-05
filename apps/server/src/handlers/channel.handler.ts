@@ -136,7 +136,7 @@ export function createChannelHandler(container: AppContainer) {
       const serverId = await resolveServerId(c.req.param('serverId'))
       const input = c.req.valid('json')
       const userId = c.get('user').userId
-      const channel = await channelService.create(serverId, input, userId)
+      const channel = await channelService.create(serverId, input, c.get('actor'))
 
       // Broadcast channel:created to non-bot members of the server via their user rooms
       try {
@@ -170,6 +170,10 @@ export function createChannelHandler(container: AppContainer) {
   channelHandler.get('/channels/:id', async (c) => {
     const channelService = container.resolve('channelService')
     const id = c.req.param('id')
+    const access = await getAccessStatus(id, c.get('user').userId)
+    if (!access.canAccess) {
+      return c.json({ ok: false, error: 'Not a member of this channel' }, 403)
+    }
     const channel = await channelService.getById(id)
     return c.json(channel)
   })
@@ -334,7 +338,7 @@ export function createChannelHandler(container: AppContainer) {
     const channelService = container.resolve('channelService')
     const id = c.req.param('id')
     const input = c.req.valid('json')
-    const channel = await channelService.update(id, input)
+    const channel = await channelService.update(id, input, c.get('actor'))
     return c.json(channel)
   })
 
@@ -342,7 +346,7 @@ export function createChannelHandler(container: AppContainer) {
   channelHandler.delete('/channels/:id', async (c) => {
     const channelService = container.resolve('channelService')
     const id = c.req.param('id')
-    await channelService.delete(id)
+    await channelService.delete(id, c.get('actor'))
     return c.json({ ok: true })
   })
 
@@ -354,7 +358,7 @@ export function createChannelHandler(container: AppContainer) {
       const channelService = container.resolve('channelService')
       const serverId = await resolveServerId(c.req.param('serverId'))
       const { positions } = c.req.valid('json')
-      const channels = await channelService.updatePositions(serverId, positions)
+      const channels = await channelService.updatePositions(serverId, positions, c.get('actor'))
       return c.json(channels)
     },
   )
@@ -494,7 +498,7 @@ export function createChannelHandler(container: AppContainer) {
     const channel = await channelService.getById(id)
 
     // Remove member
-    await channelService.removeMember(id, targetUserId)
+    await channelService.removeMember(id, targetUserId, c.get('actor'))
 
     // Broadcast member:left to the channel
     try {
@@ -671,7 +675,7 @@ export function createChannelHandler(container: AppContainer) {
     const id = c.req.param('id')
     const userId = c.get('user').userId
     const body = await c.req.json<{ reason?: string }>().catch(() => ({}) as { reason?: string })
-    const channel = await channelService.archive(id, userId, body.reason)
+    const channel = await channelService.archive(id, c.get('actor'), body.reason)
 
     // Broadcast channel update to all users in the channel
     io.to(`channel:${id}`).emit('channel:updated', { id, isArchived: true })
@@ -684,7 +688,7 @@ export function createChannelHandler(container: AppContainer) {
     const channelService = container.resolve('channelService')
     const io = container.resolve('io')
     const id = c.req.param('id')
-    const channel = await channelService.unarchive(id)
+    const channel = await channelService.unarchive(id, c.get('actor'))
 
     // Broadcast channel update to all users in the channel
     io.to(`channel:${id}`).emit('channel:updated', { id, isArchived: false })

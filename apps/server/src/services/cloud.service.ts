@@ -126,6 +126,12 @@ export class CloudService {
     agentCount?: number
     configSnapshot?: unknown
   }) {
+    if (data.clusterId) {
+      const cluster = await this.deps.cloudClusterDao.findById(data.clusterId, data.userId)
+      if (!cluster) {
+        throw Object.assign(new Error('Cluster not found'), { status: 403 })
+      }
+    }
     const deployment = await this.deps.cloudDeploymentDao.create(data)
     if (!deployment) throw new Error('Failed to create deployment')
     await this.deps.cloudActivityDao.log({

@@ -535,23 +535,18 @@ wallet = client.get_wallet()
 
 ### Top up
 
-```
-POST /api/wallet/topup
-```
+Public wallet top-up is disabled. Balance increases must come from a verified payment flow, refund, settlement, task reward, or admin grant.
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `amount` | number | Yes | Amount to add |
-| `note` | string | No | Note |
+The legacy `POST /api/wallet/topup` route now returns `403`.
 
 :::code-group
 
 ```ts [TypeScript]
-await client.topUpWallet(100, 'Monthly deposit')
+await client.topUpWallet(100) // throws; use the payment flow instead
 ```
 
 ```python [Python]
-client.top_up_wallet(100, note="Monthly deposit")
+client.top_up_wallet(100)  # raises; use the payment flow instead
 ```
 
 :::

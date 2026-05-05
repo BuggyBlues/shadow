@@ -71,10 +71,27 @@ export function createServerHandler(container: AppContainer) {
   // GET /api/servers/:id (supports UUID or slug)
   serverHandler.get('/:id', async (c) => {
     const serverService = container.resolve('serverService')
+    const serverDao = container.resolve('serverDao')
     const id = c.req.param('id')
     // Try UUID first, then slug
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
     const server = isUuid ? await serverService.getById(id) : await serverService.getBySlug(id)
+    const user = c.get('user')
+    const member = await serverDao.getMember(server.id, user.userId)
+    if (!member && !server.isPublic) {
+      return c.json({ ok: false, error: 'Not a member of this server' }, 403)
+    }
+    if (!member) {
+      return c.json({
+        id: server.id,
+        name: server.name,
+        slug: server.slug,
+        iconUrl: server.iconUrl,
+        bannerUrl: server.bannerUrl,
+        description: server.description,
+        isPublic: server.isPublic,
+      })
+    }
     return c.json(server)
   })
 
@@ -85,7 +102,7 @@ export function createServerHandler(container: AppContainer) {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
     const resolvedId = isUuid ? id : (await serverService.getBySlug(id)).id
     const input = c.req.valid('json')
-    const server = await serverService.update(resolvedId, input, c.get('user').userId)
+    const server = await serverService.update(resolvedId, input, c.get('actor'))
     return c.json(server)
   })
 
@@ -95,8 +112,7 @@ export function createServerHandler(container: AppContainer) {
     const id = c.req.param('id')
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
     const resolvedId = isUuid ? id : (await serverService.getBySlug(id)).id
-    const user = c.get('user')
-    await serverService.delete(resolvedId, user.userId)
+    await serverService.delete(resolvedId, c.get('actor'))
     return c.json({ ok: true })
   })
 
@@ -217,6 +233,8 @@ export function createServerHandler(container: AppContainer) {
     const serverService = container.resolve('serverService')
     const idOrSlug = c.req.param('id')
     const serverId = await resolveServerId(idOrSlug)
+    const permissionService = container.resolve('permissionService')
+    await permissionService.requireMember(serverId, c.get('user').userId)
     const members = await serverService.getMembers(serverId)
     return c.json(members)
   })
@@ -228,7 +246,7 @@ export function createServerHandler(container: AppContainer) {
     const targetUserId = c.req.param('userId')
     const input = c.req.valid('json')
     const user = c.get('user')
-    const member = await serverService.updateMember(id, targetUserId, user.userId, input)
+    const member = await serverService.updateMember(id, targetUserId, c.get('actor'), input)
     return c.json(member)
   })
 
@@ -263,7 +281,7 @@ export function createServerHandler(container: AppContainer) {
       /* non-critical */
     }
 
-    await serverService.kickMember(id, targetUserId, user.userId)
+    await serverService.kickMember(id, targetUserId, c.get('actor'))
 
     // Emit member:left to all channel rooms
     if (kickPayload) {
@@ -287,7 +305,7 @@ export function createServerHandler(container: AppContainer) {
     const serverService = container.resolve('serverService')
     const id = c.req.param('id')
     const user = c.get('user')
-    const server = await serverService.regenerateInvite(id, user.userId)
+    const server = await serverService.regenerateInvite(id, c.get('actor'))
     if (!server) return c.json({ ok: false, error: 'Server not found' }, 404)
     return c.json({ inviteCode: server.inviteCode })
   })

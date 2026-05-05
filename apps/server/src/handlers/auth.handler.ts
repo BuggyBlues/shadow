@@ -313,7 +313,7 @@ export function createAuthHandler(container: AppContainer) {
     try {
       const body = await c.req.json<{ token?: string }>()
       if (body.token) {
-        const payload = verifyToken(body.token)
+        const payload = verifyToken(body.token, 'access')
         if (payload.userId) {
           const io = container.resolve('io')
           forceDisconnectUser(payload.userId, io, container, null)
