@@ -333,7 +333,7 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
     <Dialog isOpen={open} onClose={onClose}>
       <DialogContent
         hideCloseButton
-        maxWidth="max-w-[650px]"
+        maxWidth="max-w-[600px]"
         className="max-h-[calc(100dvh-32px)] overflow-y-auto border-white/70 px-5 py-8 sm:px-12 sm:py-10"
       >
         <div
