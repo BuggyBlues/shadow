@@ -11,6 +11,8 @@ import React, { lazy, Suspense } from 'react'
 import ReactDOM from 'react-dom/client'
 import { AppLayout } from './components/layout/app-layout'
 import { RootLayout } from './components/layout/root-layout'
+import { authenticatedRouterPathFromRedirect, currentAppRedirect } from './lib/auth-redirect'
+import { reloadOnceForChunkError } from './lib/chunk-reload'
 import { queryClient } from './lib/query-client'
 import { AppPageRoute } from './pages/apps'
 import { BuddyManagementPage } from './pages/buddy-management'
@@ -41,7 +43,14 @@ import { useAuthStore } from './stores/auth.store'
 import './styles/globals.css'
 
 const CloudSaasApp = lazy(() =>
-  import('@shadowob/cloud-ui/web-saas').then((m) => ({ default: m.CloudSaasApp })),
+  import('@shadowob/cloud-ui/web-saas')
+    .then((m) => ({ default: m.CloudSaasApp }))
+    .catch((error) => {
+      if (reloadOnceForChunkError(error)) {
+        return new Promise<never>(() => {})
+      }
+      throw error
+    }),
 )
 
 // Routes
@@ -67,7 +76,8 @@ const loginRoute = createRoute({
   component: LoginPage,
   beforeLoad: () => {
     if (useAuthStore.getState().isAuthenticated) {
-      throw redirect({ to: '/discover' })
+      const redirectTo = new URLSearchParams(window.location.search).get('redirect')
+      throw redirect({ to: authenticatedRouterPathFromRedirect(redirectTo) })
     }
   },
 })
@@ -78,7 +88,8 @@ const registerRoute = createRoute({
   component: RegisterPage,
   beforeLoad: () => {
     if (useAuthStore.getState().isAuthenticated) {
-      throw redirect({ to: '/discover' })
+      const redirectTo = new URLSearchParams(window.location.search).get('redirect')
+      throw redirect({ to: authenticatedRouterPathFromRedirect(redirectTo) })
     }
   },
 })
@@ -104,7 +115,7 @@ const oauthAuthorizeRoute = createRoute({
       // Preserve the full URL so we redirect back after login
       throw redirect({
         to: '/login',
-        search: { redirect: window.location.pathname + window.location.search },
+        search: { redirect: currentAppRedirect() },
       })
     }
   },
@@ -119,7 +130,7 @@ const appRoute = createRoute({
     if (!useAuthStore.getState().isAuthenticated) {
       throw redirect({
         to: '/login',
-        search: { redirect: window.location.pathname + window.location.search },
+        search: { redirect: currentAppRedirect() },
       })
     }
   },
@@ -180,7 +191,10 @@ const serverHomeRoute = createRoute({
   component: ServerHomePage,
   beforeLoad: () => {
     if (!useAuthStore.getState().isAuthenticated) {
-      throw redirect({ to: '/login' })
+      throw redirect({
+        to: '/login',
+        search: { redirect: currentAppRedirect() },
+      })
     }
   },
 })

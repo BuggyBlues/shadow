@@ -1,5 +1,6 @@
 import { createHash, randomInt, randomUUID } from 'node:crypto'
 import { compare, hash } from 'bcryptjs'
+import nodemailer from 'nodemailer'
 import type { AgentDao } from '../dao/agent.dao'
 import type { InviteCodeDao } from '../dao/invite-code.dao'
 import type { PasswordChangeLogDao } from '../dao/password-change-log.dao'
@@ -37,6 +38,36 @@ function hashOtp(email: string, code: string) {
 
 function otpKey(email: string) {
   return `auth:email-otp:${normalizeEmail(email)}`
+}
+
+function envValue(...keys: string[]) {
+  for (const key of keys) {
+    const value = process.env[key]?.trim()
+    if (value) return value
+  }
+  return undefined
+}
+
+function envFlag(...keys: string[]) {
+  const value = envValue(...keys)
+  if (!value) return undefined
+  return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase())
+}
+
+function emailOtpContent(code: string, locale?: string) {
+  const isZh = locale?.toLowerCase().startsWith('zh')
+  if (isZh) {
+    return {
+      subject: '虾豆登录验证码',
+      text: `您的虾豆登录验证码是 ${code}，10 分钟内有效。若非您本人操作，请忽略此邮件。`,
+      html: `<p>您的虾豆登录验证码是 <strong>${code}</strong>，10 分钟内有效。</p><p>若非您本人操作，请忽略此邮件。</p>`,
+    }
+  }
+  return {
+    subject: 'Your Shadow login code',
+    text: `Your Shadow login code is ${code}. It expires in 10 minutes. If you did not request this, ignore this email.`,
+    html: `<p>Your Shadow login code is <strong>${code}</strong>. It expires in 10 minutes.</p><p>If you did not request this, ignore this email.</p>`,
+  }
 }
 
 export class AuthService {
@@ -167,7 +198,12 @@ export class AuthService {
       fallbackOtpStore.set(otpKey(email), payload)
     }
 
-    await this.deliverEmailOtp(email, code, input.locale)
+    try {
+      await this.deliverEmailOtp(email, code, input.locale)
+    } catch (err) {
+      await this.clearEmailOtp(email)
+      throw err
+    }
 
     return {
       ok: true,
@@ -432,9 +468,46 @@ export class AuthService {
       return
     }
 
-    logger.warn(
-      { email, code },
-      'EMAIL_OTP_WEBHOOK_URL not configured; logging email verification code',
-    )
+    const smtpHost = envValue('EMAIL_SMTP_HOST', 'SMTP_HOST')
+    const smtpFrom = envValue('EMAIL_SMTP_FROM', 'SMTP_FROM', 'MAIL_FROM')
+    if (smtpHost && smtpFrom) {
+      const smtpPort = Number(envValue('EMAIL_SMTP_PORT', 'SMTP_PORT') ?? 587)
+      const smtpUser = envValue('EMAIL_SMTP_USER', 'SMTP_USER')
+      const smtpPassword = envValue('EMAIL_SMTP_PASSWORD', 'SMTP_PASSWORD')
+      const secure = envFlag('EMAIL_SMTP_SECURE', 'SMTP_SECURE') ?? smtpPort === 465
+      const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: Number.isFinite(smtpPort) ? smtpPort : 587,
+        secure,
+        auth: smtpUser && smtpPassword ? { user: smtpUser, pass: smtpPassword } : undefined,
+      })
+      const content = emailOtpContent(code, locale)
+
+      try {
+        await transporter.sendMail({
+          from: smtpFrom,
+          to: email,
+          subject: content.subject,
+          text: content.text,
+          html: content.html,
+        })
+      } catch (err) {
+        logger.error({ err, email }, 'Failed to send email verification code via SMTP')
+        throw Object.assign(new Error('Failed to send verification email'), {
+          status: 502,
+          code: 'EMAIL_SEND_FAILED',
+        })
+      }
+      return
+    }
+
+    if (process.env.NODE_ENV === 'production') {
+      throw Object.assign(new Error('Email delivery is not configured'), {
+        status: 503,
+        code: 'EMAIL_DELIVERY_NOT_CONFIGURED',
+      })
+    }
+
+    logger.warn({ email, code }, 'Email delivery not configured; logging email verification code')
   }
 }

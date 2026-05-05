@@ -1,3 +1,4 @@
+import { currentAppRedirect } from './auth-redirect'
 import { queryClient } from './query-client'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
@@ -82,7 +83,7 @@ function clearAuthState() {
     !window.location.pathname.startsWith('/app/login') &&
     !window.location.pathname.startsWith('/app/register')
   ) {
-    window.location.href = '/app/login'
+    window.location.href = `/app/login?redirect=${encodeURIComponent(currentAppRedirect())}`
   }
 }
 
