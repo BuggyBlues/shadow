@@ -11,6 +11,7 @@
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
+    "@shadowob/ui": "workspace:*",
     "canvas-confetti": "^1.9.4",
     "lucide-react": "^0.577.0",
     "mermaid": "^11.14.0",

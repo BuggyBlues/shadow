@@ -15,17 +15,18 @@ import { AvatarEditor } from '../components/common/avatar-editor'
 import { useAppStatus } from '../hooks/use-app-status'
 import { fetchApi } from '../lib/api'
 import { getApiErrorMessage } from '../lib/api-errors'
+import {
+  authenticatedRouterPathFromRedirect,
+  webRedirectFromRouterPath,
+} from '../lib/auth-redirect'
+import { applyAuthenticatedSession } from '../lib/auth-session'
 import { generateRandomCatConfig, renderCatSvg } from '../lib/avatar-generator'
-import { queryClient } from '../lib/query-client'
-import { useAuthStore } from '../stores/auth.store'
-import { useChatStore } from '../stores/chat.store'
 
 export function RegisterPage() {
   const { t } = useTranslation()
   useAppStatus({ title: t('auth.registerTitle'), variant: 'auth' })
   const navigate = useNavigate()
   const searchParams = useSearch({ strict: false }) as { redirect?: string; code?: string }
-  const setAuth = useAuthStore((s) => s.setAuth)
   const [email, setEmail] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [password, setPassword] = useState('')
@@ -35,6 +36,9 @@ export function RegisterPage() {
   )
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const oauthRedirect = webRedirectFromRouterPath(
+    authenticatedRouterPathFromRedirect(searchParams.redirect),
+  )
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -74,21 +78,12 @@ export function RegisterPage() {
         // Non-critical, continue
       }
 
-      setAuth(
-        { ...result.user, avatarUrl: selectedAvatar },
-        result.accessToken,
-        result.refreshToken,
-      )
-      // Clear stale state from any previous session
-      useChatStore.getState().setActiveServer(null)
-      queryClient.removeQueries()
-      queryClient.clear()
-      const redirectTo = searchParams.redirect
-      if (redirectTo && redirectTo.startsWith('/')) {
-        navigate({ to: redirectTo.startsWith('/app/') ? redirectTo.slice(4) : redirectTo })
-      } else {
-        navigate({ to: '/discover' })
-      }
+      applyAuthenticatedSession({
+        user: { ...result.user, avatarUrl: selectedAvatar },
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+      })
+      navigate({ to: authenticatedRouterPathFromRedirect(searchParams.redirect) })
     } catch (err) {
       setError(getApiErrorMessage(err, t, 'auth.registerFailed'))
     } finally {
@@ -199,7 +194,7 @@ export function RegisterPage() {
           <div className="flex flex-col gap-3">
             <Button variant="glass" asChild>
               <a
-                href={`${import.meta.env.VITE_API_BASE ?? ''}/api/auth/oauth/google?redirect=${encodeURIComponent(searchParams.redirect ?? '/app/discover')}`}
+                href={`${import.meta.env.VITE_API_BASE ?? ''}/api/auth/oauth/google?redirect=${encodeURIComponent(oauthRedirect)}`}
               >
                 <svg
                   className="w-[18px] h-[18px]"
@@ -230,7 +225,7 @@ export function RegisterPage() {
             </Button>
             <Button variant="glass" asChild>
               <a
-                href={`${import.meta.env.VITE_API_BASE ?? ''}/api/auth/oauth/github?redirect=${encodeURIComponent(searchParams.redirect ?? '/app/discover')}`}
+                href={`${import.meta.env.VITE_API_BASE ?? ''}/api/auth/oauth/github?redirect=${encodeURIComponent(oauthRedirect)}`}
               >
                 <svg
                   className="w-[18px] h-[18px]"

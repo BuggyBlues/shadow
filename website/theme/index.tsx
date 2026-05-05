@@ -1,7 +1,10 @@
+import type React from 'react'
+import { useState } from 'react'
 import { Helmet, useLang, useLocation, usePageData } from 'rspress/runtime'
 import Theme from 'rspress/theme'
 import { HomeContent } from '../components/HomeContent'
 import { PublicFooter } from '../components/Layout'
+import { LoginModal } from '../components/LoginModal'
 import './index.css'
 
 /**
@@ -41,7 +44,7 @@ function HomeNavDropdown({ label, items }: { label: string; items: HomeNavItem[]
       <div className="shadow-home-nav-dropdown-menu">
         {items.map((item) => (
           <a
-            key={item.href}
+            key={`${item.href}:${item.label}`}
             href={item.href}
             className="shadow-home-nav-dropdown-item"
             style={{ textDecoration: 'none' }}
@@ -268,6 +271,8 @@ function GlobalFooter() {
 const Layout = () => {
   const { page, siteData } = usePageData()
   const { pathname } = useLocation()
+  const [loginOpen, setLoginOpen] = useState(false)
+  const [loginRedirect, setLoginRedirect] = useState('/app')
   const base = (siteData.base || '/').replace(/\/$/, '')
   const routePath =
     base && pathname.startsWith(base) ? pathname.slice(base.length) || '/' : pathname
@@ -282,8 +287,20 @@ const Layout = () => {
     const title = isZh
       ? '虾豆 OwnBuddy - 可玩的 AI 社区'
       : 'Shadow OwnBuddy - Playable AI Communities'
+    const handleAppClick = (event: React.MouseEvent<HTMLDivElement>) => {
+      if (!(event.target instanceof Element)) return
+      const anchor = event.target.closest<HTMLAnchorElement>('a[href]')
+      if (!anchor) return
+      const url = new URL(anchor.href, window.location.href)
+      const isAppPath = url.pathname === '/app' || url.pathname.startsWith('/app/')
+      if (url.origin !== window.location.origin || !isAppPath) return
+      event.preventDefault()
+      setLoginRedirect(`${url.pathname}${url.search}${url.hash}`)
+      setLoginOpen(true)
+    }
+
     return (
-      <>
+      <div onClickCapture={handleAppClick}>
         <Helmet htmlAttributes={{ lang: isZh ? 'zh' : 'en' }}>
           <title>{title}</title>
         </Helmet>
@@ -291,7 +308,13 @@ const Layout = () => {
         <HomeCapsuleNav />
         <HomeContent lang={isZh ? 'zh' : 'en'} />
         <GlobalFooter />
-      </>
+        <LoginModal
+          open={loginOpen}
+          lang={isZh ? 'zh' : 'en'}
+          redirect={loginRedirect}
+          onClose={() => setLoginOpen(false)}
+        />
+      </div>
     )
   }
 

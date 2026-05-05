@@ -5,6 +5,7 @@ import { Menu } from 'lucide-react'
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../../lib/api'
+import { currentAppRedirect } from '../../lib/auth-redirect'
 import { connectSocket, disconnectSocket } from '../../lib/socket'
 import { useAuthStore } from '../../stores/auth.store'
 import { useUIStore } from '../../stores/ui.store'
@@ -46,8 +47,9 @@ export function AppLayout() {
   // Redirect to login on auth failure
   useEffect(() => {
     if (meError && (meError as Error & { status?: number }).status === 401) {
+      const redirectTo = currentAppRedirect()
       logout()
-      navigate({ to: '/login' })
+      navigate({ to: '/login', search: { redirect: redirectTo } })
     }
   }, [meError, logout, navigate])
 
