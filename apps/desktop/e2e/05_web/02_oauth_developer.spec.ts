@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { expect, test } from '@playwright/test'
+import { loginWithStoredTokens } from './auth-helpers'
 
 type Session = {
   origin: string
@@ -28,16 +29,6 @@ async function readSession(): Promise<Session> {
 
 async function ensureScreenshotDir() {
   await fs.mkdir(screenshotDir, { recursive: true })
-}
-
-async function loginViaUi(page: import('@playwright/test').Page, user: Session['owner']) {
-  await page.goto('/app/login')
-  await page.getByRole('button', { name: /Password|密码/ }).click()
-  await page.locator('input[autocomplete="username"]').fill(user.email)
-  await page.locator('input[autocomplete="current-password"]').fill(user.password)
-  await page.locator('form button[type="submit"]').click()
-  await page.waitForFunction(() => Boolean(localStorage.getItem('accessToken')))
-  await page.waitForURL((url) => url.pathname.startsWith('/app/') && url.pathname !== '/app/login')
 }
 
 async function screenshot(page: import('@playwright/test').Page, name: string) {
@@ -119,7 +110,7 @@ test.describe
       })
 
       // Login as the owner
-      await loginViaUi(page, session.owner)
+      await loginWithStoredTokens(page, session.origin, session.owner)
 
       // Navigate directly to developer settings tab via URL
       await page.goto('/app/settings?tab=developer')
@@ -299,11 +290,11 @@ test.describe
       })
 
       try {
-        // Step 3: Login via UI so the browser has a session cookie
+        // Step 3: Login so the browser has an app session
         // Set locale to zh-CN so i18n renders Chinese text for assertions/screenshots
         const ctx = await browser.newContext({ locale: 'zh-CN' })
         const page = await ctx.newPage()
-        await loginViaUi(page, session.owner)
+        await loginWithStoredTokens(page, session.origin, session.owner)
 
         // Step 4: Navigate to the OAuth authorize page
         let capturedCode = ''
