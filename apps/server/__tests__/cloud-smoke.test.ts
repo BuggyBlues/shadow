@@ -111,14 +111,22 @@ beforeAll(async () => {
   userBId = userB.id
   userAToken = signAccessToken({ userId: userAId, email: userA.email })
   userBToken = signAccessToken({ userId: userBId, email: userB.email })
-})
+
+  await db.insert(schema.inviteCodes).values({
+    code: `SMOKE${Date.now().toString(36).slice(-8)}`,
+    createdBy: userAId,
+    usedBy: userAId,
+    usedAt: new Date(),
+    note: 'Cloud smoke membership',
+  })
+}, 30_000)
 
 afterAll(async () => {
   // Clean up test users (cascades to all cloud tables)
   if (userAId) await db.delete(schema.users).where(eq(schema.users.id, userAId))
   if (userBId) await db.delete(schema.users).where(eq(schema.users.id, userBId))
   await sql.end()
-})
+}, 30_000)
 
 /* ══════════════════════════════════════════════════════════
    1. Templates
