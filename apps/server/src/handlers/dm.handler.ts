@@ -91,6 +91,13 @@ export function createDmHandler(container: AppContainer) {
       if (!isParticipant) {
         return c.json({ ok: false, error: 'Not a participant of this DM channel' }, 403)
       }
+      const commerceCardService = container.resolve('commerceCardService')
+      const normalizedMetadata = await commerceCardService.inferMessageMetadata({
+        metadata,
+        target: { kind: 'dm', dmChannelId: id },
+        authorId: user.userId,
+        content,
+      })
 
       const message = await dmService.sendMessage(
         id,
@@ -98,7 +105,7 @@ export function createDmHandler(container: AppContainer) {
         content,
         replyToId,
         attachments,
-        metadata,
+        normalizedMetadata,
       )
 
       // Broadcast to DM room via WebSocket

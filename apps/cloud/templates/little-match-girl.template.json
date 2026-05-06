@@ -1,0 +1,114 @@
+{
+  "version": "1.0.0",
+  "name": "little-match-girl",
+  "title": "${i18n:title}",
+  "description": "${i18n:description}",
+  "environment": "production",
+  "use": [
+    {
+      "plugin": "model-provider"
+    },
+    {
+      "plugin": "shadowob",
+      "options": {
+        "playLaunch": {
+          "defaultChannelName": "match-street",
+          "greeting": "夜有点冷。我带着几盒会发光的火柴，如果你愿意，我可以给你讲讲它们。"
+        },
+        "servers": [
+          {
+            "id": "match-girl-street",
+            "name": "卖火柴的小女孩",
+            "slug": "little-match-girl",
+            "channels": [
+              {
+                "id": "match-street",
+                "title": "match-street",
+                "type": "text"
+              }
+            ]
+          }
+        ],
+        "buddies": [
+          {
+            "id": "match-girl",
+            "name": "卖火柴的小女孩",
+            "description": "她在冬夜里兜售火柴，也守着一份只给购买者看的火光动画。"
+          }
+        ],
+        "bindings": [
+          {
+            "targetId": "match-girl",
+            "targetType": "buddy",
+            "servers": ["match-girl-street"],
+            "channels": ["match-street"],
+            "agentId": "match-girl-agent",
+            "replyPolicy": {
+              "mode": "replyAll"
+            }
+          }
+        ],
+        "commerce": {
+          "paidFiles": [
+            {
+              "id": "match-animation",
+              "serverId": "match-girl-street",
+              "shop": {
+                "kind": "buddy",
+                "buddyId": "match-girl"
+              },
+              "sellerBuddyId": "match-girl",
+              "name": "一盒会发光的火柴",
+              "slug": "glowing-matches",
+              "summary": "购买后解锁一段火柴点亮的 HTML 动画。",
+              "description": "虚拟火柴盒，代表付费文件权益。购买后会获得付费文件访问权限。",
+              "price": 8,
+              "durationSeconds": 86400,
+              "fileName": "match-flame.html",
+              "mime": "text/html; charset=utf-8",
+              "offerSurfaces": ["channel", "dm"],
+              "fulfillmentMessage": "火柴已经点亮。打开这份付费动画，看看火光里藏着什么。",
+              "html": "<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Match Flame</title><style>html,body{height:100%;margin:0;background:#111;color:#fff;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:grid;place-items:center;overflow:hidden}.scene{position:relative;width:min(720px,100vw);height:min(520px,100vh);display:grid;place-items:center;background:radial-gradient(circle at 50% 38%,#3b2309 0,#16110d 42%,#080808 100%)}.match{position:absolute;bottom:88px;width:12px;height:240px;background:linear-gradient(90deg,#c99859,#f1ca86,#9d6b35);border-radius:9px;box-shadow:0 30px 40px rgba(0,0,0,.45)}.head{position:absolute;bottom:314px;width:38px;height:38px;border-radius:50%;background:#5b2518;box-shadow:0 0 18px #e36a2d}.flame{position:absolute;bottom:336px;width:92px;height:132px;border-radius:55% 55% 45% 45%;background:radial-gradient(circle at 50% 72%,#fff7b7 0 14%,#ffd15c 26%,#ff7a2f 52%,rgba(255,75,20,.18) 74%,rgba(255,75,20,0) 100%);filter:blur(.2px);transform-origin:50% 100%;animation:flicker 1.25s ease-in-out infinite;box-shadow:0 0 38px #ffb347,0 0 110px rgba(255,122,47,.72),0 0 190px rgba(255,190,93,.28)}.spark{position:absolute;width:6px;height:6px;border-radius:999px;background:#ffe0a0;box-shadow:0 0 18px #ffbf6e;animation:rise 2.8s linear infinite}.spark:nth-child(1){left:44%;bottom:372px;animation-delay:.1s}.spark:nth-child(2){left:53%;bottom:352px;animation-delay:.8s}.spark:nth-child(3){left:48%;bottom:400px;animation-delay:1.4s}.caption{position:absolute;bottom:28px;width:min(560px,88vw);text-align:center;font-size:18px;line-height:1.7;color:#ffecc2;text-shadow:0 0 16px rgba(255,180,80,.55)}@keyframes flicker{0%,100%{transform:scaleX(1) scaleY(1) rotate(-1deg)}35%{transform:scaleX(.88) scaleY(1.08) rotate(2deg)}70%{transform:scaleX(1.08) scaleY(.96) rotate(-2deg)}}@keyframes rise{0%{transform:translateY(0) scale(.7);opacity:0}15%{opacity:1}100%{transform:translateY(-220px) translateX(28px) scale(.1);opacity:0}}</style></head><body><main class=\"scene\" aria-label=\"火柴动画\"><div class=\"flame\"></div><div class=\"spark\"></div><div class=\"spark\"></div><div class=\"spark\"></div><div class=\"head\"></div><div class=\"match\"></div><p class=\"caption\">火柴亮起来了。愿这点光，足够你走过今晚的雪。</p></main></body></html>"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "deployments": {
+    "namespace": "little-match-girl",
+    "agents": [
+      {
+        "id": "match-girl-agent",
+        "runtime": "openclaw",
+        "description": "A fairy-tale sales Buddy for the paid-file MVP. She sells matches and encourages users to purchase the glowing-match entitlement.",
+        "identity": {
+          "name": "卖火柴的小女孩",
+          "personality": "你是冬夜里卖火柴的小女孩，语气温柔、克制、带一点童话里的寒意。你会自然推销火柴，但不强迫用户。",
+          "systemPrompt": "你扮演卖火柴的小女孩。目标：通过真实对话自然推销你的火柴，并在合适时机发送商品卡片，而不是一上来硬塞卡片。Shadow 会在上下文里提供可销售的 CommerceOfferId；当用户询问火柴、价格、购买、想看动画，或对你的火柴表现出兴趣时，使用 message tool 的 action=\"send\"，带上 target、message 和 commerceOfferId，把商品卡片发到当前频道或 DM。message 要像你亲口递出火柴一样自然，例如先用一两句话说明这盒火柴能点亮一段小动画，再附上商品卡片。购买完成后，系统会自动发送付费文件卡片；你可以提醒用户在聊天右侧打开那张文件卡片查看火柴动画。不要编造支付结果，不要承诺卡片以外的权益。"
+        },
+        "configuration": {},
+        "resources": {
+          "requests": {
+            "cpu": "100m",
+            "memory": "256Mi"
+          },
+          "limits": {
+            "cpu": "1000m",
+            "memory": "1Gi"
+          }
+        }
+      }
+    ]
+  },
+  "i18n": {
+    "en": {
+      "title": "Little Match Girl",
+      "description": "A paid-file MVP: deploy a fairy-tale Buddy who sells glowing matches and unlocks a short HTML flame animation after purchase."
+    },
+    "zh-CN": {
+      "title": "卖火柴的小女孩",
+      "description": "付费文件 MVP：部署一个童话 Buddy，她会推销火柴；用户购买后解锁火柴动画 HTML。"
+    }
+  }
+}

@@ -57,8 +57,32 @@ client.channels.join("channel-uuid")
 | `servers`  | `list`、`create`、`get`、`update`、`delete`、`join`、`leave` |
 | `channels` | `list`、`create`、`get`、`update`、`delete`、`join`、`leave` |
 | `messages` | `list`、`send`、`get`、`update`、`delete`       |
+| `commerce` | `getMyShop`、`getManagedUserShop`、`listCommerceProductCards`、`purchaseShopProduct`、`purchaseMessageCommerceCard`、`purchaseDmMessageCommerceCard`、`verifyEntitlement`、`getAllEntitlements`、`cancelEntitlement`、Push 渠道偏好 helper |
 | `members`  | `list`、`get`、`kick`、`updateRole`             |
 | `upload`   | `file`                                         |
+
+### 商品卡片与 Entitlement
+
+```typescript
+const { cards } = await authedClient.listCommerceProductCards({
+  target: "channel",
+  channelId: "channel-uuid",
+})
+
+await authedClient.sendMessage("channel-uuid", "推荐服务", {
+  metadata: { commerceCards: cards.slice(0, 1) },
+})
+
+await authedClient.purchaseShopProduct("shop-uuid", "product-uuid", {
+  idempotencyKey: crypto.randomUUID(),
+})
+
+await authedClient.updateNotificationChannelPreference({
+  kind: "commerce.renewal_failed",
+  channel: "mobile_push",
+  enabled: true,
+})
+```
 
 ### 会员状态与玩法启动
 
@@ -154,6 +178,25 @@ models = authed_client.list_official_model_proxy_models()
 completion = authed_client.create_official_chat_completion(
     model=models["data"][0]["id"],
     messages=[{"role": "user", "content": "用一句话打个招呼。"}],
+)
+```
+
+```python
+cards = authed_client.list_commerce_product_cards(
+    target="dm",
+    dm_channel_id="dm-channel-uuid",
+)
+
+authed_client.purchase_shop_product(
+    "shop-uuid",
+    "product-uuid",
+    idempotency_key="purchase-idempotency-key",
+)
+
+authed_client.update_notification_channel_preference(
+    kind="commerce.renewal_failed",
+    channel="mobile_push",
+    enabled=True,
 )
 ```
 

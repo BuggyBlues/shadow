@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import type { Database } from '../db'
 import { shops } from '../db/schema'
 
@@ -14,12 +14,28 @@ export class ShopDao {
   }
 
   async findByServerId(serverId: string) {
-    const r = await this.db.select().from(shops).where(eq(shops.serverId, serverId)).limit(1)
+    const r = await this.db
+      .select()
+      .from(shops)
+      .where(and(eq(shops.scopeKind, 'server'), eq(shops.serverId, serverId)))
+      .limit(1)
+    return r[0] ?? null
+  }
+
+  async findByOwnerUserId(ownerUserId: string) {
+    const r = await this.db
+      .select()
+      .from(shops)
+      .where(and(eq(shops.scopeKind, 'user'), eq(shops.ownerUserId, ownerUserId)))
+      .limit(1)
     return r[0] ?? null
   }
 
   async create(data: {
-    serverId: string
+    scopeKind?: 'server' | 'user'
+    serverId?: string
+    ownerUserId?: string
+    visibility?: string
     name: string
     description?: string
     logoUrl?: string
@@ -38,6 +54,7 @@ export class ShopDao {
       bannerUrl: string | null
       status: 'active' | 'suspended' | 'closed'
       settings: Record<string, unknown>
+      visibility: string
     }>,
   ) {
     const r = await this.db

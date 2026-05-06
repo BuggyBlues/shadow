@@ -967,6 +967,16 @@ export class PlayLaunchService {
     await this.deps.serverService.ensureMember(target.serverId, userId, { allowPrivatePlay: true })
     await this.deps.serverService.addBotMember(target.serverId, buddyUserId)
     await this.deps.channelService.addMember(target.channelId, buddyUserId).catch(() => null)
+    const agent = await this.deps.agentDao.findByUserId(buddyUserId)
+    if (agent) {
+      await this.deps.agentPolicyService.ensureServerDefault(agent.id, target.serverId)
+      this.notifyBuddyChannelAdded({
+        serverId: target.serverId,
+        channelId: target.channelId,
+        buddyUserId,
+        agentId: agent.id,
+      })
+    }
 
     const runtime = extractPlayLaunchRuntimeMetadata(deployment.configSnapshot)
     const greeting =

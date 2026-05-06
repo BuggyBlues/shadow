@@ -368,10 +368,11 @@ describe('Products — CRUD & listing', () => {
         tags: ['VIP', '权益'],
         categoryId: categoryId2,
         entitlementConfig: {
-          type: 'channel_access',
-          targetId: 'fake-channel-id',
+          resourceType: 'service',
+          resourceId: 'vip-member-access',
+          capability: 'use',
           durationSeconds: 86400 * 30,
-          privilegeDescription: 'VIP频道30天访问权限',
+          privilegeDescription: 'VIP服务30天使用权',
         },
         skus: [{ specValues: ['30天'], price: 200, stock: 999 }],
       },
@@ -1093,12 +1094,17 @@ describe('Entitlements', () => {
       token: buyerToken,
     })
     expect(res.status).toBe(200)
-    const ents = await json<{ type: string; targetId: string; isActive: boolean }[]>(res)
+    const ents =
+      await json<
+        { resourceType: string; resourceId: string; capability: string; isActive: boolean }[]
+      >(res)
     expect(ents.length).toBeGreaterThanOrEqual(1)
-    const ent = ents.find((e) => e.type === 'channel_access')
+    const ent = ents.find(
+      (e) => e.resourceType === 'service' && e.resourceId === 'vip-member-access',
+    )
     expect(ent).toBeDefined()
     expect(ent!.isActive).toBe(true)
-    expect(ent!.targetId).toBe('fake-channel-id')
+    expect(ent!.capability).toBe('use')
   })
 
   it('entitlement revoked when entitlement order is cancelled', async () => {
@@ -1114,10 +1120,11 @@ describe('Entitlements', () => {
       token: buyerToken,
     })
     expect(res.status).toBe(200)
-    const ents = await json<{ type: string; isActive: boolean }[]>(res)
-    // The channel_access entitlement should no longer appear since it's been revoked
-    const channelEnt = ents.find((e) => e.type === 'channel_access')
-    expect(channelEnt).toBeUndefined()
+    const ents = await json<{ resourceType: string; resourceId: string; isActive: boolean }[]>(res)
+    const vipEnt = ents.find(
+      (e) => e.resourceType === 'service' && e.resourceId === 'vip-member-access',
+    )
+    expect(vipEnt).toBeUndefined()
   })
 })
 

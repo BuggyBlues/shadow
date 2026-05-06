@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications'
 import { router } from 'expo-router'
 import { Platform } from 'react-native'
+import { fetchApi } from './api'
 
 /**
  * Configure notification handling behavior.
@@ -26,6 +27,20 @@ export async function requestNotificationPermissions(): Promise<boolean> {
 
   const { status } = await Notifications.requestPermissionsAsync()
   return status === 'granted'
+}
+
+export async function registerRemotePushToken(): Promise<void> {
+  const granted = await requestNotificationPermissions()
+  if (!granted) return
+  const token = await Notifications.getExpoPushTokenAsync()
+  await fetchApi('/api/notifications/push-tokens', {
+    method: 'POST',
+    body: JSON.stringify({
+      platform: Platform.OS,
+      token: token.data,
+      deviceName: Platform.OS,
+    }),
+  })
 }
 
 /**

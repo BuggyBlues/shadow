@@ -301,10 +301,13 @@ async function main() {
 /* ──────────── Scheduled Jobs ──────────── */
 
 const RENTAL_CHECK_INTERVAL = 5 * 60 * 1000 // 5 minutes
+const ENTITLEMENT_RENEWAL_INTERVAL = 5 * 60 * 1000 // 5 minutes
 let rentalTimer: ReturnType<typeof setInterval> | null = null
+let entitlementRenewalTimer: ReturnType<typeof setInterval> | null = null
 
 function startScheduledJobs(container: AppContainer) {
   const rentalService = container.resolve('rentalService')
+  const entitlementRenewalService = container.resolve('entitlementRenewalService')
 
   // Periodically terminate expired rental contracts and bill active ones
   rentalTimer = setInterval(async () => {
@@ -341,6 +344,22 @@ function startScheduledJobs(container: AppContainer) {
     }
   }, RENTAL_CHECK_INTERVAL)
 
+  entitlementRenewalTimer = setInterval(async () => {
+    try {
+      const results = await entitlementRenewalService.processDueRenewals()
+      const failed = results.filter((r) => !r.success)
+      const renewed = results.filter((r) => r.success)
+      if (renewed.length > 0) {
+        logger.info({ count: renewed.length }, 'Auto-renewed commerce entitlements')
+      }
+      if (failed.length > 0) {
+        logger.warn({ failed }, 'Some commerce entitlement renewals failed')
+      }
+    } catch (err) {
+      logger.error({ err }, 'Commerce entitlement renewal pass failed')
+    }
+  }, ENTITLEMENT_RENEWAL_INTERVAL)
+
   logger.info('Scheduled jobs started')
 }
 
@@ -348,6 +367,10 @@ function stopScheduledJobs() {
   if (rentalTimer) {
     clearInterval(rentalTimer)
     rentalTimer = null
+  }
+  if (entitlementRenewalTimer) {
+    clearInterval(entitlementRenewalTimer)
+    entitlementRenewalTimer = null
   }
 }
 

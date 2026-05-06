@@ -85,12 +85,19 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
 
           const messageService = container.resolve('messageService')
           const mentionService = container.resolve('mentionService')
+          const commerceCardService = container.resolve('commerceCardService')
 
           const preparedInput = await mentionService.prepareMessageInput(data.channelId, userId, {
             content: data.content,
             replyToId: data.replyToId,
             mentions: data.mentions,
             metadata: data.metadata,
+          })
+          preparedInput.metadata = await commerceCardService.inferMessageMetadata({
+            metadata: preparedInput.metadata as Record<string, unknown> | undefined,
+            target: { kind: 'channel', channelId: data.channelId },
+            authorId: userId,
+            content: preparedInput.content,
           })
           const message = await messageService.send(data.channelId, userId, preparedInput)
 
@@ -214,13 +221,21 @@ export function setupChatGateway(io: SocketIOServer, container: AppContainer): v
             return
           }
 
+          const commerceCardService = container.resolve('commerceCardService')
+          const normalizedMetadata = await commerceCardService.inferMessageMetadata({
+            metadata: data.metadata,
+            target: { kind: 'dm', dmChannelId: data.dmChannelId },
+            authorId: userId,
+            content: data.content,
+          })
+
           const message = await dmService.sendMessage(
             data.dmChannelId,
             userId,
             data.content,
             data.replyToId,
             undefined,
-            data.metadata,
+            normalizedMetadata,
           )
 
           // Broadcast to DM room

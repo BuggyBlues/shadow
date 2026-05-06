@@ -420,7 +420,17 @@
     "interactiveRequired": "Required",
     "interactiveSubmitFailed": "Failed to submit response",
     "interactiveOn": "On",
-    "interactiveOff": "Off"
+    "interactiveOff": "Off",
+    "commerceBuy": "Buy",
+    "commercePurchasing": "Buying...",
+    "commerceEntitlement": "Entitlement",
+    "commerceSubscription": "Subscription",
+    "commercePurchaseFailed": "Purchase failed",
+    "commercePurchaseSucceeded": "Purchase completed",
+    "productPicker": "Products",
+    "productPickerLoading": "Loading products...",
+    "productPickerEmpty": "No products available",
+    "removeProductCard": "Remove product card"
   },
   "member": {
     "title": "Members",

@@ -5,7 +5,7 @@ import { AppState } from 'react-native'
 import { HeaderButton, HeaderButtonGroup } from '../../src/components/common/header-button'
 import { fetchApi } from '../../src/lib/api'
 import {
-  requestNotificationPermissions,
+  registerRemotePushToken,
   setupAndroidChannel,
   setupNotificationResponseListener,
   showMessageNotification,
@@ -46,7 +46,7 @@ export default function MainLayout() {
 
     // Set up notifications
     setupAndroidChannel()
-    requestNotificationPermissions()
+    registerRemotePushToken().catch(() => null)
     const cleanupResponse = setupNotificationResponseListener()
 
     return () => {

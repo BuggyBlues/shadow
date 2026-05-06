@@ -17,6 +17,12 @@ import { queryClient } from './lib/query-client'
 import { AppPageRoute } from './pages/apps'
 import { BuddyManagementPage } from './pages/buddy-management'
 import { ChannelView } from './pages/channel-view'
+import {
+  EntitlementsPage,
+  PersonalShopPage,
+  ProductDetailPage,
+  ShopOrdersPage,
+} from './pages/commerce'
 import { ContractDetailPage } from './pages/contract-detail'
 import { CreateListingPage } from './pages/create-listing'
 import { DevelopersCloudPage } from './pages/developers-cloud'
@@ -293,6 +299,36 @@ const dmChatRoute = createRoute({
   component: DmChatPage,
 })
 
+const personalShopRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/shop/me',
+  component: PersonalShopPage,
+})
+
+const userShopRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/shop/users/$userId',
+  component: PersonalShopPage,
+})
+
+const productDetailRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/shop/products/$productId',
+  component: ProductDetailPage,
+})
+
+const entitlementsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/settings/entitlements',
+  component: EntitlementsPage,
+})
+
+const shopOrdersRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/shop/orders',
+  component: ShopOrdersPage,
+})
+
 const cloudRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/cloud',
@@ -355,6 +391,11 @@ const routeTree = rootRoute.addChildren([
     marketplaceDetailRoute,
     userProfileRoute,
     dmChatRoute,
+    personalShopRoute,
+    userShopRoute,
+    productDetailRoute,
+    entitlementsRoute,
+    shopOrdersRoute,
     cloudRoute,
     diyCloudRoute,
     cloudSplatRoute,

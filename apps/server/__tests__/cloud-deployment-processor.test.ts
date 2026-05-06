@@ -17,6 +17,7 @@ vi.mock('@shadowob/cloud', async (importOriginal) => {
 import {
   ensureNamespaceDeletionStarted,
   probeDeploymentRuntimeResources,
+  resolveDeploymentShadowProvisionToken,
   waitForNamespaceDeletion,
 } from '../src/lib/cloud-deployment-processor'
 
@@ -125,5 +126,22 @@ describe('probeDeploymentRuntimeResources', () => {
       podNames: ['strategy-buddy-abc'],
       readyPods: 0,
     })
+  })
+})
+
+describe('resolveDeploymentShadowProvisionToken', () => {
+  it('keeps an explicit runtime token when one is provided', async () => {
+    await expect(
+      resolveDeploymentShadowProvisionToken({ SHADOW_USER_TOKEN: 'explicit-token' }, 'user-1'),
+    ).resolves.toBe('explicit-token')
+  })
+
+  it('mints a transient access token for server-side Shadow provisioning', async () => {
+    process.env.JWT_SECRET = process.env.JWT_SECRET ?? 'test-secret'
+
+    const token = await resolveDeploymentShadowProvisionToken({}, 'user-1')
+
+    expect(token).toBeTruthy()
+    expect(token).not.toContain('explicit-token')
   })
 })

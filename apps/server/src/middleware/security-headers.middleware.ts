@@ -13,8 +13,12 @@ import type { Context, Next } from 'hono'
 export async function securityHeadersMiddleware(c: Context, next: Next): Promise<void> {
   await next()
 
+  const isPaidFileGrantView = /^\/api\/paid-files\/[^/]+\/view\/[^/]+$/.test(c.req.path)
+
   c.header('X-Content-Type-Options', 'nosniff')
-  c.header('X-Frame-Options', 'DENY')
+  if (!isPaidFileGrantView) {
+    c.header('X-Frame-Options', 'DENY')
+  }
   c.header('X-XSS-Protection', '0')
   c.header('Referrer-Policy', 'strict-origin-when-cross-origin')
 

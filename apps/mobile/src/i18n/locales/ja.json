@@ -420,7 +420,17 @@
     "interactiveRequired": "必須",
     "interactiveSubmitFailed": "回答の送信に失敗しました",
     "interactiveOn": "オン",
-    "interactiveOff": "オフ"
+    "interactiveOff": "オフ",
+    "commerceBuy": "購入",
+    "commercePurchasing": "購入中...",
+    "commerceEntitlement": "権限",
+    "commerceSubscription": "サブスクリプション",
+    "commercePurchaseFailed": "購入に失敗しました",
+    "commercePurchaseSucceeded": "購入が完了しました",
+    "productPicker": "商品",
+    "productPickerLoading": "商品を読み込み中...",
+    "productPickerEmpty": "送信できる商品はありません",
+    "removeProductCard": "商品カードを削除"
   },
   "member": {
     "title": "メンバー",

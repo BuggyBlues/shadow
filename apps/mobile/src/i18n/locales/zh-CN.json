@@ -419,7 +419,17 @@
     "interactiveRequired": "必填",
     "interactiveSubmitFailed": "提交回应失败",
     "interactiveOn": "开启",
-    "interactiveOff": "关闭"
+    "interactiveOff": "关闭",
+    "commerceBuy": "购买",
+    "commercePurchasing": "购买中...",
+    "commerceEntitlement": "权益",
+    "commerceSubscription": "订阅",
+    "commercePurchaseFailed": "购买失败",
+    "commercePurchaseSucceeded": "购买完成",
+    "productPicker": "商品",
+    "productPickerLoading": "正在加载商品...",
+    "productPickerEmpty": "暂无可发送商品",
+    "removeProductCard": "移除商品卡片"
   },
   "member": {
     "title": "成员",

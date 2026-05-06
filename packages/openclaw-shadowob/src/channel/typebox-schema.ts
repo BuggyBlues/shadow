@@ -140,4 +140,8 @@ export const shadowMessageToolSchemaProperties = {
   contentType: optionalSchema(stringSchema('Attachment MIME type when buffer is used.')),
   mimeType: optionalSchema(stringSchema('Alias for contentType.')),
   caption: optionalSchema(stringSchema('Optional text sent with an attachment.')),
+  commerceOfferId: optionalSchema(
+    stringSchema('Shadow CommerceOfferId to attach as a purchasable product card.'),
+  ),
+  offerId: optionalSchema(stringSchema('Alias for commerceOfferId.')),
 } satisfies Record<string, TypeBoxCompatibleSchema>

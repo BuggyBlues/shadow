@@ -526,6 +526,92 @@ def test_notifications_mark_all_uses_post(monkeypatch):
     client.close()
 
 
+def test_notification_channel_preference_and_push_token_paths(monkeypatch):
+    client = ShadowClient("https://example.com", "test-token")
+    captured = []
+
+    def fake_patch(path, json=None):
+        captured.append(("patch", path, json))
+        return {"kind": json["kind"], "enabled": json["enabled"]}
+
+    def fake_post(path, json=None):
+        captured.append(("post", path, json))
+        return {"id": "token-1"}
+
+    monkeypatch.setattr(client, "_patch", fake_patch)
+    monkeypatch.setattr(client, "_post", fake_post)
+
+    assert client.update_notification_channel_preference(
+        kind="commerce.renewal_failed",
+        channel="mobile_push",
+        enabled=False,
+    ) == {"kind": "commerce.renewal_failed", "enabled": False}
+    assert client.register_push_token(
+        platform="ios",
+        token="ExponentPushToken[abc]",
+        device_name="iPhone",
+    ) == {"id": "token-1"}
+    assert captured == [
+        (
+            "patch",
+            "/api/notifications/channel-preferences",
+            {
+                "kind": "commerce.renewal_failed",
+                "channel": "mobile_push",
+                "enabled": False,
+            },
+        ),
+        (
+            "post",
+            "/api/notifications/push-tokens",
+            {
+                "platform": "ios",
+                "token": "ExponentPushToken[abc]",
+                "deviceName": "iPhone",
+            },
+        ),
+    ]
+    client.close()
+
+
+def test_commerce_picker_purchase_and_entitlement_paths(monkeypatch):
+    client = ShadowClient("https://example.com", "test-token")
+    captured = []
+
+    def fake_get(path, *, params=None):
+        captured.append(("get", path, params))
+        return {"cards": []}
+
+    def fake_post(path, json=None):
+        captured.append(("post", path, json))
+        return {"ok": True}
+
+    monkeypatch.setattr(client, "_get", fake_get)
+    monkeypatch.setattr(client, "_post", fake_post)
+
+    assert client.list_commerce_product_cards(
+        target="dm",
+        dm_channel_id="dm-1",
+        limit=3,
+    ) == {"cards": []}
+    assert client.purchase_shop_product(
+        "shop-1",
+        "prod-1",
+        idempotency_key="idem-1",
+    ) == {"ok": True}
+    assert client.cancel_entitlement("ent-1", reason="user_cancelled") == {"ok": True}
+    assert captured == [
+        ("get", "/api/commerce/product-picker", {"target": "dm", "dmChannelId": "dm-1", "limit": 3}),
+        (
+            "post",
+            "/api/shops/shop-1/products/prod-1/purchase",
+            {"idempotencyKey": "idem-1"},
+        ),
+        ("post", "/api/entitlements/ent-1/cancel", {"reason": "user_cancelled"}),
+    ]
+    client.close()
+
+
 def test_delete_policy_resolves_policy_id_before_delete(monkeypatch):
     client = ShadowClient("https://example.com", "test-token")
     captured = {}

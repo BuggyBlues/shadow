@@ -10,15 +10,44 @@ const updatePreferenceSchema = z.object({
   mutedChannelIds: z.array(z.string().uuid()).optional(),
 })
 
+const notificationChannelSchema = z.enum([
+  'in_app',
+  'socket',
+  'mobile_push',
+  'web_push',
+  'email',
+  'sms',
+  'chat_system',
+])
+
+const updateChannelPreferenceSchema = z.object({
+  kind: z.string().min(1).max(80),
+  channel: notificationChannelSchema,
+  enabled: z.boolean(),
+})
+
+const pushTokenSchema = z.object({
+  platform: z.enum(['ios', 'android', 'web']).or(z.string().min(1).max(20)),
+  token: z.string().min(16).max(4096),
+  deviceName: z.string().max(120).nullable().optional(),
+})
+
+const webPushSubscriptionSchema = z.object({
+  endpoint: z.string().url().max(4096),
+  keys: z.object({
+    p256dh: z.string().min(1).max(1024),
+    auth: z.string().min(1).max(1024),
+  }),
+  userAgent: z.string().max(500).nullable().optional(),
+})
+
 const readScopeSchema = z
   .object({
     serverId: z.string().uuid().optional(),
     channelId: z.string().uuid().optional(),
     dmChannelId: z.string().uuid().optional(),
   })
-  .refine((v) => !!v.serverId || !!v.channelId || !!v.dmChannelId, {
-    message: 'serverId, channelId, or dmChannelId is required',
-  })
+  .refine((v) => !!v.serverId || !!v.channelId || !!v.dmChannelId)
 
 export function createNotificationHandler(container: AppContainer) {
   const notificationHandler = new Hono()
@@ -41,7 +70,12 @@ export function createNotificationHandler(container: AppContainer) {
     const id = c.req.param('id')
     const user = c.get('user')
     const notification = await notificationService.markAsRead(user.userId, id)
-    if (!notification) return c.json({ ok: false, error: 'Notification not found' }, 404)
+    if (!notification) {
+      return c.json(
+        { ok: false, error: 'NOTIFICATION_NOT_FOUND', code: 'NOTIFICATION_NOT_FOUND' },
+        404,
+      )
+    }
     return c.json(notification)
   })
 
@@ -98,6 +132,74 @@ export function createNotificationHandler(container: AppContainer) {
       return c.json(pref)
     },
   )
+
+  notificationHandler.get('/channel-preferences', async (c) => {
+    const notificationDao = container.resolve('notificationDao')
+    const user = c.get('user')
+    return c.json(await notificationDao.getChannelPreferences(user.userId))
+  })
+
+  notificationHandler.patch(
+    '/channel-preferences',
+    zValidator('json', updateChannelPreferenceSchema),
+    async (c) => {
+      const notificationDao = container.resolve('notificationDao')
+      const user = c.get('user')
+      const input = c.req.valid('json')
+      return c.json(
+        await notificationDao.upsertChannelPreference({ userId: user.userId, ...input }),
+      )
+    },
+  )
+
+  notificationHandler.post('/push-tokens', zValidator('json', pushTokenSchema), async (c) => {
+    const notificationDao = container.resolve('notificationDao')
+    const user = c.get('user')
+    const input = c.req.valid('json')
+    return c.json(
+      await notificationDao.upsertPushToken({
+        userId: user.userId,
+        platform: input.platform,
+        token: input.token,
+        deviceName: input.deviceName,
+      }),
+      201,
+    )
+  })
+
+  notificationHandler.delete('/push-tokens/:idOrToken', async (c) => {
+    const notificationDao = container.resolve('notificationDao')
+    const user = c.get('user')
+    await notificationDao.deactivatePushToken(user.userId, c.req.param('idOrToken'))
+    return c.json({ ok: true })
+  })
+
+  notificationHandler.post(
+    '/web-push-subscriptions',
+    zValidator('json', webPushSubscriptionSchema),
+    async (c) => {
+      const notificationDao = container.resolve('notificationDao')
+      const user = c.get('user')
+      const input = c.req.valid('json')
+      return c.json(
+        await notificationDao.upsertWebPushSubscription({
+          userId: user.userId,
+          endpoint: input.endpoint,
+          p256dh: input.keys.p256dh,
+          auth: input.keys.auth,
+          userAgent: input.userAgent,
+        }),
+        201,
+      )
+    },
+  )
+
+  notificationHandler.delete('/web-push-subscriptions/:idOrEndpoint', async (c) => {
+    const notificationDao = container.resolve('notificationDao')
+    const user = c.get('user')
+    await notificationDao.deactivateWebPushSubscription(user.userId, c.req.param('idOrEndpoint'))
+    return c.json({ ok: true })
+  })
 
   return notificationHandler
 }

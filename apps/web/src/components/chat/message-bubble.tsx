@@ -1,4 +1,4 @@
-import type { MessageMention } from '@shadowob/shared'
+import type { CommerceProductCard, MessageMention, PaidFileCard } from '@shadowob/shared'
 import { segmentTextByMentions } from '@shadowob/shared'
 import { Button, cn } from '@shadowob/ui'
 import { type InfiniteData, useQueryClient } from '@tanstack/react-query'
@@ -11,6 +11,7 @@ import {
   CheckSquare,
   Copy,
   ExternalLink,
+  FileText,
   Hash,
   Lock,
   MoreHorizontal,
@@ -28,12 +29,15 @@ import { useTranslation } from 'react-i18next'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { fetchApi } from '../../lib/api'
+import { getApiErrorMessage } from '../../lib/api-errors'
 import { useAuthStore } from '../../stores/auth.store'
 import { useChatStore } from '../../stores/chat.store'
+import { PurchaseConfirmationModal } from '../commerce/purchase-confirmation-modal'
 import { UserAvatar } from '../common/avatar'
 import { useConfirmStore } from '../common/confirm-dialog'
 import { EmojiPicker } from '../common/emoji-picker'
 import { UserProfileCard } from '../common/user-profile-card'
+import { formatFileSize } from '../workspace/workspace-utils'
 import { FileCard } from './file-card'
 import { ImageContextMenu } from './image-context-menu'
 
@@ -80,6 +84,8 @@ export interface Message {
     interactive?: InteractiveBlock
     interactiveResponse?: InteractiveResponseMetadata
     interactiveState?: InteractiveStateMetadata
+    commerceCards?: CommerceProductCard[]
+    paidFileCards?: PaidFileCard[]
     [key: string]: unknown
   }
   /** Optimistic send status — only set on client-side pending messages */
@@ -182,6 +188,43 @@ export interface MessageBubbleProps {
 }
 
 const quickEmojis = ['👍', '❤️', '😂', '🎉', '🤔', '👀']
+
+type PaidFileState = {
+  file: {
+    id: string
+    name: string
+    mime?: string | null
+    sizeBytes?: number | null
+    previewUrl?: string | null
+    paywalled?: boolean
+  }
+  entitlement: { id: string; status: string; expiresAt?: string | null } | null
+  hasAccess: boolean
+}
+
+async function openPaidFileInPreview(input: {
+  fileId: string
+  fallbackName: string
+  fallbackMime?: string | null
+  fallbackSizeBytes?: number | null
+  onPreviewFile?: (attachment: Attachment) => void
+}) {
+  const result = await fetchApi<{ viewerUrl: string }>(`/api/paid-files/${input.fileId}/open`, {
+    method: 'POST',
+  })
+  const attachment = {
+    id: `paid-file-${input.fileId}`,
+    filename: input.fallbackName,
+    url: result.viewerUrl,
+    contentType: input.fallbackMime ?? 'text/html; charset=utf-8',
+    size: input.fallbackSizeBytes ?? 0,
+  }
+  if (input.onPreviewFile) {
+    input.onPreviewFile(attachment)
+    return
+  }
+  window.location.assign(result.viewerUrl)
+}
 const WALLET_RECHARGE_MARKER_PATTERN = /<!--\s*shadow:wallet-recharge\s+([A-Za-z0-9_-]+)\s*-->/u
 
 function isImageType(contentType: string): boolean {
@@ -190,6 +233,20 @@ function isImageType(contentType: string): boolean {
 
 function formatCoinValue(value: number | undefined): string {
   return typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString() : '—'
+}
+
+function formatCommercePrice(
+  card: CommerceProductCard,
+  t: (key: string, options?: Record<string, unknown>) => string,
+) {
+  if (card.snapshot.currency === 'shrimp_coin') {
+    return `${card.snapshot.price.toLocaleString()} ${t('common.shrimpCoin', { defaultValue: '虾币' })}`
+  }
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: card.snapshot.currency,
+    maximumFractionDigits: 2,
+  }).format(card.snapshot.price / 100)
 }
 
 function decodeWalletRechargeMarker(content: string): WalletRechargeMetadata | null {
@@ -290,6 +347,265 @@ function WalletRechargeCard({ data }: { data: WalletRechargeMetadata }) {
         >
           {t('chat.modelWalletTasksAction')}
         </Button>
+      </div>
+    </div>
+  )
+}
+
+function CommerceProductCardView({
+  card,
+  messageId,
+  variant,
+  onPreviewFile,
+}: {
+  card: CommerceProductCard
+  messageId: string
+  variant: 'channel' | 'dm'
+  onPreviewFile?: (attachment: Attachment) => void
+}) {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const [isBuying, setIsBuying] = useState(false)
+  const [isOpening, setIsOpening] = useState(false)
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [purchaseResult, setPurchaseResult] = useState<{
+    order?: { id: string; orderNo: string; status: string; totalAmount: number }
+    entitlement?: { id: string; status: string; expiresAt?: string | null }
+    provisioning?: { status: string; code: string }
+  } | null>(null)
+  const buy = async () => {
+    setIsBuying(true)
+    setError(null)
+    try {
+      const result = await fetchApi<NonNullable<typeof purchaseResult>>(
+        variant === 'dm'
+          ? `/api/dm/messages/${messageId}/commerce-cards/${card.id}/purchase`
+          : `/api/messages/${messageId}/commerce-cards/${card.id}/purchase`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            skuId: card.skuId,
+            idempotencyKey: crypto.randomUUID(),
+          }),
+        },
+      )
+      setPurchaseResult(result)
+      queryClient.invalidateQueries({ queryKey: ['entitlements'] })
+      queryClient.invalidateQueries({ queryKey: ['paid-file', card.snapshot.resourceId] })
+    } catch (err) {
+      setError(getApiErrorMessage(err, t, 'chat.commercePurchaseFailed'))
+    } finally {
+      setIsBuying(false)
+    }
+  }
+  const paidFileId =
+    card.snapshot.productType === 'entitlement' &&
+    card.snapshot.resourceType === 'workspace_file' &&
+    card.snapshot.resourceId
+      ? card.snapshot.resourceId
+      : null
+  const resolveCardAction = async () => {
+    if (!paidFileId) {
+      setShowPurchaseModal(true)
+      return
+    }
+    setIsOpening(true)
+    setError(null)
+    try {
+      const state = await fetchApi<PaidFileState>(`/api/paid-files/${paidFileId}`)
+      if (!state.hasAccess) {
+        setShowPurchaseModal(true)
+        return
+      }
+      await openPaidFileInPreview({
+        fileId: paidFileId,
+        fallbackName: state.file.name || card.snapshot.name,
+        fallbackMime: state.file.mime,
+        fallbackSizeBytes: state.file.sizeBytes,
+        onPreviewFile,
+      })
+    } catch (err) {
+      setError(getApiErrorMessage(err, t, 'chat.paidFileOpenFailed'))
+    } finally {
+      setIsOpening(false)
+    }
+  }
+  const durationDays = card.snapshot.durationSeconds
+    ? Math.ceil(card.snapshot.durationSeconds / 86400)
+    : null
+  const modalDetails = {
+    name: card.snapshot.name,
+    summary: card.snapshot.summary,
+    imageUrl: card.snapshot.imageUrl,
+    priceLabel: formatCommercePrice(card, t),
+    billingModeLabel: t(`commerce.billingModes.${card.snapshot.billingMode ?? 'one_time'}`, {
+      defaultValue:
+        card.snapshot.billingMode === 'subscription'
+          ? t('chat.commerceSubscription')
+          : t('chat.commerceEntitlement'),
+    }),
+    entitlementLabel:
+      card.snapshot.productType === 'entitlement'
+        ? t('chat.commerceEntitlement')
+        : card.snapshot.productType,
+    durationLabel: durationDays
+      ? t('commerce.validDays', { count: durationDays })
+      : t('commerce.permanent'),
+    targetLabel: card.snapshot.summary ?? t('commerce.manualDelivery'),
+    deliveryLabel: t('commerce.immediateDelivery'),
+  }
+
+  return (
+    <div className="max-w-md overflow-hidden rounded-xl border border-border-subtle bg-bg-secondary text-left">
+      <div className="flex gap-3 p-3">
+        {card.snapshot.imageUrl && (
+          <img
+            src={card.snapshot.imageUrl}
+            alt={card.snapshot.name}
+            className="h-16 w-16 shrink-0 rounded-lg object-cover"
+          />
+        )}
+        <div className="min-w-0 flex-1">
+          <button
+            type="button"
+            className="block w-full rounded-lg text-left transition hover:bg-bg-primary/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            onClick={resolveCardAction}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <h4 className="line-clamp-2 text-sm font-bold text-text-primary">
+                {card.snapshot.name}
+              </h4>
+              <span className="shrink-0 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
+                {formatCommercePrice(card, t)}
+              </span>
+            </div>
+            {card.snapshot.summary && (
+              <p className="mt-1 line-clamp-2 text-xs text-text-secondary">
+                {card.snapshot.summary}
+              </p>
+            )}
+          </button>
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <span className="text-[11px] font-semibold uppercase text-text-muted">
+              {card.snapshot.billingMode === 'subscription'
+                ? t('chat.commerceSubscription')
+                : t('chat.commerceEntitlement')}
+            </span>
+            {purchaseResult ? (
+              <a
+                href="/app/settings?tab=entitlements"
+                className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold text-primary hover:bg-primary/10"
+              >
+                {t('chat.commerceViewEntitlement')}
+                <ExternalLink size={12} />
+              </a>
+            ) : (
+              <Button
+                size="sm"
+                onClick={resolveCardAction}
+                disabled={isBuying || isOpening}
+                className="!rounded-lg"
+              >
+                {paidFileId ? t('chat.paidFileOpen') : t('chat.commerceBuy')}
+              </Button>
+            )}
+          </div>
+          {purchaseResult && (
+            <div className="mt-2 rounded-lg bg-success/10 px-2 py-1.5 text-xs text-success">
+              <span className="font-bold">{t('chat.commercePurchaseCompleted')}</span>
+              {purchaseResult.provisioning?.status && (
+                <span className="ml-1">
+                  {t(`chat.provisioningStatus.${purchaseResult.provisioning.status}`, {
+                    defaultValue: purchaseResult.provisioning.status,
+                  })}
+                </span>
+              )}
+            </div>
+          )}
+          {error && <p className="mt-2 text-xs text-danger">{error}</p>}
+        </div>
+      </div>
+      <PurchaseConfirmationModal
+        open={showPurchaseModal}
+        details={modalDetails}
+        isPending={isBuying}
+        isCompleted={!!purchaseResult}
+        error={error}
+        provisioningStatus={purchaseResult?.provisioning?.status ?? null}
+        onClose={() => {
+          setShowPurchaseModal(false)
+          setError(null)
+        }}
+        onConfirm={buy}
+      />
+    </div>
+  )
+}
+
+function PaidFileCardView({
+  card,
+  onPreviewFile,
+}: {
+  card: PaidFileCard
+  onPreviewFile?: (attachment: Attachment) => void
+}) {
+  const { t } = useTranslation()
+  const [isOpening, setIsOpening] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const openFile = async () => {
+    setIsOpening(true)
+    setError(null)
+    try {
+      await openPaidFileInPreview({
+        fileId: card.fileId,
+        fallbackName: card.snapshot.name,
+        fallbackMime: card.snapshot.mime,
+        fallbackSizeBytes: card.snapshot.sizeBytes,
+        onPreviewFile,
+      })
+    } catch (err) {
+      setError(getApiErrorMessage(err, t, 'chat.paidFileOpenFailed'))
+    } finally {
+      setIsOpening(false)
+    }
+  }
+
+  return (
+    <div className="max-w-md rounded-xl border border-border-subtle bg-bg-secondary p-3 text-left">
+      <div className="flex items-start gap-3">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <FileText size={20} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h4 className="truncate text-sm font-bold text-text-primary">{card.snapshot.name}</h4>
+              <p className="mt-1 text-xs text-text-muted">
+                {card.snapshot.sizeBytes != null
+                  ? formatFileSize(card.snapshot.sizeBytes)
+                  : (card.snapshot.mime ?? t('chat.paidFile'))}
+              </p>
+            </div>
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-warning/10 px-2 py-0.5 text-xs font-bold text-warning">
+              <Lock size={12} />
+              {t('chat.paidFile')}
+            </span>
+          </div>
+          {card.snapshot.summary && (
+            <p className="mt-2 line-clamp-2 text-xs text-text-secondary">{card.snapshot.summary}</p>
+          )}
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <span className="text-[11px] font-semibold uppercase text-text-muted">
+              {t('chat.paidFileEntitlementRequired')}
+            </span>
+            <Button size="sm" onClick={openFile} disabled={isOpening} className="!rounded-lg">
+              {isOpening ? t('chat.paidFileOpening') : t('chat.paidFileOpen')}
+            </Button>
+          </div>
+          {error && <p className="mt-2 text-xs text-danger">{error}</p>}
+        </div>
       </div>
     </div>
   )
@@ -960,6 +1276,28 @@ function MessageBubbleInner({
         )}
 
         {walletRecharge && <WalletRechargeCard data={walletRecharge} />}
+
+        {message.metadata?.commerceCards && message.metadata.commerceCards.length > 0 && (
+          <div className="flex flex-col gap-2 mt-2">
+            {message.metadata.commerceCards.map((card) => (
+              <CommerceProductCardView
+                key={card.id}
+                card={card}
+                messageId={message.id}
+                variant={variant}
+                onPreviewFile={onPreviewFile}
+              />
+            ))}
+          </div>
+        )}
+
+        {message.metadata?.paidFileCards && message.metadata.paidFileCards.length > 0 && (
+          <div className="flex flex-col gap-2 mt-2">
+            {message.metadata.paidFileCards.map((card) => (
+              <PaidFileCardView key={card.id} card={card} onPreviewFile={onPreviewFile} />
+            ))}
+          </div>
+        )}
 
         {/* Attachments */}
         {message.attachments && message.attachments.length > 0 && (

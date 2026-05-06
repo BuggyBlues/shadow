@@ -114,12 +114,12 @@ services:
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
       DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-}
       PULUMI_CONFIG_PASSPHRASE: ${PULUMI_CONFIG_PASSPHRASE:-}
-      PULUMI_BACKEND_URL: ${PULUMI_BACKEND_URL:-file:///root/.shadowob/pulumi}
-      KUBECONFIG: ${KUBECONFIG:-/root/.kube/config}
+      PULUMI_BACKEND_URL: ${PULUMI_BACKEND_URL:-file:///home/node/.shadowob/pulumi}
+      KUBECONFIG: ${KUBECONFIG_CONTAINER_PATH:-/home/node/.kube/config}
       KUBECONFIG_CONTEXT: ${KUBECONFIG_CONTEXT:-}
       KUBECONFIG_LOOPBACK_HOST: ${KUBECONFIG_LOOPBACK_HOST:-host.lima.internal}
     volumes:
-      - ${KUBECONFIG_HOST_PATH:-/dev/null}:${KUBECONFIG:-/root/.kube/config}:ro
+      - ${KUBECONFIG_HOST_PATH:-/dev/null}:${KUBECONFIG_CONTAINER_PATH:-/home/node/.kube/config}:ro
     depends_on:
       postgres:
         condition: service_healthy

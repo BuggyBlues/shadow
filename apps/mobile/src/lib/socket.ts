@@ -139,6 +139,7 @@ export function sendDmMessage(data: {
   dmChannelId: string
   content: string
   replyToId?: string
+  metadata?: Record<string, unknown>
 }): void {
   getSocket().emit('dm:send', data)
 }

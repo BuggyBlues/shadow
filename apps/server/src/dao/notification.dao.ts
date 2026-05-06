@@ -1,9 +1,28 @@
 import { and, count, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { Database } from '../db'
-import { channels, messages, notificationPreferences, notifications, users } from '../db/schema'
+import {
+  channels,
+  messages,
+  notificationChannelPreferences,
+  notificationDeliveries,
+  notificationEvents,
+  notificationPreferences,
+  notifications,
+  userPushTokens,
+  users,
+  userWebPushSubscriptions,
+} from '../db/schema'
 
 type NotificationStrategy = 'all' | 'mention_only' | 'none'
 type NotificationType = 'mention' | 'reply' | 'dm' | 'system'
+export type NotificationChannel =
+  | 'in_app'
+  | 'socket'
+  | 'mobile_push'
+  | 'web_push'
+  | 'email'
+  | 'sms'
+  | 'chat_system'
 
 export interface CreateNotificationRecord {
   userId: string
@@ -195,6 +214,212 @@ export class NotificationDao {
       })
       .returning()
     return result[0]!
+  }
+
+  async createEvent(data: {
+    userId: string
+    notificationId?: string | null
+    kind: string
+    source?: string
+    idempotencyKey?: string | null
+    metadata?: Record<string, unknown> | null
+  }) {
+    const result = await this.db
+      .insert(notificationEvents)
+      .values({
+        userId: data.userId,
+        notificationId: data.notificationId,
+        kind: data.kind,
+        source: data.source ?? 'system',
+        idempotencyKey: data.idempotencyKey,
+        metadata: data.metadata ?? {},
+      })
+      .onConflictDoNothing()
+      .returning()
+    if (result[0]) return result[0]
+    if (data.idempotencyKey) {
+      const existing = await this.db
+        .select()
+        .from(notificationEvents)
+        .where(eq(notificationEvents.idempotencyKey, data.idempotencyKey))
+        .limit(1)
+      return existing[0] ?? null
+    }
+    return null
+  }
+
+  async createDeliveries(
+    rows: Array<{
+      eventId: string
+      notificationId?: string | null
+      userId: string
+      channel: NotificationChannel
+      status?: 'pending' | 'sent' | 'failed' | 'skipped'
+      provider?: string | null
+      target?: string | null
+      payload?: Record<string, unknown>
+      error?: string | null
+      sentAt?: Date | null
+    }>,
+  ) {
+    if (rows.length === 0) return []
+    return this.db.insert(notificationDeliveries).values(rows).returning()
+  }
+
+  async updateDelivery(
+    id: string,
+    data: Partial<{
+      status: 'pending' | 'sent' | 'failed' | 'skipped'
+      provider: string | null
+      target: string | null
+      error: string | null
+      attempts: number
+      sentAt: Date | null
+      nextAttemptAt: Date | null
+    }>,
+  ) {
+    const result = await this.db
+      .update(notificationDeliveries)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(notificationDeliveries.id, id))
+      .returning()
+    return result[0] ?? null
+  }
+
+  async getChannelPreferences(userId: string) {
+    return this.db
+      .select()
+      .from(notificationChannelPreferences)
+      .where(eq(notificationChannelPreferences.userId, userId))
+  }
+
+  async upsertChannelPreference(data: {
+    userId: string
+    kind: string
+    channel: NotificationChannel
+    enabled: boolean
+  }) {
+    const result = await this.db
+      .insert(notificationChannelPreferences)
+      .values(data)
+      .onConflictDoUpdate({
+        target: [
+          notificationChannelPreferences.userId,
+          notificationChannelPreferences.kind,
+          notificationChannelPreferences.channel,
+        ],
+        set: { enabled: data.enabled, updatedAt: new Date() },
+      })
+      .returning()
+    return result[0]!
+  }
+
+  async upsertPushToken(data: {
+    userId: string
+    platform: string
+    token: string
+    deviceName?: string | null
+  }) {
+    const result = await this.db
+      .insert(userPushTokens)
+      .values({
+        userId: data.userId,
+        platform: data.platform,
+        token: data.token,
+        deviceName: data.deviceName,
+        isActive: true,
+        lastUsedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: userPushTokens.token,
+        set: {
+          userId: data.userId,
+          platform: data.platform,
+          deviceName: data.deviceName,
+          isActive: true,
+          updatedAt: new Date(),
+          lastUsedAt: new Date(),
+        },
+      })
+      .returning()
+    return result[0]!
+  }
+
+  async deactivatePushToken(userId: string, idOrToken: string) {
+    await this.db
+      .update(userPushTokens)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(
+        and(
+          eq(userPushTokens.userId, userId),
+          sql`(${userPushTokens.id}::text = ${idOrToken} OR ${userPushTokens.token} = ${idOrToken})`,
+        ),
+      )
+  }
+
+  async findActivePushTokens(userId: string) {
+    return this.db
+      .select()
+      .from(userPushTokens)
+      .where(and(eq(userPushTokens.userId, userId), eq(userPushTokens.isActive, true)))
+  }
+
+  async upsertWebPushSubscription(data: {
+    userId: string
+    endpoint: string
+    p256dh: string
+    auth: string
+    userAgent?: string | null
+  }) {
+    const result = await this.db
+      .insert(userWebPushSubscriptions)
+      .values({
+        userId: data.userId,
+        endpoint: data.endpoint,
+        p256dh: data.p256dh,
+        auth: data.auth,
+        userAgent: data.userAgent,
+        isActive: true,
+        lastUsedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: userWebPushSubscriptions.endpoint,
+        set: {
+          userId: data.userId,
+          p256dh: data.p256dh,
+          auth: data.auth,
+          userAgent: data.userAgent,
+          isActive: true,
+          updatedAt: new Date(),
+          lastUsedAt: new Date(),
+        },
+      })
+      .returning()
+    return result[0]!
+  }
+
+  async deactivateWebPushSubscription(userId: string, idOrEndpoint: string) {
+    await this.db
+      .update(userWebPushSubscriptions)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(
+        and(
+          eq(userWebPushSubscriptions.userId, userId),
+          sql`(${userWebPushSubscriptions.id}::text = ${idOrEndpoint} OR ${userWebPushSubscriptions.endpoint} = ${idOrEndpoint})`,
+        ),
+      )
+  }
+
+  async findActiveWebPushSubscriptions(userId: string) {
+    return this.db
+      .select()
+      .from(userWebPushSubscriptions)
+      .where(
+        and(
+          eq(userWebPushSubscriptions.userId, userId),
+          eq(userWebPushSubscriptions.isActive, true),
+        ),
+      )
   }
 
   async findMessageScopesByMessageIds(messageIds: string[]) {

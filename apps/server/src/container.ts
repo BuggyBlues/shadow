@@ -53,8 +53,15 @@ import { CartService } from './services/cart.service'
 import { ChannelService } from './services/channel.service'
 import { CloudService } from './services/cloud.service'
 import { CloudUsageService } from './services/cloud-usage.service'
+import { CommerceCardService } from './services/commerce-card.service'
+import { CommerceFulfillmentService } from './services/commerce-fulfillment.service'
+import { CommerceOfferService } from './services/commerce-offer.service'
 import { DmService } from './services/dm.service'
 import { EntitlementService } from './services/entitlement.service'
+import { EntitlementCancellationService } from './services/entitlement-cancellation.service'
+import { EntitlementProvisionerService } from './services/entitlement-provisioner.service'
+import { EntitlementPurchaseService } from './services/entitlement-purchase.service'
+import { EntitlementRenewalService } from './services/entitlement-renewal.service'
 import { ExternalOAuthService } from './services/external-oauth.service'
 import { FriendshipService } from './services/friendship.service'
 import { LedgerService } from './services/ledger.service'
@@ -65,10 +72,12 @@ import { MessageService } from './services/message.service'
 import { ModelProxyService } from './services/model-proxy.service'
 import { NotificationService } from './services/notification.service'
 import { NotificationDeliveryService } from './services/notification-delivery.service'
+import { NotificationPlatformService } from './services/notification-platform.service'
 import { NotificationTemplateService } from './services/notification-template.service'
 import { NotificationTriggerService } from './services/notification-trigger.service'
 import { OAuthService } from './services/oauth.service'
 import { OrderService } from './services/order.service'
+import { PaidFileService } from './services/paid-file.service'
 import { PermissionService } from './services/permission.service'
 import { PlayLaunchService } from './services/play-launch.service'
 import { PolicyService } from './services/policy.service'
@@ -79,6 +88,7 @@ import { ReviewService } from './services/review.service'
 import { SearchService } from './services/search.service'
 import { ServerService } from './services/server.service'
 import { ShopService } from './services/shop.service'
+import { ShopScopeService } from './services/shop-scope.service'
 import { TaskCenterService } from './services/task-center.service'
 import { VoiceEnhanceService } from './services/voice-enhance.service'
 import { WalletService } from './services/wallet.service'
@@ -167,7 +177,11 @@ export interface Cradle {
   notificationService: NotificationService
   notificationTemplateService: NotificationTemplateService
   notificationDeliveryService: NotificationDeliveryService
+  notificationPlatformService: NotificationPlatformService
   notificationTriggerService: NotificationTriggerService
+  commerceCardService: CommerceCardService
+  commerceOfferService: CommerceOfferService
+  commerceFulfillmentService: CommerceFulfillmentService
   permissionService: PermissionService
   policyService: PolicyService
   dmService: DmService
@@ -177,6 +191,7 @@ export interface Cradle {
   agentPolicyService: AgentPolicyService
   appService: AppService
   shopService: ShopService
+  shopScopeService: ShopScopeService
   productService: ProductService
   ledgerService: LedgerService
   walletService: WalletService
@@ -184,6 +199,11 @@ export interface Cradle {
   orderService: OrderService
   reviewService: ReviewService
   entitlementService: EntitlementService
+  entitlementProvisionerService: EntitlementProvisionerService
+  entitlementPurchaseService: EntitlementPurchaseService
+  entitlementRenewalService: EntitlementRenewalService
+  entitlementCancellationService: EntitlementCancellationService
+  paidFileService: PaidFileService
   workspaceService: WorkspaceService
   rentalService: RentalService
   taskCenterService: TaskCenterService
@@ -283,7 +303,11 @@ export function createAppContainer(db: Database): AppContainer {
     notificationService: asClass(NotificationService).singleton(),
     notificationTemplateService: asClass(NotificationTemplateService).singleton(),
     notificationDeliveryService: asClass(NotificationDeliveryService).singleton(),
+    notificationPlatformService: asClass(NotificationPlatformService).singleton(),
     notificationTriggerService: asClass(NotificationTriggerService).singleton(),
+    commerceCardService: asClass(CommerceCardService).singleton(),
+    commerceOfferService: asClass(CommerceOfferService).singleton(),
+    commerceFulfillmentService: asClass(CommerceFulfillmentService).singleton(),
     permissionService: asClass(PermissionService).singleton(),
     policyService: asClass(PolicyService).singleton(),
     dmService: asClass(DmService).singleton(),
@@ -293,6 +317,7 @@ export function createAppContainer(db: Database): AppContainer {
     agentPolicyService: asClass(AgentPolicyService).singleton(),
     appService: asClass(AppService).singleton(),
     shopService: asClass(ShopService).singleton(),
+    shopScopeService: asClass(ShopScopeService).singleton(),
     productService: asClass(ProductService).singleton(),
     ledgerService: asClass(LedgerService).singleton(),
     walletService: asClass(WalletService).singleton(),
@@ -300,6 +325,11 @@ export function createAppContainer(db: Database): AppContainer {
     orderService: asClass(OrderService).singleton(),
     reviewService: asClass(ReviewService).singleton(),
     entitlementService: asClass(EntitlementService).singleton(),
+    entitlementProvisionerService: asClass(EntitlementProvisionerService).singleton(),
+    entitlementPurchaseService: asClass(EntitlementPurchaseService).singleton(),
+    entitlementRenewalService: asClass(EntitlementRenewalService).singleton(),
+    entitlementCancellationService: asClass(EntitlementCancellationService).singleton(),
+    paidFileService: asClass(PaidFileService).singleton(),
     workspaceService: asClass(WorkspaceService).singleton(),
     rentalService: asClass(RentalService).singleton(),
     taskCenterService: asClass(TaskCenterService).singleton(),

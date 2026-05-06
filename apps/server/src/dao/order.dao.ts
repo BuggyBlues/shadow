@@ -63,8 +63,11 @@ export class OrderDao {
     shopId: string
     buyerId: string
     totalAmount: number
+    status?: 'pending' | 'paid' | 'completed'
     shippingAddress?: Record<string, unknown>
     buyerNote?: string
+    paidAt?: Date
+    completedAt?: Date
   }) {
     const r = await this.db.insert(orders).values(data).returning()
     return r[0] ?? null

@@ -1,8 +1,8 @@
 import type { EntitlementDao } from '../dao/entitlement.dao'
+import { apiError } from '../lib/api-error'
 
 /**
- * EntitlementService — manages user entitlements / privileges.
- * Entitlements can be channel access, speaking rights, app access, roles, etc.
+ * EntitlementService — manages purchased resource capabilities.
  * Linked to orders and products for traceability.
  */
 export class EntitlementService {
@@ -12,24 +12,86 @@ export class EntitlementService {
     return this.deps.entitlementDao.findActiveByUser(userId, serverId)
   }
 
-  async checkEntitlement(userId: string, serverId: string, type: string, targetId: string) {
-    return this.deps.entitlementDao.hasEntitlement(userId, serverId, type, targetId)
+  async getAllUserEntitlements(userId: string) {
+    return this.deps.entitlementDao.findByUserWithDetails(userId)
+  }
+
+  async getShopEntitlements(shopId: string, opts?: { limit?: number; offset?: number }) {
+    return this.deps.entitlementDao.findByShop(shopId, opts)
+  }
+
+  async getEntitlement(id: string) {
+    const entitlement = await this.deps.entitlementDao.findById(id)
+    if (!entitlement) throw apiError('ENTITLEMENT_NOT_FOUND', 404)
+    return entitlement
+  }
+
+  async checkResourceEntitlement(input: {
+    userId: string
+    resourceType: string
+    resourceId: string
+    capability?: string
+    serverId?: string | null
+  }) {
+    return this.deps.entitlementDao.hasResourceEntitlement(input)
   }
 
   async grantEntitlement(data: {
     userId: string
-    serverId: string
+    serverId?: string | null
+    shopId?: string | null
     orderId?: string
     productId?: string
-    type: 'channel_access' | 'channel_speak' | 'app_access' | 'custom_role' | 'custom'
-    targetId?: string
+    scopeKind?: 'server' | 'user'
+    resourceType: string
+    resourceId: string
+    capability?: string
+    startsAt?: Date
     expiresAt?: Date
+    nextRenewalAt?: Date | null
+    metadata?: Record<string, unknown>
   }) {
     return this.deps.entitlementDao.create(data)
   }
 
-  async revokeEntitlement(id: string) {
-    return this.deps.entitlementDao.revoke(id)
+  async revokeEntitlement(id: string, reason?: string) {
+    return this.deps.entitlementDao.revoke(id, reason)
+  }
+
+  async cancelEntitlement(id: string, reason?: string) {
+    return this.deps.entitlementDao.update(id, {
+      status: 'cancelled',
+      isActive: false,
+      cancelledAt: new Date(),
+      cancelReason: reason ?? null,
+    })
+  }
+
+  async markRenewalFailed(id: string) {
+    return this.deps.entitlementDao.update(id, {
+      status: 'renewal_failed',
+      nextRenewalAt: null,
+    })
+  }
+
+  async markPendingForceMajeureReview(id: string) {
+    return this.deps.entitlementDao.update(id, {
+      status: 'pending_force_majeure_review',
+    })
+  }
+
+  async extendEntitlement(id: string, expiresAt: Date, renewalOrderId?: string) {
+    return this.deps.entitlementDao.update(id, {
+      status: 'active',
+      isActive: true,
+      expiresAt,
+      nextRenewalAt: expiresAt,
+      renewalOrderId: renewalOrderId ?? null,
+    })
+  }
+
+  async getDueRenewals(now = new Date(), limit = 100) {
+    return this.deps.entitlementDao.findDueRenewals(now, limit)
   }
 
   async revokeByOrder(orderId: string) {

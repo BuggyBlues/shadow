@@ -14,6 +14,7 @@ import type {
   CloudConfig,
   ShadowBinding,
   ShadowBuddy,
+  ShadowCommercePaidFile,
   ShadowListing,
   ShadowServer,
 } from '../../config/schema.js'
@@ -36,9 +37,20 @@ type AccessibleShadowChannel = {
 type ShadowobState = {
   servers?: Record<string, string>
   channels?: Record<string, string>
-  buddies?: Record<string, { agentId: string; userId: string; token: string }>
+  buddies?: Record<string, { agentId: string; userId: string }>
   /** buddyId → listingId on the marketplace */
   listings?: Record<string, string>
+  /** commerce seed id → provisioned product/offer/file ids */
+  commerce?: Record<
+    string,
+    {
+      shopId: string
+      productId: string
+      offerId: string
+      fileId: string
+      deliverableId: string
+    }
+  >
   shadowServerUrl?: string
 }
 
@@ -48,12 +60,26 @@ type ShadowobState = {
  */
 let log: Logger = defaultLog
 
+function shadowEnvKey(prefix: string, id: string) {
+  return `${prefix}_${id.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`
+}
+
 export interface ProvisionResult {
   servers: Map<string, string> // config id → real server id
   channels: Map<string, string> // config id → real channel id
   buddies: Map<string, { agentId: string; token: string; userId: string }>
   /** buddyId → listingId on the marketplace */
   listings: Map<string, string>
+  commerce: Map<
+    string,
+    {
+      shopId: string
+      productId: string
+      offerId: string
+      fileId: string
+      deliverableId: string
+    }
+  >
 }
 
 export interface ProvisionOptions {
@@ -90,6 +116,7 @@ export async function provisionShadowResources(
     channels: new Map(),
     buddies: new Map(),
     listings: new Map(),
+    commerce: new Map(),
   }
 
   const shadowobEntry = config.use?.find((u) => u.plugin === 'shadowob')
@@ -172,6 +199,14 @@ export async function provisionShadowResources(
     }
   }
 
+  // 6. Provision commerce paid-file seeds for MVP templates
+  if (plugin.commerce?.paidFiles?.length) {
+    for (const paidFileDef of plugin.commerce.paidFiles) {
+      const commerceIds = await provisionPaidFileCommerce(client, paidFileDef, result, state)
+      if (commerceIds) result.commerce.set(paidFileDef.id, commerceIds)
+    }
+  }
+
   return result
 }
 
@@ -215,6 +250,126 @@ function detectOrphans(
       )
     }
   }
+
+  const configCommerceIds = new Set(plugin.commerce?.paidFiles?.map((item) => item.id) ?? [])
+  for (const id of Object.keys(state.commerce ?? {})) {
+    if (!configCommerceIds.has(id)) {
+      log.warn(`  Orphaned commerce seed in state: "${id}" (not in current config)`)
+    }
+  }
+}
+
+async function provisionPaidFileCommerce(
+  client: ShadowClient,
+  paidFileDef: ShadowCommercePaidFile,
+  result: ProvisionResult,
+  state: ShadowobState | null,
+): Promise<{
+  shopId: string
+  productId: string
+  offerId: string
+  fileId: string
+  deliverableId: string
+} | null> {
+  const existing = state?.commerce?.[paidFileDef.id]
+  if (existing) {
+    log.dim(`  Commerce paid file "${paidFileDef.id}" found in state (${existing.offerId})`)
+    return existing
+  }
+
+  const serverId = result.servers.get(paidFileDef.serverId) ?? paidFileDef.serverId
+  const sellerBuddyId = paidFileDef.sellerBuddyId ?? paidFileDef.shop.buddyId
+  const sellerBuddy = sellerBuddyId ? result.buddies.get(sellerBuddyId) : undefined
+
+  let shopId: string | undefined
+  if (paidFileDef.shop.kind === 'buddy') {
+    if (!sellerBuddy) {
+      log.warn(`  Commerce paid file "${paidFileDef.id}" skipped: seller buddy not provisioned`)
+      return null
+    }
+    const shop = await client.getManagedUserShop(sellerBuddy.userId)
+    shopId = shop.id
+  } else {
+    const shopServerId = paidFileDef.shop.serverId
+      ? (result.servers.get(paidFileDef.shop.serverId) ?? paidFileDef.shop.serverId)
+      : serverId
+    const shop = await client.getShop(shopServerId)
+    shopId = shop.id
+  }
+  if (!shopId) throw new Error(`Commerce shop could not be resolved for ${paidFileDef.id}`)
+
+  log.step(`Provisioning commerce paid file: ${paidFileDef.name}`)
+  const mime = paidFileDef.mime ?? 'text/html; charset=utf-8'
+  const media = await client.uploadMedia(
+    new Blob([paidFileDef.html], { type: mime }),
+    paidFileDef.fileName,
+    mime,
+  )
+  const file = await client.createWorkspaceFile(serverId, {
+    name: paidFileDef.fileName,
+    mime,
+    sizeBytes: media.size,
+    contentRef: media.url,
+    previewUrl: null,
+    metadata: {
+      paywall: true,
+      paidFile: true,
+      commerceSeedId: paidFileDef.id,
+    },
+  })
+  const fileId = typeof file.id === 'string' ? file.id : null
+  if (!fileId) throw new Error(`Workspace file create returned no id for ${paidFileDef.id}`)
+
+  const product = await client.createShopProduct(shopId, {
+    name: paidFileDef.name,
+    slug: paidFileDef.slug,
+    type: 'entitlement',
+    status: 'active',
+    summary: paidFileDef.summary,
+    description: paidFileDef.description,
+    basePrice: paidFileDef.price,
+    billingMode: paidFileDef.durationSeconds ? 'fixed_duration' : 'one_time',
+    entitlementConfig: {
+      resourceType: 'workspace_file',
+      resourceId: fileId,
+      capability: 'view',
+      durationSeconds: paidFileDef.durationSeconds ?? null,
+      privilegeDescription: paidFileDef.summary,
+    },
+  })
+  const productId = typeof product.id === 'string' ? product.id : null
+  if (!productId) throw new Error(`Product create returned no id for ${paidFileDef.id}`)
+
+  const offers = await client.listCommerceOffers(shopId, { limit: 50 })
+  const offer =
+    offers.offers.find((item) => item.productId === productId) ??
+    (await client.createCommerceOffer(shopId, {
+      productId,
+      allowedSurfaces: paidFileDef.offerSurfaces ?? ['dm', 'channel'],
+      sellerBuddyUserId: sellerBuddy?.userId,
+      status: 'active',
+      metadata: { commerceSeedId: paidFileDef.id },
+    }))
+  const offerId = typeof offer.id === 'string' ? offer.id : null
+  if (!offerId) throw new Error(`Offer create returned no id for ${paidFileDef.id}`)
+
+  const deliverable = await client.createCommerceDeliverable(shopId, offerId, {
+    kind: 'paid_file',
+    resourceType: 'workspace_file',
+    resourceId: fileId,
+    senderBuddyUserId: sellerBuddy?.userId,
+    metadata: {
+      commerceSeedId: paidFileDef.id,
+      summary: paidFileDef.summary,
+      message:
+        paidFileDef.fulfillmentMessage ?? '火柴已经点亮。打开这份付费文件，看看火光里的小小动画。',
+    },
+  })
+  const deliverableId = typeof deliverable.id === 'string' ? deliverable.id : null
+  if (!deliverableId) throw new Error(`Deliverable create returned no id for ${paidFileDef.id}`)
+
+  log.success(`  Created paid-file offer "${paidFileDef.name}" (${offerId})`)
+  return { shopId, productId, offerId, fileId, deliverableId }
 }
 
 async function provisionServer(
@@ -649,6 +804,14 @@ export function buildProvisionedEnvVars(
     env[envKey] = buddyInfo.token
   }
 
+  for (const [seedId, ids] of provision.commerce ?? new Map()) {
+    env[shadowEnvKey('SHADOW_COMMERCE_SHOP', seedId)] = ids.shopId
+    env[shadowEnvKey('SHADOW_COMMERCE_PRODUCT', seedId)] = ids.productId
+    env[shadowEnvKey('SHADOW_COMMERCE_OFFER', seedId)] = ids.offerId
+    env[shadowEnvKey('SHADOW_COMMERCE_FILE', seedId)] = ids.fileId
+    env[shadowEnvKey('SHADOW_COMMERCE_DELIVERABLE', seedId)] = ids.deliverableId
+  }
+
   // Inject plugin credentials from agent's use entries as env vars
   const agent = config.deployments?.agents?.find((a) => a.id === agentId)
   if (agent?.use) {
@@ -691,10 +854,11 @@ export function provisionResultToState(
         buddies: Object.fromEntries(
           Array.from(result.buddies.entries()).map(([id, info]) => [
             id,
-            { agentId: info.agentId, userId: info.userId, token: info.token },
+            { agentId: info.agentId, userId: info.userId },
           ]),
         ),
         ...(result.listings?.size > 0 ? { listings: Object.fromEntries(result.listings) } : {}),
+        ...(result.commerce?.size > 0 ? { commerce: Object.fromEntries(result.commerce) } : {}),
       },
     },
   }
@@ -708,13 +872,29 @@ export function stateToProvisionResult(state: ProvisionState): ProvisionResult {
   const s = (state.plugins?.shadowob ?? {}) as {
     servers?: Record<string, string>
     channels?: Record<string, string>
-    buddies?: Record<string, { agentId: string; userId: string; token: string }>
+    buddies?: Record<string, { agentId: string; userId: string; token?: string }>
     listings?: Record<string, string>
+    commerce?: Record<
+      string,
+      {
+        shopId: string
+        productId: string
+        offerId: string
+        fileId: string
+        deliverableId: string
+      }
+    >
   }
   return {
     servers: new Map(Object.entries(s.servers ?? {})),
     channels: new Map(Object.entries(s.channels ?? {})),
-    buddies: new Map(Object.entries(s.buddies ?? {})),
+    buddies: new Map(
+      Object.entries(s.buddies ?? {}).map(([id, info]) => [
+        id,
+        { agentId: info.agentId, userId: info.userId, token: info.token ?? '' },
+      ]),
+    ),
     listings: new Map(Object.entries(s.listings ?? {})),
+    commerce: new Map(Object.entries(s.commerce ?? {})),
   }
 }

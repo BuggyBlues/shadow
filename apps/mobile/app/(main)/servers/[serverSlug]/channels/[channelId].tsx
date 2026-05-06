@@ -1,4 +1,9 @@
-import type { MentionSuggestion, MentionSuggestionTrigger, MessageMention } from '@shadowob/shared'
+import type {
+  CommerceProductCard,
+  MentionSuggestion,
+  MentionSuggestionTrigger,
+  MessageMention,
+} from '@shadowob/shared'
 import { assignMentionRanges, canonicalMentionToken } from '@shadowob/shared'
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as Clipboard from 'expo-clipboard'
@@ -15,6 +20,7 @@ import {
   MessageSquare,
   Search,
   Send,
+  ShoppingBag,
   UserPlus,
   Users,
   X,
@@ -122,6 +128,8 @@ export default function ChannelViewScreen() {
   const [pendingFiles, setPendingFiles] = useState<
     Array<{ uri: string; name: string; type: string; size?: number }>
   >([])
+  const [selectedCommerceCards, setSelectedCommerceCards] = useState<CommerceProductCard[]>([])
+  const [showProductPicker, setShowProductPicker] = useState(false)
   const [showScrollBottom, setShowScrollBottom] = useState(false)
   const [showInputEmojiPicker, setShowInputEmojiPicker] = useState(false)
   const [showMemberList, setShowMemberList] = useState(false)
@@ -148,6 +156,27 @@ export default function ChannelViewScreen() {
   // Draft storage for persistent input
   const { restoredDraft, scheduleSave, clear: clearDraft } = useDraftStorage(channelId || null)
 
+  const { data: productPickerData, isFetching: isFetchingProducts } = useQuery({
+    queryKey: ['commerce-product-picker', 'channel', channelId],
+    queryFn: () =>
+      fetchApi<{ cards: CommerceProductCard[] }>(
+        `/api/commerce/product-picker?target=channel&channelId=${encodeURIComponent(channelId!)}`,
+      ),
+    enabled: Boolean(channelId && showProductPicker),
+    staleTime: 15_000,
+  })
+
+  const productCards = productPickerData?.cards ?? []
+
+  const addCommerceCard = useCallback((card: CommerceProductCard) => {
+    setSelectedCommerceCards((prev) => {
+      if (prev.some((item) => item.id === card.id)) return prev
+      return [...prev, card].slice(0, 3)
+    })
+    setShowProductPicker(false)
+    inputRef.current?.focus()
+  }, [])
+
   // Restore draft only once on mount
   useEffect(() => {
     if (restoredDraft && !hasRestoredDraft.current) {
@@ -160,7 +189,6 @@ export default function ChannelViewScreen() {
   }, [restoredDraft])
 
   // Reset restore flag when channel changes
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional, we want to reset on channelId change
   useEffect(() => {
     hasRestoredDraft.current = false
   }, [channelId])
@@ -542,7 +570,6 @@ export default function ChannelViewScreen() {
   )
 
   // Reset scroll position when channel changes
-  // biome-ignore lint/correctness/useExhaustiveDependencies: channelId is intentionally the trigger
   useEffect(() => {
     flatListRef.current?.scrollToOffset({ offset: 0, animated: false })
   }, [channelId])
@@ -927,8 +954,20 @@ export default function ChannelViewScreen() {
 
   // ---------- Send message ----------
   const insertOptimisticMessage = useCallback(
-    (content: string, replyToId?: string, mentions?: MessageMention[]) => {
+    (
+      content: string,
+      replyToId?: string,
+      mentions?: MessageMention[],
+      commerceCards?: CommerceProductCard[],
+    ) => {
       const tempId = `temp-${Date.now()}`
+      const metadata =
+        (mentions && mentions.length > 0) || (commerceCards && commerceCards.length > 0)
+          ? {
+              ...(mentions && mentions.length > 0 ? { mentions } : {}),
+              ...(commerceCards && commerceCards.length > 0 ? { commerceCards } : {}),
+            }
+          : undefined
       const optimisticMsg: Message = {
         id: tempId,
         content,
@@ -948,7 +987,7 @@ export default function ChannelViewScreen() {
               avatarUrl: currentUser.avatarUrl ?? null,
             }
           : undefined,
-        metadata: mentions && mentions.length > 0 ? { mentions } : undefined,
+        metadata,
         sendStatus: 'sending',
       }
 
@@ -1013,25 +1052,42 @@ export default function ChannelViewScreen() {
 
   const handleSend = async () => {
     const content = inputText.trim()
-    if (!content && pendingFiles.length === 0) return
+    if (!content && pendingFiles.length === 0 && selectedCommerceCards.length === 0) return
     if (sending) return
     setSending(true)
     const mentionsToSend = mentionsForContent(content, selectedMentions)
+    const metadataToSend =
+      mentionsToSend.length > 0 || selectedCommerceCards.length > 0
+        ? {
+            ...(mentionsToSend.length > 0 ? { mentions: mentionsToSend } : {}),
+            ...(selectedCommerceCards.length > 0 ? { commerceCards: selectedCommerceCards } : {}),
+          }
+        : undefined
 
     // Insert optimistic message immediately
-    const tempId = content ? insertOptimisticMessage(content, replyTo?.id, mentionsToSend) : null
+    const tempId =
+      content || selectedCommerceCards.length > 0
+        ? insertOptimisticMessage(
+            content || '\u200B',
+            replyTo?.id,
+            mentionsToSend,
+            selectedCommerceCards,
+          )
+        : null
 
     // Clear input immediately for responsiveness
     const savedContent = content
     const savedReplyTo = replyTo
     const savedPendingFiles = [...pendingFiles]
     const savedMentions = mentionsToSend
+    const savedMetadata = metadataToSend
     setInputText('')
     setSelectedMentions([])
     setMentionQuery(null)
     setMentionTrigger(null)
     setReplyTo(null)
     setPendingFiles([])
+    setSelectedCommerceCards([])
 
     // Clear draft after successful send
     clearDraft()
@@ -1046,7 +1102,6 @@ export default function ChannelViewScreen() {
         uploadedAttachments = []
         for (const file of savedPendingFiles) {
           const formData = new FormData()
-          // biome-ignore lint/suspicious/noExplicitAny: React Native FormData requires this shape
           formData.append('file', { uri: file.uri, name: file.name, type: file.type } as any)
           const uploaded = await fetchApi<{ url: string; size: number }>('/api/media/upload', {
             method: 'POST',
@@ -1067,9 +1122,10 @@ export default function ChannelViewScreen() {
       if (!uploadedAttachments && sock.connected) {
         sendWsMessage({
           channelId: channelId!,
-          content: savedContent,
+          content: savedContent || '\u200B',
           replyToId: savedReplyTo?.id,
           mentions: savedMentions,
+          metadata: savedMetadata,
         })
         // WS send: message will be confirmed via message:new event which replaces the temp message
         // Set a timeout to mark as failed if no confirmation arrives
@@ -1106,6 +1162,7 @@ export default function ChannelViewScreen() {
               content: savedContent || '\u200B',
               replyToId: savedReplyTo?.id,
               ...(savedMentions.length > 0 ? { mentions: savedMentions } : {}),
+              ...(savedMetadata ? { metadata: savedMetadata } : {}),
               ...(uploadedAttachments ? { attachments: uploadedAttachments } : {}),
             }),
           },
@@ -1687,6 +1744,11 @@ export default function ChannelViewScreen() {
           onPickImage={handlePickImage}
           onPickFile={handlePickFile}
           onTakePhoto={handleTakePhoto}
+          commerceCards={selectedCommerceCards}
+          onOpenProductPicker={() => setShowProductPicker(true)}
+          onRemoveCommerceCard={(cardId) =>
+            setSelectedCommerceCards((prev) => prev.filter((card) => card.id !== cardId))
+          }
           onPasteImage={(imageDataUri) => {
             const timestamp = Date.now()
             const fileName = `clipboard_${timestamp}.png`
@@ -1701,6 +1763,91 @@ export default function ChannelViewScreen() {
           }}
         />
       )}
+
+      <Modal
+        visible={showProductPicker}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowProductPicker(false)}
+      >
+        <View style={styles.sheetOverlay}>
+          <Pressable style={styles.sheetDismiss} onPress={() => setShowProductPicker(false)} />
+          <View style={[styles.sheetContainer, { backgroundColor: colors.surface }]}>
+            <View style={[styles.sheetHandle, { backgroundColor: colors.textMuted }]} />
+            <View style={styles.sheetHeader}>
+              <Text style={[styles.sheetTitle, { color: colors.text }]}>
+                {t('chat.productPicker')}
+              </Text>
+              <Pressable
+                onPress={() => setShowProductPicker(false)}
+                hitSlop={8}
+                style={styles.sheetActionBtn}
+              >
+                <X size={20} color={colors.textMuted} />
+              </Pressable>
+            </View>
+            {isFetchingProducts ? (
+              <View style={styles.productPickerState}>
+                <ActivityIndicator color={colors.primary} />
+                <Text style={{ color: colors.textMuted, fontSize: fontSize.sm }}>
+                  {t('chat.productPickerLoading')}
+                </Text>
+              </View>
+            ) : productCards.length === 0 ? (
+              <View style={styles.productPickerState}>
+                <Text style={{ color: colors.textMuted, fontSize: fontSize.sm }}>
+                  {t('chat.productPickerEmpty')}
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={productCards}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.productPickerList}
+                renderItem={({ item }) => (
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.productPickerItem,
+                      { borderColor: colors.border, backgroundColor: colors.inputBackground },
+                      pressed && { opacity: 0.75 },
+                    ]}
+                    onPress={() => addCommerceCard(item)}
+                  >
+                    <View
+                      style={[styles.productPickerIcon, { backgroundColor: `${colors.primary}18` }]}
+                    >
+                      <ShoppingBag size={22} color={colors.primary} />
+                    </View>
+                    <View style={styles.productPickerInfo}>
+                      <Text
+                        style={[styles.productPickerName, { color: colors.text }]}
+                        numberOfLines={1}
+                      >
+                        {item.snapshot.name}
+                      </Text>
+                      {item.snapshot.summary ? (
+                        <Text
+                          style={[styles.productPickerSummary, { color: colors.textMuted }]}
+                          numberOfLines={2}
+                        >
+                          {item.snapshot.summary}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Text style={[styles.productPickerPrice, { color: colors.primary }]}>
+                      {new Intl.NumberFormat(undefined, {
+                        style: 'currency',
+                        currency: item.snapshot.currency,
+                        maximumFractionDigits: 2,
+                      }).format(item.snapshot.price / 100)}
+                    </Text>
+                  </Pressable>
+                )}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
 
       {/* Member list modal */}
       <Modal
@@ -2536,6 +2683,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  productPickerState: {
+    minHeight: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  productPickerList: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+    gap: spacing.sm,
+  },
+  productPickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.lg,
+    padding: spacing.sm,
+  },
+  productPickerIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  productPickerInfo: { flex: 1, minWidth: 0 },
+  productPickerName: { fontSize: fontSize.md, fontWeight: '700' },
+  productPickerSummary: { fontSize: fontSize.xs, marginTop: 3, lineHeight: 16 },
+  productPickerPrice: { fontSize: fontSize.sm, fontWeight: '800' },
   sheetSearchWrap: {
     flexDirection: 'row',
     alignItems: 'center',

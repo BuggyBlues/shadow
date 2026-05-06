@@ -7,6 +7,7 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core'
@@ -23,6 +24,23 @@ export const notificationStrategyEnum = pgEnum('notification_strategy', [
   'all',
   'mention_only',
   'none',
+])
+
+export const notificationChannelEnum = pgEnum('notification_channel', [
+  'in_app',
+  'socket',
+  'mobile_push',
+  'web_push',
+  'email',
+  'sms',
+  'chat_system',
+])
+
+export const notificationDeliveryStatusEnum = pgEnum('notification_delivery_status', [
+  'pending',
+  'sent',
+  'failed',
+  'skipped',
 ])
 
 export const notifications = pgTable(
@@ -88,3 +106,131 @@ export const notificationPreferences = pgTable('notification_preferences', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })
+
+export const notificationEvents = pgTable(
+  'notification_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    notificationId: uuid('notification_id').references(() => notifications.id, {
+      onDelete: 'set null',
+    }),
+    kind: varchar('kind', { length: 80 }).notNull(),
+    source: varchar('source', { length: 80 }).default('system').notNull(),
+    idempotencyKey: varchar('idempotency_key', { length: 200 }),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    notificationEventsUserIdx: index('notification_events_user_idx').on(t.userId),
+    notificationEventsKindIdx: index('notification_events_kind_idx').on(t.kind),
+    notificationEventsIdempotencyUnique: unique('notification_events_idempotency_unique').on(
+      t.idempotencyKey,
+    ),
+  }),
+)
+
+export const notificationDeliveries = pgTable(
+  'notification_deliveries',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    eventId: uuid('event_id')
+      .notNull()
+      .references(() => notificationEvents.id, { onDelete: 'cascade' }),
+    notificationId: uuid('notification_id').references(() => notifications.id, {
+      onDelete: 'set null',
+    }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    channel: notificationChannelEnum('channel').notNull(),
+    status: notificationDeliveryStatusEnum('status').default('pending').notNull(),
+    provider: varchar('provider', { length: 80 }),
+    target: text('target'),
+    payload: jsonb('payload').$type<Record<string, unknown>>().default({}),
+    error: text('error'),
+    attempts: integer('attempts').default(0).notNull(),
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    notificationDeliveriesEventIdx: index('notification_deliveries_event_idx').on(t.eventId),
+    notificationDeliveriesUserIdx: index('notification_deliveries_user_idx').on(t.userId),
+    notificationDeliveriesStatusIdx: index('notification_deliveries_status_idx').on(t.status),
+    notificationDeliveriesChannelIdx: index('notification_deliveries_channel_idx').on(t.channel),
+  }),
+)
+
+export const userPushTokens = pgTable(
+  'user_push_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    platform: varchar('platform', { length: 20 }).notNull(),
+    token: text('token').notNull(),
+    deviceName: varchar('device_name', { length: 120 }),
+    isActive: boolean('is_active').default(true).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+  },
+  (t) => ({
+    userPushTokensUserIdx: index('user_push_tokens_user_idx').on(t.userId),
+    userPushTokensActiveIdx: index('user_push_tokens_active_idx').on(t.isActive),
+    userPushTokensTokenUnique: unique('user_push_tokens_token_unique').on(t.token),
+  }),
+)
+
+export const userWebPushSubscriptions = pgTable(
+  'user_web_push_subscriptions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    endpoint: text('endpoint').notNull(),
+    p256dh: text('p256dh').notNull(),
+    auth: text('auth').notNull(),
+    userAgent: text('user_agent'),
+    isActive: boolean('is_active').default(true).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+  },
+  (t) => ({
+    userWebPushSubscriptionsUserIdx: index('user_web_push_subscriptions_user_idx').on(t.userId),
+    userWebPushSubscriptionsActiveIdx: index('user_web_push_subscriptions_active_idx').on(
+      t.isActive,
+    ),
+    userWebPushSubscriptionsEndpointUnique: unique(
+      'user_web_push_subscriptions_endpoint_unique',
+    ).on(t.endpoint),
+  }),
+)
+
+export const notificationChannelPreferences = pgTable(
+  'notification_channel_preferences',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    kind: varchar('kind', { length: 80 }).notNull(),
+    channel: notificationChannelEnum('channel').notNull(),
+    enabled: boolean('enabled').default(true).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    notificationChannelPreferencesPk: unique('notification_channel_preferences_unique').on(
+      t.userId,
+      t.kind,
+      t.channel,
+    ),
+  }),
+)

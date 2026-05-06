@@ -12,8 +12,13 @@ import type {
   ShadowCloudProviderCatalog,
   ShadowCloudProviderModel,
   ShadowCloudProviderProfile,
+  ShadowCommerceProductCard,
+  ShadowCommerceProductPickerResponse,
   ShadowContract,
   ShadowDmChannel,
+  ShadowEntitlement,
+  ShadowEntitlementProvisioning,
+  ShadowEntitlementPurchaseResult,
   ShadowFriendship,
   ShadowHomePlayCatalogItem,
   ShadowInteractiveActionInput,
@@ -37,6 +42,7 @@ import type {
   ShadowOAuthConsent,
   ShadowOAuthToken,
   ShadowOrder,
+  ShadowPaidFileOpenResult,
   ShadowPaymentOrder,
   ShadowPlayLaunchResult,
   ShadowProduct,
@@ -1423,6 +1429,43 @@ export class ShadowClient {
     })
   }
 
+  async getNotificationChannelPreferences(): Promise<Record<string, unknown>[]> {
+    return this.request('/api/notifications/channel-preferences')
+  }
+
+  async updateNotificationChannelPreference(data: {
+    kind: string
+    channel: string
+    enabled: boolean
+  }): Promise<Record<string, unknown>> {
+    return this.request('/api/notifications/channel-preferences', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async registerPushToken(data: {
+    platform: 'ios' | 'android' | 'web' | string
+    token: string
+    deviceName?: string | null
+  }): Promise<Record<string, unknown>> {
+    return this.request('/api/notifications/push-tokens', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async registerWebPushSubscription(data: {
+    endpoint: string
+    keys: { p256dh: string; auth: string }
+    userAgent?: string | null
+  }): Promise<Record<string, unknown>> {
+    return this.request('/api/notifications/web-push-subscriptions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
   // ── OAuth Apps ────────────────────────────────────────────────────────
 
   async createOAuthApp(data: {
@@ -1622,6 +1665,203 @@ export class ShadowClient {
 
   async getShop(serverId: string): Promise<ShadowShop> {
     return this.request(`/api/servers/${serverId}/shop`)
+  }
+
+  async getMyShop(): Promise<ShadowShop> {
+    return this.request('/api/me/shop')
+  }
+
+  async upsertMyShop(data: Partial<ShadowShop>): Promise<ShadowShop> {
+    return this.request('/api/me/shop', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async getUserShop(userId: string): Promise<ShadowShop> {
+    return this.request(`/api/users/${userId}/shop`)
+  }
+
+  async getManagedUserShop(userId: string): Promise<ShadowShop> {
+    return this.request(`/api/users/${userId}/shop/manage`)
+  }
+
+  async upsertManagedUserShop(userId: string, data: Partial<ShadowShop>): Promise<ShadowShop> {
+    return this.request(`/api/users/${userId}/shop/manage`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async getShopById(shopId: string): Promise<ShadowShop> {
+    return this.request(`/api/shops/${shopId}`)
+  }
+
+  async listShopProducts(
+    shopId: string,
+    params?: { keyword?: string; limit?: number; offset?: number },
+  ) {
+    const qs = new URLSearchParams()
+    if (params?.keyword) qs.set('keyword', params.keyword)
+    if (params?.limit) qs.set('limit', String(params.limit))
+    if (params?.offset) qs.set('offset', String(params.offset))
+    return this.request<{ products: ShadowProduct[] }>(`/api/shops/${shopId}/products?${qs}`)
+  }
+
+  async getScopeNeutralProduct(productId: string): Promise<ShadowProduct> {
+    return this.request(`/api/products/${productId}`)
+  }
+
+  async getShopProduct(shopId: string, productId: string): Promise<ShadowProduct> {
+    return this.request(`/api/shops/${shopId}/products/${productId}`)
+  }
+
+  async createShopProduct(
+    shopId: string,
+    data: Partial<ShadowProduct> & Record<string, unknown>,
+  ): Promise<ShadowProduct> {
+    return this.request(`/api/shops/${shopId}/products`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateShopProduct(
+    shopId: string,
+    productId: string,
+    data: Partial<ShadowProduct> & Record<string, unknown>,
+  ): Promise<ShadowProduct> {
+    return this.request(`/api/shops/${shopId}/products/${productId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteShopProduct(shopId: string, productId: string): Promise<{ ok: boolean }> {
+    return this.request(`/api/shops/${shopId}/products/${productId}`, { method: 'DELETE' })
+  }
+
+  async purchaseShopProduct(
+    shopId: string,
+    productId: string,
+    data: { idempotencyKey: string; skuId?: string },
+  ): Promise<ShadowEntitlementPurchaseResult> {
+    return this.request(`/api/shops/${shopId}/products/${productId}/purchase`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async purchaseCommerceOffer(
+    offerId: string,
+    data: {
+      idempotencyKey: string
+      skuId?: string
+      destinationKind?: 'channel' | 'dm'
+      destinationId?: string
+    },
+  ): Promise<ShadowEntitlementPurchaseResult> {
+    return this.request(`/api/commerce/offers/${offerId}/purchase`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async createCommerceOffer(
+    shopId: string,
+    data: {
+      productId: string
+      allowedSurfaces?: Array<'channel' | 'dm'>
+      priceOverride?: number | null
+      sellerBuddyUserId?: string | null
+      status?: 'draft' | 'active' | 'paused' | 'archived'
+      metadata?: Record<string, unknown>
+    },
+  ): Promise<Record<string, unknown>> {
+    return this.request(`/api/shops/${shopId}/offers`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async listCommerceOffers(
+    shopId: string,
+    params?: { keyword?: string; limit?: number },
+  ): Promise<{ offers: Record<string, unknown>[] }> {
+    const qs = new URLSearchParams()
+    if (params?.keyword) qs.set('keyword', params.keyword)
+    if (params?.limit) qs.set('limit', String(params.limit))
+    return this.request(`/api/shops/${shopId}/offers?${qs}`)
+  }
+
+  async createCommerceDeliverable(
+    shopId: string,
+    offerId: string,
+    data: {
+      kind?: 'paid_file' | 'message' | 'external'
+      resourceType?: string
+      resourceId: string
+      senderBuddyUserId?: string | null
+      messageTemplateKey?: string | null
+      metadata?: Record<string, unknown>
+    },
+  ): Promise<Record<string, unknown>> {
+    return this.request(`/api/shops/${shopId}/offers/${offerId}/deliverables`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async purchaseMessageCommerceCard(
+    messageId: string,
+    cardId: string,
+    data: { idempotencyKey: string; skuId?: string },
+  ): Promise<ShadowEntitlementPurchaseResult> {
+    return this.request(`/api/messages/${messageId}/commerce-cards/${cardId}/purchase`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async purchaseDmMessageCommerceCard(
+    messageId: string,
+    cardId: string,
+    data: { idempotencyKey: string; skuId?: string },
+  ): Promise<ShadowEntitlementPurchaseResult> {
+    return this.request(`/api/dm/messages/${messageId}/commerce-cards/${cardId}/purchase`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async listCommerceProductCards(params: {
+    target: 'channel' | 'dm'
+    channelId?: string
+    dmChannelId?: string
+    keyword?: string
+    limit?: number
+  }): Promise<ShadowCommerceProductPickerResponse> {
+    const qs = new URLSearchParams()
+    qs.set('target', params.target)
+    if (params.channelId) qs.set('channelId', params.channelId)
+    if (params.dmChannelId) qs.set('dmChannelId', params.dmChannelId)
+    if (params.keyword) qs.set('keyword', params.keyword)
+    if (params.limit) qs.set('limit', String(params.limit))
+    return this.request(`/api/commerce/product-picker?${qs}`)
+  }
+
+  async openPaidFile(fileId: string): Promise<ShadowPaidFileOpenResult> {
+    return this.request(`/api/paid-files/${fileId}/open`, { method: 'POST' })
+  }
+
+  async listShopEntitlements(
+    shopId: string,
+    params?: { limit?: number; offset?: number },
+  ): Promise<Record<string, unknown>[]> {
+    const qs = new URLSearchParams()
+    if (params?.limit) qs.set('limit', String(params.limit))
+    if (params?.offset) qs.set('offset', String(params.offset))
+    return this.request(`/api/shops/${shopId}/entitlements?${qs}`)
   }
 
   async updateShop(
@@ -1914,8 +2154,30 @@ export class ShadowClient {
     })
   }
 
-  async getEntitlements(serverId: string): Promise<Record<string, unknown>[]> {
+  async getEntitlements(serverId: string): Promise<ShadowEntitlement[]> {
     return this.request(`/api/servers/${serverId}/shop/entitlements`)
+  }
+
+  async getAllEntitlements(): Promise<ShadowEntitlement[]> {
+    return this.request('/api/entitlements')
+  }
+
+  async verifyEntitlement(entitlementId: string): Promise<{
+    active: boolean
+    entitlement: Record<string, unknown>
+    provisioning: ShadowEntitlementProvisioning
+  }> {
+    return this.request(`/api/entitlements/${entitlementId}/verify`)
+  }
+
+  async cancelEntitlement(
+    entitlementId: string,
+    reason?: string,
+  ): Promise<Record<string, unknown>> {
+    return this.request(`/api/entitlements/${entitlementId}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    })
   }
 
   // ── Task Center ───────────────────────────────────────────────────────

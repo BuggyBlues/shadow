@@ -3,9 +3,11 @@ import type { Database } from '../db'
 import { productMedia, products, skus } from '../db/schema'
 
 type EntitlementConfig = {
-  type: 'channel_access' | 'channel_speak' | 'app_access' | 'custom_role' | 'custom'
-  targetId?: string
+  resourceType?: string
+  resourceId?: string
+  capability?: string
   durationSeconds?: number | null
+  renewalPeriodSeconds?: number | null
   privilegeDescription?: string
 }
 
@@ -67,6 +69,7 @@ export class ProductDao {
     name: string
     slug: string
     type?: 'physical' | 'entitlement'
+    billingMode?: 'one_time' | 'fixed_duration' | 'subscription'
     status?: 'draft' | 'active' | 'archived'
     description?: string
     summary?: string
@@ -86,6 +89,7 @@ export class ProductDao {
       name: string
       slug: string
       type: 'physical' | 'entitlement'
+      billingMode: 'one_time' | 'fixed_duration' | 'subscription'
       status: 'draft' | 'active' | 'archived'
       description: string | null
       summary: string | null

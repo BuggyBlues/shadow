@@ -1,5 +1,16 @@
+import type { CommerceProductCard } from '@shadowob/shared'
 import { Image } from 'expo-image'
-import { AtSign, Camera, File, Image as ImageIcon, Mic, Plus, Smile, X } from 'lucide-react-native'
+import {
+  AtSign,
+  Camera,
+  File,
+  Image as ImageIcon,
+  Mic,
+  Plus,
+  ShoppingBag,
+  Smile,
+  X,
+} from 'lucide-react-native'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -294,6 +305,9 @@ interface ChatComposerProps {
   onPickFile: () => void
   onTakePhoto?: () => void
   onPasteImage?: (imageDataUri: string) => void
+  commerceCards?: CommerceProductCard[]
+  onOpenProductPicker?: () => void
+  onRemoveCommerceCard?: (cardId: string) => void
 }
 
 function ImageViewerModal({
@@ -371,6 +385,9 @@ export const ChatComposer = memo(function ChatComposer({
   onPickImage,
   onPickFile,
   onTakePhoto,
+  commerceCards = [],
+  onOpenProductPicker,
+  onRemoveCommerceCard,
 }: ChatComposerProps) {
   const colors = useColors()
   const { t } = useTranslation()
@@ -478,13 +495,43 @@ export const ChatComposer = memo(function ChatComposer({
         </View>
       )}
 
-      {pendingFiles.length > 0 && (
+      {(pendingFiles.length > 0 || commerceCards.length > 0) && (
         <View
           style={[
             styles.pendingFilesBar,
             { backgroundColor: colors.surface, borderTopColor: colors.border },
           ]}
         >
+          {commerceCards.map((card) => (
+            <View
+              key={card.id}
+              style={[
+                styles.pendingProductChip,
+                { backgroundColor: colors.inputBackground, borderColor: colors.border },
+              ]}
+            >
+              <View style={[styles.pendingProductIcon, { backgroundColor: `${colors.primary}18` }]}>
+                <ShoppingBag size={18} color={colors.primary} />
+              </View>
+              <View style={styles.pendingProductText}>
+                <Text style={[styles.pendingProductName, { color: colors.text }]} numberOfLines={1}>
+                  {card.snapshot.name}
+                </Text>
+                <Text style={[styles.pendingProductPrice, { color: colors.textMuted }]}>
+                  {new Intl.NumberFormat(undefined, {
+                    style: 'currency',
+                    currency: card.snapshot.currency,
+                    maximumFractionDigits: 2,
+                  }).format(card.snapshot.price / 100)}
+                </Text>
+              </View>
+              {onRemoveCommerceCard && (
+                <Pressable onPress={() => onRemoveCommerceCard(card.id)} hitSlop={8}>
+                  <X size={14} color={colors.textMuted} />
+                </Pressable>
+              )}
+            </View>
+          ))}
           {pendingFiles.map((file, idx) => (
             <View key={file.uri}>
               {file.type.startsWith('image/') ? (
@@ -692,6 +739,24 @@ export const ChatComposer = memo(function ChatComposer({
                     {t('chat.emoji', '表情')}
                   </Text>
                 </Pressable>
+                {onOpenProductPicker && (
+                  <Pressable
+                    style={({ pressed }) => [styles.plusPanelItem, pressed && { opacity: 0.6 }]}
+                    onPress={() => {
+                      setShowPlusMenu(false)
+                      onOpenProductPicker()
+                    }}
+                  >
+                    <View
+                      style={[styles.plusPanelIcon, { backgroundColor: `${colors.primary}15` }]}
+                    >
+                      <ShoppingBag size={28} color={colors.primary} />
+                    </View>
+                    <Text style={[styles.plusPanelLabel, { color: colors.textSecondary }]}>
+                      {t('chat.productPicker')}
+                    </Text>
+                  </Pressable>
+                )}
                 {onTakePhoto && (
                   <Pressable
                     style={({ pressed }) => [styles.plusPanelItem, pressed && { opacity: 0.6 }]}
@@ -778,6 +843,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  pendingProductChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.lg,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    maxWidth: 260,
+  },
+  pendingProductIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pendingProductText: { minWidth: 0, flex: 1 },
+  pendingProductName: { fontSize: fontSize.sm, fontWeight: '700' },
+  pendingProductPrice: { fontSize: fontSize.xs, marginTop: 2 },
   replyBar: {
     flexDirection: 'row',
     alignItems: 'center',

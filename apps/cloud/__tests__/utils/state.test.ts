@@ -189,15 +189,15 @@ describe('State Utilities', () => {
         shadowServerUrl?: string
         servers?: Record<string, string>
         channels?: Record<string, string>
-        buddies?: Record<string, { agentId: string; userId: string; token: string }>
+        buddies?: Record<string, { agentId: string; userId: string; token?: string }>
       }
       expect(shadowob.servers).toEqual({ 'srv-config': 'srv_real' })
       expect(shadowob.channels).toEqual({ 'ch-config': 'ch_real' })
       expect(shadowob.buddies?.['buddy-config']).toEqual({
         agentId: 'ag1',
         userId: 'u1',
-        token: 't1',
       })
+      expect(JSON.stringify(state)).not.toContain('t1')
       expect(shadowob.shadowServerUrl).toBe('https://shadow.example.com')
       expect(state.stackName).toBe('prod')
       expect(state.namespace).toBe('shadowob-cloud')
@@ -219,7 +219,7 @@ describe('State Utilities', () => {
       expect(back.buddies.get('b1')).toEqual({
         agentId: 'a',
         userId: 'u',
-        token: 't',
+        token: '',
       })
     })
   })

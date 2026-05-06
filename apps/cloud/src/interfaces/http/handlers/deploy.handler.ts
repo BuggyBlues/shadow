@@ -516,7 +516,7 @@ export function createDeployHandler(ctx: HandlerContext): Hono {
         const shadowobState = (mergedStates.shadowob ?? {}) as {
           servers?: Record<string, string>
           channels?: Record<string, string>
-          buddies?: Record<string, { agentId: string; userId: string; token: string }>
+          buddies?: Record<string, { agentId: string; userId: string }>
         }
 
         return c.json({

@@ -1,8 +1,22 @@
+import type { CommerceProductCard } from '@shadowob/shared'
 import { Button, cn, GlassPanel, InputValley } from '@shadowob/ui'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from '@tanstack/react-router'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { ArrowLeft, Loader2, Paperclip, Reply, Send, Smile, X } from 'lucide-react'
+import {
+  ArrowLeft,
+  FileText,
+  Image as ImageIcon,
+  Loader2,
+  Paperclip,
+  Plus,
+  Reply,
+  Search,
+  Send,
+  ShoppingBag,
+  Smile,
+  X,
+} from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -14,6 +28,7 @@ import {
   isScrollNearBottom,
   shouldAdjustChatScrollPositionOnItemSizeChange,
 } from '../components/chat/chat-virtualization'
+import { FilePreviewPanel } from '../components/chat/file-preview-panel'
 import { type Message, MessageBubble, type ReactionGroup } from '../components/chat/message-bubble'
 import { UserAvatar } from '../components/common/avatar'
 import { EmojiPicker } from '../components/common/emoji-picker'
@@ -50,6 +65,7 @@ interface DmMessageRaw {
     height: number | null
   }[]
   reactions?: ReactionGroup[]
+  metadata?: Message['metadata'] | null
 }
 
 /** Convert a DM message to the unified Message shape used by MessageBubble */
@@ -67,7 +83,35 @@ function toMessage(m: DmMessageRaw): Message {
       size: a.size,
     })),
     reactions: m.reactions,
+    metadata: m.metadata ?? undefined,
   }
+}
+
+interface CommerceProductPickerGroup {
+  key: string
+  labelKey: string
+  shopName?: string | null
+  cards: CommerceProductCard[]
+}
+
+interface CommerceProductPickerResponse {
+  cards: CommerceProductCard[]
+  groups?: CommerceProductPickerGroup[]
+}
+
+function getCommerceCardPrice(
+  card: CommerceProductCard,
+  t?: (key: string, options?: Record<string, unknown>) => string,
+): string {
+  if (card.snapshot.currency === 'shrimp_coin') {
+    const unit = t?.('common.shrimpCoin', { defaultValue: '虾币' }) ?? 'shrimp_coin'
+    return `${card.snapshot.price.toLocaleString()} ${unit}`
+  }
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: card.snapshot.currency,
+    maximumFractionDigits: 2,
+  }).format(card.snapshot.price / 100)
 }
 
 interface DmChannelInfo {
@@ -97,6 +141,17 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
   const [messageText, setMessageText] = useState('')
   const [typingUsers, setTypingUsers] = useState<string[]>([])
   const [showEmoji, setShowEmoji] = useState(false)
+  const [showProductPicker, setShowProductPicker] = useState(false)
+  const [showAttachMenu, setShowAttachMenu] = useState(false)
+  const [productQuery, setProductQuery] = useState('')
+  const [selectedCommerceCards, setSelectedCommerceCards] = useState<CommerceProductCard[]>([])
+  const [previewFile, setPreviewFile] = useState<{
+    id: string
+    filename: string
+    url: string
+    contentType: string
+    size: number
+  } | null>(null)
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [replyToId, setReplyToId] = useState<string | null>(null)
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -106,6 +161,14 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
   const shouldStickToBottomRef = useRef(true)
   const stickyScrollRafRef = useRef<number | null>(null)
   const pendingPrependRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null)
+
+  const openFileDialog = useCallback((accept?: string) => {
+    const input = fileInputRef.current
+    if (!input) return
+    input.accept = accept ?? ''
+    input.click()
+    setShowAttachMenu(false)
+  }, [])
 
   // Fetch DM channel info (includes otherUser)
   const { data: dmChannels = [] } = useQuery({
@@ -136,6 +199,42 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
   })
   const chatDisabled = agentChatStatus?.chatDisabled === true
   const rental = agentChatStatus?.rental
+
+  const { data: productPickerData, isFetching: isFetchingProducts } = useQuery({
+    queryKey: ['commerce-product-picker', 'dm', dmChannelId, productQuery],
+    queryFn: () =>
+      fetchApi<CommerceProductPickerResponse>(
+        `/api/commerce/product-picker?target=dm&dmChannelId=${encodeURIComponent(dmChannelId)}&keyword=${encodeURIComponent(productQuery.trim())}`,
+      ),
+    enabled: Boolean(dmChannelId && showProductPicker),
+    staleTime: 15_000,
+  })
+
+  const productCards = productPickerData?.cards ?? []
+  const productPickerGroups = useMemo<CommerceProductPickerGroup[]>(() => {
+    const groups = productPickerData?.groups?.filter((group) => group.cards.length > 0)
+    if (groups?.length) return groups
+    return productCards.length
+      ? [{ key: 'all', labelKey: 'chat.productPickerGroupAll', cards: productCards }]
+      : []
+  }, [productPickerData?.groups, productCards])
+
+  const addCommerceCard = useCallback((card: CommerceProductCard) => {
+    setSelectedCommerceCards((prev) => {
+      if (
+        prev.some(
+          (item) =>
+            (item.offerId && item.offerId === card.offerId) ||
+            (item.productId === card.productId && item.skuId === card.skuId),
+        )
+      ) {
+        return prev
+      }
+      return [...prev, card].slice(0, 3)
+    })
+    setShowProductPicker(false)
+    inputRef.current?.focus()
+  }, [])
 
   // Fetch messages
   const {
@@ -405,7 +504,9 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
   // Send message (with optional attachments)
   const handleSend = useCallback(async () => {
     const content = messageText.trim()
-    if (!content && pendingFiles.length === 0) return
+    if (!content && pendingFiles.length === 0 && selectedCommerceCards.length === 0) return
+    const metadata =
+      selectedCommerceCards.length > 0 ? { commerceCards: selectedCommerceCards } : undefined
 
     try {
       if (pendingFiles.length > 0) {
@@ -437,11 +538,17 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
             content: contentToSend,
             attachments: uploadedAttachments,
             replyToId: replyToId ?? undefined,
+            ...(metadata ? { metadata } : {}),
           }),
         })
         playSendSound()
       } else {
-        sendDmMessage({ dmChannelId, content, replyToId: replyToId ?? undefined })
+        sendDmMessage({
+          dmChannelId,
+          content: content || '\u200B',
+          replyToId: replyToId ?? undefined,
+          metadata,
+        })
         playSendSound()
       }
     } catch (err) {
@@ -451,8 +558,9 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
     setMessageText('')
     setReplyToId(null)
     setPendingFiles([])
+    setSelectedCommerceCards([])
     inputRef.current?.focus()
-  }, [messageText, pendingFiles, dmChannelId, replyToId])
+  }, [messageText, pendingFiles, selectedCommerceCards, dmChannelId, replyToId])
 
   // Handle typing events
   const handleTyping = useCallback(() => {
@@ -494,6 +602,7 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
         updateMessageInCache(rawUpdated)
       }}
       onMessageDelete={(id) => removeMessageFromCache(id)}
+      onPreviewFile={(attachment) => setPreviewFile(attachment)}
       editApi={async (messageId, content) => {
         const res = await fetchApi<DmMessageRaw>(
           `/api/dm/channels/${dmChannelId}/messages/${messageId}`,
@@ -511,312 +620,529 @@ export function DmChatView({ dmChannelId, onBack }: { dmChannelId: string; onBac
   )
 
   return (
-    <GlassPanel
-      className="chat-panel flex flex-1 min-h-0 flex-col overflow-hidden"
-      style={{
-        background: 'var(--chat-panel-bg)',
-        backdropFilter: 'none',
-        WebkitBackdropFilter: 'none',
-      }}
-    >
-      {/* Header */}
-      <div className="app-header flex items-center gap-3 px-4 md:px-6">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => onBack?.()}
-          className="md:hidden h-8 w-8"
-        >
-          <ArrowLeft size={18} />
-        </Button>
-        <span className="text-text-muted text-lg font-medium">@</span>
-        <div className="relative">
-          <UserAvatar
-            userId={otherUser?.id ?? ''}
-            avatarUrl={otherUser?.avatarUrl ?? null}
-            displayName={otherUser?.displayName ?? otherUser?.username ?? '?'}
-            size="sm"
-          />
-          <span
-            className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-bg-primary ${statusColor[otherUser?.status ?? 'offline'] ?? statusColor.offline}`}
-          />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-black text-text-primary text-sm truncate">
-            {otherUser?.displayName ?? otherUser?.username ?? t('friends.chat', '聊天')}
-          </h3>
-          {otherUser?.isBot && (
-            <span className="text-[11px] font-black text-primary bg-primary/10 rounded-full px-1.5 py-0.5">
-              Buddy
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Messages Area — virtual list */}
-      <div ref={scrollRef} className="chat-scroll-surface flex-1 overflow-y-auto px-4 py-4">
-        {isFetchingNextPage && (
-          <div className="flex justify-center py-3">
-            <Loader2 size={20} className="animate-spin text-primary" />
-          </div>
-        )}
-
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-16">
-            <Loader2 size={32} className="animate-spin text-primary" />
-          </div>
-        ) : allMessages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-text-muted">
-            <div className="w-12 h-12 rounded-2xl bg-bg-tertiary/60 flex items-center justify-center mb-3">
-              <Send size={20} className="text-text-muted/60" />
-            </div>
-            <p className="text-sm">
-              {t('dm.noMessages', '还没有消息，发送第一条消息开始聊天吧！')}
-            </p>
-          </div>
-        ) : shouldVirtualize ? (
-          <div
-            style={{
-              height: `${virtualizer.getTotalSize()}px`,
-              width: '100%',
-              position: 'relative',
-            }}
+    <div className="flex flex-1 min-w-0 h-full">
+      <GlassPanel
+        className="chat-panel flex flex-1 min-h-0 flex-col overflow-hidden"
+        style={{
+          background: 'var(--chat-panel-bg)',
+          backdropFilter: 'none',
+          WebkitBackdropFilter: 'none',
+        }}
+      >
+        {/* Header */}
+        <div className="app-header flex items-center gap-3 px-4 md:px-6">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onBack?.()}
+            className="md:hidden h-8 w-8"
           >
-            {virtualItems.map((virtualItem) => {
-              const { message: msg, isGrouped } = timelineItems[virtualItem.index]!
-
-              return (
-                <div
-                  key={virtualItem.key}
-                  data-index={virtualItem.index}
-                  ref={virtualizer.measureElement}
-                  style={{
-                    position: 'absolute',
-                    top: `${virtualItem.start}px`,
-                    left: 0,
-                    width: '100%',
-                  }}
-                >
-                  {renderMessageBubble(msg, isGrouped)}
-                </div>
-              )
-            })}
+            <ArrowLeft size={18} />
+          </Button>
+          <span className="text-text-muted text-lg font-medium">@</span>
+          <div className="relative">
+            <UserAvatar
+              userId={otherUser?.id ?? ''}
+              avatarUrl={otherUser?.avatarUrl ?? null}
+              displayName={otherUser?.displayName ?? otherUser?.username ?? '?'}
+              size="sm"
+            />
+            <span
+              className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-bg-primary ${statusColor[otherUser?.status ?? 'offline'] ?? statusColor.offline}`}
+            />
           </div>
-        ) : (
-          <div className="flex flex-col py-2">
-            {timelineItems.map(({ message: msg, isGrouped }) => (
-              <div key={msg.id}>{renderMessageBubble(msg, isGrouped)}</div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Typing indicator */}
-      {typingUsers.length > 0 && (
-        <div className="px-4 py-1 text-[12px] text-text-muted">
-          <span className="font-medium text-primary">{typingUsers.join(', ')}</span>{' '}
-          {t('chat.typing', '正在输入...')}
-        </div>
-      )}
-
-      {/* Daily rental cost tip */}
-      {rental &&
-        rental.pricingVersion === 2 &&
-        (() => {
-          const tipKey = `rental-tip-${rental.contractId}-${new Date().toISOString().slice(0, 10)}`
-          const dismissed = localStorage.getItem(tipKey) === '1'
-          if (dismissed) return null
-          return (
-            <div className="mx-4 mb-1 flex items-center justify-between gap-2 px-3 py-2 bg-warning/5 border border-warning/40 rounded-lg text-xs text-warning">
-              <span>
-                {t(
-                  'dm.rentalCostTip',
-                  '🦐 今日费用警：基础日费 {{baseDailyRate}}🦐 + 消息费 {{messageFee}}🦐/条，累计花费 {{totalCost}}🦐，已发送 {{messageCount}} 条消息',
-                  {
-                    baseDailyRate: rental.baseDailyRate,
-                    messageFee: rental.messageFee,
-                    totalCost: rental.totalCost,
-                    messageCount: rental.messageCount,
-                  },
-                )}
+          <div className="flex-1 min-w-0">
+            <h3 className="font-black text-text-primary text-sm truncate">
+              {otherUser?.displayName ?? otherUser?.username ?? t('friends.chat', '聊天')}
+            </h3>
+            {otherUser?.isBot && (
+              <span className="text-[11px] font-black text-primary bg-primary/10 rounded-full px-1.5 py-0.5">
+                Buddy
               </span>
-              <button
-                type="button"
-                onClick={() => {
-                  localStorage.setItem(tipKey, '1')
-                  queryClient.invalidateQueries({ queryKey: ['agent-chat-status', otherUser?.id] })
-                }}
-                className="shrink-0 text-warning hover:text-warning/80 font-bold"
-              >
-                ×
-              </button>
-            </div>
-          )
-        })()}
-
-      {/* Message input */}
-      <div className="px-4 pb-4 pt-1 shrink-0">
-        {chatDisabled ? (
-          <div className="flex items-center justify-center gap-2 px-4 py-3 bg-bg-tertiary/50 backdrop-blur-md rounded-xl border border-border-subtle text-text-muted text-sm">
-            <span>
-              {agentChatStatus?.reason === 'rented_out'
-                ? t('dm.chatDisabledRentedOut', '该 Buddy 已出租给其他用户，暂时无法聊天')
-                : agentChatStatus?.reason === 'expired'
-                  ? t('dm.chatDisabledExpired', '使用权已到期，请续租后再使用')
-                  : t('dm.chatDisabledListed', '该 Buddy 已在集市挂单中，暂时无法聊天')}
-            </span>
+            )}
           </div>
-        ) : (
-          <>
-            {/* Reply preview */}
-            {replyToId &&
-              (() => {
-                const replyMsg = messageMap.get(replyToId)
+        </div>
+
+        {/* Messages Area — virtual list */}
+        <div ref={scrollRef} className="chat-scroll-surface flex-1 overflow-y-auto px-4 py-4">
+          {isFetchingNextPage && (
+            <div className="flex justify-center py-3">
+              <Loader2 size={20} className="animate-spin text-primary" />
+            </div>
+          )}
+
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-16">
+              <Loader2 size={32} className="animate-spin text-primary" />
+            </div>
+          ) : allMessages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-text-muted">
+              <div className="w-12 h-12 rounded-2xl bg-bg-tertiary/60 flex items-center justify-center mb-3">
+                <Send size={20} className="text-text-muted/60" />
+              </div>
+              <p className="text-sm">
+                {t('dm.noMessages', '还没有消息，发送第一条消息开始聊天吧！')}
+              </p>
+            </div>
+          ) : shouldVirtualize ? (
+            <div
+              style={{
+                height: `${virtualizer.getTotalSize()}px`,
+                width: '100%',
+                position: 'relative',
+              }}
+            >
+              {virtualItems.map((virtualItem) => {
+                const { message: msg, isGrouped } = timelineItems[virtualItem.index]!
+
                 return (
-                  <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-primary/5 border-l-2 border-primary rounded-lg text-xs">
-                    <Reply size={14} className="text-primary shrink-0" />
-                    <span className="text-text-muted">{t('chat.replyingTo', '回复')}</span>
-                    <span className="font-medium text-text-primary truncate">
-                      {replyMsg?.author?.displayName ??
-                        replyMsg?.author?.username ??
-                        t('common.unknownUser')}
-                    </span>
-                    <span className="text-text-muted truncate max-w-[200px]">
-                      {replyMsg?.content}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setReplyToId(null)}
-                      className="ml-auto p-0.5 text-text-muted hover:text-text-primary transition shrink-0"
-                    >
-                      <X size={14} />
-                    </button>
+                  <div
+                    key={virtualItem.key}
+                    data-index={virtualItem.index}
+                    ref={virtualizer.measureElement}
+                    style={{
+                      position: 'absolute',
+                      top: `${virtualItem.start}px`,
+                      left: 0,
+                      width: '100%',
+                    }}
+                  >
+                    {renderMessageBubble(msg, isGrouped)}
                   </div>
                 )
-              })()}
-            {/* Pending file previews */}
-            {pendingFiles.length > 0 && (
-              <div className="flex gap-2 mb-2 flex-wrap">
-                {pendingFiles.map((file, i) => (
-                  <div
-                    key={i}
-                    className="relative group bg-bg-secondary/80 rounded-2xl p-2 flex items-center gap-2 text-xs text-text-secondary"
-                  >
-                    {file.type.startsWith('image/') ? (
-                      <img
-                        src={URL.createObjectURL(file)}
-                        alt={file.name}
-                        className="w-12 h-12 object-cover rounded"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 bg-bg-modifier-hover rounded flex items-center justify-center text-text-muted">
-                        <Paperclip size={16} />
-                      </div>
-                    )}
-                    <span className="max-w-[120px] truncate">{file.name}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setPendingFiles((prev) => prev.filter((_, j) => j !== i))}
-                      className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-danger text-white opacity-0 group-hover:opacity-100"
-                    >
-                      <X size={12} />
-                    </Button>
-                  </div>
-                ))}
+              })}
+            </div>
+          ) : (
+            <div className="flex flex-col py-2">
+              {timelineItems.map(({ message: msg, isGrouped }) => (
+                <div key={msg.id}>{renderMessageBubble(msg, isGrouped)}</div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Typing indicator */}
+        {typingUsers.length > 0 && (
+          <div className="px-4 py-1 text-[12px] text-text-muted">
+            <span className="font-medium text-primary">{typingUsers.join(', ')}</span>{' '}
+            {t('chat.typing', '正在输入...')}
+          </div>
+        )}
+
+        {/* Daily rental cost tip */}
+        {rental &&
+          rental.pricingVersion === 2 &&
+          (() => {
+            const tipKey = `rental-tip-${rental.contractId}-${new Date().toISOString().slice(0, 10)}`
+            const dismissed = localStorage.getItem(tipKey) === '1'
+            if (dismissed) return null
+            return (
+              <div className="mx-4 mb-1 flex items-center justify-between gap-2 px-3 py-2 bg-warning/5 border border-warning/40 rounded-lg text-xs text-warning">
+                <span>
+                  {t(
+                    'dm.rentalCostTip',
+                    '🦐 今日费用警：基础日费 {{baseDailyRate}}🦐 + 消息费 {{messageFee}}🦐/条，累计花费 {{totalCost}}🦐，已发送 {{messageCount}} 条消息',
+                    {
+                      baseDailyRate: rental.baseDailyRate,
+                      messageFee: rental.messageFee,
+                      totalCost: rental.totalCost,
+                      messageCount: rental.messageCount,
+                    },
+                  )}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    localStorage.setItem(tipKey, '1')
+                    queryClient.invalidateQueries({
+                      queryKey: ['agent-chat-status', otherUser?.id],
+                    })
+                  }}
+                  className="shrink-0 text-warning hover:text-warning/80 font-bold"
+                >
+                  ×
+                </button>
               </div>
-            )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              className="hidden"
-              onChange={(e) => {
-                if (e.target.files) {
-                  setPendingFiles((prev) => [...prev, ...Array.from(e.target.files!)])
-                  e.target.value = ''
-                }
-              }}
-            />
-            <InputValley className="flex items-end gap-2 rounded-[26px] bg-bg-primary/65">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => fileInputRef.current?.click()}
-                className="h-8 w-8 ml-2 mb-2"
-              >
-                <Paperclip size={18} />
-              </Button>
-              <textarea
-                ref={inputRef}
-                value={messageText}
+            )
+          })()}
+
+        {/* Message input */}
+        <div className="px-4 pb-4 pt-1 shrink-0">
+          {chatDisabled ? (
+            <div className="flex items-center justify-center gap-2 px-4 py-3 bg-bg-tertiary/50 backdrop-blur-md rounded-xl border border-border-subtle text-text-muted text-sm">
+              <span>
+                {agentChatStatus?.reason === 'rented_out'
+                  ? t('dm.chatDisabledRentedOut', '该 Buddy 已出租给其他用户，暂时无法聊天')
+                  : agentChatStatus?.reason === 'expired'
+                    ? t('dm.chatDisabledExpired', '使用权已到期，请续租后再使用')
+                    : t('dm.chatDisabledListed', '该 Buddy 已在集市挂单中，暂时无法聊天')}
+              </span>
+            </div>
+          ) : (
+            <>
+              {/* Reply preview */}
+              {replyToId &&
+                (() => {
+                  const replyMsg = messageMap.get(replyToId)
+                  return (
+                    <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-primary/5 border-l-2 border-primary rounded-lg text-xs">
+                      <Reply size={14} className="text-primary shrink-0" />
+                      <span className="text-text-muted">{t('chat.replyingTo', '回复')}</span>
+                      <span className="font-medium text-text-primary truncate">
+                        {replyMsg?.author?.displayName ??
+                          replyMsg?.author?.username ??
+                          t('common.unknownUser')}
+                      </span>
+                      <span className="text-text-muted truncate max-w-[200px]">
+                        {replyMsg?.content}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setReplyToId(null)}
+                        className="ml-auto p-0.5 text-text-muted hover:text-text-primary transition shrink-0"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  )
+                })()}
+              {/* Pending file previews */}
+              {(pendingFiles.length > 0 || selectedCommerceCards.length > 0) && (
+                <div className="flex gap-2 mb-2 flex-wrap">
+                  {selectedCommerceCards.map((card) => (
+                    <div
+                      key={card.id}
+                      className="relative flex items-center gap-2 rounded-2xl border border-border-subtle bg-bg-secondary/80 px-3 py-2 pr-8 text-xs text-text-secondary"
+                    >
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                        <ShoppingBag size={17} />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block max-w-[150px] truncate font-bold text-text-primary">
+                          {card.snapshot.name}
+                        </span>
+                        <span className="block text-[11px] text-text-muted">
+                          {getCommerceCardPrice(card, t)}
+                        </span>
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() =>
+                          setSelectedCommerceCards((prev) =>
+                            prev.filter((item) => item.id !== card.id),
+                          )
+                        }
+                        className="absolute -right-1 -top-1 h-5 w-5 rounded-full bg-danger text-white"
+                      >
+                        <X size={12} />
+                      </Button>
+                    </div>
+                  ))}
+                  {pendingFiles.map((file, i) => (
+                    <div
+                      key={i}
+                      className="relative group bg-bg-secondary/80 rounded-2xl p-2 flex items-center gap-2 text-xs text-text-secondary"
+                    >
+                      {file.type.startsWith('image/') ? (
+                        <img
+                          src={URL.createObjectURL(file)}
+                          alt={file.name}
+                          className="w-12 h-12 object-cover rounded"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 bg-bg-modifier-hover rounded flex items-center justify-center text-text-muted">
+                          <Paperclip size={16} />
+                        </div>
+                      )}
+                      <span className="max-w-[120px] truncate">{file.name}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setPendingFiles((prev) => prev.filter((_, j) => j !== i))}
+                        className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-danger text-white opacity-0 group-hover:opacity-100"
+                      >
+                        <X size={12} />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
                 onChange={(e) => {
-                  setMessageText(e.target.value)
-                  handleTyping()
-                }}
-                onKeyDown={(e) => {
-                  if (
-                    e.key === 'Enter' &&
-                    !e.shiftKey &&
-                    !e.nativeEvent.isComposing &&
-                    e.keyCode !== 229
-                  ) {
-                    e.preventDefault()
-                    handleSend()
+                  if (e.target.files) {
+                    setPendingFiles((prev) => [...prev, ...Array.from(e.target.files!)])
+                    e.target.value = ''
+                    e.target.accept = ''
                   }
                 }}
-                placeholder={
-                  otherUser
-                    ? t(
-                        'dm.inputPlaceholder',
-                        `给 @${otherUser.displayName ?? otherUser.username} 发送消息`,
-                      )
-                    : t('dm.inputPlaceholderDefault', '发送消息')
-                }
-                rows={1}
-                className="flex-1 bg-transparent text-text-primary text-sm px-4 py-3 outline-none resize-none max-h-[160px]"
-                style={{ minHeight: '44px' }}
               />
-              <div className="flex items-center gap-1 px-2 pb-2">
-                <div className="relative">
+              <InputValley className="flex items-end gap-2 rounded-[26px] bg-bg-primary/65">
+                <div className="relative ml-2 mb-2 shrink-0">
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => setShowEmoji(!showEmoji)}
-                    className="h-8 w-8"
+                    onClick={() => setShowAttachMenu((open) => !open)}
+                    className={cn('h-8 w-8', showAttachMenu && 'bg-primary/10 text-primary')}
+                    title={t('chat.addMenu')}
+                    aria-label={t('chat.addMenu')}
                   >
-                    <Smile size={18} />
+                    <Plus size={18} />
                   </Button>
-                  {showEmoji && (
+                  {showAttachMenu && (
                     <>
-                      <div className="fixed inset-0 z-40" onClick={() => setShowEmoji(false)} />
-                      <div className="absolute bottom-10 right-0 z-50">
-                        <EmojiPicker
-                          onSelect={(emoji) => {
-                            setMessageText((prev) => prev + emoji)
-                            setShowEmoji(false)
-                            inputRef.current?.focus()
+                      <button
+                        type="button"
+                        className="fixed inset-0 z-40 cursor-default"
+                        aria-label={t('common.close')}
+                        onClick={() => setShowAttachMenu(false)}
+                      />
+                      <div className="absolute bottom-10 left-0 z-50 w-[260px] rounded-2xl border border-border-subtle bg-bg-primary p-2 shadow-2xl">
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-bg-secondary"
+                          onClick={() => openFileDialog()}
+                        >
+                          <FileText size={17} className="text-primary" />
+                          <span className="min-w-0">
+                            <span className="block text-sm font-bold text-text-primary">
+                              {t('chat.uploadFile')}
+                            </span>
+                            <span className="block truncate text-xs text-text-muted">
+                              {t('chat.addMenuUploadFileDesc')}
+                            </span>
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-bg-secondary"
+                          onClick={() => openFileDialog('image/*')}
+                        >
+                          <ImageIcon size={17} className="text-primary" />
+                          <span className="min-w-0">
+                            <span className="block text-sm font-bold text-text-primary">
+                              {t('chat.uploadImage')}
+                            </span>
+                            <span className="block truncate text-xs text-text-muted">
+                              {t('chat.addMenuUploadImageDesc')}
+                            </span>
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-bg-secondary"
+                          onClick={() => {
+                            setShowAttachMenu(false)
+                            setShowProductPicker(true)
                           }}
-                          onClose={() => setShowEmoji(false)}
-                        />
+                        >
+                          <ShoppingBag size={17} className="text-primary" />
+                          <span className="min-w-0">
+                            <span className="block text-sm font-bold text-text-primary">
+                              {t('chat.productPicker')}
+                            </span>
+                            <span className="block truncate text-xs text-text-muted">
+                              {t('chat.addMenuProductDesc')}
+                            </span>
+                          </span>
+                        </button>
                       </div>
                     </>
                   )}
                 </div>
+                <textarea
+                  ref={inputRef}
+                  value={messageText}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    const cursorPos = e.target.selectionStart
+                    if (/(?:^|\s)\+$/u.test(value.slice(0, cursorPos))) {
+                      const next = `${value.slice(0, cursorPos - 1)}${value.slice(cursorPos)}`
+                      setMessageText(next)
+                      setShowAttachMenu(true)
+                      requestAnimationFrame(() => {
+                        inputRef.current?.focus()
+                        inputRef.current?.setSelectionRange(cursorPos - 1, cursorPos - 1)
+                      })
+                    } else {
+                      setMessageText(value)
+                    }
+                    handleTyping()
+                  }}
+                  onKeyDown={(e) => {
+                    if (
+                      (messageText.trim() === '/product' || messageText.trim() === '/shop') &&
+                      (e.key === 'Enter' || e.key === 'Tab')
+                    ) {
+                      e.preventDefault()
+                      setMessageText('')
+                      setShowProductPicker(true)
+                      return
+                    }
+                    if (
+                      e.key === 'Enter' &&
+                      !e.shiftKey &&
+                      !e.nativeEvent.isComposing &&
+                      e.keyCode !== 229
+                    ) {
+                      e.preventDefault()
+                      handleSend()
+                    }
+                  }}
+                  placeholder={
+                    otherUser
+                      ? t(
+                          'dm.inputPlaceholder',
+                          `给 @${otherUser.displayName ?? otherUser.username} 发送消息`,
+                        )
+                      : t('dm.inputPlaceholderDefault', '发送消息')
+                  }
+                  rows={1}
+                  className="flex-1 bg-transparent text-text-primary text-sm px-4 py-3 outline-none resize-none max-h-[160px]"
+                  style={{ minHeight: '44px' }}
+                />
+                <div className="flex items-center gap-1 px-2 pb-2">
+                  <div className="relative">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowEmoji(!showEmoji)}
+                      className="h-8 w-8"
+                    >
+                      <Smile size={18} />
+                    </Button>
+                    {showEmoji && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setShowEmoji(false)} />
+                        <div className="absolute bottom-10 right-0 z-50">
+                          <EmojiPicker
+                            onSelect={(emoji) => {
+                              setMessageText((prev) => prev + emoji)
+                              setShowEmoji(false)
+                              inputRef.current?.focus()
+                            }}
+                            onClose={() => setShowEmoji(false)}
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <Button
+                    size="icon"
+                    onClick={handleSend}
+                    disabled={
+                      !messageText.trim() &&
+                      pendingFiles.length === 0 &&
+                      selectedCommerceCards.length === 0
+                    }
+                    className="h-8 w-8 rounded-full bg-primary hover:bg-primary/80"
+                  >
+                    <Send size={18} />
+                  </Button>
+                </div>
+              </InputValley>
+            </>
+          )}
+        </div>
+        {showProductPicker && (
+          <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/30 px-4 pb-6 pt-20 sm:items-center">
+            <div className="w-full max-w-lg rounded-2xl border border-border-subtle bg-bg-primary shadow-2xl">
+              <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3">
+                <div className="flex items-center gap-2 text-sm font-bold text-text-primary">
+                  <ShoppingBag size={18} className="text-primary" />
+                  {t('chat.productPicker')}
+                </div>
                 <Button
+                  variant="ghost"
                   size="icon"
-                  onClick={handleSend}
-                  disabled={!messageText.trim() && pendingFiles.length === 0}
-                  className="h-8 w-8 rounded-full bg-primary hover:bg-primary/80"
+                  className="h-8 w-8"
+                  onClick={() => setShowProductPicker(false)}
                 >
-                  <Send size={18} />
+                  <X size={16} />
                 </Button>
               </div>
-            </InputValley>
-          </>
+              <div className="border-b border-border-subtle p-3">
+                <label className="flex items-center gap-2 rounded-xl border border-border-subtle bg-bg-secondary px-3 py-2 text-sm text-text-primary">
+                  <Search size={16} className="text-text-muted" />
+                  <input
+                    value={productQuery}
+                    onChange={(e) => setProductQuery(e.target.value)}
+                    placeholder={t('chat.productPickerSearch')}
+                    className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-text-muted"
+                    autoFocus
+                  />
+                </label>
+              </div>
+              <div className="max-h-[420px] overflow-y-auto p-2">
+                {isFetchingProducts ? (
+                  <div className="px-4 py-8 text-center text-sm text-text-muted">
+                    {t('chat.productPickerLoading')}
+                  </div>
+                ) : productCards.length === 0 ? (
+                  <div className="px-4 py-8 text-center text-sm text-text-muted">
+                    {t('chat.productPickerEmpty')}
+                  </div>
+                ) : (
+                  productPickerGroups.map((group) => (
+                    <div key={group.key} className="py-1">
+                      <div className="flex items-center gap-2 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-text-muted">
+                        <ShoppingBag size={13} />
+                        <span>{t(group.labelKey)}</span>
+                        {group.shopName && (
+                          <span className="min-w-0 truncate normal-case tracking-normal">
+                            {group.shopName}
+                          </span>
+                        )}
+                      </div>
+                      {group.cards.map((card) => (
+                        <button
+                          key={card.id}
+                          type="button"
+                          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-bg-secondary"
+                          onClick={() => addCommerceCard(card)}
+                        >
+                          {card.snapshot.imageUrl ? (
+                            <img
+                              src={card.snapshot.imageUrl}
+                              alt=""
+                              className="h-12 w-12 rounded-lg object-cover"
+                            />
+                          ) : (
+                            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                              <ShoppingBag size={20} />
+                            </span>
+                          )}
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-bold text-text-primary">
+                              {card.snapshot.name}
+                            </span>
+                            {card.snapshot.summary && (
+                              <span className="block truncate text-xs text-text-muted">
+                                {card.snapshot.summary}
+                              </span>
+                            )}
+                          </span>
+                          <span className="shrink-0 text-sm font-bold text-primary">
+                            {getCommerceCardPrice(card, t)}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
         )}
-      </div>
-    </GlassPanel>
+      </GlassPanel>
+      {previewFile && (
+        <FilePreviewPanel attachment={previewFile} onClose={() => setPreviewFile(null)} />
+      )}
+    </div>
   )
 }
 

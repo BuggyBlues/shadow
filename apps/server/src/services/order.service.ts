@@ -14,6 +14,7 @@ import {
 } from '../db/schema'
 import type { CartService } from './cart.service'
 import type { EntitlementService } from './entitlement.service'
+import { resolveProductEntitlementResource } from './entitlement-resource'
 import type { ProductService } from './product.service'
 import type { ShopService } from './shop.service'
 import type { WalletService } from './wallet.service'
@@ -218,16 +219,21 @@ export class OrderService {
         const shop = await this.deps.shopService.getShopById(shopId)
         if (shop) {
           for (const config of configs) {
+            const entitlementResource = resolveProductEntitlementResource(product, config)
+            if (!entitlementResource) continue
             const expiresAt = config.durationSeconds
               ? new Date(Date.now() + config.durationSeconds * 1000)
               : undefined
             await this.deps.entitlementService.grantEntitlement({
               userId: buyerId,
-              serverId: shop.serverId,
+              serverId: shop.serverId ?? undefined,
+              shopId: shop.id,
+              scopeKind: shop.scopeKind,
               orderId: order.id,
               productId: product.id,
-              type: config.type,
-              targetId: config.targetId,
+              resourceType: entitlementResource.resourceType,
+              resourceId: entitlementResource.resourceId,
+              capability: entitlementResource.capability,
               expiresAt,
             })
           }
@@ -326,6 +332,7 @@ export class OrderService {
     const shop = await this.deps.shopService.getShopById(order.shopId)
     if (!shop) return
 
+    if (!shop.serverId) return
     const server = await this.deps.serverDao.findById(shop.serverId)
     if (!server) return
 

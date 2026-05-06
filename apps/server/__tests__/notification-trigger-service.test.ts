@@ -8,7 +8,7 @@ describe('NotificationTriggerService', () => {
   const notificationTemplateService = {
     render: vi.fn(),
   }
-  const notificationDeliveryService = {
+  const notificationPlatformService = {
     deliver: vi.fn(),
   }
 
@@ -27,7 +27,7 @@ describe('NotificationTriggerService', () => {
     service = new NotificationTriggerService({
       notificationService: notificationService as any,
       notificationTemplateService: notificationTemplateService as any,
-      notificationDeliveryService: notificationDeliveryService as any,
+      notificationPlatformService: notificationPlatformService as any,
     })
   })
 
@@ -69,7 +69,7 @@ describe('NotificationTriggerService', () => {
     expect(notificationService.create).not.toHaveBeenCalledWith(
       expect.objectContaining({ userId: 'requester-1' }),
     )
-    expect(notificationDeliveryService.deliver).toHaveBeenCalledTimes(2)
+    expect(notificationPlatformService.deliver).toHaveBeenCalledTimes(2)
   })
 
   it('uses stable scope and aggregation keys for mentions', async () => {

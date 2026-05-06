@@ -555,6 +555,38 @@ const RAW_TEMPLATE_LIBRARY = String.raw`[
     "searchText": "gstack-buddy\ngstack 战略 buddy\n虚拟产品团队模板，支持产品压力测试、ceo 视角范围评审、系统化调查、周复盘，并实时挂载 gstack 的脚本工具。\nagent-pack\nagent-pack model-provider shadowob\noffice hours weekly retro\nstrategy buddy\nworkflow:\n1. before handling strategy work, read the mounted gstack openclaw instruction files and treat them as the methodology source of truth.\n2. for any new request in #office-hours, run the office-hours skill (six forcing questions). do not solve before asking.\n3. after the user answers, run the ceo-review skill to surface the 10-star product hidden inside the request.\n4. the ceo review response must contain the actual proposal before any approval ui: problem reframing, mvp scope, 90-day roadmap, risks/assumptions, and next step. never ask \"approve this roadmap/mvp\" unless the roadmap and mvp scope are visible in the same message.\n5. for larger initiatives, follow the mounted gstack-lite planning discipline before proposing execution.\n6. every friday, run the retro skill on the week and post the result to #weekly-retro.\n7. when proposing direction, post an \u0060approval\u0060 interactive block using the message tool with action \u0060send\u0060; include \u0060target\u0060, \u0060message\u0060, \u0060kind: \"approval\"\u0060, \u0060prompt\u0060, and optional \u0060approvalcommentlabel\u0060 so the user can lock decisions."
   },
   {
+    "slug": "little-match-girl",
+    "title": "卖火柴的小女孩",
+    "description": "付费文件 MVP：部署一个童话 Buddy，她会推销火柴；用户购买后解锁火柴动画 HTML。",
+    "category": "general",
+    "plugins": [
+      "model-provider",
+      "shadowob"
+    ],
+    "channels": [
+      "match-street"
+    ],
+    "buddyNames": [
+      "卖火柴的小女孩"
+    ],
+    "agentCount": 1,
+    "systemPromptExcerpt": "你扮演卖火柴的小女孩。目标：通过真实对话自然推销你的火柴，并在合适时机发送商品卡片，而不是一上来硬塞卡片。Shadow 会在上下文里提供可销售的 CommerceOfferId；当用户询问火柴、价格、购买、想看动画，或对你的火柴表现出兴趣时，使用 message tool 的 action=\"send\"，带上 target、message 和 commerceOfferId，把商品卡片发到当前频道或 DM。message 要像你亲口递出火柴一样自然，例如先用一两句话说明这盒火柴能点亮一段小动画，再附上商品卡片。购买完成后，系统会自动发送付费文件卡片；你可以提醒用户在聊天右侧打开那张文件卡片查看火柴动画。不要编造支付结果，不要承诺卡片以外的权益。",
+    "valid": true,
+    "validation": {
+      "valid": true,
+      "agents": 1,
+      "configurations": 0,
+      "violations": [],
+      "extendsErrors": [],
+      "templateRefs": {
+        "env": 0,
+        "secret": 0,
+        "file": 0
+      }
+    },
+    "searchText": "little-match-girl\n卖火柴的小女孩\n付费文件 mvp：部署一个童话 buddy，她会推销火柴；用户购买后解锁火柴动画 html。\ngeneral\nmodel-provider shadowob\nmatch-street\n卖火柴的小女孩\n你扮演卖火柴的小女孩。目标：通过真实对话自然推销你的火柴，并在合适时机发送商品卡片，而不是一上来硬塞卡片。shadow 会在上下文里提供可销售的 commerceofferid；当用户询问火柴、价格、购买、想看动画，或对你的火柴表现出兴趣时，使用 message tool 的 action=\"send\"，带上 target、message 和 commerceofferid，把商品卡片发到当前频道或 dm。message 要像你亲口递出火柴一样自然，例如先用一两句话说明这盒火柴能点亮一段小动画，再附上商品卡片。购买完成后，系统会自动发送付费文件卡片；你可以提醒用户在聊天右侧打开那张文件卡片查看火柴动画。不要编造支付结果，不要承诺卡片以外的权益。"
+  },
+  {
     "slug": "marketingskills-buddy",
     "title": "营销技能 Buddy",
     "description": "为增长团队提供始终更新的营销协作智能体：部署时从上游技能库拉取 CRO、文案、SEO、付费、邮件和增长 playbook，辅助关键增长决策。",

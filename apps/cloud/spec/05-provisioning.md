@@ -8,7 +8,7 @@
 
 ## 1. 概述
 
-Provisioning 是将 `shadowob-cloud.json` 中声明的 Shadow 资源（Server、Channel、Buddy）在 Shadow 平台上实际创建的过程。创建后的真实资源 ID 和 token 被保存为 state，并注入到 Agent 容器的环境变量中。
+Provisioning 是将 `shadowob-cloud.json` 中声明的 Shadow 资源（Server、Channel、Buddy）在 Shadow 平台上实际创建的过程。创建后的真实资源 ID 会保存为 state；Buddy token 只作为运行时 secret 注入到 Agent 容器环境变量，不写入 state。
 
 ### 流程
 
@@ -23,7 +23,7 @@ plugins.shadowob.servers[].channels[] ──▶  Create Channel (API)
                                          └─ 返回 channel.id (UUID)
                                          
 plugins.shadowob.buddies[]    ──▶     Create Buddy (API)
-                                         └─ 返回 buddy.id + token
+                                         └─ 返回 buddy.id + 运行时 token
                                          
 plugins.shadowob.bindings[]   ──▶     Add Buddy to Server/Channel (API)
                                          └─ Buddy 获得消息访问权限
@@ -34,7 +34,7 @@ plugins.shadowob.bindings[]   ──▶     Add Buddy to Server/Channel (API)
        │                                          │
        │  servers: { "my-server": "uuid-..." }    │
        │  channels: { "general": "uuid-..." }     │
-       │  buddies: { "my-buddy": { id, token } }  │
+       │  buddies: { "my-buddy": { agentId, userId } } │
        └─────────────────────────────────────────┘
                           │
                           ▼
@@ -101,14 +101,13 @@ provisioning 模块实现 find-or-create 语义:
   "buddies": {
     "my-buddy": {
       "id": "550e8400-e29b-41d4-a716-446655440002",
-      "name": "My AI Assistant",
-      "token": "eyJhbG..."
+      "name": "My AI Assistant"
     }
   }
 }
 ```
 
-**安全性**: token 存储在本地文件中，`.shadowob/` 应该添加到 `.gitignore`。
+**安全性**: state 只保存资源 ID，不保存 token / secret / API key。Buddy token 由 provisioning 阶段即时生成，并通过 K8s Secret 注入运行态。
 
 ---
 
@@ -200,6 +199,6 @@ shadowob-cloud up
 | 认证失败 | 报错 + 提示检查 token |
 | Server 已存在但 slug 冲突 | 复用已存在的（find-or-create） |
 | Channel 已存在 | 复用已存在的 |
-| Buddy 已存在但 token 不同 | 使用已存储的 state token（不重新获取） |
+| Buddy 已存在 | 复用 agentId，并重新 mint 运行时 token |
 | Binding 已存在 | 静默成功（API 幂等） |
 | 部分失败 | 已创建的资源保留，报告失败的资源 |

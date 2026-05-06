@@ -139,6 +139,37 @@ export interface ShadowListing {
   active?: boolean
 }
 
+export interface ShadowCommercePaidFile {
+  /** Unique id for this paid file commerce seed in the template. */
+  id: string
+  /** Server config id that owns the workspace file. */
+  serverId: string
+  /** Shop owner for the product. MVP templates usually use the selling Buddy's personal shop. */
+  shop: {
+    kind: 'server' | 'buddy'
+    serverId?: string
+    buddyId?: string
+  }
+  /** Buddy config id that should send fulfillment file cards. */
+  sellerBuddyId?: string
+  name: string
+  slug: string
+  summary?: string
+  description?: string
+  price: number
+  durationSeconds?: number | null
+  fileName: string
+  html: string
+  mime?: string
+  offerSurfaces?: Array<'channel' | 'dm'>
+  /** Optional message sent with the paid-file card after purchase. */
+  fulfillmentMessage?: string
+}
+
+export interface ShadowCommerceConfig {
+  paidFiles?: ShadowCommercePaidFile[]
+}
+
 export interface ShadowobPluginConfig {
   /** Shadow servers to provision */
   servers?: ShadowServer[]
@@ -151,4 +182,6 @@ export interface ShadowobPluginConfig {
    * Each entry creates or updates a public listing for the referenced buddy.
    */
   listings?: ShadowListing[]
+  /** Commerce seed data for Offer-driven paid-file MVPs. */
+  commerce?: ShadowCommerceConfig
 }

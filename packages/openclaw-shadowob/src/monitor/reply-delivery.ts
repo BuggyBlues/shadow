@@ -24,9 +24,13 @@ function replyMetadata(params: {
   deliveryId: string
   agentChain?: AgentChainMetadata
   replyToId?: string
+  commerceOfferId?: string
 }): Record<string, unknown> {
   return {
     ...(params.agentChain ? { agentChain: params.agentChain } : {}),
+    ...(params.commerceOfferId
+      ? { commerceCards: [{ kind: 'offer', offerId: params.commerceOfferId }] }
+      : {}),
     shadowDelivery: {
       id: params.deliveryId,
       source: 'openclaw-shadowob',
@@ -106,8 +110,19 @@ export async function deliverShadowReply(params: {
   agentChain?: AgentChainMetadata
   agentId: string | null
   botUserId: string
+  commerceOfferId?: string
 }): Promise<void> {
-  const { payload, channelId, replyToId, client, runtime, agentChain, agentId, botUserId } = params
+  const {
+    payload,
+    channelId,
+    replyToId,
+    client,
+    runtime,
+    agentChain,
+    agentId,
+    botUserId,
+    commerceOfferId,
+  } = params
 
   try {
     if (!payload.text && !(payload.mediaUrl || payload.mediaUrls?.length)) {
@@ -135,7 +150,12 @@ export async function deliverShadowReply(params: {
     if (text || mediaUrls.length > 0) {
       const contentToSend = text || '\u200B'
       const deliveryId = randomUUID()
-      const metadata = replyMetadata({ deliveryId, agentChain: newAgentChain, replyToId })
+      const metadata = replyMetadata({
+        deliveryId,
+        agentChain: newAgentChain,
+        replyToId,
+        commerceOfferId,
+      })
       const mentions = await resolveOutboundMentions({
         client,
         channelId,
@@ -218,9 +238,19 @@ export async function deliverShadowDmReply(params: {
   agentChain?: AgentChainMetadata
   agentId: string | null
   botUserId: string
+  commerceOfferId?: string
 }): Promise<void> {
-  const { payload, dmChannelId, replyToId, client, runtime, agentChain, agentId, botUserId } =
-    params
+  const {
+    payload,
+    dmChannelId,
+    replyToId,
+    client,
+    runtime,
+    agentChain,
+    agentId,
+    botUserId,
+    commerceOfferId,
+  } = params
 
   try {
     if (!payload.text && !(payload.mediaUrl || payload.mediaUrls?.length)) {
@@ -248,7 +278,12 @@ export async function deliverShadowDmReply(params: {
     if (text || mediaUrls.length > 0) {
       const contentToSend = text || '\u200B'
       const deliveryId = randomUUID()
-      const metadata = replyMetadata({ deliveryId, agentChain: newAgentChain, replyToId })
+      const metadata = replyMetadata({
+        deliveryId,
+        agentChain: newAgentChain,
+        replyToId,
+        commerceOfferId,
+      })
       sentMessage = await withDeliveryRetry({
         label: 'dm-reply',
         runtime,

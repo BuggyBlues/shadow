@@ -18,13 +18,34 @@ export class ShopService {
   async getOrCreateShop(serverId: string, serverName: string) {
     let shop = await this.deps.shopDao.findByServerId(serverId)
     if (!shop) {
-      shop = await this.deps.shopDao.create({ serverId, name: `${serverName}的店铺` })
+      shop = await this.deps.shopDao.create({
+        scopeKind: 'server',
+        serverId,
+        name: `${serverName}的店铺`,
+      })
+    }
+    return shop!
+  }
+
+  async getOrCreatePersonalShop(ownerUserId: string, ownerName: string) {
+    let shop = await this.deps.shopDao.findByOwnerUserId(ownerUserId)
+    if (!shop) {
+      shop = await this.deps.shopDao.create({
+        scopeKind: 'user',
+        ownerUserId,
+        visibility: 'login_required',
+        name: `${ownerName}的个人店铺`,
+      })
     }
     return shop!
   }
 
   async getShopByServerId(serverId: string) {
     return this.deps.shopDao.findByServerId(serverId)
+  }
+
+  async getShopByOwnerUserId(ownerUserId: string) {
+    return this.deps.shopDao.findByOwnerUserId(ownerUserId)
   }
 
   async getShopById(shopId: string) {

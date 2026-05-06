@@ -60,6 +60,22 @@ function readAttachmentFilename(params: Record<string, unknown>) {
   return firstString(params.filename, params.title) ?? 'file'
 }
 
+function readCommerceOfferId(params: Record<string, unknown>) {
+  return firstString(params.commerceOfferId, params.offerId)
+}
+
+function buildSendMetadata(params: {
+  interactiveBlock?: Record<string, unknown>
+  commerceOfferId?: string
+}) {
+  const metadata: Record<string, unknown> = {}
+  if (params.interactiveBlock) metadata.interactive = params.interactiveBlock
+  if (params.commerceOfferId) {
+    metadata.commerceCards = [{ kind: 'offer', offerId: params.commerceOfferId }]
+  }
+  return Object.keys(metadata).length > 0 ? metadata : undefined
+}
+
 async function uploadShadowAttachment(params: {
   client: ShadowClient
   to: string
@@ -140,12 +156,16 @@ export const shadowMessageActions = {
         if (!to) return textResult({ ok: false, error: 'target is required' })
 
         const interactiveBlock = resolveShadowInteractiveBlock(params)
+        const commerceOfferId = readCommerceOfferId(params)
         const hasAttachment = hasAttachmentPayload(params)
         const content =
           firstString(params.message, params.content, params.text, params.caption, params.prompt) ??
           (interactiveBlock ? '[interactive]' : '')
-        if (!content.trim() && !interactiveBlock && !hasAttachment) {
-          return textResult({ ok: false, error: 'message or attachment is required' })
+        if (!content.trim() && !interactiveBlock && !hasAttachment && !commerceOfferId) {
+          return textResult({
+            ok: false,
+            error: 'message, attachment, or commerceOfferId is required',
+          })
         }
         const approvalError = validateApprovalMessageContent(content, interactiveBlock)
         if (approvalError) return textResult({ ok: false, error: approvalError })
@@ -157,7 +177,7 @@ export const shadowMessageActions = {
           threadId: params.threadId as string | undefined,
           replyToId:
             (params.replyTo as string | undefined) ?? (params.replyToId as string | undefined),
-          metadata: interactiveBlock ? { interactive: interactiveBlock } : undefined,
+          metadata: buildSendMetadata({ interactiveBlock, commerceOfferId }),
         })
         const attachment = hasAttachment
           ? await uploadShadowAttachment({
@@ -174,6 +194,8 @@ export const shadowMessageActions = {
           messageId: message.id,
           interactive: !!interactiveBlock,
           kind: interactiveBlock?.kind,
+          commerceCard: !!commerceOfferId,
+          offerId: commerceOfferId,
           attachment: !!attachment,
           filename: attachment?.filename,
         })

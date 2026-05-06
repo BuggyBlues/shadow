@@ -42,9 +42,11 @@ export const skuItemSchema = z.object({
 })
 
 export const entitlementConfigSchema = z.object({
-  type: z.enum(['channel_access', 'channel_speak', 'app_access', 'custom_role', 'custom']),
-  targetId: z.string().optional(),
+  resourceType: z.string().min(1).max(80).optional().default('service'),
+  resourceId: z.string().min(1).optional(),
+  capability: z.string().min(1).max(80).optional().default('use'),
   durationSeconds: z.number().int().positive().nullable().optional(),
+  renewalPeriodSeconds: z.number().int().positive().nullable().optional(),
   privilegeDescription: z.string().max(500).optional(),
 })
 
@@ -57,6 +59,10 @@ export const createProductSchema = z.object({
   name: z.string().min(1).max(200),
   slug: z.string().min(1).max(200),
   type: z.enum(['physical', 'entitlement']).optional().default('physical'),
+  billingMode: z
+    .enum(['one_time', 'fixed_duration', 'subscription'])
+    .optional()
+    .default('one_time'),
   status: z.enum(['draft', 'active', 'archived']).optional().default('draft'),
   description: z.string().optional(),
   summary: z.string().max(500).optional(),

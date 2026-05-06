@@ -59,7 +59,49 @@ export interface MessageMetadata {
   interactive?: Record<string, unknown>
   interactiveResponse?: Record<string, unknown>
   interactiveState?: Record<string, unknown>
+  commerceCards?: CommerceProductCard[]
+  paidFileCards?: PaidFileCard[]
   [key: string]: unknown
+}
+
+export interface CommerceProductCard {
+  id: string
+  kind: 'offer' | 'product'
+  offerId?: string
+  shopId: string
+  shopScope: { kind: 'server' | 'user'; id: string }
+  productId: string
+  skuId?: string
+  snapshot: {
+    name: string
+    summary?: string | null
+    imageUrl?: string | null
+    price: number
+    currency: string
+    productType: 'physical' | 'entitlement'
+    billingMode?: 'one_time' | 'fixed_duration' | 'subscription'
+    durationSeconds?: number | null
+    resourceType?: string
+    resourceId?: string
+    capability?: string
+  }
+  purchase: { mode: 'direct' | 'select_sku' | 'open_detail' }
+}
+
+export interface PaidFileCard {
+  id: string
+  kind: 'paid_file'
+  fileId: string
+  entitlementId?: string | null
+  deliverableId?: string
+  snapshot: {
+    name: string
+    summary?: string | null
+    mime?: string | null
+    sizeBytes?: number | null
+    previewUrl?: string | null
+  }
+  action: { mode: 'open_paid_file' }
 }
 
 export type MentionSuggestionTrigger = '@' | '#'

@@ -1,0 +1,845 @@
+import { describe, expect, it, vi } from 'vitest'
+import { createApp } from '../src/app'
+import {
+  commerceDeliverables,
+  commerceFulfillmentJobs,
+  commerceIdempotencyKeys,
+  entitlements,
+  orders,
+  paidFileGrants,
+} from '../src/db/schema'
+import { CommerceCardService } from '../src/services/commerce-card.service'
+import { CommerceFulfillmentService } from '../src/services/commerce-fulfillment.service'
+import { refundByNaturalDay } from '../src/services/entitlement-cancellation.service'
+import { EntitlementProvisionerService } from '../src/services/entitlement-provisioner.service'
+import { EntitlementPurchaseService } from '../src/services/entitlement-purchase.service'
+import { PaidFileService } from '../src/services/paid-file.service'
+
+const serverId = '11111111-1111-4111-8111-111111111111'
+const channelId = '22222222-2222-4222-8222-222222222222'
+const shopId = '33333333-3333-4333-8333-333333333333'
+const productId = '44444444-4444-4444-8444-444444444444'
+const offerId = '55555555-5555-4555-8555-555555555555'
+const buyerId = '66666666-6666-4666-8666-666666666666'
+const ownerId = '77777777-7777-4777-8777-777777777777'
+const buddyId = '88888888-8888-4888-8888-888888888888'
+const dmChannelId = 'dm-1'
+const fileId = '99999999-9999-4999-8999-999999999999'
+const entitlementId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+const deliverableId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+const orderId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+const fulfillmentJobId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
+
+function createProduct(overrides: Record<string, unknown> = {}) {
+  return {
+    id: productId,
+    shopId,
+    name: 'Match Flame',
+    slug: 'match-flame',
+    summary: 'A paid HTML animation',
+    status: 'active',
+    type: 'entitlement',
+    billingMode: 'fixed_duration',
+    basePrice: 900,
+    currency: 'shrimp_coin',
+    media: [{ url: 'https://example.com/product.png' }],
+    skus: [],
+    entitlementConfig: [
+      {
+        resourceType: 'workspace_file',
+        resourceId: fileId,
+        capability: 'view',
+        durationSeconds: 2_592_000,
+      },
+    ],
+    ...overrides,
+  }
+}
+
+function createShop(overrides: Record<string, unknown> = {}) {
+  return {
+    id: shopId,
+    scopeKind: 'user',
+    serverId: null,
+    ownerUserId: ownerId,
+    status: 'active',
+    ...overrides,
+  }
+}
+
+function createOffer(overrides: Record<string, unknown> = {}) {
+  return {
+    id: offerId,
+    shopId,
+    productId,
+    originKind: 'user',
+    originServerId: null,
+    sellerUserId: ownerId,
+    sellerBuddyUserId: buddyId,
+    allowedSurfaces: ['channel', 'dm'],
+    visibility: 'login_required',
+    eligibility: {},
+    priceOverride: null,
+    currency: 'shrimp_coin',
+    startsAt: null,
+    expiresAt: null,
+    status: 'active',
+    metadata: {},
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  }
+}
+
+function createCommerceCardService(input?: {
+  product?: Record<string, unknown>
+  shop?: Record<string, unknown>
+  offer?: Record<string, unknown>
+  channel?: Record<string, unknown> | null
+  dmChannel?: Record<string, unknown> | null
+  getMember?: (serverId: string, userId: string) => Promise<unknown>
+}) {
+  const product = createProduct(input?.product)
+  const shop = createShop(input?.shop)
+  const offer = createOffer(input?.offer)
+
+  return new CommerceCardService({
+    channelDao: {
+      findById: vi.fn(async () => input?.channel ?? { id: channelId, serverId }),
+    } as any,
+    serverDao: {
+      getMember:
+        input?.getMember ??
+        vi.fn(async (_serverId: string, userId: string) =>
+          userId === ownerId || userId === buddyId ? { userId } : null,
+        ),
+    } as any,
+    dmService: {
+      getChannelById: vi.fn(
+        async () => input?.dmChannel ?? { id: dmChannelId, userAId: buyerId, userBId: buddyId },
+      ),
+    } as any,
+    commerceOfferService: {
+      ensureDefaultOfferForProduct: vi.fn(async () => offer),
+      requireActiveOfferForSurface: vi.fn(async () => ({ offer, product, shop })),
+      listActiveOfferBundlesForSeller: vi.fn(async () => [{ offer, product, shop }]),
+    } as any,
+  })
+}
+
+describe('CommerceCardService', () => {
+  it('rejects server shop offer cards in DM metadata', async () => {
+    const service = createCommerceCardService({
+      shop: {
+        scopeKind: 'server',
+        serverId,
+        ownerUserId: null,
+      },
+      offer: {
+        originKind: 'server',
+        originServerId: serverId,
+        sellerUserId: null,
+        sellerBuddyUserId: null,
+      },
+    })
+
+    await expect(
+      service.normalizeMessageMetadata(
+        { commerceCards: [{ kind: 'offer', offerId }] },
+        { kind: 'dm', dmChannelId },
+      ),
+    ).rejects.toMatchObject({ code: 'DM_PRODUCT_CARD_REQUIRES_PERSONAL_SHOP' })
+  })
+
+  it('rebuilds channel commerce metadata as canonical offer cards', async () => {
+    const service = createCommerceCardService({
+      shop: {
+        scopeKind: 'server',
+        serverId,
+        ownerUserId: null,
+      },
+      offer: {
+        originKind: 'server',
+        originServerId: serverId,
+        sellerUserId: null,
+        sellerBuddyUserId: null,
+        allowedSurfaces: ['channel'],
+      },
+    })
+
+    const metadata = await service.normalizeMessageMetadata(
+      { commerceCards: [{ kind: 'product', productId }] },
+      { kind: 'channel', channelId },
+    )
+    const cards = metadata.commerceCards as unknown[]
+
+    expect(cards).toHaveLength(1)
+    expect(cards[0]).toMatchObject({
+      kind: 'offer',
+      offerId,
+      shopScope: { kind: 'server', id: serverId },
+      productId,
+      snapshot: {
+        name: 'Match Flame',
+        price: 900,
+        productType: 'entitlement',
+        billingMode: 'fixed_duration',
+        resourceType: 'workspace_file',
+        resourceId: fileId,
+        capability: 'view',
+      },
+      purchase: { mode: 'direct' },
+    })
+  })
+
+  it('allows a Buddy personal shop offer card in DM when the Buddy participates', async () => {
+    const service = createCommerceCardService({
+      shop: {
+        scopeKind: 'user',
+        ownerUserId: buddyId,
+      },
+      offer: {
+        sellerUserId: null,
+        sellerBuddyUserId: buddyId,
+      },
+    })
+
+    const metadata = await service.normalizeMessageMetadata(
+      { commerceCards: [{ kind: 'offer', offerId }] },
+      { kind: 'dm', dmChannelId },
+    )
+
+    expect(metadata.commerceCards).toEqual([
+      expect.objectContaining({
+        kind: 'offer',
+        offerId,
+        shopScope: { kind: 'user', id: buddyId },
+        snapshot: expect.objectContaining({
+          resourceType: 'workspace_file',
+          resourceId: fileId,
+          capability: 'view',
+        }),
+      }),
+    ])
+  })
+
+  it('treats top-level commerceOfferId metadata as an offer card', async () => {
+    const service = createCommerceCardService({
+      shop: {
+        scopeKind: 'user',
+        ownerUserId: buddyId,
+      },
+      offer: {
+        sellerUserId: null,
+        sellerBuddyUserId: buddyId,
+      },
+    })
+
+    const metadata = await service.normalizeMessageMetadata(
+      { commerceOfferId: offerId },
+      { kind: 'channel', channelId },
+    )
+
+    expect(metadata.commerceCards).toEqual([
+      expect.objectContaining({
+        kind: 'offer',
+        offerId,
+        shopScope: { kind: 'user', id: buddyId },
+      }),
+    ])
+  })
+
+  it('infers a Buddy personal shop offer card from natural sales copy', async () => {
+    const service = createCommerceCardService({
+      product: {
+        name: '一盒会发光的火柴',
+        summary: '购买后解锁一段火柴点亮的 HTML 动画。',
+      },
+      shop: {
+        scopeKind: 'user',
+        ownerUserId: buddyId,
+      },
+      offer: {
+        sellerUserId: null,
+        sellerBuddyUserId: buddyId,
+      },
+    })
+
+    const metadata = await service.inferMessageMetadata({
+      metadata: undefined,
+      target: { kind: 'channel', channelId },
+      authorId: buddyId,
+      content: '请看——这就是我说的那盒会发光的火柴。你要把它带回家吗？',
+    })
+
+    expect(metadata.commerceCards).toEqual([
+      expect.objectContaining({
+        kind: 'offer',
+        offerId,
+        shopScope: { kind: 'user', id: buddyId },
+        snapshot: expect.objectContaining({
+          name: '一盒会发光的火柴',
+          resourceType: 'workspace_file',
+          resourceId: fileId,
+        }),
+      }),
+    ])
+  })
+})
+
+describe('refundByNaturalDay', () => {
+  it('uses natural-day zero-point slices for pro-rated refunds', () => {
+    expect(
+      refundByNaturalDay({
+        paidAmount: 3000,
+        startsAt: new Date('2026-05-01T10:00:00.000Z'),
+        expiresAt: new Date('2026-05-31T23:59:00.000Z'),
+        now: new Date('2026-05-16T12:00:00.000Z'),
+      }),
+    ).toBe(1500)
+  })
+
+  it('never refunds more than the paid amount', () => {
+    expect(
+      refundByNaturalDay({
+        paidAmount: 3000,
+        startsAt: new Date('2026-05-01T10:00:00.000Z'),
+        expiresAt: new Date('2026-05-31T23:59:00.000Z'),
+        now: new Date('2026-04-30T12:00:00.000Z'),
+      }),
+    ).toBe(3000)
+  })
+})
+
+describe('EntitlementProvisionerService', () => {
+  it('records resource entitlement provisioning state', async () => {
+    const entitlement = createEntitlement()
+    const update = vi.fn(async (_id: string, data: Record<string, unknown>) => ({
+      ...entitlement,
+      ...data,
+    }))
+    const service = new EntitlementProvisionerService({
+      entitlementDao: {
+        findById: vi.fn(async () => entitlement),
+        update,
+      } as any,
+    })
+
+    const result = await service.provision(entitlement.id)
+
+    expect(result.provisioning).toMatchObject({
+      status: 'provisioned',
+      code: 'RESOURCE_ENTITLEMENT_RECORDED',
+      resourceType: 'workspace_file',
+      resourceId: fileId,
+      capability: 'view',
+    })
+    expect(update).toHaveBeenCalledWith(
+      entitlement.id,
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          provisioning: expect.objectContaining({ code: 'RESOURCE_ENTITLEMENT_RECORDED' }),
+        }),
+      }),
+    )
+  })
+})
+
+describe('CommerceFulfillmentService', () => {
+  it('sends paid file cards and marks fulfillment jobs sent', async () => {
+    const job = {
+      id: fulfillmentJobId,
+      orderId,
+      entitlementId,
+      deliverableId,
+      buyerId,
+      destinationKind: 'channel',
+      destinationId: channelId,
+      senderBuddyUserId: buddyId,
+      status: 'pending',
+      attempts: 0,
+      resultMessageId: null,
+      lastErrorCode: null,
+      metadata: {},
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+    const deliverable = {
+      id: deliverableId,
+      offerId,
+      productId,
+      kind: 'paid_file',
+      resourceType: 'workspace_file',
+      resourceId: fileId,
+      senderBuddyUserId: buddyId,
+      deliveryTiming: 'after_purchase',
+      messageTemplateKey: null,
+      status: 'active',
+      metadata: { message: 'The match is ready.', summary: 'A tiny flame.' },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+    const db = createFulfillmentDb(job, deliverable)
+    const messageService = {
+      send: vi.fn(async (_channelId: string, userId: string, payload: Record<string, unknown>) => ({
+        id: 'message-1',
+        userId,
+        ...payload,
+      })),
+    }
+    const service = new CommerceFulfillmentService({
+      db: db as any,
+      messageService: messageService as any,
+      dmService: { sendMessage: vi.fn() } as any,
+      workspaceNodeDao: {
+        findById: vi.fn(async () => createFileNode()),
+      } as any,
+    })
+
+    const result = await service.processJob(job.id)
+
+    expect(result).toMatchObject({ id: job.id, status: 'sent', resultMessageId: 'message-1' })
+    expect(messageService.send).toHaveBeenCalledWith(
+      channelId,
+      buddyId,
+      expect.objectContaining({
+        content: 'The match is ready.',
+        metadata: expect.objectContaining({
+          paidFileCards: [
+            expect.objectContaining({
+              kind: 'paid_file',
+              fileId,
+              entitlementId,
+              deliverableId,
+              snapshot: expect.objectContaining({
+                name: 'match-animation.html',
+                mime: 'text/html',
+                summary: 'A tiny flame.',
+              }),
+            }),
+          ],
+        }),
+      }),
+    )
+  })
+})
+
+describe('EntitlementPurchaseService', () => {
+  it('purchases active offers, stores offer entitlements, and runs fulfillment', async () => {
+    const db = createPurchaseDb()
+    const product = createProduct()
+    const shop = createShop()
+    const offer = createOffer()
+    const deliverable = {
+      id: deliverableId,
+      offerId,
+      productId,
+      kind: 'paid_file',
+      resourceType: 'workspace_file',
+      resourceId: fileId,
+      senderBuddyUserId: buddyId,
+      status: 'active',
+    }
+    const ledgerService = { debit: vi.fn(async () => undefined) }
+    const commerceFulfillmentService = {
+      processJobs: vi.fn(async () => [{ id: fulfillmentJobId, status: 'sent' }]),
+    }
+    const service = new EntitlementPurchaseService({
+      db: db as any,
+      productService: {
+        getProductById: vi.fn(async () => product),
+      } as any,
+      ledgerService: ledgerService as any,
+      notificationTriggerService: {
+        triggerCommercePurchaseCompleted: vi.fn(async () => undefined),
+      } as any,
+      entitlementProvisionerService: {
+        validateProductConfig: vi.fn(async () => ({
+          serverId: null,
+          resourceType: 'workspace_file',
+          resourceId: fileId,
+          capability: 'view',
+        })),
+        provision: vi.fn(async () => ({
+          active: true,
+          entitlement: createEntitlement({
+            metadata: {
+              provisioning: { code: 'RESOURCE_ENTITLEMENT_RECORDED' },
+            },
+          }),
+          provisioning: { status: 'provisioned', code: 'RESOURCE_ENTITLEMENT_RECORDED' },
+        })),
+      } as any,
+      commerceOfferService: {
+        requireActiveOfferForSurface: vi.fn(async () => ({ offer, product, shop })),
+        getOfferBundle: vi.fn(async () => ({ offer, product, shop })),
+        ensureDefaultOfferForProduct: vi.fn(async () => offer),
+        listDeliverablesForOffer: vi.fn(async () => [deliverable]),
+      } as any,
+      commerceFulfillmentService: commerceFulfillmentService as any,
+    })
+
+    const result = await service.purchaseOffer({
+      buyerId,
+      offerId,
+      idempotencyKey: 'purchase-key-1',
+      destination: { kind: 'dm', id: dmChannelId },
+    })
+
+    expect(ledgerService.debit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: buyerId,
+        amount: 900,
+        referenceId: orderId,
+        referenceType: 'order',
+      }),
+      expect.anything(),
+    )
+    expect(db.inserts.find((entry) => entry.table === entitlements)?.data).toMatchObject({
+      userId: buyerId,
+      productId,
+      offerId,
+      resourceType: 'workspace_file',
+      resourceId: fileId,
+      capability: 'view',
+    })
+    expect(db.inserts.find((entry) => entry.table === commerceFulfillmentJobs)?.data).toMatchObject(
+      {
+        orderId,
+        entitlementId,
+        deliverableId,
+        buyerId,
+        destinationKind: 'dm',
+        destinationId: dmChannelId,
+        senderBuddyUserId: buddyId,
+      },
+    )
+    expect(commerceFulfillmentService.processJobs).toHaveBeenCalledWith([fulfillmentJobId])
+    expect(result.fulfillmentJobs).toEqual([{ id: fulfillmentJobId, status: 'sent' }])
+  })
+})
+
+describe('PaidFileService', () => {
+  it('creates short-lived grants and rechecks entitlement before reading content', async () => {
+    const entitlement = createEntitlement()
+    const db = createPaidFileDb()
+    const service = new PaidFileService({
+      db: db as any,
+      workspaceNodeDao: {
+        findById: vi.fn(async () => createFileNode()),
+      } as any,
+      entitlementDao: {
+        findActiveResourceEntitlement: vi.fn(async () => entitlement),
+        findById: vi.fn(async () => entitlement),
+      } as any,
+      mediaService: {
+        getFileBuffer: vi.fn(async () => Buffer.from('<html>match</html>')),
+      } as any,
+    })
+
+    const opened = await service.openPaidFile(buyerId, fileId)
+    const viewerUrl = new URL(opened.viewerUrl, 'http://shadow.test')
+    const read = await service.readGrantFile({
+      fileId,
+      grantId: opened.grant.id,
+      token: viewerUrl.searchParams.get('token'),
+    })
+
+    expect(opened.viewerUrl).toContain(`/api/paid-files/${fileId}/view/${opened.grant.id}`)
+    expect(read.file).toMatchObject({ id: fileId, mime: 'text/html' })
+    expect(read.buffer.toString('utf8')).toBe('<html>match</html>')
+  })
+
+  it('rejects grant reads when the backing entitlement has been revoked', async () => {
+    const db = createPaidFileDb()
+    const service = new PaidFileService({
+      db: db as any,
+      workspaceNodeDao: {
+        findById: vi.fn(async () => createFileNode()),
+      } as any,
+      entitlementDao: {
+        findActiveResourceEntitlement: vi.fn(async () => createEntitlement()),
+        findById: vi.fn(async () =>
+          createEntitlement({ isActive: false, status: 'revoked', revokedAt: new Date() }),
+        ),
+      } as any,
+      mediaService: {
+        getFileBuffer: vi.fn(async () => Buffer.from('<html>match</html>')),
+      } as any,
+    })
+    const opened = await service.openPaidFile(buyerId, fileId)
+    const viewerUrl = new URL(opened.viewerUrl, 'http://shadow.test')
+
+    await expect(
+      service.readGrantFile({
+        fileId,
+        grantId: opened.grant.id,
+        token: viewerUrl.searchParams.get('token'),
+      }),
+    ).rejects.toMatchObject({ code: 'PAID_FILE_ENTITLEMENT_REQUIRED' })
+  })
+})
+
+describe('paid file routes', () => {
+  it('serves grant viewers without bearer auth because the grant token authorizes access', async () => {
+    const readGrantFile = vi.fn(async () => ({
+      file: {
+        id: fileId,
+        name: 'match.html',
+        mime: 'text/html',
+      },
+      buffer: Buffer.from('<!doctype html><h1>match</h1>'),
+    }))
+    const app = createApp({
+      resolve(name: string) {
+        if (name === 'paidFileService') {
+          return { readGrantFile }
+        }
+        throw new Error(`Unexpected dependency: ${name}`)
+      },
+    } as any)
+
+    const response = await app.request(`/api/paid-files/${fileId}/view/grant-1?token=grant-token`)
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-security-policy')).toContain("default-src 'none'")
+    expect(response.headers.get('x-frame-options')).toBeNull()
+    expect(await response.text()).toContain('<h1>match</h1>')
+    expect(readGrantFile).toHaveBeenCalledWith({
+      fileId,
+      grantId: 'grant-1',
+      token: 'grant-token',
+    })
+  })
+})
+
+function createEntitlement(overrides: Record<string, unknown> = {}) {
+  return {
+    id: entitlementId,
+    userId: buyerId,
+    serverId: null,
+    shopId,
+    orderId,
+    renewalOrderId: null,
+    productId,
+    offerId,
+    scopeKind: 'user',
+    resourceType: 'workspace_file',
+    resourceId: fileId,
+    capability: 'view',
+    status: 'active',
+    startsAt: new Date(),
+    expiresAt: null,
+    isActive: true,
+    nextRenewalAt: null,
+    cancelledAt: null,
+    revokedAt: null,
+    cancelReason: null,
+    revocationReason: null,
+    metadata: {},
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  }
+}
+
+function createFileNode(overrides: Record<string, unknown> = {}) {
+  return {
+    id: fileId,
+    kind: 'file',
+    name: 'match-animation.html',
+    mime: 'text/html',
+    sizeBytes: 128,
+    previewUrl: null,
+    contentRef: 'media-object-1',
+    flags: { paywall: true, paidFile: true },
+    ...overrides,
+  }
+}
+
+function createFulfillmentDb(job: Record<string, unknown>, deliverable: Record<string, unknown>) {
+  return {
+    select: () => ({
+      table: null as unknown,
+      from(table: unknown) {
+        this.table = table
+        return this
+      },
+      where() {
+        return this
+      },
+      limit() {
+        if (this.table === commerceFulfillmentJobs) return Promise.resolve([job])
+        if (this.table === commerceDeliverables) return Promise.resolve([deliverable])
+        return Promise.resolve([])
+      },
+    }),
+    update: (table: unknown) => createUpdateBuilder(table, { job }),
+  }
+}
+
+function createPurchaseDb() {
+  const inserts: Array<{ table: unknown; data: Record<string, unknown> }> = []
+  const updates: Array<{ table: unknown; data: Record<string, unknown> }> = []
+  const tx = {
+    insert: (table: unknown) => createPurchaseInsertBuilder(table, inserts),
+    update: (table: unknown) => createUpdateBuilder(table, { updates }),
+  }
+  return {
+    inserts,
+    updates,
+    select: () => ({
+      from() {
+        return this
+      },
+      where() {
+        return this
+      },
+      limit() {
+        return Promise.resolve([])
+      },
+    }),
+    transaction: async <T>(callback: (tx: typeof tx) => Promise<T>) => callback(tx),
+    update: (table: unknown) => createUpdateBuilder(table, { updates }),
+  }
+}
+
+function createPaidFileDb() {
+  const grants: Array<Record<string, unknown>> = []
+  return {
+    grants,
+    insert: (table: unknown) => ({
+      data: {} as Record<string, unknown>,
+      values(data: Record<string, unknown>) {
+        this.data = data
+        return this
+      },
+      returning() {
+        if (table !== paidFileGrants) return Promise.resolve([])
+        const grant = {
+          id: 'grant-1',
+          status: 'active',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          ...this.data,
+        }
+        grants.push(grant)
+        return Promise.resolve([grant])
+      },
+    }),
+    select: () => ({
+      from() {
+        return this
+      },
+      where() {
+        return this
+      },
+      limit() {
+        return Promise.resolve(grants.slice(0, 1))
+      },
+    }),
+    update: () => ({
+      set(data: Record<string, unknown>) {
+        if (grants[0]) Object.assign(grants[0], data)
+        return this
+      },
+      where() {
+        return this
+      },
+      then(resolve: (value: unknown) => void) {
+        return Promise.resolve([]).then(resolve)
+      },
+    }),
+  }
+}
+
+function createPurchaseInsertBuilder(
+  table: unknown,
+  inserts: Array<{ table: unknown; data: Record<string, unknown> }>,
+) {
+  return {
+    data: {} as Record<string, unknown>,
+    values(data: Record<string, unknown>) {
+      this.data = data
+      inserts.push({ table, data })
+      return this
+    },
+    onConflictDoNothing() {
+      return this
+    },
+    returning() {
+      if (table === commerceIdempotencyKeys) return Promise.resolve([{ id: 'idempotency-1' }])
+      if (table === orders) {
+        return Promise.resolve([
+          {
+            id: orderId,
+            orderNo: this.data.orderNo,
+            shopId: this.data.shopId,
+            buyerId: this.data.buyerId,
+            status: this.data.status,
+            totalAmount: this.data.totalAmount,
+          },
+        ])
+      }
+      if (table === entitlements) {
+        return Promise.resolve([
+          createEntitlement({
+            ...this.data,
+            id: entitlementId,
+            orderId,
+            status: 'active',
+            isActive: true,
+          }),
+        ])
+      }
+      if (table === commerceFulfillmentJobs) {
+        return Promise.resolve([
+          {
+            id: fulfillmentJobId,
+            status: 'pending',
+            attempts: 0,
+            resultMessageId: null,
+            lastErrorCode: null,
+            ...this.data,
+          },
+        ])
+      }
+      return Promise.resolve([])
+    },
+    then(resolve: (value: unknown) => void) {
+      return Promise.resolve(undefined).then(resolve)
+    },
+  }
+}
+
+function createUpdateBuilder(
+  table: unknown,
+  state: {
+    job?: Record<string, unknown>
+    updates?: Array<{ table: unknown; data: Record<string, unknown> }>
+  },
+) {
+  return {
+    data: {} as Record<string, unknown>,
+    set(data: Record<string, unknown>) {
+      this.data = data
+      state.updates?.push({ table, data })
+      if (state.job && table === commerceFulfillmentJobs) {
+        Object.assign(state.job, data)
+      }
+      return this
+    },
+    where() {
+      return this
+    },
+    returning() {
+      if (state.job && table === commerceFulfillmentJobs) {
+        return Promise.resolve([state.job])
+      }
+      return Promise.resolve([])
+    },
+    then(resolve: (value: unknown) => void) {
+      return Promise.resolve(undefined).then(resolve)
+    },
+  }
+}

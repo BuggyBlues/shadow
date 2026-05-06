@@ -450,6 +450,7 @@ describe('Plugin Entry Point', () => {
     expect(schema?.properties.media['~optional']).toBe('Optional')
     expect(schema?.properties.kind['~optional']).toBe('Optional')
     expect(schema?.properties.approvalCommentLabel).toBeDefined()
+    expect(schema?.properties.commerceOfferId).toBeDefined()
     expect(schema?.properties.path).toBeDefined()
     expect(schema?.properties.filePath).toBeDefined()
     expect(schema?.properties.filename).toBeDefined()
@@ -465,6 +466,7 @@ describe('Plugin Entry Point', () => {
     expect(text).toContain('prefer sending a Shadow interactive dialog')
     expect(text).toContain('`message` is required')
     expect(text).toContain('`action: "upload-file"`')
+    expect(text).toContain('commerceOfferId')
     expect(text).not.toContain('send-file')
     expect(text).not.toContain('sendAttachment')
     expect(text).not.toContain('get-server')
@@ -654,6 +656,62 @@ describe('Plugin Entry Point', () => {
     )
   })
 
+  it('should attach commerce cards to monitored channel replies when sales intent is inferred', async () => {
+    const { inferCommerceOfferIdForReply } = await import('../src/monitor/commerce-context.js')
+    const { deliverShadowReply } = await import('../src/monitor/reply-delivery.js')
+    const sendMessage = vi.fn().mockResolvedValue({
+      id: 'commerce-reply-msg-1',
+      content: '这盒火柴会点亮一段小动画，点击下面就可以带走它。',
+      channelId: 'ch-1',
+      authorId: 'bot-1',
+      createdAt: '2026-04-27T00:00:00.000Z',
+      updatedAt: '2026-04-27T00:00:00.000Z',
+    })
+
+    const commerceOfferId = inferCommerceOfferIdForReply({
+      account: {
+        token: 'tok',
+        serverUrl: 'http://localhost:3002',
+        commerceOffers: [
+          {
+            offerId: 'offer-match',
+            name: '一盒会发光的火柴',
+            summary: '购买后解锁一段火柴点亮的 HTML 动画。',
+          },
+        ],
+      },
+      inboundText: '我今晚有点冷，想买一盒火柴，可以给我看看吗？',
+      replyText: '请看——这就是我说的那盒会发光的火柴。你要把它带回家吗？',
+    })
+
+    await deliverShadowReply({
+      payload: { text: '这盒火柴会点亮一段小动画，点击下面就可以带走它。' },
+      channelId: 'ch-1',
+      replyToId: 'source-message-1',
+      client: { sendMessage } as never,
+      runtime: {},
+      agentId: null,
+      botUserId: 'bot-1',
+      commerceOfferId,
+    })
+
+    expect(commerceOfferId).toBe('offer-match')
+    expect(sendMessage).toHaveBeenCalledWith(
+      'ch-1',
+      '这盒火柴会点亮一段小动画，点击下面就可以带走它。',
+      expect.objectContaining({
+        replyToId: 'source-message-1',
+        metadata: expect.objectContaining({
+          commerceCards: [{ kind: 'offer', offerId: 'offer-match' }],
+          shadowDelivery: expect.objectContaining({
+            source: 'openclaw-shadowob',
+            replyToId: 'source-message-1',
+          }),
+        }),
+      }),
+    )
+  })
+
   it('should keep interactive dialogs on the shared send action', async () => {
     const { ShadowClient } = await import('@shadowob/sdk')
     const { shadowPlugin } = await import('../src/channel.js')
@@ -703,6 +761,55 @@ describe('Plugin Entry Point', () => {
         messageId: 'form-msg-1',
         interactive: true,
         kind: 'form',
+      })
+    } finally {
+      sendMessage.mockRestore()
+    }
+  })
+
+  it('should attach commerce offer cards on the shared send action', async () => {
+    const { ShadowClient } = await import('@shadowob/sdk')
+    const { shadowPlugin } = await import('../src/channel.js')
+    const sendMessage = vi.spyOn(ShadowClient.prototype, 'sendMessage').mockResolvedValue({
+      id: 'commerce-msg-1',
+      content: 'Would you like a match?',
+      channelId: 'ch-123',
+      authorId: 'bot-1',
+      createdAt: '2026-04-27T00:00:00.000Z',
+      updatedAt: '2026-04-27T00:00:00.000Z',
+    } as never)
+
+    try {
+      const result = await shadowPlugin.actions?.handleAction?.({
+        action: 'send',
+        accountId: 'default',
+        cfg: {
+          channels: {
+            shadowob: {
+              token: 'tok',
+              serverUrl: 'http://localhost:3002',
+            },
+          },
+        },
+        params: {
+          target: 'shadowob:channel:ch-123',
+          message: 'Would you like a match?',
+          commerceOfferId: 'offer-123',
+        },
+      } as never)
+
+      expect(sendMessage).toHaveBeenCalledWith('ch-123', 'Would you like a match?', {
+        replyToId: undefined,
+        metadata: {
+          commerceCards: [{ kind: 'offer', offerId: 'offer-123' }],
+        },
+      })
+      expect(result?.details).toMatchObject({
+        ok: true,
+        action: 'send',
+        messageId: 'commerce-msg-1',
+        commerceCard: true,
+        offerId: 'offer-123',
       })
     } finally {
       sendMessage.mockRestore()
