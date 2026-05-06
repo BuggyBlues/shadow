@@ -84,9 +84,13 @@ const manifest = connectorManifest({
 
 const runtimeDependencies = [
   npmGlobalDependency(
+    'mcp-server-browserbase',
+    ['@browserbasehq/mcp-server-browserbase'],
+    'Browserbase MCP server',
+  ),
+  npmGlobalDependency(
     'browserbase-runtime',
     [
-      '@browserbasehq/mcp-server-browserbase',
       '@browserbasehq/cli',
       '@browserbasehq/browse-cli',
       '@browserbasehq/sdk',
@@ -94,7 +98,7 @@ const runtimeDependencies = [
       '@browserbasehq/sdk-functions',
       'playwright',
     ],
-    'Browserbase MCP server, bb CLI, browse CLI, SDK, Stagehand, Functions SDK, and Playwright runtime',
+    'Browserbase bb CLI, browse CLI, SDK, Stagehand, Functions SDK, and Playwright runtime',
   ),
 ]
 
