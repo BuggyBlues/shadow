@@ -790,6 +790,62 @@ export interface ShadowEntitlementPurchaseResult {
   entitlement: Record<string, unknown>
   provisioning?: ShadowEntitlementProvisioning
   fulfillmentJobs?: Record<string, unknown>[]
+  nextAction?: 'open_paid_file' | 'view_entitlement' | string
+}
+
+export interface ShadowCommerceCheckoutPreview {
+  offer: { id: string; status: string; available: boolean; allowedSurfaces?: string[] | null }
+  shop: { id: string; name: string; scopeKind: 'server' | 'user' | string; logoUrl?: string | null }
+  product: {
+    id: string
+    name: string
+    summary?: string | null
+    imageUrl?: string | null
+    type: 'physical' | 'entitlement' | string
+    billingMode?: 'one_time' | 'fixed_duration' | 'subscription' | string
+    price: number
+    currency: string
+    durationSeconds?: number | null
+  }
+  entitlement?: {
+    resourceType: string
+    resourceId: string
+    capability: string
+    access: {
+      allowed: boolean
+      status: string
+      reasonCode?: string | null
+      entitlement?: Record<string, unknown> | null
+    }
+  } | null
+  paidFile?: {
+    id: string
+    name: string
+    mime?: string | null
+    sizeBytes?: number | null
+    previewUrl?: string | null
+  } | null
+  deliverables?: Record<string, unknown>[]
+  viewerState: 'not_purchased' | 'active' | 'expired' | 'revoked' | 'cancelled' | 'unavailable'
+  primaryAction?:
+    | 'purchase'
+    | 'open_content'
+    | 'renew'
+    | 'view_detail'
+    | 'view_progress'
+    | 'unavailable'
+    | string
+  displayState?: {
+    viewerState: string
+    primaryAction: string
+    price: { amount: number; currency: string }
+    balance?: { current: number; afterPurchase?: number; shortfall?: number } | null
+    seller?: { shopId: string; shopName: string; buddyUserId?: string | null }
+    entitlement?: Record<string, unknown> | null
+    delivery?: Record<string, unknown> | null
+    content?: Record<string, unknown> | null
+  }
+  nextAction: 'purchase' | 'open_paid_file' | 'view_entitlement' | string
 }
 
 export interface ShadowPaidFileOpenResult {
@@ -861,7 +917,15 @@ export interface ShadowTransaction {
   walletId: string
   type: string
   amount: number
+  balanceAfter?: number
+  currency?: string
+  referenceId?: string | null
+  referenceType?: string | null
+  note?: string | null
   description?: string | null
+  display?: { title?: string | null; subtitle?: string | null } | null
+  order?: Record<string, unknown> | null
+  counterparty?: Record<string, unknown> | null
   createdAt: string
 }
 

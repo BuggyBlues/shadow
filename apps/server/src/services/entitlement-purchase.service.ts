@@ -2,6 +2,7 @@ import { and, eq, sql } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import type { Database } from '../db'
 import {
+  agents,
   commerceFulfillmentJobs,
   commerceIdempotencyKeys,
   entitlements,
@@ -108,6 +109,12 @@ export class EntitlementPurchaseService {
       throw apiError('SKU_NOT_AVAILABLE', 400)
     }
     const price = offer.priceOverride ?? sku?.price ?? product.basePrice
+    const settlementUserId = await this.resolveSettlementUserId({
+      buyerId: input.buyerId,
+      sellerBuddyUserId: offer.sellerBuddyUserId,
+      sellerUserId: offer.sellerUserId,
+      shopOwnerUserId: shop.ownerUserId,
+    })
     const entitlementResource = resolveProductEntitlementResource(product)
     if (!entitlementResource) {
       throw apiError('ENTITLEMENT_PRODUCT_CONFIG_MISSING', 400)
@@ -171,6 +178,19 @@ export class EntitlementPurchaseService {
         },
         tx,
       )
+      if (settlementUserId) {
+        await this.deps.ledgerService.credit(
+          {
+            userId: settlementUserId,
+            amount: price,
+            type: 'settlement',
+            referenceId: order.id,
+            referenceType: 'order',
+            note: `虚拟服务收入 - 订单 ${orderNo}`,
+          },
+          tx,
+        )
+      }
 
       await tx.insert(orderItems).values({
         orderId: order.id,
@@ -236,6 +256,12 @@ export class EntitlementPurchaseService {
         order: { id: order.id, orderNo: order.orderNo, status: order.status, totalAmount: price },
         entitlement,
         fulfillmentJobs,
+        nextAction: deliverables.some(
+          (deliverable) =>
+            deliverable.kind === 'paid_file' && deliverable.resourceType === 'workspace_file',
+        )
+          ? 'open_paid_file'
+          : 'view_entitlement',
       }
 
       await tx
@@ -296,5 +322,37 @@ export class EntitlementPurchaseService {
     }
 
     return provisionedResult
+  }
+
+  private async resolveSettlementUserId(input: {
+    buyerId: string
+    sellerBuddyUserId?: string | null
+    sellerUserId?: string | null
+    shopOwnerUserId?: string | null
+  }) {
+    const shopOwnerPayoutUserId = await this.resolveAgentOwnerUserId(input.shopOwnerUserId)
+    if (shopOwnerPayoutUserId) {
+      return shopOwnerPayoutUserId
+    }
+
+    const sellerBuddyPayoutUserId = await this.resolveAgentOwnerUserId(input.sellerBuddyUserId)
+    if (sellerBuddyPayoutUserId) {
+      return sellerBuddyPayoutUserId
+    }
+
+    const sellerUserId = input.sellerUserId ?? input.shopOwnerUserId
+    if (!sellerUserId) return null
+    return sellerUserId
+  }
+
+  private async resolveAgentOwnerUserId(userId?: string | null) {
+    if (!userId) return null
+
+    const agentRows = await this.deps.db
+      .select({ ownerId: agents.ownerId })
+      .from(agents)
+      .where(eq(agents.userId, userId))
+      .limit(1)
+    return agentRows[0]?.ownerId ?? null
   }
 }

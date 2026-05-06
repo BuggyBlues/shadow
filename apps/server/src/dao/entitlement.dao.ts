@@ -1,6 +1,6 @@
-import { and, desc, eq, lte, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, lte, sql } from 'drizzle-orm'
 import type { Database } from '../db'
-import { commerceOffers, entitlements, products, shops, workspaceNodes } from '../db/schema'
+import { commerceOffers, entitlements, products, shops, users, workspaceNodes } from '../db/schema'
 
 export class EntitlementDao {
   constructor(private deps: { db: Database }) {}
@@ -94,12 +94,65 @@ export class EntitlementDao {
   }
 
   async findByShop(shopId: string, opts?: { limit?: number; offset?: number }) {
-    return this.db
-      .select()
+    const rows = await this.db
+      .select({
+        entitlement: entitlements,
+        buyer: {
+          id: users.id,
+          username: users.username,
+          displayName: users.displayName,
+          avatarUrl: users.avatarUrl,
+        },
+        product: {
+          id: products.id,
+          shopId: products.shopId,
+          name: products.name,
+          summary: products.summary,
+          type: products.type,
+          basePrice: products.basePrice,
+          currency: products.currency,
+          billingMode: products.billingMode,
+          entitlementConfig: products.entitlementConfig,
+        },
+        offer: {
+          id: commerceOffers.id,
+          shopId: commerceOffers.shopId,
+          productId: commerceOffers.productId,
+          priceOverride: commerceOffers.priceOverride,
+          currency: commerceOffers.currency,
+          status: commerceOffers.status,
+        },
+        paidFile: {
+          id: workspaceNodes.id,
+          name: workspaceNodes.name,
+          mime: workspaceNodes.mime,
+          sizeBytes: workspaceNodes.sizeBytes,
+          previewUrl: workspaceNodes.previewUrl,
+        },
+      })
       .from(entitlements)
+      .leftJoin(users, eq(entitlements.userId, users.id))
+      .leftJoin(products, eq(entitlements.productId, products.id))
+      .leftJoin(commerceOffers, eq(entitlements.offerId, commerceOffers.id))
+      .leftJoin(
+        workspaceNodes,
+        and(
+          eq(entitlements.resourceType, 'workspace_file'),
+          sql`${entitlements.resourceId} = ${workspaceNodes.id}::text`,
+        ),
+      )
       .where(eq(entitlements.shopId, shopId))
+      .orderBy(desc(entitlements.createdAt))
       .limit(opts?.limit ?? 100)
       .offset(opts?.offset ?? 0)
+
+    return rows.map((row) => ({
+      ...row.entitlement,
+      buyer: row.buyer?.id ? row.buyer : null,
+      product: row.product?.id ? row.product : null,
+      offer: row.offer?.id ? row.offer : null,
+      paidFile: row.paidFile?.id ? row.paidFile : null,
+    }))
   }
 
   async hasResourceEntitlement(input: {
@@ -150,6 +203,32 @@ export class EntitlementDao {
       .where(and(...conditions))
       .limit(1)
     return r[0] ?? null
+  }
+
+  async findResourceEntitlements(input: {
+    userId: string
+    resourceType: string
+    resourceId: string
+    capabilities?: string[]
+    serverId?: string | null
+    limit?: number
+  }) {
+    const conditions = [
+      eq(entitlements.userId, input.userId),
+      eq(entitlements.resourceType, input.resourceType),
+      eq(entitlements.resourceId, input.resourceId),
+    ]
+    if (input.capabilities?.length) {
+      conditions.push(inArray(entitlements.capability, input.capabilities))
+    }
+    if (input.serverId) conditions.push(eq(entitlements.serverId, input.serverId))
+
+    return this.db
+      .select()
+      .from(entitlements)
+      .where(and(...conditions))
+      .orderBy(desc(entitlements.createdAt))
+      .limit(input.limit ?? 10)
   }
 
   async create(data: {

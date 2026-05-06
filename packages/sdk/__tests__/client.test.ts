@@ -829,6 +829,10 @@ describe('ShadowClient', () => {
       globalThis.fetch = mockFetch as typeof fetch
 
       await client.listCommerceProductCards({ target: 'dm', dmChannelId: 'dm-1', limit: 3 })
+      await client.getCommerceOfferCheckoutPreview('offer-1', {
+        skuId: 'sku-1',
+        viewerUserId: 'user-2',
+      })
       await client.purchaseShopProduct('shop-1', 'prod-1', { idempotencyKey: 'idem-1' })
 
       expect(mockFetch).toHaveBeenNthCalledWith(
@@ -838,6 +842,11 @@ describe('ShadowClient', () => {
       )
       expect(mockFetch).toHaveBeenNthCalledWith(
         2,
+        'https://api.example.com/api/commerce/offers/offer-1/checkout-preview?skuId=sku-1&viewerUserId=user-2',
+        expect.any(Object),
+      )
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        3,
         'https://api.example.com/api/shops/shop-1/products/prod-1/purchase',
         expect.objectContaining({
           method: 'POST',
@@ -861,6 +870,26 @@ describe('ShadowClient', () => {
           method: 'POST',
           body: JSON.stringify({ reason: 'user_cancelled' }),
         }),
+      )
+    })
+
+    it('should pass wallet transaction display filters', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve([]),
+      })
+      globalThis.fetch = mockFetch as typeof fetch
+
+      await client.getWalletTransactions({
+        audience: 'consumer',
+        direction: 'income',
+        limit: 20,
+        offset: 40,
+      })
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/api/wallet/transactions?audience=consumer&direction=income&limit=20&offset=40',
+        expect.any(Object),
       )
     })
   })

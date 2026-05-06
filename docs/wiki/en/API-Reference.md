@@ -260,6 +260,7 @@ Server shops continue to use `/api/servers/:serverId/shop`. Scope-neutral and pe
 | GET/PUT/DELETE | `/api/shops/:shopId/products/:productId` | Read or manage a product in a scope-neutral shop. |
 | POST   | `/api/shops/:shopId/products` | Create a product in a managed shop. Virtual services use `productType: "entitlement"` and `billingMode` of `fixed_duration` or `subscription`. |
 | GET    | `/api/commerce/product-picker` | Return sendable Offer-backed `CommerceProductCard` records plus shop groups for `target=channel` or `target=dm`. Channel pickers include personal, server, and Buddy shops visible in the channel. |
+| GET    | `/api/commerce/offers/:offerId/checkout-preview` | Return a server-trusted checkout snapshot for an Offer, including product, seller shop, entitlement resource, paid-file metadata, `viewerState`, `primaryAction`, `displayState`, and `nextAction`. Clients call this before showing buy confirmation or opening already-owned content. Sellers and selling Buddies may pass `viewerUserId` to inspect the current conversation user's state for their own Offer; wallet balance display data is returned only when inspecting yourself. |
 | POST   | `/api/shops/:shopId/offers` | Create a managed shop Offer for a product. Offers define sales surface, seller/Buddy sender, optional price override, and metadata. |
 | POST   | `/api/shops/:shopId/offers/:offerId/deliverables` | Attach a deliverable to an Offer. Phase 4 supports `kind: "paid_file"` with `resourceType: "workspace_file"` and a workspace file id. |
 | POST   | `/api/commerce/offers/:offerId/purchase` | Buy an active Offer with `{ idempotencyKey, skuId?, destinationKind?, destinationId? }`. Orders complete immediately, grant Entitlements immediately, and enqueue fulfillment when a destination is supplied. |
@@ -275,6 +276,13 @@ Server shops continue to use `/api/servers/:serverId/shop`. Scope-neutral and pe
 | POST   | `/api/entitlements/:entitlementId/cancel` | Cancel a subscription/entitlement immediately, revoke access, and issue the policy-defined pro-rated refund. |
 | POST   | `/api/entitlements/:entitlementId/force-majeure-requests` | Merchant submits a force-majeure revocation request. Entitlement stays active until platform decision. |
 | POST   | `/api/entitlement-review/:requestId/decision` | Platform reviewer decides force-majeure refund and revocation. |
+
+## Wallet Display
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/wallet/transactions?audience=consumer&direction=all\|income\|expense&limit=&offset=` | List the current user's wallet transactions. `audience=consumer` returns the ToC display view, excludes internal model-proxy reserve/adjustment ledger entries, and applies the `direction` filter on the server. |
+| GET | `/api/wallet/transactions/count?audience=consumer&direction=all\|income\|expense` | Return the pagination count using the same display filters as the list endpoint. |
 
 ## Notifications
 

@@ -525,12 +525,48 @@ async function provisionBuddy(
   let token: string
   let userId: string
 
+  let agents: Awaited<ReturnType<ShadowClient['listAgents']>> = []
+  try {
+    agents = (await client.listAgents()) ?? []
+  } catch {
+    agents = []
+  }
+  const existing = agents.find((agent) => {
+    const botUser = (
+      agent as { botUser?: { username?: string | null; displayName?: string | null } }
+    ).botUser
+    const config = (agent as { config?: Record<string, unknown> }).config
+    const shadowob = config?.shadowob
+    const shadowobBuddyId =
+      shadowob && typeof shadowob === 'object' && !Array.isArray(shadowob)
+        ? (shadowob as Record<string, unknown>).buddyId
+        : null
+    return (
+      shadowobBuddyId === buddyDef.id ||
+      botUser?.username === username ||
+      ((agent as { name?: string }).name === buddyDef.name &&
+        botUser?.displayName === buddyDef.name)
+    )
+  })
+  if (existing) {
+    agentId = existing.id
+    const tokenResult = await client.generateAgentToken(agentId)
+    token = tokenResult.token
+    userId =
+      (existing as { userId?: string; botUser?: { id?: string } }).userId ??
+      (existing as { botUser?: { id?: string } }).botUser?.id ??
+      ''
+    log.dim(`  Reusing buddy: ${buddyDef.name} (agent: ${agentId})`)
+    return { agentId, token, userId }
+  }
+
   try {
     const agent = await client.createAgent({
       name: buddyDef.name,
       username,
       displayName: buddyDef.name,
       avatarUrl: buddyDef.avatarUrl,
+      config: { shadowob: { buddyId: buddyDef.id } },
     })
     agentId = agent.id
     userId = agent.userId
@@ -543,15 +579,15 @@ async function provisionBuddy(
     // Handle "already exists" — list agents and find by name
     if (/already|conflict|duplicate|unique/i.test(msg)) {
       log.dim(`  Buddy "${buddyDef.name}" already exists, looking up...`)
-      const agents = await client.listAgents()
-      const existing = agents.find((a: { name: string }) => a.name === buddyDef.name)
-      if (!existing) throw new Error(`Cannot find existing buddy "${buddyDef.name}": ${msg}`)
+      const fallbackAgents = await client.listAgents()
+      const fallback = fallbackAgents.find((a: { name: string }) => a.name === buddyDef.name)
+      if (!fallback) throw new Error(`Cannot find existing buddy "${buddyDef.name}": ${msg}`)
 
-      agentId = existing.id
+      agentId = fallback.id
       // Generate a fresh token for the existing agent
       const tokenResult = await client.generateAgentToken(agentId)
       token = tokenResult.token
-      userId = (existing as { userId?: string }).userId ?? ''
+      userId = (fallback as { userId?: string }).userId ?? ''
       log.dim(`  Found existing buddy: ${buddyDef.name} (agent: ${agentId})`)
     } else {
       throw err

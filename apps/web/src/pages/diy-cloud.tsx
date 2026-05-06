@@ -489,7 +489,7 @@ export function DiyCloudPage() {
           kind: 'membership',
           title: t('diyCloud.gates.membershipTitle'),
           body: t('diyCloud.gates.membershipBody'),
-          primaryHref: '/app/settings/invite',
+          primaryHref: '/app/settings?tab=tasks&section=invite',
           primaryLabel: t('diyCloud.gates.goInvite'),
         })
         return

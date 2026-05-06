@@ -97,6 +97,7 @@ describe('provisioning', () => {
         username: 'strategy-buddy',
         displayName: 'Strategy Buddy',
         avatarUrl: undefined,
+        config: { shadowob: { buddyId: 'strategy-buddy' } },
       })
       expect(shadowClientMocks.generateAgentToken).toHaveBeenNthCalledWith(2, 'new-agent')
       expect(result.buddies.get('strategy-buddy')).toEqual({

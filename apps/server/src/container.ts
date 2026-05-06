@@ -54,10 +54,12 @@ import { ChannelService } from './services/channel.service'
 import { CloudService } from './services/cloud.service'
 import { CloudUsageService } from './services/cloud-usage.service'
 import { CommerceCardService } from './services/commerce-card.service'
+import { CommerceCheckoutService } from './services/commerce-checkout.service'
 import { CommerceFulfillmentService } from './services/commerce-fulfillment.service'
 import { CommerceOfferService } from './services/commerce-offer.service'
 import { DmService } from './services/dm.service'
 import { EntitlementService } from './services/entitlement.service'
+import { EntitlementAccessService } from './services/entitlement-access.service'
 import { EntitlementCancellationService } from './services/entitlement-cancellation.service'
 import { EntitlementProvisionerService } from './services/entitlement-provisioner.service'
 import { EntitlementPurchaseService } from './services/entitlement-purchase.service'
@@ -180,6 +182,7 @@ export interface Cradle {
   notificationPlatformService: NotificationPlatformService
   notificationTriggerService: NotificationTriggerService
   commerceCardService: CommerceCardService
+  commerceCheckoutService: CommerceCheckoutService
   commerceOfferService: CommerceOfferService
   commerceFulfillmentService: CommerceFulfillmentService
   permissionService: PermissionService
@@ -199,6 +202,7 @@ export interface Cradle {
   orderService: OrderService
   reviewService: ReviewService
   entitlementService: EntitlementService
+  entitlementAccessService: EntitlementAccessService
   entitlementProvisionerService: EntitlementProvisionerService
   entitlementPurchaseService: EntitlementPurchaseService
   entitlementRenewalService: EntitlementRenewalService
@@ -306,6 +310,7 @@ export function createAppContainer(db: Database): AppContainer {
     notificationPlatformService: asClass(NotificationPlatformService).singleton(),
     notificationTriggerService: asClass(NotificationTriggerService).singleton(),
     commerceCardService: asClass(CommerceCardService).singleton(),
+    commerceCheckoutService: asClass(CommerceCheckoutService).singleton(),
     commerceOfferService: asClass(CommerceOfferService).singleton(),
     commerceFulfillmentService: asClass(CommerceFulfillmentService).singleton(),
     permissionService: asClass(PermissionService).singleton(),
@@ -325,6 +330,7 @@ export function createAppContainer(db: Database): AppContainer {
     orderService: asClass(OrderService).singleton(),
     reviewService: asClass(ReviewService).singleton(),
     entitlementService: asClass(EntitlementService).singleton(),
+    entitlementAccessService: asClass(EntitlementAccessService).singleton(),
     entitlementProvisionerService: asClass(EntitlementProvisionerService).singleton(),
     entitlementPurchaseService: asClass(EntitlementPurchaseService).singleton(),
     entitlementRenewalService: asClass(EntitlementRenewalService).singleton(),

@@ -404,6 +404,33 @@ export function createShopHandler(container: AppContainer) {
     },
   )
 
+  h.get('/commerce/offers/:offerId/checkout-preview', async (c) => {
+    const user = c.get('user')
+    const commerceCheckoutService = container.resolve('commerceCheckoutService')
+    const commerceOfferService = container.resolve('commerceOfferService')
+    const viewerUserIdQuery = c.req.query('viewerUserId')
+    if (viewerUserIdQuery && !UUID_RE.test(viewerUserIdQuery)) {
+      return errorResponse(c, 'INVALID_VIEWER_USER_ID', 422)
+    }
+    const viewerUserId = viewerUserIdQuery || user.userId
+    if (viewerUserId !== user.userId) {
+      const { offer } = await commerceOfferService.getOfferBundle(c.req.param('offerId'))
+      const canInspectViewer =
+        offer.sellerUserId === user.userId || offer.sellerBuddyUserId === user.userId
+      if (!canInspectViewer) {
+        return errorResponse(c, 'COMMERCE_VIEWER_STATE_FORBIDDEN', 403)
+      }
+    }
+    return c.json(
+      await commerceCheckoutService.previewOffer({
+        userId: viewerUserId,
+        offerId: c.req.param('offerId'),
+        skuId: c.req.query('skuId') || undefined,
+        includeWallet: viewerUserId === user.userId,
+      }),
+    )
+  })
+
   h.post(
     '/shops/:shopId/products/:productId/purchase',
     zValidator('json', purchaseProductSchema),
@@ -1061,13 +1088,25 @@ export function createShopHandler(container: AppContainer) {
     const walletService = container.resolve('walletService')
     const limit = Number(c.req.query('limit')) || 50
     const offset = Number(c.req.query('offset')) || 0
-    return c.json(await walletService.getTransactions(user.userId, limit, offset))
+    const audience = c.req.query('audience') === 'consumer' ? 'consumer' : 'ledger'
+    const directionQuery = c.req.query('direction')
+    const direction =
+      directionQuery === 'income' || directionQuery === 'expense' ? directionQuery : 'all'
+    return c.json(
+      await walletService.getTransactions(user.userId, limit, offset, { audience, direction }),
+    )
   })
 
   h.get('/wallet/transactions/count', async (c) => {
     const user = c.get('user')
     const walletService = container.resolve('walletService')
-    return c.json({ count: await walletService.getTransactionCount(user.userId) })
+    const audience = c.req.query('audience') === 'consumer' ? 'consumer' : 'ledger'
+    const directionQuery = c.req.query('direction')
+    const direction =
+      directionQuery === 'income' || directionQuery === 'expense' ? directionQuery : 'all'
+    return c.json({
+      count: await walletService.getTransactionCount(user.userId, { audience, direction }),
+    })
   })
 
   /* ══════════════════════════════════════════

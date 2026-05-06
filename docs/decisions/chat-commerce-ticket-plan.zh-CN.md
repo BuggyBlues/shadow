@@ -54,6 +54,7 @@
 | 2026-05-06 | 第四期按新的 Offer 驱动思路重构：商品归属和聊天销售上下文分离，server 商品可以通过授权 Offer 被 Buddy 在 DM 中发送。 | 覆盖此前“DM 不允许发送服务器店铺商品”的阶段性限制；历史记录保留，后续以本决策为准。 |
 | 2026-05-06 | `channel_access` / `channel_speak` / `app_access` 以及相关 channel/app 门禁类目属于废弃逻辑，当前没有实际起作用，可以系统清理并从虚拟权益主模型中删除。 | 第四期重构方向；后续权益改为资源型 Entitlement。 |
 | 2026-05-06 | 虚拟权益不再写死为频道/应用门禁类目，调整为 `resourceType + resourceId + action/capability` 的通用资源授权模型。 | 第四期重构方向。 |
+| 2026-05-06 | 第五期从“卖火柴的小女孩”MVP 继续提升用户体验，打磨更流畅的交互，并夯实基础设施。 | 第五期规划诉求；细节待方案审核。 |
 
 ## 3. 调研范围
 
@@ -1858,7 +1859,412 @@ Agent 自主商品设计/发布的后续基础设施建议：
 - Buddy 回复自然推销文案：“来，接好了……点击下面这张卡片……”
 - 服务端为该 Buddy 消息补齐规范 `commerceCards`，浏览器聊天区渲染出新的“ 一盒会发光的火柴 ”商品卡片。
 
-## 17. 后续调研清单
+## 17. 第五期方案：体验打磨与基础设施夯实
+
+### 17.1 第五期定位
+
+第五期不急于扩展更多商业品类，也不把重点放在复杂运营后台。第五期以“卖火柴的小女孩”这个已跑通的真实 MVP 为样板，把用户体验从“能完成链路”提升到“自然、可信、少打断、可解释、可恢复”。
+
+核心目标：
+
+1. 让用户从玩法入口进入后，能更顺滑地理解场景、和 Buddy 对话、看到商品卡片、完成购买、打开权益内容。
+2. 让 Buddy 像真实商人一样持续对话、适时推销、解释权益，但不误导、不强迫、不编造交易结果。
+3. 让商品卡片、购买确认、权益发放、付费文件打开形成同一套可复用交互，而不是只服务火柴 demo。
+4. 让底层交易、发货、权益验证、观测和排障能力更可靠，减少只能靠手工查库和浏览器观察的情况。
+
+第五期的产品基调：
+
+- 先把一个样板体验做到顺，再抽象复用能力。
+- 体验优化必须建立在服务端可信状态上，不能靠前端乐观文案掩盖交易或发货不确定性。
+- Buddy 可以更会卖，但商品、价格、权益、可打开内容仍由服务端 Offer / Deliverable / Entitlement / Paid File 统一生成和校验。
+
+### 17.2 目标用户链路
+
+第五期建议把验收链路定义为：
+
+1. 用户从首页或玩法入口点击“卖火柴的小女孩”。
+2. 系统展示轻量进入态：Buddy 正在准备、商店已就绪、可购买内容已绑定。
+3. 用户进入频道或 DM 后看到自然欢迎语，不立刻被商品卡片打断。
+4. 用户与 Buddy 对话，Buddy 能解释火柴是什么、价格、购买后能看到什么、权益多久有效。
+5. 当用户表达兴趣时，Buddy 发送一段自然推销话术，并附上商品卡片。
+6. 用户点击商品卡片：
+   - 未购买：打开确认弹窗，展示商品、价格、权益、付费文件、退款/有效期提示。
+   - 已购买：直接在聊天右侧打开付费文件内容。
+7. 用户确认购买后，前端展示明确的处理中、已购买、正在发货、可打开状态。
+8. 系统由 Buddy 或系统消息发送付费文件卡片，用户在右侧预览火柴动画 HTML。
+9. 用户之后从“我的设置 -> 我的权益”也能找到同一份内容并再次打开。
+
+第五期验收不只看接口成功，还要看每个转场是否有清晰状态：
+
+- Cloud 部署中。
+- Buddy 在线/离线。
+- 商品可售/不可售。
+- 购买处理中/成功/失败。
+- 权益已发放/已过期/已撤销。
+- 付费文件可打开/需要购买/授权过期。
+
+### 17.3 产品体验改进范围
+
+#### 17.3.1 玩法入口与进入态
+
+当前链路已经能从玩法入口部署并进入频道，但体验上仍偏工程化。第五期建议新增“玩法启动状态模型”：
+
+- `preparing`：正在创建/复用 Cloud 部署、server、channel、Buddy。
+- `ready`：频道、Buddy、Offer、Deliverable 都已就绪。
+- `degraded`：频道可进入，但 Buddy 暂未在线或商品未就绪。
+- `failed`：部署失败，可重试或查看错误码。
+
+Web 入口显示：
+
+- 不展示底层部署日志细节。
+- 展示用户可理解的短状态和下一步动作。
+- 错误仍使用服务端 code + 前端 i18n 映射，不在服务端存储用户可见错误提示。
+
+技术建议：
+
+- 扩展 Play Launch API 返回 `readiness` 聚合结果。
+- 聚合 Cloud deployment、agent policy、channel membership、seeded offer、deliverable、paid file 状态。
+- 给每次玩法启动生成 `launchSessionId`，用于前端状态轮询、日志串联和后续埋点。
+
+#### 17.3.2 Buddy 对话销售体验
+
+第四期已经实现服务端补卡兜底。第五期应让 Buddy 的销售更像自然对话，而不是只靠“关键词触发卡片”。
+
+产品能力：
+
+- Buddy 能回答商品 FAQ：
+  - 火柴是什么。
+  - 购买后能看到什么。
+  - 为什么需要购买。
+  - 价格和有效期。
+  - 已购买后怎么打开。
+- Buddy 能识别用户购买意图：
+  - 询价。
+  - “我想要/给我一盒/可以买了吗”。
+  - 询问动画/内容。
+  - 已购买后请求再次打开。
+- Buddy 不重复刷卡：
+  - 同一对话窗口短时间内已发卡，不再反复发送。
+  - 用户拒绝购买后，Buddy 降低推销频率，回到聊天。
+- Buddy 不编造交易状态：
+  - 只能说“点击卡片购买”或“你可以打开已购买内容”。
+  - 支付成功、发货成功、退款等状态由系统消息或服务端状态驱动。
+
+技术建议：
+
+- 新增 `commerce_sales_context` 运行时上下文，服务端给 Agent 提供可售 Offer、用户是否已购买、最近一次卡片发送时间、最近一次购买状态。
+- 在 OpenClaw `shadowob` 中把 sales context 和消息工具能力分开：
+  - `offerContext` 只读。
+  - `message.send({ commerceOfferId })` 仍由服务端重建卡片。
+  - 不让 Agent 直接提交卡片 snapshot。
+- 服务端记录 `commerce_card_events` 或先用审计/analytics 事件记录卡片曝光、点击、确认、购买、打开。
+- 增加对话级防刷策略：同一 `offerId + channel/dm + sellerBuddyUserId` 在短时间内自动补卡最多一次，除非用户再次明确请求购买。
+
+#### 17.3.3 商品卡片与购买确认
+
+商品卡片要承担“销售入口”和“权益入口”两个状态：
+
+- 未购买：展示价格、商品摘要、权益说明、购买按钮。
+- 已购买：主按钮变为“打开内容”，弱化价格，展示权益状态。
+- 不可售：展示不可购买状态，不显示误导性购买按钮。
+- 已过期/已撤销：展示状态，并引导重新购买或查看权益记录。
+
+确认弹窗建议统一展示：
+
+- 商品名、店铺/Buddy 身份。
+- 价格和币种。
+- 权益资源：例如 `workspace_file:view`，前端用 i18n 映射成人话。
+- 内容预览摘要：文件名、类型、大小、是否 HTML 动画。
+- 有效期和续费/到期规则。
+- 购买后交付方式：聊天内发送文件卡片、设置页可再次打开。
+- 风险提示：HTML 内容在沙箱中打开，不暴露原始存储地址。
+
+技术建议：
+
+- 新增 `GET /api/commerce/offers/:offerId/checkout-preview`，返回购买确认所需的服务端快照。
+- 前端点击卡片时先取 preview，而不是完全依赖消息里的旧快照。
+- preview 中包含 `viewerState`：
+  - `not_purchased`
+  - `active`
+  - `expired`
+  - `revoked`
+  - `unavailable`
+- 购买 API 继续保持幂等，前端传 `idempotencyKey`。
+- 购买成功响应中返回 `nextAction`：
+  - `open_paid_file`
+  - `wait_fulfillment_message`
+  - `view_entitlement`
+  - `none`
+
+#### 17.3.4 付费文件右侧预览体验
+
+当前 paid-file 已能通过短时 grant 在右侧打开。第五期应把它打磨成稳定消费体验。
+
+产品改进：
+
+- 右侧面板顶部展示来源：来自哪个商品/哪位 Buddy/哪个权益。
+- 打开 HTML 时有加载态、授权校验态和错误态。
+- grant 过期时自动重新申请一次短时 viewer；如果权益已失效，再提示需要购买或权益已过期。
+- 文件卡片和商品卡片打开路径一致：已购买直接打开，未购买进入确认弹窗。
+- “我的权益”页打开同一内容时复用同一预览面板。
+
+安全与技术建议：
+
+- HTML viewer 保持 sandbox，禁止直接访问对象存储 URL。
+- 限制 HTML 文件大小、内联脚本大小、外链资源数量和可访问协议。
+- 对 paid file open 增加审计：`userId/fileId/entitlementId/grantId/source/messageId`。
+- 短时 grant 使用单独 token，不把长期 Entitlement 信息暴露给 iframe。
+- 后续支持非 HTML 文件时，每类 renderer 都必须有独立安全策略。
+
+#### 17.3.5 我的权益 ToC 化
+
+第四期已经把“我的权益”从运维按钮改成消费者清单。第五期继续打磨：
+
+- 按状态分组：可用、即将到期、已过期/已撤销。
+- 每条权益展示：
+  - 商品名。
+  - 店铺/Buddy。
+  - 购买时间。
+  - 到期时间。
+  - 可打开内容。
+  - 发货状态。
+- 不展示内部按钮：
+  - 不展示“验证发货”。
+  - 不展示“取消权益”这类内部/商家/运维动作。
+- 对消费者可操作动作保留：
+  - 打开内容。
+  - 查看订单。
+  - 查看退款/撤销状态。
+  - 订阅类后续可加取消续费。
+
+技术建议：
+
+- `GET /api/entitlements` 继续返回结构化关联：product、offer、shop、paidFile、fulfillment。
+- 前端根据 `resourceType/capability/status` 做 i18n 展示。
+- 服务端返回 code/结构化状态，不返回用户可见错误文案。
+
+### 17.4 基础设施加固范围
+
+#### 17.4.1 Readiness 与可观测性
+
+第五期需要减少“链路不通只能靠人工看日志/查库”的情况。
+
+建议新增 Commerce MVP Trace：
+
+- `launchSessionId`
+- `serverId/channelId/dmChannelId`
+- `buddyUserId/agentId`
+- `shopId/productId/offerId/deliverableId/fileId`
+- `orderId/entitlementId/fulfillmentJobId/grantId`
+
+关键事件：
+
+- play launched。
+- Buddy ready。
+- offer seeded。
+- card shown。
+- card clicked。
+- checkout preview opened。
+- purchase started/completed/failed。
+- entitlement granted。
+- fulfillment sent/failed。
+- paid file opened/failed。
+
+第一阶段可以先写入现有 audit/notification/log 基础，后续再落独立 analytics 表。
+
+#### 17.4.2 Fulfillment 可靠性
+
+第四期 fulfillment job 已有 `attempts/nextRunAt`。第五期建议补齐：
+
+- 明确 job 状态机：
+  - `pending`
+  - `sending`
+  - `sent`
+  - `failed`
+  - `cancelled`
+- 失败原因只存 `lastErrorCode` 和结构化 metadata，不存用户可见文案。
+- 后台 worker 支持最小重试：
+  - MVP 可先只对临时网络/消息发送失败重试 1 次。
+  - 业务错误不重试。
+- 购买成功但发货消息失败时，用户仍可从商品卡片和我的权益打开内容。
+- 设置页/开发者日志可看到发货失败码，普通用户只看到可恢复入口。
+
+#### 17.4.3 Entitlement 验证一致性
+
+第五期要统一所有打开入口的授权判断：
+
+- 聊天商品卡片打开。
+- 聊天 paid-file 卡片打开。
+- 我的权益打开。
+- 未来店铺详情页打开。
+
+建议抽象 `EntitlementAccessService`：
+
+- 输入：`Actor`、`resourceType`、`resourceId`、`capability`、`source`。
+- 输出：`allowed`、`entitlementId`、`status`、`expiresAt`、`reasonCode`。
+- Paid File Gateway、checkout preview、entitlement list 都复用同一判断。
+
+安全边界：
+
+- 继续区分认证和授权。
+- route/worker 明确 actor/resource/action/data class。
+- 不把普通用户的 wallet credits 暴露给普通商品预览外的内部路径。
+
+#### 17.4.4 Agent 商品自主设计的前置地基
+
+用户已提出后续需要考虑 Agent 自主设计和发布商品。第五期不建议直接让 Agent 发布商品，但应为第六期打地基。
+
+第五期可做：
+
+- 定义 `product_drafts` / `offer_drafts` / `paid_file_drafts` 的接口草案和安全边界。
+- 定义 Agent 工具权限：
+  - 只能创建草稿。
+  - 只能读取自己店铺和被授权 Offer。
+  - 发布必须进入审核。
+- 定义审核所需字段：
+  - 商品名、摘要、价格、权益资源、文件、安全扫描结果、退款规则、seller identity、可售 surface。
+- 先把文档、类型和服务接口边界理顺，不急着落完整 UI。
+
+### 17.5 第五期建议拆分
+
+建议把第五期拆成 4 个可验收批次。
+
+第一批：体验状态与右侧打开统一
+
+- Play Launch 返回 readiness。
+- 商品卡片点击统一走 checkout preview。
+- 已购买商品卡片直接打开 paid file。
+- paid-file grant 过期自动重新申请一次。
+- 我的权益打开复用同一预览面板。
+
+验收：
+
+- 已购买用户点击商品卡片不再看到购买弹窗，直接右侧打开。
+- 未购买用户点击商品卡片看到确认弹窗。
+- grant 过期后刷新或重新打开仍可恢复。
+
+第二批：Buddy 销售上下文与防刷
+
+- Agent 上下文加入用户购买状态、最近发卡状态。
+- Buddy 不重复刷卡。
+- 服务端补卡加入对话级节流。
+- Buddy 可以回答价格、内容、购买后打开方式。
+
+验收：
+
+- 用户闲聊时 Buddy 不硬推卡片。
+- 用户明确表达兴趣时 Buddy 自然推销并发卡。
+- 用户拒绝后短时间内不重复发卡。
+- 用户已购买后 Buddy 引导打开内容，而不是继续要求购买。
+
+第三批：可观测性与发货可靠性
+
+- Commerce trace 事件落库或落现有 audit/log。
+- fulfillment 失败码可查。
+- 购买成功但发货消息失败时仍能从权益页打开。
+- 发货 worker 最小重试策略。
+
+验收：
+
+- 任一 MVP 链路失败可以通过 `launchSessionId` 查到停在哪个阶段。
+- 人工不查数据库也能判断是 Buddy 未在线、Offer 未就绪、购买失败还是发货失败。
+
+第四批：消费者权益页打磨
+
+- 权益按状态分组。
+- 展示商品/店铺/Buddy/资源/到期/发货状态。
+- 移除内部运维动作。
+- 空状态、loading、error、移动窄屏体验完善。
+
+验收：
+
+- 普通用户能理解自己买了什么、从哪里打开、什么时候失效。
+- 页面不出现内部调试按钮或技术错误提示。
+
+### 17.6 非目标
+
+第五期暂不建议做：
+
+- 多品类商城运营后台。
+- 复杂订阅重试、优惠券、税费结算。
+- 完整平台审核后台。
+- Agent 自动发布正式商品。
+- 多文件包、外链内容、复杂 HTML 应用市场。
+- Mobile 全量体验打磨。
+
+这些能力进入后续规划，但第五期要保证 API 和数据模型不阻断后续扩展。
+
+### 17.7 验收标准
+
+第五期完成时，应至少满足：
+
+- `docker compose up --build` 后浏览器可稳定跑通：
+  - 首页进入玩法。
+  - 与真实 Cloud Buddy 对话。
+  - Buddy 自然推销并发商品卡片。
+  - 未购买点击卡片弹确认。
+  - 购买成功后发放 Entitlement。
+  - paid-file 卡片或商品卡片在右侧打开 HTML。
+  - 我的权益能再次打开同一内容。
+- 失败场景有可理解状态：
+  - Buddy 未在线。
+  - 商品不可售。
+  - 余额不足或购买失败。
+  - 发货消息失败但权益存在。
+  - 授权过期或撤销。
+- 关键路径有测试：
+  - checkout preview。
+  - Entitlement access service。
+  - paid-file open/regrant。
+  - fulfillment failure recovery。
+  - Buddy sales context / card throttling。
+- API 文档、TS SDK、Python SDK 同步新增接口和类型。
+- Web 新增文案全部走 i18n。
+- 安全检查 `pnpm check:security-pr` 通过。
+
+### 17.8 待用户确认问题
+
+以下问题需要在第五期实现前收敛：
+
+1. 第五期是否继续只围绕 Web 打磨，Mobile 只保持协议兼容和基础渲染？
+2. Buddy 销售节流的默认策略：同一商品同一会话多久内最多发一次卡片？
+3. 已购买用户再次表达购买意图时，Buddy 是否应主动发送 paid-file 卡片，还是只提示点击原商品卡片打开？
+4. 购买确认弹窗中是否需要展示退款/撤销规则摘要，还是先只展示有效期和交付方式？
+5. HTML paid-file 第五期是否继续只允许单文件 HTML，不支持外链资源？
+6. Commerce trace 第一阶段是落独立表，还是先复用 audit log / structured log？
+7. Fulfillment 是否允许第一阶段重试 1 次，还是继续保持“不重试但可恢复打开”的策略？
+
+### 17.9 第五期第一批实现记录
+
+用户已确认第五期开始实现时，先不处理 Mobile，最后集中处理；可观测性等非主线能力可以排在后面。第一批实现因此聚焦 Web 主链路、可信授权判断、购买确认、已购后打开和权益页消费体验。
+
+本批落地范围：
+
+- 新增服务端 checkout preview 接口，由服务端返回商品、店铺、权益资源、paid-file 和当前用户购买状态，Web 商品卡片点击时不再只依赖消息 metadata。
+- 新增统一 `EntitlementAccessService`，把 paid-file 打开、grant 读取和 checkout preview 的权益判断收敛到同一套资源授权模型。
+- paid-file grant 读取时重新校验权益状态；右侧预览在 grant 过期或失效时可自动重新申请一次打开凭证。
+- 商品卡片点击改为先获取 checkout preview：未购买弹出购买确认，已购买且交付 paid-file 时直接在聊天右侧打开内容。
+- 购买成功结果返回 `nextAction`，便于客户端区分“打开付费文件”和“查看权益”。
+- 我的权益页面按活跃、即将到期、不可用分组，展示关联资源，并复用 paid-file 右侧预览打开链路。
+- API 文档、TypeScript SDK、Python SDK 同步 checkout preview 和购买结果动作字段。
+
+本批明确不做：
+
+- Mobile 体验适配，后续集中处理。
+- Commerce trace、完整可观测性面板、发货重试策略等非主线基础设施，后续批次处理。
+- Agent 自动发布正式商品，只保留后续基础建设方向。
+
+### 17.10 第五期修正决策记录
+
+用户对第五期第一批实现提出修正，以下为后续实现的准确信源：
+
+- Buddy 回复投递保持简单直接：有消息就推送，不做 queue 合并、不做多条回复 coalesce。
+- 每次 Cloud 部署可以复用既有 server / channel，也必须复用既有 Buddy，避免同一玩法反复部署后产生越来越多 Buddy。
+- 商品卡片必须基于服务端 checkout preview 判断当前用户购买态：已购买显示“打开”，未购买显示“购买”并弹确认。
+- Buddy 需要知道当前对话用户对自己销售 Offer 的购买状态。系统通过受限的 `viewerUserId` checkout preview 让卖家 Buddy 获取该状态，并把状态注入 Agent 上下文；已购买时 Buddy 不应重复推销，应引导用户打开或使用已解锁内容。
+- 购买成功后不应瞬间打开文件，需要展示发货/解锁过程动画，再在聊天右侧复用 paid-file 预览打开内容。
+
+## 18. 后续调研清单
 
 - 梳理现有 API 文档和 SDK 中 shop/order/entitlement 的暴露面。
 - 清理 API 文档和 SDK 中旧 `channel_access` / `channel_speak` / `app_access` 的暴露面，不保留历史兼容策略。

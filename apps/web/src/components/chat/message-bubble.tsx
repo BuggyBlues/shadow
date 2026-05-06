@@ -1,7 +1,7 @@
 import type { CommerceProductCard, MessageMention, PaidFileCard } from '@shadowob/shared'
 import { segmentTextByMentions } from '@shadowob/shared'
 import { Button, cn } from '@shadowob/ui'
-import { type InfiniteData, useQueryClient } from '@tanstack/react-query'
+import { type InfiniteData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { format, formatDistanceToNow, type Locale } from 'date-fns'
 import { enUS, ja, ko, zhCN, zhTW } from 'date-fns/locale'
 import {
@@ -61,6 +61,7 @@ interface Attachment {
   url: string
   contentType: string
   size: number
+  paidFileId?: string
 }
 
 export interface Message {
@@ -202,6 +203,61 @@ type PaidFileState = {
   hasAccess: boolean
 }
 
+type CommerceCheckoutPreview = {
+  offer: { id: string; status: string; available: boolean }
+  shop: { id: string; name: string; scopeKind: 'server' | 'user'; logoUrl?: string | null }
+  product: {
+    id: string
+    name: string
+    summary?: string | null
+    imageUrl?: string | null
+    type: 'physical' | 'entitlement'
+    billingMode?: 'one_time' | 'fixed_duration' | 'subscription'
+    price: number
+    currency: string
+    durationSeconds?: number | null
+  }
+  entitlement: {
+    resourceType: string
+    resourceId: string
+    capability: string
+    access: {
+      allowed: boolean
+      status: string
+      reasonCode?: string | null
+      entitlement?: {
+        id: string
+        status: string
+        capability: string
+        expiresAt?: string | null
+      } | null
+    }
+  } | null
+  paidFile?: {
+    id: string
+    name: string
+    mime?: string | null
+    sizeBytes?: number | null
+    previewUrl?: string | null
+  } | null
+  viewerState: 'not_purchased' | 'active' | 'expired' | 'revoked' | 'cancelled' | 'unavailable'
+  primaryAction?:
+    | 'purchase'
+    | 'open_content'
+    | 'renew'
+    | 'view_detail'
+    | 'view_progress'
+    | 'unavailable'
+  displayState?: {
+    viewerState: string
+    primaryAction: string
+    price?: { amount: number; currency: string }
+    balance?: { current: number; afterPurchase?: number; shortfall?: number } | null
+    delivery?: { state: string; deliverableKind?: string | null } | null
+  }
+  nextAction: 'purchase' | 'open_paid_file' | 'view_entitlement'
+}
+
 async function openPaidFileInPreview(input: {
   fileId: string
   fallbackName: string
@@ -218,6 +274,7 @@ async function openPaidFileInPreview(input: {
     url: result.viewerUrl,
     contentType: input.fallbackMime ?? 'text/html; charset=utf-8',
     size: input.fallbackSizeBytes ?? 0,
+    paidFileId: input.fileId,
   }
   if (input.onPreviewFile) {
     input.onPreviewFile(attachment)
@@ -239,14 +296,22 @@ function formatCommercePrice(
   card: CommerceProductCard,
   t: (key: string, options?: Record<string, unknown>) => string,
 ) {
-  if (card.snapshot.currency === 'shrimp_coin') {
-    return `${card.snapshot.price.toLocaleString()} ${t('common.shrimpCoin', { defaultValue: '虾币' })}`
+  return formatPriceValue(card.snapshot.price, card.snapshot.currency, t)
+}
+
+function formatPriceValue(
+  price: number,
+  currency: string,
+  t: (key: string, options?: Record<string, unknown>) => string,
+) {
+  if (currency === 'shrimp_coin') {
+    return `${price.toLocaleString()} ${t('common.shrimpCoin', { defaultValue: '虾币' })}`
   }
   return new Intl.NumberFormat(undefined, {
     style: 'currency',
-    currency: card.snapshot.currency,
+    currency,
     maximumFractionDigits: 2,
-  }).format(card.snapshot.price / 100)
+  }).format(price / 100)
 }
 
 function decodeWalletRechargeMarker(content: string): WalletRechargeMetadata | null {
@@ -367,13 +432,40 @@ function CommerceProductCardView({
   const queryClient = useQueryClient()
   const [isBuying, setIsBuying] = useState(false)
   const [isOpening, setIsOpening] = useState(false)
+  const [isDelivering, setIsDelivering] = useState(false)
   const [showPurchaseModal, setShowPurchaseModal] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [checkoutPreview, setCheckoutPreview] = useState<CommerceCheckoutPreview | null>(null)
   const [purchaseResult, setPurchaseResult] = useState<{
     order?: { id: string; orderNo: string; status: string; totalAmount: number }
     entitlement?: { id: string; status: string; expiresAt?: string | null }
     provisioning?: { status: string; code: string }
+    nextAction?: string
   } | null>(null)
+  const checkoutPreviewQueryKey = ['commerce-checkout-preview', card.offerId, card.skuId]
+  const fetchCheckoutPreview = () =>
+    fetchApi<CommerceCheckoutPreview>(
+      `/api/commerce/offers/${card.offerId}/checkout-preview${
+        card.skuId ? `?skuId=${encodeURIComponent(card.skuId)}` : ''
+      }`,
+    )
+  const checkoutPreviewQuery = useQuery({
+    queryKey: checkoutPreviewQueryKey,
+    queryFn: fetchCheckoutPreview,
+    enabled: !!card.offerId,
+    staleTime: 10_000,
+  })
+  const currentCheckoutPreview = checkoutPreview ?? checkoutPreviewQuery.data ?? null
+  const loadCheckoutPreview = async () => {
+    if (!card.offerId) return null
+    const preview = await queryClient.fetchQuery({
+      queryKey: checkoutPreviewQueryKey,
+      queryFn: fetchCheckoutPreview,
+      staleTime: 10_000,
+    })
+    setCheckoutPreview(preview)
+    return preview
+  }
   const buy = async () => {
     setIsBuying(true)
     setError(null)
@@ -393,10 +485,25 @@ function CommerceProductCardView({
       setPurchaseResult(result)
       queryClient.invalidateQueries({ queryKey: ['entitlements'] })
       queryClient.invalidateQueries({ queryKey: ['paid-file', card.snapshot.resourceId] })
+      queryClient.invalidateQueries({ queryKey: checkoutPreviewQueryKey })
+      const fileId = currentCheckoutPreview?.paidFile?.id ?? paidFileId
+      if (fileId && (result.nextAction === 'open_paid_file' || currentCheckoutPreview?.paidFile)) {
+        setIsDelivering(true)
+        await new Promise((resolve) => setTimeout(resolve, 900))
+        await openPaidFileInPreview({
+          fileId,
+          fallbackName: currentCheckoutPreview?.paidFile?.name ?? card.snapshot.name,
+          fallbackMime: currentCheckoutPreview?.paidFile?.mime,
+          fallbackSizeBytes: currentCheckoutPreview?.paidFile?.sizeBytes,
+          onPreviewFile,
+        })
+        setShowPurchaseModal(false)
+      }
     } catch (err) {
       setError(getApiErrorMessage(err, t, 'chat.commercePurchaseFailed'))
     } finally {
       setIsBuying(false)
+      setIsDelivering(false)
     }
   }
   const paidFileId =
@@ -407,12 +514,47 @@ function CommerceProductCardView({
       : null
   const resolveCardAction = async () => {
     if (!paidFileId) {
-      setShowPurchaseModal(true)
+      setIsOpening(true)
+      setError(null)
+      try {
+        await loadCheckoutPreview()
+        setShowPurchaseModal(true)
+      } catch (err) {
+        setError(getApiErrorMessage(err, t, 'chat.commercePreviewFailed'))
+      } finally {
+        setIsOpening(false)
+      }
       return
     }
     setIsOpening(true)
     setError(null)
     try {
+      const preview = await loadCheckoutPreview()
+      if (
+        (preview?.primaryAction === 'open_content' || preview?.viewerState === 'active') &&
+        preview.paidFile?.id
+      ) {
+        await openPaidFileInPreview({
+          fileId: preview.paidFile.id,
+          fallbackName: preview.paidFile.name || card.snapshot.name,
+          fallbackMime: preview.paidFile.mime,
+          fallbackSizeBytes: preview.paidFile.sizeBytes,
+          onPreviewFile,
+        })
+        return
+      }
+      if (preview && preview.viewerState !== 'not_purchased') {
+        setError(
+          t(`commerce.viewerStateError.${preview.viewerState}`, {
+            defaultValue: t('chat.paidFileOpenFailed'),
+          }),
+        )
+        return
+      }
+      if (preview) {
+        setShowPurchaseModal(true)
+        return
+      }
       const state = await fetchApi<PaidFileState>(`/api/paid-files/${paidFileId}`)
       if (!state.hasAccess) {
         setShowPurchaseModal(true)
@@ -426,7 +568,7 @@ function CommerceProductCardView({
         onPreviewFile,
       })
     } catch (err) {
-      setError(getApiErrorMessage(err, t, 'chat.paidFileOpenFailed'))
+      setError(getApiErrorMessage(err, t, 'chat.commercePreviewFailed'))
     } finally {
       setIsOpening(false)
     }
@@ -435,16 +577,28 @@ function CommerceProductCardView({
     ? Math.ceil(card.snapshot.durationSeconds / 86400)
     : null
   const modalDetails = {
-    name: card.snapshot.name,
-    summary: card.snapshot.summary,
-    imageUrl: card.snapshot.imageUrl,
-    priceLabel: formatCommercePrice(card, t),
-    billingModeLabel: t(`commerce.billingModes.${card.snapshot.billingMode ?? 'one_time'}`, {
-      defaultValue:
-        card.snapshot.billingMode === 'subscription'
-          ? t('chat.commerceSubscription')
-          : t('chat.commerceEntitlement'),
-    }),
+    name: currentCheckoutPreview?.product.name ?? card.snapshot.name,
+    summary: currentCheckoutPreview?.product.summary ?? card.snapshot.summary,
+    imageUrl: currentCheckoutPreview?.product.imageUrl ?? card.snapshot.imageUrl,
+    priceLabel: currentCheckoutPreview
+      ? formatPriceValue(
+          currentCheckoutPreview.product.price,
+          currentCheckoutPreview.product.currency,
+          t,
+        )
+      : formatCommercePrice(card, t),
+    billingModeLabel: t(
+      `commerce.billingModes.${
+        currentCheckoutPreview?.product.billingMode ?? card.snapshot.billingMode ?? 'one_time'
+      }`,
+      {
+        defaultValue:
+          (currentCheckoutPreview?.product.billingMode ?? card.snapshot.billingMode) ===
+          'subscription'
+            ? t('chat.commerceSubscription')
+            : t('chat.commerceEntitlement'),
+      },
+    ),
     entitlementLabel:
       card.snapshot.productType === 'entitlement'
         ? t('chat.commerceEntitlement')
@@ -452,12 +606,39 @@ function CommerceProductCardView({
     durationLabel: durationDays
       ? t('commerce.validDays', { count: durationDays })
       : t('commerce.permanent'),
-    targetLabel: card.snapshot.summary ?? t('commerce.manualDelivery'),
+    targetLabel: currentCheckoutPreview?.entitlement
+      ? `${t(`commerce.resourceTypes.${currentCheckoutPreview.entitlement.resourceType}`, {
+          defaultValue: currentCheckoutPreview.entitlement.resourceType,
+        })} · ${t(`commerce.capabilities.${currentCheckoutPreview.entitlement.capability}`, {
+          defaultValue: currentCheckoutPreview.entitlement.capability,
+        })}`
+      : (card.snapshot.summary ?? t('commerce.manualDelivery')),
     deliveryLabel: t('commerce.immediateDelivery'),
+    shopLabel: currentCheckoutPreview?.shop.name,
+    paidFileLabel: currentCheckoutPreview?.paidFile
+      ? `${currentCheckoutPreview.paidFile.name}${
+          currentCheckoutPreview.paidFile.sizeBytes != null
+            ? ` · ${formatFileSize(currentCheckoutPreview.paidFile.sizeBytes)}`
+            : ''
+        }`
+      : null,
+    accessStateLabel: purchaseResult
+      ? t('commerce.viewerState.active')
+      : currentCheckoutPreview
+        ? t(`commerce.viewerState.${currentCheckoutPreview.viewerState}`, {
+            defaultValue: currentCheckoutPreview.viewerState,
+          })
+        : null,
   }
 
   return (
-    <div className="max-w-md overflow-hidden rounded-xl border border-border-subtle bg-bg-secondary text-left">
+    <div className="relative max-w-md overflow-hidden rounded-xl border border-border-subtle bg-bg-secondary text-left">
+      {isDelivering && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-bg-secondary/90 text-primary backdrop-blur-sm">
+          <div className="h-12 w-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+          <div className="text-sm font-black">{t('chat.commerceUnlocking')}</div>
+        </div>
+      )}
       <div className="flex gap-3 p-3">
         {card.snapshot.imageUrl && (
           <img
@@ -494,7 +675,7 @@ function CommerceProductCardView({
             </span>
             {purchaseResult ? (
               <a
-                href="/app/settings?tab=entitlements"
+                href="/app/settings?tab=wallet&section=entitlements"
                 className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold text-primary hover:bg-primary/10"
               >
                 {t('chat.commerceViewEntitlement')}
@@ -507,7 +688,10 @@ function CommerceProductCardView({
                 disabled={isBuying || isOpening}
                 className="!rounded-lg"
               >
-                {paidFileId ? t('chat.paidFileOpen') : t('chat.commerceBuy')}
+                {currentCheckoutPreview?.primaryAction === 'open_content' ||
+                currentCheckoutPreview?.viewerState === 'active'
+                  ? t('chat.paidFileOpen')
+                  : t('chat.commerceBuy')}
               </Button>
             )}
           </div>
@@ -529,7 +713,7 @@ function CommerceProductCardView({
       <PurchaseConfirmationModal
         open={showPurchaseModal}
         details={modalDetails}
-        isPending={isBuying}
+        isPending={isBuying || isDelivering}
         isCompleted={!!purchaseResult}
         error={error}
         provisioningStatus={purchaseResult?.provisioning?.status ?? null}

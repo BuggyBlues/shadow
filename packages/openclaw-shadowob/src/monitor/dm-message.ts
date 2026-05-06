@@ -10,6 +10,7 @@ import type {
 } from '../types.js'
 import {
   buildCommerceContextForAgent,
+  buildCommerceViewerContextForAgent,
   commerceContextFields,
   inferCommerceOfferIdForReply,
 } from './commerce-context.js'
@@ -121,7 +122,17 @@ export async function processShadowDmMessage(params: {
   const messageBodyForAgent = slashCommandMatch
     ? formatSlashCommandPrompt(bodyWithAttachments, slashCommandMatch)
     : bodyWithAttachments
-  const bodyForAgent = [buildCommerceContextForAgent(account), messageBodyForAgent]
+  const client = new ShadowClient(account.serverUrl, account.token)
+  const viewerCommerceContext = await buildCommerceViewerContextForAgent({
+    account,
+    client,
+    viewerUserId: senderId,
+  })
+  const bodyForAgent = [
+    buildCommerceContextForAgent(account),
+    viewerCommerceContext,
+    messageBodyForAgent,
+  ]
     .filter(Boolean)
     .join('\n\n')
 
@@ -196,7 +207,6 @@ export async function processShadowDmMessage(params: {
   })
 
   runtime.log?.(`[dm] Dispatching to AI pipeline for DM message ${dmMessage.id}`)
-  const client = new ShadowClient(account.serverUrl, account.token)
   const triggerChain = (dmMessage as { metadata?: { agentChain?: AgentChainMetadata } }).metadata
     ?.agentChain
 

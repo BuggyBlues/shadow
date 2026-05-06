@@ -19,6 +19,7 @@ describe('WalletService', () => {
     findByUserId: vi.fn().mockResolvedValue(mockWallet),
     getTransactions: vi.fn().mockResolvedValue([]),
     countTransactions: vi.fn().mockResolvedValue(0),
+    getOrderSummaries: vi.fn().mockResolvedValue([]),
   } as unknown as Mocked<WalletDao>
 
   const mockLedgerService: Mocked<LedgerService> = {
@@ -102,6 +103,23 @@ describe('WalletService', () => {
     await service.getTransactions('user-1', 20, 10)
 
     expect(mockWalletDao.getOrCreate).toHaveBeenCalledWith('user-1')
-    expect(mockWalletDao.getTransactions).toHaveBeenCalledWith(mockWallet.id, 20, 10)
+    expect(mockWalletDao.getTransactions).toHaveBeenCalledWith(mockWallet.id, 20, 10, {
+      audience: 'ledger',
+      direction: 'all',
+    })
+  })
+
+  it('uses consumer wallet audience for filtered transaction reads and counts', async () => {
+    await service.getTransactions('user-1', 20, 10, { audience: 'consumer', direction: 'income' })
+    await service.getTransactionCount('user-1', { audience: 'consumer', direction: 'income' })
+
+    expect(mockWalletDao.getTransactions).toHaveBeenCalledWith(mockWallet.id, 20, 10, {
+      audience: 'consumer',
+      direction: 'income',
+    })
+    expect(mockWalletDao.countTransactions).toHaveBeenCalledWith(mockWallet.id, {
+      audience: 'consumer',
+      direction: 'income',
+    })
   })
 })

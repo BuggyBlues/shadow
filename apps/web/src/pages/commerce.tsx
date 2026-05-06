@@ -4,21 +4,35 @@ import { useParams } from '@tanstack/react-router'
 import {
   CalendarClock,
   CheckCircle2,
+  ChevronRight,
   Clock3,
   ExternalLink,
+  FileText,
   Loader2,
   Package,
+  ReceiptText,
   Search,
   Settings2,
   ShieldCheck,
   ShoppingBag,
   Store,
   Trash2,
+  UserRound,
+  WalletCards,
   XCircle,
 } from 'lucide-react'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FilePreviewPanel } from '../components/chat/file-preview-panel'
+import {
+  CommerceDrawer,
+  CommerceEmptyState,
+  CommerceList,
+  CommerceListItem,
+  CommercePill,
+  CommerceSegmentedControl,
+  CommerceSurface,
+} from '../components/commerce/commerce-atoms'
 import { PurchaseConfirmationModal } from '../components/commerce/purchase-confirmation-modal'
 import type { Product, Shop } from '../components/shop/shop-page'
 import { ShrimpCoinIcon } from '../components/shop/ui/currency'
@@ -81,6 +95,12 @@ type Entitlement = {
     sizeBytes?: number | null
     previewUrl?: string | null
   } | null
+  buyer?: {
+    id: string
+    username: string
+    displayName?: string | null
+    avatarUrl?: string | null
+  } | null
 }
 
 type Provisioning = {
@@ -99,6 +119,9 @@ type ProductEntitlementConfig = {
   renewalPeriodSeconds?: number | null
   privilegeDescription?: string
 }
+
+type EntitlementFilter = 'all' | 'openable' | 'expiring' | 'history'
+type ShopSettingsSection = 'shop' | 'orders'
 
 const BILLING_MODES: BillingMode[] = ['one_time', 'fixed_duration', 'subscription']
 const RESOURCE_CAPABILITIES: ResourceCapability[] = ['use', 'view', 'download', 'redeem', 'manage']
@@ -169,18 +192,37 @@ function entitlementPaidFileId(entitlement: Entitlement) {
   return entitlement.resourceType === 'workspace_file' ? entitlement.resourceId : null
 }
 
+function entitlementGroupKey(entitlement: Entitlement) {
+  if (activeEntitlement(entitlement)) {
+    if (
+      entitlement.expiresAt &&
+      new Date(entitlement.expiresAt).getTime() - Date.now() <= 7 * 24 * 60 * 60 * 1000
+    ) {
+      return 'expiring'
+    }
+    return 'active'
+  }
+  return 'inactive'
+}
+
+function entitlementIsExpiring(entitlement: Entitlement) {
+  return (
+    activeEntitlement(entitlement) &&
+    Boolean(entitlement.expiresAt) &&
+    new Date(entitlement.expiresAt as string).getTime() - Date.now() <= 7 * 24 * 60 * 60 * 1000
+  )
+}
+
 function EntitlementStatus({ entitlement }: { entitlement: Entitlement }) {
   const { t } = useTranslation()
   const isActive = entitlement.isActive && entitlement.status === 'active'
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-bold ${
-        isActive ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'
-      }`}
+    <CommercePill
+      tone={isActive ? 'success' : 'warning'}
+      icon={isActive ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
     >
-      {isActive ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
       {t(`commerce.status.${entitlement.status}`, { defaultValue: entitlement.status })}
-    </span>
+    </CommercePill>
   )
 }
 
@@ -192,20 +234,17 @@ function ProductMeta({ product }: { product: Product }) {
 
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-text-muted">
-      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-primary">
-        <ShieldCheck size={13} />
+      <CommercePill tone="primary" icon={<ShieldCheck size={13} />}>
         {t(`commerce.resourceTypes.${config?.resourceType ?? 'service'}`, {
           defaultValue: config?.resourceType ?? t('commerce.resourceEntitlement'),
         })}
-      </span>
-      <span className="inline-flex items-center gap-1 rounded-full bg-bg-tertiary/70 px-2 py-1">
-        <Clock3 size={13} />
+      </CommercePill>
+      <CommercePill icon={<Clock3 size={13} />}>
         {t(`commerce.billingModes.${product.billingMode ?? 'one_time'}`)}
-      </span>
-      <span className="inline-flex items-center gap-1 rounded-full bg-bg-tertiary/70 px-2 py-1">
-        <CalendarClock size={13} />
+      </CommercePill>
+      <CommercePill icon={<CalendarClock size={13} />}>
         {durationDays ? t('commerce.validDays', { count: durationDays }) : t('commerce.permanent')}
-      </span>
+      </CommercePill>
     </div>
   )
 }
@@ -216,20 +255,14 @@ function ProvisioningPill({ provisioning }: { provisioning?: Provisioning | null
   const isProvisioned = provisioning.status === 'provisioned'
   const isManual = provisioning.status === 'manual_pending'
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-bold ${
-        isProvisioned
-          ? 'bg-success/10 text-success'
-          : isManual
-            ? 'bg-warning/10 text-warning'
-            : 'bg-danger/10 text-danger'
-      }`}
+    <CommercePill
+      tone={isProvisioned ? 'success' : isManual ? 'warning' : 'danger'}
+      icon={isProvisioned ? <CheckCircle2 size={13} /> : <Clock3 size={13} />}
     >
-      {isProvisioned ? <CheckCircle2 size={13} /> : <Clock3 size={13} />}
       {t(`commerce.provisioning.${provisioning.status}`, {
         defaultValue: provisioning.status,
       })}
-    </span>
+    </CommercePill>
   )
 }
 
@@ -241,7 +274,11 @@ function PageShell({ children }: { children: ReactNode }) {
   )
 }
 
-export function PersonalShopPage() {
+export function PersonalShopPage({
+  initialSection = 'shop',
+}: {
+  initialSection?: ShopSettingsSection
+} = {}) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const params = useParams({ strict: false }) as { userId?: string }
@@ -259,6 +296,8 @@ export function PersonalShopPage() {
   const [durationDays, setDurationDays] = useState('30')
   const [billingMode, setBillingMode] = useState<BillingMode>('fixed_duration')
   const [privilegeDescription, setPrivilegeDescription] = useState('')
+  const [activeSection, setActiveSection] = useState<ShopSettingsSection>(initialSection)
+  const [shopSheet, setShopSheet] = useState<'store' | 'product' | null>(null)
   const numericPrice = Number(price)
   const numericDurationDays = Number(durationDays)
   const durationInvalid =
@@ -296,6 +335,10 @@ export function PersonalShopPage() {
     setShopDescription(shop.description ?? '')
   }, [shop])
 
+  useEffect(() => {
+    setActiveSection(initialSection)
+  }, [initialSection])
+
   const { data: productsData, isFetching: isFetchingProducts } = useQuery({
     queryKey: ['personal-shop-products', shop?.id, keyword],
     queryFn: () =>
@@ -321,6 +364,7 @@ export function PersonalShopPage() {
       })
     },
     onSuccess: async () => {
+      setShopSheet(null)
       await queryClient.invalidateQueries({ queryKey: ['personal-shop', targetUserId] })
       showToast(t('commerce.shopSaved'), 'success')
     },
@@ -356,6 +400,7 @@ export function PersonalShopPage() {
       setSummary('')
       setResourceId('')
       setPrivilegeDescription('')
+      setShopSheet(null)
       await queryClient.invalidateQueries({ queryKey: ['personal-shop-products', shop?.id] })
       showToast(t('commerce.productCreated'), 'success')
     },
@@ -383,6 +428,18 @@ export function PersonalShopPage() {
     !createProduct.isPending
 
   const filtered = useMemo(() => products, [products])
+  const sectionOptions = [
+    {
+      value: 'shop' as const,
+      label: t('commerce.activeProducts'),
+      icon: <ShoppingBag size={13} />,
+    },
+    {
+      value: 'orders' as const,
+      label: t('commerce.orders'),
+      icon: <ReceiptText size={13} />,
+    },
+  ]
 
   if (isLoading) {
     return (
@@ -398,72 +455,209 @@ export function PersonalShopPage() {
 
   return (
     <PageShell>
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-black text-primary">
-            <Store size={13} />
-            {t('commerce.myShop')}
-          </div>
-          <h1 className="truncate text-2xl font-black text-text-primary">{shop.name}</h1>
-          {shop.description && (
-            <p className="mt-1 text-sm text-text-secondary">{shop.description}</p>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <a
-            href="/app/settings?tab=entitlements"
-            className="inline-flex items-center gap-2 rounded-xl border border-border-subtle bg-bg-secondary px-3 py-2 text-sm font-bold text-text-primary transition hover:border-primary/40"
-          >
-            <ShieldCheck size={16} />
-            {t('commerce.entitlements')}
-          </a>
-          {canManage && (
-            <a
-              href="/app/settings?tab=commerce-orders"
-              className="inline-flex items-center gap-2 rounded-xl bg-primary px-3 py-2 text-sm font-bold text-white transition hover:bg-primary/90"
-            >
-              <ExternalLink size={16} />
-              {t('commerce.orders')}
-            </a>
-          )}
-        </div>
-      </header>
-
-      {canManage && (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-          <GlassPanel className="p-4">
-            <h2 className="mb-3 flex items-center gap-2 text-sm font-black text-text-primary">
-              <Settings2 size={17} />
-              {t('commerce.shopSettings')}
-            </h2>
-            <div className="grid gap-3">
-              <Input
-                value={shopName}
-                onChange={(e) => setShopName(e.target.value)}
-                placeholder={t('commerce.shopName')}
-              />
-              <Input
-                value={shopDescription}
-                onChange={(e) => setShopDescription(e.target.value)}
-                placeholder={t('commerce.shopDescription')}
-              />
+      <CommerceSurface tone="accent" className="px-5 py-5 sm:px-6">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex min-w-0 gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-bg-primary/70 text-primary shadow-inner">
+              <Store size={24} />
             </div>
-            <div className="mt-3 flex justify-end">
+            <div className="min-w-0">
+              <div className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-primary">
+                {t('commerce.creatorStudio')}
+              </div>
+              <h1 className="truncate text-2xl font-black text-text-primary sm:text-3xl">
+                {shop.name}
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">
+                {shop.description || t('commerce.shopHeroFallback')}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm font-bold text-text-muted">
+                <span>
+                  <span className="text-text-primary tabular-nums">{products.length}</span>{' '}
+                  {t('commerce.activeProducts')}
+                </span>
+                <span>
+                  {t('commerce.currentSection')}{' '}
+                  <span className="text-text-primary">
+                    {activeSection === 'shop'
+                      ? t('commerce.sectionProducts')
+                      : t('commerce.sectionOrders')}
+                  </span>
+                </span>
+              </div>
+            </div>
+          </div>
+          {canManage && (
+            <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+              <CommerceSegmentedControl
+                value={activeSection}
+                options={sectionOptions}
+                onChange={setActiveSection}
+              />
+              <Button size="sm" variant="glass" onClick={() => setShopSheet('store')}>
+                <Settings2 size={14} />
+                {t('commerce.editStorefront')}
+              </Button>
+              <Button size="sm" onClick={() => setShopSheet('product')}>
+                <Package size={14} />
+                {t('commerce.publishService')}
+              </Button>
+            </div>
+          )}
+        </div>
+      </CommerceSurface>
+
+      {activeSection === 'orders' && canManage ? (
+        <ShopOrdersContent />
+      ) : (
+        <>
+          <CommerceSurface className="p-5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="flex items-center gap-2 text-base font-black text-text-primary">
+                  <ShoppingBag size={18} />
+                  {t('commerce.activeProducts')}
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-text-muted">
+                  {t('commerce.productsShelfHint')}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex min-w-[220px] items-center gap-2 rounded-xl border border-border-subtle bg-bg-secondary px-3 py-2">
+                  <Search size={16} className="text-text-muted" />
+                  <input
+                    value={keyword}
+                    onChange={(e) => setKeyword(e.target.value)}
+                    placeholder={t('commerce.searchProducts')}
+                    className="min-w-0 flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted"
+                  />
+                </div>
+                {canManage && (
+                  <Button size="sm" variant="glass" onClick={() => setShopSheet('product')}>
+                    <Package size={14} />
+                    {t('commerce.publishService')}
+                  </Button>
+                )}
+              </div>
+            </div>
+            <CommerceList>
+              {isFetchingProducts ? (
+                <div className="py-10 text-center text-text-muted">
+                  <Loader2 className="inline animate-spin" />
+                </div>
+              ) : filtered.length === 0 ? (
+                <CommerceEmptyState
+                  icon={<ShoppingBag size={24} />}
+                  title={t('commerce.noProducts')}
+                  description={t('commerce.noProductsHint')}
+                />
+              ) : (
+                filtered.map((product) => {
+                  const image = productImage(product)
+                  return (
+                    <CommerceListItem
+                      key={product.id}
+                      className="border-t"
+                      media={
+                        <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary/15 text-primary">
+                          {image ? (
+                            <img src={image} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <ShoppingBag size={22} />
+                          )}
+                        </span>
+                      }
+                      title={product.name}
+                      subtitle={product.summary ?? t('commerce.entitlementGenericContent')}
+                      meta={
+                        <>
+                          <ProductMeta product={product} />
+                          <PriceBadge amount={product.basePrice} />
+                        </>
+                      }
+                      action={
+                        <>
+                          <a
+                            href={`/app/shop/products/${product.id}`}
+                            className="inline-flex h-9 items-center gap-1 rounded-full border border-border-subtle bg-bg-primary/60 px-3 text-xs font-black text-text-primary transition hover:border-primary/40 hover:text-primary"
+                          >
+                            {t('commerce.openProduct')}
+                            <ChevronRight size={14} />
+                          </a>
+                          {canManage && (
+                            <button
+                              type="button"
+                              title={t('commerce.deleteProduct')}
+                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-muted transition hover:bg-danger/10 hover:text-danger"
+                              onClick={() => deleteProduct.mutate(product)}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          )}
+                        </>
+                      }
+                    />
+                  )
+                })
+              )}
+            </CommerceList>
+          </CommerceSurface>
+        </>
+      )}
+      {canManage && (
+        <>
+          <CommerceDrawer
+            open={shopSheet === 'store'}
+            title={t('commerce.storeIdentity')}
+            description={t('commerce.storeIdentityHint')}
+            closeLabel={t('common.close')}
+            onClose={() => setShopSheet(null)}
+            footer={
               <Button
+                className="w-full"
                 onClick={() => saveShop.mutate()}
                 disabled={!shopName.trim() || saveShop.isPending}
               >
                 {saveShop.isPending ? t('commerce.saving') : t('commerce.saveShop')}
               </Button>
+            }
+          >
+            <div className="grid gap-4">
+              <label className="grid gap-1.5">
+                <span className="text-xs font-black uppercase tracking-[0.12em] text-text-muted">
+                  {t('commerce.shopName')}
+                </span>
+                <Input value={shopName} onChange={(e) => setShopName(e.target.value)} />
+              </label>
+              <label className="grid gap-1.5">
+                <span className="text-xs font-black uppercase tracking-[0.12em] text-text-muted">
+                  {t('commerce.shopDescription')}
+                </span>
+                <Input
+                  value={shopDescription}
+                  onChange={(e) => setShopDescription(e.target.value)}
+                />
+              </label>
             </div>
-          </GlassPanel>
+          </CommerceDrawer>
 
-          <GlassPanel className="p-4">
-            <h2 className="mb-3 flex items-center gap-2 text-sm font-black text-text-primary">
-              <Package size={17} />
-              {t('commerce.createEntitlementProduct')}
-            </h2>
-            <div className="grid gap-3 md:grid-cols-2">
+          <CommerceDrawer
+            open={shopSheet === 'product'}
+            title={t('commerce.publishService')}
+            description={t('commerce.publishServiceHint')}
+            closeLabel={t('common.close')}
+            onClose={() => setShopSheet(null)}
+            footer={
+              <Button
+                className="w-full"
+                onClick={() => createProduct.mutate()}
+                disabled={!canSubmitProduct}
+              >
+                {createProduct.isPending ? t('commerce.saving') : t('commerce.createProduct')}
+              </Button>
+            }
+          >
+            <div className="grid gap-3">
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -491,18 +685,20 @@ export function PersonalShopPage() {
                   </option>
                 ))}
               </select>
-              <Input
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                placeholder={t('commerce.productPrice')}
-                inputMode="numeric"
-              />
-              <Input
-                value={durationDays}
-                onChange={(e) => setDurationDays(e.target.value)}
-                placeholder={t('commerce.durationDays')}
-                inputMode="numeric"
-              />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Input
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  placeholder={t('commerce.productPrice')}
+                  inputMode="numeric"
+                />
+                <Input
+                  value={durationDays}
+                  onChange={(e) => setDurationDays(e.target.value)}
+                  placeholder={t('commerce.durationDays')}
+                  inputMode="numeric"
+                />
+              </div>
               <select
                 className={selectClassName}
                 value={capability}
@@ -521,97 +717,14 @@ export function PersonalShopPage() {
                 placeholder={t('commerce.resourceId')}
               />
               <Input
-                className="md:col-span-2"
                 value={privilegeDescription}
                 onChange={(e) => setPrivilegeDescription(e.target.value)}
                 placeholder={t('commerce.privilegeDescription')}
               />
             </div>
-            <div className="mt-3 flex justify-end">
-              <Button onClick={() => createProduct.mutate()} disabled={!canSubmitProduct}>
-                {createProduct.isPending ? t('commerce.saving') : t('commerce.createProduct')}
-              </Button>
-            </div>
-          </GlassPanel>
-        </div>
+          </CommerceDrawer>
+        </>
       )}
-
-      <GlassPanel className="p-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="flex items-center gap-2 text-sm font-black text-text-primary">
-            <ShoppingBag size={17} />
-            {t('commerce.activeProducts')}
-          </h2>
-          <div className="flex min-w-[220px] items-center gap-2 rounded-xl border border-border-subtle bg-bg-secondary px-3 py-2">
-            <Search size={16} className="text-text-muted" />
-            <input
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              placeholder={t('commerce.searchProducts')}
-              className="min-w-0 flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted"
-            />
-          </div>
-        </div>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {isFetchingProducts ? (
-            <div className="py-8 text-center text-text-muted md:col-span-2 xl:col-span-3">
-              <Loader2 className="inline animate-spin" />
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="py-8 text-center text-sm text-text-muted md:col-span-2 xl:col-span-3">
-              {t('commerce.noProducts')}
-            </div>
-          ) : (
-            filtered.map((product) => {
-              const image = productImage(product)
-              return (
-                <a
-                  key={product.id}
-                  href={`/app/shop/products/${product.id}`}
-                  className="group flex min-h-[148px] flex-col gap-3 rounded-xl border border-border-subtle bg-bg-secondary/60 p-3 transition hover:border-primary/40"
-                >
-                  <div className="flex gap-3">
-                    <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary/15 text-primary">
-                      {image ? (
-                        <img src={image} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <ShoppingBag size={22} />
-                      )}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-black text-text-primary group-hover:text-primary">
-                        {product.name}
-                      </span>
-                      {product.summary && (
-                        <span className="mt-1 line-clamp-2 block text-xs text-text-muted">
-                          {product.summary}
-                        </span>
-                      )}
-                    </span>
-                    {canManage && (
-                      <button
-                        type="button"
-                        title={t('commerce.deleteProduct')}
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-muted transition hover:bg-danger/10 hover:text-danger"
-                        onClick={(event) => {
-                          event.preventDefault()
-                          deleteProduct.mutate(product)
-                        }}
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    )}
-                  </div>
-                  <div className="mt-auto flex flex-wrap items-center justify-between gap-2">
-                    <ProductMeta product={product} />
-                    <PriceBadge amount={product.basePrice} />
-                  </div>
-                </a>
-              )
-            })
-          )}
-        </div>
-      </GlassPanel>
     </PageShell>
   )
 }
@@ -729,7 +842,7 @@ export function ProductDetailPage() {
               </Button>
               {purchase.data && (
                 <a
-                  href="/app/settings?tab=entitlements"
+                  href="/app/settings?tab=wallet&section=entitlements"
                   className="inline-flex items-center gap-2 text-sm font-bold text-success"
                 >
                   <ShieldCheck size={16} />
@@ -758,19 +871,63 @@ export function ProductDetailPage() {
   )
 }
 
-export function EntitlementsPage() {
+export function EntitlementsPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useTranslation()
+  const [filter, setFilter] = useState<EntitlementFilter>('all')
   const [previewFile, setPreviewFile] = useState<{
     id: string
     filename: string
     url: string
     contentType: string
     size: number
+    paidFileId?: string
   } | null>(null)
   const { data: entitlements = [], isLoading } = useQuery({
     queryKey: ['entitlements'],
     queryFn: () => fetchApi<Entitlement[]>('/api/entitlements'),
   })
+
+  const entitlementStats = useMemo(() => {
+    const active = entitlements.filter(activeEntitlement).length
+    const openable = entitlements.filter(
+      (entitlement) => activeEntitlement(entitlement) && entitlementPaidFileId(entitlement),
+    ).length
+    const expiring = entitlements.filter(entitlementIsExpiring).length
+    return { active, openable, expiring }
+  }, [entitlements])
+
+  const displayedEntitlements = useMemo(() => {
+    switch (filter) {
+      case 'openable':
+        return entitlements.filter(
+          (entitlement) => activeEntitlement(entitlement) && entitlementPaidFileId(entitlement),
+        )
+      case 'expiring':
+        return entitlements.filter(entitlementIsExpiring)
+      case 'history':
+        return entitlements.filter((entitlement) => !activeEntitlement(entitlement))
+      default:
+        return entitlements
+    }
+  }, [entitlements, filter])
+
+  const groupedEntitlements = useMemo(() => {
+    const groups = new Map<string, Entitlement[]>()
+    for (const entitlement of displayedEntitlements) {
+      const key = entitlementGroupKey(entitlement)
+      groups.set(key, [...(groups.get(key) ?? []), entitlement])
+    }
+    return (['expiring', 'active', 'inactive'] as const)
+      .map((key) => ({ key, items: groups.get(key) ?? [] }))
+      .filter((group) => group.items.length > 0)
+  }, [displayedEntitlements])
+
+  const filterOptions: Array<{ key: EntitlementFilter; count: number }> = [
+    { key: 'all', count: entitlements.length },
+    { key: 'openable', count: entitlementStats.openable },
+    { key: 'expiring', count: entitlementStats.expiring },
+    { key: 'history', count: entitlements.length - entitlementStats.active },
+  ]
 
   const openPaidFile = useMutation({
     mutationFn: async (entitlement: Entitlement) => {
@@ -788,133 +945,194 @@ export function EntitlementsPage() {
         url: viewerUrl,
         contentType: entitlement.paidFile?.mime ?? 'text/html',
         size: entitlement.paidFile?.sizeBytes ?? 0,
+        paidFileId: fileId,
       })
     },
     onError: (err) => showToast(getApiErrorMessage(err, t, 'commerce.openResourceFailed'), 'error'),
   })
 
+  const content = (
+    <>
+      <CommerceSurface tone="accent" className="px-5 py-5 sm:px-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-bg-primary/70 text-primary shadow-inner">
+              <WalletCards size={24} />
+            </div>
+            <div className="min-w-0">
+              <div className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-primary">
+                {t('commerce.entitlementLibraryEyebrow')}
+              </div>
+              <h1 className="truncate text-2xl font-black text-text-primary sm:text-3xl">
+                {t('commerce.entitlementLibraryTitle')}
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">
+                {t('commerce.entitlementLibraryDescription')}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm font-bold text-text-muted">
+            <span>
+              <span className="text-text-primary tabular-nums">{entitlementStats.openable}</span>{' '}
+              {t('commerce.entitlementsSummaryOpenable')}
+            </span>
+            <span>
+              <span className="text-text-primary tabular-nums">{entitlementStats.active}</span>{' '}
+              {t('commerce.entitlementsSummaryActive')}
+            </span>
+            <span>
+              <span className="text-text-primary tabular-nums">{entitlementStats.expiring}</span>{' '}
+              {t('commerce.entitlementsSummaryExpiring')}
+            </span>
+          </div>
+        </div>
+      </CommerceSurface>
+
+      <CommerceSurface tone="quiet" className="p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-sm font-black text-text-primary">
+              {t('commerce.entitlementLibrary')}
+            </div>
+            <p className="mt-1 text-sm leading-6 text-text-muted">
+              {t('commerce.entitlementLibraryHint')}
+            </p>
+          </div>
+          <CommerceSegmentedControl
+            value={filter}
+            options={filterOptions.map((option) => ({
+              value: option.key,
+              label: t(`commerce.entitlementFilters.${option.key}`),
+              count: option.count,
+            }))}
+            onChange={setFilter}
+          />
+        </div>
+      </CommerceSurface>
+
+      <CommerceList>
+        {isLoading ? (
+          <div className="py-10 text-center text-text-muted">
+            <Loader2 className="inline animate-spin" />
+          </div>
+        ) : entitlements.length === 0 ? (
+          <CommerceEmptyState
+            icon={<WalletCards size={24} />}
+            title={t('commerce.noEntitlements')}
+            description={t('commerce.noEntitlementsHint')}
+            action={
+              <a
+                href="/app/settings?tab=shop"
+                className="inline-flex h-10 items-center gap-2 rounded-full border border-border-subtle bg-bg-primary/70 px-4 text-sm font-black text-text-primary transition hover:border-primary/40 hover:text-primary"
+              >
+                <Store size={16} />
+                {t('commerce.discoverShops')}
+              </a>
+            }
+          />
+        ) : displayedEntitlements.length === 0 ? (
+          <CommerceEmptyState
+            icon={<ShieldCheck size={24} />}
+            title={t('commerce.noFilteredEntitlements')}
+            description={t('commerce.noFilteredEntitlementsHint')}
+          />
+        ) : (
+          <>
+            {groupedEntitlements.map((group) => (
+              <section key={group.key}>
+                <div className="flex items-center gap-2 border-t border-border-subtle bg-bg-tertiary/25 px-4 py-3 text-xs font-black uppercase tracking-[0.08em] text-text-muted first:border-t-0">
+                  <ShieldCheck size={13} />
+                  {t(`commerce.entitlementGroups.${group.key}`)}
+                </div>
+                <div>
+                  {group.items.map((entitlement) => {
+                    const fileId = entitlementPaidFileId(entitlement)
+                    const canOpen = Boolean(fileId && activeEntitlement(entitlement))
+                    const title =
+                      entitlement.product?.name ??
+                      entitlement.paidFile?.name ??
+                      t('commerce.resourceEntitlement')
+                    const associatedResource =
+                      entitlement.paidFile?.name ??
+                      entitlement.product?.summary ??
+                      t('commerce.entitlementGenericContent')
+                    const expiry = formatDate(entitlement.expiresAt) ?? t('commerce.neverExpires')
+                    return (
+                      <CommerceListItem
+                        key={entitlement.id}
+                        className="border-t"
+                        media={
+                          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-bg-primary/70 text-primary">
+                            {fileId ? <FileText size={22} /> : <ShieldCheck size={22} />}
+                          </div>
+                        }
+                        title={title}
+                        subtitle={associatedResource}
+                        meta={
+                          <>
+                            {entitlement.shop?.name && (
+                              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-text-muted">
+                                <Store size={13} />
+                                {entitlement.shop.name}
+                              </span>
+                            )}
+                            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-text-muted">
+                              <CalendarClock size={13} />
+                              {expiry}
+                            </span>
+                          </>
+                        }
+                        action={
+                          <>
+                            {!canOpen && <EntitlementStatus entitlement={entitlement} />}
+                            {canOpen ? (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => openPaidFile.mutate(entitlement)}
+                                disabled={openPaidFile.isPending}
+                              >
+                                <ExternalLink size={14} />
+                                {openPaidFile.isPending
+                                  ? t('commerce.openingResource')
+                                  : t('commerce.openResource')}
+                              </Button>
+                            ) : (
+                              <span className="text-xs font-bold text-text-muted">
+                                {t('commerce.entitlementNoOpenableContent')}
+                              </span>
+                            )}
+                          </>
+                        }
+                      />
+                    )
+                  })}
+                </div>
+              </section>
+            ))}
+          </>
+        )}
+      </CommerceList>
+    </>
+  )
+
   return (
     <div className="flex h-full min-h-0">
       <div className="min-w-0 flex-1">
-        <PageShell>
-          <header className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-black text-primary">
-                <ShieldCheck size={13} />
-                {t('commerce.entitlements')}
-              </div>
-              <h1 className="text-2xl font-black text-text-primary">
-                {t('commerce.entitlements')}
-              </h1>
-              <p className="mt-1 text-sm text-text-muted">{t('commerce.entitlementsSubtitle')}</p>
-            </div>
-            <a
-              href="/app/settings?tab=shop"
-              className="inline-flex items-center gap-2 rounded-xl border border-border-subtle bg-bg-secondary px-3 py-2 text-sm font-bold text-text-primary transition hover:border-primary/40"
-            >
-              <Store size={16} />
-              {t('commerce.myShop')}
-            </a>
-          </header>
-          <GlassPanel className="p-4">
-            {isLoading ? (
-              <div className="py-8 text-center text-text-muted">
-                <Loader2 className="inline animate-spin" />
-              </div>
-            ) : entitlements.length === 0 ? (
-              <div className="py-8 text-center text-sm text-text-muted">
-                {t('commerce.noEntitlements')}
-              </div>
-            ) : (
-              <div className="grid gap-3 lg:grid-cols-2">
-                {entitlements.map((entitlement) => {
-                  const provisioning = parseProvisioning(entitlement.metadata)
-                  const fileId = entitlementPaidFileId(entitlement)
-                  const canOpen = Boolean(fileId && activeEntitlement(entitlement))
-                  const title =
-                    entitlement.product?.name ??
-                    entitlement.paidFile?.name ??
-                    t(`commerce.resourceTypes.${entitlement.resourceType ?? 'service'}`, {
-                      defaultValue: t('commerce.resourceEntitlement'),
-                    })
-                  const resourceType = t(
-                    `commerce.resourceTypes.${entitlement.resourceType ?? 'service'}`,
-                    {
-                      defaultValue: entitlement.resourceType ?? t('commerce.resourceEntitlement'),
-                    },
-                  )
-                  const capability = entitlement.capability
-                    ? t(`commerce.capabilities.${entitlement.capability}`, {
-                        defaultValue: entitlement.capability,
-                      })
-                    : null
-                  const associatedResource =
-                    entitlement.paidFile?.name ??
-                    entitlement.product?.summary ??
-                    entitlement.resourceId ??
-                    entitlement.id
-                  return (
-                    <div
-                      key={entitlement.id}
-                      className="rounded-xl border border-border-subtle bg-bg-secondary/60 p-4"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-black text-text-primary">
-                            {title}
-                          </div>
-                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-muted">
-                            <span>{resourceType}</span>
-                            {capability && <span>{capability}</span>}
-                            {entitlement.shop?.name && <span>{entitlement.shop.name}</span>}
-                          </div>
-                        </div>
-                        <EntitlementStatus entitlement={entitlement} />
-                      </div>
-                      <div className="mt-3 rounded-lg border border-border-subtle bg-bg-primary/40 px-3 py-2 text-xs text-text-secondary">
-                        <div className="font-bold text-text-primary">
-                          {t('commerce.associatedResource')}
-                        </div>
-                        <div className="mt-1 truncate text-text-muted">{associatedResource}</div>
-                      </div>
-                      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-text-muted">
-                        <span>
-                          {t('commerce.expiresAt')}{' '}
-                          {formatDate(entitlement.expiresAt) ?? t('commerce.neverExpires')}
-                        </span>
-                        <ProvisioningPill provisioning={provisioning} />
-                      </div>
-                      {canOpen && (
-                        <div className="mt-3">
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => openPaidFile.mutate(entitlement)}
-                            disabled={openPaidFile.isPending}
-                          >
-                            <ExternalLink size={14} />
-                            {openPaidFile.isPending
-                              ? t('commerce.openingResource')
-                              : t('commerce.openResource')}
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </GlassPanel>
-        </PageShell>
+        {embedded ? <div className="space-y-4">{content}</div> : <PageShell>{content}</PageShell>}
       </div>
       {previewFile && (
-        <FilePreviewPanel attachment={previewFile} onClose={() => setPreviewFile(null)} />
+        <FilePreviewPanel
+          attachment={previewFile}
+          presentation="overlay"
+          onClose={() => setPreviewFile(null)}
+        />
       )}
     </div>
   )
 }
 
-export function ShopOrdersPage() {
+function ShopOrdersContent() {
   const { t } = useTranslation()
   const { data: shop } = useQuery({
     queryKey: ['personal-shop', 'me'],
@@ -925,6 +1143,73 @@ export function ShopOrdersPage() {
     queryFn: () => fetchApi<Entitlement[]>(`/api/shops/${shop!.id}/entitlements`),
     enabled: Boolean(shop?.id),
   })
+
+  return (
+    <CommerceSurface className="p-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="flex items-center gap-2 text-base font-black text-text-primary">
+            <ReceiptText size={18} />
+            {t('commerce.orders')}
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-text-muted">{t('commerce.ordersShelfHint')}</p>
+        </div>
+        <CommercePill tone="primary" icon={<Package size={13} />}>
+          {entitlements.length}
+        </CommercePill>
+      </div>
+      {isLoading ? (
+        <div className="py-8 text-center text-text-muted">
+          <Loader2 className="inline animate-spin" />
+        </div>
+      ) : entitlements.length === 0 ? (
+        <CommerceEmptyState
+          icon={<ReceiptText size={24} />}
+          title={t('commerce.noOrders')}
+          description={t('commerce.noOrdersHint')}
+        />
+      ) : (
+        <CommerceList>
+          {entitlements.map((entitlement) => {
+            const provisioning = parseProvisioning(entitlement.metadata)
+            const title =
+              entitlement.product?.name ??
+              entitlement.paidFile?.name ??
+              entitlement.productId ??
+              entitlement.id
+            const buyerName =
+              entitlement.buyer?.displayName ?? entitlement.buyer?.username ?? entitlement.userId
+            return (
+              <CommerceListItem
+                key={entitlement.id}
+                className="border-t"
+                media={
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-bg-primary/70 text-primary">
+                    <UserRound size={20} />
+                  </div>
+                }
+                title={title}
+                subtitle={`${t('commerce.buyer')} ${buyerName}`}
+                meta={
+                  <>
+                    <CommercePill icon={<CalendarClock size={13} />}>
+                      {formatDate(entitlement.expiresAt) ?? t('commerce.neverExpires')}
+                    </CommercePill>
+                    <ProvisioningPill provisioning={provisioning} />
+                  </>
+                }
+                action={<EntitlementStatus entitlement={entitlement} />}
+              />
+            )
+          })}
+        </CommerceList>
+      )}
+    </CommerceSurface>
+  )
+}
+
+export function ShopOrdersPage() {
+  const { t } = useTranslation()
 
   return (
     <PageShell>
@@ -944,46 +1229,7 @@ export function ShopOrdersPage() {
           {t('commerce.myShop')}
         </a>
       </header>
-      <GlassPanel className="p-4">
-        {isLoading ? (
-          <div className="py-8 text-center text-text-muted">
-            <Loader2 className="inline animate-spin" />
-          </div>
-        ) : entitlements.length === 0 ? (
-          <div className="py-8 text-center text-sm text-text-muted">{t('commerce.noOrders')}</div>
-        ) : (
-          <div className="grid gap-3 lg:grid-cols-2">
-            {entitlements.map((entitlement) => {
-              const provisioning = parseProvisioning(entitlement.metadata)
-              return (
-                <div
-                  key={entitlement.id}
-                  className="rounded-xl border border-border-subtle bg-bg-secondary/60 p-4"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-black text-text-primary">
-                        {entitlement.resourceId ?? entitlement.productId ?? entitlement.id}
-                      </div>
-                      <div className="mt-1 truncate text-xs text-text-muted">
-                        {t('commerce.buyer')} {entitlement.userId}
-                      </div>
-                    </div>
-                    <EntitlementStatus entitlement={entitlement} />
-                  </div>
-                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-text-muted">
-                    <span>
-                      {t('commerce.expiresAt')}{' '}
-                      {formatDate(entitlement.expiresAt) ?? t('commerce.neverExpires')}
-                    </span>
-                    <ProvisioningPill provisioning={provisioning} />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </GlassPanel>
+      <ShopOrdersContent />
     </PageShell>
   )
 }

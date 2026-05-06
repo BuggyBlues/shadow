@@ -17,12 +17,7 @@ import { queryClient } from './lib/query-client'
 import { AppPageRoute } from './pages/apps'
 import { BuddyManagementPage } from './pages/buddy-management'
 import { ChannelView } from './pages/channel-view'
-import {
-  EntitlementsPage,
-  PersonalShopPage,
-  ProductDetailPage,
-  ShopOrdersPage,
-} from './pages/commerce'
+import { PersonalShopPage, ProductDetailPage } from './pages/commerce'
 import { ContractDetailPage } from './pages/contract-detail'
 import { CreateListingPage } from './pages/create-listing'
 import { DevelopersCloudPage } from './pages/developers-cloud'
@@ -212,6 +207,7 @@ const settingsRoute = createRoute({
   validateSearch: (search: Record<string, unknown>) => ({
     tab: (search.tab as string) || undefined,
     dm: (search.dm as string) || undefined,
+    section: (search.section as string) || undefined,
   }),
 })
 
@@ -219,14 +215,14 @@ const settingsSubRoutes = [
   { path: '/settings/quickstart', tab: 'quickstart' },
   { path: '/settings/profile', tab: 'profile' },
   { path: '/settings/account', tab: 'account' },
-  { path: '/settings/invite', tab: 'invite' },
+  { path: '/settings/invite', tab: 'tasks', section: 'invite' },
   { path: '/settings/tasks', tab: 'tasks' },
   { path: '/settings/buddy', tab: 'buddy' },
   { path: '/settings/appearance', tab: 'appearance' },
   { path: '/settings/notification', tab: 'notification' },
   { path: '/settings/friends', tab: 'friends' },
   { path: '/settings/chat', tab: 'chat' },
-].map(({ path, tab }) =>
+].map(({ path, tab, section }) =>
   createRoute({
     getParentRoute: () => appRoute,
     path: path as '/settings/quickstart',
@@ -234,12 +230,13 @@ const settingsSubRoutes = [
     validateSearch: (search: Record<string, unknown>) => ({
       tab: tab,
       dm: (search.dm as string) || undefined,
+      section,
     }),
     beforeLoad: () => {
       // Redirect to main settings route with tab parameter for backward compatibility
       throw redirect({
         to: '/settings',
-        search: { tab },
+        search: { tab, ...(section ? { section } : {}) },
       })
     },
   }),
@@ -320,13 +317,25 @@ const productDetailRoute = createRoute({
 const entitlementsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/settings/entitlements',
-  component: EntitlementsPage,
+  component: SettingsPage,
+  beforeLoad: () => {
+    throw redirect({
+      to: '/settings',
+      search: { tab: 'wallet', section: 'entitlements' },
+    })
+  },
 })
 
 const shopOrdersRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/shop/orders',
-  component: ShopOrdersPage,
+  component: SettingsPage,
+  beforeLoad: () => {
+    throw redirect({
+      to: '/settings',
+      search: { tab: 'shop', section: 'orders' },
+    })
+  },
 })
 
 const cloudRoute = createRoute({

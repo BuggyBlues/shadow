@@ -1,10 +1,10 @@
 import { randomBytes } from 'node:crypto'
 import { and, eq } from 'drizzle-orm'
-import type { EntitlementDao } from '../dao/entitlement.dao'
 import type { WorkspaceNodeDao } from '../dao/workspace-node.dao'
 import type { Database } from '../db'
 import { paidFileGrants } from '../db/schema'
 import { apiError } from '../lib/api-error'
+import type { EntitlementAccessService } from './entitlement-access.service'
 import type { MediaService } from './media.service'
 
 const DEFAULT_GRANT_SECONDS = 5 * 60
@@ -15,21 +15,12 @@ function asRecord(value: unknown): Record<string, unknown> {
     : {}
 }
 
-function isActiveEntitlement(entitlement: {
-  isActive: boolean
-  status: string
-  expiresAt: Date | null
-}) {
-  if (!entitlement.isActive || entitlement.status !== 'active') return false
-  return !entitlement.expiresAt || entitlement.expiresAt.getTime() > Date.now()
-}
-
 export class PaidFileService {
   constructor(
     private deps: {
       db: Database
       workspaceNodeDao: WorkspaceNodeDao
-      entitlementDao: EntitlementDao
+      entitlementAccessService: EntitlementAccessService
       mediaService: MediaService
     },
   ) {}
@@ -45,20 +36,13 @@ export class PaidFileService {
   }
 
   private async findViewerEntitlement(userId: string, fileId: string) {
-    return (
-      (await this.deps.entitlementDao.findActiveResourceEntitlement({
-        userId,
-        resourceType: 'workspace_file',
-        resourceId: fileId,
-        capability: 'view',
-      })) ??
-      (await this.deps.entitlementDao.findActiveResourceEntitlement({
-        userId,
-        resourceType: 'workspace_file',
-        resourceId: fileId,
-        capability: 'use',
-      }))
-    )
+    const access = await this.deps.entitlementAccessService.checkResourceAccess({
+      userId,
+      resourceType: 'workspace_file',
+      resourceId: fileId,
+      capabilities: ['view', 'use'],
+    })
+    return access.entitlement
   }
 
   async getFileState(userId: string, fileId: string) {
@@ -137,13 +121,13 @@ export class PaidFileService {
       throw apiError('PAID_FILE_GRANT_EXPIRED', 403)
     }
 
-    const entitlement = await this.deps.entitlementDao.findById(grant.entitlementId)
-    if (
-      !entitlement ||
-      !isActiveEntitlement(entitlement) ||
-      entitlement.resourceType !== 'workspace_file' ||
-      entitlement.resourceId !== input.fileId
-    ) {
+    const access = await this.deps.entitlementAccessService.checkResourceAccess({
+      userId: grant.userId,
+      resourceType: 'workspace_file',
+      resourceId: input.fileId,
+      capabilities: ['view', 'use'],
+    })
+    if (!access.allowed || access.entitlement?.id !== grant.entitlementId) {
       throw apiError('PAID_FILE_ENTITLEMENT_REQUIRED', 403)
     }
 

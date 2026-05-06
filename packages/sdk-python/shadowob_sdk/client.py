@@ -1052,6 +1052,23 @@ class ShadowClient:
             payload["destinationId"] = destination_id
         return self._post(f"/api/commerce/offers/{offer_id}/purchase", json=payload)
 
+    def get_commerce_offer_checkout_preview(
+        self,
+        offer_id: str,
+        *,
+        sku_id: str | None = None,
+        viewer_user_id: str | None = None,
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {}
+        if sku_id is not None:
+            params["skuId"] = sku_id
+        if viewer_user_id is not None:
+            params["viewerUserId"] = viewer_user_id
+        return self._get(
+            f"/api/commerce/offers/{offer_id}/checkout-preview",
+            params=params or None,
+        )
+
     def create_commerce_offer(self, shop_id: str, **kwargs: Any) -> dict[str, Any]:
         return self._post(f"/api/shops/{shop_id}/offers", json=kwargs)
 
@@ -1249,8 +1266,24 @@ class ShadowClient:
             "refund, settlement, or admin grant."
         )
 
-    def get_wallet_transactions(self) -> list[dict[str, Any]]:
-        return self._get("/api/wallet/transactions")
+    def get_wallet_transactions(
+        self,
+        *,
+        audience: str | None = None,
+        direction: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> list[dict[str, Any]]:
+        params: dict[str, Any] = {}
+        if audience:
+            params["audience"] = audience
+        if direction:
+            params["direction"] = direction
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
+        return self._get("/api/wallet/transactions", params=params or None)
 
     # ── Cloud SaaS Provider Gateway ────────────────────────────────────
 

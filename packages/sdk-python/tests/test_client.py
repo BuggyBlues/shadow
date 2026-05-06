@@ -76,6 +76,57 @@ def test_get_play_catalog_returns_plays(monkeypatch):
     client.close()
 
 
+def test_get_commerce_offer_checkout_preview(monkeypatch):
+    client = ShadowClient("https://example.com", "test-token")
+    captured = {}
+
+    def fake_get(path, *, params=None):
+        captured["path"] = path
+        captured["params"] = params
+        return {"viewerState": "active", "nextAction": "open_paid_file"}
+
+    monkeypatch.setattr(client, "_get", fake_get)
+
+    result = client.get_commerce_offer_checkout_preview(
+        "offer-1", sku_id="sku-1", viewer_user_id="user-2"
+    )
+
+    assert captured == {
+        "path": "/api/commerce/offers/offer-1/checkout-preview",
+        "params": {"skuId": "sku-1", "viewerUserId": "user-2"},
+    }
+    assert result["nextAction"] == "open_paid_file"
+    client.close()
+
+
+def test_get_wallet_transactions_with_display_filters(monkeypatch):
+    client = ShadowClient("https://example.com", "test-token")
+    captured = {}
+
+    def fake_get(path, *, params=None):
+        captured["path"] = path
+        captured["params"] = params
+        return []
+
+    monkeypatch.setattr(client, "_get", fake_get)
+
+    result = client.get_wallet_transactions(
+        audience="consumer", direction="income", limit=20, offset=40
+    )
+
+    assert captured == {
+        "path": "/api/wallet/transactions",
+        "params": {
+            "audience": "consumer",
+            "direction": "income",
+            "limit": 20,
+            "offset": 40,
+        },
+    }
+    assert result == []
+    client.close()
+
+
 def test_socket_creation():
     sock = ShadowSocket("https://example.com", "test-token")
     assert sock.connected is False
