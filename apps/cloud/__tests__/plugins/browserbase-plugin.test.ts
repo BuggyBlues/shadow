@@ -153,6 +153,7 @@ describe('browserbase plugin', () => {
   it('mounts Browserbase runtime deps and official skills into enabled Buddy pods', () => {
     const ctx = makeBuildContext()
     const k8s = browserbasePlugin.k8s?.buildK8s(ctx.agent, {
+      agent: ctx.agent,
       config: ctx.config,
       namespace: ctx.namespace,
     })
@@ -172,7 +173,11 @@ describe('browserbase plugin', () => {
     )
     expect(k8s?.envVars).toEqual(
       expect.arrayContaining([
-        { name: 'PATH', value: '/opt/shadow-plugin-deps/browserbase/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' },
+        {
+          name: 'PATH',
+          value:
+            '/opt/shadow-plugin-deps/browserbase/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+        },
         { name: 'NODE_PATH', value: '/opt/shadow-plugin-deps/browserbase/lib/node_modules' },
       ]),
     )
