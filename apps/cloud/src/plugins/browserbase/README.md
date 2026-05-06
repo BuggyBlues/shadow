@@ -25,7 +25,8 @@ Browserbase BrowserOps gives Shadow Buddies production web execution through Bro
 
 ## Runtime Assets
 
-- Installs `@browserbasehq/mcp-server-browserbase` for MCP-based browser automation.
+- Installs `@browserbasehq/mcp` for MCP-based browser automation.
+- Also installs `@browserbasehq/mcp-server-browserbase` for older Browserbase MCP clients and backward-compatible checks.
 - Installs `@browserbasehq/cli` for the `bb` platform CLI.
 - Installs `@browserbasehq/browse-cli` for the `browse` interactive browser CLI.
 - Installs `@browserbasehq/sdk` for Node.js Browserbase API access.
