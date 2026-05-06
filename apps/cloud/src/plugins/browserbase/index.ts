@@ -83,11 +83,7 @@ const manifest = connectorManifest({
 })
 
 const runtimeDependencies = [
-  npmGlobalDependency(
-    'mcp-server-browserbase',
-    ['@browserbasehq/mcp-server-browserbase'],
-    'Browserbase MCP server',
-  ),
+  npmGlobalDependency('browserbase-mcp', ['@browserbasehq/mcp'], 'Browserbase MCP server'),
   npmGlobalDependency(
     'browserbase-runtime',
     [
@@ -195,9 +191,9 @@ const plugin = defineConnectorPlugin(manifest, {
     id: 'browserbase-mcp',
     transport: 'stdio',
     command: 'npx',
-    args: ['-y', '@browserbasehq/mcp-server-browserbase@latest'],
+    args: ['-y', '@browserbasehq/mcp@latest'],
     description:
-      'Browserbase MCP server for cloud browser sessions, web automation, extraction, screenshots, QA, and replay debugging',
+      'Browserbase MCP server for cloud browser sessions, natural-language act/observe/extract tools, screenshots, QA, and replay debugging',
     requiredEnv: ['BROWSERBASE_API_KEY', 'BROWSERBASE_PROJECT_ID'],
   },
   runtimeDependencies,
@@ -209,7 +205,9 @@ const plugin = defineConnectorPlugin(manifest, {
       '--help',
     ]),
     installedCheck('browserbase-mcp-installed', 'Browserbase MCP server installed', [
-      'mcp-server-browserbase',
+      'npx',
+      '-y',
+      '@browserbasehq/mcp@latest',
       '--help',
     ]),
     {
