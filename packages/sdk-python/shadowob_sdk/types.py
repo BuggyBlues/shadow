@@ -416,6 +416,20 @@ class ShadowCommerceProductPickerGroup:
 
 
 @dataclass
+class ShadowCommerceCheckoutPreview:
+    offer: dict[str, Any]
+    shop: dict[str, Any]
+    product: dict[str, Any]
+    viewer_state: str
+    next_action: str
+    primary_action: str | None = None
+    display_state: dict[str, Any] | None = None
+    entitlement: dict[str, Any] | None = None
+    paid_file: dict[str, Any] | None = None
+    deliverables: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass
 class ShadowEntitlementProvisioning:
     status: str
     code: str

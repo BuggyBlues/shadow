@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createApp } from '../src/app'
 import {
+  agents,
   commerceDeliverables,
   commerceFulfillmentJobs,
   commerceIdempotencyKeys,
@@ -9,6 +10,7 @@ import {
   paidFileGrants,
 } from '../src/db/schema'
 import { CommerceCardService } from '../src/services/commerce-card.service'
+import { CommerceCheckoutService } from '../src/services/commerce-checkout.service'
 import { CommerceFulfillmentService } from '../src/services/commerce-fulfillment.service'
 import { refundByNaturalDay } from '../src/services/entitlement-cancellation.service'
 import { EntitlementProvisionerService } from '../src/services/entitlement-provisioner.service'
@@ -440,7 +442,10 @@ describe('EntitlementPurchaseService', () => {
       senderBuddyUserId: buddyId,
       status: 'active',
     }
-    const ledgerService = { debit: vi.fn(async () => undefined) }
+    const ledgerService = {
+      credit: vi.fn(async () => undefined),
+      debit: vi.fn(async () => undefined),
+    }
     const commerceFulfillmentService = {
       processJobs: vi.fn(async () => [{ id: fulfillmentJobId, status: 'sent' }]),
     }
@@ -495,6 +500,16 @@ describe('EntitlementPurchaseService', () => {
       }),
       expect.anything(),
     )
+    expect(ledgerService.credit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: ownerId,
+        amount: 900,
+        type: 'settlement',
+        referenceId: orderId,
+        referenceType: 'order',
+      }),
+      expect.anything(),
+    )
     expect(db.inserts.find((entry) => entry.table === entitlements)?.data).toMatchObject({
       userId: buyerId,
       productId,
@@ -516,6 +531,91 @@ describe('EntitlementPurchaseService', () => {
     )
     expect(commerceFulfillmentService.processJobs).toHaveBeenCalledWith([fulfillmentJobId])
     expect(result.fulfillmentJobs).toEqual([{ id: fulfillmentJobId, status: 'sent' }])
+    expect(result.nextAction).toBe('open_paid_file')
+  })
+})
+
+describe('CommerceCheckoutService', () => {
+  it('returns active viewer state for purchased paid-file offers', async () => {
+    const service = new CommerceCheckoutService({
+      commerceOfferService: {
+        getOfferBundle: vi.fn(async () => ({
+          offer: createOffer(),
+          product: createProduct(),
+          shop: createShop(),
+        })),
+        listDeliverablesForOffer: vi.fn(async () => [
+          {
+            id: deliverableId,
+            kind: 'paid_file',
+            status: 'active',
+            resourceType: 'workspace_file',
+            resourceId: fileId,
+          },
+        ]),
+      } as any,
+      entitlementAccessService: {
+        checkResourceAccess: vi.fn(async () => ({
+          allowed: true,
+          status: 'active',
+          reasonCode: null,
+          entitlement: { id: entitlementId, status: 'active', capability: 'view', expiresAt: null },
+        })),
+      } as any,
+      workspaceNodeDao: {
+        findById: vi.fn(async () => createFileNode()),
+      } as any,
+      walletService: {
+        getWallet: vi.fn(async () => ({ balance: 100 })),
+      } as any,
+    })
+
+    const preview = await service.previewOffer({ userId: buyerId, offerId, includeWallet: true })
+
+    expect(preview.viewerState).toBe('active')
+    expect(preview.primaryAction).toBe('open_content')
+    expect(preview.displayState).toMatchObject({
+      viewerState: 'active',
+      primaryAction: 'open_content',
+      balance: { current: 100, afterPurchase: -800, shortfall: 800 },
+    })
+    expect(preview.nextAction).toBe('open_paid_file')
+    expect(preview.paidFile).toMatchObject({ id: fileId, name: 'match-animation.html' })
+    expect(preview.entitlement?.access.allowed).toBe(true)
+  })
+
+  it('returns not_purchased viewer state when the user has no entitlement', async () => {
+    const service = new CommerceCheckoutService({
+      commerceOfferService: {
+        getOfferBundle: vi.fn(async () => ({
+          offer: createOffer(),
+          product: createProduct(),
+          shop: createShop(),
+        })),
+        listDeliverablesForOffer: vi.fn(async () => []),
+      } as any,
+      entitlementAccessService: {
+        checkResourceAccess: vi.fn(async () => ({
+          allowed: false,
+          status: 'not_found',
+          reasonCode: 'ENTITLEMENT_NOT_FOUND',
+          entitlement: null,
+        })),
+      } as any,
+      workspaceNodeDao: {
+        findById: vi.fn(async () => createFileNode()),
+      } as any,
+      walletService: {
+        getWallet: vi.fn(async () => ({ balance: 1000 })),
+      } as any,
+    })
+
+    const preview = await service.previewOffer({ userId: buyerId, offerId })
+
+    expect(preview.viewerState).toBe('not_purchased')
+    expect(preview.primaryAction).toBe('purchase')
+    expect(preview.displayState.primaryAction).toBe('purchase')
+    expect(preview.nextAction).toBe('purchase')
   })
 })
 
@@ -528,9 +628,13 @@ describe('PaidFileService', () => {
       workspaceNodeDao: {
         findById: vi.fn(async () => createFileNode()),
       } as any,
-      entitlementDao: {
-        findActiveResourceEntitlement: vi.fn(async () => entitlement),
-        findById: vi.fn(async () => entitlement),
+      entitlementAccessService: {
+        checkResourceAccess: vi.fn(async () => ({
+          allowed: true,
+          status: 'active',
+          reasonCode: null,
+          entitlement,
+        })),
       } as any,
       mediaService: {
         getFileBuffer: vi.fn(async () => Buffer.from('<html>match</html>')),
@@ -557,11 +661,25 @@ describe('PaidFileService', () => {
       workspaceNodeDao: {
         findById: vi.fn(async () => createFileNode()),
       } as any,
-      entitlementDao: {
-        findActiveResourceEntitlement: vi.fn(async () => createEntitlement()),
-        findById: vi.fn(async () =>
-          createEntitlement({ isActive: false, status: 'revoked', revokedAt: new Date() }),
-        ),
+      entitlementAccessService: {
+        checkResourceAccess: vi
+          .fn()
+          .mockResolvedValueOnce({
+            allowed: true,
+            status: 'active',
+            reasonCode: null,
+            entitlement: createEntitlement(),
+          })
+          .mockResolvedValueOnce({
+            allowed: false,
+            status: 'revoked',
+            reasonCode: 'ENTITLEMENT_REVOKED',
+            entitlement: createEntitlement({
+              isActive: false,
+              status: 'revoked',
+              revokedAt: new Date(),
+            }),
+          }),
       } as any,
       mediaService: {
         getFileBuffer: vi.fn(async () => Buffer.from('<html>match</html>')),
@@ -689,13 +807,16 @@ function createPurchaseDb() {
     inserts,
     updates,
     select: () => ({
-      from() {
+      table: null as unknown,
+      from(table: unknown) {
+        this.table = table
         return this
       },
       where() {
         return this
       },
       limit() {
+        if (this.table === agents) return Promise.resolve([{ ownerId }])
         return Promise.resolve([])
       },
     }),

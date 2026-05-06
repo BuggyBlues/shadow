@@ -17,6 +17,7 @@ import type {
 } from '../types.js'
 import {
   buildCommerceContextForAgent,
+  buildCommerceViewerContextForAgent,
   commerceContextFields,
   inferCommerceOfferIdForReply,
 } from './commerce-context.js'
@@ -176,9 +177,16 @@ export async function processShadowMessage(params: {
   const messageBodyForAgent = interactiveResponseContext.text
     ? `${interactiveResponseContext.text}\n\nUser message:\n${baseBodyForAgent}`
     : baseBodyForAgent
+  const client = new ShadowClient(account.serverUrl, account.token)
+  const viewerCommerceContext = await buildCommerceViewerContextForAgent({
+    account,
+    client,
+    viewerUserId: senderId,
+  })
   const bodyForAgent = [
     buildChannelContextForAgent(serverInfo, channelId),
     buildCommerceContextForAgent(account),
+    viewerCommerceContext,
     mentionContext,
     messageBodyForAgent,
   ]
@@ -290,7 +298,6 @@ export async function processShadowMessage(params: {
   }
 
   runtime.log?.(`[msg] Dispatching to AI pipeline for message ${message.id}`)
-  const client = new ShadowClient(account.serverUrl, account.token)
 
   const typingCbs = createTypingCallbacks({
     start: async () => {

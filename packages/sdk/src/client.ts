@@ -12,6 +12,7 @@ import type {
   ShadowCloudProviderCatalog,
   ShadowCloudProviderModel,
   ShadowCloudProviderProfile,
+  ShadowCommerceCheckoutPreview,
   ShadowCommerceProductCard,
   ShadowCommerceProductPickerResponse,
   ShadowContract,
@@ -1767,6 +1768,17 @@ export class ShadowClient {
     })
   }
 
+  async getCommerceOfferCheckoutPreview(
+    offerId: string,
+    params?: { skuId?: string; viewerUserId?: string },
+  ): Promise<ShadowCommerceCheckoutPreview> {
+    const qs = new URLSearchParams()
+    if (params?.skuId) qs.set('skuId', params.skuId)
+    if (params?.viewerUserId) qs.set('viewerUserId', params.viewerUserId)
+    const suffix = qs.toString() ? `?${qs}` : ''
+    return this.request(`/api/commerce/offers/${offerId}/checkout-preview${suffix}`)
+  }
+
   async createCommerceOffer(
     shopId: string,
     data: {
@@ -2065,8 +2077,19 @@ export class ShadowClient {
     )
   }
 
-  async getWalletTransactions(): Promise<ShadowTransaction[]> {
-    return this.request('/api/wallet/transactions')
+  async getWalletTransactions(params?: {
+    audience?: 'ledger' | 'consumer'
+    direction?: 'all' | 'income' | 'expense'
+    limit?: number
+    offset?: number
+  }): Promise<ShadowTransaction[]> {
+    const qs = new URLSearchParams()
+    if (params?.audience) qs.set('audience', params.audience)
+    if (params?.direction) qs.set('direction', params.direction)
+    if (params?.limit != null) qs.set('limit', String(params.limit))
+    if (params?.offset != null) qs.set('offset', String(params.offset))
+    const suffix = qs.toString() ? `?${qs}` : ''
+    return this.request(`/api/wallet/transactions${suffix}`)
   }
 
   // ── Cloud SaaS Provider Gateway ─────────────────────────────────────

@@ -25,7 +25,7 @@ interface InviteCode {
   } | null
 }
 
-export function InviteSettings() {
+export function InviteSettings({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
 
@@ -100,8 +100,8 @@ export function InviteSettings() {
     }
   }
 
-  return (
-    <SettingsPanel>
+  const content = (
+    <>
       {/* Referral banner */}
       <SettingsCard className="bg-gradient-to-r from-primary/10 to-success/10 border-primary/20">
         <p className="text-sm font-black text-text-primary">
@@ -279,6 +279,10 @@ export function InviteSettings() {
           </div>
         )}
       </SettingsSectionBlock>
-    </SettingsPanel>
+    </>
   )
+
+  if (embedded) return content
+
+  return <SettingsPanel>{content}</SettingsPanel>
 }

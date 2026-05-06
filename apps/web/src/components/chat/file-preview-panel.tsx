@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { fetchApi } from '../../lib/api'
 import { useUIStore } from '../../stores/ui.store'
 
 // ── Types ──────────────────────────────────────────────────────────────
@@ -23,11 +24,13 @@ interface PreviewAttachment {
   url: string
   contentType: string
   size: number
+  paidFileId?: string
 }
 
 interface FilePreviewPanelProps {
   attachment: PreviewAttachment
   onClose: () => void
+  presentation?: 'inline' | 'overlay'
 }
 
 // ── Utilities ──────────────────────────────────────────────────────────
@@ -226,9 +229,7 @@ async function loadZipEntries(url: string): Promise<ZipEntry[]> {
   zip.forEach((relativePath, file) => {
     entries.push({
       name: relativePath,
-      // biome-ignore lint/suspicious/noExplicitAny: JSZip internal structure
       size: (file as any)._data?.uncompressedSize ?? 0,
-      // biome-ignore lint/suspicious/noExplicitAny: JSZip internal structure
       compressedSize: (file as any)._data?.compressedSize ?? 0,
       isDirectory: file.dir,
     })
@@ -243,7 +244,6 @@ async function loadZipEntries(url: string): Promise<ZipEntry[]> {
 
 // ── Syntax Highlighter (lazy-loaded) ───────────────────────────────────
 
-// biome-ignore lint/suspicious/noExplicitAny: shiki highlighter type is complex
 let highlighterPromise: Promise<any> | null = null
 
 function getHighlighter() {
@@ -614,7 +614,6 @@ function HighlightedCode({ text, lang }: { text: string; lang: string }) {
       <div
         ref={containerRef}
         className="shiki-container text-[13px] leading-relaxed select-text [&_pre]:!bg-transparent [&_pre]:!p-4 [&_pre]:!m-0 [&_code]:!bg-transparent [&_.line]:whitespace-pre-wrap [&_.line]:break-words"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: shiki output is trusted
         dangerouslySetInnerHTML={{ __html: html }}
       />
     )
@@ -666,7 +665,7 @@ function HTMLPreview({ text, url }: { text?: string; url: string }) {
       srcDoc={text}
       title="HTML Preview"
       sandbox="allow-scripts allow-forms allow-popups allow-modals"
-      className="w-full h-full border-0 bg-white rounded"
+      className="h-full w-full rounded-xl border-0 bg-bg-primary"
     />
   )
 }
@@ -685,9 +684,14 @@ function HTMLPreview({ text, url }: { text?: string; url: string }) {
  * - ZIP archive file listing
  * - Image / Audio / Video / PDF native preview
  */
-export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps) {
+export function FilePreviewPanel({
+  attachment,
+  onClose,
+  presentation = 'inline',
+}: FilePreviewPanelProps) {
   const { t } = useTranslation()
   const [textContent, setTextContent] = useState<string | null>(null)
+  const [currentAttachment, setCurrentAttachment] = useState(attachment)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [mode, setMode] = useState<'preview' | 'code'>('preview')
@@ -695,11 +699,14 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
   const setFilePreviewOpen = useUIStore((s) => s.setFilePreviewOpen)
 
   // Drag-to-resize state
-  const [panelWidth, setPanelWidth] = useState(520)
+  const [panelWidth, setPanelWidth] = useState(640)
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window === 'undefined' ? 1440 : window.innerWidth,
+  )
   const [isResizing, setIsResizing] = useState(false)
   const isDragging = useRef(false)
   const dragStartX = useRef(0)
-  const dragStartWidth = useRef(520)
+  const dragStartWidth = useRef(640)
 
   const handleDragStart = useCallback(
     (e: React.MouseEvent) => {
@@ -714,8 +721,7 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
       const handleMouseMove = (ev: MouseEvent) => {
         if (!isDragging.current) return
         const delta = dragStartX.current - ev.clientX
-        // Limit: min 320px, max = window width minus 400px for message area (at least)
-        const maxWidth = Math.min(window.innerWidth * 0.6, window.innerWidth - 400)
+        const maxWidth = Math.max(320, Math.min(window.innerWidth - 24, window.innerWidth * 0.72))
         const newWidth = Math.max(320, Math.min(maxWidth, dragStartWidth.current + delta))
         setPanelWidth(newWidth)
       }
@@ -741,8 +747,18 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
     return () => setFilePreviewOpen(false)
   }, [setFilePreviewOpen])
 
-  const ext = attachment.filename.split('.').pop()?.toLowerCase() ?? ''
-  const category = getFileCategory(attachment.contentType, ext)
+  useEffect(() => setCurrentAttachment(attachment), [attachment])
+
+  useEffect(() => {
+    const handleResize = () => setViewportWidth(window.innerWidth)
+
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  const ext = currentAttachment.filename.split('.').pop()?.toLowerCase() ?? ''
+  const category = getFileCategory(currentAttachment.contentType, ext)
   const showToggle = hasPreviewMode(category)
 
   // Fetch text content for text-based files
@@ -756,7 +772,8 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
     setTextContent(null)
     setMode('preview')
 
-    fetch(attachment.url)
+    let retriedGrant = false
+    fetch(currentAttachment.url)
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         return res.text()
@@ -769,9 +786,20 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
           setTextContent(text)
         }
       })
-      .catch((err) => setError(err.message))
+      .catch(async (err) => {
+        if (!retriedGrant && currentAttachment.paidFileId && /HTTP 40[13]/.test(err.message)) {
+          retriedGrant = true
+          const result = await fetchApi<{ viewerUrl: string }>(
+            `/api/paid-files/${currentAttachment.paidFileId}/open`,
+            { method: 'POST' },
+          )
+          setCurrentAttachment((prev) => ({ ...prev, url: result.viewerUrl }))
+          return
+        }
+        setError(err.message)
+      })
       .finally(() => setLoading(false))
-  }, [attachment.url, category])
+  }, [currentAttachment.url, currentAttachment.paidFileId, category])
 
   // Close on Escape key (exit fullscreen first if in fullscreen)
   useEffect(() => {
@@ -794,8 +822,8 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
       return (
         <div className="flex-1 flex items-center justify-center p-4 overflow-auto">
           <img
-            src={attachment.url}
-            alt={attachment.filename}
+            src={currentAttachment.url}
+            alt={currentAttachment.filename}
             className="max-w-full max-h-full object-contain rounded-lg"
           />
         </div>
@@ -806,7 +834,7 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
     if (category === 'audio') {
       return (
         <div className="flex-1 flex items-center justify-center p-6">
-          <audio controls src={attachment.url} className="w-full max-w-md">
+          <audio controls src={currentAttachment.url} className="w-full max-w-md">
             <track kind="captions" />
           </audio>
         </div>
@@ -817,7 +845,7 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
     if (category === 'video') {
       return (
         <div className="flex-1 flex items-center justify-center p-4 overflow-auto">
-          <video controls src={attachment.url} className="max-w-full max-h-full rounded-lg">
+          <video controls src={currentAttachment.url} className="max-w-full max-h-full rounded-lg">
             <track kind="captions" />
           </video>
         </div>
@@ -829,8 +857,8 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
       return (
         <div className="flex-1 overflow-hidden p-2">
           <iframe
-            src={attachment.url}
-            title={attachment.filename}
+            src={currentAttachment.url}
+            title={currentAttachment.filename}
             className="w-full h-full rounded-lg border border-border-subtle"
           />
         </div>
@@ -839,13 +867,13 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
 
     // Archive / ZIP
     if (category === 'archive') {
-      return <ZipListing url={attachment.url} />
+      return <ZipListing url={currentAttachment.url} />
     }
 
     // Excel / XLSX
     if (category === 'xlsx') {
       if (mode === 'preview') {
-        return <ExcelTable url={attachment.url} />
+        return <ExcelTable url={currentAttachment.url} />
       }
       // Code mode: show as JSON
       return (
@@ -878,8 +906,8 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
         <div className="flex-1 flex flex-col items-center justify-center text-text-muted gap-3 p-6">
           <p className="text-sm">{t('chat.previewUnsupported')}</p>
           <a
-            href={attachment.url}
-            download={attachment.filename}
+            href={currentAttachment.url}
+            download={currentAttachment.filename}
             className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-medium transition flex items-center gap-2"
           >
             <Download size={14} />
@@ -924,7 +952,7 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
       if (mode === 'preview') {
         return (
           <div className="flex-1 overflow-hidden p-2">
-            <HTMLPreview text={textContent} url={attachment.url} />
+            <HTMLPreview text={textContent} url={currentAttachment.url} />
           </div>
         )
       }
@@ -942,19 +970,36 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
         <HighlightedCode text={textContent} lang={lang} />
       </div>
     )
-  }, [category, attachment, loading, error, textContent, mode, ext, t])
+  }, [category, currentAttachment, loading, error, textContent, mode, ext, t])
 
+  const panelBaseClasses =
+    'flex flex-col overflow-hidden border border-border-subtle bg-bg-secondary/88 shadow-[0_24px_80px_rgba(0,0,0,0.38)] backdrop-blur-2xl'
+  const shouldUseSheet = presentation === 'overlay' || viewportWidth < 1440
+  const isNarrowSheet = shouldUseSheet && viewportWidth < 720
+  const maxInlineWidth = Math.min(680, Math.max(420, viewportWidth - 1040))
+  const inlineWidth = Math.max(420, Math.min(panelWidth, maxInlineWidth))
+  const sheetWidth = Math.min(panelWidth, Math.max(320, viewportWidth - 24))
   const panelClasses = isFullscreen
-    ? 'fixed inset-0 z-50 bg-bg-secondary flex flex-col animate-fade-in'
-    : 'h-full bg-bg-secondary border-l border-border-subtle flex flex-col shrink-0 animate-slide-in-right relative'
+    ? `fixed inset-2 z-50 rounded-3xl animate-fade-in ${panelBaseClasses}`
+    : shouldUseSheet
+      ? `${isNarrowSheet ? 'fixed inset-2' : 'fixed inset-y-3 right-3'} z-40 rounded-3xl animate-slide-in-right ${panelBaseClasses}`
+      : `relative my-3 mr-3 ml-2 h-[calc(100%-24px)] shrink-0 rounded-3xl animate-slide-in-right ${panelBaseClasses}`
+  const panelStyle =
+    isFullscreen || isNarrowSheet ? undefined : { width: shouldUseSheet ? sheetWidth : inlineWidth }
 
   return (
     <>
       {/* Fullscreen backdrop */}
       {isFullscreen && (
-        <div className="fixed inset-0 z-40 bg-bg-deep/60" onClick={() => setIsFullscreen(false)} />
+        <div
+          className="fixed inset-0 z-40 bg-bg-deep/55 backdrop-blur-sm"
+          onClick={() => setIsFullscreen(false)}
+        />
       )}
-      <div className={panelClasses} style={isFullscreen ? undefined : { width: panelWidth }}>
+      {shouldUseSheet && !isFullscreen && (
+        <div className="fixed inset-0 z-30 bg-bg-deep/35 backdrop-blur-[2px]" onClick={onClose} />
+      )}
+      <div className={panelClasses} style={isFullscreen ? undefined : panelStyle}>
         {/* Transparent overlay during drag to prevent iframe from capturing mouse events */}
         {isResizing && <div className="absolute inset-0 z-20" />}
         {/* Drag handle on left edge */}
@@ -967,10 +1012,12 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
           </div>
         )}
         {/* Header */}
-        <div className="h-12 px-4 flex items-center gap-3 border-b border-border-subtle shrink-0">
+        <div className="m-1.5 mb-0 flex min-h-12 shrink-0 items-center gap-2.5 rounded-[20px] border border-border-subtle/70 bg-bg-primary/45 px-3 py-1.5">
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-text-primary truncate">{attachment.filename}</p>
-            <p className="text-[11px] text-text-muted">{formatFileSize(attachment.size)}</p>
+            <p className="text-sm font-medium text-text-primary truncate">
+              {currentAttachment.filename}
+            </p>
+            <p className="text-[11px] text-text-muted">{formatFileSize(currentAttachment.size)}</p>
           </div>
 
           {showToggle && (
@@ -999,8 +1046,8 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
             {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
           </button>
           <a
-            href={attachment.url}
-            download={attachment.filename}
+            href={currentAttachment.url}
+            download={currentAttachment.filename}
             className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-modifier-hover rounded-md transition"
             title={t('chat.downloadFile')}
           >
@@ -1017,7 +1064,11 @@ export function FilePreviewPanel({ attachment, onClose }: FilePreviewPanelProps)
         </div>
 
         {/* Preview content */}
-        {renderContent()}
+        <div className="min-h-0 flex-1 p-1.5">
+          <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[20px] border border-border-subtle/70 bg-bg-primary/45">
+            {renderContent()}
+          </div>
+        </div>
       </div>
     </>
   )

@@ -1,18 +1,7 @@
 import { cn, GlassHeader, GlassPanel } from '@shadowob/ui'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import {
-  Bot,
-  Gift,
-  MessageCircle,
-  Monitor,
-  Package,
-  Settings,
-  ShieldCheck,
-  Store,
-  Target,
-  Wallet,
-} from 'lucide-react'
+import { Bot, MessageCircle, Monitor, Settings, Store, Target, Wallet } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { UserAvatar } from '../../components/common/avatar'
@@ -22,23 +11,15 @@ import { useUnreadCount } from '../../hooks/use-unread-count'
 import { fetchApi } from '../../lib/api'
 import { useAuthStore } from '../../stores/auth.store'
 import { BuddyManagementContent } from '../buddy-management'
-import { EntitlementsPage, PersonalShopPage, ShopOrdersPage } from '../commerce'
+import { PersonalShopPage } from '../commerce'
 import { DmChatView } from '../dm-chat'
 import { UnifiedContactSidebar } from '../friends'
-import { InviteSettings } from './invite'
 import { SettingsModal } from './settings-modal'
 import { TaskSettings } from './tasks'
 import { WalletSettings } from './wallet'
 
-type SettingsTab =
-  | 'dm'
-  | 'buddy'
-  | 'tasks'
-  | 'wallet'
-  | 'invite'
-  | 'shop'
-  | 'entitlements'
-  | 'commerce-orders'
+type SettingsTab = 'dm' | 'buddy' | 'tasks' | 'wallet' | 'shop'
+type MergedSettingsSection = 'invite' | 'entitlements' | 'orders'
 
 interface NavItem {
   id: SettingsTab
@@ -52,28 +33,44 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'buddy', icon: Bot, labelKey: 'settings.tabBuddy', labelFallback: '我的 Buddy' },
   { id: 'tasks', icon: Target, labelKey: 'settings.tabTasks', labelFallback: '赚取虾币' },
   { id: 'wallet', icon: Wallet, labelKey: 'settings.tabWallet', labelFallback: '钱包' },
-  { id: 'invite', icon: Gift, labelKey: 'settings.tabInvite', labelFallback: '邀请返利' },
   { id: 'shop', icon: Store, labelKey: 'settings.tabShop', labelFallback: '我的店铺' },
-  {
-    id: 'entitlements',
-    icon: ShieldCheck,
-    labelKey: 'settings.tabEntitlements',
-    labelFallback: '我的权益',
-  },
-  {
-    id: 'commerce-orders',
-    icon: Package,
-    labelKey: 'settings.tabCommerceOrders',
-    labelFallback: '发货记录',
-  },
 ]
+
+function normalizeSettingsLocation(
+  tab?: string,
+  section?: string,
+): { tab: SettingsTab; section?: MergedSettingsSection } {
+  if (tab === 'invite') return { tab: 'tasks' as const, section: 'invite' as const }
+  if (tab === 'entitlements') {
+    return { tab: 'wallet' as const, section: 'entitlements' as const }
+  }
+  if (tab === 'commerce-orders') return { tab: 'shop' as const, section: 'orders' as const }
+  if (tab === 'tasks' && section === 'invite') {
+    return { tab: 'tasks' as const, section: 'invite' as const }
+  }
+  if (tab === 'wallet' && section === 'entitlements') {
+    return { tab: 'wallet' as const, section: 'entitlements' as const }
+  }
+  if (tab === 'shop' && section === 'orders') {
+    return { tab: 'shop' as const, section: 'orders' as const }
+  }
+  if (tab === 'buddy' || tab === 'tasks' || tab === 'wallet' || tab === 'shop' || tab === 'dm') {
+    return { tab }
+  }
+  return { tab: 'dm' as const }
+}
 
 export function SettingsPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const unreadCount = useUnreadCount()
-  const searchParams = useSearch({ strict: false }) as { tab?: string; dm?: string }
+  const searchParams = useSearch({ strict: false }) as {
+    tab?: string
+    dm?: string
+    section?: string
+  }
   const { user } = useAuthStore()
+  const normalizedLocation = normalizeSettingsLocation(searchParams.tab, searchParams.section)
 
   useAppStatus({
     title: t('settings.sidebarTitle'),
@@ -88,7 +85,7 @@ export function SettingsPage() {
     : undefined
 
   const [activeTab, setActiveTab] = useState<SettingsTab>(
-    initialModalTab ? 'dm' : (searchParams.tab as SettingsTab) || 'dm',
+    initialModalTab ? 'dm' : normalizedLocation.tab,
   )
   const [activeDmChannelId, setActiveDmChannelId] = useState<string | null>(searchParams.dm || null)
   const [settingsModalOpen, setSettingsModalOpen] = useState(!!initialModalTab)
@@ -108,13 +105,13 @@ export function SettingsPage() {
       if (isModalTab) {
         setSettingsModalOpen(true)
       } else {
-        setActiveTab(searchParams.tab as SettingsTab)
+        setActiveTab(normalizeSettingsLocation(searchParams.tab, searchParams.section).tab)
       }
     }
     if (searchParams.dm !== undefined) {
       setActiveDmChannelId(searchParams.dm || null)
     }
-  }, [searchParams.tab, searchParams.dm, isModalTab])
+  }, [searchParams.tab, searchParams.section, searchParams.dm, isModalTab])
 
   const handleTabChange = (tab: SettingsTab) => {
     setActiveTab(tab)
@@ -126,6 +123,8 @@ export function SettingsPage() {
   }
 
   const activeNavItem = NAV_ITEMS.find((n) => n.id === activeTab)
+  const activeSection: MergedSettingsSection | undefined =
+    normalizedLocation.tab === activeTab ? normalizedLocation.section : undefined
 
   if (!user) return null
 
@@ -275,13 +274,22 @@ export function SettingsPage() {
 
             <div className="flex-1 overflow-y-auto">
               <div className="max-w-4xl mx-auto p-4 md:p-8">
-                {activeTab === 'invite' && <InviteSettings />}
-                {activeTab === 'tasks' && <TaskSettings />}
-                {activeTab === 'wallet' && <WalletSettings />}
+                {activeTab === 'tasks' && (
+                  <TaskSettings initialSection={activeSection === 'invite' ? 'invite' : 'tasks'} />
+                )}
+                {activeTab === 'wallet' && (
+                  <WalletSettings
+                    initialSection={
+                      activeSection === 'entitlements' ? 'entitlements' : 'transactions'
+                    }
+                  />
+                )}
                 {activeTab === 'buddy' && <BuddyManagementContent />}
-                {activeTab === 'shop' && <PersonalShopPage />}
-                {activeTab === 'entitlements' && <EntitlementsPage />}
-                {activeTab === 'commerce-orders' && <ShopOrdersPage />}
+                {activeTab === 'shop' && (
+                  <PersonalShopPage
+                    initialSection={activeSection === 'orders' ? 'orders' : 'shop'}
+                  />
+                )}
               </div>
             </div>
           </GlassPanel>

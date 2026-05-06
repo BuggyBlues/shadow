@@ -20,6 +20,9 @@ export interface PurchaseConfirmationDetails {
   durationLabel?: string | null
   targetLabel?: string | null
   deliveryLabel?: string | null
+  shopLabel?: string | null
+  paidFileLabel?: string | null
+  accessStateLabel?: string | null
 }
 
 interface PurchaseConfirmationModalProps {
@@ -53,7 +56,7 @@ export function PurchaseConfirmationModal({
   isCompleted = false,
   error,
   provisioningStatus,
-  viewEntitlementHref = '/app/settings?tab=entitlements',
+  viewEntitlementHref = '/app/settings?tab=wallet&section=entitlements',
   onClose,
   onConfirm,
 }: PurchaseConfirmationModalProps) {
@@ -94,10 +97,13 @@ export function PurchaseConfirmationModal({
 
           <div className="grid gap-2 sm:grid-cols-2">
             <InfoRow label={t('commerce.billingMode')} value={details.billingModeLabel} />
+            <InfoRow label={t('commerce.seller')} value={details.shopLabel} />
             <InfoRow label={t('commerce.entitlementInfo')} value={details.entitlementLabel} />
             <InfoRow label={t('commerce.durationLabel')} value={details.durationLabel} />
             <InfoRow label={t('commerce.entitlementTarget')} value={details.targetLabel} />
             <InfoRow label={t('commerce.deliveryMethod')} value={details.deliveryLabel} />
+            <InfoRow label={t('commerce.paidFile')} value={details.paidFileLabel} />
+            <InfoRow label={t('commerce.accessState')} value={details.accessStateLabel} />
           </div>
 
           {isCompleted && (
