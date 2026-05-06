@@ -85,6 +85,11 @@ const manifest = connectorManifest({
 const runtimeDependencies = [
   npmGlobalDependency('browserbase-mcp', ['@browserbasehq/mcp'], 'Browserbase MCP server'),
   npmGlobalDependency(
+    'mcp-server-browserbase',
+    ['@browserbasehq/mcp-server-browserbase'],
+    'Legacy Browserbase MCP server package kept for older MCP clients and tests',
+  ),
+  npmGlobalDependency(
     'browserbase-runtime',
     [
       '@browserbasehq/cli',
