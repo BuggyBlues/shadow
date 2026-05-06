@@ -83,7 +83,7 @@ The global connector batch also stays plugin-first. Existing plugins were enhanc
 - Firebase: installs `firebase-tools` plus `firebase-mcp` and mounts official `firebase/agent-skills` for Auth, Firestore, Hosting, Security Rules, Genkit, AI Logic, and Crashlytics.
 - Firecrawl: installs `firecrawl-cli` and `firecrawl-mcp` for crawl, search, scrape, and extraction workflows.
 - Playwright: installs `playwright` and `@playwright/mcp` for browser automation, E2E, visual QA, screenshots, and traces.
-- Browserbase: installs `@browserbasehq/mcp-server-browserbase` for cloud browser sessions and Stagehand-style workflows.
+- Browserbase: installs `@browserbasehq/mcp`, keeps `@browserbasehq/mcp-server-browserbase` for compatibility, installs `@browserbasehq/cli`, `@browserbasehq/browse-cli`, `@browserbasehq/sdk`, `@browserbasehq/stagehand`, `@browserbasehq/sdk-functions`, and `playwright`, and mounts official skills from `browserbase/skills` for browser, Fetch, Search, Functions, site debugging, traces, safe browsing, usage analytics, cookie sync, and UI testing workflows.
 - Supabase and Cloudflare: keep their existing CLI/MCP plugins and now mount official agent skills from `supabase/agent-skills` and `cloudflare/skills`.
 
 ## China Connector Cross-Check
