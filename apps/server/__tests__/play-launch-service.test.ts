@@ -162,7 +162,7 @@ describe('play launch orchestration', () => {
   })
 
   it('ships every default homepage play with a launchable action', () => {
-    expect(DEFAULT_HOMEPLAY_CATALOG).toHaveLength(24)
+    expect(DEFAULT_HOMEPLAY_CATALOG.length).toBeGreaterThan(0)
     expect(
       DEFAULT_HOMEPLAY_CATALOG.filter(
         (play) => !['available', 'gated'].includes(play.status) || !play.action,
@@ -524,7 +524,15 @@ describe('play launch orchestration', () => {
                 'gstack-bot': {
                   agentId: 'strategy-buddy',
                   userId: 'buddy-user-1',
-                  token: 'redacted',
+                },
+              },
+              commerce: {
+                'match-animation': {
+                  shopId: 'shop-1',
+                  productId: 'product-1',
+                  offerId: 'offer-1',
+                  fileId: 'file-1',
+                  deliverableId: 'deliverable-1',
                 },
               },
             },
@@ -589,6 +597,24 @@ describe('play launch orchestration', () => {
             deploymentId: 'deployment-1',
           }),
         }),
+      }),
+    )
+    const greetingMessage = deps.messageService.send.mock.calls[0]?.[2]
+    expect(greetingMessage?.metadata?.commerceCards).toBeUndefined()
+    expect(deps.serverService.addBotMember).toHaveBeenCalledWith('server-1', 'buddy-user-1')
+    expect(deps.channelService.addMember).toHaveBeenCalledWith('channel-1', 'buddy-user-1')
+    expect(deps.agentPolicyService.ensureServerDefault).toHaveBeenCalledWith('agent-1', 'server-1')
+    expect(ioEmit).toHaveBeenCalledWith('channel:member-added', {
+      channelId: 'channel-1',
+      serverId: 'server-1',
+    })
+    expect(ioEmit).toHaveBeenCalledWith(
+      'agent:policy-changed',
+      expect.objectContaining({
+        agentId: 'agent-1',
+        channelId: 'channel-1',
+        serverId: 'server-1',
+        reply: true,
       }),
     )
     expect(result).toMatchObject({

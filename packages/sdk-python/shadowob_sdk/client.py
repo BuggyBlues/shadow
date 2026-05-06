@@ -11,7 +11,7 @@ from typing import Any
 
 import httpx
 
-from .types import ShadowAgentUsageSnapshotInput
+from .types import ShadowAgentUsageSnapshotInput, ShadowEntitlement
 
 
 _USAGE_SNAPSHOT_FIELD_ALIASES = {
@@ -751,6 +751,45 @@ class ShadowClient:
     def update_notification_preferences(self, **kwargs: Any) -> dict[str, Any]:
         return self._patch("/api/notifications/preferences", json=kwargs)
 
+    def get_notification_channel_preferences(self) -> list[dict[str, Any]]:
+        return self._get("/api/notifications/channel-preferences")
+
+    def update_notification_channel_preference(
+        self,
+        *,
+        kind: str,
+        channel: str,
+        enabled: bool,
+    ) -> dict[str, Any]:
+        return self._patch(
+            "/api/notifications/channel-preferences",
+            json={"kind": kind, "channel": channel, "enabled": enabled},
+        )
+
+    def register_push_token(
+        self,
+        *,
+        platform: str,
+        token: str,
+        device_name: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"platform": platform, "token": token}
+        if device_name is not None:
+            payload["deviceName"] = device_name
+        return self._post("/api/notifications/push-tokens", json=payload)
+
+    def register_web_push_subscription(
+        self,
+        *,
+        endpoint: str,
+        keys: dict[str, str],
+        user_agent: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"endpoint": endpoint, "keys": keys}
+        if user_agent is not None:
+            payload["userAgent"] = user_agent
+        return self._post("/api/notifications/web-push-subscriptions", json=payload)
+
     # ── Search ───────────────────────────────────────────────────────────
 
     def search_messages(
@@ -944,6 +983,140 @@ class ShadowClient:
     def get_shop(self, server_id: str) -> dict[str, Any]:
         return self._get(f"/api/servers/{server_id}/shop")
 
+    def get_my_shop(self) -> dict[str, Any]:
+        return self._get("/api/me/shop")
+
+    def upsert_my_shop(self, **kwargs: Any) -> dict[str, Any]:
+        return self._post("/api/me/shop", json=kwargs)
+
+    def get_user_shop(self, user_id: str) -> dict[str, Any]:
+        return self._get(f"/api/users/{user_id}/shop")
+
+    def get_managed_user_shop(self, user_id: str) -> dict[str, Any]:
+        return self._get(f"/api/users/{user_id}/shop/manage")
+
+    def upsert_managed_user_shop(self, user_id: str, **kwargs: Any) -> dict[str, Any]:
+        return self._post(f"/api/users/{user_id}/shop/manage", json=kwargs)
+
+    def get_shop_by_id(self, shop_id: str) -> dict[str, Any]:
+        return self._get(f"/api/shops/{shop_id}")
+
+    def list_shop_products(self, shop_id: str, **kwargs: Any) -> dict[str, Any]:
+        return self._get(f"/api/shops/{shop_id}/products", params=kwargs or None)
+
+    def create_shop_product(self, shop_id: str, **kwargs: Any) -> dict[str, Any]:
+        return self._post(f"/api/shops/{shop_id}/products", json=kwargs)
+
+    def get_scope_neutral_product(self, product_id: str) -> dict[str, Any]:
+        return self._get(f"/api/products/{product_id}")
+
+    def get_shop_product(self, shop_id: str, product_id: str) -> dict[str, Any]:
+        return self._get(f"/api/shops/{shop_id}/products/{product_id}")
+
+    def update_shop_product(
+        self, shop_id: str, product_id: str, **kwargs: Any
+    ) -> dict[str, Any]:
+        return self._put(f"/api/shops/{shop_id}/products/{product_id}", json=kwargs)
+
+    def delete_shop_product(self, shop_id: str, product_id: str) -> dict[str, Any]:
+        return self._delete(f"/api/shops/{shop_id}/products/{product_id}")
+
+    def purchase_shop_product(
+        self,
+        shop_id: str,
+        product_id: str,
+        *,
+        idempotency_key: str,
+        sku_id: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"idempotencyKey": idempotency_key}
+        if sku_id is not None:
+            payload["skuId"] = sku_id
+        return self._post(f"/api/shops/{shop_id}/products/{product_id}/purchase", json=payload)
+
+    def purchase_commerce_offer(
+        self,
+        offer_id: str,
+        *,
+        idempotency_key: str,
+        sku_id: str | None = None,
+        destination_kind: str | None = None,
+        destination_id: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"idempotencyKey": idempotency_key}
+        if sku_id is not None:
+            payload["skuId"] = sku_id
+        if destination_kind is not None:
+            payload["destinationKind"] = destination_kind
+        if destination_id is not None:
+            payload["destinationId"] = destination_id
+        return self._post(f"/api/commerce/offers/{offer_id}/purchase", json=payload)
+
+    def create_commerce_offer(self, shop_id: str, **kwargs: Any) -> dict[str, Any]:
+        return self._post(f"/api/shops/{shop_id}/offers", json=kwargs)
+
+    def list_commerce_offers(self, shop_id: str, **kwargs: Any) -> dict[str, Any]:
+        return self._get(f"/api/shops/{shop_id}/offers", params=kwargs or None)
+
+    def create_commerce_deliverable(
+        self, shop_id: str, offer_id: str, **kwargs: Any
+    ) -> dict[str, Any]:
+        return self._post(
+            f"/api/shops/{shop_id}/offers/{offer_id}/deliverables", json=kwargs
+        )
+
+    def purchase_message_commerce_card(
+        self,
+        message_id: str,
+        card_id: str,
+        *,
+        idempotency_key: str,
+        sku_id: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"idempotencyKey": idempotency_key}
+        if sku_id is not None:
+            payload["skuId"] = sku_id
+        return self._post(f"/api/messages/{message_id}/commerce-cards/{card_id}/purchase", json=payload)
+
+    def purchase_dm_message_commerce_card(
+        self,
+        message_id: str,
+        card_id: str,
+        *,
+        idempotency_key: str,
+        sku_id: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"idempotencyKey": idempotency_key}
+        if sku_id is not None:
+            payload["skuId"] = sku_id
+        return self._post(f"/api/dm/messages/{message_id}/commerce-cards/{card_id}/purchase", json=payload)
+
+    def list_commerce_product_cards(
+        self,
+        *,
+        target: str,
+        channel_id: str | None = None,
+        dm_channel_id: str | None = None,
+        keyword: str | None = None,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {"target": target}
+        if channel_id:
+            params["channelId"] = channel_id
+        if dm_channel_id:
+            params["dmChannelId"] = dm_channel_id
+        if keyword:
+            params["keyword"] = keyword
+        if limit is not None:
+            params["limit"] = limit
+        return self._get("/api/commerce/product-picker", params=params)
+
+    def open_paid_file(self, file_id: str) -> dict[str, Any]:
+        return self._post(f"/api/paid-files/{file_id}/open")
+
+    def list_shop_entitlements(self, shop_id: str, **kwargs: Any) -> list[dict[str, Any]]:
+        return self._get(f"/api/shops/{shop_id}/entitlements", params=kwargs or None)
+
     def update_shop(self, server_id: str, **kwargs: Any) -> dict[str, Any]:
         return self._put(f"/api/servers/{server_id}/shop", json=kwargs)
 
@@ -1101,8 +1274,25 @@ class ShadowClient:
     def delete_cloud_provider_profile(self, profile_id: str) -> dict[str, Any]:
         return self._delete(f"/api/cloud-saas/provider-profiles/{profile_id}")
 
-    def get_entitlements(self, server_id: str) -> list[dict[str, Any]]:
+    def get_entitlements(self, server_id: str) -> list[ShadowEntitlement | dict[str, Any]]:
         return self._get(f"/api/servers/{server_id}/shop/entitlements")
+
+    def get_all_entitlements(self) -> list[ShadowEntitlement | dict[str, Any]]:
+        return self._get("/api/entitlements")
+
+    def verify_entitlement(self, entitlement_id: str) -> dict[str, Any]:
+        return self._get(f"/api/entitlements/{entitlement_id}/verify")
+
+    def cancel_entitlement(
+        self,
+        entitlement_id: str,
+        *,
+        reason: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        if reason is not None:
+            payload["reason"] = reason
+        return self._post(f"/api/entitlements/{entitlement_id}/cancel", json=payload)
 
     # ── Task Center ──────────────────────────────────────────────────────
 

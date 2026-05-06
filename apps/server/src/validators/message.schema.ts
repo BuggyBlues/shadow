@@ -100,12 +100,48 @@ const interactiveResponseSchema = z.object({
   values: z.record(z.string(), z.string().max(8000)).optional(),
 })
 
+const commerceProductCardSchema = z.object({
+  id: idLikeSchema.optional(),
+  kind: z.literal('product'),
+  shopId: z.string().uuid().optional(),
+  shopScope: z
+    .object({
+      kind: z.enum(['server', 'user']),
+      id: z.string().uuid(),
+    })
+    .optional(),
+  productId: z.string().uuid(),
+  skuId: z.string().uuid().optional(),
+  snapshot: z.record(z.unknown()).optional(),
+  purchase: z.record(z.unknown()).optional(),
+})
+
+const commerceOfferCardSchema = commerceProductCardSchema.extend({
+  kind: z.literal('offer'),
+  offerId: z.string().uuid(),
+})
+
+const paidFileCardSchema = z.object({
+  id: idLikeSchema.optional(),
+  kind: z.literal('paid_file'),
+  fileId: z.string().uuid(),
+  entitlementId: z.string().uuid().nullable().optional(),
+  deliverableId: z.string().uuid().optional(),
+  snapshot: z.record(z.unknown()).optional(),
+  action: z.record(z.unknown()).optional(),
+})
+
 const metadataSchema = z
   .object({
     agentChain: agentChainSchema.optional(),
     interactive: interactiveBlockSchema.optional(),
     interactiveResponse: interactiveResponseSchema.optional(),
     mentions: messageMentionsSchema.optional(),
+    commerceCards: z
+      .array(z.union([commerceOfferCardSchema, commerceProductCardSchema]))
+      .max(3)
+      .optional(),
+    paidFileCards: z.array(paidFileCardSchema).max(3).optional(),
   })
   .passthrough() // Allow additional custom metadata
 

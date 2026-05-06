@@ -188,6 +188,8 @@ It returns an OpenAI-compatible completion with `shadow.type = "wallet_recharge_
 
 Interactive message blocks are stored in `message.metadata.interactive`; one-shot submissions are persisted server-side and returned on later reads as `message.metadata.interactiveState.response`. Clients can also fetch the same persisted state directly with `GET /api/messages/:id/interactive-state?blockId=<blockId>`.
 
+Commerce product cards are stored in `message.metadata.commerceCards`. Clients should add cards only from `GET /api/commerce/product-picker`; the server revalidates visibility, target scope, product status, and DM/server restrictions before persistence. Card purchase buttons call the commerce purchase endpoint instead of interactive block submission.
+
 ## Agents
 
 | Method | Endpoint                                      | Description              |
@@ -242,6 +244,38 @@ Provider profile APIs above are for user-owned encrypted credentials, model disc
 
 Files are stored in MinIO (S3-compatible) and served via presigned URLs.
 
+## Shop, Commerce, And Entitlements
+
+Server shops continue to use `/api/servers/:serverId/shop`. Scope-neutral and personal-shop commerce endpoints support virtual services and subscription entitlements. Entitlements are resource capabilities expressed as `resourceType`, `resourceId`, and `capability`; legacy channel/app entitlement categories are no longer part of the API contract.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET    | `/api/me/shop` | Get or create the authenticated user's personal shop. Personal shops are visible only to logged-in users. |
+| POST   | `/api/me/shop` | Update the authenticated user's personal shop metadata. |
+| GET    | `/api/users/:userId/shop` | Get another user's visible personal shop. |
+| GET/POST | `/api/users/:userId/shop/manage` | Manage a user's personal shop when the actor is that user or the owner of that user's Buddy account. |
+| GET    | `/api/shops/:shopId` | Get a shop by id. |
+| GET    | `/api/shops/:shopId/products` | List products for a server or personal shop. |
+| GET    | `/api/products/:productId` | Get a visible product without knowing its shop scope. |
+| GET/PUT/DELETE | `/api/shops/:shopId/products/:productId` | Read or manage a product in a scope-neutral shop. |
+| POST   | `/api/shops/:shopId/products` | Create a product in a managed shop. Virtual services use `productType: "entitlement"` and `billingMode` of `fixed_duration` or `subscription`. |
+| GET    | `/api/commerce/product-picker` | Return sendable Offer-backed `CommerceProductCard` records plus shop groups for `target=channel` or `target=dm`. Channel pickers include personal, server, and Buddy shops visible in the channel. |
+| POST   | `/api/shops/:shopId/offers` | Create a managed shop Offer for a product. Offers define sales surface, seller/Buddy sender, optional price override, and metadata. |
+| POST   | `/api/shops/:shopId/offers/:offerId/deliverables` | Attach a deliverable to an Offer. Phase 4 supports `kind: "paid_file"` with `resourceType: "workspace_file"` and a workspace file id. |
+| POST   | `/api/commerce/offers/:offerId/purchase` | Buy an active Offer with `{ idempotencyKey, skuId?, destinationKind?, destinationId? }`. Orders complete immediately, grant Entitlements immediately, and enqueue fulfillment when a destination is supplied. |
+| POST   | `/api/shops/:shopId/products/:productId/purchase` | Compatibility direct purchase path for an entitlement product. New chat flows should buy Offers. |
+| POST   | `/api/messages/:messageId/commerce-cards/:cardId/purchase` | Buy from an Offer card embedded in channel message metadata. |
+| POST   | `/api/dm/messages/:messageId/commerce-cards/:cardId/purchase` | Buy from an Offer card embedded in DM metadata. |
+| GET    | `/api/paid-files/:fileId` | Check paid file metadata and whether the current user has an active entitlement. |
+| POST   | `/api/paid-files/:fileId/open` | Mint a short-lived paid file grant for an entitled user and return a viewer URL. |
+| GET    | `/api/paid-files/:fileId/view/:grantId` | Render a grant-protected paid file. The grant is short-lived and rechecks the entitlement before serving content. |
+| GET    | `/api/entitlements` | List current user's entitlements across shop scopes, enriched with linked shop/product/offer summaries and paid-file metadata when the entitlement targets a paid file. |
+| GET    | `/api/shops/:shopId/entitlements` | Merchant view of entitlements issued by a managed shop. |
+| GET    | `/api/entitlements/:entitlementId/verify` | Verify current entitlement status and provisioning state. |
+| POST   | `/api/entitlements/:entitlementId/cancel` | Cancel a subscription/entitlement immediately, revoke access, and issue the policy-defined pro-rated refund. |
+| POST   | `/api/entitlements/:entitlementId/force-majeure-requests` | Merchant submits a force-majeure revocation request. Entitlement stays active until platform decision. |
+| POST   | `/api/entitlement-review/:requestId/decision` | Platform reviewer decides force-majeure refund and revocation. |
+
 ## Notifications
 
 Notification creation is centralized behind server-side trigger services. Clients should treat each notification as an event record identified by `kind`, not by hardcoded title text.
@@ -256,8 +290,14 @@ Notification creation is centralized behind server-side trigger services. Client
 | GET    | `/api/notifications/scoped-unread`      | Return `{ channelUnread, serverUnread, dmUnread }`, counting aggregated notifications by scope. |
 | GET    | `/api/notifications/preferences`        | Get notification preferences: `strategy`, `mutedServerIds`, `mutedChannelIds`. |
 | PATCH  | `/api/notifications/preferences`        | Update notification preferences. `strategy` is `all`, `mention_only`, or `none`. |
+| GET    | `/api/notifications/channel-preferences` | Get per-kind/per-channel delivery preferences. |
+| PATCH  | `/api/notifications/channel-preferences` | Upsert `{ kind, channel, enabled }` for channels such as `mobile_push`, `web_push`, `email`, `sms`, and `chat_system`. |
+| POST   | `/api/notifications/push-tokens`        | Register a mobile push token for Expo delivery. |
+| DELETE | `/api/notifications/push-tokens/:idOrToken` | Deactivate a mobile push token. |
+| POST   | `/api/notifications/web-push-subscriptions` | Register a browser Web Push subscription. |
+| DELETE | `/api/notifications/web-push-subscriptions/:idOrEndpoint` | Deactivate a Web Push subscription. |
 
-Common notification kinds include `message.mention`, `message.reply`, `dm.message`, `channel.access_requested`, `channel.access_approved`, `channel.access_rejected`, `channel.member_added`, `server.member_joined`, `server.invite`, `friendship.request`, and `recharge.succeeded`. User-facing copy should be rendered from i18n keys using `kind` and `metadata`; stored `title` and `body` are fallback text for older clients.
+Common notification kinds include `message.mention`, `message.reply`, `dm.message`, `channel.access_requested`, `channel.access_approved`, `channel.access_rejected`, `channel.member_added`, `server.member_joined`, `server.invite`, `friendship.request`, `recharge.succeeded`, `commerce.purchase_completed`, `commerce.renewal_failed`, and `commerce.subscription_cancelled`. User-facing copy should be rendered from i18n keys using `kind` and `metadata`; stored `title` and `body` are fallback text for older clients.
 
 ## WebSocket Events
 

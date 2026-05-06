@@ -428,17 +428,21 @@ users ─────┬────── servers ──────── chan
 
 | Table | Key Columns | Description |
 |-------|------------|-------------|
-| **shops** | `id`, `serverId` (unique), `name`, `description`, `logoUrl`, `status` (active/suspended/closed), `settings` (jsonb) | One shop per server |
+| **shops** | `id`, `scopeKind` (server/user), `serverId`, `ownerUserId`, `name`, `description`, `logoUrl`, `status` (active/suspended/closed), `settings` (jsonb) | Server and personal shops |
 | **product_categories** | `id`, `shopId`, `name`, `slug`, `parentId` (self-ref), `position` | Hierarchical category tree |
 | **products** | `id`, `shopId`, `categoryId`, `name`, `slug`, `type` (physical/entitlement), `status` (draft/active/archived), `basePrice`, `currency` (shrimp_coin), `specNames` (jsonb), `tags` (jsonb), `entitlementConfig` (jsonb), `salesCount`, `avgRating` | Product catalog |
 | **product_media** | `id`, `productId`, `type` (image/video), `url`, `thumbnailUrl`, `position` | Product gallery |
 | **skus** | `id`, `productId`, `specValues` (jsonb), `price`, `stock`, `imageUrl`, `skuCode`, `isActive` | Product variants (size, color, etc.) |
+| **commerce_offers** | `id`, `shopId`, `productId`, `originKind`, `sellerUserId`, `sellerBuddyUserId`, `allowedSurfaces`, `priceOverride`, `status` | Offer-driven sales surfaces for chat, DM, and shop purchase flows |
+| **commerce_deliverables** | `id`, `offerId`, `productId`, `kind`, `resourceType`, `resourceId`, `senderBuddyUserId`, `status` | Purchase deliverables such as paid workspace files |
 | **wallets** | `id`, `userId` (unique), `balance`, `frozenAmount` | User virtual currency (虾币) balance |
 | **wallet_transactions** | `id`, `walletId`, `type` (topup/purchase/refund/reward/transfer/adjustment), `amount`, `balanceAfter`, `currency`, `referenceId`, `note` | Financial ledger |
 | **orders** | `id`, `orderNo` (unique), `shopId`, `buyerId`, `status` (8 states), `totalAmount`, `paidAt`, `shippedAt`, `completedAt`, `cancelledAt` | Purchase orders |
 | **order_items** | `id`, `orderId`, `productId`, `skuId`, `productName`, `specValues` (jsonb), `price`, `quantity` | Order line items |
 | **reviews** | `id`, `productId`, `orderId`, `userId`, `rating` (1-5), `content`, `images` (jsonb), `reply`, `repliedAt` | Product reviews |
-| **entitlements** | `id`, `userId`, `serverId`, `orderId`, `productId`, `type` (channel_access/channel_speak/app_access/custom_role/custom), `targetId`, `expiresAt`, `isActive` | Purchased privileges |
+| **entitlements** | `id`, `userId`, `serverId`, `shopId`, `orderId`, `productId`, `offerId`, `resourceType`, `resourceId`, `capability`, `status`, `expiresAt`, `isActive` | Purchased resource capabilities |
+| **commerce_fulfillment_jobs** | `id`, `orderId`, `entitlementId`, `deliverableId`, `buyerId`, `destinationKind`, `destinationId`, `status` | Idempotent purchase fulfillment jobs that send deliverables into chat/DM |
+| **paid_file_grants** | `id`, `fileId`, `userId`, `entitlementId`, `status`, `expiresAt` | Short-lived, revocable paid-file viewing tickets |
 | **cart_items** | `id`, `userId`, `shopId`, `productId`, `skuId`, `quantity` | Shopping cart |
 
 ### Rental Marketplace Tables

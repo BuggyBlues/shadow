@@ -51,6 +51,7 @@ export interface Product {
   name: string
   slug: string
   type: 'physical' | 'entitlement'
+  billingMode?: 'one_time' | 'fixed_duration' | 'subscription'
   status: 'draft' | 'active' | 'archived'
   description?: string
   summary?: string
@@ -63,15 +64,19 @@ export interface Product {
   ratingCount: number
   entitlementConfig?:
     | {
-        type: string
-        targetId?: string
+        resourceType?: string
+        resourceId?: string
+        capability?: string
         durationSeconds?: number | null
+        renewalPeriodSeconds?: number | null
         privilegeDescription?: string
       }
     | Array<{
-        type: string
-        targetId?: string
+        resourceType?: string
+        resourceId?: string
+        capability?: string
         durationSeconds?: number | null
+        renewalPeriodSeconds?: number | null
         privilegeDescription?: string
       }>
   media?: ProductMediaItem[]

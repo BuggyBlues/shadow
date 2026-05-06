@@ -1,9 +1,10 @@
+import type { CommerceProductCard } from '@shadowob/shared'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as Clipboard from 'expo-clipboard'
 import * as DocumentPicker from 'expo-document-picker'
 import * as ImagePicker from 'expo-image-picker'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { ChevronDown, ChevronLeft, Copy } from 'lucide-react-native'
+import { ChevronDown, ChevronLeft, Copy, ShoppingBag, X } from 'lucide-react-native'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -11,6 +12,7 @@ import {
   Alert,
   FlatList,
   Keyboard,
+  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -68,6 +70,8 @@ export default function DmChatScreen() {
   const [pendingFiles, setPendingFiles] = useState<
     Array<{ uri: string; name: string; type: string; size?: number }>
   >([])
+  const [selectedCommerceCards, setSelectedCommerceCards] = useState<CommerceProductCard[]>([])
+  const [showProductPicker, setShowProductPicker] = useState(false)
   const [showScrollBottom, setShowScrollBottom] = useState(false)
   const [showInputEmojiPicker, setShowInputEmojiPicker] = useState(false)
   const [showPlusMenu, setShowPlusMenu] = useState(false)
@@ -86,6 +90,27 @@ export default function DmChatScreen() {
       setInputText((prev) => (prev ? `${prev} ${transcript}` : transcript))
     },
   })
+
+  const { data: productPickerData, isFetching: isFetchingProducts } = useQuery({
+    queryKey: ['commerce-product-picker', 'dm', dmChannelId],
+    queryFn: () =>
+      fetchApi<{ cards: CommerceProductCard[] }>(
+        `/api/commerce/product-picker?target=dm&dmChannelId=${encodeURIComponent(dmChannelId!)}`,
+      ),
+    enabled: Boolean(dmChannelId && showProductPicker),
+    staleTime: 15_000,
+  })
+
+  const productCards = productPickerData?.cards ?? []
+
+  const addCommerceCard = useCallback((card: CommerceProductCard) => {
+    setSelectedCommerceCards((prev) => {
+      if (prev.some((item) => item.id === card.id)) return prev
+      return [...prev, card].slice(0, 3)
+    })
+    setShowProductPicker(false)
+    inputRef.current?.focus()
+  }, [])
 
   const { data: dmChannel } = useQuery({
     queryKey: ['dm-channel', dmChannelId],
@@ -301,7 +326,11 @@ export default function DmChatScreen() {
     setPendingFiles((prev) => prev.filter((_, i) => i !== index))
   }, [])
 
-  const insertOptimisticMessage = (content: string, replyToId?: string) => {
+  const insertOptimisticMessage = (
+    content: string,
+    replyToId?: string,
+    commerceCards?: CommerceProductCard[],
+  ) => {
     const tempId = `temp-${Date.now()}`
     const msg: Message = {
       id: tempId,
@@ -320,6 +349,7 @@ export default function DmChatScreen() {
         displayName: currentUser!.displayName ?? currentUser!.username,
         avatarUrl: currentUser!.avatarUrl ?? null,
       },
+      metadata: commerceCards && commerceCards.length > 0 ? { commerceCards } : undefined,
       sendStatus: 'sending',
     }
 
@@ -417,18 +447,25 @@ export default function DmChatScreen() {
 
   const handleSend = async () => {
     const content = inputText.trim()
-    if (!content && pendingFiles.length === 0) return
+    if (!content && pendingFiles.length === 0 && selectedCommerceCards.length === 0) return
     if (sending) return
     setSending(true)
 
-    const tempId = content ? insertOptimisticMessage(content, replyTo?.id) : null
+    const metadata =
+      selectedCommerceCards.length > 0 ? { commerceCards: selectedCommerceCards } : undefined
+    const tempId =
+      content || selectedCommerceCards.length > 0
+        ? insertOptimisticMessage(content || '\u200B', replyTo?.id, selectedCommerceCards)
+        : null
 
     const savedContent = content
     const savedReplyTo = replyTo
     const savedPendingFiles = [...pendingFiles]
+    const savedMetadata = metadata
     setInputText('')
     setReplyTo(null)
     setPendingFiles([])
+    setSelectedCommerceCards([])
     playSendSound()
 
     try {
@@ -440,7 +477,6 @@ export default function DmChatScreen() {
         uploadedAttachments = []
         for (const file of savedPendingFiles) {
           const formData = new FormData()
-          // biome-ignore lint/suspicious/noExplicitAny: React Native FormData requires this shape
           formData.append('file', { uri: file.uri, name: file.name, type: file.type } as any)
           const uploaded = await fetchApi<{ url: string; size: number }>('/api/media/upload', {
             method: 'POST',
@@ -460,8 +496,9 @@ export default function DmChatScreen() {
       if (!uploadedAttachments && sock.connected) {
         sendDmMessage({
           dmChannelId: dmChannelId!,
-          content: savedContent,
+          content: savedContent || '\u200B',
           replyToId: savedReplyTo?.id,
+          metadata: savedMetadata,
         })
         if (tempId) {
           setTimeout(() => {
@@ -491,6 +528,7 @@ export default function DmChatScreen() {
             body: JSON.stringify({
               content: savedContent || '\u200B',
               replyToId: savedReplyTo?.id,
+              ...(savedMetadata ? { metadata: savedMetadata } : {}),
               ...(uploadedAttachments ? { attachments: uploadedAttachments } : {}),
             }),
           },
@@ -776,6 +814,11 @@ export default function DmChatScreen() {
           onPickImage={handlePickImage}
           onPickFile={handlePickFile}
           onTakePhoto={handleTakePhoto}
+          commerceCards={selectedCommerceCards}
+          onOpenProductPicker={() => setShowProductPicker(true)}
+          onRemoveCommerceCard={(cardId) =>
+            setSelectedCommerceCards((prev) => prev.filter((card) => card.id !== cardId))
+          }
           onPasteImage={(imageDataUri) => {
             const timestamp = Date.now()
             const fileName = `clipboard_${timestamp}.png`
@@ -790,6 +833,90 @@ export default function DmChatScreen() {
           }}
         />
       )}
+      <Modal
+        visible={showProductPicker}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowProductPicker(false)}
+      >
+        <View style={styles.sheetOverlay}>
+          <Pressable style={styles.sheetDismiss} onPress={() => setShowProductPicker(false)} />
+          <View style={[styles.sheetContainer, { backgroundColor: colors.surface }]}>
+            <View style={[styles.sheetHandle, { backgroundColor: colors.textMuted }]} />
+            <View style={styles.sheetHeader}>
+              <Text style={[styles.sheetTitle, { color: colors.text }]}>
+                {t('chat.productPicker')}
+              </Text>
+              <Pressable
+                onPress={() => setShowProductPicker(false)}
+                hitSlop={8}
+                style={styles.sheetActionBtn}
+              >
+                <X size={20} color={colors.textMuted} />
+              </Pressable>
+            </View>
+            {isFetchingProducts ? (
+              <View style={styles.productPickerState}>
+                <ActivityIndicator color={colors.primary} />
+                <Text style={{ color: colors.textMuted, fontSize: fontSize.sm }}>
+                  {t('chat.productPickerLoading')}
+                </Text>
+              </View>
+            ) : productCards.length === 0 ? (
+              <View style={styles.productPickerState}>
+                <Text style={{ color: colors.textMuted, fontSize: fontSize.sm }}>
+                  {t('chat.productPickerEmpty')}
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={productCards}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.productPickerList}
+                renderItem={({ item }) => (
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.productPickerItem,
+                      { borderColor: colors.border, backgroundColor: colors.inputBackground },
+                      pressed && { opacity: 0.75 },
+                    ]}
+                    onPress={() => addCommerceCard(item)}
+                  >
+                    <View
+                      style={[styles.productPickerIcon, { backgroundColor: `${colors.primary}18` }]}
+                    >
+                      <ShoppingBag size={22} color={colors.primary} />
+                    </View>
+                    <View style={styles.productPickerInfo}>
+                      <Text
+                        style={[styles.productPickerName, { color: colors.text }]}
+                        numberOfLines={1}
+                      >
+                        {item.snapshot.name}
+                      </Text>
+                      {item.snapshot.summary ? (
+                        <Text
+                          style={[styles.productPickerSummary, { color: colors.textMuted }]}
+                          numberOfLines={2}
+                        >
+                          {item.snapshot.summary}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Text style={[styles.productPickerPrice, { color: colors.primary }]}>
+                      {new Intl.NumberFormat(undefined, {
+                        style: 'currency',
+                        currency: item.snapshot.currency,
+                        maximumFractionDigits: 2,
+                      }).format(item.snapshot.price / 100)}
+                    </Text>
+                  </Pressable>
+                )}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   )
 }
@@ -837,4 +964,73 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
   },
+  sheetOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  sheetDismiss: { flex: 1 },
+  sheetContainer: {
+    maxHeight: '75%',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: spacing.xl,
+  },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+    opacity: 0.3,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  sheetTitle: {
+    fontSize: fontSize.lg,
+    fontWeight: '700',
+  },
+  sheetActionBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  productPickerState: {
+    minHeight: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  productPickerList: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+    gap: spacing.sm,
+  },
+  productPickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.lg,
+    padding: spacing.sm,
+  },
+  productPickerIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  productPickerInfo: { flex: 1, minWidth: 0 },
+  productPickerName: { fontSize: fontSize.md, fontWeight: '700' },
+  productPickerSummary: { fontSize: fontSize.xs, marginTop: 3, lineHeight: 16 },
+  productPickerPrice: { fontSize: fontSize.sm, fontWeight: '800' },
 })

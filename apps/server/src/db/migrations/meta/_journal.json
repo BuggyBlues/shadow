@@ -372,6 +372,27 @@
       "when": 1778072400000,
       "tag": "0052_cloud_activity_diy_generate",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1778158800000,
+      "tag": "0053_commerce_entitlement_notification_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1778245200000,
+      "tag": "0054_resource_entitlements",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1778331600000,
+      "tag": "0055_commerce_offer_paid_file_foundation",
+      "breakpoints": true
     }
   ]
 }

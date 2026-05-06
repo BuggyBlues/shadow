@@ -206,7 +206,14 @@ export function createMessageHandler(container: AppContainer) {
       const user = c.get('user')
       const access = await getChannelAccess(container, channelId, user.userId)
       if (!access.ok) return c.json({ ok: false, error: access.error }, access.status)
+      const commerceCardService = container.resolve('commerceCardService')
       const preparedInput = await mentionService.prepareMessageInput(channelId, user.userId, input)
+      preparedInput.metadata = await commerceCardService.inferMessageMetadata({
+        metadata: preparedInput.metadata as Record<string, unknown> | undefined,
+        target: { kind: 'channel', channelId },
+        authorId: user.userId,
+        content: preparedInput.content,
+      })
       const message = await messageService.send(channelId, user.userId, preparedInput)
 
       // Emit WS event so all connected clients (including bots) see the message

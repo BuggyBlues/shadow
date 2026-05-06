@@ -1,3 +1,4 @@
+import type { CommerceProductCard } from '@shadowob/shared'
 import { useMutation } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
 import * as Clipboard from 'expo-clipboard'
@@ -614,6 +615,10 @@ function MessageBubbleInner({
             )
           })}
 
+          {message.metadata?.commerceCards?.map((card) => (
+            <CommerceCardView key={card.id} card={card} messageId={message.id} />
+          ))}
+
           {/* Phase 2 — interactive block (buttons / select) */}
           {message.metadata?.interactive && (
             <InteractiveBlockRenderer
@@ -786,6 +791,75 @@ function MessageBubbleInner({
   )
 }
 
+function CommerceCardView({ card, messageId }: { card: CommerceProductCard; messageId: string }) {
+  const { t } = useTranslation()
+  const colors = useColors()
+  const [isBuying, setIsBuying] = useState(false)
+  const imageUri = card.snapshot.imageUrl
+    ? (getImageUrl(card.snapshot.imageUrl) ?? undefined)
+    : undefined
+
+  const buy = async () => {
+    setIsBuying(true)
+    try {
+      await fetchApi(`/api/messages/${messageId}/commerce-cards/${card.id}/purchase`, {
+        method: 'POST',
+        body: JSON.stringify({
+          skuId: card.skuId,
+          idempotencyKey: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        }),
+      })
+      showToast(t('chat.commercePurchaseSucceeded'))
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : t('chat.commercePurchaseFailed'))
+    } finally {
+      setIsBuying(false)
+    }
+  }
+
+  return (
+    <View
+      style={[styles.commerceCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+    >
+      {imageUri ? <Image source={{ uri: imageUri }} style={styles.commerceImage} /> : null}
+      <View style={styles.commerceInfo}>
+        <View style={styles.commerceHeader}>
+          <Text style={[styles.commerceTitle, { color: colors.text }]} numberOfLines={2}>
+            {card.snapshot.name}
+          </Text>
+          <Text style={[styles.commercePrice, { color: colors.primary }]}>
+            {card.snapshot.price}
+          </Text>
+        </View>
+        {card.snapshot.summary ? (
+          <Text style={[styles.commerceSummary, { color: colors.textMuted }]} numberOfLines={2}>
+            {card.snapshot.summary}
+          </Text>
+        ) : null}
+        <View style={styles.commerceFooter}>
+          <Text style={[styles.commerceMode, { color: colors.textMuted }]}>
+            {card.snapshot.billingMode === 'subscription'
+              ? t('chat.commerceSubscription')
+              : t('chat.commerceEntitlement')}
+          </Text>
+          <Pressable
+            disabled={isBuying}
+            onPress={buy}
+            style={({ pressed }) => [
+              styles.commerceButton,
+              { backgroundColor: colors.primary, opacity: pressed || isBuying ? 0.7 : 1 },
+            ]}
+          >
+            <Text style={styles.commerceButtonText}>
+              {isBuying ? t('chat.commercePurchasing') : t('chat.commerceBuy')}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  )
+}
+
 export const MessageBubble = memo(MessageBubbleInner, (prev, next) => {
   return (
     prev.message === next.message &&
@@ -947,6 +1021,65 @@ const styles = StyleSheet.create({
   },
   fileMeta: {
     fontSize: fontSize.xs,
+  },
+  commerceCard: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.lg,
+    padding: spacing.sm,
+    marginTop: spacing.sm,
+    maxWidth: 340,
+  },
+  commerceImage: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.md,
+  },
+  commerceInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  commerceHeader: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  commerceTitle: {
+    flex: 1,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+  },
+  commercePrice: {
+    fontSize: fontSize.sm,
+    fontWeight: '800',
+  },
+  commerceSummary: {
+    fontSize: fontSize.xs,
+    marginTop: 2,
+  },
+  commerceFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  commerceMode: {
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  commerceButton: {
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  commerceButtonText: {
+    color: '#ffffff',
+    fontSize: fontSize.xs,
+    fontWeight: '800',
   },
   // Reactions
   reactions: {

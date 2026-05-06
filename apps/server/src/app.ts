@@ -25,6 +25,7 @@ import { createMessageHandler } from './handlers/message.handler'
 import { createModelProxyHandler } from './handlers/model-proxy.handler'
 import { createNotificationHandler } from './handlers/notification.handler'
 import { createOAuthHandler } from './handlers/oauth.handler'
+import { createPaidFileHandler } from './handlers/paid-file.handler'
 import { createPlayHandler } from './handlers/play.handler'
 import { createProfileCommentHandler } from './handlers/profile-comment.handler'
 import { createRechargeHandler } from './handlers/recharge.handler'
@@ -54,6 +55,7 @@ export function createApp(container: AppContainer) {
     const appError = error as {
       status?: number
       code?: string
+      params?: Record<string, unknown>
       capability?: string
       membership?: unknown
       requiredAmount?: number
@@ -62,14 +64,16 @@ export function createApp(container: AppContainer) {
       nextAction?: string
     }
     const status = appError.status ?? 500
+    const errorCode = appError.code ?? (status >= 500 ? 'INTERNAL_ERROR' : undefined)
 
     logger.error({ err: error, path: c.req.path, method: c.req.method }, message)
 
     return c.json(
       {
         ok: false,
-        error: status >= 500 ? 'Internal Server Error' : message,
-        ...(appError.code ? { code: appError.code } : {}),
+        error: errorCode ?? message,
+        ...(errorCode ? { code: errorCode } : {}),
+        ...(appError.params ? { params: appError.params } : {}),
         ...(appError.capability ? { capability: appError.capability } : {}),
         ...(appError.membership ? { membership: appError.membership } : {}),
         ...(typeof appError.requiredAmount === 'number'
@@ -171,6 +175,9 @@ export function createApp(container: AppContainer) {
   app.route('/api/ai/v1', createModelProxyHandler(container))
   app.route('/api/play', createPlayHandler(container))
   app.route('/api/tokens', createApiTokenHandler(container))
+  // Paid file viewer URLs are authorized by short-lived grant tokens, so this handler must be
+  // mounted before broad /api sub-app auth middleware.
+  app.route('/api', createPaidFileHandler(container))
   // IMPORTANT: Mount app/workspace handlers before /api/servers base handler
   // so nested routes like /api/servers/:serverId/apps/* and
   // /api/servers/:serverId/workspace/* are not pre-empted by server auth middleware.

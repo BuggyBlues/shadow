@@ -766,5 +766,102 @@ describe('ShadowClient', () => {
         }),
       )
     })
+
+    it('should update channel preferences and register push tokens', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ ok: true }),
+      })
+      globalThis.fetch = mockFetch as typeof fetch
+
+      await client.updateNotificationChannelPreference({
+        kind: 'commerce.renewal_failed',
+        channel: 'mobile_push',
+        enabled: false,
+      })
+      await client.registerPushToken({
+        platform: 'ios',
+        token: 'ExponentPushToken[abc]',
+        deviceName: 'iPhone',
+      })
+
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        1,
+        'https://api.example.com/api/notifications/channel-preferences',
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({
+            kind: 'commerce.renewal_failed',
+            channel: 'mobile_push',
+            enabled: false,
+          }),
+        }),
+      )
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        2,
+        'https://api.example.com/api/notifications/push-tokens',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            platform: 'ios',
+            token: 'ExponentPushToken[abc]',
+            deviceName: 'iPhone',
+          }),
+        }),
+      )
+    })
+  })
+
+  describe('commerce methods', () => {
+    beforeEach(() => {
+      globalThis.fetch = vi.fn() as typeof fetch
+    })
+
+    afterEach(() => {
+      restoreStubbedGlobals()
+    })
+
+    it('should fetch product picker cards and purchase with idempotency', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ cards: [] }),
+      })
+      globalThis.fetch = mockFetch as typeof fetch
+
+      await client.listCommerceProductCards({ target: 'dm', dmChannelId: 'dm-1', limit: 3 })
+      await client.purchaseShopProduct('shop-1', 'prod-1', { idempotencyKey: 'idem-1' })
+
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        1,
+        'https://api.example.com/api/commerce/product-picker?target=dm&dmChannelId=dm-1&limit=3',
+        expect.any(Object),
+      )
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        2,
+        'https://api.example.com/api/shops/shop-1/products/prod-1/purchase',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ idempotencyKey: 'idem-1' }),
+        }),
+      )
+    })
+
+    it('should cancel entitlements through the scope-neutral endpoint', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ ok: true }),
+      })
+      globalThis.fetch = mockFetch as typeof fetch
+
+      await client.cancelEntitlement('ent-1', 'user_cancelled')
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/api/entitlements/ent-1/cancel',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ reason: 'user_cancelled' }),
+        }),
+      )
+    })
   })
 })

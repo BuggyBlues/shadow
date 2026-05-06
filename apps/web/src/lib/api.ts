@@ -12,6 +12,7 @@ export class ApiError extends Error {
   balance?: number
   shortfall?: number
   nextAction?: string
+  params?: Record<string, unknown>
 
   constructor(
     message: string,
@@ -24,6 +25,7 @@ export class ApiError extends Error {
       balance?: number
       shortfall?: number
       nextAction?: string
+      params?: Record<string, unknown>
     },
   ) {
     super(message)
@@ -36,6 +38,7 @@ export class ApiError extends Error {
     this.balance = input.balance
     this.shortfall = input.shortfall
     this.nextAction = input.nextAction
+    this.params = input.params
   }
 }
 
@@ -163,9 +166,13 @@ export async function fetchApi<T>(path: string, options?: RequestInit): Promise<
     let balance: number | undefined
     let shortfall: number | undefined
     let nextAction: string | undefined
+    let params: Record<string, unknown> | undefined
     if (typeof body === 'object' && body !== null) {
       const b = body as Record<string, unknown>
       if (typeof b.code === 'string') code = b.code
+      if (b.params && typeof b.params === 'object' && !Array.isArray(b.params)) {
+        params = b.params as Record<string, unknown>
+      }
       if (typeof b.capability === 'string') capability = b.capability
       if ('membership' in b) membership = b.membership
       if (typeof b.requiredAmount === 'number') requiredAmount = b.requiredAmount
@@ -198,6 +205,7 @@ export async function fetchApi<T>(path: string, options?: RequestInit): Promise<
       balance,
       shortfall,
       nextAction,
+      params,
     })
   }
 

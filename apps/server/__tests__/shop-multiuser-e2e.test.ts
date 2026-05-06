@@ -381,10 +381,11 @@ describe('3. Product setup', () => {
         categoryId: catVipId,
         tags: ['VIP', '权益'],
         entitlementConfig: {
-          type: 'channel_access',
-          targetId: 'test-vip-channel-id',
+          resourceType: 'service',
+          resourceId: 'test-vip-service',
+          capability: 'use',
           durationSeconds: 86400 * 30,
-          privilegeDescription: 'VIP频道30天访问权限',
+          privilegeDescription: 'VIP服务30天使用权',
         },
         skus: [{ specValues: ['月卡'], price: 500, stock: 100 }],
       },
@@ -1219,10 +1220,13 @@ describe('12. Entitlement lifecycle', () => {
       token: buyerAToken,
     })
     expect(res.status).toBe(200)
-    const ents = await json<{ type: string; targetId: string; isActive: boolean }[]>(res)
+    const ents =
+      await json<
+        { resourceType: string; resourceId: string; capability: string; isActive: boolean }[]
+      >(res)
     expect(ents.length).toBeGreaterThanOrEqual(1)
     const vipEnt = ents.find(
-      (e) => e.type === 'channel_access' && e.targetId === 'test-vip-channel-id',
+      (e) => e.resourceType === 'service' && e.resourceId === 'test-vip-service',
     )
     expect(vipEnt).toBeDefined()
     expect(vipEnt!.isActive).toBe(true)
@@ -1253,9 +1257,9 @@ describe('12. Entitlement lifecycle', () => {
       token: buyerAToken,
     })
     expect(res.status).toBe(200)
-    const ents = await json<{ type: string; targetId: string }[]>(res)
+    const ents = await json<{ resourceType: string; resourceId: string }[]>(res)
     const vipEnt = ents.find(
-      (e) => e.type === 'channel_access' && e.targetId === 'test-vip-channel-id',
+      (e) => e.resourceType === 'service' && e.resourceId === 'test-vip-service',
     )
     expect(vipEnt).toBeUndefined()
   })

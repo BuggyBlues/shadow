@@ -10,6 +10,11 @@ export type NotificationKind =
   | 'server.invite'
   | 'friendship.request'
   | 'recharge.succeeded'
+  | 'commerce.purchase_completed'
+  | 'commerce.renewal_failed'
+  | 'commerce.subscription_cancelled'
+  | 'commerce.refund_issued'
+  | 'commerce.force_majeure_decided'
   | 'system.generic'
 
 type TemplateMetadata = Record<string, unknown>
@@ -37,6 +42,7 @@ export class NotificationTemplateService {
     const actorName = text(metadata.actorName, 'Someone')
     const channelName = text(metadata.channelName, 'channel')
     const serverName = text(metadata.serverName, 'server')
+    const productName = text(metadata.productName, 'service')
 
     switch (input.kind) {
       case 'message.mention':
@@ -80,6 +86,31 @@ export class NotificationTemplateService {
       case 'recharge.succeeded':
         return {
           title: 'Recharge succeeded',
+          body: input.fallbackBody ?? preview(metadata.preview) ?? undefined,
+        }
+      case 'commerce.purchase_completed':
+        return {
+          title: 'Purchase completed',
+          body: input.fallbackBody ?? `${productName} is now active.`,
+        }
+      case 'commerce.renewal_failed':
+        return {
+          title: 'Subscription renewal failed',
+          body: input.fallbackBody ?? `${productName} will not renew when it expires.`,
+        }
+      case 'commerce.subscription_cancelled':
+        return {
+          title: 'Subscription cancelled',
+          body: input.fallbackBody ?? `${productName} was cancelled and refund processing started.`,
+        }
+      case 'commerce.refund_issued':
+        return {
+          title: 'Refund issued',
+          body: input.fallbackBody ?? preview(metadata.preview) ?? undefined,
+        }
+      case 'commerce.force_majeure_decided':
+        return {
+          title: 'Entitlement review decided',
           body: input.fallbackBody ?? preview(metadata.preview) ?? undefined,
         }
       default:

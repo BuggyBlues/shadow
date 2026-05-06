@@ -47,7 +47,7 @@ afterEach(() => {
 
 describe('provisioning', () => {
   describe('provisionShadowResources', () => {
-    it('recreates a state buddy instead of reusing a stale token when token refresh fails', async () => {
+    it('recreates a state buddy when fresh token minting fails', async () => {
       const config: CloudConfig = {
         version: '1',
         use: [
@@ -78,7 +78,6 @@ describe('provisioning', () => {
             'strategy-buddy': {
               agentId: 'old-agent',
               userId: 'deleted-user',
-              token: 'stale-agent-token',
             },
           },
         },
@@ -187,6 +186,54 @@ describe('provisioning', () => {
 
       const env = buildProvisionedEnvVars('agent-1', config, provision, 'http://localhost')
       expect(env.SHADOW_TOKEN_MY_COOL_BOT).toBe('tok')
+    })
+
+    it('injects provisioned commerce ids for Buddy runtime offer cards', () => {
+      const config: CloudConfig = {
+        version: '1',
+        use: [
+          {
+            plugin: 'shadowob',
+            options: {
+              buddies: [{ id: 'match-girl', name: 'Match Girl' }],
+              bindings: [
+                {
+                  targetId: 'match-girl',
+                  targetType: 'buddy',
+                  servers: ['s'],
+                  channels: ['c'],
+                  agentId: 'agent-1',
+                },
+              ],
+            },
+          },
+        ],
+      }
+
+      const provision = {
+        servers: new Map(),
+        channels: new Map(),
+        buddies: new Map([['match-girl', { agentId: 'aid', token: 'tok', userId: 'uid' }]]),
+        listings: new Map(),
+        commerce: new Map([
+          [
+            'match-animation',
+            {
+              shopId: 'shop-1',
+              productId: 'product-1',
+              offerId: 'offer-1',
+              fileId: 'file-1',
+              deliverableId: 'deliverable-1',
+            },
+          ],
+        ]),
+      } satisfies ProvisionResult
+
+      const env = buildProvisionedEnvVars('agent-1', config, provision, 'http://localhost')
+
+      expect(env.SHADOW_COMMERCE_OFFER_MATCH_ANIMATION).toBe('offer-1')
+      expect(env.SHADOW_COMMERCE_FILE_MATCH_ANIMATION).toBe('file-1')
+      expect(env.SHADOW_COMMERCE_DELIVERABLE_MATCH_ANIMATION).toBe('deliverable-1')
     })
 
     it('should return only server URL when no bindings match', () => {

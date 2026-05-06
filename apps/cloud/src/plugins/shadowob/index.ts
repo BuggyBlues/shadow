@@ -35,11 +35,29 @@ interface ShadowobPluginConfig {
   buddies?: ShadowBuddy[]
   bindings?: ShadowBinding[]
   servers?: Array<{ url: string }>
+  commerce?: {
+    paidFiles?: Array<{
+      id: string
+      name: string
+      summary?: string
+      serverId: string
+      sellerBuddyId?: string
+      shop?: { kind?: string; buddyId?: string }
+    }>
+  }
 }
 
 const SHADOWOB_OPENCLAW_EXTENSION_ID = 'shadowob'
 const SHADOWOB_OPENCLAW_PLUGIN_ID = 'openclaw-shadowob'
 const SHADOWOB_OPENCLAW_EXTENSION_PATH = `/app/extensions/${SHADOWOB_OPENCLAW_EXTENSION_ID}`
+
+function shadowEnvKey(prefix: string, id: string) {
+  return `${prefix}_${id.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`
+}
+
+function shadowEnvRef(key: string) {
+  return `\${env:${key}}`
+}
 
 function shadowobChannelCapabilities(): Record<string, unknown> {
   return {
@@ -112,6 +130,22 @@ function shadowobChannelConfigMetadata(): Record<string, unknown> {
               buddyDescription: { type: 'string' },
               agentId: { type: 'string' },
               capabilities: shadowobChannelCapabilitiesSchema(),
+              commerceOffers: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  additionalProperties: true,
+                  properties: {
+                    seedId: { type: 'string' },
+                    name: { type: 'string' },
+                    summary: { type: 'string' },
+                    offerId: { type: 'string' },
+                    productId: { type: 'string' },
+                    fileId: { type: 'string' },
+                    deliverableId: { type: 'string' },
+                  },
+                },
+              },
             },
           },
         },
@@ -160,6 +194,26 @@ function buildShadowConfig(context: PluginBuildContext): PluginConfigFragment {
       ...(buddy.description ? { buddyDescription: buddy.description } : {}),
       ...(buddy.id ? { buddyId: buddy.id } : {}),
       capabilities: shadowobChannelCapabilities(),
+    }
+
+    const commerceOffers = shadowConfig.commerce?.paidFiles
+      ?.filter((item) => {
+        const sellerBuddyId = item.sellerBuddyId ?? item.shop?.buddyId
+        return sellerBuddyId === binding.targetId
+      })
+      .map((item) => ({
+        seedId: item.id,
+        name: item.name,
+        ...(item.summary ? { summary: item.summary } : {}),
+        serverConfigId: item.serverId,
+        offerId: shadowEnvRef(shadowEnvKey('SHADOW_COMMERCE_OFFER', item.id)),
+        productId: shadowEnvRef(shadowEnvKey('SHADOW_COMMERCE_PRODUCT', item.id)),
+        fileId: shadowEnvRef(shadowEnvKey('SHADOW_COMMERCE_FILE', item.id)),
+        deliverableId: shadowEnvRef(shadowEnvKey('SHADOW_COMMERCE_DELIVERABLE', item.id)),
+      }))
+      .filter((item) => item.offerId)
+    if (commerceOffers?.length) {
+      account.commerceOffers = commerceOffers
     }
 
     if (binding.replyPolicy) {
@@ -264,8 +318,18 @@ export default defineChannelPlugin(manifest as PluginManifest, buildShadowConfig
       existingState: context.previousState as {
         servers?: Record<string, string>
         channels?: Record<string, string>
-        buddies?: Record<string, { agentId: string; userId: string; token: string }>
+        buddies?: Record<string, { agentId: string; userId: string }>
         listings?: Record<string, string>
+        commerce?: Record<
+          string,
+          {
+            shopId: string
+            productId: string
+            offerId: string
+            fileId: string
+            deliverableId: string
+          }
+        >
         shadowServerUrl?: string
       } | null,
       logger: context.logger as import('../../utils/logger.js').Logger,
@@ -279,6 +343,13 @@ export default defineChannelPlugin(manifest as PluginManifest, buildShadowConfig
       const key = `SHADOW_TOKEN_${buddyId.toUpperCase().replace(/-/g, '_')}`
       secrets[key] = token
     }
+    for (const [seedId, ids] of result.commerce) {
+      secrets[shadowEnvKey('SHADOW_COMMERCE_SHOP', seedId)] = ids.shopId
+      secrets[shadowEnvKey('SHADOW_COMMERCE_PRODUCT', seedId)] = ids.productId
+      secrets[shadowEnvKey('SHADOW_COMMERCE_OFFER', seedId)] = ids.offerId
+      secrets[shadowEnvKey('SHADOW_COMMERCE_FILE', seedId)] = ids.fileId
+      secrets[shadowEnvKey('SHADOW_COMMERCE_DELIVERABLE', seedId)] = ids.deliverableId
+    }
 
     return {
       state: {
@@ -288,10 +359,11 @@ export default defineChannelPlugin(manifest as PluginManifest, buildShadowConfig
         buddies: Object.fromEntries(
           [...result.buddies.entries()].map(([k, v]) => [
             k,
-            { agentId: v.agentId, userId: v.userId, token: v.token },
+            { agentId: v.agentId, userId: v.userId },
           ]),
         ),
         ...(result.listings.size > 0 ? { listings: Object.fromEntries(result.listings) } : {}),
+        ...(result.commerce.size > 0 ? { commerce: Object.fromEntries(result.commerce) } : {}),
       },
       secrets,
     }

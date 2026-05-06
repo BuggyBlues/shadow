@@ -1,4 +1,9 @@
-import type { MentionSuggestion, MentionSuggestionTrigger, MessageMention } from '@shadowob/shared'
+import type {
+  CommerceProductCard,
+  MentionSuggestion,
+  MentionSuggestionTrigger,
+  MessageMention,
+} from '@shadowob/shared'
 import { assignMentionRanges, canonicalMentionToken } from '@shadowob/shared'
 import { Button, cn, InputValley } from '@shadowob/ui'
 import { type InfiniteData, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -11,8 +16,10 @@ import {
   Hash,
   Image as ImageIcon,
   Plus,
+  Search,
   Send,
   Server as ServerIcon,
+  ShoppingBag,
   Smile,
   X,
 } from 'lucide-react'
@@ -72,6 +79,33 @@ interface SlashCommand {
   botDisplayName?: string | null
 }
 
+interface CommerceProductPickerGroup {
+  key: string
+  labelKey: string
+  shopName?: string | null
+  cards: CommerceProductCard[]
+}
+
+interface CommerceProductPickerResponse {
+  cards: CommerceProductCard[]
+  groups?: CommerceProductPickerGroup[]
+}
+
+function getCommerceCardPrice(
+  card: CommerceProductCard,
+  t?: (key: string, options?: Record<string, unknown>) => string,
+): string {
+  if (card.snapshot.currency === 'shrimp_coin') {
+    const unit = t?.('common.shrimpCoin', { defaultValue: '虾币' }) ?? 'shrimp_coin'
+    return `${card.snapshot.price.toLocaleString()} ${unit}`
+  }
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: card.snapshot.currency,
+    maximumFractionDigits: 2,
+  }).format(card.snapshot.price / 100)
+}
+
 function mentionFromSuggestion(
   suggestion: MentionSuggestion,
   range?: MessageMention['range'],
@@ -123,6 +157,10 @@ export function MessageInput({
   const [uploading, setUploading] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showWorkspacePicker, setShowWorkspacePicker] = useState(false)
+  const [showProductPicker, setShowProductPicker] = useState(false)
+  const [showAttachMenu, setShowAttachMenu] = useState(false)
+  const [productQuery, setProductQuery] = useState('')
+  const [selectedCommerceCards, setSelectedCommerceCards] = useState<CommerceProductCard[]>([])
   const [viewingImage, setViewingImage] = useState<PendingFile | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -174,6 +212,16 @@ export function MessageInput({
       fetchApi<{ commands: SlashCommand[] }>(`/api/channels/${channelId}/slash-commands`),
     enabled: Boolean(channelId),
     staleTime: 30_000,
+  })
+
+  const { data: productPickerData, isFetching: isFetchingProducts } = useQuery({
+    queryKey: ['commerce-product-picker', 'channel', channelId, productQuery],
+    queryFn: () =>
+      fetchApi<CommerceProductPickerResponse>(
+        `/api/commerce/product-picker?target=channel&channelId=${encodeURIComponent(channelId)}&keyword=${encodeURIComponent(productQuery.trim())}`,
+      ),
+    enabled: Boolean(channelId && showProductPicker),
+    staleTime: 15_000,
   })
 
   const slashCommands = slashCommandData?.commands ?? []
@@ -231,6 +279,79 @@ export function MessageInput({
       })
       .slice(0, 12)
   }, [slashCommands, slashQuery])
+
+  const productCards = productPickerData?.cards ?? []
+  const productPickerGroups = useMemo<CommerceProductPickerGroup[]>(() => {
+    const groups = productPickerData?.groups?.filter((group) => group.cards.length > 0)
+    if (groups?.length) return groups
+    return productCards.length
+      ? [{ key: 'all', labelKey: 'chat.productPickerGroupAll', cards: productCards }]
+      : []
+  }, [productPickerData?.groups, productCards])
+
+  const addCommerceCard = useCallback((card: CommerceProductCard) => {
+    setSelectedCommerceCards((prev) => {
+      if (
+        prev.some(
+          (item) =>
+            (item.offerId && item.offerId === card.offerId) ||
+            (item.productId === card.productId && item.skuId === card.skuId),
+        )
+      ) {
+        return prev
+      }
+      return [...prev, card].slice(0, 3)
+    })
+    setShowProductPicker(false)
+    textareaRef.current?.focus()
+  }, [])
+
+  const removeCommerceCard = useCallback((cardId: string) => {
+    setSelectedCommerceCards((prev) => prev.filter((card) => card.id !== cardId))
+  }, [])
+
+  const removeComposerRange = useCallback(
+    (start: number, end: number) => {
+      const textarea = textareaRef.current
+      const next = `${content.slice(0, start)}${content.slice(end)}`
+      setContent(next)
+      scheduleSave(next)
+      requestAnimationFrame(() => {
+        textarea?.focus()
+        textarea?.setSelectionRange(start, start)
+      })
+    },
+    [content, scheduleSave],
+  )
+
+  const openProductPickerFromComposer = useCallback(
+    (start?: number, end?: number) => {
+      if (typeof start === 'number' && typeof end === 'number') {
+        removeComposerRange(start, end)
+      }
+      setSlashQuery(null)
+      setSlashIndex(0)
+      setMentionQuery(null)
+      setMentionTrigger(null)
+      setMentionIndex(0)
+      setShowAttachMenu(false)
+      setShowProductPicker(true)
+    },
+    [removeComposerRange],
+  )
+
+  const openFileDialog = useCallback((accept?: string) => {
+    const input = fileInputRef.current
+    if (!input) return
+    input.accept = accept ?? ''
+    input.click()
+    setShowAttachMenu(false)
+  }, [])
+
+  const openWorkspacePicker = useCallback(() => {
+    setShowAttachMenu(false)
+    setShowWorkspacePicker(true)
+  }, [])
 
   // Scroll active mention item into view
   useEffect(() => {
@@ -332,20 +453,27 @@ export function MessageInput({
 
   const handleSend = useCallback(async () => {
     const text = content.trim()
-    if (!text && pendingFiles.length === 0) return
+    if (!text && pendingFiles.length === 0 && selectedCommerceCards.length === 0) return
 
     setUploading(true)
     const mentionsToSend = mentionsForContent(text, selectedMentions)
+    const metadataToSend =
+      mentionsToSend.length > 0 || selectedCommerceCards.length > 0
+        ? {
+            ...(mentionsToSend.length > 0 ? { mentions: mentionsToSend } : {}),
+            ...(selectedCommerceCards.length > 0 ? { commerceCards: selectedCommerceCards } : {}),
+          }
+        : undefined
 
     // Insert optimistic message immediately for text-only sends
     const currentUser = useAuthStore.getState().user
     const tempId = `temp-${Date.now()}`
     type MessagesPage = { messages: Record<string, unknown>[]; hasMore: boolean }
 
-    if (text && pendingFiles.length === 0) {
+    if ((text || selectedCommerceCards.length > 0) && pendingFiles.length === 0) {
       const optimisticMsg = {
         id: tempId,
-        content: text,
+        content: text || '\u200B',
         channelId,
         authorId: currentUser?.id ?? '',
         threadId: null,
@@ -363,7 +491,7 @@ export function MessageInput({
               isBot: false,
             }
           : undefined,
-        metadata: mentionsToSend.length > 0 ? { mentions: mentionsToSend } : undefined,
+        metadata: metadataToSend,
         sendStatus: 'sending' as const,
       }
 
@@ -384,11 +512,14 @@ export function MessageInput({
     const savedReplyTo = replyToId
     const savedPendingFiles = [...pendingFiles]
     const savedMentions = mentionsToSend
+    const savedCommerceCards = [...selectedCommerceCards]
+    const savedMetadata = metadataToSend
     setContent('')
     setSelectedMentions([])
     setMentionQuery(null)
     setMentionTrigger(null)
     setPendingFiles([])
+    setSelectedCommerceCards([])
     onClearReply?.()
 
     // Clear draft after successful send
@@ -439,17 +570,20 @@ export function MessageInput({
             content: contentToSend,
             ...(savedReplyTo ? { replyToId: savedReplyTo } : {}),
             ...(savedMentions.length > 0 ? { mentions: savedMentions } : {}),
+            ...(savedMetadata ? { metadata: savedMetadata } : {}),
             attachments: uploadedAttachments,
           }),
         })
-      } else if (savedContent) {
+      } else if (savedContent || savedCommerceCards.length > 0) {
         const sock = getSocket()
+        const contentToSend = savedContent || '\u200B'
         if (sock.connected) {
           sendWsMessage({
             channelId,
-            content: savedContent,
+            content: contentToSend,
             replyToId: savedReplyTo ?? undefined,
             mentions: savedMentions,
+            metadata: savedMetadata,
           })
           // WS: message:new will replace the temp message via dedup in chat-area
           // Set timeout to mark as failed if no confirmation
@@ -482,9 +616,10 @@ export function MessageInput({
           await fetchApi(`/api/channels/${channelId}/messages`, {
             method: 'POST',
             body: JSON.stringify({
-              content: savedContent,
+              content: contentToSend,
               ...(savedReplyTo ? { replyToId: savedReplyTo } : {}),
               ...(savedMentions.length > 0 ? { mentions: savedMentions } : {}),
+              ...(savedMetadata ? { metadata: savedMetadata } : {}),
             }),
           })
         }
@@ -513,6 +648,7 @@ export function MessageInput({
     pendingFiles,
     replyToId,
     selectedMentions,
+    selectedCommerceCards,
     onClearReply,
     queryClient,
     clearDraft,
@@ -548,6 +684,25 @@ export function MessageInput({
   }, [])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    const commerceSlashCommand = slashQuery?.trim().toLocaleLowerCase()
+    if (
+      slashQuery !== null &&
+      (commerceSlashCommand === 'product' || commerceSlashCommand === 'shop') &&
+      (e.key === 'Enter' || e.key === 'Tab')
+    ) {
+      e.preventDefault()
+      const textarea = textareaRef.current
+      const cursorPos = textarea?.selectionStart ?? content.length
+      const beforeCursor = content.slice(0, cursorPos)
+      const match = beforeCursor.match(/^\/(?:product|shop)$/iu)
+      if (match) {
+        openProductPickerFromComposer(0, cursorPos)
+      } else {
+        openProductPickerFromComposer()
+      }
+      return
+    }
+
     // Handle slash command autocomplete navigation
     if (slashQuery !== null && filteredSlashCommands.length > 0) {
       if (e.key === 'ArrowDown') {
@@ -623,6 +778,22 @@ export function MessageInput({
     // Detect @mention trigger
     const cursorPos = el.selectionStart
     const beforeCursor = value.slice(0, cursorPos)
+    if (/(?:^|\s)\+$/u.test(beforeCursor)) {
+      const next = `${value.slice(0, cursorPos - 1)}${value.slice(cursorPos)}`
+      setContent(next)
+      setSlashQuery(null)
+      setSlashIndex(0)
+      setMentionQuery(null)
+      setMentionTrigger(null)
+      setMentionIndex(0)
+      setShowAttachMenu(true)
+      scheduleSave(next)
+      requestAnimationFrame(() => {
+        el.focus()
+        el.setSelectionRange(cursorPos - 1, cursorPos - 1)
+      })
+      return
+    }
     const slashMatch = beforeCursor.match(/^\/([^\s/]{0,64})$/u)
     if (slashMatch) {
       setSlashQuery(slashMatch[1] ?? '')
@@ -672,6 +843,7 @@ export function MessageInput({
 
     setPendingFiles((prev) => [...prev, ...newFiles])
     e.target.value = ''
+    e.target.accept = ''
   }
 
   const removeFile = (index: number) => {
@@ -861,13 +1033,40 @@ export function MessageInput({
       )}
 
       {/* Pending file previews */}
-      {pendingFiles.length > 0 && (
+      {(pendingFiles.length > 0 || selectedCommerceCards.length > 0) && (
         <div
           className={cn(
             'flex flex-wrap gap-2 bg-bg-secondary/80 rounded-[24px] border-b border-border-subtle px-4 py-3',
             replyToId ? '' : 'rounded-t-[40px]',
           )}
         >
+          {selectedCommerceCards.map((card) => (
+            <div
+              key={card.id}
+              className="relative flex items-center gap-2 rounded-xl border border-border-subtle bg-bg-primary/75 px-3 py-2 pr-8 max-w-[260px]"
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                <ShoppingBag size={17} />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-xs font-bold text-text-primary">
+                  {card.snapshot.name}
+                </span>
+                <span className="block text-[11px] text-text-muted">
+                  {getCommerceCardPrice(card, t)}
+                </span>
+              </span>
+              <Button
+                variant="ghost"
+                size="xs"
+                className="absolute right-1 top-1 h-5 w-5 rounded-full p-0 text-text-muted"
+                onClick={() => removeCommerceCard(card.id)}
+                title={t('chat.removeProductCard')}
+              >
+                <X size={12} />
+              </Button>
+            </div>
+          ))}
           {pendingFiles.map((pf, i) => (
             <div key={getPendingFileKey(pf)} className="relative group/file">
               {pf.preview ? (
@@ -907,18 +1106,100 @@ export function MessageInput({
       <InputValley
         className={cn(
           'flex items-center gap-2 px-4 py-2',
-          replyToId || pendingFiles.length > 0 ? 'rounded-b-[20px]' : 'rounded-[20px]',
+          replyToId || pendingFiles.length > 0 || selectedCommerceCards.length > 0
+            ? 'rounded-b-[20px]'
+            : 'rounded-[20px]',
         )}
       >
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 shrink-0 self-end mb-[3px]"
-          onClick={() => fileInputRef.current?.click()}
-          title={t('chat.uploadFile')}
-        >
-          <Plus size={20} />
-        </Button>
+        <div className="relative shrink-0 self-end mb-[3px]">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn('h-9 w-9', showAttachMenu && 'bg-primary/10 text-primary')}
+            onClick={() => setShowAttachMenu((open) => !open)}
+            title={t('chat.addMenu')}
+            aria-label={t('chat.addMenu')}
+          >
+            <Plus size={20} />
+          </Button>
+          {showAttachMenu && (
+            <>
+              <button
+                type="button"
+                className="fixed inset-0 z-40 cursor-default"
+                aria-label={t('common.close')}
+                onClick={() => setShowAttachMenu(false)}
+              />
+              <div className="absolute bottom-11 left-0 z-50 w-[280px] rounded-2xl border border-border-subtle bg-bg-primary p-2 shadow-2xl">
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-bg-secondary"
+                  onClick={() => openFileDialog()}
+                >
+                  <FileText size={18} className="text-primary" />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold text-text-primary">
+                      {t('chat.uploadFile')}
+                    </span>
+                    <span className="block truncate text-xs text-text-muted">
+                      {t('chat.addMenuUploadFileDesc')}
+                    </span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-bg-secondary"
+                  onClick={() => openFileDialog('image/*')}
+                >
+                  <ImageIcon size={18} className="text-primary" />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold text-text-primary">
+                      {t('chat.uploadImage')}
+                    </span>
+                    <span className="block truncate text-xs text-text-muted">
+                      {t('chat.addMenuUploadImageDesc')}
+                    </span>
+                  </span>
+                </button>
+                {activeServerId && (
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-bg-secondary"
+                    onClick={openWorkspacePicker}
+                  >
+                    <FolderOpen size={18} className="text-primary" />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-bold text-text-primary">
+                        {t('chat.selectWorkspaceFile')}
+                      </span>
+                      <span className="block truncate text-xs text-text-muted">
+                        {t('chat.addMenuWorkspaceFileDesc')}
+                      </span>
+                    </span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-bg-secondary"
+                  onClick={() => {
+                    setShowAttachMenu(false)
+                    setShowProductPicker(true)
+                  }}
+                >
+                  <ShoppingBag size={18} className="text-primary" />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold text-text-primary">
+                      {t('chat.productPicker')}
+                    </span>
+                    <span className="block truncate text-xs text-text-muted">
+                      {t('chat.addMenuProductDesc')}
+                    </span>
+                  </span>
+                </button>
+              </div>
+            </>
+          )}
+        </div>
 
         <textarea
           ref={textareaRef}
@@ -932,28 +1213,6 @@ export function MessageInput({
           rows={1}
           className="flex-1 bg-transparent text-text-primary placeholder:text-text-muted outline-none resize-none text-[15px] leading-[24px] max-h-[50vh] min-h-[24px] py-[7px]"
         />
-
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 shrink-0 self-end mb-[3px]"
-          onClick={() => fileInputRef.current?.click()}
-          title={t('chat.uploadImage')}
-        >
-          <ImageIcon size={20} />
-        </Button>
-
-        {activeServerId && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 shrink-0 self-end mb-[3px]"
-            onClick={() => setShowWorkspacePicker(true)}
-            title={t('chat.selectWorkspaceFile')}
-          >
-            <FolderOpen size={20} />
-          </Button>
-        )}
 
         <div className="relative shrink-0 self-end mb-[3px]">
           <Button
@@ -981,7 +1240,10 @@ export function MessageInput({
           size="icon"
           className="h-9 w-9 rounded-full shrink-0 self-end mb-0.5 disabled:opacity-30 transition-all duration-300 bg-primary hover:bg-primary-strong text-white border-none shadow-none flex items-center justify-center"
           onClick={handleSend}
-          disabled={(!content.trim() && pendingFiles.length === 0) || uploading}
+          disabled={
+            (!content.trim() && pendingFiles.length === 0 && selectedCommerceCards.length === 0) ||
+            uploading
+          }
         >
           <Send size={16} className="text-white" />
         </Button>
@@ -1003,6 +1265,97 @@ export function MessageInput({
           onConfirm={handleWorkspaceFileSelect}
           onClose={() => setShowWorkspacePicker(false)}
         />
+      )}
+
+      {showProductPicker && (
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/30 px-4 pb-6 pt-20 sm:items-center">
+          <div className="w-full max-w-lg rounded-2xl border border-border-subtle bg-bg-primary shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3">
+              <div className="flex items-center gap-2 text-sm font-bold text-text-primary">
+                <ShoppingBag size={18} className="text-primary" />
+                {t('chat.productPicker')}
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setShowProductPicker(false)}
+              >
+                <X size={16} />
+              </Button>
+            </div>
+            <div className="border-b border-border-subtle p-3">
+              <label className="flex items-center gap-2 rounded-xl border border-border-subtle bg-bg-secondary px-3 py-2 text-sm text-text-primary">
+                <Search size={16} className="text-text-muted" />
+                <input
+                  value={productQuery}
+                  onChange={(e) => setProductQuery(e.target.value)}
+                  placeholder={t('chat.productPickerSearch')}
+                  className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-text-muted"
+                  autoFocus
+                />
+              </label>
+            </div>
+            <div className="max-h-[420px] overflow-y-auto p-2">
+              {isFetchingProducts ? (
+                <div className="px-4 py-8 text-center text-sm text-text-muted">
+                  {t('chat.productPickerLoading')}
+                </div>
+              ) : productCards.length === 0 ? (
+                <div className="px-4 py-8 text-center text-sm text-text-muted">
+                  {t('chat.productPickerEmpty')}
+                </div>
+              ) : (
+                productPickerGroups.map((group) => (
+                  <div key={group.key} className="py-1">
+                    <div className="flex items-center gap-2 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-text-muted">
+                      <ShoppingBag size={13} />
+                      <span>{t(group.labelKey)}</span>
+                      {group.shopName && (
+                        <span className="min-w-0 truncate normal-case tracking-normal">
+                          {group.shopName}
+                        </span>
+                      )}
+                    </div>
+                    {group.cards.map((card) => (
+                      <button
+                        key={card.id}
+                        type="button"
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-bg-secondary"
+                        onClick={() => addCommerceCard(card)}
+                      >
+                        {card.snapshot.imageUrl ? (
+                          <img
+                            src={card.snapshot.imageUrl}
+                            alt=""
+                            className="h-12 w-12 rounded-lg object-cover"
+                          />
+                        ) : (
+                          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                            <ShoppingBag size={20} />
+                          </span>
+                        )}
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-bold text-text-primary">
+                            {card.snapshot.name}
+                          </span>
+                          {card.snapshot.summary && (
+                            <span className="block truncate text-xs text-text-muted">
+                              {card.snapshot.summary}
+                            </span>
+                          )}
+                        </span>
+                        <span className="shrink-0 text-sm font-bold text-primary">
+                          {getCommerceCardPrice(card, t)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Image viewer for pending files */}

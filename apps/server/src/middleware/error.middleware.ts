@@ -15,15 +15,18 @@ export async function errorMiddleware(c: Context, next: Next): Promise<Response 
       balance?: number
       shortfall?: number
       nextAction?: string
+      params?: Record<string, unknown>
     }
     const status = appError.status ?? 500
+    const errorCode = appError.code ?? (status >= 500 ? 'INTERNAL_ERROR' : undefined)
 
     logger.error({ err: error, path: c.req.path, method: c.req.method }, message)
 
     return c.json(
       {
-        error: status >= 500 ? 'Internal Server Error' : message,
-        ...(appError.code ? { code: appError.code } : {}),
+        error: errorCode ?? message,
+        ...(errorCode ? { code: errorCode } : {}),
+        ...(appError.params ? { params: appError.params } : {}),
         ...(appError.capability ? { capability: appError.capability } : {}),
         ...(appError.membership ? { membership: appError.membership } : {}),
         ...(typeof appError.requiredAmount === 'number'

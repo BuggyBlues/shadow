@@ -40,6 +40,7 @@ export interface ApiError {
   balance?: number
   shortfall?: number
   nextAction?: string
+  params?: Record<string, unknown>
 }
 
 /** Union type for all API responses */
@@ -669,10 +670,131 @@ export interface ShadowContract {
 
 export interface ShadowShop {
   id: string
-  serverId: string
+  scopeKind?: 'server' | 'user'
+  serverId?: string | null
+  ownerUserId?: string | null
+  visibility?: string
   name: string
   description?: string | null
   isEnabled: boolean
+}
+
+export interface ShadowCommerceProductCard {
+  id: string
+  kind: 'offer' | 'product'
+  offerId?: string
+  shopId: string
+  shopScope: { kind: 'server' | 'user'; id: string }
+  productId: string
+  skuId?: string
+  snapshot: {
+    name: string
+    summary?: string | null
+    imageUrl?: string | null
+    price: number
+    currency: string
+    productType: 'physical' | 'entitlement'
+    billingMode?: 'one_time' | 'fixed_duration' | 'subscription'
+    durationSeconds?: number | null
+    resourceType?: string
+    resourceId?: string
+    capability?: string
+  }
+  purchase: { mode: 'direct' | 'select_sku' | 'open_detail' }
+}
+
+export interface ShadowCommerceProductPickerGroup {
+  key: string
+  labelKey: string
+  shopId: string
+  shopName: string
+  shopScope: { kind: 'server' | 'user'; id: string }
+  cards: ShadowCommerceProductCard[]
+}
+
+export interface ShadowCommerceProductPickerResponse {
+  cards: ShadowCommerceProductCard[]
+  groups?: ShadowCommerceProductPickerGroup[]
+}
+
+export interface ShadowEntitlementProvisioning {
+  status: 'provisioned' | 'manual_pending' | 'failed' | string
+  code: string
+  provisionedAt?: string
+  checkedAt?: string
+  resourceType?: string | null
+  resourceId?: string | null
+  capability?: string | null
+}
+
+export interface ShadowEntitlement {
+  id: string
+  userId: string
+  serverId?: string | null
+  shopId?: string | null
+  orderId?: string | null
+  productId?: string | null
+  offerId?: string | null
+  scopeKind?: 'server' | 'user' | string
+  resourceType: string
+  resourceId: string
+  capability: string
+  status: string
+  isActive: boolean
+  startsAt?: string
+  expiresAt?: string | null
+  nextRenewalAt?: string | null
+  cancelledAt?: string | null
+  revokedAt?: string | null
+  metadata?: Record<string, unknown> | null
+  createdAt?: string
+  updatedAt?: string
+  shop?: {
+    id: string
+    scopeKind: 'server' | 'user' | string
+    serverId?: string | null
+    ownerUserId?: string | null
+    name: string
+    logoUrl?: string | null
+  } | null
+  product?: {
+    id: string
+    shopId: string
+    name: string
+    summary?: string | null
+    type: 'physical' | 'entitlement' | string
+    basePrice: number
+    currency: string
+    billingMode: 'one_time' | 'fixed_duration' | 'subscription' | string
+    entitlementConfig?: Record<string, unknown> | Record<string, unknown>[] | null
+  } | null
+  offer?: {
+    id: string
+    shopId: string
+    productId: string
+    priceOverride?: number | null
+    currency: string
+    status: string
+  } | null
+  paidFile?: {
+    id: string
+    name: string
+    mime?: string | null
+    sizeBytes?: number | null
+    previewUrl?: string | null
+  } | null
+}
+
+export interface ShadowEntitlementPurchaseResult {
+  order: { id: string; orderNo: string; status: string; totalAmount: number }
+  entitlement: Record<string, unknown>
+  provisioning?: ShadowEntitlementProvisioning
+  fulfillmentJobs?: Record<string, unknown>[]
+}
+
+export interface ShadowPaidFileOpenResult {
+  grant: { id: string; fileId: string; status: string; expiresAt: string }
+  viewerUrl: string
 }
 
 export interface ShadowCategory {
@@ -693,6 +815,7 @@ export interface ShadowProduct {
   currency: string
   stock: number
   status: string
+  billingMode?: 'one_time' | 'fixed_duration' | 'subscription'
   images: string[]
   createdAt: string
 }

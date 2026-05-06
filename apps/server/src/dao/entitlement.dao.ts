@@ -1,6 +1,6 @@
-import { and, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, lte, sql } from 'drizzle-orm'
 import type { Database } from '../db'
-import { entitlements } from '../db/schema'
+import { commerceOffers, entitlements, products, shops, workspaceNodes } from '../db/schema'
 
 export class EntitlementDao {
   constructor(private deps: { db: Database }) {}
@@ -22,50 +22,219 @@ export class EntitlementDao {
       )
   }
 
-  async hasEntitlement(userId: string, serverId: string, type: string, targetId: string) {
+  async findById(id: string) {
+    const r = await this.db.select().from(entitlements).where(eq(entitlements.id, id)).limit(1)
+    return r[0] ?? null
+  }
+
+  async findByUser(userId: string) {
+    return this.db.select().from(entitlements).where(eq(entitlements.userId, userId))
+  }
+
+  async findByUserWithDetails(userId: string) {
+    const rows = await this.db
+      .select({
+        entitlement: entitlements,
+        shop: {
+          id: shops.id,
+          scopeKind: shops.scopeKind,
+          serverId: shops.serverId,
+          ownerUserId: shops.ownerUserId,
+          name: shops.name,
+          logoUrl: shops.logoUrl,
+        },
+        product: {
+          id: products.id,
+          shopId: products.shopId,
+          name: products.name,
+          summary: products.summary,
+          type: products.type,
+          basePrice: products.basePrice,
+          currency: products.currency,
+          billingMode: products.billingMode,
+          entitlementConfig: products.entitlementConfig,
+        },
+        offer: {
+          id: commerceOffers.id,
+          shopId: commerceOffers.shopId,
+          productId: commerceOffers.productId,
+          priceOverride: commerceOffers.priceOverride,
+          currency: commerceOffers.currency,
+          status: commerceOffers.status,
+        },
+        paidFile: {
+          id: workspaceNodes.id,
+          name: workspaceNodes.name,
+          mime: workspaceNodes.mime,
+          sizeBytes: workspaceNodes.sizeBytes,
+          previewUrl: workspaceNodes.previewUrl,
+        },
+      })
+      .from(entitlements)
+      .leftJoin(shops, eq(entitlements.shopId, shops.id))
+      .leftJoin(products, eq(entitlements.productId, products.id))
+      .leftJoin(commerceOffers, eq(entitlements.offerId, commerceOffers.id))
+      .leftJoin(
+        workspaceNodes,
+        and(
+          eq(entitlements.resourceType, 'workspace_file'),
+          sql`${entitlements.resourceId} = ${workspaceNodes.id}::text`,
+        ),
+      )
+      .where(eq(entitlements.userId, userId))
+      .orderBy(desc(entitlements.createdAt))
+
+    return rows.map((row) => ({
+      ...row.entitlement,
+      shop: row.shop?.id ? row.shop : null,
+      product: row.product?.id ? row.product : null,
+      offer: row.offer?.id ? row.offer : null,
+      paidFile: row.paidFile?.id ? row.paidFile : null,
+    }))
+  }
+
+  async findByShop(shopId: string, opts?: { limit?: number; offset?: number }) {
+    return this.db
+      .select()
+      .from(entitlements)
+      .where(eq(entitlements.shopId, shopId))
+      .limit(opts?.limit ?? 100)
+      .offset(opts?.offset ?? 0)
+  }
+
+  async hasResourceEntitlement(input: {
+    userId: string
+    resourceType: string
+    resourceId: string
+    capability?: string
+    serverId?: string | null
+  }) {
+    const conditions = [
+      eq(entitlements.userId, input.userId),
+      eq(entitlements.resourceType, input.resourceType),
+      eq(entitlements.resourceId, input.resourceId),
+      eq(entitlements.capability, input.capability ?? 'use'),
+      eq(entitlements.isActive, true),
+      sql`(${entitlements.expiresAt} IS NULL OR ${entitlements.expiresAt} > NOW())`,
+    ]
+    if (input.serverId) conditions.push(eq(entitlements.serverId, input.serverId))
+
     const r = await this.db
       .select({ id: entitlements.id })
       .from(entitlements)
-      .where(
-        and(
-          eq(entitlements.userId, userId),
-          eq(entitlements.serverId, serverId),
-          eq(entitlements.type, type as (typeof entitlements.type.enumValues)[number]),
-          eq(entitlements.targetId, targetId),
-          eq(entitlements.isActive, true),
-          sql`(${entitlements.expiresAt} IS NULL OR ${entitlements.expiresAt} > NOW())`,
-        ),
-      )
+      .where(and(...conditions))
       .limit(1)
     return r.length > 0
   }
 
+  async findActiveResourceEntitlement(input: {
+    userId: string
+    resourceType: string
+    resourceId: string
+    capability?: string
+    serverId?: string | null
+  }) {
+    const conditions = [
+      eq(entitlements.userId, input.userId),
+      eq(entitlements.resourceType, input.resourceType),
+      eq(entitlements.resourceId, input.resourceId),
+      eq(entitlements.capability, input.capability ?? 'use'),
+      eq(entitlements.isActive, true),
+      sql`(${entitlements.expiresAt} IS NULL OR ${entitlements.expiresAt} > NOW())`,
+    ]
+    if (input.serverId) conditions.push(eq(entitlements.serverId, input.serverId))
+
+    const r = await this.db
+      .select()
+      .from(entitlements)
+      .where(and(...conditions))
+      .limit(1)
+    return r[0] ?? null
+  }
+
   async create(data: {
     userId: string
-    serverId: string
+    serverId?: string | null
+    shopId?: string | null
     orderId?: string
     productId?: string
-    type: 'channel_access' | 'channel_speak' | 'app_access' | 'custom_role' | 'custom'
-    targetId?: string
+    offerId?: string | null
+    scopeKind?: 'server' | 'user'
+    resourceType: string
+    resourceId: string
+    capability?: string
+    status?:
+      | 'active'
+      | 'expired'
+      | 'cancelled'
+      | 'revoked'
+      | 'renewal_failed'
+      | 'pending_force_majeure_review'
+    startsAt?: Date
     expiresAt?: Date
+    nextRenewalAt?: Date | null
+    metadata?: Record<string, unknown>
   }) {
     const r = await this.db.insert(entitlements).values(data).returning()
     return r[0] ?? null
   }
 
-  async revoke(id: string) {
+  async update(
+    id: string,
+    data: Partial<{
+      renewalOrderId: string | null
+      status:
+        | 'active'
+        | 'expired'
+        | 'cancelled'
+        | 'revoked'
+        | 'renewal_failed'
+        | 'pending_force_majeure_review'
+      isActive: boolean
+      expiresAt: Date | null
+      nextRenewalAt: Date | null
+      cancelledAt: Date | null
+      revokedAt: Date | null
+      cancelReason: string | null
+      revocationReason: string | null
+      metadata: Record<string, unknown>
+    }>,
+  ) {
     const r = await this.db
       .update(entitlements)
-      .set({ isActive: false })
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(entitlements.id, id))
       .returning()
     return r[0] ?? null
   }
 
+  async revoke(id: string, reason?: string) {
+    return this.update(id, {
+      isActive: false,
+      status: 'revoked',
+      revokedAt: new Date(),
+      revocationReason: reason ?? null,
+    })
+  }
+
   async revokeByOrder(orderId: string) {
     await this.db
       .update(entitlements)
-      .set({ isActive: false })
+      .set({ isActive: false, status: 'revoked', revokedAt: new Date(), updatedAt: new Date() })
       .where(eq(entitlements.orderId, orderId))
+  }
+
+  async findDueRenewals(now = new Date(), limit = 100) {
+    return this.db
+      .select()
+      .from(entitlements)
+      .where(
+        and(
+          eq(entitlements.status, 'active'),
+          eq(entitlements.isActive, true),
+          lte(entitlements.nextRenewalAt, now),
+        ),
+      )
+      .limit(limit)
   }
 }

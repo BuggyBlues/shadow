@@ -1,9 +1,12 @@
 import type { ProductDao, ProductMediaDao, SkuDao } from '../dao/product.dao'
+import { apiError } from '../lib/api-error'
 
 type EntitlementConfig = {
-  type: 'channel_access' | 'channel_speak' | 'app_access' | 'custom_role' | 'custom'
-  targetId?: string
+  resourceType?: string
+  resourceId?: string
+  capability?: string
   durationSeconds?: number | null
+  renewalPeriodSeconds?: number | null
   privilegeDescription?: string
 }
 
@@ -52,7 +55,7 @@ export class ProductService {
 
   async getProductById(id: string) {
     const product = await this.deps.productDao.findById(id)
-    if (!product) throw Object.assign(new Error('Product not found'), { status: 404 })
+    if (!product) throw apiError('PRODUCT_NOT_FOUND', 404)
     return product
   }
 
@@ -74,6 +77,7 @@ export class ProductService {
       name: string
       slug: string
       type?: 'physical' | 'entitlement'
+      billingMode?: 'one_time' | 'fixed_duration' | 'subscription'
       status?: 'draft' | 'active' | 'archived'
       description?: string
       summary?: string

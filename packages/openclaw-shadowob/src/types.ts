@@ -26,6 +26,19 @@ export type ShadowAccountConfig = {
   buddyDescription?: string
   /** Buddy config ID — injected by cloud parser for AI context */
   buddyId?: string
+  /** Commerce offers this Buddy can sell through Shadow message cards. */
+  commerceOffers?: ShadowCommerceOfferContext[]
+}
+
+export type ShadowCommerceOfferContext = {
+  seedId?: string
+  name?: string
+  summary?: string
+  serverConfigId?: string
+  offerId: string
+  productId?: string
+  fileId?: string
+  deliverableId?: string
 }
 
 // ─── Shadow Policy Config (per-channel, from remote config) ─────────────────

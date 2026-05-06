@@ -14,6 +14,7 @@ class ShadowApiErrorBody:
     balance: int | None = None
     shortfall: int | None = None
     next_action: str | None = None
+    params: dict[str, Any] | None = None
 
 
 @dataclass
@@ -380,6 +381,81 @@ class ShadowContract:
 
 
 @dataclass
+class ShadowShop:
+    id: str
+    name: str
+    is_enabled: bool
+    scope_kind: str | None = None
+    server_id: str | None = None
+    owner_user_id: str | None = None
+    visibility: str | None = None
+    description: str | None = None
+
+
+@dataclass
+class ShadowCommerceProductCard:
+    id: str
+    kind: str
+    shop_id: str
+    shop_scope: dict[str, Any]
+    product_id: str
+    snapshot: dict[str, Any]
+    purchase: dict[str, Any]
+    offer_id: str | None = None
+    sku_id: str | None = None
+
+
+@dataclass
+class ShadowCommerceProductPickerGroup:
+    key: str
+    label_key: str
+    shop_id: str
+    shop_name: str
+    shop_scope: dict[str, Any]
+    cards: list[ShadowCommerceProductCard | dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass
+class ShadowEntitlementProvisioning:
+    status: str
+    code: str
+    provisioned_at: str | None = None
+    checked_at: str | None = None
+    resource_type: str | None = None
+    resource_id: str | None = None
+    capability: str | None = None
+
+
+@dataclass
+class ShadowEntitlement:
+    id: str
+    user_id: str
+    resource_type: str
+    resource_id: str
+    capability: str
+    status: str
+    is_active: bool
+    server_id: str | None = None
+    shop_id: str | None = None
+    order_id: str | None = None
+    product_id: str | None = None
+    offer_id: str | None = None
+    scope_kind: str | None = None
+    starts_at: str | None = None
+    expires_at: str | None = None
+    next_renewal_at: str | None = None
+    cancelled_at: str | None = None
+    revoked_at: str | None = None
+    metadata: dict[str, Any] | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+    shop: dict[str, Any] | None = None
+    product: dict[str, Any] | None = None
+    offer: dict[str, Any] | None = None
+    paid_file: dict[str, Any] | None = None
+
+
+@dataclass
 class ShadowProduct:
     id: str
     shop_id: str
@@ -392,6 +468,7 @@ class ShadowProduct:
     created_at: str
     category_id: str | None = None
     description: str | None = None
+    billing_mode: str | None = None
 
 
 @dataclass

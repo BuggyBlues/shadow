@@ -307,8 +307,9 @@ interface ProductFormProps {
 }
 
 type EntitlementRule = {
-  type: 'channel_access' | 'channel_speak' | 'app_access' | 'custom_role' | 'custom'
-  targetId: string
+  resourceType: string
+  resourceId: string
+  capability: string
   durationSeconds: string
   privilegeDescription: string
 }
@@ -317,8 +318,9 @@ function normalizeEntitlementRules(product: Product | null): EntitlementRule[] {
   if (!product?.entitlementConfig) {
     return [
       {
-        type: 'channel_access',
-        targetId: '',
+        resourceType: 'service',
+        resourceId: '',
+        capability: 'use',
         durationSeconds: '',
         privilegeDescription: '',
       },
@@ -331,14 +333,16 @@ function normalizeEntitlementRules(product: Product | null): EntitlementRule[] {
     .filter(Boolean)
     .map((cfg) => {
       const item = cfg as {
-        type?: EntitlementRule['type']
-        targetId?: string
+        resourceType?: string
+        resourceId?: string
+        capability?: string
         durationSeconds?: number | null
         privilegeDescription?: string
       }
       return {
-        type: item.type || 'channel_access',
-        targetId: item.targetId || '',
+        resourceType: item.resourceType || 'service',
+        resourceId: item.resourceId || '',
+        capability: item.capability || 'use',
         durationSeconds:
           item.durationSeconds === null || item.durationSeconds === undefined
             ? ''
@@ -346,10 +350,11 @@ function normalizeEntitlementRules(product: Product | null): EntitlementRule[] {
         privilegeDescription: item.privilegeDescription || '',
       }
     })
-    .filter((r) => !!r.type)
+    .filter((r) => !!r.resourceType)
 }
 
 function ProductForm({ serverId, product, onCancel, onSaved }: ProductFormProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const isEditing = !!product
 
@@ -470,8 +475,9 @@ function ProductForm({ serverId, product, onCancel, onSaved }: ProductFormProps)
 
       if (type === 'entitlement') {
         body.entitlementConfig = entitlementRules.map((rule) => ({
-          type: rule.type,
-          targetId: rule.targetId || undefined,
+          resourceType: rule.resourceType || 'service',
+          resourceId: rule.resourceId || undefined,
+          capability: rule.capability || 'use',
           durationSeconds: rule.durationSeconds ? Number(rule.durationSeconds) : null,
           privilegeDescription: rule.privilegeDescription || undefined,
         }))
@@ -805,29 +811,43 @@ function ProductForm({ serverId, product, onCancel, onSaved }: ProductFormProps)
 
         {/* ── Section: Entitlement Config ── */}
         {type === 'entitlement' && (
-          <FormSection title="虚拟权益投递配置">
+          <FormSection title={t('commerce.entitlementDeliveryConfig')}>
             <div className="space-y-4">
               {entitlementRules.map((rule, idx) => (
                 <div
                   key={idx}
                   className="grid grid-cols-1 md:grid-cols-2 gap-5 p-4 rounded-2xl border border-border-subtle bg-bg-tertiary/60"
                 >
-                  <FormField label="权益类型">
+                  <FormField label={t('commerce.resourceType')}>
+                    <input
+                      type="text"
+                      value={rule.resourceType}
+                      onChange={(e) => {
+                        const next = [...entitlementRules]
+                        next[idx] = { ...rule, resourceType: e.target.value }
+                        setEntitlementRules(next)
+                      }}
+                      placeholder={t('commerce.resourceTypePlaceholder')}
+                      className="w-full p-3 bg-bg-tertiary text-white text-sm rounded-xl border border-border-subtle focus:outline-none focus:border-primary transition-all font-mono"
+                    />
+                  </FormField>
+
+                  <FormField label={t('commerce.capability')}>
                     <div className="relative">
                       <select
-                        value={rule.type}
+                        value={rule.capability}
                         onChange={(e) => {
                           const next = [...entitlementRules]
-                          next[idx] = { ...rule, type: e.target.value as EntitlementRule['type'] }
+                          next[idx] = { ...rule, capability: e.target.value }
                           setEntitlementRules(next)
                         }}
                         className="w-full p-3 pr-10 bg-bg-tertiary text-white text-sm rounded-xl border border-border-subtle focus:outline-none focus:border-primary transition-all appearance-none font-medium"
                       >
-                        <option value="channel_access">解锁私密频道访问</option>
-                        <option value="channel_speak">授予特定频道发言权</option>
-                        <option value="app_access">授予生态应用访问</option>
-                        <option value="custom_role">自动授予专属身份组</option>
-                        <option value="custom">自定义投递</option>
+                        <option value="use">{t('commerce.capabilities.use')}</option>
+                        <option value="view">{t('commerce.capabilities.view')}</option>
+                        <option value="download">{t('commerce.capabilities.download')}</option>
+                        <option value="redeem">{t('commerce.capabilities.redeem')}</option>
+                        <option value="manage">{t('commerce.capabilities.manage')}</option>
                       </select>
                       <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-text-muted">
                         <ChevronDown size={14} />
@@ -835,16 +855,16 @@ function ProductForm({ serverId, product, onCancel, onSaved }: ProductFormProps)
                     </div>
                   </FormField>
 
-                  <FormField label="目标对象 ID">
+                  <FormField label={t('commerce.resourceId')}>
                     <input
                       type="text"
-                      value={rule.targetId}
+                      value={rule.resourceId}
                       onChange={(e) => {
                         const next = [...entitlementRules]
-                        next[idx] = { ...rule, targetId: e.target.value }
+                        next[idx] = { ...rule, resourceId: e.target.value }
                         setEntitlementRules(next)
                       }}
-                      placeholder="例如频道或角色的数字 ID"
+                      placeholder={t('commerce.resourceIdPlaceholder')}
                       className="w-full p-3 bg-bg-tertiary text-white text-sm rounded-xl border border-border-subtle focus:outline-none focus:border-primary transition-all font-mono"
                     />
                   </FormField>
@@ -904,8 +924,9 @@ function ProductForm({ serverId, product, onCancel, onSaved }: ProductFormProps)
                   setEntitlementRules([
                     ...entitlementRules,
                     {
-                      type: 'channel_access',
-                      targetId: '',
+                      resourceType: 'service',
+                      resourceId: '',
+                      capability: 'use',
                       durationSeconds: '',
                       privilegeDescription: '',
                     },

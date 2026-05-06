@@ -1,7 +1,18 @@
 import { cn, GlassHeader, GlassPanel } from '@shadowob/ui'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import { Bot, Gift, MessageCircle, Monitor, Settings, Target, Wallet } from 'lucide-react'
+import {
+  Bot,
+  Gift,
+  MessageCircle,
+  Monitor,
+  Package,
+  Settings,
+  ShieldCheck,
+  Store,
+  Target,
+  Wallet,
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { UserAvatar } from '../../components/common/avatar'
@@ -11,6 +22,7 @@ import { useUnreadCount } from '../../hooks/use-unread-count'
 import { fetchApi } from '../../lib/api'
 import { useAuthStore } from '../../stores/auth.store'
 import { BuddyManagementContent } from '../buddy-management'
+import { EntitlementsPage, PersonalShopPage, ShopOrdersPage } from '../commerce'
 import { DmChatView } from '../dm-chat'
 import { UnifiedContactSidebar } from '../friends'
 import { InviteSettings } from './invite'
@@ -18,7 +30,15 @@ import { SettingsModal } from './settings-modal'
 import { TaskSettings } from './tasks'
 import { WalletSettings } from './wallet'
 
-type SettingsTab = 'dm' | 'buddy' | 'tasks' | 'wallet' | 'invite'
+type SettingsTab =
+  | 'dm'
+  | 'buddy'
+  | 'tasks'
+  | 'wallet'
+  | 'invite'
+  | 'shop'
+  | 'entitlements'
+  | 'commerce-orders'
 
 interface NavItem {
   id: SettingsTab
@@ -33,6 +53,19 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'tasks', icon: Target, labelKey: 'settings.tabTasks', labelFallback: '赚取虾币' },
   { id: 'wallet', icon: Wallet, labelKey: 'settings.tabWallet', labelFallback: '钱包' },
   { id: 'invite', icon: Gift, labelKey: 'settings.tabInvite', labelFallback: '邀请返利' },
+  { id: 'shop', icon: Store, labelKey: 'settings.tabShop', labelFallback: '我的店铺' },
+  {
+    id: 'entitlements',
+    icon: ShieldCheck,
+    labelKey: 'settings.tabEntitlements',
+    labelFallback: '我的权益',
+  },
+  {
+    id: 'commerce-orders',
+    icon: Package,
+    labelKey: 'settings.tabCommerceOrders',
+    labelFallback: '发货记录',
+  },
 ]
 
 export function SettingsPage() {
@@ -246,6 +279,9 @@ export function SettingsPage() {
                 {activeTab === 'tasks' && <TaskSettings />}
                 {activeTab === 'wallet' && <WalletSettings />}
                 {activeTab === 'buddy' && <BuddyManagementContent />}
+                {activeTab === 'shop' && <PersonalShopPage />}
+                {activeTab === 'entitlements' && <EntitlementsPage />}
+                {activeTab === 'commerce-orders' && <ShopOrdersPage />}
               </div>
             </div>
           </GlassPanel>

@@ -8,6 +8,10 @@ import { Command } from 'commander'
 import type { ServiceContainer } from '../../services/container.js'
 import { loadProvisionState, mergeProvisionState, saveProvisionState } from '../../utils/state.js'
 
+function shadowBuddyTokenEnvKey(id: string) {
+  return `SHADOW_TOKEN_${id.toUpperCase().replace(/-/g, '_')}`
+}
+
 export function createProvisionCommand(container: ServiceContainer) {
   return new Command('provision')
     .description('Provision Shadow resources (servers, channels, buddies) without deploying')
@@ -73,6 +77,7 @@ export function createProvisionCommand(container: ServiceContainer) {
 
           // Track merged states and last result for display
           const mergedStates: Record<string, Record<string, unknown>> = {}
+          const tokenOutputs: Record<string, string> = {}
 
           for (const agent of agents) {
             const provisionResults = await executePluginProvisions(
@@ -87,6 +92,9 @@ export function createProvisionCommand(container: ServiceContainer) {
             for (const [pluginId, state] of Object.entries(provisionResults.states)) {
               mergedStates[pluginId] = { ...(mergedStates[pluginId] ?? {}), ...state }
             }
+            for (const [key, value] of Object.entries(provisionResults.secrets)) {
+              if (key.startsWith('SHADOW_TOKEN_')) tokenOutputs[key] = value
+            }
             if (provisionResults.errors.length > 0) {
               for (const e of provisionResults.errors) {
                 container.logger.warn(`Plugin provision error (${e.pluginId}): ${e.error}`)
@@ -98,7 +106,7 @@ export function createProvisionCommand(container: ServiceContainer) {
             const shadowobState = (mergedStates.shadowob ?? {}) as {
               servers?: Record<string, string>
               channels?: Record<string, string>
-              buddies?: Record<string, { agentId: string; userId: string; token: string }>
+              buddies?: Record<string, { agentId: string; userId: string }>
               listings?: Record<string, string>
             }
 
@@ -144,7 +152,12 @@ export function createProvisionCommand(container: ServiceContainer) {
               const { writeFileSync } = await import('node:fs')
               const outData: Record<string, unknown> = {}
               for (const [id, info] of Object.entries(shadowobState.buddies ?? {})) {
-                outData[id] = { agentId: info.agentId, token: info.token, userId: info.userId }
+                const token = tokenOutputs[shadowBuddyTokenEnvKey(id)]
+                outData[id] = {
+                  agentId: info.agentId,
+                  userId: info.userId,
+                  ...(token ? { token } : {}),
+                }
               }
               writeFileSync(
                 resolve(options.output),

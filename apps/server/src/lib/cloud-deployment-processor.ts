@@ -87,6 +87,17 @@ function resolveDeploymentStackName(deployment: CloudDeploymentRecord): string {
   return `saas-${namespace}-${clusterHash}`
 }
 
+export async function resolveDeploymentShadowProvisionToken(
+  runtimeEnvVars: Record<string, string>,
+  deploymentUserId: string,
+): Promise<string | undefined> {
+  const { shadowToken } = resolveCloudSaasShadowRuntime(runtimeEnvVars)
+  if (shadowToken) return shadowToken
+
+  const { signAccessToken } = await import('./jwt')
+  return signAccessToken({ userId: deploymentUserId })
+}
+
 function assertNoSecretsInProvisionState(state: unknown) {
   const serialized = JSON.stringify(state)
   if (
@@ -644,7 +655,11 @@ async function processDeployment(
       throw new Error('No valid config snapshot found for this deployment. Cannot deploy.')
     }
 
-    const { shadowUrl, podShadowUrl, shadowToken } = resolveCloudSaasShadowRuntime(runtimeEnvVars)
+    const { shadowUrl, podShadowUrl } = resolveCloudSaasShadowRuntime(runtimeEnvVars)
+    const shadowToken = await resolveDeploymentShadowProvisionToken(
+      runtimeEnvVars,
+      deployment.userId,
+    )
 
     await deploymentDao.appendLog(
       deployment.id,

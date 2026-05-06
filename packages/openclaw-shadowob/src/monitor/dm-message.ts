@@ -8,6 +8,11 @@ import type {
   ShadowRuntimeLogger,
   ShadowSlashCommand,
 } from '../types.js'
+import {
+  buildCommerceContextForAgent,
+  commerceContextFields,
+  inferCommerceOfferIdForReply,
+} from './commerce-context.js'
 import { deliverShadowDmReply } from './reply-delivery.js'
 import { resolveSessionStore } from './session.js'
 import { formatSlashCommandPrompt, matchShadowSlashCommand } from './slash-commands.js'
@@ -113,9 +118,12 @@ export async function processShadowDmMessage(params: {
     runtime.log?.(`[slash] Unknown DM slash command in message ${dmMessage.id}; treating as text`)
   }
 
-  const bodyForAgent = slashCommandMatch
+  const messageBodyForAgent = slashCommandMatch
     ? formatSlashCommandPrompt(bodyWithAttachments, slashCommandMatch)
     : bodyWithAttachments
+  const bodyForAgent = [buildCommerceContextForAgent(account), messageBodyForAgent]
+    .filter(Boolean)
+    .join('\n\n')
 
   const body = core.channel.reply.formatAgentEnvelope({
     channel: 'Shadow DM',
@@ -149,6 +157,10 @@ export async function processShadowDmMessage(params: {
     BotUsername: botUsername,
     AgentId: route.agentId,
     ChannelId: dmChannelId,
+    ...(account.buddyName ? { BuddyName: account.buddyName } : {}),
+    ...(account.buddyId ? { BuddyId: account.buddyId } : {}),
+    ...(account.buddyDescription ? { BuddyDescription: account.buddyDescription } : {}),
+    ...commerceContextFields(account),
     ...(slashCommandMatch
       ? {
           SlashCommand: `/${slashCommandMatch.command.name}`,
@@ -233,6 +245,11 @@ export async function processShadowDmMessage(params: {
             agentChain: triggerChain,
             agentId: dispatchAgentId,
             botUserId,
+            commerceOfferId: inferCommerceOfferIdForReply({
+              account,
+              inboundText: messageBodyForAgent,
+              replyText: payload.text ?? '',
+            }),
           })
         },
         onError: (err, info) => {

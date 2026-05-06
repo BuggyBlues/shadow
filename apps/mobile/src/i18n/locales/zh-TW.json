@@ -417,7 +417,17 @@
     "interactiveRequired": "必填",
     "interactiveSubmitFailed": "提交回應失敗",
     "interactiveOn": "開啟",
-    "interactiveOff": "關閉"
+    "interactiveOff": "關閉",
+    "commerceBuy": "購買",
+    "commercePurchasing": "購買中...",
+    "commerceEntitlement": "權益",
+    "commerceSubscription": "訂閱",
+    "commercePurchaseFailed": "購買失敗",
+    "commercePurchaseSucceeded": "購買完成",
+    "productPicker": "商品",
+    "productPickerLoading": "正在載入商品...",
+    "productPickerEmpty": "暫無可傳送商品",
+    "removeProductCard": "移除商品卡片"
   },
   "member": {
     "title": "成員",

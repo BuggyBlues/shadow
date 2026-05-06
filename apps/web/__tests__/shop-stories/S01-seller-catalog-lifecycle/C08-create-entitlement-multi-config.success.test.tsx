@@ -31,9 +31,9 @@ describe('S01/C08 create entitlement multi config success', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '新增权益规则' }))
 
-    const targetInputs = screen.getAllByPlaceholderText('例如频道或角色的数字 ID')
-    fireEvent.change(targetInputs[0], { target: { value: 'target-a' } })
-    fireEvent.change(targetInputs[1], { target: { value: 'target-b' } })
+    const resourceInputs = screen.getAllByPlaceholderText('commerce.resourceIdPlaceholder')
+    fireEvent.change(resourceInputs[0], { target: { value: 'resource-a' } })
+    fireEvent.change(resourceInputs[1], { target: { value: 'resource-b' } })
 
     await userEvent.click(screen.getByRole('button', { name: '保存更改' }))
 
@@ -45,6 +45,18 @@ describe('S01/C08 create entitlement multi config success', () => {
       const body = JSON.parse(String(call?.[1]?.body)) as { entitlementConfig?: unknown[] }
       expect(Array.isArray(body.entitlementConfig)).toBe(true)
       expect(body.entitlementConfig?.length).toBe(2)
+      expect(body.entitlementConfig).toEqual([
+        expect.objectContaining({
+          resourceType: 'service',
+          resourceId: 'resource-a',
+          capability: 'use',
+        }),
+        expect.objectContaining({
+          resourceType: 'service',
+          resourceId: 'resource-b',
+          capability: 'use',
+        }),
+      ])
     })
   }, 10_000)
 })

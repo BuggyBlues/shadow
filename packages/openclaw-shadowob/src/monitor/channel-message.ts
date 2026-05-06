@@ -15,6 +15,11 @@ import type {
   ShadowRuntimeLogger,
   ShadowSlashCommand,
 } from '../types.js'
+import {
+  buildCommerceContextForAgent,
+  commerceContextFields,
+  inferCommerceOfferIdForReply,
+} from './commerce-context.js'
 import { buildInteractiveResponseContext } from './interactive-response.js'
 import { resolveShadowInboundMediaContext } from './media.js'
 import { evaluateShadowMessagePreflight } from './preflight.js'
@@ -173,6 +178,7 @@ export async function processShadowMessage(params: {
     : baseBodyForAgent
   const bodyForAgent = [
     buildChannelContextForAgent(serverInfo, channelId),
+    buildCommerceContextForAgent(account),
     mentionContext,
     messageBodyForAgent,
   ]
@@ -249,6 +255,7 @@ export async function processShadowMessage(params: {
     ...(account.buddyName ? { BuddyName: account.buddyName } : {}),
     ...(account.buddyId ? { BuddyId: account.buddyId } : {}),
     ...(account.buddyDescription ? { BuddyDescription: account.buddyDescription } : {}),
+    ...commerceContextFields(account),
     ...(message.threadId ? { ThreadId: message.threadId } : {}),
     ...(message.replyToId ? { ReplyToId: message.replyToId } : {}),
     ...interactiveResponseContext.fields,
@@ -339,6 +346,11 @@ export async function processShadowMessage(params: {
             agentChain: triggerChain,
             agentId: dispatchAgentId,
             botUserId,
+            commerceOfferId: inferCommerceOfferIdForReply({
+              account,
+              inboundText: messageBodyForAgent,
+              replyText: payload.text ?? '',
+            }),
           })
         },
         onError: (err, info) => {

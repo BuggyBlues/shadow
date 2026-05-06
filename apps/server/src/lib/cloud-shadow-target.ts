@@ -169,3 +169,27 @@ export function extractShadowProvisionBuddyUserIds(configSnapshot: unknown): str
     .map((value) => (isRecord(value) && typeof value.userId === 'string' ? value.userId : null))
     .filter((value): value is string => Boolean(value))
 }
+
+export function extractShadowProvisionCommerce(configSnapshot: unknown): Array<{
+  seedId: string
+  shopId: string
+  productId: string
+  offerId: string
+  fileId: string
+  deliverableId: string
+}> {
+  const { provisionState } = extractCloudSaasRuntime(configSnapshot)
+  const shadowob = provisionState?.plugins?.shadowob
+  if (!isRecord(shadowob) || !isRecord(shadowob.commerce)) return []
+
+  return Object.entries(shadowob.commerce).flatMap(([seedId, value]) => {
+    if (!isRecord(value)) return []
+    const shopId = typeof value.shopId === 'string' ? value.shopId : null
+    const productId = typeof value.productId === 'string' ? value.productId : null
+    const offerId = typeof value.offerId === 'string' ? value.offerId : null
+    const fileId = typeof value.fileId === 'string' ? value.fileId : null
+    const deliverableId = typeof value.deliverableId === 'string' ? value.deliverableId : null
+    if (!shopId || !productId || !offerId || !fileId || !deliverableId) return []
+    return [{ seedId, shopId, productId, offerId, fileId, deliverableId }]
+  })
+}

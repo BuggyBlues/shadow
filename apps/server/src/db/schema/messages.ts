@@ -48,6 +48,7 @@ export interface MessageMetadata {
   agentChain?: MessageAgentChainMetadata
   /** Structured user/channel/server mentions resolved and permission-checked at send time. */
   mentions?: MessageMentionMetadata[]
+  commerceCards?: Array<Record<string, unknown>>
   /** Custom metadata extensions */
   [key: string]: unknown
 }

@@ -660,18 +660,12 @@ function MarkdownPreview({ text }: { text: string }) {
 
 /** HTML preview renderer (sandboxed iframe) */
 function HTMLPreview({ text, url }: { text?: string; url: string }) {
-  const iframeSrc = useMemo(() => {
-    if (text) {
-      return `data:text/html;charset=utf-8,${encodeURIComponent(text)}`
-    }
-    return url
-  }, [text, url])
-
   return (
     <iframe
-      src={iframeSrc}
+      src={text ? undefined : url}
+      srcDoc={text}
       title="HTML Preview"
-      sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+      sandbox="allow-scripts allow-forms allow-popups allow-modals"
       className="w-full h-full border-0 bg-white rounded"
     />
   )

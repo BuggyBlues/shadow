@@ -1,5 +1,5 @@
 import type { NotificationService, NotificationType } from './notification.service'
-import type { NotificationDeliveryService } from './notification-delivery.service'
+import type { NotificationPlatformService } from './notification-platform.service'
 import type { NotificationKind, NotificationTemplateService } from './notification-template.service'
 
 type NotificationMetadata = Record<string, unknown>
@@ -27,7 +27,7 @@ export class NotificationTriggerService {
     private deps: {
       notificationService: NotificationService
       notificationTemplateService: NotificationTemplateService
-      notificationDeliveryService: NotificationDeliveryService
+      notificationPlatformService: NotificationPlatformService
     },
   ) {}
 
@@ -57,8 +57,76 @@ export class NotificationTriggerService {
         bypassPreferences: input.bypassPreferences,
       },
     })
-    await this.deps.notificationDeliveryService.deliver(notification)
+    await this.deps.notificationPlatformService.deliver(notification, {
+      source: 'notification-trigger',
+      bypassPreferences: input.bypassPreferences,
+    })
     return notification
+  }
+
+  async triggerCommerceRenewalFailed(input: {
+    userId: string
+    entitlementId: string
+    productName?: string | null
+    expiresAt?: Date | null
+  }) {
+    return this.dispatch({
+      userId: input.userId,
+      type: 'system',
+      kind: 'commerce.renewal_failed',
+      referenceId: input.entitlementId,
+      referenceType: 'entitlement',
+      aggregate: false,
+      bypassPreferences: true,
+      metadata: {
+        productName: input.productName,
+        expiresAt: input.expiresAt?.toISOString(),
+      },
+    })
+  }
+
+  async triggerCommercePurchaseCompleted(input: {
+    userId: string
+    orderId: string
+    orderNo: string
+    productName?: string | null
+    entitlementId?: string | null
+  }) {
+    return this.dispatch({
+      userId: input.userId,
+      type: 'system',
+      kind: 'commerce.purchase_completed',
+      referenceId: input.orderId,
+      referenceType: 'order',
+      aggregate: false,
+      bypassPreferences: true,
+      metadata: {
+        orderNo: input.orderNo,
+        productName: input.productName,
+        entitlementId: input.entitlementId,
+      },
+    })
+  }
+
+  async triggerCommerceSubscriptionCancelled(input: {
+    userId: string
+    entitlementId: string
+    refundAmount: number
+    productName?: string | null
+  }) {
+    return this.dispatch({
+      userId: input.userId,
+      type: 'system',
+      kind: 'commerce.subscription_cancelled',
+      referenceId: input.entitlementId,
+      referenceType: 'entitlement',
+      aggregate: false,
+      bypassPreferences: true,
+      metadata: {
+        productName: input.productName,
+        refundAmount: input.refundAmount,
+      },
+    })
   }
 
   async dispatchMany(inputs: DispatchInput[]) {

@@ -420,7 +420,17 @@
     "interactiveRequired": "필수",
     "interactiveSubmitFailed": "응답 제출 실패",
     "interactiveOn": "켜짐",
-    "interactiveOff": "꺼짐"
+    "interactiveOff": "꺼짐",
+    "commerceBuy": "구매",
+    "commercePurchasing": "구매 중...",
+    "commerceEntitlement": "권한",
+    "commerceSubscription": "구독",
+    "commercePurchaseFailed": "구매 실패",
+    "commercePurchaseSucceeded": "구매 완료",
+    "productPicker": "상품",
+    "productPickerLoading": "상품 불러오는 중...",
+    "productPickerEmpty": "보낼 수 있는 상품이 없습니다",
+    "removeProductCard": "상품 카드 제거"
   },
   "member": {
     "title": "멤버",

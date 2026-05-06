@@ -96,6 +96,17 @@ interface FeedResponse {
   hasMore: boolean
 }
 
+interface PlayCatalogItem {
+  id: string
+  title: string
+  titleEn: string
+  desc: string
+  descEn: string
+  category: string
+  categoryEn: string
+  status: 'available' | 'gated' | 'coming_soon' | 'misconfigured'
+}
+
 /* ── Neon Frost glass helpers ── */
 const neonSpinner =
   'animate-spin w-8 h-8 rounded-full border-2 border-primary border-t-transparent drop-shadow-[0_0_6px_rgba(0,243,255,0.5)]'
@@ -108,7 +119,7 @@ const FILTER_ITEMS = [
 ] as const
 
 export function DiscoverPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const unreadCount = useUnreadCount()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -127,8 +138,20 @@ export function DiscoverPage() {
     queryKey: ['servers'],
     queryFn: () => fetchApi<ServerEntry[]>('/api/servers'),
   })
+  const { data: playCatalog } = useQuery({
+    queryKey: ['play-catalog', 'discover'],
+    queryFn: () => fetchApi<{ plays: PlayCatalogItem[] }>('/api/play/catalog'),
+  })
 
   const joinedServerIds = useMemo(() => new Set(myServers.map((s) => s.server.id)), [myServers])
+  const featuredPlays = useMemo(() => {
+    const plays = (playCatalog?.plays ?? []).filter((play) =>
+      ['available', 'gated'].includes(play.status),
+    )
+    const littleMatchGirl = plays.find((play) => play.id === 'little-match-girl')
+    const rest = plays.filter((play) => play.id !== 'little-match-girl')
+    return [...(littleMatchGirl ? [littleMatchGirl] : []), ...rest].slice(0, 4)
+  }, [playCatalog])
 
   // 无限滚动加载推荐流
   const {
@@ -358,6 +381,64 @@ export function DiscoverPage() {
 
             <div className="flex-1 min-h-0 overflow-y-auto">
               <div className="w-full px-4 py-4 md:p-6">
+                {!isSearching && featuredPlays.length > 0 && (
+                  <section className="mb-5">
+                    <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+                      <div>
+                        <h2 className="text-base font-black text-text-primary">
+                          {t('discover.playsTitle')}
+                        </h2>
+                        <p className="mt-1 text-xs font-medium text-text-muted">
+                          {t('discover.playsSubtitle')}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid gap-3 lg:grid-cols-2">
+                      {featuredPlays.map((play) => {
+                        const isZh = i18n.language.startsWith('zh')
+                        const title = isZh ? play.title : play.titleEn
+                        const desc = isZh ? play.desc : play.descEn
+                        const category = isZh ? play.category : play.categoryEn
+                        return (
+                          <button
+                            key={play.id}
+                            type="button"
+                            onClick={() =>
+                              navigate({
+                                to: '/play/launch',
+                                search: { play: play.id },
+                              })
+                            }
+                            className="group rounded-lg border border-border-subtle bg-bg-secondary/70 p-4 text-left transition hover:border-primary/50 hover:bg-bg-secondary"
+                          >
+                            <div className="mb-3 flex items-center justify-between gap-3">
+                              <span className="inline-flex items-center gap-2 rounded-lg bg-primary/10 px-2.5 py-1 text-[11px] font-black uppercase tracking-widest text-primary">
+                                <Zap size={13} />
+                                {category}
+                              </span>
+                              <span className="text-xs font-bold text-text-muted">
+                                {play.status === 'gated'
+                                  ? t('discover.memberPlay')
+                                  : t('discover.readyPlay')}
+                              </span>
+                            </div>
+                            <div className="font-black text-text-primary">{title}</div>
+                            <p className="mt-2 line-clamp-2 text-sm leading-6 text-text-muted">
+                              {desc}
+                            </p>
+                            <div className="mt-4 inline-flex items-center gap-2 text-sm font-black text-primary">
+                              {t('discover.startPlay')}
+                              <ArrowRight
+                                size={14}
+                                className="transition group-hover:translate-x-0.5"
+                              />
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </section>
+                )}
                 {isSearching && searchLoading ? (
                   <div className="flex items-center justify-center py-16">
                     <div className="flex flex-col items-center gap-4">
