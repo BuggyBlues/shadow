@@ -3,6 +3,7 @@ import type {
   PluginAuthField,
   PluginCategory,
   PluginDefinition,
+  PluginK8sEnvVar,
   PluginManifest,
   PluginRuntimeDependency,
   PluginRuntimeSource,
@@ -124,6 +125,7 @@ export function attachConnectorRuntimeAssets(
     runtimeMountPath?: string
     skillsMountPath?: string
     subagentsMountPath?: string
+    envVars?: PluginK8sEnvVar[]
   },
 ): PluginDefinition {
   plugin.k8s = buildRuntimeAssetK8sProvider({
@@ -144,6 +146,7 @@ export function attachConnectorRuntimeAssets(
     skillSources: options.skillSources,
     subagentSources: options.subagentSources,
     sanityCommands: options.sanityCommands,
+    envVars: options.envVars,
   })
   return plugin
 }
