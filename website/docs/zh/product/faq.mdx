@@ -2,6 +2,7 @@
 title: 常见问题
 ---
 
+import { FaqAccordion } from '../../../components/ProductComponents'
 
 export const faqs = [
   { q: 'Shadow 免费吗？', a: '基础频道聊天和协作功能完全免费。进阶功能（如更多 Buddy 配额和店铺高级功能）通过付费计划提供。' },
@@ -18,11 +19,6 @@ export const faqs = [
   { q: '如何反馈问题？', a: '使用应用内的反馈按钮提交，或在 Shadow 官方社区服务器中发帖。我们会积极关注并回复所有反馈。' },
 ]
 
-<div className="space-y-4 my-6">
-  {faqs.map((f, i) => (
-    <div key={i} className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
-      <p className="font-bold text-gray-800 dark:text-gray-100 mb-2">Q: {f.q}</p>
-      <p className="text-gray-600 dark:text-gray-300">{f.a}</p>
-    </div>
-  ))}
-</div>
+# 常见问题
+
+<FaqAccordion faqs={faqs} />
