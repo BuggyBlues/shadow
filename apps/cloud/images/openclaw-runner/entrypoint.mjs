@@ -31,6 +31,11 @@ const EXTENSIONS_DIR = '/app/extensions'
 const RUNTIME_EXTENSIONS_PATH = join(CONFIG_MOUNT, 'runtime-extensions.json')
 const RUNTIME_CONFIG_DIR = process.env.OPENCLAW_RUNTIME_CONFIG_DIR || '/tmp/openclaw/config'
 const RUNTIME_CONFIG_PATH = join(RUNTIME_CONFIG_DIR, 'openclaw.json')
+const OPENCLAW_PACKAGE_DIR = '/app/node_modules/openclaw'
+const PRICING_FETCH_TIMEOUT_MS = Number.parseInt(
+  process.env.OPENCLAW_MODEL_PRICING_FETCH_TIMEOUT_MS ?? '2500',
+  10,
+)
 const HEALTH_PORT = parseInt(process.env.OPENCLAW_HEALTH_PORT ?? '3100', 10)
 const OPENCLAW_HTTP_PORT = parseInt(
   process.env.OPENCLAW_GATEWAY_PORT ?? String(HEALTH_PORT + 1),
@@ -742,8 +747,48 @@ function findGatewayEntry() {
   return 'openclaw' // Fallback to PATH
 }
 
+function listJavaScriptFiles(root, maxDepth = 3) {
+  if (maxDepth < 0 || !existsSync(root)) return []
+  const files = []
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const path = join(root, entry.name)
+    if (entry.isDirectory()) {
+      files.push(...listJavaScriptFiles(path, maxDepth - 1))
+      continue
+    }
+    if (entry.isFile() && entry.name.endsWith('.js')) files.push(path)
+  }
+  return files
+}
+
+function patchOpenClawPricingTimeout() {
+  if (!Number.isFinite(PRICING_FETCH_TIMEOUT_MS) || PRICING_FETCH_TIMEOUT_MS <= 0) return
+  const distDir = join(OPENCLAW_PACKAGE_DIR, 'dist')
+  const pattern = /const FETCH_TIMEOUT_MS = 3e4;/g
+  for (const file of listJavaScriptFiles(distDir)) {
+    let source
+    try {
+      source = readFileSync(file, 'utf-8')
+    } catch {
+      continue
+    }
+    if (!pattern.test(source)) continue
+    pattern.lastIndex = 0
+    writeFileSync(
+      file,
+      source.replace(pattern, `const FETCH_TIMEOUT_MS = ${PRICING_FETCH_TIMEOUT_MS};`),
+      'utf-8',
+    )
+    console.log(
+      `[entrypoint] OpenClaw model pricing fetch timeout set to ${PRICING_FETCH_TIMEOUT_MS}ms`,
+    )
+    return
+  }
+}
+
 function startGateway(_healthServer, configPath) {
   clearStaleRuntimeDependencyLocks()
+  patchOpenClawPricingTimeout()
 
   const entry = findGatewayEntry()
   const gatewayPort = OPENCLAW_HTTP_PORT

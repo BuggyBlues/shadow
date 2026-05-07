@@ -93,8 +93,7 @@ cover model usage after the first deployment.
 
 The official model proxy exposes an OpenAI-compatible surface backed by server-side provider
 configuration. Set `SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL` and `SHADOW_MODEL_PROXY_UPSTREAM_API_KEY`
-for the upstream provider; DeepSeek-compatible aliases `DEEPSEEK_BASE_URL` and `DEEPSEEK_API_KEY`
-are also supported. The default model id is `deepseek-v4-flash`, and can be changed with
+for the upstream provider. The default model id is `deepseek-v4-flash`, and can be changed with
 `SHADOW_MODEL_PROXY_MODEL`. Cloud templates and Pods receive a limited `smp_...` model-proxy token
 in `OPENAI_COMPATIBLE_API_KEY`, never the real upstream key.
 
@@ -188,7 +187,7 @@ It returns an OpenAI-compatible completion with `shadow.type = "wallet_recharge_
 
 Interactive message blocks are stored in `message.metadata.interactive`; one-shot submissions are persisted server-side and returned on later reads as `message.metadata.interactiveState.response`. Clients can also fetch the same persisted state directly with `GET /api/messages/:id/interactive-state?blockId=<blockId>`.
 
-Commerce product cards are stored in `message.metadata.commerceCards`. Clients should add cards only from `GET /api/commerce/product-picker`; the server revalidates visibility, target scope, product status, and DM/server restrictions before persistence. Card purchase buttons call the commerce purchase endpoint instead of interactive block submission.
+Commerce product cards are stored in `message.metadata.commerceCards`. Clients should add cards only from `GET /api/commerce/product-picker`; trusted Buddy tools may send a minimal Offer reference `{ "kind": "offer", "offerId": "..." }`. The server revalidates visibility, target scope, product status, and DM/server restrictions and rebuilds the product, price, and entitlement snapshot before persistence. Card purchase buttons call the commerce purchase endpoint instead of interactive block submission.
 
 ## Agents
 

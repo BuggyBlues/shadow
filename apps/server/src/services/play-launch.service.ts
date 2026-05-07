@@ -284,6 +284,24 @@ function resolveTemplateText(
   }
 }
 
+function templatePlayLaunchGreeting(content: unknown): string | undefined {
+  if (!content || typeof content !== 'object' || Array.isArray(content)) return undefined
+  const use = (content as Record<string, unknown>).use
+  if (!Array.isArray(use)) return undefined
+  for (const entry of use) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue
+    const record = entry as Record<string, unknown>
+    if (record.plugin !== 'shadowob') continue
+    const options = record.options
+    if (!options || typeof options !== 'object' || Array.isArray(options)) continue
+    const playLaunch = (options as Record<string, unknown>).playLaunch
+    if (!playLaunch || typeof playLaunch !== 'object' || Array.isArray(playLaunch)) continue
+    const greeting = (playLaunch as Record<string, unknown>).greeting
+    if (typeof greeting === 'string' && greeting.trim()) return greeting
+  }
+  return undefined
+}
+
 function localizedPlayTitle(play: ShadowHomePlayCatalogItem, locale?: string) {
   const fallback = play.title || play.titleEn || play.id || 'Buddy'
   return locale?.startsWith('zh') ? play.title || fallback : play.titleEn || fallback
@@ -711,6 +729,7 @@ export class PlayLaunchService {
           namespace,
         },
       )
+      const templateGreeting = templatePlayLaunchGreeting(template.content)
       const configSnapshot = attachPlayLaunchRuntimeMetadata(
         prepareCloudSaasConfigSnapshot(template.content, envVars, {
           locale: input.locale,
@@ -720,12 +739,14 @@ export class PlayLaunchService {
           greeting:
             action.greeting !== undefined
               ? personalizeGreeting(action.greeting, launchUser.friendlyName, input.locale)
-              : defaultLaunchGreeting({
-                  title: localizedPlayTitle(play, input.locale),
-                  locale: input.locale,
-                  kind: 'cloud',
-                  userName: launchUser.friendlyName,
-                }),
+              : templateGreeting !== undefined
+                ? personalizeGreeting(templateGreeting, launchUser.friendlyName, input.locale)
+                : defaultLaunchGreeting({
+                    title: localizedPlayTitle(play, input.locale),
+                    locale: input.locale,
+                    kind: 'cloud',
+                    userName: launchUser.friendlyName,
+                  }),
         },
       )
       const { name } = resolveTemplateText(template, input.locale)

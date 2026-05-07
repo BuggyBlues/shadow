@@ -393,6 +393,13 @@ class ShadowShop:
 
 
 @dataclass
+class ShadowCommerceOfferCardInput:
+    kind: str
+    offer_id: str
+    id: str | None = None
+
+
+@dataclass
 class ShadowCommerceProductCard:
     id: str
     kind: str

@@ -132,10 +132,9 @@ See `docs/product/membership-tiers.md` for the extensibility rules.
 - `POST /api/ai/v1/chat/completions`: proxies OpenAI-compatible chat completions to the configured official upstream and bills Shrimp Coins by measured usage.
 
 The official upstream key stays only in the server process. Configure the upstream with
-`SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL` and `SHADOW_MODEL_PROXY_UPSTREAM_API_KEY`; DeepSeek aliases
-`DEEPSEEK_BASE_URL` and `DEEPSEEK_API_KEY` are supported for local convenience. The default model is
-`deepseek-v4-flash`, and production can switch it through `SHADOW_MODEL_PROXY_MODEL`. Cloud templates
-and Pods never receive the real upstream key. One-click Cloud plays receive
+`SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL` and `SHADOW_MODEL_PROXY_UPSTREAM_API_KEY`. The default model
+is `deepseek-v4-flash`, and production can switch it through `SHADOW_MODEL_PROXY_MODEL`. Cloud
+templates and Pods never receive the real upstream key. One-click Cloud plays receive
 `OPENAI_COMPATIBLE_BASE_URL=/api/ai/v1`, `OPENAI_COMPATIBLE_MODEL_ID`, and a limited `smp_...` model
 proxy token in `OPENAI_COMPATIBLE_API_KEY`. The token is only valid for the model proxy and is not
 accepted as a general Shadow user token.

@@ -11,6 +11,7 @@ import { Input } from '@shadowob/ui/components/ui/input'
 import { ChevronLeft, Github, KeyRound, Mail, X } from 'lucide-react'
 import type React from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useI18n } from 'rspress/runtime'
 
 declare const __SHADOW_APP_BASE_URL__: string | undefined
 
@@ -29,79 +30,6 @@ type LoginModalProps = {
   redirect: string
   onClose: () => void
 }
-
-const copy = {
-  zh: {
-    brand: '虾豆',
-    close: '关闭',
-    back: '返回',
-    welcomeTitle: '欢迎来到虾豆',
-    welcomeSubtitle: '登录或注册以继续',
-    google: '使用 Google',
-    github: '使用 GitHub',
-    emailCodeTab: '邮箱验证码',
-    passwordTab: '密码登录',
-    emailLabel: '电子邮箱',
-    emailPlaceholder: '电子邮箱',
-    emailOrUsernameLabel: '用户名或邮箱',
-    emailOrUsernamePlaceholder: '用户名或邮箱',
-    passwordLabel: '密码',
-    continueEmail: '使用邮箱继续',
-    continuingEmail: '发送中...',
-    login: '登录',
-    loggingIn: '登录中...',
-    switchToPassword: '使用密码登录',
-    switchToEmailCode: '使用邮箱验证码登录',
-    checkEmailTitle: '查看您的邮箱以继续',
-    checkEmailMessage: '我们已向您的邮箱发送了一次性验证码，请查看您的收件箱：',
-    codeDigit: (index: number) => `验证码第 ${index} 位`,
-    verifying: '验证中...',
-    resendIn: (seconds: number) => `${seconds}秒后可重新发送`,
-    resend: '重新发送验证码',
-    codeSent: '验证码已发送，请查看邮箱。',
-    termsPrefix: '继续即表示您同意',
-    terms: '使用条款',
-    privacy: '隐私政策',
-    termsJoiner: '和',
-    failed: '登录失败，请稍后再试。',
-    or: '或',
-  },
-  en: {
-    brand: 'Shadow',
-    close: 'Close',
-    back: 'Back',
-    welcomeTitle: 'Welcome to Shadow',
-    welcomeSubtitle: 'Log in or sign up to continue',
-    google: 'Continue with Google',
-    github: 'Continue with GitHub',
-    emailCodeTab: 'Email code',
-    passwordTab: 'Password',
-    emailLabel: 'Email',
-    emailPlaceholder: 'Email',
-    emailOrUsernameLabel: 'Username or email',
-    emailOrUsernamePlaceholder: 'Username or email',
-    passwordLabel: 'Password',
-    continueEmail: 'Continue with email',
-    continuingEmail: 'Sending...',
-    login: 'Log in',
-    loggingIn: 'Logging in...',
-    switchToPassword: 'Use password instead',
-    switchToEmailCode: 'Use email code instead',
-    checkEmailTitle: 'Check your email to continue',
-    checkEmailMessage: 'We sent a one-time verification code to your inbox:',
-    codeDigit: (index: number) => `Verification code digit ${index}`,
-    verifying: 'Verifying...',
-    resendIn: (seconds: number) => `Resend in ${seconds}s`,
-    resend: 'Resend code',
-    codeSent: 'Verification code sent. Check your email.',
-    termsPrefix: 'By continuing, you agree to the',
-    terms: 'Terms of Service',
-    privacy: 'Privacy Policy',
-    termsJoiner: 'and',
-    failed: 'Login failed. Try again later.',
-    or: 'or',
-  },
-} as const
 
 function configuredAppBase() {
   return (typeof __SHADOW_APP_BASE_URL__ !== 'undefined' ? __SHADOW_APP_BASE_URL__ : '').replace(
@@ -129,6 +57,10 @@ function safeAppRedirect(value: string) {
 
 function sanitizeDigits(value: string) {
   return value.replace(/\D/g, '').slice(0, CODE_LENGTH)
+}
+
+function formatI18n(template: string, values: Record<string, string | number>) {
+  return template.replace(/\{(\w+)\}/g, (match, key) => String(values[key] ?? match))
 }
 
 function GoogleIcon() {
@@ -168,9 +100,15 @@ async function readError(response: Response, fallback: string) {
 }
 
 export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
-  const text = copy[lang]
+  const t = useI18n()
+  const text = (key: string) => t(`loginModal.${key}`)
+  const formatText = (key: string, values: Record<string, string | number>) =>
+    formatI18n(text(key), values)
   const digitRefs = useRef<Array<HTMLInputElement | null>>([])
+  const emailInputRef = useRef<HTMLInputElement | null>(null)
+  const passwordIdentifierRef = useRef<HTMLInputElement | null>(null)
   const lastSubmittedCodeRef = useRef('')
+  const passwordOriginRef = useRef<'choose' | 'code'>('choose')
 
   const [step, setStep] = useState<'choose' | 'code' | 'password'>('choose')
   const [email, setEmail] = useState('')
@@ -194,8 +132,21 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
       setDigits(Array(CODE_LENGTH).fill(''))
       setPassword('')
       lastSubmittedCodeRef.current = ''
+      passwordOriginRef.current = 'choose'
     }
   }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    const timer = window.setTimeout(() => {
+      if (step === 'choose') {
+        emailInputRef.current?.focus()
+      } else if (step === 'password') {
+        passwordIdentifierRef.current?.focus()
+      }
+    }, 80)
+    return () => window.clearTimeout(timer)
+  }, [open, step])
 
   useEffect(() => {
     if (resendSeconds <= 0) return
@@ -210,10 +161,12 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
     void verifyCode(code)
   }, [code, step, verifying])
 
-  const oauthHref = (provider: 'google' | 'github') =>
-    `${apiBase}/api/auth/oauth/${provider}?redirect=${encodeURIComponent(target)}`
+  const oauthHref = (provider: 'google' | 'github') => {
+    const params = new URLSearchParams({ redirect: target })
+    return `${apiBase}/api/auth/oauth/${provider}?${params.toString()}`
+  }
 
-  const completeAuth = (session: AuthSession) => {
+  const completeAuth = async (session: AuthSession) => {
     const externalAppOrigin =
       appBase && new URL(appBase, window.location.origin).origin !== window.location.origin
 
@@ -233,6 +186,11 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
     window.location.assign(target)
   }
 
+  const startOAuth = (provider: 'google' | 'github') => {
+    setError('')
+    window.location.assign(oauthHref(provider))
+  }
+
   const startEmailLogin = async (event?: React.FormEvent) => {
     event?.preventDefault()
     if (!trimmedEmail || sending) return
@@ -244,14 +202,14 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: trimmedEmail, locale: lang === 'zh' ? 'zh-CN' : 'en' }),
       })
-      if (!response.ok) throw new Error(await readError(response, text.failed))
+      if (!response.ok) throw new Error(await readError(response, text('failed')))
       setDigits(Array(CODE_LENGTH).fill(''))
       lastSubmittedCodeRef.current = ''
       setStep('code')
       setResendSeconds(RESEND_SECONDS)
       window.setTimeout(() => digitRefs.current[0]?.focus(), 80)
     } catch (err) {
-      setError(err instanceof Error ? err.message : text.failed)
+      setError(err instanceof Error ? err.message : text('failed'))
     } finally {
       setSending(false)
     }
@@ -268,10 +226,10 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: trimmedEmail, password }),
       })
-      if (!response.ok) throw new Error(await readError(response, text.failed))
-      completeAuth((await response.json()) as AuthSession)
+      if (!response.ok) throw new Error(await readError(response, text('failed')))
+      await completeAuth((await response.json()) as AuthSession)
     } catch (err) {
-      setError(err instanceof Error ? err.message : text.failed)
+      setError(err instanceof Error ? err.message : text('failed'))
     } finally {
       setVerifying(false)
     }
@@ -287,10 +245,10 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: trimmedEmail, code: nextCode }),
       })
-      if (!response.ok) throw new Error(await readError(response, text.failed))
-      completeAuth((await response.json()) as AuthSession)
+      if (!response.ok) throw new Error(await readError(response, text('failed')))
+      await completeAuth((await response.json()) as AuthSession)
     } catch (err) {
-      setError(err instanceof Error ? err.message : text.failed)
+      setError(err instanceof Error ? err.message : text('failed'))
       lastSubmittedCodeRef.current = ''
     } finally {
       setVerifying(false)
@@ -322,7 +280,7 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
     setError('')
     if (step === 'password') {
       setPassword('')
-      setStep('code')
+      setStep(passwordOriginRef.current)
       return
     }
     setDigits(Array(CODE_LENGTH).fill(''))
@@ -333,14 +291,15 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
   const showPasswordLogin = () => {
     setError('')
     setPassword('')
+    passwordOriginRef.current = step === 'code' ? 'code' : 'choose'
     setStep('password')
   }
 
   const showEmailCode = () => {
     setError('')
     setPassword('')
-    setStep('code')
-    window.setTimeout(() => digitRefs.current[0]?.focus(), 80)
+    setStep(trimmedEmail ? 'code' : 'choose')
+    if (trimmedEmail) window.setTimeout(() => digitRefs.current[0]?.focus(), 80)
   }
 
   return (
@@ -348,17 +307,8 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
       <DialogContent
         hideCloseButton
         maxWidth="max-w-[560px]"
-        className="max-h-[calc(100dvh-40px)] overflow-hidden border-white/70 px-5 py-6 sm:px-9 sm:py-7"
+        className="max-h-[calc(80dvh+80px)] w-[calc(100vw-24px)] overflow-y-auto overscroll-contain rounded-[28px] border-white/70 px-4 py-5 sm:max-h-[calc(78dvh+80px)] sm:w-full sm:rounded-[40px] sm:px-9 sm:py-7"
       >
-        <div
-          className="pointer-events-none absolute -left-24 -top-28 h-72 w-72 rounded-full bg-primary/35 blur-[95px]"
-          aria-hidden="true"
-        />
-        <div
-          className="pointer-events-none absolute -bottom-32 -right-20 h-80 w-80 rounded-full bg-danger/20 blur-[105px]"
-          aria-hidden="true"
-        />
-
         {step !== 'choose' ? (
           <Button
             type="button"
@@ -366,7 +316,7 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
             size="icon"
             className="absolute left-5 top-5 z-20"
             onClick={goBack}
-            aria-label={text.back}
+            aria-label={text('back')}
           >
             <ChevronLeft size={22} />
           </Button>
@@ -377,56 +327,58 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
           size="icon"
           className="absolute right-5 top-5 z-20"
           onClick={onClose}
-          aria-label={text.close}
+          aria-label={text('close')}
         >
           <X size={22} />
         </Button>
 
-        <div className="relative z-10 mx-auto flex max-w-[440px] flex-col items-center">
-          <div className="mb-6 flex items-center gap-2 text-[22px] font-black tracking-normal text-text-primary">
-            <img src="/Logo.svg" alt={text.brand} className="h-8 w-8 rounded-full" />
-            <span>
-              {text.brand} <strong>OwnBuddy</strong>
+        <div className="relative z-10 mx-auto flex w-full max-w-[440px] flex-col items-center">
+          <div className="mb-4 flex max-w-full items-center gap-2 py-2 text-[20px] font-black tracking-normal text-text-primary sm:mb-6 sm:py-3 sm:text-[22px]">
+            <img
+              src="/Logo.svg"
+              alt={text('brand')}
+              className="h-7 w-7 rounded-full sm:h-8 sm:w-8"
+            />
+            <span className="min-w-0 truncate">
+              {text('brand')} <strong>OwnBuddy</strong>
             </span>
           </div>
 
           {step === 'choose' ? (
             <>
-              <div className="mb-5 text-center">
-                <DialogTitle className="text-[30px] normal-case leading-tight tracking-normal sm:text-[34px]">
-                  {text.welcomeTitle}
+              <div className="mb-4 text-center sm:mb-5">
+                <DialogTitle className="text-[26px] normal-case leading-tight tracking-normal sm:text-[34px]">
+                  {text('welcomeTitle')}
                 </DialogTitle>
                 <DialogDescription className="mt-2 text-[15px] not-italic leading-6">
-                  {text.welcomeSubtitle}
+                  {text('welcomeSubtitle')}
                 </DialogDescription>
               </div>
 
               <div className="flex w-full flex-col gap-2.5">
                 <Button
-                  asChild
+                  type="button"
                   variant="glass"
                   size="lg"
                   className="w-full normal-case tracking-normal"
+                  onClick={() => startOAuth('google')}
                 >
-                  <a href={oauthHref('google')}>
-                    <GoogleIcon />
-                    {text.google}
-                  </a>
+                  <GoogleIcon />
+                  {text('google')}
                 </Button>
                 <Button
-                  asChild
+                  type="button"
                   variant="glass"
                   size="lg"
                   className="w-full normal-case tracking-normal"
+                  onClick={() => startOAuth('github')}
                 >
-                  <a href={oauthHref('github')}>
-                    <Github size={20} fill="currentColor" strokeWidth={0} aria-hidden="true" />
-                    {text.github}
-                  </a>
+                  <Github size={20} fill="currentColor" strokeWidth={0} aria-hidden="true" />
+                  {text('github')}
                 </Button>
               </div>
 
-              <Divider label={text.or} className="my-4 w-full" />
+              <Divider label={text('or')} className="my-3 w-full sm:my-4" />
 
               <form className="w-full space-y-3" onSubmit={startEmailLogin}>
                 {error ? (
@@ -435,14 +387,16 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
                   </Alert>
                 ) : null}
                 <Input
+                  ref={emailInputRef}
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  placeholder={text.emailPlaceholder}
+                  placeholder={text('emailPlaceholder')}
                   autoComplete="email"
+                  name="email"
                   required
                   icon={Mail}
-                  label={text.emailLabel}
+                  label={text('emailLabel')}
                 />
                 <Button
                   type="submit"
@@ -451,29 +405,39 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
                   loading={sending}
                   disabled={!trimmedEmail || sending}
                 >
-                  {sending ? text.continuingEmail : text.continueEmail}
+                  {sending ? text('continuingEmail') : text('continueEmail')}
                 </Button>
               </form>
 
-              <p className="mt-5 max-w-[430px] text-center text-[12px] font-bold leading-5 text-text-muted">
-                {text.termsPrefix}{' '}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="mt-3 normal-case tracking-normal text-text-muted"
+                onClick={showPasswordLogin}
+              >
+                {text('switchToPassword')}
+              </Button>
+
+              <p className="mt-4 max-w-[430px] text-center text-[12px] font-bold leading-5 text-text-muted sm:mt-5">
+                {text('termsPrefix')}{' '}
                 <a className="text-primary hover:underline" href={legalHref('terms', lang)}>
-                  {text.terms}
+                  {text('terms')}
                 </a>
-                {` ${text.termsJoiner} `}
+                {` ${text('termsJoiner')} `}
                 <a className="text-primary hover:underline" href={legalHref('privacy', lang)}>
-                  {text.privacy}
+                  {text('privacy')}
                 </a>
               </p>
             </>
           ) : step === 'code' ? (
             <>
-              <div className="mb-6 text-center">
-                <DialogTitle className="text-[30px] normal-case leading-tight tracking-normal sm:text-[34px]">
-                  {text.checkEmailTitle}
+              <div className="mb-5 text-center sm:mb-6">
+                <DialogTitle className="text-[26px] normal-case leading-tight tracking-normal sm:text-[34px]">
+                  {text('checkEmailTitle')}
                 </DialogTitle>
                 <DialogDescription className="mt-3 text-[15px] not-italic leading-6">
-                  {text.checkEmailMessage}
+                  {text('checkEmailMessage')}
                   <br />
                   <span className="text-text-secondary">{trimmedEmail}</span>
                 </DialogDescription>
@@ -504,7 +468,7 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
                         digitRefs.current[index - 1]?.focus()
                       }
                     }}
-                    aria-label={text.codeDigit(index + 1)}
+                    aria-label={formatText('codeDigit', { index: index + 1 })}
                     className="h-14 min-w-0 rounded-2xl border border-border-subtle/60 bg-bg-primary/50 text-center text-[22px] font-black text-text-primary outline-none transition-all focus:border-primary/70 focus:shadow-[0_0_0_4px_rgba(0,198,209,0.12)]"
                   />
                 ))}
@@ -514,7 +478,7 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
                 {verifying ? (
                   <div className="inline-flex items-center gap-2 text-[15px] font-black text-text-muted">
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                    {text.verifying}
+                    {text('verifying')}
                   </div>
                 ) : (
                   <Button
@@ -523,14 +487,16 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
                     disabled={sending || resendSeconds > 0}
                     onClick={() => startEmailLogin()}
                   >
-                    {resendSeconds > 0 ? text.resendIn(resendSeconds) : text.resend}
+                    {resendSeconds > 0
+                      ? formatText('resendIn', { seconds: resendSeconds })
+                      : text('resend')}
                   </Button>
                 )}
               </div>
 
               <div className="mt-5 inline-flex items-center gap-2 text-[13px] font-bold text-text-muted">
                 <Mail size={15} aria-hidden="true" />
-                {text.codeSent}
+                {text('codeSent')}
               </div>
 
               <Button
@@ -540,17 +506,17 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
                 className="mt-3 normal-case tracking-normal text-text-muted"
                 onClick={showPasswordLogin}
               >
-                {text.switchToPassword}
+                {text('switchToPassword')}
               </Button>
             </>
           ) : (
             <>
-              <div className="mb-6 text-center">
-                <DialogTitle className="text-[30px] normal-case leading-tight tracking-normal sm:text-[34px]">
-                  {text.passwordTab}
+              <div className="mb-5 text-center sm:mb-6">
+                <DialogTitle className="text-[26px] normal-case leading-tight tracking-normal sm:text-[34px]">
+                  {text('passwordTab')}
                 </DialogTitle>
                 <DialogDescription className="mt-3 text-[15px] not-italic leading-6">
-                  <span className="text-text-secondary">{trimmedEmail}</span>
+                  {text('passwordSubtitle')}
                 </DialogDescription>
               </div>
 
@@ -561,14 +527,28 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
                   </Alert>
                 ) : null}
                 <Input
+                  ref={passwordIdentifierRef}
+                  type="text"
+                  inputMode="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder={text('emailOrUsernamePlaceholder')}
+                  autoComplete="username"
+                  name="username"
+                  required
+                  icon={Mail}
+                  label={text('emailOrUsernameLabel')}
+                />
+                <Input
                   type="password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  placeholder={text.passwordLabel}
+                  placeholder={text('passwordLabel')}
                   autoComplete="current-password"
+                  name="password"
                   required
                   icon={KeyRound}
-                  label={text.passwordLabel}
+                  label={text('passwordLabel')}
                 />
                 <Button
                   type="submit"
@@ -577,7 +557,7 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
                   loading={verifying}
                   disabled={!trimmedEmail || !password || verifying}
                 >
-                  {verifying ? text.loggingIn : text.login}
+                  {verifying ? text('loggingIn') : text('login')}
                 </Button>
               </form>
 
@@ -588,7 +568,7 @@ export function LoginModal({ open, lang, redirect, onClose }: LoginModalProps) {
                 className="mt-3 normal-case tracking-normal text-text-muted"
                 onClick={showEmailCode}
               >
-                {text.switchToEmailCode}
+                {text('switchToEmailCode')}
               </Button>
             </>
           )}

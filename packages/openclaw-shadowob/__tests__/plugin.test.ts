@@ -712,6 +712,29 @@ describe('Plugin Entry Point', () => {
     )
   })
 
+  it('should not attach commerce cards to provider error fallback replies', async () => {
+    const { inferCommerceOfferIdForReply } = await import('../src/monitor/commerce-context.js')
+
+    const commerceOfferId = inferCommerceOfferIdForReply({
+      account: {
+        token: 'tok',
+        serverUrl: 'http://localhost:3002',
+        commerceOffers: [
+          {
+            offerId: 'offer-match',
+            name: '一盒会发光的火柴',
+            summary: '购买后解锁一段火柴点亮的 HTML 动画。',
+          },
+        ],
+      },
+      inboundText: '我想买一盒会发光的火柴，想看看动画',
+      replyText:
+        '⚠️ Something went wrong while processing your request. Please try again, or use /new to start a fresh session.',
+    })
+
+    expect(commerceOfferId).toBeUndefined()
+  })
+
   it('should keep interactive dialogs on the shared send action', async () => {
     const { ShadowClient } = await import('@shadowob/sdk')
     const { shadowPlugin } = await import('../src/channel.js')

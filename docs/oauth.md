@@ -210,10 +210,10 @@ Authorization: Bearer <user_token>
 #### Step 1: Initiate Third-Party Sign-In
 
 ```
-GET /api/auth/oauth/:provider?redirect=/app
+GET /api/auth/oauth/:provider?redirect=/app&inviteCode=optional-cloud-invite
 ```
 
-The server responds with a 302 redirect to the provider's OAuth authorization page.
+The server responds with a 302 redirect to the provider's OAuth authorization page. `redirect` preserves the original app action. `inviteCode` is optional and is returned to the app OAuth callback so Cloud-gated actions can redeem the invite before continuing.
 
 #### Step 2: Provider Callback
 

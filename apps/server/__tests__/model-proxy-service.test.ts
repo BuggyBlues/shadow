@@ -375,26 +375,13 @@ describe('ModelProxyService', () => {
     )
   })
 
-  it('falls back to DeepSeek alias env vars when generic upstream env vars are blank', async () => {
+  it('does not treat direct provider aliases as official upstream configuration', async () => {
     const token = signModelProxyToken({ userId: 'user-1', namespace: 'play-bmad' })
     process.env.SHADOW_MODEL_PROXY_UPSTREAM_API_KEY = ''
     process.env.SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL = ''
-    process.env.DEEPSEEK_API_KEY = 'alias-deepseek-key'
+    process.env.DEEPSEEK_API_KEY = 'test-direct-provider-key'
     process.env.DEEPSEEK_BASE_URL = 'https://deepseek.example/v1/'
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => {
-        return new Response(
-          JSON.stringify({
-            id: 'chatcmpl-test',
-            object: 'chat.completion',
-            choices: [{ message: { role: 'assistant', content: 'done' } }],
-            usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } },
-        )
-      }),
-    )
+    vi.stubGlobal('fetch', vi.fn())
 
     const identity = await service.resolveIdentity(`Bearer ${token}`)
     const response = await service.proxyChatCompletions(identity, {
@@ -402,14 +389,11 @@ describe('ModelProxyService', () => {
       messages: [{ role: 'user', content: 'hello' }],
       max_tokens: 8,
     })
+    const body = (await response.json()) as { error: { code: string } }
 
-    expect(response.status).toBe(200)
-    const fetchMock = vi.mocked(fetch)
-    const [, init] = fetchMock.mock.calls[0]!
-    expect(fetchMock.mock.calls[0]?.[0]).toBe('https://deepseek.example/v1/chat/completions')
-    expect(init?.headers).toMatchObject({
-      Authorization: 'Bearer alias-deepseek-key',
-    })
+    expect(response.status).toBe(503)
+    expect(body.error.code).toBe('MODEL_PROXY_PROVIDER_UNCONFIGURED')
+    expect(fetch).not.toHaveBeenCalled()
   })
 
   it('requires the upstream base URL to come from environment configuration', async () => {

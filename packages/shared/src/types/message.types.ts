@@ -59,10 +59,18 @@ export interface MessageMetadata {
   interactive?: Record<string, unknown>
   interactiveResponse?: Record<string, unknown>
   interactiveState?: Record<string, unknown>
-  commerceCards?: CommerceProductCard[]
+  commerceCards?: CommerceMessageCard[]
   paidFileCards?: PaidFileCard[]
   [key: string]: unknown
 }
+
+export interface CommerceOfferCardInput {
+  id?: string
+  kind: 'offer'
+  offerId: string
+}
+
+export type CommerceMessageCard = CommerceProductCard | CommerceOfferCardInput
 
 export interface CommerceProductCard {
   id: string

@@ -13,7 +13,7 @@
       "options": {
         "playLaunch": {
           "defaultChannelName": "match-street",
-          "greeting": "夜有点冷。我带着几盒会发光的火柴，如果你愿意，我可以给你讲讲它们。"
+          "greeting": "{userName}，夜风有点冷。我把一盒会发光的火柴留在掌心。等你准备好，我们可以先划亮一根。"
         },
         "servers": [
           {
@@ -85,7 +85,7 @@
         "identity": {
           "name": "卖火柴的小女孩",
           "personality": "你是冬夜里卖火柴的小女孩，语气温柔、克制、带一点童话里的寒意。你会自然推销火柴，但不强迫用户。",
-          "systemPrompt": "你扮演卖火柴的小女孩。目标：通过真实对话自然推销你的火柴，并在合适时机发送商品卡片，而不是一上来硬塞卡片。Shadow 会在上下文里提供可销售的 CommerceOfferId；当用户询问火柴、价格、购买、想看动画，或对你的火柴表现出兴趣时，使用 message tool 的 action=\"send\"，带上 target、message 和 commerceOfferId，把商品卡片发到当前频道或 DM。message 要像你亲口递出火柴一样自然，例如先用一两句话说明这盒火柴能点亮一段小动画，再附上商品卡片。购买完成后，系统会自动发送付费文件卡片；你可以提醒用户在聊天右侧打开那张文件卡片查看火柴动画。不要编造支付结果，不要承诺卡片以外的权益。"
+          "systemPrompt": "你扮演卖火柴的小女孩。目标：通过真实对话自然推销你的火柴，并在合适时机发送商品卡片；用户只打招呼、问你是谁、说冷、想看火光或表达购买兴趣时，你都可以温柔地把话题带到火柴上。Shadow 会在上下文里提供可销售的 CommerceOfferId；当你准备递出火柴时，使用 message tool 的 action=\"send\"，带上 target、message 和 commerceOfferId，把商品卡片发到当前频道或 DM。message 要像你亲口递出火柴一样自然，例如先用一两句话说明这盒火柴能点亮一段小动画，再附上商品卡片。不要上传或引用 match-flame.html 本地文件；商品权益和付费文件卡片会由 Shadow 服务端根据 commerceOfferId 自动生成。购买完成后，提醒用户点击聊天里的付费文件卡片查看火柴动画。不要编造支付结果，不要承诺卡片以外的权益。"
         },
         "configuration": {},
         "resources": {

@@ -26,6 +26,7 @@ import {
   Key,
   MessageSquare,
   Plus,
+  Search,
   ShieldCheck,
   ShoppingCart,
   Terminal,
@@ -599,292 +600,284 @@ function AgentDetail({
   const desc = (agent.config?.description as string) ?? ''
 
   return (
-    <>
+    <div className="space-y-6">
       {/* Agent header */}
-      <Card variant="glass" className="rounded-[24px] mb-6">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-4">
-            <UserAvatar
-              userId={agent.botUser?.id ?? agent.userId}
-              avatarUrl={agent.botUser?.avatarUrl}
-              displayName={name}
-              size="xl"
-            />
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <h3 className="text-lg font-black text-text-primary">{name}</h3>
-                <Badge variant="primary" size="xs">
-                  {t('common.bot')}
-                </Badge>
-              </div>
-              {agent.botUser?.username && (
-                <p className="text-sm text-text-muted font-bold italic">
-                  @{agent.botUser.username}
-                </p>
-              )}
-              {desc && <p className="text-sm text-text-secondary mt-1">{desc}</p>}
+      <div className="bg-bg-tertiary/40 rounded-[20px] p-6 border border-border-subtle shadow-sm">
+        <div className="flex items-center gap-4">
+          <UserAvatar
+            userId={agent.botUser?.id ?? agent.userId}
+            avatarUrl={agent.botUser?.avatarUrl}
+            displayName={name}
+            size="xl"
+          />
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-black text-text-primary">{name}</h3>
+              <Badge variant="primary" size="xs">
+                {t('common.bot')}
+              </Badge>
             </div>
-            <div className="flex gap-2">
-              <Button variant="ghost" size="icon" onClick={onEdit} title={t('common.edit')}>
-                <Edit2 size={18} />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onDelete}
-                className="hover:text-danger hover:bg-danger/10"
-                title={t('common.delete')}
-              >
-                <Trash2 size={18} />
-              </Button>
-            </div>
+            {agent.botUser?.username && (
+              <p className="text-sm text-text-muted font-bold italic">@{agent.botUser.username}</p>
+            )}
+            {desc && <p className="text-sm text-text-secondary mt-1">{desc}</p>}
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex gap-2">
+            <Button variant="ghost" size="icon" onClick={onEdit} title={t('common.edit')}>
+              <Edit2 size={18} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onDelete}
+              className="hover:text-danger hover:bg-danger/10"
+              title={t('common.delete')}
+            >
+              <Trash2 size={18} />
+            </Button>
+          </div>
+        </div>
+      </div>
 
       {/* Status & info */}
-      <Card variant="glass" className="rounded-[24px] mb-6">
-        <CardContent className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-text-muted mb-1">
-              {t('agentMgmt.status')}
-            </label>
-            <div className="flex items-center gap-2">
-              {(() => {
-                if (agent.status === 'error') {
-                  return (
-                    <Badge variant="danger" size="sm">
-                      <XCircle size={12} className="mr-1" />
-                      {t('agentMgmt.statusError')}
-                    </Badge>
-                  )
-                }
-                if (agent.status === 'stopped') {
-                  return (
-                    <Badge variant="neutral" size="sm">
-                      <span className="w-2 h-2 rounded-full bg-text-muted mr-1" />
-                      {t('agentMgmt.statusStopped')}
-                    </Badge>
-                  )
-                }
-                const isOnline =
-                  agent.lastHeartbeat &&
-                  Date.now() - new Date(agent.lastHeartbeat).getTime() < 90000
-                return (
-                  <Badge variant={isOnline ? 'success' : 'neutral'} size="sm">
-                    <span
-                      className={cn(
-                        'w-2 h-2 rounded-full mr-1',
-                        isOnline ? 'bg-success' : 'bg-text-muted',
-                      )}
-                    />
-                    {isOnline ? t('member.online') : t('member.offline')}
-                  </Badge>
-                )
-              })()}
-            </div>
-          </div>
-          <div>
-            <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-text-muted mb-1">
-              {t('agentMgmt.enableDisable')}
-            </label>
-            <button
-              type="button"
-              onClick={() => onToggle(agent)}
-              disabled={togglePending}
-              className={cn(
-                'relative w-11 h-6 rounded-full transition-colors',
-                agent.status === 'running' ? 'bg-success' : 'bg-text-muted/30',
-                togglePending && 'opacity-50',
-              )}
-            >
-              <span
-                className={cn(
-                  'absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow-sm',
-                  agent.status === 'running' && 'translate-x-5',
-                )}
-              />
-            </button>
-          </div>
-          <div>
-            <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-text-muted mb-1">
-              {t('agentMgmt.owner')}
-            </label>
-            <div className="flex items-center gap-2">
-              {agent.owner && (
-                <UserAvatar
-                  userId={agent.owner.id}
-                  avatarUrl={agent.owner.avatarUrl}
-                  displayName={agent.owner.displayName ?? agent.owner.username}
-                  size="xs"
-                />
-              )}
-              <p className="text-sm text-text-primary font-bold">
-                {agent.owner?.displayName ?? agent.owner?.username ?? '—'}
-              </p>
-            </div>
-          </div>
-          <div>
-            <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-text-muted mb-1">
-              {t('agentMgmt.createdAt')}
-            </label>
-            <p className="text-sm text-text-primary font-bold">
-              {new Date(agent.createdAt).toLocaleString()}
-            </p>
-          </div>
-          <div>
-            <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-text-muted mb-1">
-              {t('agentMgmt.totalOnlineTime')}
-            </label>
-            <p className="text-sm text-text-primary font-bold">
-              {formatOnlineDuration(
-                agent.totalOnlineSeconds ?? 0,
-                t as (key: string, defaultValue?: string) => string,
-              )}
-            </p>
-          </div>
-          <div>
-            <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-text-muted mb-1">
-              {t('agentMgmt.connection')}
-            </label>
+      <div className="bg-bg-tertiary/40 rounded-[20px] p-6 border border-border-subtle shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div>
+          <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-text-muted mb-1.5">
+            {t('agentMgmt.status')}
+          </label>
+          <div className="flex items-center gap-2">
             {(() => {
-              if (!agent.lastHeartbeat) {
+              if (agent.status === 'error') {
                 return (
-                  <Badge variant="neutral" size="sm">
-                    {t('agentMgmt.neverConnected')}
+                  <Badge variant="danger" size="sm">
+                    <XCircle size={12} className="mr-1" />
+                    {t('agentMgmt.statusError')}
                   </Badge>
                 )
               }
-              const lastBeat = new Date(agent.lastHeartbeat).getTime()
-              const now = Date.now()
-              const diffSec = Math.floor((now - lastBeat) / 1000)
-              const isOnline = diffSec < 90
-              const isWarning = diffSec >= 90 && diffSec < 300
+              if (agent.status === 'stopped') {
+                return (
+                  <Badge variant="neutral" size="sm">
+                    <span className="w-2 h-2 rounded-full bg-text-muted mr-1" />
+                    {t('agentMgmt.statusStopped')}
+                  </Badge>
+                )
+              }
+              const isOnline =
+                agent.lastHeartbeat && Date.now() - new Date(agent.lastHeartbeat).getTime() < 90000
               return (
-                <Badge variant={isOnline ? 'success' : isWarning ? 'warning' : 'danger'} size="sm">
+                <Badge variant={isOnline ? 'success' : 'neutral'} size="sm">
                   <span
                     className={cn(
                       'w-2 h-2 rounded-full mr-1',
-                      isOnline ? 'bg-success' : isWarning ? 'bg-warning' : 'bg-danger',
+                      isOnline ? 'bg-success' : 'bg-text-muted',
                     )}
                   />
-                  {isOnline
-                    ? t('agentMgmt.connected')
-                    : `${t('agentMgmt.lastSeen')} ${new Date(agent.lastHeartbeat).toLocaleString()}`}
+                  {isOnline ? t('member.online') : t('member.offline')}
                 </Badge>
               )
             })()}
           </div>
-          <div>
-            <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-text-muted mb-1">
-              {t('agentMgmt.rentalStatus')}
-            </label>
-            <div className="flex items-center gap-2">
-              {agent.isRented ? (
-                <Badge variant="warning" size="sm">
-                  {t('agentMgmt.rented')}
-                </Badge>
-              ) : agent.isListed ? (
-                <Badge variant="success" size="sm">
-                  {t('agentMgmt.listed')}
-                </Badge>
-              ) : agent.listingInfo ? (
-                <Badge variant="warning" size="sm">
-                  {agent.listingInfo.listingStatus === 'draft'
-                    ? t('agentMgmt.listingDraft')
-                    : agent.listingInfo.listingStatus === 'paused'
-                      ? t('agentMgmt.listingPaused')
-                      : agent.listingInfo.listingStatus === 'expired'
-                        ? t('agentMgmt.listingExpired')
-                        : t('agentMgmt.listingClosed')}
-                </Badge>
-              ) : (
-                <Badge variant="neutral" size="sm">
-                  {t('agentMgmt.notListed')}
-                </Badge>
+        </div>
+        <div>
+          <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-text-muted mb-1.5">
+            {t('agentMgmt.enableDisable')}
+          </label>
+          <button
+            type="button"
+            onClick={() => onToggle(agent)}
+            disabled={togglePending}
+            className={cn(
+              'relative w-11 h-6 rounded-full transition-colors',
+              agent.status === 'running' ? 'bg-success' : 'bg-text-muted/30',
+              togglePending && 'opacity-50',
+            )}
+          >
+            <span
+              className={cn(
+                'absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow-sm',
+                agent.status === 'running' && 'translate-x-5',
               )}
-            </div>
+            />
+          </button>
+        </div>
+        <div>
+          <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-text-muted mb-1.5">
+            {t('agentMgmt.owner')}
+          </label>
+          <div className="flex items-center gap-2">
+            {agent.owner && (
+              <UserAvatar
+                userId={agent.owner.id}
+                avatarUrl={agent.owner.avatarUrl}
+                displayName={agent.owner.displayName ?? agent.owner.username}
+                size="xs"
+              />
+            )}
+            <p className="text-sm text-text-primary font-bold">
+              {agent.owner?.displayName ?? agent.owner?.username ?? '—'}
+            </p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+        <div>
+          <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-text-muted mb-1.5">
+            {t('agentMgmt.createdAt')}
+          </label>
+          <p className="text-sm text-text-primary font-bold">
+            {new Date(agent.createdAt).toLocaleString()}
+          </p>
+        </div>
+        <div>
+          <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-text-muted mb-1">
+            {t('agentMgmt.totalOnlineTime')}
+          </label>
+          <p className="text-sm text-text-primary font-bold">
+            {formatOnlineDuration(
+              agent.totalOnlineSeconds ?? 0,
+              t as (key: string, defaultValue?: string) => string,
+            )}
+          </p>
+        </div>
+        <div>
+          <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-text-muted mb-1">
+            {t('agentMgmt.connection')}
+          </label>
+          {(() => {
+            if (!agent.lastHeartbeat) {
+              return (
+                <Badge variant="neutral" size="sm">
+                  {t('agentMgmt.neverConnected')}
+                </Badge>
+              )
+            }
+            const lastBeat = new Date(agent.lastHeartbeat).getTime()
+            const now = Date.now()
+            const diffSec = Math.floor((now - lastBeat) / 1000)
+            const isOnline = diffSec < 90
+            const isWarning = diffSec >= 90 && diffSec < 300
+            return (
+              <Badge variant={isOnline ? 'success' : isWarning ? 'warning' : 'danger'} size="sm">
+                <span
+                  className={cn(
+                    'w-2 h-2 rounded-full mr-1',
+                    isOnline ? 'bg-success' : isWarning ? 'bg-warning' : 'bg-danger',
+                  )}
+                />
+                {isOnline
+                  ? t('agentMgmt.connected')
+                  : `${t('agentMgmt.lastSeen')} ${new Date(agent.lastHeartbeat).toLocaleString()}`}
+              </Badge>
+            )
+          })()}
+        </div>
+        <div>
+          <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-text-muted mb-1">
+            {t('agentMgmt.rentalStatus')}
+          </label>
+          <div className="flex items-center gap-2">
+            {agent.isRented ? (
+              <Badge variant="warning" size="sm">
+                {t('agentMgmt.rented')}
+              </Badge>
+            ) : agent.isListed ? (
+              <Badge variant="success" size="sm">
+                {t('agentMgmt.listed')}
+              </Badge>
+            ) : agent.listingInfo ? (
+              <Badge variant="warning" size="sm">
+                {agent.listingInfo.listingStatus === 'draft'
+                  ? t('agentMgmt.listingDraft')
+                  : agent.listingInfo.listingStatus === 'paused'
+                    ? t('agentMgmt.listingPaused')
+                    : agent.listingInfo.listingStatus === 'expired'
+                      ? t('agentMgmt.listingExpired')
+                      : t('agentMgmt.listingClosed')}
+              </Badge>
+            ) : (
+              <Badge variant="neutral" size="sm">
+                {t('agentMgmt.notListed')}
+              </Badge>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Token section */}
-      <Card variant="glass" className="rounded-[24px] mb-6">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-2 mb-2">
-            <Key size={16} className="text-primary" />
-            <h3 className="text-sm font-black text-text-primary uppercase tracking-[0.15em]">
-              {t('agentMgmt.tokenTitle')}
-            </h3>
-          </div>
-          <p className="text-sm text-text-muted font-bold italic mb-4">
-            {t('agentMgmt.tokenDesc')}
-          </p>
+      <div className="bg-bg-tertiary/40 rounded-[20px] p-6 border border-border-subtle shadow-sm">
+        <div className="flex items-center gap-2 mb-3">
+          <Key size={16} className="text-primary" />
+          <h3 className="text-sm font-black text-text-primary uppercase tracking-[0.15em]">
+            {t('agentMgmt.tokenTitle')}
+          </h3>
+        </div>
+        <p className="text-sm text-text-muted font-bold italic mb-5">{t('agentMgmt.tokenDesc')}</p>
 
-          {(() => {
-            const displayToken =
-              generatedToken ?? (agent.config?.lastToken as string | undefined) ?? null
-            if (displayToken) {
-              return (
-                <div className="space-y-3">
-                  <div className="bg-bg-deep/50 backdrop-blur-sm rounded-2xl p-3 break-all font-mono text-xs text-text-secondary border border-border-subtle">
-                    {displayToken}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Button
-                      variant={tokenCopied ? 'outline' : 'primary'}
-                      size="sm"
-                      onClick={() => onCopyToken(displayToken)}
-                    >
-                      <ClipboardCopy size={14} />
-                      {tokenCopied ? t('common.copied') : t('common.copy')}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => tokenMutation.mutate(agent.id)}
-                      disabled={tokenMutation.isPending}
-                    >
-                      <Key size={14} />
-                      {tokenMutation.isPending
-                        ? t('agentMgmt.generating')
-                        : t('agentMgmt.regenerateToken')}
-                    </Button>
-                  </div>
+        {(() => {
+          const displayToken =
+            generatedToken ?? (agent.config?.lastToken as string | undefined) ?? null
+          if (displayToken) {
+            return (
+              <div className="space-y-4">
+                <div className="bg-bg-deep/50 backdrop-blur-sm rounded-[16px] p-4 break-all font-mono text-[13px] text-text-secondary border border-border-subtle shadow-inner">
+                  {displayToken}
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant={tokenCopied ? 'outline' : 'primary'}
+                    size="sm"
+                    onClick={() => onCopyToken(displayToken)}
+                    className="rounded-[12px]"
+                  >
+                    <ClipboardCopy size={14} />
+                    {tokenCopied ? t('common.copied') : t('common.copy')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => tokenMutation.mutate(agent.id)}
+                    disabled={tokenMutation.isPending}
+                    className="rounded-[12px]"
+                  >
+                    <Key size={14} />
+                    {tokenMutation.isPending
+                      ? t('agentMgmt.generating')
+                      : t('agentMgmt.regenerateToken')}
+                  </Button>
+                </div>
 
-                  {/* YAML example */}
-                  <div className="mt-4">
-                    <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-text-muted mb-2">
-                      {t('agentMgmt.configExample')}
-                    </label>
-                    <pre className="bg-bg-deep/50 backdrop-blur-sm rounded-2xl p-4 text-xs text-text-secondary border border-border-subtle overflow-x-auto">
-                      {`{
+                {/* JSON config example */}
+                <div className="mt-5">
+                  <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-text-muted mb-2">
+                    {t('agentMgmt.configExample')}
+                  </label>
+                  <pre className="bg-bg-deep/50 backdrop-blur-sm rounded-[16px] p-4 text-[13px] text-text-secondary border border-border-subtle overflow-x-auto shadow-inner">
+                    {`{
   "channels": {
     "shadowob": {
       "token": "${displayToken}...",
-      "serverUrl": "https://shadowob.com"
+      "serverUrl": "${window.location.origin}"
     }
   }
 }`}
-                    </pre>
-                  </div>
+                  </pre>
                 </div>
-              )
-            }
-            return (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => tokenMutation.mutate(agent.id)}
-                disabled={tokenMutation.isPending}
-              >
-                <Key size={14} />
-                {tokenMutation.isPending ? t('agentMgmt.generating') : t('agentMgmt.generateToken')}
-              </Button>
+              </div>
             )
-          })()}
-        </CardContent>
-      </Card>
+          }
+          return (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => tokenMutation.mutate(agent.id)}
+              disabled={tokenMutation.isPending}
+              className="rounded-[12px]"
+            >
+              <Key size={14} />
+              {tokenMutation.isPending ? t('agentMgmt.generating') : t('agentMgmt.generateToken')}
+            </Button>
+          )
+        })()}
+      </div>
 
       {/* OpenClaw Setup Guide */}
       <OpenClawSetupGuide
@@ -894,7 +887,7 @@ function AgentDetail({
         generatingToken={tokenMutation.isPending}
         t={t}
       />
-    </>
+    </div>
   )
 }
 
@@ -975,199 +968,198 @@ function OpenClawSetupGuide({
 
   if (!hasToken) {
     return (
-      <Card variant="glass" className="rounded-[24px] mb-6">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-2 mb-3">
-            <BookOpen size={16} className="text-primary" />
-            <h3 className="text-sm font-black text-text-primary uppercase tracking-[0.15em]">
-              {t('agentMgmt.openclawGuideTitle')}
-            </h3>
-          </div>
-          <p className="text-sm text-text-muted font-bold italic mb-4">
-            {t('agentMgmt.setupTokenWarning')}
-          </p>
-          <Button variant="primary" size="sm" onClick={onGenerateToken} disabled={generatingToken}>
-            <Key size={14} />
-            {generatingToken ? t('agentMgmt.generating') : t('agentMgmt.generateToken')}
-          </Button>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  return (
-    <Card variant="glass" className="rounded-[24px] mb-6">
-      <CardContent className="p-6">
+      <div className="bg-bg-tertiary/40 rounded-[20px] p-6 border border-border-subtle shadow-sm">
         <div className="flex items-center gap-2 mb-3">
           <BookOpen size={16} className="text-primary" />
           <h3 className="text-sm font-black text-text-primary uppercase tracking-[0.15em]">
             {t('agentMgmt.openclawGuideTitle')}
           </h3>
         </div>
-        <p className="text-sm text-text-muted font-bold italic mb-4">
-          {t('agentMgmt.openclawGuideDesc')}
+        <p className="text-sm text-text-muted font-bold italic mb-5">
+          {t('agentMgmt.setupTokenWarning')}
         </p>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={onGenerateToken}
+          disabled={generatingToken}
+          className="rounded-[12px]"
+        >
+          <Key size={14} />
+          {generatingToken ? t('agentMgmt.generating') : t('agentMgmt.generateToken')}
+        </Button>
+      </div>
+    )
+  }
 
-        {/* Tab selector — pill-shaped */}
-        <div className="flex gap-1 mb-4 bg-bg-deep/50 backdrop-blur-sm rounded-full p-1 border border-border-subtle">
-          <button
-            type="button"
-            onClick={() => setActiveTab('manual')}
-            className={cn(
-              'flex items-center gap-1.5 flex-1 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest transition',
-              activeTab === 'manual'
-                ? 'bg-primary/15 text-primary shadow-sm'
-                : 'text-text-muted hover:text-text-secondary',
-            )}
-          >
-            <Terminal size={12} />
-            {t('agentMgmt.setupManual')}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('chat')}
-            className={cn(
-              'flex items-center gap-1.5 flex-1 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest transition',
-              activeTab === 'chat'
-                ? 'bg-primary/15 text-primary shadow-sm'
-                : 'text-text-muted hover:text-text-secondary',
-            )}
-          >
-            <MessageSquare size={12} />
-            {t('agentMgmt.setupChat')}
-          </button>
-        </div>
+  return (
+    <div className="bg-bg-tertiary/40 rounded-[20px] p-6 border border-border-subtle shadow-sm">
+      <div className="flex items-center gap-2 mb-3">
+        <BookOpen size={16} className="text-primary" />
+        <h3 className="text-sm font-black text-text-primary uppercase tracking-[0.15em]">
+          {t('agentMgmt.openclawGuideTitle')}
+        </h3>
+      </div>
+      <p className="text-sm text-text-muted font-bold italic mb-5">
+        {t('agentMgmt.openclawGuideDesc')}
+      </p>
 
-        {activeTab === 'manual' ? (
-          <>
-            {/* Quick bash one-liner */}
-            <div className="mb-4">
-              <p className="text-xs font-black text-text-secondary mb-2 uppercase tracking-widest">
-                {t('agentMgmt.setupBashTitle')}
+      {/* Tab selector — pill-shaped */}
+      <div className="flex gap-1 mb-5 bg-bg-deep/50 backdrop-blur-sm rounded-full p-1 border border-border-subtle">
+        <button
+          type="button"
+          onClick={() => setActiveTab('manual')}
+          className={cn(
+            'flex items-center gap-1.5 flex-1 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest transition',
+            activeTab === 'manual'
+              ? 'bg-primary/15 text-primary shadow-sm'
+              : 'text-text-muted hover:text-text-secondary',
+          )}
+        >
+          <Terminal size={12} />
+          {t('agentMgmt.setupManual')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('chat')}
+          className={cn(
+            'flex items-center gap-1.5 flex-1 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest transition',
+            activeTab === 'chat'
+              ? 'bg-primary/15 text-primary shadow-sm'
+              : 'text-text-muted hover:text-text-secondary',
+          )}
+        >
+          <MessageSquare size={12} />
+          {t('agentMgmt.setupChat')}
+        </button>
+      </div>
+
+      {activeTab === 'manual' ? (
+        <>
+          {/* Quick bash one-liner */}
+          <div className="mb-4">
+            <p className="text-xs font-black text-text-secondary mb-2 uppercase tracking-widest">
+              {t('agentMgmt.setupBashTitle')}
+            </p>
+            <CopyBlock content={bashCommand} t={t} />
+            {!token && (
+              <p className="text-[11px] text-warning mt-1.5 ml-1 font-bold">
+                ⚠ {t('agentMgmt.setupTokenWarning')}
               </p>
-              <CopyBlock content={bashCommand} t={t} />
-              {!token && (
-                <p className="text-[11px] text-warning mt-1.5 ml-1 font-bold">
-                  ⚠ {t('agentMgmt.setupTokenWarning')}
-                </p>
-              )}
-            </div>
-
-            <div className="h-px bg-bg-tertiary/50 my-4" />
-
-            {/* Step-by-step */}
-            <p className="text-[11px] font-black text-text-muted uppercase tracking-[0.2em] mb-3">
-              {t('agentMgmt.setupStepByStep')}
-            </p>
-
-            {/* Step 1: Install */}
-            <div className="mb-3">
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-black flex items-center justify-center">
-                  1
-                </span>
-                <span className="text-sm font-black text-text-primary">
-                  {t('docs.openclawStep1Title')}
-                </span>
-              </div>
-              <div className="ml-7">
-                <CopyBlock content="openclaw plugins install @shadowob/openclaw-shadowob" t={t} />
-              </div>
-            </div>
-
-            {/* Step 2: Config Token */}
-            <div className="mb-3">
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-black flex items-center justify-center">
-                  2
-                </span>
-                <span className="text-sm font-black text-text-primary">
-                  {t('agentMgmt.setupConfigToken')}
-                </span>
-              </div>
-              <div className="ml-7">
-                <CopyBlock
-                  content={`openclaw config set channels.shadowob.token "${token}"`}
-                  t={t}
-                />
-              </div>
-            </div>
-
-            {/* Step 3: Config Server URL */}
-            <div className="mb-3">
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-black flex items-center justify-center">
-                  3
-                </span>
-                <span className="text-sm font-black text-text-primary">
-                  {t('agentMgmt.setupConfigServer')}
-                </span>
-              </div>
-              <div className="ml-7">
-                <CopyBlock
-                  content={`openclaw config set channels.shadowob.serverUrl "${serverUrl}"`}
-                  t={t}
-                />
-              </div>
-            </div>
-
-            {/* Step 4: Run */}
-            <div className="mb-3">
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-black flex items-center justify-center">
-                  4
-                </span>
-                <span className="text-sm font-black text-text-primary">
-                  {t('agentMgmt.openclawRunTitle')}
-                </span>
-              </div>
-              <div className="ml-7">
-                <CopyBlock content="openclaw gateway restart" t={t} />
-              </div>
-            </div>
-          </>
-        ) : (
-          <>
-            {/* AI chat prompt */}
-            <p className="text-xs text-text-muted font-bold italic mb-3">
-              {t('agentMgmt.setupChatDesc')}
-            </p>
-            <CopyBlock content={aiPrompt} t={t} />
-          </>
-        )}
-
-        {/* Capabilities */}
-        <div className="mt-4 pt-4 border-t border-border-subtle">
-          <p className="text-[11px] font-black text-text-muted uppercase tracking-[0.2em] mb-2">
-            {t('docs.openclawCapabilities')}
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            {['messaging', 'threads', 'reactions', 'media', 'mentions', 'editDelete'].map((cap) => (
-              <div
-                key={cap}
-                className="flex items-center gap-1.5 text-xs text-text-secondary font-bold"
-              >
-                <span className="text-success">✓</span>
-                {t(`docs.openclawCap_${cap}`)}
-              </div>
-            ))}
+            )}
           </div>
-        </div>
 
-        {/* Link to full docs */}
-        <div className="mt-4 pt-3 border-t border-border-subtle">
-          <a
-            href="/product/index.html"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-primary hover:text-primary-hover font-black flex items-center gap-1 transition uppercase tracking-widest"
-          >
-            <BookOpen size={12} />
-            {t('agentMgmt.openclawFullDocs')}
-          </a>
+          <div className="h-px bg-bg-tertiary/50 my-4" />
+
+          {/* Step-by-step */}
+          <p className="text-[11px] font-black text-text-muted uppercase tracking-[0.2em] mb-3">
+            {t('agentMgmt.setupStepByStep')}
+          </p>
+
+          {/* Step 1: Install */}
+          <div className="mb-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-black flex items-center justify-center">
+                1
+              </span>
+              <span className="text-sm font-black text-text-primary">
+                {t('docs.openclawStep1Title')}
+              </span>
+            </div>
+            <div className="ml-7">
+              <CopyBlock content="openclaw plugins install @shadowob/openclaw-shadowob" t={t} />
+            </div>
+          </div>
+
+          {/* Step 2: Config Token */}
+          <div className="mb-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-black flex items-center justify-center">
+                2
+              </span>
+              <span className="text-sm font-black text-text-primary">
+                {t('agentMgmt.setupConfigToken')}
+              </span>
+            </div>
+            <div className="ml-7">
+              <CopyBlock content={`openclaw config set channels.shadowob.token "${token}"`} t={t} />
+            </div>
+          </div>
+
+          {/* Step 3: Config Server URL */}
+          <div className="mb-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-black flex items-center justify-center">
+                3
+              </span>
+              <span className="text-sm font-black text-text-primary">
+                {t('agentMgmt.setupConfigServer')}
+              </span>
+            </div>
+            <div className="ml-7">
+              <CopyBlock
+                content={`openclaw config set channels.shadowob.serverUrl "${serverUrl}"`}
+                t={t}
+              />
+            </div>
+          </div>
+
+          {/* Step 4: Run */}
+          <div className="mb-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-black flex items-center justify-center">
+                4
+              </span>
+              <span className="text-sm font-black text-text-primary">
+                {t('agentMgmt.openclawRunTitle')}
+              </span>
+            </div>
+            <div className="ml-7">
+              <CopyBlock content="openclaw gateway restart" t={t} />
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* AI chat prompt */}
+          <p className="text-xs text-text-muted font-bold italic mb-3">
+            {t('agentMgmt.setupChatDesc')}
+          </p>
+          <CopyBlock content={aiPrompt} t={t} />
+        </>
+      )}
+
+      {/* Capabilities */}
+      <div className="mt-4 pt-4 border-t border-border-subtle">
+        <p className="text-[11px] font-black text-text-muted uppercase tracking-[0.2em] mb-2">
+          {t('docs.openclawCapabilities')}
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {['messaging', 'threads', 'reactions', 'media', 'mentions', 'editDelete'].map((cap) => (
+            <div
+              key={cap}
+              className="flex items-center gap-1.5 text-xs text-text-secondary font-bold"
+            >
+              <span className="text-success">✓</span>
+              {t(`docs.openclawCap_${cap}`)}
+            </div>
+          ))}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+
+      {/* Link to full docs */}
+      <div className="mt-4 pt-3 border-t border-border-subtle">
+        <a
+          href="/product/index.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-primary hover:text-primary-hover font-black flex items-center gap-1 transition uppercase tracking-widest"
+        >
+          <BookOpen size={12} />
+          {t('agentMgmt.openclawFullDocs')}
+        </a>
+      </div>
+    </div>
   )
 }
 
@@ -1498,6 +1490,7 @@ export function BuddyManagementContent() {
   const [tokenCopied, setTokenCopied] = useState(false)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [message, setMessage] = useState<{ text: string; success: boolean } | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Listen for 'create-buddy' pending action from task center
   const pendingAction = useUIStore((s) => s.pendingAction)
@@ -1513,6 +1506,14 @@ export function BuddyManagementContent() {
     queryKey: ['agents'],
     queryFn: () => fetchApi<Agent[]>('/api/agents'),
     refetchInterval: 30000,
+  })
+
+  const filteredAgents = agents.filter((agent) => {
+    if (!searchQuery) return true
+    const searchLower = searchQuery.toLowerCase()
+    const name = (agent.botUser?.displayName ?? agent.botUser?.username ?? 'Node').toLowerCase()
+    const id = agent.id.toLowerCase()
+    return name.includes(searchLower) || id.includes(searchLower)
   })
 
   const deleteMutation = useMutation({
@@ -1586,219 +1587,185 @@ export function BuddyManagementContent() {
     }
   }
 
+  // Main full-height split layout
   return (
     <>
-      {/* Hero Banner */}
-      <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-primary/20 via-primary/5 to-transparent border border-primary/20 p-6 mb-6">
-        <div className="absolute top-0 right-0 w-40 h-40 bg-primary/10 rounded-full blur-3xl -mr-10 -mt-10" />
-        <div className="relative z-10">
-          <h2 className="text-2xl font-black text-text-primary tracking-tight mb-1">
-            {t('agentMgmt.title')}
-          </h2>
-          <p className="text-sm text-text-muted max-w-md">
-            {t(
-              'agentMgmt.heroDesc',
-              '创建、管理和部署你的 AI Buddy，让它们在 Shadow 世界为你工作。',
+      {/* Left Sidebar */}
+      <div className="w-full md:w-72 lg:w-80 shrink-0 flex-col hidden md:flex">
+        <div className="bg-[var(--glass-bg)] backdrop-blur-3xl border border-[var(--glass-line)] rounded-2xl flex-1 flex flex-col overflow-hidden shadow-sm">
+          <div className="shrink-0 flex flex-col gap-3 p-4 border-b border-[var(--glass-line)]">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-text-muted/60">
+                {t('agentMgmt.myBuddies', '我的终端节点')}
+              </span>
+              <Button
+                variant="primary"
+                size="sm"
+                className="rounded-full !px-3"
+                onClick={() => setShowCreate({})}
+              >
+                <Plus size={14} className="md:mr-1" />
+                <span className="hidden md:inline">{t('agentMgmt.newAgent', '添加')}</span>
+              </Button>
+            </div>
+            {agents.length > 0 && (
+              <div className="relative">
+                <Search
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+                />
+                <input
+                  type="text"
+                  placeholder={t('agentMgmt.searchPlaceholder', '搜索节点或 ID...')}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-bg-tertiary/50 border border-border-subtle rounded-xl pl-8 pr-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/40 transition-shadow"
+                />
+              </div>
             )}
-          </p>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-2 space-y-1">
+            {/* Message */}
+            {message && (
+              <div
+                className={cn(
+                  'mx-2 my-2 px-3 py-2 rounded-xl text-xs font-bold border',
+                  message.success
+                    ? 'bg-success/10 text-success border-success/20'
+                    : 'bg-danger/10 text-danger border-danger/20',
+                )}
+              >
+                {message.text}
+              </div>
+            )}
+
+            {/* Agent list */}
+            {isLoading ? (
+              <div className="text-center text-text-muted font-bold italic py-8">
+                {t('common.loading')}
+              </div>
+            ) : agents.length === 0 ? (
+              <div className="text-center p-4">
+                <p className="text-sm text-text-muted mb-4">
+                  {t('agentMgmt.noAgents', '暂无节点')}
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setShowCreate({})}
+                >
+                  <Plus size={14} className="mr-1" />
+                  {t('agentMgmt.createFirst', '配置节点')}
+                </Button>
+              </div>
+            ) : filteredAgents.length === 0 ? (
+              <div className="text-center p-4">
+                <p className="text-sm text-text-muted">{t('common.noResults', '未找到结果')}</p>
+              </div>
+            ) : (
+              filteredAgents.map((agent) => {
+                const name = agent.botUser?.displayName ?? agent.botUser?.username ?? 'Node'
+                const isSelected = selectedAgent?.id === agent.id
+                return (
+                  <button
+                    type="button"
+                    key={agent.id}
+                    onClick={() => {
+                      setSelectedAgent(isSelected ? null : agent)
+                      setGeneratedToken(null)
+                    }}
+                    className={cn(
+                      'flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-left transition-all duration-200 border',
+                      isSelected
+                        ? 'bg-primary/10 border-primary/30 shadow-sm'
+                        : 'border-transparent hover:bg-bg-tertiary/60 hover:border-border-dim',
+                    )}
+                  >
+                    <div className="relative">
+                      <UserAvatar
+                        userId={agent.botUser?.id ?? agent.userId}
+                        avatarUrl={agent.botUser?.avatarUrl}
+                        displayName={name}
+                        size="sm"
+                      />
+                      <span
+                        className={cn(
+                          'absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-bg-secondary shadow-sm',
+                          getAgentOnlineDotClass(agent),
+                        )}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p
+                        className={cn(
+                          'text-[14px] font-bold truncate transition-colors',
+                          isSelected ? 'text-primary' : 'text-text-primary',
+                        )}
+                      >
+                        {name}
+                      </p>
+                      <p className="text-[11px] text-text-muted truncate font-mono">
+                        ID: {agent.id.slice(0, 8)}
+                      </p>
+                    </div>
+                  </button>
+                )
+              })
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Primary Creation CTA (only when no agents) */}
-      {!isLoading && agents.length === 0 && (
-        <div className="space-y-6 mb-6">
-          <button
-            type="button"
-            onClick={() => setShowCreate({})}
-            className="w-full rounded-3xl border border-primary/40 bg-primary/10 hover:bg-primary/15 hover:border-primary/60 transition-all duration-300 p-8 text-center group cursor-pointer shadow-sm"
-          >
-            <div className="w-14 h-14 rounded-2xl bg-primary/15 flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-              <Plus size={28} className="text-primary" />
+      {/* Right column: Details or placeholder */}
+      <div className="flex-1 min-w-0 flex flex-col">
+        <div className="bg-[var(--glass-bg)] backdrop-blur-3xl border border-[var(--glass-line)] rounded-2xl flex-1 overflow-y-auto shadow-sm p-4 md:p-6 lg:p-8 relative">
+          {showCreate ? (
+            <CreateAgentDialog
+              onClose={() => setShowCreate(null)}
+              onSuccess={(agent) => {
+                queryClient.invalidateQueries({ queryKey: ['agents'] })
+                setShowCreate(null)
+                setSelectedAgent(agent)
+                showMsg(t('agentMgmt.createSuccess'), true)
+              }}
+              onError={(message) => showMsg(message || t('agentMgmt.createFailed'), false)}
+              t={t}
+              initialData={showCreate}
+            />
+          ) : selectedAgent ? (
+            <div className="max-w-2xl mx-auto animate-in fade-in slide-in-from-right-4 duration-300">
+              <AgentDetail
+                agent={selectedAgent}
+                generatedToken={generatedToken}
+                tokenCopied={tokenCopied}
+                tokenMutation={tokenMutation}
+                statusColor={statusColor}
+                statusLabel={statusLabel}
+                onCopyToken={copyToken}
+                onDelete={() => setDeleteConfirmId(selectedAgent.id)}
+                onEdit={() => setShowEdit(true)}
+                onToggle={(agent) => toggleMutation.mutate(agent)}
+                togglePending={toggleMutation.isPending}
+                t={t}
+              />
             </div>
-            <p className="text-base font-black text-text-primary mb-1">
-              {t('agentMgmt.createFirst', '创建你的第一个 Buddy')}
-            </p>
-            <p className="text-sm text-text-muted">
-              {t('agentMgmt.createFirstDesc', '点击开始，几分钟内即可拥有你的 AI 助手')}
-            </p>
-          </button>
-
-          {/* Template Gallery — quick start */}
-          <div>
-            <span className="block text-[11px] font-black uppercase tracking-[0.2em] text-text-muted/60 mb-3">
-              {t('agentMgmt.templateGallery', '快速开始模板')}
-            </span>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {(
-                [
-                  {
-                    icon: MessageSquare,
-                    name: t('agentMgmt.templateChatName', 'QA 问答助手'),
-                    username: 'qa-helper',
-                    desc: t(
-                      'agentMgmt.templateChatDesc',
-                      '自动回答频道内的常见问题，支持上下文多轮对话',
-                    ),
-                  },
-                  {
-                    icon: ShieldCheck,
-                    name: t('agentMgmt.templateModName', '社区守卫'),
-                    username: 'community-guard',
-                    desc: t(
-                      'agentMgmt.templateModDesc',
-                      '自动检测违规内容、垃圾广告，维护社区秩序',
-                    ),
-                  },
-                  {
-                    icon: ShoppingCart,
-                    name: t('agentMgmt.templateShopName', '导购客服'),
-                    username: 'shop-assistant',
-                    desc: t('agentMgmt.templateShopDesc', '商品推荐、库存查询、订单跟踪一站式服务'),
-                  },
-                ] as const
-              ).map((tmpl) => (
-                <button
-                  key={tmpl.username}
-                  type="button"
-                  onClick={() =>
-                    setShowCreate({
-                      name: tmpl.name,
-                      username: tmpl.username,
-                      description: tmpl.desc,
-                    })
-                  }
-                  className="rounded-2xl border border-border-subtle bg-[var(--glass-bg)] backdrop-blur-xl p-4 text-left hover:bg-bg-modifier-hover hover:border-primary/30 transition-all group cursor-pointer"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center mb-2 group-hover:bg-primary/20 transition-colors">
-                    <tmpl.icon size={18} className="text-primary" />
-                  </div>
-                  <p className="text-sm font-black text-text-primary group-hover:text-primary transition-colors">
-                    {tmpl.name}
-                  </p>
-                  <p className="text-xs text-text-muted mt-0.5 line-clamp-2">{tmpl.desc}</p>
-                </button>
-              ))}
+          ) : (
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-8 animate-in fade-in duration-300">
+              <div className="text-center opacity-40">
+                <Terminal size={48} className="mx-auto mb-4" strokeWidth={1} />
+                <p className="text-sm font-black uppercase tracking-[0.2em] mb-2">Select a node</p>
+                <p className="text-xs text-text-muted">
+                  Choose a terminal node from the left sidebar to manage its configuration.
+                </p>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Header with create button (when agents exist) */}
-      {agents.length > 0 && (
-        <div className="flex items-center justify-between mb-6">
-          <span className="text-[11px] font-black uppercase tracking-[0.2em] text-text-muted/60">
-            {t('agentMgmt.myBuddies', '我的 Buddy')}
-          </span>
-          <Button
-            variant="primary"
-            size="sm"
-            className="rounded-full"
-            onClick={() => setShowCreate({})}
-          >
-            <Plus size={14} />
-            {t('agentMgmt.newAgent')}
-          </Button>
-        </div>
-      )}
-
-      {/* Message */}
-      {message && (
-        <div
-          className={cn(
-            'mb-4 px-4 py-2 rounded-full text-sm font-bold',
-            message.success ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger',
           )}
-        >
-          {message.text}
         </div>
-      )}
+      </div>
 
-      {/* Agent list */}
-      {isLoading ? (
-        <div className="text-center text-text-muted font-bold italic py-8">
-          {t('common.loading')}
-        </div>
-      ) : (
-        agents.length > 0 && (
-          <div className="space-y-2 mb-6">
-            {agents.map((agent) => {
-              const name = agent.botUser?.displayName ?? agent.botUser?.username ?? 'Buddy'
-              const isSelected = selectedAgent?.id === agent.id
-              return (
-                <button
-                  key={agent.id}
-                  onClick={() => {
-                    setSelectedAgent(isSelected ? null : agent)
-                    setGeneratedToken(null)
-                  }}
-                  className={cn(
-                    'flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-left transition border',
-                    isSelected
-                      ? 'bg-primary/15 border-primary/30 text-text-primary'
-                      : 'bg-bg-tertiary/30 border-border-subtle text-text-secondary hover:bg-primary/10 hover:text-text-primary',
-                  )}
-                >
-                  <UserAvatar
-                    userId={agent.botUser?.id ?? agent.userId}
-                    avatarUrl={agent.botUser?.avatarUrl}
-                    displayName={agent.botUser?.displayName ?? undefined}
-                    size="sm"
-                  />
-                  <span className="truncate flex-1 font-bold">{name}</span>
-                  {(agent.totalOnlineSeconds ?? 0) > 0 && (
-                    <span className="text-[11px] text-text-muted shrink-0 font-bold">
-                      {formatOnlineDuration(
-                        agent.totalOnlineSeconds,
-                        t as (key: string, defaultValue?: string) => string,
-                      )}
-                    </span>
-                  )}
-                  <AgentListingBadge agent={agent} />
-                  <span
-                    className={`w-2 h-2 rounded-full shrink-0 ${getAgentOnlineDotClass(agent)}`}
-                  />
-                </button>
-              )
-            })}
-          </div>
-        )
-      )}
-
-      {/* Selected agent detail */}
-      {selectedAgent && (
-        <AgentDetail
-          agent={selectedAgent}
-          generatedToken={generatedToken}
-          tokenCopied={tokenCopied}
-          tokenMutation={tokenMutation}
-          statusColor={statusColor}
-          statusLabel={statusLabel}
-          onCopyToken={copyToken}
-          onDelete={() => setDeleteConfirmId(selectedAgent.id)}
-          onEdit={() => setShowEdit(true)}
-          onToggle={(agent) => toggleMutation.mutate(agent)}
-          togglePending={toggleMutation.isPending}
-          t={t}
-        />
-      )}
-
-      {/* Create dialog */}
-      {showCreate && (
-        <CreateAgentDialog
-          onClose={() => setShowCreate(null)}
-          onSuccess={(agent) => {
-            queryClient.invalidateQueries({ queryKey: ['agents'] })
-            setShowCreate(null)
-            setSelectedAgent(agent)
-            showMsg(t('agentMgmt.createSuccess'), true)
-          }}
-          onError={() => showMsg(t('agentMgmt.createFailed'), false)}
-          t={t}
-          initialData={showCreate}
-        />
-      )}
-
-      {/* Edit dialog */}
+      {/* Modals */}
       {showEdit && selectedAgent && (
         <EditAgentDialog
           agent={selectedAgent}
@@ -1814,7 +1781,6 @@ export function BuddyManagementContent() {
         />
       )}
 
-      {/* Delete confirmation */}
       <Modal open={!!deleteConfirmId} onClose={() => setDeleteConfirmId(null)}>
         <ModalContent maxWidth="max-w-md">
           <ModalHeader title={t('common.confirm')} closeLabel={t('common.close', '关闭')} />

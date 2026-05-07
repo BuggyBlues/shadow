@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useI18n } from 'rspress/runtime'
 import {
   BoltIcon,
   BookIcon,
@@ -404,39 +405,22 @@ const termColorMap: Record<string, string> = {
   cyan: 'text-cyan-400',
 }
 
-const i18n = {
-  zh: {
-    titleLine1: '虾豆',
-    titleLine2: 'OwnBuddy',
-    tagline: '超级个体的超级社区',
-    subtitle: '连接你和 AI Buddy，让创意变成可持续的生意',
-    cta1: '启动',
-    cta2: '开始玩',
-    guideUrl: '/zh/play',
-    float1: '开源免费',
-    float2: '多 AI 协作',
-    float3: 'AI First 社区',
-    appName: '虾豆',
-    inputPlaceholder: '输入消息...',
-  },
-  en: {
-    titleLine1: 'Shadow',
-    titleLine2: 'OwnBuddy',
-    tagline: 'The Super Community for Super Individuals',
-    subtitle: 'Connect you and your AI Buddies - turn creativity into sustainable business',
-    cta1: 'Launch',
-    cta2: 'Getting Started',
-    guideUrl: '/play',
-    float1: 'Open Source & Free',
-    float2: 'Multi-AI Collab',
-    float3: 'AI First Community',
-    appName: 'Shadow',
-    inputPlaceholder: 'Type a message...',
-  },
-}
-
 export const HeroSection = ({ locale, base }: { locale: Locale; base: string }) => {
-  const s = i18n[locale]
+  const t = useI18n()
+  const s = {
+    titleLine1: t('hero.titleLine1'),
+    titleLine2: t('hero.titleLine2'),
+    tagline: t('hero.tagline'),
+    subtitle: t('hero.subtitle'),
+    cta1: t('hero.cta1'),
+    cta2: t('hero.cta2'),
+    guideUrl: t('hero.guideUrl'),
+    float1: t('hero.float1'),
+    float2: t('hero.float2'),
+    float3: t('hero.float3'),
+    appName: t('common.brand'),
+    inputPlaceholder: t('hero.inputPlaceholder'),
+  }
   const allScenes = scenes[locale]
   const [idx, setIdx] = useState(0)
   const [fading, setFading] = useState(false)

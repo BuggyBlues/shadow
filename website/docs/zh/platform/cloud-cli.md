@@ -36,7 +36,9 @@ shadowob-cloud status
 模版使用 `${env:VAR_NAME}` 引用密钥：
 
 ```bash
-export DEEPSEEK_API_KEY="sk-..."
+export OPENAI_COMPATIBLE_API_KEY="sk-..."
+export OPENAI_COMPATIBLE_BASE_URL="https://api.example.com/v1"
+export OPENAI_COMPATIBLE_MODEL_ID="deepseek-v4-flash"
 export SHADOW_SERVER_URL="https://app.example.com"
 export SHADOW_USER_TOKEN="..."
 ```

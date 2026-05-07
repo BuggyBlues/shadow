@@ -150,8 +150,6 @@ function generatorBaseUrl() {
   return firstNonEmptyEnv(
     'SHADOW_DIY_CLOUD_GENERATOR_BASE_URL',
     'SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL',
-    'DEEPSEEK_BASE_URL',
-    'OPENAI_COMPATIBLE_BASE_URL',
   )?.replace(/\/+$/, '')
 }
 
@@ -159,7 +157,6 @@ function generatorApiKey() {
   return firstNonEmptyEnv(
     'SHADOW_DIY_CLOUD_GENERATOR_API_KEY',
     'SHADOW_MODEL_PROXY_UPSTREAM_API_KEY',
-    'DEEPSEEK_API_KEY',
   )
 }
 

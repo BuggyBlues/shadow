@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useI18n } from 'rspress/runtime'
 import { fetchConfig, fetchPlayCatalog } from '../lib/config-client'
 
 /* ─── Scroll reveal ─── */
@@ -68,6 +69,11 @@ interface Play {
   accentColor: string
   hot?: boolean
   status?: 'available' | 'gated' | 'coming_soon' | 'misconfigured'
+  gates?: {
+    auth?: 'none' | 'required'
+    membership?: 'none' | 'required'
+    profile?: 'none' | 'optional' | 'required'
+  }
   action?: {
     kind: string
     templateSlug?: string
@@ -92,29 +98,68 @@ const docsUrl = (path: string, isZh: boolean) => {
   return `${DOCS_BASE}${prefix}${path}`.replace(/\/{2,}/g, '/')
 }
 const canLaunchPlay = (play: Play) => play.status === 'available' || play.status === 'gated'
-const playCtaLabel = (play: Play, isZh: boolean, short = false) => {
-  if (!play.status) return isZh ? '加载中' : 'Loading'
-  if (play.status === 'coming_soon') return isZh ? '即将开放' : 'Coming Soon'
-  if (play.status === 'misconfigured') return isZh ? '配置中' : 'Configuring'
-  if (play.status === 'gated') return isZh ? '解锁玩法' : 'Unlock'
-  return isZh ? (short ? '启动' : '进入玩法') : 'Launch'
+const playCtaLabel = (play: Play, t: (key: string) => string, short = false) => {
+  if (!play.status) return t('home.playCta.loading')
+  if (play.status === 'coming_soon') return t('home.playCta.comingSoon')
+  if (play.status === 'misconfigured') return t('home.playCta.configuring')
+  if (play.status === 'gated') return t('home.playCta.unlock')
+  return t(short ? 'home.playCta.launchShort' : 'home.playCta.launch')
 }
-const handlePlayLaunchClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+const WEBSITE_LOGIN_EVENT = 'shadow:website-login'
+
+function hasStoredAuthSession() {
+  if (typeof window === 'undefined') return false
+  return Boolean(
+    window.localStorage.getItem('accessToken') && window.localStorage.getItem('refreshToken'),
+  )
+}
+
+function appRedirectFromHref(href: string) {
+  const url = new URL(href, window.location.href)
+  return `${url.pathname}${url.search}${url.hash}`
+}
+
+function requestWebsiteLogin(redirect: string) {
+  window.dispatchEvent(
+    new CustomEvent(WEBSITE_LOGIN_EVENT, {
+      detail: { redirect },
+    }),
+  )
+}
+
+const handlePlayLaunchClick = (play: Play, event: React.MouseEvent<HTMLAnchorElement>) => {
+  if (event.defaultPrevented) return
   event.preventDefault()
+  const redirect = appRedirectFromHref(event.currentTarget.href)
+  if (!hasStoredAuthSession()) {
+    requestWebsiteLogin(redirect)
+    return
+  }
+  window.location.assign(event.currentTarget.href)
+}
+
+const handleAppEntryClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+  if (event.defaultPrevented) return
+  event.preventDefault()
+  const redirect = appRedirectFromHref(event.currentTarget.href)
+  if (!hasStoredAuthSession()) {
+    requestWebsiteLogin(redirect)
+    return
+  }
   window.location.assign(event.currentTarget.href)
 }
 
 function PlayLaunchCta({
   play,
-  isZh,
   short = false,
   style,
 }: {
   play: Play
-  isZh: boolean
+  isZh?: boolean
   short?: boolean
   style?: React.CSSProperties
 }) {
+  const t = useI18n()
   const launchable = canLaunchPlay(play)
   const ctaStyle: React.CSSProperties = {
     ...style,
@@ -125,7 +170,7 @@ function PlayLaunchCta({
   const content = (
     <>
       <Play size={short ? 14 : 15} fill="currentColor" strokeWidth={short ? 2.7 : 2.6} />
-      {playCtaLabel(play, isZh, short)}
+      {playCtaLabel(play, t, short)}
     </>
   )
 
@@ -140,7 +185,7 @@ function PlayLaunchCta({
   return (
     <a
       href={playLaunchUrl(play)}
-      onClick={handlePlayLaunchClick}
+      onClick={(event) => handlePlayLaunchClick(play, event)}
       className="btn-primary"
       style={{ ...ctaStyle, textDecoration: 'none' }}
     >
@@ -611,6 +656,7 @@ function TypingSlogan({ isZh }: { isZh: boolean }) {
     cancelRef.current = false
     setCharIdx(0)
     setLooping(false)
+    const typingDelay = 82
 
     let idx = 0
     const type = () => {
@@ -618,7 +664,7 @@ function TypingSlogan({ isZh }: { isZh: boolean }) {
       idx++
       setCharIdx(idx)
       if (idx < totalLen) {
-        setTimeout(type, 55)
+        setTimeout(type, typingDelay)
       } else {
         setLooping(true)
         setTimeout(() => {
@@ -652,22 +698,34 @@ function TypingSlogan({ isZh }: { isZh: boolean }) {
         color: 'var(--rp-c-text-1)',
         marginBottom: '24px',
         fontFamily: '"Nunito", "Noto Sans SC", sans-serif',
-        minHeight: '2.6em',
+        height: '2.7em',
+        minHeight: '2.7em',
+        maxHeight: '2.7em',
+        overflow: 'hidden',
       }}
     >
-      <span>
+      <span style={{ display: 'block', height: '1.2em', lineHeight: 1.2, paddingLeft: '1em' }}>
         {line1}
         {showCursorOnLine1 && (
           <span className="hero-cursor" aria-hidden="true">
             _
           </span>
         )}
+        {!showCursorOnLine1 && (
+          <span className="hero-cursor" aria-hidden="true" style={{ visibility: 'hidden' }}>
+            _
+          </span>
+        )}
       </span>
-      <br />
-      <span>
+      <span style={{ display: 'block', height: '1.2em', lineHeight: 1.2 }}>
         {line2}
         {showCursorOnLine2 && (
           <span className={cursorClass} aria-hidden="true">
+            _
+          </span>
+        )}
+        {!showCursorOnLine2 && (
+          <span className={cursorClass} aria-hidden="true" style={{ visibility: 'hidden' }}>
             _
           </span>
         )}
@@ -780,6 +838,7 @@ function DiceFace({ faceIdx }: { faceIdx: number }) {
 }
 
 function DiceSection({ isZh }: { isZh: boolean }) {
+  const t = useI18n()
   const [rolling, setRolling] = useState(false)
   const [modalPlay, setModalPlay] = useState<Play | null>(null)
   const rotRef = useRef({ x: -15, y: 25 })
@@ -817,7 +876,7 @@ function DiceSection({ isZh }: { isZh: boolean }) {
         >
           <span className="section-label section-label-inline">
             <Dice5 size={15} strokeWidth={2.7} />
-            {isZh ? '随机探索' : 'Random Discovery'}
+            {t('home.random.label')}
           </span>
           <h2
             style={{
@@ -829,7 +888,7 @@ function DiceSection({ isZh }: { isZh: boolean }) {
               fontFamily: '"Nunito", "Noto Sans SC", sans-serif',
             }}
           >
-            {isZh ? '不知道玩什么？' : "Don't know what to play?"}
+            {t('home.random.title')}
           </h2>
           <p
             style={{
@@ -839,7 +898,7 @@ function DiceSection({ isZh }: { isZh: boolean }) {
               marginBottom: '40px',
             }}
           >
-            {isZh ? '点击骰子，落地之后随机一个玩法' : 'Click the dice and land on a random play'}
+            {t('home.random.subtitle')}
           </p>
 
           <div
@@ -854,7 +913,7 @@ function DiceSection({ isZh }: { isZh: boolean }) {
             onKeyDown={(e) => e.key === 'Enter' && rollDice()}
             role="button"
             tabIndex={0}
-            aria-label={isZh ? '投骰子' : 'Roll dice'}
+            aria-label={t('home.random.rollAria')}
           >
             <div
               style={{
@@ -883,7 +942,7 @@ function DiceSection({ isZh }: { isZh: boolean }) {
                 marginBottom: '24px',
               }}
             >
-              {isZh ? '骰子滚动中…' : 'Rolling…'}
+              {t('home.random.rolling')}
             </p>
           )}
 
@@ -895,7 +954,7 @@ function DiceSection({ isZh }: { isZh: boolean }) {
               style={{ fontSize: '13px', padding: '12px 28px', gap: '8px' }}
             >
               <Dice5 size={16} strokeWidth={2.8} />
-              {isZh ? '投骰子' : 'Roll the Dice'}
+              {t('home.random.roll')}
             </button>
           )}
         </div>
@@ -962,6 +1021,7 @@ function DiceModal({
   onClose: () => void
   onRollAgain: () => void
 }) {
+  const t = useI18n()
   const title = isZh ? play.title : play.titleEn
   const desc = isZh ? play.desc : play.descEn
   const category = isZh ? play.category : play.categoryEn
@@ -1040,7 +1100,7 @@ function DiceModal({
             }}
           >
             <Dice5 size={13} strokeWidth={3} />
-            {isZh ? '落地结果' : 'You Landed On'}
+            {t('home.random.result')}
           </div>
           {/* Close button */}
           <button
@@ -1109,7 +1169,7 @@ function DiceModal({
               style={{ flex: 1, justifyContent: 'center', gap: '8px' }}
             >
               <RotateCcw size={15} strokeWidth={2.7} />
-              {isZh ? '再来一次' : 'Roll Again'}
+              {t('home.random.again')}
             </button>
           </div>
         </div>
@@ -1246,9 +1306,15 @@ function PlayCard({
 /* ─── Featured carousel (3 hot plays, 3 columns) ─── */
 
 function FeaturedCarousel({ isZh }: { isZh: boolean }) {
+  const t = useI18n()
   const featured = _plays.filter((p) => p.hot)
   const [active, setActive] = useState(0)
+  const [paused, setPaused] = useState(false)
   const pauseRef = useRef(false)
+  const setCarouselPaused = useCallback((nextPaused: boolean) => {
+    pauseRef.current = nextPaused
+    setPaused(nextPaused)
+  }, [])
 
   // Auto-advance every 5 seconds
   useEffect(() => {
@@ -1287,11 +1353,22 @@ function FeaturedCarousel({ isZh }: { isZh: boolean }) {
   }
 
   return (
-    <section style={{ marginBottom: '56px' }}>
+    <section
+      style={{ marginBottom: '56px' }}
+      onPointerEnter={() => setCarouselPaused(true)}
+      onPointerLeave={() => setCarouselPaused(false)}
+      onFocusCapture={() => setCarouselPaused(true)}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setCarouselPaused(false)
+        }
+      }}
+      aria-live={paused ? 'polite' : 'off'}
+    >
       <div style={{ marginBottom: '20px' }}>
         <span className="section-label section-label-inline">
           <Sparkles size={15} strokeWidth={2.7} />
-          {isZh ? '本周精选' : "This Week's Top"}
+          {t('home.featured.eyebrow')}
         </span>
         <h2
           style={{
@@ -1302,7 +1379,7 @@ function FeaturedCarousel({ isZh }: { isZh: boolean }) {
             fontFamily: '"Nunito", "Noto Sans SC", sans-serif',
           }}
         >
-          {isZh ? '主推玩法' : 'Featured Plays'}
+          {t('home.featured.title')}
         </h2>
       </div>
 
@@ -1314,12 +1391,6 @@ function FeaturedCarousel({ isZh }: { isZh: boolean }) {
           padding: 0,
           borderRadius: '32px',
           boxShadow: '0 32px 80px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06)',
-        }}
-        onMouseEnter={() => {
-          pauseRef.current = true
-        }}
-        onMouseLeave={() => {
-          pauseRef.current = false
         }}
       >
         {/* Animated large card */}
@@ -1362,21 +1433,16 @@ function FeaturedCarousel({ isZh }: { isZh: boolean }) {
               {desc}
             </p>
             <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <a
-                href="/app"
-                className="btn-primary"
+              <PlayLaunchCta
+                play={play}
+                isZh={isZh}
                 style={{
-                  textDecoration: 'none',
                   fontSize: '15px',
                   padding: '12px 28px',
-                  gap: '8px',
                 }}
-              >
-                <Play size={15} fill="currentColor" strokeWidth={2.7} />
-                {isZh ? '开始探索' : 'Start Exploring'}
-              </a>
+              />
               <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', fontWeight: 700 }}>
-                {play.starts} {isZh ? '次启动' : 'launches'}
+                {play.starts} {t('home.launches')}
               </span>
             </div>
           </div>
@@ -1425,6 +1491,7 @@ function FeaturedCarousel({ isZh }: { isZh: boolean }) {
 /* ─── Topic card + Featured Topics section (专题) ─── */
 
 function TopicCard({ topic, isZh }: { topic: Topic; isZh: boolean }) {
+  const t = useI18n()
   const title = isZh ? topic.titleZh : topic.titleEn
   const desc = isZh ? topic.descZh : topic.descEn
 
@@ -1475,7 +1542,7 @@ function TopicCard({ topic, isZh }: { topic: Topic; isZh: boolean }) {
               textTransform: 'uppercase',
             }}
           >
-            {topic.count} {isZh ? '个玩法' : 'plays'}
+            {topic.count} {t('home.plays')}
           </div>
           <div
             style={{
@@ -1498,12 +1565,13 @@ function TopicCard({ topic, isZh }: { topic: Topic; isZh: boolean }) {
 }
 
 function FeaturedTopics({ isZh }: { isZh: boolean }) {
+  const t = useI18n()
   return (
     <section style={{ marginBottom: '56px' }}>
       <div style={{ marginBottom: '20px' }}>
         <span className="section-label">
           <Sparkles size={15} strokeWidth={2.7} />
-          {isZh ? '精心策划的主题合集' : 'Curated Theme Collections'}
+          {t('home.topics.eyebrow')}
         </span>
         <h2
           style={{
@@ -1514,7 +1582,7 @@ function FeaturedTopics({ isZh }: { isZh: boolean }) {
             fontFamily: '"Nunito", "Noto Sans SC", sans-serif',
           }}
         >
-          {isZh ? '专题' : 'Topics'}
+          {t('home.topics.title')}
         </h2>
       </div>
       <div
@@ -1534,6 +1602,7 @@ function FeaturedTopics({ isZh }: { isZh: boolean }) {
 /* ─── Category section ─── */
 
 function CategorySection({ meta, isZh }: { meta: CategoryMeta; isZh: boolean }) {
+  const t = useI18n()
   const plays = _plays.filter((p) => (isZh ? p.category === meta.zh : p.categoryEn === meta.en))
   if (plays.length === 0) return null
 
@@ -1577,7 +1646,7 @@ function CategorySection({ meta, isZh }: { meta: CategoryMeta; isZh: boolean }) 
             gap: '4px',
           }}
         >
-          {isZh ? '查看全部' : 'View All'}
+          {t('home.viewAll')}
           <ChevronRight size={15} strokeWidth={2.8} />
         </a>
       </div>
@@ -1601,6 +1670,7 @@ function CategorySection({ meta, isZh }: { meta: CategoryMeta; isZh: boolean }) 
 /* ─── Right sidebar: Leaderboard + Editor's Picks ─── */
 
 function Leaderboard({ isZh }: { isZh: boolean }) {
+  const t = useI18n()
   const rankColors = [
     'linear-gradient(135deg, #f8e71c, #ffb300)',
     'rgba(226,232,240,0.6)',
@@ -1612,7 +1682,7 @@ function Leaderboard({ isZh }: { isZh: boolean }) {
     <div style={{ marginBottom: '32px' }}>
       <span className="section-label" style={{ color: '#FF2A55' }}>
         <Flame size={15} strokeWidth={2.8} />
-        {isZh ? '热门' : 'Trending'}
+        {t('home.trending.eyebrow')}
       </span>
       <h2
         style={{
@@ -1623,7 +1693,7 @@ function Leaderboard({ isZh }: { isZh: boolean }) {
           fontFamily: '"Nunito", "Noto Sans SC", sans-serif',
         }}
       >
-        {isZh ? '热门排行榜' : 'Top Charts'}
+        {t('home.trending.title')}
       </h2>
       <div
         className="glass-card"
@@ -1705,7 +1775,7 @@ function Leaderboard({ isZh }: { isZh: boolean }) {
                 {isZh ? play.title : play.titleEn}
               </div>
               <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--shadow-text-muted)' }}>
-                {play.starts} {isZh ? '次启动' : 'launches'}
+                {play.starts} {t('home.launches')}
               </div>
             </div>
             {i === 0 && (
@@ -1728,12 +1798,13 @@ function Leaderboard({ isZh }: { isZh: boolean }) {
 }
 
 function EditorPicks({ isZh }: { isZh: boolean }) {
+  const t = useI18n()
   const picks = _plays.slice(0, 3)
   return (
     <div>
       <span className="section-label section-label-inline">
         <Sparkles size={15} strokeWidth={2.7} />
-        {isZh ? '编辑精选' : "Editor's Picks"}
+        {t('home.editor.eyebrow')}
       </span>
       <h2
         style={{
@@ -1744,7 +1815,7 @@ function EditorPicks({ isZh }: { isZh: boolean }) {
           fontFamily: '"Nunito", "Noto Sans SC", sans-serif',
         }}
       >
-        {isZh ? '精选玩法' : 'Hand-picked'}
+        {t('home.editor.title')}
       </h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {picks.map((play) => (
@@ -1807,7 +1878,7 @@ function EditorPicks({ isZh }: { isZh: boolean }) {
               style={{ fontSize: '11px', padding: '6px 12px', flexShrink: 0, gap: '6px' }}
             >
               <Play size={12} fill="currentColor" strokeWidth={2.8} />
-              {isZh ? '启动' : 'Go'}
+              {t('home.go')}
             </button>
           </div>
         ))}
@@ -1819,6 +1890,7 @@ function EditorPicks({ isZh }: { isZh: boolean }) {
 /* ─── DIY Cloud prompt ─── */
 
 function DiyPromptSection({ isZh }: { isZh: boolean }) {
+  const t = useI18n()
   const [prompt, setPrompt] = useState('')
   const [immersive, setImmersive] = useState(false)
   const [closing, setClosing] = useState(false)
@@ -2242,7 +2314,7 @@ function DiyPromptSection({ isZh }: { isZh: boolean }) {
   const placeholderExamples = useMemo(() => examples.slice(0, 4), [examples])
   const categories = useMemo(
     () => [
-      { id: 'all', label: isZh ? '全部' : 'All' },
+      { id: 'all', label: t('home.diy.all') },
       ...Array.from(new Set(examples.map((item) => item.tag))).map((tag) => ({
         id: tag,
         label: tag,
@@ -2270,7 +2342,7 @@ function DiyPromptSection({ isZh }: { isZh: boolean }) {
     return matched.slice(0, 4)
   }, [examples, trimmed])
   const showAutocomplete = trimmed.length > 0 && !casePanelOpen && !autocompleteDismissed
-  const placeholder = `${isZh ? '例如：' : 'Example: '}${typedPlaceholder}`
+  const placeholder = `${t('home.diy.examplePrefix')}${typedPlaceholder}`
 
   useEffect(() => {
     const current = placeholderExamples[placeholderIndex % placeholderExamples.length]?.text ?? ''
@@ -2297,7 +2369,12 @@ function DiyPromptSection({ isZh }: { isZh: boolean }) {
 
   const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (trimmed) window.location.assign(target)
+    if (!trimmed) return
+    if (!hasStoredAuthSession()) {
+      requestWebsiteLogin(target)
+      return
+    }
+    window.location.assign(target)
   }
 
   const closeImmersive = useCallback(() => {
@@ -2359,7 +2436,7 @@ function DiyPromptSection({ isZh }: { isZh: boolean }) {
         <button
           type="button"
           className="home-diy-close"
-          aria-label={isZh ? '关闭 DIY Cloud' : 'Close DIY Cloud'}
+          aria-label={t('home.diy.close')}
           onClick={closeImmersive}
         >
           <X size={18} strokeWidth={2.8} />
@@ -2368,14 +2445,10 @@ function DiyPromptSection({ isZh }: { isZh: boolean }) {
       <div className="home-diy-copy">
         <span className="section-label section-label-inline">
           <WandSparkles size={15} strokeWidth={2.7} />
-          {isZh ? 'DIY Cloud' : 'DIY Cloud'}
+          {t('home.diy.label')}
         </span>
-        <h2>{isZh ? '想要一个专属空间？' : 'Describe the space you want.'}</h2>
-        <p>
-          {isZh
-            ? '输入目标，虾豆会先生成可审查的 Cloud 模版和指南书，再带你一键部署。'
-            : 'Describe the goal. Shadow drafts a reviewable Cloud template and guidebook before one-click deployment.'}
-        </p>
+        <h2>{t('home.diy.title')}</h2>
+        <p>{t('home.diy.description')}</p>
       </div>
       <form className="home-diy-form" onSubmit={onSubmit}>
         <textarea
@@ -2402,7 +2475,7 @@ function DiyPromptSection({ isZh }: { isZh: boolean }) {
             if (event.key === 'Tab') setCasePanelOpen(true)
           }}
           placeholder={placeholder}
-          aria-label={isZh ? '描述你想创建的虾豆 Cloud 空间' : 'Describe your Shadow Cloud space'}
+          aria-label={t('home.diy.inputAria')}
         />
         {showAutocomplete && (
           <div className="home-diy-popover" role="listbox">
@@ -2424,9 +2497,7 @@ function DiyPromptSection({ isZh }: { isZh: boolean }) {
           </div>
         )}
         <div className="home-diy-actions">
-          <small>
-            {isZh ? '先生成方案，不会直接扣费。' : 'Draft first. Nothing is billed here.'}
-          </small>
+          <small>{t('home.diy.noBilling')}</small>
           <div className="home-diy-action-buttons">
             <button
               type="button"
@@ -2441,7 +2512,7 @@ function DiyPromptSection({ isZh }: { isZh: boolean }) {
                 setCasePanelOpen((value) => !value)
               }}
             >
-              {isZh ? '更多案例' : 'More examples'}
+              {t('home.diy.moreExamples')}
             </button>
             <button
               type="submit"
@@ -2449,7 +2520,7 @@ function DiyPromptSection({ isZh }: { isZh: boolean }) {
               style={{ gap: '8px' }}
               disabled={!trimmed}
             >
-              {isZh ? '生成我的空间' : 'Generate My Space'}
+              {t('home.diy.submit')}
               <ArrowRight size={15} strokeWidth={2.7} />
             </button>
           </div>
@@ -2463,12 +2534,8 @@ function DiyPromptSection({ isZh }: { isZh: boolean }) {
         >
           <div className="home-diy-case-board-head">
             <div>
-              <span>{isZh ? '从一个具体目标开始' : 'Start from a concrete goal'}</span>
-              <strong>
-                {isZh
-                  ? '选择一个接近的场景，再改成你的版本。'
-                  : 'Pick a close scenario, then make it yours.'}
-              </strong>
+              <span>{t('home.diy.caseTitle')}</span>
+              <strong>{t('home.diy.caseSubtitle')}</strong>
             </div>
             <button type="button" onClick={() => setCasePanelOpen(false)}>
               <X size={16} strokeWidth={2.6} />
@@ -2520,7 +2587,7 @@ function DiyPromptSection({ isZh }: { isZh: boolean }) {
               className={['home-diy-scrim', closing ? 'home-diy-scrim-closing' : '']
                 .filter(Boolean)
                 .join(' ')}
-              aria-label={isZh ? '关闭 DIY Cloud' : 'Close DIY Cloud'}
+              aria-label={t('home.diy.close')}
               onClick={closeImmersive}
             />
             {panel}
@@ -2543,6 +2610,7 @@ function DiyPromptSection({ isZh }: { isZh: boolean }) {
 /* ─── Developer CTA ─── */
 
 function DevCta({ isZh }: { isZh: boolean }) {
+  const t = useI18n()
   const prefix = isZh ? '/zh' : ''
   return (
     <section style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 24px 80px' }}>
@@ -2564,7 +2632,7 @@ function DevCta({ isZh }: { isZh: boolean }) {
         <div>
           <span className="section-label section-label-inline">
             <Lightbulb size={15} strokeWidth={2.7} />
-            {isZh ? '开放平台' : 'Open Platform'}
+            {t('home.dev.label')}
           </span>
           <h2
             style={{
@@ -2576,7 +2644,7 @@ function DevCta({ isZh }: { isZh: boolean }) {
               fontFamily: '"Nunito", "Noto Sans SC", sans-serif',
             }}
           >
-            {isZh ? '开发自己的玩法？' : 'Want to Build Your Own Play?'}
+            {t('home.dev.title')}
           </h2>
           <p
             style={{
@@ -2587,9 +2655,7 @@ function DevCta({ isZh }: { isZh: boolean }) {
               lineHeight: 1.7,
             }}
           >
-            {isZh
-              ? '任何人都可以在虾豆社区上创建玩法、发布到市场，并通过 Buddy 经济赚取虾币收益。开放平台提供完整的 API、SDK 和 Buddy 工具链。'
-              : 'Anyone can create a Play on Shadow, publish it to the marketplace, and earn Shrimp Coins through the Buddy economy. The Open Platform provides a full API, SDKs, and Buddy toolchain.'}
+            {t('home.dev.description')}
           </p>
         </div>
         <a
@@ -2604,7 +2670,7 @@ function DevCta({ isZh }: { isZh: boolean }) {
           }}
         >
           <Trophy size={16} strokeWidth={2.7} />
-          {isZh ? '探索开放平台' : 'Explore Open Platform'}
+          {t('home.dev.cta')}
         </a>
       </div>
     </section>
@@ -2614,6 +2680,7 @@ function DevCta({ isZh }: { isZh: boolean }) {
 /* ─── Main export ─── */
 
 export function HomeContent({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
+  const t = useI18n()
   const isZh = lang === 'zh'
   const { plays, topics, categoryMeta } = useRemoteData()
 
@@ -2628,11 +2695,19 @@ export function HomeContent({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
       <section
         style={{
           textAlign: 'center',
-          padding: '80px 20px 64px',
+          height: '520px',
+          minHeight: '520px',
+          maxHeight: '520px',
+          padding: '0 20px',
           position: 'relative',
           zIndex: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
           maxWidth: '1400px',
           margin: '0 auto',
+          overflow: 'hidden',
         }}
       >
         {/* Tagline above slogan */}
@@ -2648,15 +2723,20 @@ export function HomeContent({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
             fontFamily: '"Nunito", "Noto Sans SC", sans-serif',
           }}
         >
-          {isZh ? '一切玩法，任你创想' : 'Every Play, Yours to Imagine'}
+          {t('home.hero.eyebrow')}
         </p>
 
         <TypingSlogan isZh={isZh} />
 
         <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <a href="/app" className="btn-secondary" style={{ textDecoration: 'none', gap: '8px' }}>
+          <a
+            href="/app"
+            className="btn-secondary"
+            style={{ textDecoration: 'none', gap: '8px' }}
+            onClick={handleAppEntryClick}
+          >
             <Sparkles size={15} strokeWidth={2.7} />
-            {isZh ? '开始探索' : 'Start Exploring'}
+            {t('home.hero.cta')}
           </a>
         </div>
       </section>

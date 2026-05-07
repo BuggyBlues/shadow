@@ -130,6 +130,8 @@ Shadow supports OAuth login via third-party providers. Redirect users to:
 GET /api/auth/oauth/:provider
 ```
 
+Pass `redirect=/app/...` to continue the original app action after authentication. Cloud-gated website actions may also pass `inviteCode=...`; the OAuth callback includes it so the app can redeem the invite before continuing.
+
 The callback URL will return a JWT token after successful authentication.
 
 ## Official Model Proxy Tokens

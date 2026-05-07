@@ -1,7 +1,16 @@
 import { cn, GlassHeader, GlassPanel } from '@shadowob/ui'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import { Bot, MessageCircle, Monitor, Settings, Store, Target, Wallet } from 'lucide-react'
+import {
+  Bot,
+  MessageCircle,
+  Monitor,
+  Settings,
+  Store,
+  Target,
+  Terminal,
+  Wallet,
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { UserAvatar } from '../../components/common/avatar'
@@ -30,7 +39,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'dm', icon: MessageCircle, labelKey: 'settings.tabDM', labelFallback: '消息' },
-  { id: 'buddy', icon: Bot, labelKey: 'settings.tabBuddy', labelFallback: '我的 Buddy' },
+  { id: 'buddy', icon: Terminal, labelKey: 'settings.tabBuddy', labelFallback: '终端代理' },
   { id: 'tasks', icon: Target, labelKey: 'settings.tabTasks', labelFallback: '赚取虾币' },
   { id: 'wallet', icon: Wallet, labelKey: 'settings.tabWallet', labelFallback: '钱包' },
   { id: 'shop', icon: Store, labelKey: 'settings.tabShop', labelFallback: '我的店铺' },
@@ -129,7 +138,7 @@ export function SettingsPage() {
   if (!user) return null
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative gap-3">
+    <div className="flex-1 h-full min-h-0 flex flex-col md:flex-row overflow-hidden relative gap-3">
       {/* Gradient background orbs */}
       <div className="pointer-events-none absolute inset-0 -z-0 overflow-hidden">
         <div className="absolute -top-[150px] left-[5%] w-[600px] h-[600px] rounded-full bg-[radial-gradient(circle,var(--color-primary)_0%,transparent_70%)] opacity-[0.08] blur-[120px] animate-[float_25s_ease-in-out_infinite]" />
@@ -256,7 +265,7 @@ export function SettingsPage() {
 
       {/* Content Area */}
       <main className="flex-1 min-w-0 h-full overflow-hidden flex flex-col relative z-10">
-        {activeTab !== 'dm' && (
+        {activeTab !== 'dm' && activeTab !== 'buddy' && (
           <GlassPanel className="flex-1 h-full overflow-hidden flex flex-col">
             {/* Unified Header */}
             <GlassHeader className="gap-3">
@@ -284,7 +293,6 @@ export function SettingsPage() {
                     }
                   />
                 )}
-                {activeTab === 'buddy' && <BuddyManagementContent />}
                 {activeTab === 'shop' && (
                   <PersonalShopPage
                     initialSection={activeSection === 'orders' ? 'orders' : 'shop'}
@@ -295,13 +303,20 @@ export function SettingsPage() {
           </GlassPanel>
         )}
 
+        {/* Buddy - full height split layout */}
+        {activeTab === 'buddy' && (
+          <div className="flex flex-1 min-h-0 gap-3">
+            <BuddyManagementContent />
+          </div>
+        )}
+
         {/* DM - unified contact sidebar + chat */}
         {activeTab === 'dm' && (
-          <div className="flex flex-1 min-h-0 gap-3">
+          <div className="flex flex-1 h-full min-h-0 gap-3">
             {/* Left sidebar: unified contacts */}
             <GlassPanel
               className={cn(
-                'chat-panel w-full shrink-0 flex-col overflow-hidden md:w-72 lg:w-80',
+                'chat-panel h-full w-full shrink-0 flex-col overflow-hidden md:w-72 lg:w-80',
                 activeDmChannelId ? 'hidden md:flex' : 'flex',
               )}
             >
@@ -329,7 +344,7 @@ export function SettingsPage() {
             {/* Right panel: chat or default view */}
             <div
               className={cn(
-                'min-w-0 flex-1 flex-col',
+                'min-w-0 h-full flex-1 flex-col',
                 activeDmChannelId ? 'flex' : 'hidden md:flex',
               )}
             >
@@ -339,7 +354,7 @@ export function SettingsPage() {
                   onBack={() => setActiveDmChannelId(null)}
                 />
               ) : (
-                <GlassPanel className="chat-panel flex-1 overflow-hidden">
+                <GlassPanel className="chat-panel h-full flex-1 overflow-hidden">
                   <DmDefaultView />
                 </GlassPanel>
               )}

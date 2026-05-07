@@ -116,10 +116,16 @@ const commerceProductCardSchema = z.object({
   purchase: z.record(z.unknown()).optional(),
 })
 
-const commerceOfferCardSchema = commerceProductCardSchema.extend({
-  kind: z.literal('offer'),
-  offerId: z.string().uuid(),
-})
+const commerceOfferCardSchema = commerceProductCardSchema
+  .omit({
+    kind: true,
+    productId: true,
+  })
+  .extend({
+    kind: z.literal('offer'),
+    offerId: z.string().uuid(),
+    productId: z.string().uuid().optional(),
+  })
 
 const paidFileCardSchema = z.object({
   id: idLikeSchema.optional(),

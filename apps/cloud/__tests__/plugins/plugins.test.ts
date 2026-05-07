@@ -1101,6 +1101,50 @@ describe('model-provider plugin', () => {
       model: { primary: 'provider-profile-x/profile-reasoner' },
     })
   })
+
+  it('uses only the OpenAI-compatible proxy when official proxy credentials are present', async () => {
+    const registry = createPluginRegistry()
+    const modelProvider = (await import('../../src/plugins/model-provider/index.js')).default
+    registry.register(modelProvider)
+
+    const ctx = makeBuildContext({
+      pluginRegistry: registry,
+      secrets: {
+        OPENAI_API_KEY: 'test-direct-provider-key',
+        OPENAI_COMPATIBLE_API_KEY: 'test-official-proxy-token',
+        OPENAI_COMPATIBLE_BASE_URL: 'http://host.lima.internal:3002/api/ai/v1',
+        OPENAI_COMPATIBLE_MODEL_ID: 'custom/deepseek-v4-flash',
+      },
+      config: {
+        namespace: 'test-ns',
+        agents: [],
+        use: [{ plugin: 'model-provider' }],
+      } as unknown as PluginBuildContext['config'],
+      agent: {
+        id: 'agent-1',
+        name: 'Test Agent',
+        runtime: 'openclaw',
+        use: [{ plugin: 'model-provider' }],
+      } as PluginBuildContext['agent'],
+    })
+
+    const fragment = modelProvider._hooks.buildConfig[0]!(ctx)
+    const runtimeEnv = modelProvider._hooks.buildEnv[0]!(ctx)
+
+    expect(fragment?.agents?.defaults).toMatchObject({
+      model: {
+        primary: 'custom/deepseek-v4-flash',
+      },
+    })
+    expect(fragment?.agents?.defaults?.model).not.toHaveProperty('fallbacks')
+    expect(Object.keys(fragment?.models?.providers ?? {})).toEqual(['custom'])
+    expect(runtimeEnv).toEqual({
+      OPENAI_COMPATIBLE_API_KEY: 'test-official-proxy-token',
+      OPENAI_COMPATIBLE_BASE_URL: 'http://host.lima.internal:3002/api/ai/v1',
+      OPENAI_COMPATIBLE_MODEL_ID: 'custom/deepseek-v4-flash',
+    })
+    expect(runtimeEnv.OPENAI_API_KEY).toBeUndefined()
+  })
 })
 
 // ─── Tool plugin implementations ──────────────────────────────────────────

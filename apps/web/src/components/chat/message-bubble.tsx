@@ -8,6 +8,7 @@ import {
   AlertCircle,
   AtSign,
   Check,
+  CheckCircle2,
   CheckSquare,
   Copy,
   ExternalLink,
@@ -19,7 +20,9 @@ import {
   Reply,
   Smile,
   Square,
+  Ticket,
   Trash2,
+  Unlock,
   Wallet,
   X,
 } from 'lucide-react'
@@ -506,6 +509,39 @@ function CommerceProductCardView({
       setIsDelivering(false)
     }
   }
+
+  const openPurchasedEntitlement = async () => {
+    const file = currentCheckoutPreview?.paidFile
+    const fileId =
+      file?.id ??
+      (card.snapshot.productType === 'entitlement' &&
+      card.snapshot.resourceType === 'workspace_file'
+        ? card.snapshot.resourceId
+        : null)
+
+    if (!fileId) {
+      setShowPurchaseModal(false)
+      return
+    }
+
+    setIsOpening(true)
+    setError(null)
+    try {
+      await openPaidFileInPreview({
+        fileId,
+        fallbackName: file?.name ?? card.snapshot.name,
+        fallbackMime: file?.mime,
+        fallbackSizeBytes: file?.sizeBytes,
+        onPreviewFile,
+      })
+      setShowPurchaseModal(false)
+    } catch (err) {
+      setError(getApiErrorMessage(err, t, 'chat.paidFileOpenFailed'))
+    } finally {
+      setIsOpening(false)
+    }
+  }
+
   const paidFileId =
     card.snapshot.productType === 'entitlement' &&
     card.snapshot.resourceType === 'workspace_file' &&
@@ -631,83 +667,165 @@ function CommerceProductCardView({
         : null,
   }
 
+  const isUnlocked =
+    !!purchaseResult ||
+    currentCheckoutPreview?.viewerState === 'active' ||
+    currentCheckoutPreview?.primaryAction === 'open_content'
+
   return (
-    <div className="relative max-w-md overflow-hidden rounded-xl border border-border-subtle bg-bg-secondary text-left">
+    <div
+      className={cn(
+        'relative w-full max-w-[460px] flex overflow-hidden rounded-[20px] border backdrop-blur-2xl shadow-xl text-left my-2 group',
+        isUnlocked
+          ? 'border-success/30 bg-bg-secondary/40'
+          : 'border-border-subtle bg-bg-secondary/40',
+      )}
+    >
+      <div
+        className={cn(
+          'absolute inset-0 bg-gradient-to-r from-transparent pointer-events-none',
+          isUnlocked ? 'via-success/5 to-success/10' : 'via-primary/5 to-primary/10',
+        )}
+      />
       {isDelivering && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-bg-secondary/90 text-primary backdrop-blur-sm">
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-bg-secondary/90 text-primary backdrop-blur-sm">
           <div className="h-12 w-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
           <div className="text-sm font-black">{t('chat.commerceUnlocking')}</div>
         </div>
       )}
-      <div className="flex gap-3 p-3">
-        {card.snapshot.imageUrl && (
-          <img
-            src={card.snapshot.imageUrl}
-            alt={card.snapshot.name}
-            className="h-16 w-16 shrink-0 rounded-lg object-cover"
-          />
-        )}
-        <div className="min-w-0 flex-1">
-          <button
-            type="button"
-            className="block w-full rounded-lg text-left transition hover:bg-bg-primary/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            onClick={resolveCardAction}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <h4 className="line-clamp-2 text-sm font-bold text-text-primary">
+      <div className="flex-1 p-4 min-w-0 flex flex-col justify-center relative z-10">
+        <button
+          type="button"
+          className="block w-full text-left transition hover:opacity-80 focus-visible:outline-none"
+          onClick={resolveCardAction}
+        >
+          <div className="flex items-start gap-4">
+            {card.snapshot.imageUrl ? (
+              <img
+                src={card.snapshot.imageUrl}
+                alt={card.snapshot.name}
+                className={cn(
+                  'h-14 w-14 shrink-0 rounded-xl object-cover shadow-sm bg-bg-tertiary',
+                  !isUnlocked && 'opacity-90 grayscale-[20%]',
+                )}
+              />
+            ) : (
+              <div
+                className={cn(
+                  'flex h-14 w-14 shrink-0 items-center justify-center rounded-xl shadow-inner',
+                  isUnlocked ? 'bg-success/10 text-success' : 'bg-primary/10 text-primary',
+                )}
+              >
+                <Ticket size={24} strokeWidth={2.5} />
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <div
+                className={cn(
+                  'text-[10px] font-black uppercase tracking-[0.2em] mb-1.5 flex items-center gap-1.5',
+                  isUnlocked ? 'text-success/80' : 'text-primary/80',
+                )}
+              >
+                {isUnlocked ? (
+                  <Unlock size={10} strokeWidth={3} />
+                ) : (
+                  <Lock size={10} strokeWidth={3} />
+                )}
+                {card.snapshot.billingMode === 'subscription'
+                  ? t('chat.commerceSubscription')
+                  : t('chat.commerceEntitlement')}
+                <span className="opacity-30">·</span>
+                <span className="font-mono truncate">{card.id.slice(0, 8).toUpperCase()}</span>
+              </div>
+              <h4 className="line-clamp-2 text-[15px] font-black text-text-primary leading-tight">
                 {card.snapshot.name}
               </h4>
-              <span className="shrink-0 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
-                {formatCommercePrice(card, t)}
-              </span>
-            </div>
-            {card.snapshot.summary && (
-              <p className="mt-1 line-clamp-2 text-xs text-text-secondary">
-                {card.snapshot.summary}
-              </p>
-            )}
-          </button>
-          <div className="mt-2 flex items-center justify-between gap-2">
-            <span className="text-[11px] font-semibold uppercase text-text-muted">
-              {card.snapshot.billingMode === 'subscription'
-                ? t('chat.commerceSubscription')
-                : t('chat.commerceEntitlement')}
-            </span>
-            {purchaseResult ? (
-              <a
-                href="/app/settings?tab=wallet&section=entitlements"
-                className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold text-primary hover:bg-primary/10"
-              >
-                {t('chat.commerceViewEntitlement')}
-                <ExternalLink size={12} />
-              </a>
-            ) : (
-              <Button
-                size="sm"
-                onClick={resolveCardAction}
-                disabled={isBuying || isOpening}
-                className="!rounded-lg"
-              >
-                {currentCheckoutPreview?.primaryAction === 'open_content' ||
-                currentCheckoutPreview?.viewerState === 'active'
-                  ? t('chat.paidFileOpen')
-                  : t('chat.commerceBuy')}
-              </Button>
-            )}
-          </div>
-          {purchaseResult && (
-            <div className="mt-2 rounded-lg bg-success/10 px-2 py-1.5 text-xs text-success">
-              <span className="font-bold">{t('chat.commercePurchaseCompleted')}</span>
-              {purchaseResult.provisioning?.status && (
-                <span className="ml-1">
-                  {t(`chat.provisioningStatus.${purchaseResult.provisioning.status}`, {
-                    defaultValue: purchaseResult.provisioning.status,
-                  })}
-                </span>
+              {card.snapshot.summary && (
+                <p className="mt-1.5 line-clamp-2 text-[13px] leading-relaxed text-text-secondary">
+                  {card.snapshot.summary}
+                </p>
               )}
             </div>
+          </div>
+        </button>
+        {(error || purchaseResult) && (
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-medium">
+            {purchaseResult && (
+              <span className="text-success flex items-center gap-1">
+                <CheckCircle2 size={14} />
+                {t('chat.commercePurchaseCompleted')}
+              </span>
+            )}
+            {error && (
+              <span className="text-danger flex items-center gap-1">
+                <AlertCircle size={14} /> {error}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+      <div
+        className={cn(
+          'flex flex-col items-center justify-center relative w-0 border-l-2 border-dashed my-4 z-10',
+          isUnlocked ? 'border-success/30' : 'border-border-subtle/60',
+        )}
+      />
+      <div
+        className={cn(
+          'w-[130px] shrink-0 p-4 flex flex-col items-center justify-center gap-4 relative z-10',
+          isUnlocked ? 'bg-success/5' : 'bg-primary/5',
+        )}
+      >
+        <div className="flex flex-col items-center gap-1 w-full text-center">
+          {isUnlocked ? (
+            <>
+              <span className="text-[10px] font-black uppercase tracking-widest text-text-muted">
+                {t('chat.commerceStatusLabel')}
+              </span>
+              <div className="inline-flex max-w-full px-2.5 py-1 rounded-lg bg-success/10 border border-success/20 text-success text-[12px] font-black tracking-wide justify-center">
+                <span className="truncate">{t('member.status.active', 'ACTIVE')}</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <span className="text-[10px] font-black uppercase tracking-widest text-text-muted">
+                {t('chat.commercePriceLabel')}
+              </span>
+              <div className="inline-flex max-w-full px-2.5 py-1 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[13px] font-black font-mono tracking-tight justify-center">
+                <span className="truncate">{formatCommercePrice(card, t)}</span>
+              </div>
+            </>
           )}
-          {error && <p className="mt-2 text-xs text-danger">{error}</p>}
+        </div>
+        <div className="w-full">
+          {isUnlocked ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={resolveCardAction}
+              disabled={isOpening}
+              className="!rounded-[12px] w-full !px-0 !h-[36px] !text-[13px] !bg-success/15 hover:!bg-success/25 !text-success !border-none shadow-none"
+              title={t('chat.commerceViewEntitlement')}
+            >
+              <span className="truncate">
+                {isOpening ? t('chat.paidFileOpening') : t('chat.commerceViewEntitlement')}
+              </span>
+              <Unlock size={14} className="shrink-0" />
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              onClick={resolveCardAction}
+              disabled={isBuying || isOpening}
+              className="!rounded-[12px] w-full !px-0 !h-[36px] !text-[13px] shadow-[0_0_15px_rgba(0,198,209,0.2)] hover:shadow-[0_0_25px_rgba(0,198,209,0.35)]"
+            >
+              {currentCheckoutPreview?.primaryAction === 'open_content' ||
+              currentCheckoutPreview?.viewerState === 'active'
+                ? t('chat.paidFileOpen')
+                : t('chat.commerceBuy')}
+            </Button>
+          )}
         </div>
       </div>
       <PurchaseConfirmationModal
@@ -722,6 +840,7 @@ function CommerceProductCardView({
           setError(null)
         }}
         onConfirm={buy}
+        onViewEntitlement={openPurchasedEntitlement}
       />
     </div>
   )
@@ -737,6 +856,13 @@ function PaidFileCardView({
   const { t } = useTranslation()
   const [isOpening, setIsOpening] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const { data: state } = useQuery({
+    queryKey: ['paid-file', card.fileId],
+    queryFn: () => fetchApi<PaidFileState>(`/api/paid-files/${card.fileId}`),
+    staleTime: 10_000,
+  })
+  const isUnlocked = state?.hasAccess === true
 
   const openFile = async () => {
     setIsOpening(true)
@@ -757,38 +883,112 @@ function PaidFileCardView({
   }
 
   return (
-    <div className="max-w-md rounded-xl border border-border-subtle bg-bg-secondary p-3 text-left">
-      <div className="flex items-start gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          <FileText size={20} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h4 className="truncate text-sm font-bold text-text-primary">{card.snapshot.name}</h4>
-              <p className="mt-1 text-xs text-text-muted">
-                {card.snapshot.sizeBytes != null
-                  ? formatFileSize(card.snapshot.sizeBytes)
-                  : (card.snapshot.mime ?? t('chat.paidFile'))}
-              </p>
-            </div>
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-warning/10 px-2 py-0.5 text-xs font-bold text-warning">
-              <Lock size={12} />
-              {t('chat.paidFile')}
-            </span>
+    <div
+      className={cn(
+        'relative w-full max-w-[460px] flex overflow-hidden rounded-[20px] border backdrop-blur-2xl shadow-xl text-left my-2 group',
+        isUnlocked
+          ? 'border-success/30 bg-bg-secondary/40'
+          : 'border-border-subtle bg-bg-secondary/40',
+      )}
+    >
+      <div
+        className={cn(
+          'absolute inset-0 bg-gradient-to-r from-transparent pointer-events-none',
+          isUnlocked ? 'via-success/5 to-success/10' : 'via-warning/5 to-warning/10',
+        )}
+      />
+      <div className="flex-1 p-4 min-w-0 flex flex-col justify-center relative z-10">
+        <div className="flex items-start gap-4">
+          <div
+            className={cn(
+              'flex h-14 w-14 shrink-0 items-center justify-center rounded-xl shadow-inner',
+              isUnlocked ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning',
+            )}
+          >
+            <FileText size={24} strokeWidth={2.5} />
           </div>
-          {card.snapshot.summary && (
-            <p className="mt-2 line-clamp-2 text-xs text-text-secondary">{card.snapshot.summary}</p>
-          )}
-          <div className="mt-3 flex items-center justify-between gap-2">
-            <span className="text-[11px] font-semibold uppercase text-text-muted">
+          <div className="min-w-0 flex-1">
+            <div
+              className={cn(
+                'text-[10px] font-black uppercase tracking-[0.2em] mb-1.5 flex items-center gap-1.5',
+                isUnlocked ? 'text-success/80' : 'text-warning/80',
+              )}
+            >
+              {isUnlocked ? (
+                <Unlock size={10} strokeWidth={3} />
+              ) : (
+                <Lock size={10} strokeWidth={3} />
+              )}
               {t('chat.paidFileEntitlementRequired')}
-            </span>
-            <Button size="sm" onClick={openFile} disabled={isOpening} className="!rounded-lg">
-              {isOpening ? t('chat.paidFileOpening') : t('chat.paidFileOpen')}
-            </Button>
+              <span className="opacity-30">·</span>
+              <span className="font-mono truncate">{card.fileId.slice(0, 8).toUpperCase()}</span>
+            </div>
+            <h4 className="truncate text-[15px] font-black text-text-primary leading-tight">
+              {card.snapshot.name}
+            </h4>
+            <p className="mt-1 text-xs font-medium text-text-muted truncate">
+              {card.snapshot.sizeBytes != null
+                ? formatFileSize(card.snapshot.sizeBytes)
+                : (card.snapshot.mime ?? t('chat.paidFile'))}
+            </p>
+            {card.snapshot.summary && (
+              <p className="mt-1.5 line-clamp-2 text-[13px] leading-relaxed text-text-secondary">
+                {card.snapshot.summary}
+              </p>
+            )}
           </div>
-          {error && <p className="mt-2 text-xs text-danger">{error}</p>}
+        </div>
+        {error && (
+          <div className="mt-4 flex items-center gap-2 text-xs font-medium">
+            <span className="text-danger flex items-center gap-1">
+              <AlertCircle size={14} /> {error}
+            </span>
+          </div>
+        )}
+      </div>
+      <div
+        className={cn(
+          'flex flex-col items-center justify-center relative w-0 border-l-2 border-dashed my-4 z-10',
+          isUnlocked ? 'border-success/30' : 'border-border-subtle/60',
+        )}
+      />
+      <div
+        className={cn(
+          'w-[130px] shrink-0 p-4 flex flex-col items-center justify-center gap-4 relative z-10',
+          isUnlocked ? 'bg-success/5' : 'bg-warning/5',
+        )}
+      >
+        <div className="flex flex-col items-center gap-1 w-full text-center">
+          <span className="text-[10px] font-black uppercase tracking-widest text-text-muted">
+            {isUnlocked ? t('chat.commerceStatusLabel') : t('chat.commerceTypeLabel')}
+          </span>
+          <div
+            className={cn(
+              'inline-flex max-w-full px-2.5 py-1 rounded-lg border text-[12px] font-black tracking-wide justify-center',
+              isUnlocked
+                ? 'bg-success/10 border-success/20 text-success'
+                : 'bg-warning/10 border-warning/20 text-warning',
+            )}
+          >
+            <span className="truncate">
+              {isUnlocked ? t('member.status.active', 'ACTIVE') : t('chat.paidFile')}
+            </span>
+          </div>
+        </div>
+        <div className="w-full">
+          <Button
+            size="sm"
+            onClick={openFile}
+            disabled={isOpening}
+            className={cn(
+              '!rounded-[12px] w-full !px-0 !h-[36px] !text-[13px]',
+              isUnlocked
+                ? '!bg-success/15 hover:!bg-success/25 !text-success !border-none shadow-none'
+                : 'shadow-[0_0_15px_rgba(248,231,28,0.2)] hover:shadow-[0_0_25px_rgba(248,231,28,0.35)] !bg-gradient-to-br !from-[#f59e0b] !to-[#d97706] !text-white !border-none',
+            )}
+          >
+            {isOpening ? t('chat.paidFileOpening') : t('chat.paidFileOpen')}
+          </Button>
         </div>
       </div>
     </div>

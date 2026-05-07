@@ -63,15 +63,19 @@ export class ExternalOAuthService {
     },
   ) {}
 
-  getAuthorizeUrl(provider: string, redirectPath?: string) {
+  getAuthorizeUrl(provider: string, redirectPath?: string, inviteCode?: string) {
     const config = getProviderConfig(provider)
     if (!config.clientId) {
       throw Object.assign(new Error(`${provider} OAuth not configured`), { status: 501 })
     }
 
     const callbackUrl = `${OAUTH_BASE_URL}/api/auth/oauth/${provider}/callback`
-    const state = redirectPath
-      ? Buffer.from(JSON.stringify({ redirect: redirectPath })).toString('base64url')
+    const statePayload = {
+      ...(redirectPath ? { redirect: redirectPath } : {}),
+      ...(inviteCode?.trim() ? { inviteCode: inviteCode.trim() } : {}),
+    }
+    const state = Object.keys(statePayload).length
+      ? Buffer.from(JSON.stringify(statePayload)).toString('base64url')
       : ''
 
     const params = new URLSearchParams({
@@ -89,7 +93,7 @@ export class ExternalOAuthService {
     provider: string,
     code: string,
     state?: string,
-  ): Promise<{ accessToken: string; refreshToken: string; redirect: string }> {
+  ): Promise<{ accessToken: string; refreshToken: string; redirect: string; inviteCode?: string }> {
     const config = getProviderConfig(provider)
     const callbackUrl = `${OAUTH_BASE_URL}/api/auth/oauth/${provider}/callback`
 
@@ -145,6 +149,7 @@ export class ExternalOAuthService {
       try {
         const parsed = JSON.parse(Buffer.from(state, 'base64url').toString()) as {
           redirect?: string
+          inviteCode?: string
         }
         const redirectPath = parsed.redirect
         if (redirectPath) {
@@ -152,6 +157,10 @@ export class ExternalOAuthService {
           if (redirectPath.startsWith('/') || redirectPath.includes('://')) {
             redirect = redirectPath
           }
+        }
+        const inviteCode = parsed.inviteCode?.trim()
+        if (inviteCode) {
+          return { accessToken, refreshToken, redirect, inviteCode }
         }
       } catch {
         // ignore
