@@ -11,24 +11,27 @@ Shadow 桌面端是本地运行 AI Buddy 的原生应用，通过 OpenClaw 插�
 
 ## 下载
 
-<div className="grid grid-cols-1 sm:grid-cols-3 gap-4 my-6">
-  <div className="border rounded-xl p-5 text-center">
-    <div className="flex justify-center mb-2"><AppleIcon className="w-10 h-10 text-gray-800 dark:text-gray-200" /></div>
-    <div className="font-bold mb-1">macOS</div>
-    <div className="text-xs text-gray-500 mb-3">Apple Silicon / Intel · 已签名和公证</div>
-    <a href="https://github.com/buggyblues/shadow/releases/latest" target="_blank" rel="noreferrer" className="btn-primary zcool text-sm px-5 py-2 inline-flex" style={{ textDecoration: 'none' }}>下载 DMG</a>
+<div className="grid grid-cols-1 sm:grid-cols-3 gap-5 my-8">
+  <div className="flex flex-col items-center border border-black/5 dark:border-white/5 rounded-3xl p-8 bg-white dark:bg-[#1e1e24] shadow-sm hover:shadow-xl hover:shadow-cyan-500/10 hover:border-cyan-500/30 dark:hover:border-cyan-400/30 transition-all duration-300 hover:-translate-y-2 group text-center relative overflow-hidden">
+    <div className="absolute inset-0 bg-gradient-to-b from-gray-50/50 to-transparent dark:from-white/[0.02] dark:to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+    <div className="flex justify-center mb-4 relative z-10 group-hover:scale-110 transition-transform duration-300"><AppleIcon className="w-12 h-12 text-gray-800 dark:text-gray-200" /></div>
+    <div className="font-bold text-lg mb-1 relative z-10 text-gray-900 dark:text-gray-100">macOS</div>
+    <div className="text-sm text-gray-500 dark:text-gray-400 mb-6 relative z-10 flex-1 flex flex-col justify-start pt-1"><span>Apple Silicon / Intel</span><span>已签名和公证</span></div>
+    <a href="https://github.com/buggyblues/shadow/releases/latest" target="_blank" rel="noreferrer" className="btn-primary zcool text-sm px-6 py-2.5 w-full flex items-center justify-center relative z-10 mt-auto shadow-md shadow-cyan-500/20 group-hover:shadow-cyan-500/40" style={{ textDecoration: 'none' }}>下载 DMG</a>
   </div>
-  <div className="border rounded-xl p-5 text-center">
-    <div className="flex justify-center mb-2"><WindowsIcon className="w-10 h-10 text-blue-500" /></div>
-    <div className="font-bold mb-1">Windows</div>
-    <div className="text-xs text-gray-500 mb-3">Windows 10 及以上</div>
-    <a href="https://github.com/buggyblues/shadow/releases/latest" target="_blank" rel="noreferrer" className="btn-primary zcool text-sm px-5 py-2 inline-flex" style={{ textDecoration: 'none' }}>下载 EXE</a>
+  <div className="flex flex-col items-center border border-black/5 dark:border-white/5 rounded-3xl p-8 bg-white dark:bg-[#1e1e24] shadow-sm hover:shadow-xl hover:shadow-blue-500/10 hover:border-blue-500/30 dark:hover:border-blue-400/30 transition-all duration-300 hover:-translate-y-2 group text-center relative overflow-hidden">
+    <div className="absolute inset-0 bg-gradient-to-b from-blue-50/50 to-transparent dark:from-blue-500/[0.03] dark:to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+    <div className="flex justify-center mb-4 relative z-10 group-hover:scale-110 transition-transform duration-300"><WindowsIcon className="w-12 h-12 text-blue-500" /></div>
+    <div className="font-bold text-lg mb-1 relative z-10 text-gray-900 dark:text-gray-100">Windows</div>
+    <div className="text-sm text-gray-500 dark:text-gray-400 mb-6 relative z-10 flex-1 flex flex-col justify-start pt-1"><span>Windows 10 及以上</span></div>
+    <a href="https://github.com/buggyblues/shadow/releases/latest" target="_blank" rel="noreferrer" className="btn-primary zcool text-sm px-6 py-2.5 w-full flex items-center justify-center relative z-10 mt-auto shadow-md shadow-blue-500/20 group-hover:shadow-blue-500/40" style={{ textDecoration: 'none', background: '#3b82f6', color: '#ffffff', borderColor: 'transparent' }}>下载 EXE</a>
   </div>
-  <div className="border rounded-xl p-5 text-center">
-    <div className="flex justify-center mb-2"><LinuxIcon className="w-10 h-10 text-yellow-600" /></div>
-    <div className="font-bold mb-1">Linux</div>
-    <div className="text-xs text-gray-500 mb-3">AppImage · deb 安装包</div>
-    <a href="https://github.com/buggyblues/shadow/releases/latest" target="_blank" rel="noreferrer" className="btn-primary zcool text-sm px-5 py-2 inline-flex" style={{ textDecoration: 'none' }}>下载</a>
+  <div className="flex flex-col items-center border border-black/5 dark:border-white/5 rounded-3xl p-8 bg-white dark:bg-[#1e1e24] shadow-sm hover:shadow-xl hover:shadow-yellow-500/10 hover:border-yellow-500/40 dark:hover:border-yellow-400/40 transition-all duration-300 hover:-translate-y-2 group text-center relative overflow-hidden">
+    <div className="absolute inset-0 bg-gradient-to-b from-yellow-50/50 to-transparent dark:from-yellow-500/[0.03] dark:to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+    <div className="flex justify-center mb-4 relative z-10 group-hover:scale-110 transition-transform duration-300"><LinuxIcon className="w-12 h-12 text-yellow-600 dark:text-yellow-500" /></div>
+    <div className="font-bold text-lg mb-1 relative z-10 text-gray-900 dark:text-gray-100">Linux</div>
+    <div className="text-sm text-gray-500 dark:text-gray-400 mb-6 relative z-10 flex-1 flex flex-col justify-start pt-1"><span>AppImage</span><span>deb 安装包</span></div>
+    <a href="https://github.com/buggyblues/shadow/releases/latest" target="_blank" rel="noreferrer" className="btn-primary zcool text-sm px-6 py-2.5 w-full flex items-center justify-center relative z-10 mt-auto shadow-md shadow-yellow-500/20 group-hover:shadow-yellow-500/40" style={{ textDecoration: 'none', background: '#eab308', color: '#422006', borderColor: 'transparent' }}>下载</a>
   </div>
 </div>
 

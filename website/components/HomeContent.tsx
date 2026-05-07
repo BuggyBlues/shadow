@@ -1894,14 +1894,14 @@ function DiyPromptSection({ isZh }: { isZh: boolean }) {
   const [prompt, setPrompt] = useState('')
   const [immersive, setImmersive] = useState(false)
   const [closing, setClosing] = useState(false)
-  const [casePanelOpen, setCasePanelOpen] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
-  const [autocompleteDismissed, setAutocompleteDismissed] = useState(false)
   const [placeholderIndex, setPlaceholderIndex] = useState(0)
   const [typedPlaceholder, setTypedPlaceholder] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const modalTextareaRef = useRef<HTMLTextAreaElement>(null)
   const closeTimerRef = useRef<number | null>(null)
   const trimmed = prompt.trim()
+
   const examples = useMemo(() => {
     const groups = isZh
       ? [
@@ -2322,27 +2322,25 @@ function DiyPromptSection({ isZh }: { isZh: boolean }) {
     ],
     [examples, isZh],
   )
-  const visibleExamples = useMemo(
-    () =>
+
+  const visibleExamples = useMemo(() => {
+    const filtered =
       selectedCategory === 'all'
         ? examples
-        : examples.filter((item) => item.tag === selectedCategory),
-    [examples, selectedCategory],
-  )
-  const autocompleteExamples = useMemo(() => {
+        : examples.filter((item) => item.tag === selectedCategory)
+
     const normalized = trimmed.toLowerCase()
-    const matched = normalized
-      ? examples.filter(
-          (item) =>
-            item.text.toLowerCase().includes(normalized) ||
-            item.title.toLowerCase().includes(normalized) ||
-            item.tag.toLowerCase().includes(normalized),
-        )
-      : examples
-    return matched.slice(0, 4)
-  }, [examples, trimmed])
-  const showAutocomplete = trimmed.length > 0 && !casePanelOpen && !autocompleteDismissed
-  const placeholder = `${t('home.diy.examplePrefix')}${typedPlaceholder}`
+    if (!normalized) return filtered
+
+    return filtered.filter(
+      (item) =>
+        item.text.toLowerCase().includes(normalized) ||
+        item.title.toLowerCase().includes(normalized) ||
+        item.tag.toLowerCase().includes(normalized),
+    )
+  }, [examples, selectedCategory, trimmed])
+
+  const placeholder = typedPlaceholder
 
   useEffect(() => {
     const current = placeholderExamples[placeholderIndex % placeholderExamples.length]?.text ?? ''
@@ -2365,28 +2363,30 @@ function DiyPromptSection({ isZh }: { isZh: boolean }) {
     }
   }, [placeholderIndex, placeholderExamples])
 
-  const target = `/app/cloud/diy${trimmed ? `?prompt=${encodeURIComponent(trimmed)}` : ''}`
+  const submitPrompt = (submitText: string) => {
+    const textToSubmit = submitText.trim()
+    if (!textToSubmit) return
+    const targetUrl = `/app/cloud/diy?prompt=${encodeURIComponent(textToSubmit)}`
+    if (!hasStoredAuthSession()) {
+      requestWebsiteLogin(targetUrl)
+      return
+    }
+    window.location.assign(targetUrl)
+  }
 
   const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!trimmed) return
-    if (!hasStoredAuthSession()) {
-      requestWebsiteLogin(target)
-      return
-    }
-    window.location.assign(target)
+    submitPrompt(trimmed)
   }
 
   const closeImmersive = useCallback(() => {
     if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current)
     setClosing(true)
-    setAutocompleteDismissed(true)
     closeTimerRef.current = window.setTimeout(() => {
       setImmersive(false)
-      setCasePanelOpen(false)
       setClosing(false)
       closeTimerRef.current = null
-    }, 220)
+    }, 200)
   }, [])
 
   const openImmersive = useCallback(() => {
@@ -2396,13 +2396,13 @@ function DiyPromptSection({ isZh }: { isZh: boolean }) {
     }
     setImmersive(true)
     setClosing(false)
-    setCasePanelOpen(true)
-    setAutocompleteDismissed(false)
+    window.setTimeout(() => {
+      modalTextareaRef.current?.focus({ preventScroll: true })
+    }, 50)
   }, [])
 
   useEffect(() => {
     if (!immersive) return
-    window.requestAnimationFrame(() => textareaRef.current?.focus({ preventScroll: true }))
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         closeImmersive()
@@ -2418,191 +2418,119 @@ function DiyPromptSection({ isZh }: { isZh: boolean }) {
     }
   }, [])
 
-  const panel = (
-    <div
-      className={[
-        'home-diy-panel',
-        casePanelOpen ? 'home-diy-panel-expanded' : '',
-        immersive ? 'home-diy-panel-immersive' : '',
-        closing ? 'home-diy-panel-closing' : '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-      onClick={(event) => {
-        if (immersive && event.target === event.currentTarget) closeImmersive()
-      }}
-    >
-      {immersive && (
-        <button
-          type="button"
-          className="home-diy-close"
-          aria-label={t('home.diy.close')}
-          onClick={closeImmersive}
-        >
-          <X size={18} strokeWidth={2.8} />
-        </button>
-      )}
-      <div className="home-diy-copy">
-        <span className="section-label section-label-inline">
-          <WandSparkles size={15} strokeWidth={2.7} />
-          {t('home.diy.label')}
-        </span>
-        <h2>{t('home.diy.title')}</h2>
-        <p>{t('home.diy.description')}</p>
-      </div>
-      <form className="home-diy-form" onSubmit={onSubmit}>
-        <textarea
-          ref={textareaRef}
-          value={prompt}
-          onChange={(event) => {
-            setPrompt(event.currentTarget.value)
-            if (immersive) setCasePanelOpen(true)
-            setAutocompleteDismissed(false)
-          }}
-          onFocus={() => {
-            openImmersive()
-          }}
-          onClick={() => {
-            openImmersive()
-          }}
-          onBlur={() => {
-            window.setTimeout(() => {
-              if (!document.activeElement?.closest('.home-diy-panel'))
-                setAutocompleteDismissed(true)
-            }, 120)
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Tab') setCasePanelOpen(true)
-          }}
-          placeholder={placeholder}
-          aria-label={t('home.diy.inputAria')}
-        />
-        {showAutocomplete && (
-          <div className="home-diy-popover" role="listbox">
-            {autocompleteExamples.map((item) => (
-              <button
-                key={item.text}
-                type="button"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => {
-                  setPrompt(item.text)
-                  setAutocompleteDismissed(true)
-                }}
-              >
-                <Search size={14} strokeWidth={2.5} />
-                <span className="home-diy-case-tag">{item.tag}</span>
-                <span>{item.text}</span>
-              </button>
-            ))}
-          </div>
-        )}
-        <div className="home-diy-actions">
-          <small>{t('home.diy.noBilling')}</small>
-          <div className="home-diy-action-buttons">
-            <button
-              type="button"
-              className="home-diy-more"
-              onClick={() => {
-                setAutocompleteDismissed(true)
-                if (!immersive) {
-                  openImmersive()
-                  setCasePanelOpen(true)
-                  return
-                }
-                setCasePanelOpen((value) => !value)
-              }}
-            >
-              {t('home.diy.moreExamples')}
-            </button>
-            <button
-              type="submit"
-              className="btn-primary"
-              style={{ gap: '8px' }}
-              disabled={!trimmed}
-            >
-              {t('home.diy.submit')}
-              <ArrowRight size={15} strokeWidth={2.7} />
-            </button>
-          </div>
-        </div>
-      </form>
-      {(immersive || casePanelOpen) && (
-        <div
-          className={['home-diy-case-board', casePanelOpen ? '' : 'home-diy-case-board-collapsed']
-            .filter(Boolean)
-            .join(' ')}
-        >
-          <div className="home-diy-case-board-head">
-            <div>
-              <span>{t('home.diy.caseTitle')}</span>
-              <strong>{t('home.diy.caseSubtitle')}</strong>
-            </div>
-            <button type="button" onClick={() => setCasePanelOpen(false)}>
-              <X size={16} strokeWidth={2.6} />
-            </button>
-          </div>
-          <div className="home-diy-case-tabs" role="tablist">
-            {categories.map((category) => (
-              <button
-                key={category.id}
-                type="button"
-                role="tab"
-                aria-selected={selectedCategory === category.id}
-                className={selectedCategory === category.id ? 'home-diy-case-tab-active' : ''}
-                onClick={() => setSelectedCategory(category.id)}
-              >
-                {category.label}
-              </button>
-            ))}
-          </div>
-          <div className="home-diy-case-grid">
-            {visibleExamples.map((item, index) => (
-              <button
-                key={item.text}
-                type="button"
-                className="home-diy-case-card"
-                onClick={() => {
-                  setPrompt(item.text)
-                  setCasePanelOpen(false)
-                }}
-              >
-                <span className="home-diy-case-card-tag">{item.tag}</span>
-                <strong>{item.title}</strong>
-                <span>{item.text}</span>
-                <i style={{ '--case-index': index } as React.CSSProperties} />
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-
   const immersivePortal =
     immersive && typeof document !== 'undefined'
       ? createPortal(
-          <>
-            <button
-              type="button"
-              className={['home-diy-scrim', closing ? 'home-diy-scrim-closing' : '']
-                .filter(Boolean)
-                .join(' ')}
-              aria-label={t('home.diy.close')}
-              onClick={closeImmersive}
-            />
-            {panel}
-          </>,
+          <div
+            className={['home-diy-cmd-overlay', closing ? 'closing' : ''].filter(Boolean).join(' ')}
+            onMouseDown={closeImmersive}
+          >
+            <div className="home-diy-cmd-modal" onMouseDown={(e) => e.stopPropagation()}>
+              <form className="home-diy-cmd-header" onSubmit={onSubmit}>
+                <WandSparkles size={20} strokeWidth={2.5} className="home-diy-cmd-icon" />
+                <textarea
+                  ref={modalTextareaRef}
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder={placeholder}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      onSubmit(e as any)
+                    }
+                  }}
+                  rows={2}
+                />
+                <button
+                  type="submit"
+                  className="btn-primary home-diy-cmd-submit"
+                  disabled={!trimmed}
+                >
+                  {t('home.diy.submit')}
+                </button>
+              </form>
+              <div className="home-diy-cmd-body">
+                <div className="home-diy-cmd-tabs">
+                  {categories.map((category) => (
+                    <button
+                      key={category.id}
+                      type="button"
+                      className={selectedCategory === category.id ? 'active' : ''}
+                      onClick={() => setSelectedCategory(category.id)}
+                    >
+                      {category.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="home-diy-cmd-grid">
+                  {visibleExamples.map((item) => (
+                    <button
+                      key={item.text}
+                      type="button"
+                      className="home-diy-cmd-card"
+                      onClick={() => {
+                        setPrompt(item.text)
+                        modalTextareaRef.current?.focus()
+                      }}
+                    >
+                      <div className="home-diy-cmd-card-header">
+                        <strong>{item.title}</strong>
+                        <span className="home-diy-cmd-tag">{item.tag}</span>
+                      </div>
+                      <p>{item.text}</p>
+                    </button>
+                  ))}
+                  {visibleExamples.length === 0 && (
+                    <div className="home-diy-cmd-empty">
+                      No matching examples found. Try a different search.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>,
           document.body,
         )
       : null
 
   return (
-    <section
-      className={['home-diy-shell', immersive ? 'home-diy-shell-immersive' : '']
-        .filter(Boolean)
-        .join(' ')}
-    >
-      {immersive ? immersivePortal : panel}
+    <section className="home-diy-shell">
+      <div className="home-diy-inline-container">
+        <div className="home-diy-copy">
+          <span className="section-label section-label-inline">
+            <WandSparkles size={15} strokeWidth={2.7} />
+            {t('home.diy.label')}
+          </span>
+          <h2>{t('home.diy.title')}</h2>
+          <p>{t('home.diy.description')}</p>
+        </div>
+        <div className="home-diy-inline-form" onClick={openImmersive}>
+          <div className="home-diy-inline-input">
+            <Search size={22} strokeWidth={2.5} />
+            <span>
+              {prompt || placeholder}
+              {!prompt && <span className="home-diy-cursor" />}
+            </span>
+          </div>
+          <div className="home-diy-inline-actions">
+            <button
+              className="btn-primary"
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                const text =
+                  prompt ||
+                  placeholderExamples[placeholderIndex % placeholderExamples.length]?.text ||
+                  ''
+                submitPrompt(text)
+              }}
+            >
+              {t('home.diy.submit')}
+            </button>
+          </div>
+        </div>
+      </div>
+      {immersivePortal}
     </section>
   )
 }

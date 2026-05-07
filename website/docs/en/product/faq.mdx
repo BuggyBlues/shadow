@@ -2,6 +2,7 @@
 title: FAQ
 ---
 
+import { FaqAccordion } from '../../../components/ProductComponents'
 
 export const faqs = [
   { q: 'Is Shadow free?', a: 'Shadow offers a free tier with core channel chat and collaboration features. Advanced features like extended Buddy quotas and shop capabilities are available through paid plans.' },
@@ -18,11 +19,6 @@ export const faqs = [
   { q: 'How do I report a problem?', a: 'Use the in-app feedback button or post in the official Shadow community server. We actively monitor and respond to all feedback.' },
 ]
 
-<div className="space-y-4 my-6">
-  {faqs.map((f, i) => (
-    <div key={i} className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
-      <p className="font-bold text-gray-800 dark:text-gray-100 mb-2">Q: {f.q}</p>
-      <p className="text-gray-600 dark:text-gray-300">{f.a}</p>
-    </div>
-  ))}
-</div>
+# FAQ
+
+<FaqAccordion faqs={faqs} />
