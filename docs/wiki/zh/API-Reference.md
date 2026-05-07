@@ -82,9 +82,8 @@ Cloud 模板玩法会从已审核 template content 创建真实 Cloud SaaS deplo
 ## 官方模型代理
 
 官方模型代理提供 OpenAI-compatible 接口，由 server 侧供应商配置驱动。上游供应商通过
-`SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL` 与 `SHADOW_MODEL_PROXY_UPSTREAM_API_KEY` 配置；同时兼容
-DeepSeek 风格别名 `DEEPSEEK_BASE_URL` 和 `DEEPSEEK_API_KEY`。默认模型为 `deepseek-v4-flash`，
-可通过 `SHADOW_MODEL_PROXY_MODEL` 修改。Cloud 模板和 Pod 只会拿到写在
+`SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL` 与 `SHADOW_MODEL_PROXY_UPSTREAM_API_KEY` 配置。默认模型为
+`deepseek-v4-flash`，可通过 `SHADOW_MODEL_PROXY_MODEL` 修改。Cloud 模板和 Pod 只会拿到写在
 `OPENAI_COMPATIBLE_API_KEY` 里的受限 `smp_...` 模型代理 token，不会拿到真实上游 key。
 
 | 方法 | 端点                            | 描述                         |
@@ -175,7 +174,7 @@ Shadow 客户端会把内嵌标记渲染成充值卡片：
 
 交互消息块存储在 `message.metadata.interactive`；one-shot 提交结果由服务端持久化，后续读取会在 `message.metadata.interactiveState.response` 返回。客户端也可以通过 `GET /api/messages/:id/interactive-state?blockId=<blockId>` 直接读取同一份服务端状态。
 
-商品卡片存储在 `message.metadata.commerceCards`。客户端只能从 `GET /api/commerce/product-picker` 选择卡片；服务端会在持久化前重新校验可见性、目标 scope、商品状态以及 DM/服务器限制。卡片购买按钮调用 commerce purchase API，不复用交互块提交接口。
+商品卡片存储在 `message.metadata.commerceCards`。客户端只能从 `GET /api/commerce/product-picker` 选择卡片；可信 Buddy 工具可发送最小 Offer 引用 `{ "kind": "offer", "offerId": "..." }`。服务端会在持久化前重新校验可见性、目标 scope、商品状态以及 DM/服务器限制，并重建商品、价格和权益快照。卡片购买按钮调用 commerce purchase API，不复用交互块提交接口。
 
 ## 代理
 

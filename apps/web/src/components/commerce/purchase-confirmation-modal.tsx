@@ -33,6 +33,7 @@ interface PurchaseConfirmationModalProps {
   error?: string | null
   provisioningStatus?: string | null
   viewEntitlementHref?: string
+  onViewEntitlement?: () => void
   onClose: () => void
   onConfirm: () => void
 }
@@ -57,6 +58,7 @@ export function PurchaseConfirmationModal({
   error,
   provisioningStatus,
   viewEntitlementHref = '/app/settings?tab=wallet&section=entitlements',
+  onViewEntitlement,
   onClose,
   onConfirm,
 }: PurchaseConfirmationModalProps) {
@@ -134,7 +136,16 @@ export function PurchaseConfirmationModal({
             <Button variant="ghost" onClick={onClose}>
               {t('common.close')}
             </Button>
-            {isCompleted ? (
+            {isCompleted && onViewEntitlement ? (
+              <Button
+                type="button"
+                onClick={onViewEntitlement}
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-success px-4 text-sm font-bold text-white transition hover:bg-success/90"
+              >
+                <ShieldCheck size={16} />
+                {t('commerce.viewEntitlement')}
+              </Button>
+            ) : isCompleted ? (
               <a
                 href={viewEntitlementHref}
                 className="inline-flex h-10 items-center gap-2 rounded-xl bg-success px-4 text-sm font-bold text-white transition hover:bg-success/90"

@@ -1,26 +1,24 @@
+import { useI18n } from 'rspress/runtime'
+
 const getBase = () =>
   ((typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL) || '/').replace(/\/$/, '')
 
-const items = {
-  en: [
-    { text: 'Getting Started', link: '/play/' },
-    { text: 'Shrimp Coins', link: '/play/shrimp-coins' },
-    { text: 'Buddy System', link: '/play/buddy-system' },
-    { text: 'Community Features', link: '/play/community-features' },
-    { text: 'Advanced Tips', link: '/play/advanced-tips' },
-  ],
-  zh: [
-    { text: '新手入门', link: '/zh/play/' },
-    { text: '虾币', link: '/zh/play/shrimp-coins' },
-    { text: 'Buddy 系统', link: '/zh/play/buddy-system' },
-    { text: '社区玩法', link: '/zh/play/community-features' },
-    { text: '进阶技巧', link: '/zh/play/advanced-tips' },
-  ],
-}
+const itemDefs = [
+  { key: 'playSubNav.gettingStarted', link: '/play/' },
+  { key: 'playSubNav.shrimpCoins', link: '/play/shrimp-coins' },
+  { key: 'playSubNav.buddySystem', link: '/play/buddy-system' },
+  { key: 'playSubNav.communityFeatures', link: '/play/community-features' },
+  { key: 'playSubNav.advancedTips', link: '/play/advanced-tips' },
+]
 
 export function PlaySubNav({ lang = 'en' }: { lang?: 'en' | 'zh' }) {
+  const t = useI18n()
   const base = getBase()
-  const navItems = items[lang]
+  const prefix = lang === 'zh' ? '/zh' : ''
+  const navItems = itemDefs.map((item) => ({
+    text: t(item.key),
+    link: `${prefix}${item.link}`,
+  }))
   const current = typeof window !== 'undefined' ? window.location.pathname : ''
 
   return (

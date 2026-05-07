@@ -128,6 +128,8 @@ Shadow 支持通过第三方 OAuth 提供商登录。将用户重定向到：
 GET /api/auth/oauth/:provider
 ```
 
+传入 `redirect=/app/...` 可在认证后继续原始 App 动作。需要 Cloud 邀请码的网站动作也可以传入 `inviteCode=...`；OAuth 回调会带回该邀请码，App 会先尝试兑换再继续跳转。
+
 认证成功后，回调 URL 将返回 JWT 令牌。
 
 ## 官方模型代理令牌

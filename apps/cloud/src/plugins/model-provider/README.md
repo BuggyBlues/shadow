@@ -28,6 +28,7 @@ The plugin can detect common provider keys such as `ANTHROPIC_API_KEY`, `ANTHROP
 ## Runtime Assets
 
 - Adds provider catalogs for Anthropic, OpenAI, Gemini, DeepSeek, Qwen, MiniMax, Moonshot, Z.ai, OpenRouter, Grok, and custom OpenAI-compatible endpoints.
+- When an OpenAI-compatible endpoint is explicitly present, it is selected before ambient direct-provider keys. This keeps official proxy deployments from falling back through stale personal provider keys.
 - Emits OpenClaw `models.providers` and agent default model selection when credentials are detected.
 
 ## References

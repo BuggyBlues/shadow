@@ -1,6 +1,6 @@
 import type React from 'react'
-import { useState } from 'react'
-import { Helmet, useLang, useLocation, usePageData } from 'rspress/runtime'
+import { useEffect, useState } from 'react'
+import { Helmet, useI18n, useLang, useLocation, usePageData } from 'rspress/runtime'
 import Theme from 'rspress/theme'
 import { HomeContent } from '../components/HomeContent'
 import { PublicFooter } from '../components/Layout'
@@ -65,121 +65,77 @@ function HomeNavDropdown({ label, items }: { label: string; items: HomeNavItem[]
 function HomeCapsuleNav() {
   const { siteData } = usePageData()
   const currentLang = useLang()
+  const t = useI18n()
   const base = (siteData.base || '/').replace(/\/$/, '')
   const isZh = currentLang === 'zh'
   const prefix = isZh ? '/zh' : ''
   const docsHref = (path: string) => `${base}${prefix}${path}`
-  const productItems = isZh
-    ? [
-        {
-          label: '产品介绍',
-          href: docsHref('/product/'),
-          desc: '了解虾豆如何连接社区、Buddy 和玩法',
-        },
-        { label: '帮助中心', href: docsHref('/product/'), desc: '新用户、频道、虾币和 Buddy 指南' },
-        {
-          label: '首页玩法',
-          href: docsHref('/product/play-launch'),
-          desc: '点玩法后直接进入可用空间',
-        },
-        {
-          label: 'DIY Cloud',
-          href: '/app/cloud/diy',
-          desc: '描述需求，生成自己的 Cloud 空间',
-        },
-        { label: '下载桌面端', href: docsHref('/product/download'), desc: '连接本地 Buddy 和工具' },
-      ]
-    : [
-        {
-          label: 'Product Overview',
-          href: docsHref('/product/'),
-          desc: 'See how Shadow connects communities, Buddies, and plays',
-        },
-        {
-          label: 'Help Center',
-          href: docsHref('/product/'),
-          desc: 'Guides for channels, coins, and Buddies',
-        },
-        {
-          label: 'Play Launch',
-          href: docsHref('/product/play-launch'),
-          desc: 'Start from a play and land in a ready space',
-        },
-        {
-          label: 'DIY Cloud',
-          href: '/app/cloud/diy',
-          desc: 'Describe a space and generate a Cloud plan',
-        },
-        {
-          label: 'Desktop App',
-          href: docsHref('/product/download'),
-          desc: 'Connect local Buddies and tools',
-        },
-      ]
-  const platformItems = isZh
-    ? [
-        {
-          label: '开发者平台',
-          href: docsHref('/platform/introduction'),
-          desc: 'API、OAuth、SDK 和实时事件',
-        },
-        {
-          label: '虾豆 Cloud',
-          href: docsHref('/platform/cloud'),
-          desc: '用模版一键部署 Buddy 空间',
-        },
-        {
-          label: 'Cloud CLI',
-          href: docsHref('/platform/cloud-cli'),
-          desc: '独立命令行与 Kubernetes 部署',
-        },
-        {
-          label: '模版与插件',
-          href: docsHref('/platform/cloud-templates'),
-          desc: '沉淀玩法资产和扩展能力',
-        },
-      ]
-    : [
-        {
-          label: 'Developer Platform',
-          href: docsHref('/platform/introduction'),
-          desc: 'APIs, OAuth, SDKs, and real-time events',
-        },
-        {
-          label: 'Shadow Cloud',
-          href: docsHref('/platform/cloud'),
-          desc: 'Deploy Buddy spaces from templates',
-        },
-        {
-          label: 'Cloud CLI',
-          href: docsHref('/platform/cloud-cli'),
-          desc: 'Standalone Kubernetes deployment workflow',
-        },
-        {
-          label: 'Templates & Plugins',
-          href: docsHref('/platform/cloud-templates'),
-          desc: 'Package repeatable plays and capabilities',
-        },
-      ]
-  const resourceItems = isZh
-    ? [
-        { label: '价格', href: docsHref('/pricing'), desc: '查看虾币和会员权益' },
-        { label: '博客', href: docsHref('/blog/'), desc: '产品进展与实践文章' },
-        { label: 'GitHub', href: 'https://github.com/buggyblues/shadow', desc: '源代码和开发路线' },
-      ]
-    : [
-        {
-          label: 'Pricing',
-          href: docsHref('/pricing'),
-          desc: 'Coins, membership, and usage plans',
-        },
-        { label: 'Blog', href: docsHref('/blog/'), desc: 'Product updates and field notes' },
-        {
-          label: 'GitHub',
-          href: 'https://github.com/buggyblues/shadow',
-          desc: 'Source code and roadmap',
-        },
-      ]
+  const productItems = [
+    {
+      label: t('homeNav.product.overview.label'),
+      href: docsHref('/product/'),
+      desc: t('homeNav.product.overview.desc'),
+    },
+    {
+      label: t('homeNav.product.help.label'),
+      href: docsHref('/product/'),
+      desc: t('homeNav.product.help.desc'),
+    },
+    {
+      label: t('homeNav.product.playLaunch.label'),
+      href: docsHref('/product/play-launch'),
+      desc: t('homeNav.product.playLaunch.desc'),
+    },
+    {
+      label: t('homeNav.product.diyCloud.label'),
+      href: '/app/cloud/diy',
+      desc: t('homeNav.product.diyCloud.desc'),
+    },
+    {
+      label: t('homeNav.product.desktop.label'),
+      href: docsHref('/product/download'),
+      desc: t('homeNav.product.desktop.desc'),
+    },
+  ]
+  const platformItems = [
+    {
+      label: t('homeNav.platform.developer.label'),
+      href: docsHref('/platform/introduction'),
+      desc: t('homeNav.platform.developer.desc'),
+    },
+    {
+      label: t('homeNav.platform.cloud.label'),
+      href: docsHref('/platform/cloud'),
+      desc: t('homeNav.platform.cloud.desc'),
+    },
+    {
+      label: t('homeNav.platform.cli.label'),
+      href: docsHref('/platform/cloud-cli'),
+      desc: t('homeNav.platform.cli.desc'),
+    },
+    {
+      label: t('homeNav.platform.templates.label'),
+      href: docsHref('/platform/cloud-templates'),
+      desc: t('homeNav.platform.templates.desc'),
+    },
+  ]
+  const resourceItems = [
+    {
+      label: t('homeNav.resources.pricing.label'),
+      href: docsHref('/pricing'),
+      desc: t('homeNav.resources.pricing.desc'),
+    },
+    {
+      label: t('homeNav.resources.blog.label'),
+      href: docsHref('/blog/'),
+      desc: t('homeNav.resources.blog.desc'),
+    },
+    {
+      label: 'GitHub',
+      href: 'https://github.com/buggyblues/shadow',
+      desc: t('homeNav.resources.github.desc'),
+    },
+  ]
 
   return (
     <header className="shadow-home-capsule-nav">
@@ -198,20 +154,18 @@ function HomeCapsuleNav() {
               fontFamily: '"Nunito", "Noto Sans SC", sans-serif',
             }}
           >
-            {isZh ? '虾豆' : 'Shadow'}
-            <span className="text-base text-cyan-600 ml-1 font-black">
-              {isZh ? 'OwnBuddy' : 'OwnBuddy'}
-            </span>
+            {t('common.brand')}
+            <span className="text-base text-cyan-600 ml-1 font-black">{t('common.ownBuddy')}</span>
           </span>
         </a>
 
         {/* Right group: nav links + launch */}
         <div className="shadow-home-nav-right">
-          <HomeNavDropdown label={isZh ? '产品' : 'PRODUCT'} items={productItems} />
-          <HomeNavDropdown label={isZh ? '开放平台' : 'PLATFORM'} items={platformItems} />
-          <HomeNavDropdown label={isZh ? '资源' : 'RESOURCES'} items={resourceItems} />
+          <HomeNavDropdown label={t('homeNav.product')} items={productItems} />
+          <HomeNavDropdown label={t('homeNav.platform')} items={platformItems} />
+          <HomeNavDropdown label={t('homeNav.resources')} items={resourceItems} />
           <a href="/app" className="btn-primary" style={{ textDecoration: 'none' }}>
-            {isZh ? '启动！' : 'Launch'}
+            {t('common.launch')}
           </a>
         </div>
       </div>
@@ -226,6 +180,7 @@ function HomeCapsuleNav() {
 function DocNavTitle() {
   const { siteData } = usePageData()
   const { pathname } = useLocation()
+  const t = useI18n()
   const base = (siteData.base || '/').replace(/\/$/, '')
   const isZh = pathname.startsWith(`${base}/zh`)
   const prefix = isZh ? '/zh' : ''
@@ -241,23 +196,22 @@ function DocNavTitle() {
         className="text-xl font-bold whitespace-nowrap"
         style={{ color: 'var(--rp-c-text-1)', fontFamily: '"Nunito", "Noto Sans SC", sans-serif' }}
       >
-        {isZh ? '虾豆' : 'Shadow'}
-        <span className="text-base text-cyan-600 ml-1 font-black">OwnBuddy</span>
+        {t('common.brand')}
+        <span className="text-base text-cyan-600 ml-1 font-black">{t('common.ownBuddy')}</span>
       </span>
     </a>
   )
 }
 
 function LaunchButton() {
-  const { pathname } = useLocation()
-  const isZh = pathname.includes('/zh')
+  const t = useI18n()
   return (
     <a
       href="/app"
       className="btn-primary ml-3 whitespace-nowrap"
       style={{ textDecoration: 'none' }}
     >
-      {isZh ? '启动！' : 'Launch'}
+      {t('common.launch')}
     </a>
   )
 }
@@ -283,6 +237,18 @@ const Layout = () => {
   const base = (siteData.base || '/').replace(/\/$/, '')
   const routePath =
     base && pathname.startsWith(base) ? pathname.slice(base.length) || '/' : pathname
+
+  useEffect(() => {
+    const handleLoginRequest = (event: Event) => {
+      const detail = (event as CustomEvent<{ redirect?: unknown }>).detail
+      const redirect = typeof detail?.redirect === 'string' ? detail.redirect : '/app'
+      setLoginRedirect(redirect)
+      setLoginOpen(true)
+    }
+    window.addEventListener('shadow:website-login', handleLoginRequest)
+    return () => window.removeEventListener('shadow:website-login', handleLoginRequest)
+  }, [])
+
   // Only locale index pages use the custom homepage shell. Other custom MDX pages must render normally.
   const isHomepage =
     page.pageType === 'custom' && /^(\/|\/index\.html|\/zh\/?|\/zh\/index\.html)$/.test(routePath)

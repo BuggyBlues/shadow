@@ -51,8 +51,8 @@ export interface InfraOptions {
   kubeConfigPath?: string
   /**
    * Image pull policy for all agent containers.
-   * Default: 'Always' for mutable registry tags such as latest, and
-   * 'IfNotPresent' for local or immutable tags.
+   * Default: 'IfNotPresent' for the official OpenClaw runner and immutable/local tags,
+   * and 'Always' for other mutable registry tags.
    */
   imagePullPolicy?: 'Always' | 'IfNotPresent' | 'Never'
 }

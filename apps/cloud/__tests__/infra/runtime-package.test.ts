@@ -287,6 +287,7 @@ describe('buildManifests', () => {
       expect.arrayContaining([
         { name: 'OPENCLAW_HEALTH_PORT', value: '3102' },
         { name: 'OPENCLAW_GATEWAY_PORT', value: '3101' },
+        { name: 'OPENCLAW_MODEL_PRICING_FETCH_TIMEOUT_MS', value: '2500' },
       ]),
     )
     expect(container.env).not.toEqual(
@@ -301,7 +302,7 @@ describe('buildManifests', () => {
     expect(deployment.spec.template.metadata.annotations).toMatchObject({
       'shadowob.cloud/runner-image': 'ghcr.io/buggyblues/openclaw-runner:latest',
     })
-    expect(container.imagePullPolicy).toBe('Always')
+    expect(container.imagePullPolicy).toBe('IfNotPresent')
     expect(
       deployment.spec.template.metadata.annotations['shadowob.cloud/runtime-package-hash'],
     ).toMatch(/^[a-f0-9]{64}$/)

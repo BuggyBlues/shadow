@@ -1237,12 +1237,6 @@ describe('Cloud SaaS — deployment + billing', () => {
     })
     expect(saveModelRes.status).toBe(200)
 
-    const saveDeepSeekRes = await req('PUT', '/api/cloud-saas/global-envvars', {
-      key: 'DEEPSEEK_API_KEY',
-      value: 'saved-deepseek-key',
-    })
-    expect(saveDeepSeekRes.status).toBe(200)
-
     const createRes = await req('POST', '/api/cloud-saas/deployments', {
       namespace: uniqueName('e2e-provider-env-ns'),
       name: uniqueName('e2e-provider-env-deploy'),
@@ -1266,7 +1260,7 @@ describe('Cloud SaaS — deployment + billing', () => {
     expect(runtime.OPENAI_COMPATIBLE_BASE_URL).toBe(baseUrl)
     expect(runtime.OPENAI_COMPATIBLE_API_KEY).toBe('saved-compatible-key')
     expect(runtime.OPENAI_COMPATIBLE_MODEL_ID).toBe(modelId)
-    expect(runtime.DEEPSEEK_API_KEY).toBe('saved-deepseek-key')
+    expect(runtime.DEEPSEEK_API_KEY).toBeUndefined()
   })
 
   it('POST /api/cloud-saas/deployments injects official proxy env for official model mode', async () => {

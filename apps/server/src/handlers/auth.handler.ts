@@ -332,7 +332,8 @@ export function createAuthHandler(container: AppContainer) {
     const externalOAuthService = container.resolve('externalOAuthService')
     const provider = c.req.param('provider')
     const redirect = c.req.query('redirect')
-    const url = externalOAuthService.getAuthorizeUrl(provider, redirect)
+    const inviteCode = c.req.query('inviteCode')
+    const url = externalOAuthService.getAuthorizeUrl(provider, redirect, inviteCode)
     return c.redirect(url)
   })
 
@@ -367,7 +368,9 @@ export function createAuthHandler(container: AppContainer) {
         result.accessToken,
       )}&refresh_token=${encodeURIComponent(
         result.refreshToken,
-      )}&redirect=${encodeURIComponent(result.redirect)}`
+      )}&redirect=${encodeURIComponent(result.redirect)}${
+        result.inviteCode ? `&invite_code=${encodeURIComponent(result.inviteCode)}` : ''
+      }`
       return c.redirect(callbackUrl)
     } catch (error) {
       logger.warn({ err: error, provider }, 'External OAuth callback failed')

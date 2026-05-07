@@ -20,6 +20,7 @@ export function OAuthCallbackPage() {
     const accessToken = params.get('access_token')
     const refreshToken = params.get('refresh_token')
     const redirect = params.get('redirect') ?? '/app/discover'
+    const inviteCode = params.get('invite_code') ?? params.get('inviteCode')
 
     if (!accessToken || !refreshToken) {
       navigate({ to: '/login' })
@@ -30,8 +31,14 @@ export function OAuthCallbackPage() {
     fetchApi<AuthenticatedUser>('/api/auth/me', {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
-      .then((user) => {
+      .then(async (user) => {
         applyAuthenticatedSession({ user, accessToken, refreshToken })
+        if (inviteCode?.trim()) {
+          await fetchApi('/api/membership/redeem-invite', {
+            method: 'POST',
+            body: JSON.stringify({ code: inviteCode.trim() }),
+          }).catch(() => null)
+        }
         // Clear hash from URL before navigating
         window.history.replaceState(null, '', window.location.pathname)
         window.location.href = webRedirectFromRouterPath(routerPathFromRedirect(redirect))

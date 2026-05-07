@@ -21,6 +21,13 @@ import { seedPlayCatalogResources } from './lib/play-catalog-seed'
 import { setupWebSocket } from './ws'
 
 const PORT = Number(process.env.PORT ?? 3002)
+const SOCKET_IO_PING_INTERVAL_MS = parsePositiveIntegerEnv('SOCKET_IO_PING_INTERVAL_MS', 25_000)
+const SOCKET_IO_PING_TIMEOUT_MS = parsePositiveIntegerEnv('SOCKET_IO_PING_TIMEOUT_MS', 45_000)
+
+function parsePositiveIntegerEnv(name: string, fallback: number): number {
+  const value = Number.parseInt(process.env[name] ?? '', 10)
+  return Number.isFinite(value) && value > 0 ? value : fallback
+}
 
 async function main() {
   // Database schema sync / migration
@@ -267,8 +274,8 @@ async function main() {
       methods: ['GET', 'POST'],
     },
     transports: ['websocket', 'polling'],
-    pingInterval: 15000, // Send ping every 15s (default 25s)
-    pingTimeout: 10000, // Wait 10s for pong (default 20s)
+    pingInterval: SOCKET_IO_PING_INTERVAL_MS,
+    pingTimeout: SOCKET_IO_PING_TIMEOUT_MS,
   })
 
   setupWebSocket(io, container)

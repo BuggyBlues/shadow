@@ -35,8 +35,8 @@ export interface AgentDeploymentOptions {
    * Image pull policy.
    * Use 'IfNotPresent' for locally built images (Rancher Desktop / local K8s).
    * Use 'Always' for registry images that may be updated.
-   * Defaults to 'Always' for mutable registry tags such as latest, and
-   * 'IfNotPresent' for local or immutable tags.
+   * Defaults to 'IfNotPresent' for the official OpenClaw runner and immutable/local tags,
+   * and 'Always' for other mutable registry tags.
    */
   imagePullPolicy?: 'Always' | 'IfNotPresent' | 'Never'
   /** Shared workspace PVC name (when enabled) */

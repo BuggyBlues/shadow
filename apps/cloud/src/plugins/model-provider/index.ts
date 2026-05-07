@@ -276,7 +276,10 @@ function withModelOverride(
   catalog: ProviderCatalog,
   env: RuntimeEnv,
 ): { catalog: ProviderCatalog; models: ProviderModelEntry[] } {
-  const modelOverride = runtimeValue(catalog.modelEnvKey, env)
+  const rawModelOverride = runtimeValue(catalog.modelEnvKey, env)?.trim()
+  const modelOverride = rawModelOverride?.startsWith(`${catalog.id}/`)
+    ? rawModelOverride.slice(catalog.id.length + 1)
+    : rawModelOverride
   if (!modelOverride) return { catalog, models: catalog.models }
 
   const models: ProviderModelEntry[] = [
@@ -351,6 +354,19 @@ function envCandidates(catalogs: ProviderCatalog[]): string[] {
   return [...keys]
 }
 
+function hasOpenAICompatibleProxy(env: RuntimeEnv): boolean {
+  return Boolean(
+    runtimeValue('OPENAI_COMPATIBLE_API_KEY', env) &&
+      runtimeValue('OPENAI_COMPATIBLE_BASE_URL', env),
+  )
+}
+
+function activeProviderCatalogs(ctx: PluginBuildContext, env: RuntimeEnv): ProviderCatalog[] {
+  const catalogs = providerCatalogs(ctx)
+  if (!hasOpenAICompatibleProxy(env)) return catalogs
+  return catalogs.filter((catalog) => catalog.id === 'custom')
+}
+
 export default definePlugin(manifest as PluginManifest, (api) => {
   for (const catalog of BUILTIN_PROVIDER_CATALOGS) {
     api.addProviderCatalog(catalog)
@@ -362,7 +378,7 @@ export default definePlugin(manifest as PluginManifest, (api) => {
     envKey: 'OPENAI_COMPATIBLE_API_KEY',
     baseUrlEnvKey: 'OPENAI_COMPATIBLE_BASE_URL',
     modelEnvKey: 'OPENAI_COMPATIBLE_MODEL_ID',
-    priority: 1000,
+    priority: 5,
     models: [{ id: 'default', tags: ['default', 'flash', 'reasoning', 'vision'] }],
   })
   api.addSecretFields([
@@ -392,7 +408,7 @@ export default definePlugin(manifest as PluginManifest, (api) => {
     const providers: Record<string, unknown> = {}
     const discovered: ProviderCatalog[] = []
 
-    for (const catalog of providerCatalogs(ctx).map((entry) =>
+    for (const catalog of activeProviderCatalogs(ctx, env).map((entry) =>
       mergeModelEntries(entry, profileModelSets),
     )) {
       const provider = buildProviderEntry(catalog, env)
@@ -429,7 +445,7 @@ export default definePlugin(manifest as PluginManifest, (api) => {
   api.onBuildEnv((ctx): Record<string, string> => {
     const env = ctx.secrets as RuntimeEnv
     const out: Record<string, string> = {}
-    for (const key of envCandidates(providerCatalogs(ctx))) {
+    for (const key of envCandidates(activeProviderCatalogs(ctx, env))) {
       const value = runtimeValue(key, env)
       if (value) out[key] = value
     }

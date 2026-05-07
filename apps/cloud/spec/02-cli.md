@@ -112,7 +112,7 @@ shadowob-cloud validate
 ✓ 3 bindings consistent
 ℹ 5 environment variable references found:
   - ${env:ANTHROPIC_API_KEY}
-  - ${env:DEEPSEEK_API_KEY}
+  - ${env:OPENAI_COMPATIBLE_API_KEY}
   - ${env:SLACK_BOT_TOKEN}
   - ${env:TELEGRAM_BOT_TOKEN}
   - ${env:GITHUB_TOKEN}

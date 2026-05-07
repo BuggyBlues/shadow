@@ -81,6 +81,9 @@ const COMMERCE_INTENT_PATTERN =
 const COMMERCE_REPLY_CUE_PATTERN =
   /(点击下面|下面的|商品卡片|购买|下单|付款|付费|请看|这就是|带.*回家|要.*带|buy|purchase|order|card)/i
 
+const ERROR_REPLY_PATTERN =
+  /(something went wrong|processing your request|please try again|\/new to start|official model provider authentication failed|failovererror|embedded agent failed|request failed|模型.*失败|请求.*失败|处理.*出错|请稍后再试)/i
+
 function normalizeText(value: string | undefined | null) {
   return (value ?? '').toLowerCase()
 }
@@ -110,13 +113,15 @@ export function inferCommerceOfferIdForReply(params: {
 
   const inboundText = normalizeText(params.inboundText)
   const replyText = normalizeText(params.replyText)
-  const combinedText = `${inboundText}\n${replyText}`
-  const matchedOffers = offers.filter((offer) => offerMatchesText(offer, combinedText))
+  if (!replyText || ERROR_REPLY_PATTERN.test(replyText)) return undefined
+
+  const matchedOffers = offers.filter((offer) => offerMatchesText(offer, replyText))
   if (matchedOffers.length === 1) return matchedOffers[0]?.offerId
 
   if (
     offers.length === 1 &&
-    (COMMERCE_INTENT_PATTERN.test(inboundText) || COMMERCE_REPLY_CUE_PATTERN.test(replyText))
+    COMMERCE_INTENT_PATTERN.test(inboundText) &&
+    COMMERCE_REPLY_CUE_PATTERN.test(replyText)
   ) {
     return offers[0]?.offerId
   }

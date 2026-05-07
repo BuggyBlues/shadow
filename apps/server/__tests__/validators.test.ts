@@ -170,6 +170,21 @@ describe('Message Validators', () => {
       })
       expect(result.success).toBe(true)
     })
+
+    it('should accept a minimal commerce offer card from trusted Buddy tools', () => {
+      const result = sendMessageSchema.safeParse({
+        content: '这盒火柴给你。',
+        metadata: {
+          commerceCards: [
+            {
+              kind: 'offer',
+              offerId: '550e8400-e29b-41d4-a716-446655440000',
+            },
+          ],
+        },
+      })
+      expect(result.success).toBe(true)
+    })
   })
 
   describe('updateMessageSchema', () => {

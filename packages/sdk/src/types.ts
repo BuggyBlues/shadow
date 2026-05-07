@@ -149,7 +149,14 @@ export interface ShadowMessageMetadata {
   interactive?: ShadowInteractiveBlock
   interactiveResponse?: ShadowInteractiveResponse
   interactiveState?: ShadowInteractiveState
+  commerceCards?: Array<ShadowCommerceProductCard | ShadowCommerceOfferCardInput>
   [key: string]: unknown
+}
+
+export interface ShadowCommerceOfferCardInput {
+  id?: string
+  kind: 'offer'
+  offerId: string
 }
 
 export type ShadowMessageMention = SharedMessageMention

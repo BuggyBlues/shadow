@@ -378,11 +378,11 @@ describe('play launch orchestration', () => {
     const previousJwtSecret = process.env.JWT_SECRET
     const previousShadowServerUrl = process.env.SHADOW_SERVER_URL
     const previousShadowAgentServerUrl = process.env.SHADOW_AGENT_SERVER_URL
-    const previousDeepSeekApiKey = process.env.DEEPSEEK_API_KEY
+    const previousUpstreamApiKey = process.env.SHADOW_MODEL_PROXY_UPSTREAM_API_KEY
     const previousModelProxyEnabled = process.env.SHADOW_MODEL_PROXY_ENABLED
     process.env.JWT_SECRET = 'test-secret'
     process.env.SHADOW_MODEL_PROXY_ENABLED = 'true'
-    process.env.DEEPSEEK_API_KEY = 'official-deepseek-secret'
+    process.env.SHADOW_MODEL_PROXY_UPSTREAM_API_KEY = 'official-upstream-secret'
     delete process.env.SHADOW_SERVER_URL
     delete process.env.SHADOW_AGENT_SERVER_URL
 
@@ -467,8 +467,9 @@ describe('play launch orchestration', () => {
       else process.env.SHADOW_SERVER_URL = previousShadowServerUrl
       if (previousShadowAgentServerUrl === undefined) delete process.env.SHADOW_AGENT_SERVER_URL
       else process.env.SHADOW_AGENT_SERVER_URL = previousShadowAgentServerUrl
-      if (previousDeepSeekApiKey === undefined) delete process.env.DEEPSEEK_API_KEY
-      else process.env.DEEPSEEK_API_KEY = previousDeepSeekApiKey
+      if (previousUpstreamApiKey === undefined)
+        delete process.env.SHADOW_MODEL_PROXY_UPSTREAM_API_KEY
+      else process.env.SHADOW_MODEL_PROXY_UPSTREAM_API_KEY = previousUpstreamApiKey
       if (previousModelProxyEnabled === undefined) delete process.env.SHADOW_MODEL_PROXY_ENABLED
       else process.env.SHADOW_MODEL_PROXY_ENABLED = previousModelProxyEnabled
     }

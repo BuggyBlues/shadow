@@ -71,17 +71,11 @@ function firstNonEmptyEnv(...keys: string[]) {
 }
 
 function upstreamBaseUrl() {
-  return (
-    firstNonEmptyEnv(
-      'SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL',
-      'DEEPSEEK_BASE_URL',
-      'OPENAI_COMPATIBLE_BASE_URL',
-    )?.replace(/\/+$/, '') ?? null
-  )
+  return firstNonEmptyEnv('SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL')?.replace(/\/+$/, '') ?? null
 }
 
 function upstreamApiKey() {
-  return firstNonEmptyEnv('SHADOW_MODEL_PROXY_UPSTREAM_API_KEY', 'DEEPSEEK_API_KEY')
+  return firstNonEmptyEnv('SHADOW_MODEL_PROXY_UPSTREAM_API_KEY')
 }
 
 function defaultModel() {

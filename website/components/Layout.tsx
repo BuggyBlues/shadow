@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useI18n } from 'rspress/runtime'
 import { GlobeIcon } from './Icons'
 
 /* ─── Base URL helper (prepends DOCS_BASE in Docker builds) ─── */
@@ -23,6 +24,7 @@ function getOtherLangUrl(currentLang: 'zh' | 'en'): string {
 
 /* ─── Dark mode toggle ─── */
 function DarkModeToggle() {
+  const t = useI18n()
   const [dark, setDark] = useState(false)
 
   useEffect(() => {
@@ -43,7 +45,7 @@ function DarkModeToggle() {
       type="button"
       onClick={toggle}
       className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-gray-100 transition"
-      title={dark ? 'Light mode' : 'Dark mode'}
+      title={dark ? t('common.lightMode') : t('common.darkMode')}
       style={{ color: 'var(--shadow-text-muted)' }}
     >
       {dark ? (
@@ -105,7 +107,8 @@ function GitHubLink() {
 
 /* ─── Search button (navigates to docs where Rspress search is available) ─── */
 function SearchButton({ lang }: { lang: 'zh' | 'en' }) {
-  const placeholder = lang === 'zh' ? '搜索文档...' : 'Search docs...'
+  const t = useI18n()
+  const placeholder = t('common.searchDocs')
 
   const handleClick = () => {
     const base = getBase()
@@ -167,9 +170,10 @@ function SearchButton({ lang }: { lang: 'zh' | 'en' }) {
 }
 
 function FooterLanguageSwitcher({ lang }: { lang: 'zh' | 'en' }) {
+  const t = useI18n()
   const otherUrl = getOtherLangUrl(lang)
-  const currentLabel = lang === 'zh' ? '简体中文' : 'English'
-  const otherLabel = lang === 'zh' ? 'English' : '简体中文'
+  const currentLabel = t('common.language.current')
+  const otherLabel = t('common.language.other')
 
   return (
     <div className="shadow-footer-language">
@@ -198,20 +202,7 @@ function FooterLanguageSwitcher({ lang }: { lang: 'zh' | 'en' }) {
 
 /* ─── Shared public navigation component ─── */
 export function PublicNav({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
-  const t =
-    lang === 'zh'
-      ? {
-          product: '产品',
-          platform: '开放平台',
-          login: '登录',
-          launch: '启动！',
-        }
-      : {
-          product: 'Product',
-          platform: 'Platform',
-          login: 'Login',
-          launch: 'Launch',
-        }
+  const t = useI18n()
   const base = getBase()
   const prefix = lang === 'zh' ? '/zh' : ''
   return (
@@ -244,8 +235,10 @@ export function PublicNav({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
           className="zcool text-2xl font-bold tracking-wider"
           style={{ color: 'var(--shadow-text)' }}
         >
-          {lang === 'zh' ? '虾豆' : 'Shadow'}
-          <span className="text-lg text-cyan-600 ml-1 font-sans font-black">OwnBuddy</span>
+          {t('common.brand')}
+          <span className="text-lg text-cyan-600 ml-1 font-sans font-black">
+            {t('common.ownBuddy')}
+          </span>
         </span>
       </a>
       <div className="hidden md:flex gap-8 text-base font-bold">
@@ -254,14 +247,14 @@ export function PublicNav({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
           className="hover:text-cyan-600 transition border-b-2 border-transparent hover:border-cyan-500 py-1"
           style={{ textDecoration: 'none', color: 'var(--shadow-text-muted)' }}
         >
-          {t.product}
+          {t('footer.product')}
         </a>
         <a
           href={`${base}${prefix}/platform/introduction`}
           className="hover:text-cyan-600 transition border-b-2 border-transparent hover:border-cyan-500 py-1"
           style={{ textDecoration: 'none', color: 'var(--shadow-text-muted)' }}
         >
-          {t.platform}
+          {t('footer.developerPlatform')}
         </a>
       </div>
       <div className="flex items-center gap-2">
@@ -273,7 +266,7 @@ export function PublicNav({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
           className="btn-primary zcool text-lg px-6 py-2 hover:scale-105 transition-transform duration-300 shadow-lg hover:shadow-cyan-500/30"
           style={{ textDecoration: 'none' }}
         >
-          {t.launch}
+          {t('common.launch')}
         </a>
       </div>
     </nav>
@@ -282,100 +275,54 @@ export function PublicNav({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
 
 /* ─── Shared footer component ─── */
 export function PublicFooter({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
+  const t = useI18n()
   const base = getBase()
   const prefix = lang === 'zh' ? '/zh' : ''
-  const brandLegal = lang === 'zh' ? '虾豆 OwnBuddy © 2026' : 'Shadow OwnBuddy © 2026'
 
-  const columns =
-    lang === 'zh'
-      ? [
-          {
-            title: '产品',
-            links: [
-              { text: '帮助中心', href: `${base}${prefix}/product/` },
-              { text: '新手入门', href: `${base}${prefix}/product/quick-start` },
-              { text: '首页玩法', href: `${base}${prefix}/product/play-launch` },
-              { text: 'AI 搭子', href: `${base}${prefix}/product/ai-assistants` },
-              { text: '频道与消息', href: `${base}${prefix}/product/channels` },
-              { text: '桌面端下载', href: `${base}${prefix}/product/download` },
-            ],
-          },
-          {
-            title: '资源',
-            links: [
-              { text: '开放平台', href: `${base}${prefix}/platform/introduction` },
-              { text: '虾豆 Cloud', href: `${base}${prefix}/platform/cloud` },
-              { text: 'Cloud CLI', href: `${base}${prefix}/platform/cloud-cli` },
-              { text: '模版文档', href: `${base}${prefix}/platform/cloud-templates` },
-              { text: '插件文档', href: `${base}${prefix}/platform/cloud-plugins` },
-            ],
-          },
-          {
-            title: '社区',
-            links: [
-              { text: 'GitHub', href: 'https://github.com/buggyblues/shadow', external: true },
-              { text: 'Discord', href: '#' },
-              { text: 'Twitter / X', href: '#' },
-            ],
-          },
-          {
-            title: '法律',
-            links: [
-              { text: 'Privacy', href: `${base}${prefix}/privacy` },
-              { text: 'Terms', href: `${base}${prefix}/terms` },
-              { text: '社区公约', href: `${base}${prefix}/community-guidelines` },
-              {
-                text: 'Skills',
-                href: 'https://github.com/buggyblues/shadow/blob/main/skills/shadowob-cli/SKILL.md',
-                external: true,
-              },
-            ],
-          },
-        ]
-      : [
-          {
-            title: 'Product',
-            links: [
-              { text: 'Help Center', href: `${base}${prefix}/product/` },
-              { text: 'Quick Start', href: `${base}${prefix}/product/quick-start` },
-              { text: 'Play Launch', href: `${base}${prefix}/product/play-launch` },
-              { text: 'AI Buddies', href: `${base}${prefix}/product/ai-assistants` },
-              { text: 'Channels', href: `${base}${prefix}/product/channels` },
-              { text: 'Desktop Download', href: `${base}${prefix}/product/download` },
-            ],
-          },
-          {
-            title: 'Resources',
-            links: [
-              { text: 'Developer Platform', href: `${base}${prefix}/platform/introduction` },
-              { text: 'Shadow Cloud', href: `${base}${prefix}/platform/cloud` },
-              { text: 'Cloud CLI', href: `${base}${prefix}/platform/cloud-cli` },
-              { text: 'Template Docs', href: `${base}${prefix}/platform/cloud-templates` },
-              { text: 'Plugin Docs', href: `${base}${prefix}/platform/cloud-plugins` },
-            ],
-          },
-          {
-            title: 'Community',
-            links: [
-              { text: 'GitHub', href: 'https://github.com/buggyblues/shadow', external: true },
-              { text: 'Discord', href: '#' },
-              { text: 'Twitter / X', href: '#' },
-            ],
-          },
-          {
-            title: 'Legal',
-            links: [
-              { text: 'Privacy', href: `${base}${prefix}/privacy` },
-              { text: 'Terms', href: `${base}${prefix}/terms` },
-              { text: 'Community Guidelines', href: `${base}${prefix}/community-guidelines` },
-              {
-                text: 'Skills',
-                href: 'https://github.com/buggyblues/shadow/blob/main/skills/shadowob-cli/SKILL.md',
-                external: true,
-              },
-            ],
-          },
-        ]
+  const columns = [
+    {
+      title: t('footer.product'),
+      links: [
+        { text: t('footer.helpCenter'), href: `${base}${prefix}/product/` },
+        { text: t('footer.quickStart'), href: `${base}${prefix}/product/quick-start` },
+        { text: t('footer.playLaunch'), href: `${base}${prefix}/product/play-launch` },
+        { text: t('footer.aiBuddies'), href: `${base}${prefix}/product/ai-assistants` },
+        { text: t('footer.channels'), href: `${base}${prefix}/product/channels` },
+        { text: t('footer.desktopDownload'), href: `${base}${prefix}/product/download` },
+      ],
+    },
+    {
+      title: t('footer.resources'),
+      links: [
+        { text: t('footer.developerPlatform'), href: `${base}${prefix}/platform/introduction` },
+        { text: t('footer.cloud'), href: `${base}${prefix}/platform/cloud` },
+        { text: 'Cloud CLI', href: `${base}${prefix}/platform/cloud-cli` },
+        { text: t('footer.templateDocs'), href: `${base}${prefix}/platform/cloud-templates` },
+        { text: t('footer.pluginDocs'), href: `${base}${prefix}/platform/cloud-plugins` },
+      ],
+    },
+    {
+      title: t('footer.community'),
+      links: [
+        { text: 'GitHub', href: 'https://github.com/buggyblues/shadow', external: true },
+        { text: 'Discord', href: '#' },
+        { text: 'Twitter / X', href: '#' },
+      ],
+    },
+    {
+      title: t('footer.legalTitle'),
+      links: [
+        { text: 'Privacy', href: `${base}${prefix}/privacy` },
+        { text: 'Terms', href: `${base}${prefix}/terms` },
+        { text: t('footer.communityGuidelines'), href: `${base}${prefix}/community-guidelines` },
+        {
+          text: 'Skills',
+          href: 'https://github.com/buggyblues/shadow/blob/main/skills/shadowob-cli/SKILL.md',
+          external: true,
+        },
+      ],
+    },
+  ]
 
   return (
     <footer
@@ -389,11 +336,11 @@ export function PublicFooter({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
             <div className="flex items-center gap-2 mb-4">
               <img src={`${base}/Logo.svg`} className="w-8 h-8" alt="Shadow cat" />
               <span className="zcool text-lg font-bold" style={{ color: 'var(--shadow-text)' }}>
-                虾豆
+                {t('common.brand')}
               </span>
             </div>
             <p className="text-xs font-medium mb-3" style={{ color: 'var(--shadow-text-dim)' }}>
-              {lang === 'zh' ? '超级个体的超级社区' : 'The Super Community for Super Individuals'}
+              {t('footer.tagline')}
             </p>
           </div>
           {/* Link columns */}
@@ -425,7 +372,7 @@ export function PublicFooter({ lang = 'zh' }: { lang?: 'zh' | 'en' }) {
           style={{ borderColor: 'var(--shadow-card-border)' }}
         >
           <span className="text-xs font-medium" style={{ color: 'var(--shadow-text-dim)' }}>
-            {brandLegal}
+            {t('footer.legal')}
           </span>
           <FooterLanguageSwitcher lang={lang} />
         </div>
