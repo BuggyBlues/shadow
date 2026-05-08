@@ -5,7 +5,7 @@ Shadow contributors.
 
 ## Prerequisites
 
-- Node.js 22+
+- Node.js 22.14+
 - pnpm 10+
 - Docker and Docker Compose
 - Optional for Shadow Cloud work: `kubectl`, a reachable Kubernetes cluster, and a kubeconfig

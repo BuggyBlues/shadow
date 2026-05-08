@@ -1192,6 +1192,44 @@ describe('Shadow Outbound', () => {
   })
 })
 
+// ── Inbound media ─────────────────────────────────────────────
+
+describe('Shadow inbound media', () => {
+  it('downloads relative signed media URLs from markdown bodies', async () => {
+    const { mkdtemp, rm } = await import('node:fs/promises')
+    const { tmpdir } = await import('node:os')
+    const { join } = await import('node:path')
+    const { ShadowClient } = await import('@shadowob/sdk')
+    const { resolveShadowInboundMediaContext } = await import('../src/monitor/media.js')
+    const dataDir = await mkdtemp(join(tmpdir(), 'shadow-openclaw-media-'))
+    const downloadFile = vi.spyOn(ShadowClient.prototype, 'downloadFile').mockResolvedValue({
+      buffer: new TextEncoder().encode('PNG').buffer,
+      contentType: 'image/png',
+      filename: 'signed.png',
+    })
+
+    try {
+      vi.stubEnv('OPENCLAW_DATA_DIR', dataDir)
+      const result = await resolveShadowInboundMediaContext({
+        account: { serverUrl: 'http://localhost:3000', token: 'tok' },
+        message: { attachments: [] } as never,
+        rawBody: 'look\n![signed](/api/media/signed/token_123)\nnext',
+        runtime: { log: vi.fn(), error: vi.fn() },
+      })
+
+      expect(downloadFile).toHaveBeenCalledWith('/api/media/signed/token_123')
+      expect(result.cleanBody).toBe('look\nnext')
+      expect(result.fields.MediaUrl).toBe('http://localhost:3000/api/media/signed/token_123')
+      expect(result.fields.MediaType).toBe('image/png')
+      expect(result.fields.MediaPaths).toEqual([expect.stringContaining('signed.png')])
+    } finally {
+      downloadFile.mockRestore()
+      vi.unstubAllEnvs()
+      await rm(dataDir, { recursive: true, force: true })
+    }
+  })
+})
+
 // ── Config Schema ──────────────────────────────────────────────
 
 describe('Shadow Config Schema', () => {

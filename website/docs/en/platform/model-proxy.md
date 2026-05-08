@@ -33,17 +33,18 @@ const completion = await fetch('/api/ai/v1/chat/completions', {
 ## Billing
 
 The default official provider is configured from environment variables. The default model is
-`deepseek-v4-flash`, and both the base URL and model can be changed without code changes.
+`deepseek-v4-flash`, with `https://api.deepseek.com` as the example and compose default base URL.
+Both the base URL and model can be changed without code changes.
 
 Default DeepSeek-style pricing:
 
 | Usage bucket | Price |
 |--------------|-------|
-| Input tokens, cache hit | 0.02 CNY / 1M tokens |
-| Input tokens, cache miss | 1 CNY / 1M tokens |
-| Output tokens | 2 CNY / 1M tokens |
+| Input tokens, cache hit | 0.02 CNY / 1M tokens = 0.4 Shrimp Coins / 1M tokens |
+| Input tokens, cache miss | 1 CNY / 1M tokens = 20 Shrimp Coins / 1M tokens |
+| Output tokens | 2 CNY / 1M tokens = 40 Shrimp Coins / 1M tokens |
 
-Shadow converts CNY pricing to Shrimp Coins with `1 CNY = 10 Shrimp Coins` by default. Wallet
+Shadow converts CNY pricing to Shrimp Coins with `1 CNY = 20 Shrimp Coins` by default. Wallet
 balances remain integer coins, so the proxy accumulates micro-Shrimp usage and only commits whole
 coins when the pending usage reaches an integer.
 

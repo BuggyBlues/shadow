@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto'
+import { createHash } from 'node:crypto'
 import {
   applyRuntimeEnvRefPolicy,
   collectRuntimeEnvRefPolicy,
@@ -28,7 +28,11 @@ import {
   extractShadowProvisionBuddyUserIds,
   extractShadowProvisionTarget,
 } from '../lib/cloud-shadow-target'
-import { officialModelProxyEnvVars, shouldCopyServerRuntimeEnvKey } from '../lib/model-proxy-config'
+import {
+  assertOfficialModelProxyAvailable,
+  officialModelProxyEnvVars,
+  shouldCopyServerRuntimeEnvKey,
+} from '../lib/model-proxy-config'
 import type { AgentPolicyService } from './agent-policy.service'
 import type { ChannelService } from './channel.service'
 import type { MembershipService } from './membership.service'
@@ -75,19 +79,8 @@ type LaunchRequestContext = {
   origin?: string
 }
 
-const TIER_COST: Record<'lightweight' | 'standard' | 'pro', number> = {
-  lightweight: 500,
-  standard: 1200,
-  pro: 2800,
-}
-const SECOND_CLOUD_DEPLOY_MIN_BALANCE = 1000
-const CURRENT_CLOUD_DEPLOYMENT_STATUSES = new Set([
-  'pending',
-  'deploying',
-  'deployed',
-  'destroying',
-  'cancelling',
-])
+const CLOUD_DEPLOYMENT_HOURLY_COST = 1
+const CLOUD_DEPLOYMENT_BILLING_PRECISION_MINUTES = 15
 const PLAY_BUDDY_ONLINE_MS = 90_000
 
 type LaunchUserProfile = {
@@ -710,11 +703,9 @@ export class PlayLaunchService {
     }
 
     const resourceTier = action.resourceTier ?? 'lightweight'
-    const baseCost = template.baseCost ?? 0
-    const monthlyCost = (TIER_COST[resourceTier] ?? 0) + baseCost
-    await this.enforceSecondCloudDeployStarterBalance(userId, monthlyCost)
-    const deployRefId = randomUUID()
-    let charged = false
+    const hourlyCost = CLOUD_DEPLOYMENT_HOURLY_COST
+    const monthlyCost = 0
+    await this.enforceCloudDeployStarterBalance(userId, hourlyCost)
     let deploymentId: string | null = null
 
     try {
@@ -751,17 +742,6 @@ export class PlayLaunchService {
       )
       const { name } = resolveTemplateText(template, input.locale)
 
-      if (monthlyCost > 0) {
-        await this.deps.walletService.debit(
-          userId,
-          monthlyCost,
-          deployRefId,
-          'cloud_deploy',
-          `Deploy ${name} (${resourceTier})`,
-        )
-        charged = true
-      }
-
       const deployment = await this.deps.cloudDeploymentDao.create({
         userId,
         clusterId,
@@ -773,6 +753,7 @@ export class PlayLaunchService {
         templateSlug: action.templateSlug,
         resourceTier,
         monthlyCost,
+        hourlyCost,
         saasMode: true,
       })
       if (!deployment) {
@@ -798,6 +779,8 @@ export class PlayLaunchService {
           templateSlug: action.templateSlug,
           resourceTier,
           monthlyCost,
+          hourlyCost,
+          billingPrecisionMinutes: CLOUD_DEPLOYMENT_BILLING_PRECISION_MINUTES,
           oneClick: true,
         },
       })
@@ -820,32 +803,15 @@ export class PlayLaunchService {
           )
           .catch(() => null)
       }
-      if (charged) {
-        await this.deps.walletService
-          .refund(
-            userId,
-            monthlyCost,
-            deployRefId,
-            'cloud_deploy',
-            `Cloud play launch refund (${action.templateSlug})`,
-          )
-          .catch(() => null)
-      }
       throw err
     } finally {
       await this.deps.cloudDeploymentDao.releaseOperationLock(operationScope).catch(() => null)
     }
   }
 
-  private async enforceSecondCloudDeployStarterBalance(userId: string, monthlyCost: number) {
-    if (monthlyCost <= 0) return
-    const existingDeployments = await this.deps.cloudDeploymentDao.listByUser(userId, 20, 0)
-    const hasCurrentDeployment = existingDeployments.some((deployment) =>
-      CURRENT_CLOUD_DEPLOYMENT_STATUSES.has(deployment.status),
-    )
-    if (!hasCurrentDeployment) return
-
-    const requiredAmount = Math.max(monthlyCost, SECOND_CLOUD_DEPLOY_MIN_BALANCE)
+  private async enforceCloudDeployStarterBalance(userId: string, hourlyCost: number) {
+    if (hourlyCost <= 0) return
+    const requiredAmount = hourlyCost
     const wallet = await this.deps.walletService.getWallet(userId)
     const balance = wallet?.balance ?? 0
     if (balance >= requiredAmount) return
@@ -880,10 +846,12 @@ export class PlayLaunchService {
     if (shadowAgentServerUrl) envVars.SHADOW_AGENT_SERVER_URL = shadowAgentServerUrl
     if (shadowProvisionUrl) envVars.SHADOW_PROVISION_URL = shadowProvisionUrl
     if (launchContext) {
+      const runtimeServerUrl = shadowAgentServerUrl ?? shadowServerUrl
+      assertOfficialModelProxyAvailable(runtimeServerUrl)
       Object.assign(
         envVars,
         officialModelProxyEnvVars({
-          runtimeServerUrl: shadowAgentServerUrl ?? shadowServerUrl,
+          runtimeServerUrl,
           ...launchContext,
         }),
       )

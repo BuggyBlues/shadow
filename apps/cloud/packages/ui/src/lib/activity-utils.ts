@@ -22,6 +22,10 @@ const METADATA_KEY_ALIASES: Record<string, string> = {
   resource_tier: 'resource_tier',
   monthlyCost: 'monthly_cost',
   monthly_cost: 'monthly_cost',
+  hourlyCost: 'hourly_cost',
+  hourly_cost: 'hourly_cost',
+  billingPrecisionMinutes: 'billing_precision_minutes',
+  billing_precision_minutes: 'billing_precision_minutes',
   userId: 'user_id',
   user_id: 'user_id',
   redeployFrom: 'redeploy_from',
@@ -197,6 +201,10 @@ export function normalizeActivityRecord(record: RawActivityRecord): ActivityEntr
   const monthlyCost = toFiniteNumber(
     record.monthlyCost ?? rawMeta.monthlyCost ?? rawMeta.monthly_cost,
   )
+  const hourlyCost = toFiniteNumber(rawMeta.hourlyCost ?? rawMeta.hourly_cost)
+  const billingPrecisionMinutes = toFiniteNumber(
+    rawMeta.billingPrecisionMinutes ?? rawMeta.billing_precision_minutes,
+  )
 
   const metadata = collectMetadataEntries(rawMeta, [
     ['namespace', namespace],
@@ -211,6 +219,8 @@ export function normalizeActivityRecord(record: RawActivityRecord): ActivityEntr
     ['user_id', userId],
     ['resource_tier', resourceTier],
     ['monthly_cost', monthlyCost],
+    ['hourly_cost', hourlyCost],
+    ['billing_precision_minutes', billingPrecisionMinutes],
     ['name', name],
     ['key', key],
     ['count', count],

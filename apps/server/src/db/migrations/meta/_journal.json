@@ -393,6 +393,13 @@
       "when": 1778331600000,
       "tag": "0055_commerce_offer_paid_file_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1778418000000,
+      "tag": "0056_cloud_hourly_billing",
+      "breakpoints": true
     }
   ]
 }

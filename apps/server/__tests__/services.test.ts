@@ -1,4 +1,7 @@
+import { Hono } from 'hono'
 import { describe, expect, it, vi } from 'vitest'
+import { createMediaHandler, createSignedMediaHandler } from '../src/handlers/media.handler'
+import { authMiddleware } from '../src/middleware/auth.middleware'
 import { MediaService } from '../src/services/media.service'
 import { MessageService } from '../src/services/message.service'
 import { NotificationService } from '../src/services/notification.service'
@@ -267,6 +270,51 @@ describe('MediaService', () => {
       if (previousSecret === undefined) delete process.env.JWT_SECRET
       else process.env.JWT_SECRET = previousSecret
     }
+  })
+})
+
+describe('MediaHandler', () => {
+  it('serves signed media without requiring bearer auth while keeping upload protected', async () => {
+    const mediaService = {
+      verifySignedToken: vi.fn().mockReturnValue({
+        bucket: 'shadow',
+        key: 'uploads/photo.png',
+        contentType: 'image/png',
+        disposition: 'inline',
+        exp: Math.floor(Date.now() / 1000) + 60,
+      }),
+      getSignedObjectResponse: vi.fn().mockResolvedValue({
+        body: new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('ok'))
+            controller.close()
+          },
+        }),
+        status: 200,
+        headers: { 'Content-Type': 'image/png' },
+      }),
+    }
+    const container = {
+      resolve(name: string) {
+        if (name === 'mediaService') return mediaService
+        throw new Error(`Unexpected dependency: ${name}`)
+      },
+    } as any
+    const protectedApi = new Hono()
+    protectedApi.use('*', authMiddleware)
+
+    const handler = new Hono()
+    handler.route('/api', createSignedMediaHandler(container))
+    handler.route('/api', protectedApi)
+    handler.route('/api/media', createMediaHandler(container))
+
+    const signed = await handler.request('/api/media/signed/test-token.part')
+    expect(signed.status).toBe(200)
+    expect(await signed.text()).toBe('ok')
+    expect(mediaService.verifySignedToken).toHaveBeenCalledWith('test-token.part')
+
+    const upload = await handler.request('/api/media/upload', { method: 'POST' })
+    expect(upload.status).toBe(401)
   })
 })
 

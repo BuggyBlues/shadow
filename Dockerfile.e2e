@@ -45,9 +45,11 @@ RUN pnpm build:packages
 # ─────────────────────────────────────────────
 FROM mcr.microsoft.com/playwright:v1.59.1-jammy AS runner
 
+ARG OPENCLAW_VERSION=2026.5.7
+
 RUN corepack enable && corepack prepare pnpm@10.19.0 --activate
 
-RUN npm install -g openclaw@latest
+RUN npm install -g "openclaw@${OPENCLAW_VERSION}"
 
 WORKDIR /workspace
 

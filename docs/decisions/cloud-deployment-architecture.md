@@ -184,7 +184,7 @@ shadow-cloud logs phantom-core   # 查看日志
 
 | 必须 | 可选 |
 |------|------|
-| Node.js 22+ | — |
+| Node.js 22.14+ | — |
 | Docker (本地 kind 集群自动创建) | 已有 K8s 集群 |
 | `.env` 中的 LLM API Key | Shadow 平台账号 |
 

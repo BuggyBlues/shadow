@@ -18,7 +18,11 @@ import { createDmHandler } from './handlers/dm.handler'
 import { createFeatureFlagsHandler } from './handlers/feature-flags.handler'
 import { createFriendshipHandler } from './handlers/friendship.handler'
 import { createInviteHandler } from './handlers/invite.handler'
-import { createAttachmentMediaHandler, createMediaHandler } from './handlers/media.handler'
+import {
+  createAttachmentMediaHandler,
+  createMediaHandler,
+  createSignedMediaHandler,
+} from './handlers/media.handler'
 import { createMembershipHandler } from './handlers/membership.handler'
 import { createMentionHandler } from './handlers/mention.handler'
 import { createMessageHandler } from './handlers/message.handler'
@@ -163,6 +167,11 @@ export function createApp(container: AppContainer) {
     })
     return c.json(result)
   })
+
+  // Token-authenticated media delivery is intentionally outside authenticated /api sub-apps so
+  // browser <img>/<a> requests do not need Authorization headers. Mount this before any broad
+  // /api handler that uses authMiddleware for all child paths.
+  app.route('/api', createSignedMediaHandler(container))
 
   // Public config endpoints (must be registered before handlers that apply global auth)
   // Feature flags first so /v1/config/flags isn't caught by config's /:schemaName param

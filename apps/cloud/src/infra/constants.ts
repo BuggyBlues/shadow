@@ -138,6 +138,7 @@ export function baseEnvVars(agentName: string, runtime?: string) {
       { name: 'OPENCLAW_HEALTH_PORT', value: String(OPENCLAW_HEALTH_PORT) },
       { name: 'OPENCLAW_GATEWAY_PORT', value: String(OPENCLAW_GATEWAY_PORT) },
       { name: 'OPENCLAW_MODEL_PRICING_FETCH_TIMEOUT_MS', value: '2500' },
+      { name: 'OPENCLAW_SKIP_STARTUP_MODEL_PREWARM', value: '1' },
     ]
   }
 

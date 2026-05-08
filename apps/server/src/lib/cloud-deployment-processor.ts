@@ -22,7 +22,7 @@ import { CloudDeploymentDao } from '../dao/cloud-deployment.dao'
 import { WalletDao } from '../dao/wallet.dao'
 import type { Database } from '../db'
 import { db } from '../db'
-import { walletTransactions } from '../db/schema'
+import { cloudDeployments, wallets, walletTransactions } from '../db/schema'
 import { LedgerService } from '../services/ledger.service'
 import { decrypt } from './kms'
 import { logger } from './logger'
@@ -31,8 +31,15 @@ const POLL_INTERVAL_MS = Number(
   process.env.CLOUD_WORKER_POLL_INTERVAL_MS ?? process.env.POLL_INTERVAL_MS ?? 5000,
 )
 const RECONCILE_INTERVAL_MS = Number(process.env.RECONCILE_INTERVAL_MS ?? 60_000)
+const FAILED_DEPLOYMENT_RECOVERY_WINDOW_MS = Number(
+  process.env.CLOUD_FAILED_DEPLOYMENT_RECOVERY_WINDOW_MS ?? 30 * 60_000,
+)
 const DEFAULT_DESTROY_VERIFY_TIMEOUT_MS = 600_000
 const QUEUE_WAIT_LOG_INTERVAL_MS = Number(process.env.CLOUD_QUEUE_WAIT_LOG_INTERVAL_MS ?? 30_000)
+const CLOUD_HOURLY_BILLING_INTERVAL_MS = 15 * 60 * 1000
+const CLOUD_HOURLY_PREPAID_UNIT_MS = 60 * 60 * 1000
+const CLOUD_HOURLY_BILLING_MICROS_PER_COIN = 1_000_000
+const CLOUD_HOURLY_BILLING_SOURCE_PREFIX = 'cloud_hourly'
 
 type CloudDeploymentRecord = NonNullable<Awaited<ReturnType<CloudDeploymentDao['findByIdOnly']>>>
 type DeploymentStatus = CloudDeploymentRecord['status']
@@ -68,6 +75,12 @@ export type CloudDeploymentProcessorTickResult = {
   reconciled: boolean
 }
 
+export type CloudHourlyBillingCharge = {
+  intervals: number
+  amountMicros: number
+  billedUntil: Date
+}
+
 function extractKubeContext(kubeconfigYaml: string): string | undefined {
   const match = kubeconfigYaml.match(/current-context:\s*(\S+)/)
   return match?.[1]
@@ -85,6 +98,35 @@ function resolveDeploymentStackName(deployment: CloudDeploymentRecord): string {
   const clusterHash = createHash('sha256').update(clusterKey).digest('hex').slice(0, 10)
   const namespace = sanitizePulumiStackPart(deployment.namespace).slice(0, 60) || 'deployment'
   return `saas-${namespace}-${clusterHash}`
+}
+
+function cloudHourlyBillingSource() {
+  return CLOUD_HOURLY_BILLING_SOURCE_PREFIX
+}
+
+export function calculateCloudHourlyBillingCharge(input: {
+  lastBilledAt: Date
+  now: Date
+  hourlyCost: number
+}): CloudHourlyBillingCharge | null {
+  if (!Number.isFinite(input.hourlyCost) || input.hourlyCost <= 0) return null
+  const elapsedMs = input.now.getTime() - input.lastBilledAt.getTime()
+  const intervals = Math.floor(elapsedMs / CLOUD_HOURLY_BILLING_INTERVAL_MS)
+  if (intervals <= 0) return null
+
+  const billedUntil = new Date(
+    input.lastBilledAt.getTime() + intervals * CLOUD_HOURLY_BILLING_INTERVAL_MS,
+  )
+  const amountMicros = Math.round(
+    (input.hourlyCost *
+      intervals *
+      CLOUD_HOURLY_BILLING_INTERVAL_MS *
+      CLOUD_HOURLY_BILLING_MICROS_PER_COIN) /
+      (60 * 60 * 1000),
+  )
+  if (amountMicros <= 0) return null
+
+  return { intervals, amountMicros, billedUntil }
 }
 
 export async function resolveDeploymentShadowProvisionToken(
@@ -160,12 +202,307 @@ async function refundFailedCloudDeploymentCharge(
   }
 }
 
+async function reverseFailedCloudDeploymentRefundIfNeeded(
+  deployment: CloudDeploymentRecord,
+  database: Database,
+) {
+  const amount = deployment.monthlyCost ?? 0
+  if (!deployment.saasMode || amount <= 0) return
+
+  try {
+    const walletDao = new WalletDao({ db: database })
+    const wallet = await walletDao.getOrCreate(deployment.userId)
+    const [refund] = await database
+      .select({ id: walletTransactions.id })
+      .from(walletTransactions)
+      .where(
+        and(
+          eq(walletTransactions.walletId, wallet.id),
+          eq(walletTransactions.referenceId, deployment.id),
+          eq(walletTransactions.referenceType, 'cloud_deploy_failed'),
+        ),
+      )
+      .limit(1)
+    if (!refund) return
+
+    const [existingRecoveryCharge] = await database
+      .select({ id: walletTransactions.id })
+      .from(walletTransactions)
+      .where(
+        and(
+          eq(walletTransactions.walletId, wallet.id),
+          eq(walletTransactions.referenceId, deployment.id),
+          eq(walletTransactions.referenceType, 'cloud_deploy_recovered'),
+        ),
+      )
+      .limit(1)
+    if (existingRecoveryCharge) return
+
+    const ledgerService = new LedgerService({ walletDao, db: database })
+    await ledgerService.debit({
+      userId: deployment.userId,
+      amount,
+      type: 'purchase',
+      referenceId: deployment.id,
+      referenceType: 'cloud_deploy_recovered',
+      note: `Recovered cloud deployment charge: ${deployment.name}`,
+    })
+    await deploymentDaoSafeLog(
+      deployment.id,
+      `[billing] Re-applied ${amount} Shrimp Coins after Kubernetes recovery marked the deployment live`,
+      database,
+    )
+  } catch (err) {
+    logger.error(
+      {
+        deploymentId: deployment.id,
+        userId: deployment.userId,
+        amount,
+        err,
+      },
+      'Failed to re-apply SaaS deployment charge after recovery',
+    )
+    await deploymentDaoSafeLog(
+      deployment.id,
+      `[billing] Failed to re-apply ${amount} Shrimp Coins after Kubernetes recovery; deployment remains failed for billing review`,
+      database,
+    )
+    throw err
+  }
+}
+
 async function deploymentDaoSafeLog(deploymentId: string, message: string, database: Database) {
   try {
     await new CloudDeploymentDao({ db: database }).appendLog(deploymentId, message, 'info')
   } catch {
     // Billing refund must not fail just because deployment logs are unavailable.
   }
+}
+
+async function markCloudDeploymentDeployedWithInitialBilling(
+  deployment: CloudDeploymentRecord,
+  deploymentDao: CloudDeploymentDao,
+  database: Database,
+  agentCount: number,
+  now = new Date(),
+) {
+  if (!deployment.saasMode || (deployment.hourlyCost ?? 0) <= 0) {
+    return {
+      deployment: await deploymentDao.markDeployed(deployment.id, agentCount, now),
+      charged: false,
+      billedUntil: now,
+    }
+  }
+
+  const hourlyCost = deployment.hourlyCost ?? 0
+  const billedUntil = new Date(now.getTime() + CLOUD_HOURLY_PREPAID_UNIT_MS)
+  const walletDao = new WalletDao({ db: database })
+  const ledgerService = new LedgerService({ walletDao, db: database })
+
+  return database.transaction(async (tx) => {
+    const walletRows = await tx
+      .select({ id: wallets.id })
+      .from(wallets)
+      .where(eq(wallets.userId, deployment.userId))
+      .limit(1)
+
+    const wallet = walletRows[0]
+    const existingCharge = wallet
+      ? await tx
+          .select({ id: walletTransactions.id })
+          .from(walletTransactions)
+          .where(
+            and(
+              eq(walletTransactions.walletId, wallet.id),
+              eq(walletTransactions.referenceId, deployment.id),
+              eq(walletTransactions.referenceType, CLOUD_HOURLY_BILLING_SOURCE_PREFIX),
+            ),
+          )
+          .limit(1)
+      : []
+
+    const charged = existingCharge.length === 0
+    if (charged) {
+      await ledgerService.debit(
+        {
+          userId: deployment.userId,
+          amount: hourlyCost,
+          type: 'purchase',
+          referenceId: deployment.id,
+          referenceType: CLOUD_HOURLY_BILLING_SOURCE_PREFIX,
+          note: `Cloud deployment first hourly unit: ${deployment.name}`,
+        },
+        tx,
+      )
+    }
+
+    const [updated] = await tx
+      .update(cloudDeployments)
+      .set({
+        status: 'deployed' as DeploymentStatus,
+        agentCount,
+        errorMessage: null,
+        lastHourlyBilledAt: billedUntil,
+        updatedAt: now,
+      })
+      .where(eq(cloudDeployments.id, deployment.id))
+      .returning()
+
+    return { deployment: updated ?? null, charged, billedUntil }
+  })
+}
+
+async function handleInitialCloudHourlyBillingFailure(
+  deployment: CloudDeploymentRecord,
+  deploymentDao: CloudDeploymentDao,
+  err: unknown,
+) {
+  const error = err as { status?: number; code?: string; balance?: number; shortfall?: number }
+  const reason =
+    (error.status ?? 500) === 402 || error.code === 'WALLET_INSUFFICIENT_BALANCE'
+      ? `wallet insufficient for initial cloud hourly billing (balance=${error.balance ?? 'unknown'}, shortfall=${error.shortfall ?? 'unknown'})`
+      : `initial cloud hourly billing failed: ${err instanceof Error ? err.message : String(err)}`
+
+  logger.warn({ deploymentId: deployment.id, userId: deployment.userId, err }, reason)
+  await deploymentDao.appendLog(deployment.id, `[billing] ${reason}; stopping deployment`, 'error')
+  await deploymentDao.updateStatus(deployment.id, 'destroying', reason)
+}
+
+async function settleCloudDeploymentHourlyUsage(
+  deployment: CloudDeploymentRecord,
+  deploymentDao: CloudDeploymentDao,
+  database: Database,
+  now = new Date(),
+) {
+  if (!deployment.saasMode) return null
+  const hourlyCost = deployment.hourlyCost ?? 0
+  const lastBilledAt = deployment.lastHourlyBilledAt ?? deployment.updatedAt ?? deployment.createdAt
+  const charge = calculateCloudHourlyBillingCharge({ lastBilledAt, now, hourlyCost })
+  if (!charge) return null
+
+  const walletDao = new WalletDao({ db: database })
+  const ledgerService = new LedgerService({ walletDao, db: database })
+  const result = await ledgerService.settleReservedMicros(
+    deployment.userId,
+    charge.amountMicros,
+    0,
+    cloudHourlyBillingSource(),
+    deployment.id,
+    'cloud_hourly',
+    `Cloud deployment hourly usage: ${deployment.name}`,
+  )
+
+  await deploymentDao.updateLastHourlyBilledAt(deployment.id, charge.billedUntil)
+  if (result.chargedAmount > 0) {
+    await deploymentDao.appendLog(
+      deployment.id,
+      `[billing] Charged ${result.chargedAmount} Shrimp Coin(s) for ${charge.intervals * 15} minutes of deployment runtime`,
+      'info',
+    )
+  }
+
+  return { charge, result }
+}
+
+async function handleCloudHourlyBillingFailure(
+  deployment: CloudDeploymentRecord,
+  deploymentDao: CloudDeploymentDao,
+  err: unknown,
+) {
+  const error = err as { status?: number; code?: string; balance?: number; shortfall?: number }
+  if ((error.status ?? 500) === 402 || error.code === 'WALLET_INSUFFICIENT_BALANCE') {
+    await deploymentDao.appendLog(
+      deployment.id,
+      `[billing] Wallet balance is insufficient for hourly deployment usage; stopping deployment (balance=${error.balance ?? 'unknown'}, shortfall=${error.shortfall ?? 'unknown'})`,
+      'error',
+    )
+    await deploymentDao.updateStatus(
+      deployment.id,
+      'destroying',
+      'wallet insufficient for cloud hourly billing',
+    )
+    return
+  }
+
+  logger.error(
+    { deploymentId: deployment.id, userId: deployment.userId, err },
+    'Cloud deployment hourly billing failed',
+  )
+  await deploymentDao
+    .appendLog(
+      deployment.id,
+      `[billing] Hourly usage settlement failed: ${err instanceof Error ? err.message : String(err)}`,
+      'error',
+    )
+    .catch(() => null)
+}
+
+export function isUserCancelledDeploymentError(
+  token: Pick<RunningOperationToken, 'cancelled'>,
+  message: string,
+): boolean {
+  return (
+    token.cancelled ||
+    message === 'Deployment cancelled by user' ||
+    message === 'Destroy cancelled by user'
+  )
+}
+
+export function hasReadyDeploymentRuntimeResources(
+  recovery: DeploymentRecoveryProbeResult | null,
+): recovery is DeploymentRecoveryProbeResult {
+  return Boolean(
+    recovery &&
+      recovery.agentCount > 0 &&
+      recovery.readyPods >= recovery.agentCount &&
+      recovery.podNames.length >= recovery.agentCount,
+  )
+}
+
+function isCloudDeploymentRecoveryEnabled(): boolean {
+  return process.env.CLOUD_DEPLOYMENT_RECOVERY_MODE !== '0'
+}
+
+async function recoverDeploymentFromReadyRuntimeResources(
+  deployment: CloudDeploymentRecord,
+  deploymentDao: CloudDeploymentDao,
+  database: Database,
+  kubeconfig?: string,
+): Promise<boolean> {
+  const recovery = await probeDeploymentRuntimeResources(deployment.namespace, kubeconfig).catch(
+    () => null,
+  )
+  if (!hasReadyDeploymentRuntimeResources(recovery)) return false
+
+  await deploymentDao.appendLog(
+    deployment.id,
+    `[reconcile] Kubernetes has ${recovery.agentCount} ready OpenClaw pod(s) in namespace "${deployment.namespace}": ${recovery.podNames.join(', ')}`,
+    'warn',
+  )
+  await reverseFailedCloudDeploymentRefundIfNeeded(deployment, database)
+  await deploymentDao.appendLog(
+    deployment.id,
+    '[reconcile] Marking deployment as deployed to keep Shadow Cloud state consistent with Kubernetes.',
+    'warn',
+  )
+  try {
+    const billing = await markCloudDeploymentDeployedWithInitialBilling(
+      deployment,
+      deploymentDao,
+      database,
+      recovery.agentCount,
+    )
+    if (billing.charged) {
+      await deploymentDao.appendLog(
+        deployment.id,
+        `[billing] Charged ${deployment.hourlyCost ?? 0} Shrimp Coin(s) for the first hourly runtime unit`,
+        'info',
+      )
+    }
+  } catch (err) {
+    await handleInitialCloudHourlyBillingFailure(deployment, deploymentDao, err)
+  }
+  return true
 }
 
 export async function probeDeploymentRuntimeResources(
@@ -381,7 +718,7 @@ async function processCloudDeploymentQueueTick(
       ['destroying'],
       deploymentDao,
       async (latestDeployment) => {
-        await processDestroy(latestDeployment, deploymentDao, clusterDao, container)
+        await processDestroy(latestDeployment, deploymentDao, clusterDao, container, database)
       },
     )
   }
@@ -398,6 +735,22 @@ async function processCloudDeploymentQueueTick(
     )
   }
 
+  const billable = (await deploymentDao.listHourlyBillable()).filter(includeDeployment)
+  for (const deployment of billable) {
+    await withWorkerLockedDeployment(
+      deployment.id,
+      ['deployed'],
+      deploymentDao,
+      async (latestDeployment) => {
+        try {
+          await settleCloudDeploymentHourlyUsage(latestDeployment, deploymentDao, database)
+        } catch (err) {
+          await handleCloudHourlyBillingFailure(latestDeployment, deploymentDao, err)
+        }
+      },
+    )
+  }
+
   let reconciled = false
   const now = Date.now()
   if (options.reconcile && now - runtime.lastReconcileAt >= RECONCILE_INTERVAL_MS) {
@@ -405,6 +758,9 @@ async function processCloudDeploymentQueueTick(
     reconciled = true
     await reconcileOrphans(deploymentDao, clusterDao).catch((err) => {
       logger.error({ err }, 'Cloud deployment reconcile error')
+    })
+    await reconcileReadyFailedDeployments(deploymentDao, clusterDao, database).catch((err) => {
+      logger.error({ err }, 'Cloud failed deployment recovery error')
     })
   }
 
@@ -722,35 +1078,41 @@ async function processDeployment(
     if (result.provisionState && !provisionStatePersisted) {
       await persistProvisionState(result.provisionState)
     }
-    await deploymentDao.markDeployed(deployment.id, result.agentCount)
+    try {
+      const billing = await markCloudDeploymentDeployedWithInitialBilling(
+        deployment,
+        deploymentDao,
+        database,
+        result.agentCount,
+      )
+      if (billing.charged) {
+        await deploymentDao.appendLog(
+          deployment.id,
+          `[billing] Charged ${deployment.hourlyCost ?? 0} Shrimp Coin(s) for the first hourly runtime unit`,
+          'info',
+        )
+      }
+    } catch (err) {
+      await handleInitialCloudHourlyBillingFailure(deployment, deploymentDao, err)
+      return
+    }
     logger.info(
       { deploymentId: deployment.id, agentCount: result.agentCount },
       'Deployment completed',
     )
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    const cancelled = cancelToken.cancelled || /cancel/i.test(msg)
+    const cancelled = isUserCancelledDeploymentError(cancelToken, msg)
     logger.error({ deploymentId: deployment.id, error: msg }, 'Deployment failed')
 
-    if (!cancelled && process.env.CLOUD_DEPLOYMENT_RECOVERY_MODE === '1') {
-      const recovery = await probeDeploymentRuntimeResources(
-        deployment.namespace,
+    if (!cancelled && isCloudDeploymentRecoveryEnabled()) {
+      const recovered = await recoverDeploymentFromReadyRuntimeResources(
+        deployment,
+        deploymentDao,
+        database,
         activeKubeconfig,
-      ).catch(() => null)
-      if (recovery) {
-        await deploymentDao.appendLog(
-          deployment.id,
-          `[reconcile] Pulumi reported failure, but ${recovery.agentCount} OpenClaw pod(s) exist in namespace "${deployment.namespace}" (${recovery.readyPods}/${recovery.agentCount} ready): ${recovery.podNames.join(', ')}`,
-          'warn',
-        )
-        await deploymentDao.appendLog(
-          deployment.id,
-          '[reconcile] Marking deployment as deployed to keep Shadow Cloud state consistent with Kubernetes. Review pod readiness and logs from the namespace page.',
-          'warn',
-        )
-        await deploymentDao.markDeployed(deployment.id, recovery.agentCount)
-        return
-      }
+      )
+      if (recovered) return
     } else if (!cancelled) {
       await deploymentDao.appendLog(
         deployment.id,
@@ -777,11 +1139,44 @@ async function processDeployment(
   }
 }
 
+async function settleFinalCloudHourlyBillingForDestroy(
+  destroyTask: CloudDeploymentRecord,
+  deploymentDao: CloudDeploymentDao,
+  database: Database,
+) {
+  const billableDeployment =
+    (await deploymentDao.findLatestHourlyBillableInNamespace({
+      userId: destroyTask.userId,
+      clusterId: destroyTask.clusterId,
+      namespace: destroyTask.namespace,
+      excludeId: destroyTask.id,
+    })) ?? (destroyTask.saasMode ? destroyTask : null)
+
+  if (!billableDeployment) return
+
+  try {
+    await settleCloudDeploymentHourlyUsage(billableDeployment, deploymentDao, database)
+  } catch (err) {
+    logger.warn(
+      { deploymentId: billableDeployment.id, destroyTaskId: destroyTask.id, err },
+      'Final cloud hourly billing failed before destroy completion',
+    )
+    await deploymentDao
+      .appendLog(
+        destroyTask.id,
+        `[billing] Final hourly usage settlement failed before destroy completion: ${err instanceof Error ? err.message : String(err)}`,
+        'warn',
+      )
+      .catch(() => null)
+  }
+}
+
 async function processDestroy(
   deployment: CloudDeploymentRecord,
   deploymentDao: CloudDeploymentDao,
   clusterDao: CloudClusterDao,
   container: ServiceContainer,
+  database: Database,
 ) {
   logger.info({ deploymentId: deployment.id, deploymentName: deployment.name }, 'Destroying stack')
   await deploymentDao.appendLog(deployment.id, `Starting destroy: ${deployment.name}`, 'info')
@@ -909,11 +1304,12 @@ async function processDestroy(
       `Namespace "${deployment.namespace}" destroyed successfully`,
       'info',
     )
+    await settleFinalCloudHourlyBillingForDestroy(deployment, deploymentDao, database)
     await deploymentDao.markNamespaceRowsDestroyed(deployment)
     logger.info({ deploymentId: deployment.id }, 'Destroy completed')
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    const cancelled = cancelToken.cancelled || /cancel/i.test(msg)
+    const cancelled = isUserCancelledDeploymentError(cancelToken, msg)
     logger.error({ deploymentId: deployment.id, error: msg }, 'Destroy failed')
     await deploymentDao.appendLog(
       deployment.id,
@@ -959,6 +1355,31 @@ async function processCancel(deployment: CloudDeploymentRecord, deploymentDao: C
     'warn',
   )
   await deploymentDao.updateStatus(deployment.id, 'failed', 'cancelled by user')
+}
+
+async function reconcileReadyFailedDeployments(
+  deploymentDao: CloudDeploymentDao,
+  clusterDao: CloudClusterDao,
+  database: Database,
+) {
+  if (!isCloudDeploymentRecoveryEnabled()) return
+
+  const windowMs = Number.isFinite(FAILED_DEPLOYMENT_RECOVERY_WINDOW_MS)
+    ? Math.max(0, FAILED_DEPLOYMENT_RECOVERY_WINDOW_MS)
+    : 30 * 60_000
+  if (windowMs <= 0) return
+
+  const since = new Date(Date.now() - windowMs)
+  const failed = await deploymentDao.listRecoverableFailedSince(since)
+  for (const deployment of failed) {
+    const cluster = await resolveClusterRuntime(deployment.clusterId, clusterDao).catch(() => null)
+    await recoverDeploymentFromReadyRuntimeResources(
+      deployment,
+      deploymentDao,
+      database,
+      cluster?.kubeconfig,
+    )
+  }
 }
 
 /**

@@ -378,10 +378,12 @@ describe('play launch orchestration', () => {
     const previousJwtSecret = process.env.JWT_SECRET
     const previousShadowServerUrl = process.env.SHADOW_SERVER_URL
     const previousShadowAgentServerUrl = process.env.SHADOW_AGENT_SERVER_URL
+    const previousUpstreamBaseUrl = process.env.SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL
     const previousUpstreamApiKey = process.env.SHADOW_MODEL_PROXY_UPSTREAM_API_KEY
     const previousModelProxyEnabled = process.env.SHADOW_MODEL_PROXY_ENABLED
     process.env.JWT_SECRET = 'test-secret'
     process.env.SHADOW_MODEL_PROXY_ENABLED = 'true'
+    process.env.SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL = 'https://model.example/v1'
     process.env.SHADOW_MODEL_PROXY_UPSTREAM_API_KEY = 'official-upstream-secret'
     delete process.env.SHADOW_SERVER_URL
     delete process.env.SHADOW_AGENT_SERVER_URL
@@ -411,13 +413,7 @@ describe('play launch orchestration', () => {
 
       expect(deps.membershipService.requireMember).toHaveBeenCalledWith('user-1', 'cloud:deploy')
       expect(deps.cloudTemplateDao.findBySlug).toHaveBeenCalledWith('gstack-buddy')
-      expect(deps.walletService.debit).toHaveBeenCalledWith(
-        'user-1',
-        500,
-        expect.any(String),
-        'cloud_deploy',
-        'Deploy gstack Strategy Buddy (lightweight)',
-      )
+      expect(deps.walletService.debit).not.toHaveBeenCalled()
       expect(deps.cloudDeploymentDao.create).toHaveBeenCalledWith(
         expect.objectContaining({
           userId: 'user-1',
@@ -425,6 +421,8 @@ describe('play launch orchestration', () => {
           namespace: expect.stringMatching(/^play-gstack-buddy-[a-f0-9]{8}$/),
           templateSlug: 'gstack-buddy',
           resourceTier: 'lightweight',
+          monthlyCost: 0,
+          hourlyCost: 1,
           saasMode: true,
           configSnapshot: expect.objectContaining({
             __shadowobRuntime: expect.objectContaining({
@@ -432,7 +430,6 @@ describe('play launch orchestration', () => {
                 SHADOW_SERVER_URL: 'http://localhost:3002',
                 OPENAI_COMPATIBLE_BASE_URL: 'http://localhost:3002/api/ai/v1',
                 OPENAI_COMPATIBLE_API_KEY: expect.stringMatching(/^smp_/),
-                OPENAI_COMPATIBLE_MODEL_ID: 'deepseek-v4-flash',
               }),
             }),
             use: expect.arrayContaining([
@@ -467,6 +464,9 @@ describe('play launch orchestration', () => {
       else process.env.SHADOW_SERVER_URL = previousShadowServerUrl
       if (previousShadowAgentServerUrl === undefined) delete process.env.SHADOW_AGENT_SERVER_URL
       else process.env.SHADOW_AGENT_SERVER_URL = previousShadowAgentServerUrl
+      if (previousUpstreamBaseUrl === undefined)
+        delete process.env.SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL
+      else process.env.SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL = previousUpstreamBaseUrl
       if (previousUpstreamApiKey === undefined)
         delete process.env.SHADOW_MODEL_PROXY_UPSTREAM_API_KEY
       else process.env.SHADOW_MODEL_PROXY_UPSTREAM_API_KEY = previousUpstreamApiKey
@@ -475,7 +475,7 @@ describe('play launch orchestration', () => {
     }
   })
 
-  it('surfaces a wallet paywall before creating a second cloud deployment', async () => {
+  it('surfaces a wallet paywall before queueing a cloud deployment without the first hourly unit', async () => {
     vi.spyOn(
       service as unknown as { findPublishedPlay(playId: string): Promise<unknown> },
       'findPublishedPlay',
@@ -484,10 +484,7 @@ describe('play launch orchestration', () => {
       status: 'gated',
       action: { kind: 'cloud_deploy', templateSlug: 'gstack-buddy', resourceTier: 'lightweight' },
     })
-    deps.cloudDeploymentDao.listByUser.mockResolvedValue([
-      { id: 'existing-deployment', status: 'deployed' },
-    ])
-    deps.walletService.getWallet.mockResolvedValue({ balance: 500 })
+    deps.walletService.getWallet.mockResolvedValue({ balance: 0 })
 
     await expect(
       service.launch('user-1', {
@@ -498,9 +495,9 @@ describe('play launch orchestration', () => {
     ).rejects.toMatchObject({
       code: 'WALLET_INSUFFICIENT_BALANCE',
       status: 402,
-      requiredAmount: 1000,
-      balance: 500,
-      shortfall: 500,
+      requiredAmount: 1,
+      balance: 0,
+      shortfall: 1,
       nextAction: 'earn_or_recharge',
     })
     expect(deps.cloudDeploymentDao.create).not.toHaveBeenCalled()

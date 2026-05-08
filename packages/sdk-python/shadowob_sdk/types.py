@@ -89,15 +89,15 @@ class ShadowModelProxyBilling:
     model: str
     models: list[str] = field(default_factory=list)
     shrimpMicrosPerCoin: int = 1_000_000
-    shrimpPerCny: float = 10
+    shrimpPerCny: float = 20
     inputTokensPerShrimp: float | None = None
     outputTokensPerShrimp: float | None = None
     inputCacheHitCnyPerMillionTokens: float = 0.02
     inputCacheMissCnyPerMillionTokens: float = 1
     outputCnyPerMillionTokens: float = 2
-    inputCacheHitShrimpPerMillionTokens: float = 0.2
-    inputCacheMissShrimpPerMillionTokens: float = 10
-    outputShrimpPerMillionTokens: float = 20
+    inputCacheHitShrimpPerMillionTokens: float = 0.4
+    inputCacheMissShrimpPerMillionTokens: float = 20
+    outputShrimpPerMillionTokens: float = 40
 
 
 @dataclass

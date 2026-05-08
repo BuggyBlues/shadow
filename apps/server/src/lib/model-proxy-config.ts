@@ -42,6 +42,34 @@ function firstNonEmptyEnv(...keys: string[]) {
   return null
 }
 
+export function officialModelProxyMissingConfig(runtimeServerUrl?: string): string[] {
+  if (!isOfficialModelProxyEnabled()) return ['SHADOW_MODEL_PROXY_ENABLED']
+
+  const missing: string[] = []
+  if (!runtimeServerUrl) missing.push('SHADOW_SERVER_URL or SHADOW_AGENT_SERVER_URL')
+  if (!firstNonEmptyEnv('SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL')) {
+    missing.push('SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL')
+  }
+  if (!firstNonEmptyEnv('SHADOW_MODEL_PROXY_UPSTREAM_API_KEY')) {
+    missing.push('SHADOW_MODEL_PROXY_UPSTREAM_API_KEY')
+  }
+  return missing
+}
+
+export function assertOfficialModelProxyAvailable(runtimeServerUrl?: string) {
+  const missing = officialModelProxyMissingConfig(runtimeServerUrl)
+  if (missing.length === 0) return
+
+  throw Object.assign(
+    new Error(`Official model provider is unavailable: missing ${missing.join(', ')}`),
+    {
+      status: 503,
+      code: 'OFFICIAL_MODEL_PROVIDER_UNCONFIGURED',
+      missing,
+    },
+  )
+}
+
 export function officialModelProxyModel() {
   return (
     firstNonEmptyEnv('SHADOW_MODEL_PROXY_MODEL', 'SHADOW_MODEL_PROXY_DEFAULT_MODEL') ??
@@ -61,7 +89,7 @@ export function officialModelProxyEnvVars(input: {
   templateSlug?: string
   namespace?: string
 }) {
-  if (!isOfficialModelProxyEnabled()) return {}
+  if (officialModelProxyMissingConfig(input.runtimeServerUrl).length > 0) return {}
   const baseUrl = officialModelProxyBaseUrl(input.runtimeServerUrl)
   if (!baseUrl) return {}
 
@@ -73,7 +101,6 @@ export function officialModelProxyEnvVars(input: {
       namespace: input.namespace,
     }),
     OPENAI_COMPATIBLE_BASE_URL: baseUrl,
-    OPENAI_COMPATIBLE_MODEL_ID: officialModelProxyModel(),
   }
 }
 

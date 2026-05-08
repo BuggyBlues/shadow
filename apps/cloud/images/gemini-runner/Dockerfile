@@ -16,9 +16,11 @@ FROM node:22-alpine AS builder
 
 WORKDIR /build
 
+ARG OPENCLAW_VERSION=2026.5.7
+
 # Install OpenClaw, Gemini CLI, and Shadow plugin
 RUN npm init -y && \
-    npm install openclaw@latest @google/gemini-cli@latest \
+    npm install "openclaw@${OPENCLAW_VERSION}" @google/gemini-cli@latest \
                 @shadowob/openclaw-shadowob@latest && \
     # Setup extensions directories
     mkdir -p extensions/shadowob && \

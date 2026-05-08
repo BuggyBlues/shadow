@@ -1,7 +1,6 @@
+import { getApiUrl } from './api-url'
 import { currentAppRedirect } from './auth-redirect'
-import { queryClient } from './query-client'
-
-const API_BASE = import.meta.env.VITE_API_BASE ?? ''
+import { clearAuthenticatedSession } from './auth-session'
 
 export class ApiError extends Error {
   status: number
@@ -42,17 +41,6 @@ export class ApiError extends Error {
   }
 }
 
-function getApiUrl(path: string): string {
-  if (/^https?:\/\//.test(path)) return path
-  if (API_BASE) return `${API_BASE}${path}`
-
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    return new URL(path, window.location.origin).toString()
-  }
-
-  return path
-}
-
 function getTestFetchApiMock():
   | ((path: string, options?: RequestInit) => Promise<unknown> | unknown)
   | null {
@@ -76,25 +64,17 @@ function isAuthEntryEndpoint(path: string) {
 }
 
 function clearAuthState() {
-  localStorage.removeItem('accessToken')
-  localStorage.removeItem('refreshToken')
-  // Clear query cache to prevent stale data on next session
-  queryClient.removeQueries()
-  queryClient.clear()
-  // Redirect to login page if not already there (full reload clears all in-memory state)
-  if (
-    !window.location.pathname.startsWith('/app/login') &&
-    !window.location.pathname.startsWith('/app/register')
-  ) {
-    window.location.href = `/app/login?redirect=${encodeURIComponent(currentAppRedirect())}`
-  }
+  clearAuthenticatedSession({
+    redirectToLogin: true,
+    redirect: currentAppRedirect(),
+  })
 }
 
 async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = localStorage.getItem('refreshToken')
   if (!refreshToken) return null
   try {
-    const res = await fetch(`${API_BASE}/api/auth/refresh`, {
+    const res = await fetch(getApiUrl('/api/auth/refresh'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken }),

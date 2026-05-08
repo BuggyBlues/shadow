@@ -43,6 +43,7 @@ export interface ActivityEntry {
   taskId?: string
   deploymentId?: string
   monthlyCost?: number
+  hourlyCost?: number
   resourceTier?: string
   userId?: string
   meta?: Record<string, unknown> | null

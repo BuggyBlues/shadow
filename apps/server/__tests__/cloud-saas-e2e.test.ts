@@ -5,8 +5,8 @@
  *   1. Browse template store (GET /api/cloud-saas/templates) → returns official templates
  *   2. Get wallet balance (GET /api/cloud-saas/wallet) → returns initial balance
  *   3. Fork a template (POST /api/cloud-saas/templates/:slug/fork)
- *   4. Deploy a template (POST /api/cloud-saas/deployments) → deducts coins
- *   5. View wallet transactions (GET /api/cloud-saas/wallet/transactions) → has deploy record
+ *   4. Deploy a template (POST /api/cloud-saas/deployments) → queues a time-billed deployment
+ *   5. View wallet transactions (GET /api/cloud-saas/wallet/transactions)
  *
  * Requires: docker compose postgres running on localhost:5432
  */
@@ -498,6 +498,9 @@ describe('Cloud SaaS — deployment state consistency', () => {
 
   it('claims an unblocked pending deployment through the worker and keeps API state consistent', async () => {
     const namespace = uniqueName('e2e-state-worker')
+    const walletBefore = (await (await req('GET', '/api/cloud-saas/wallet')).json()) as {
+      balance: number
+    }
 
     try {
       const createRes = await req('POST', '/api/cloud-saas/deployments', {
@@ -542,6 +545,21 @@ describe('Cloud SaaS — deployment state consistency', () => {
       })
       expect(detail.blockedBy).toBeNull()
 
+      const walletAfter = (await (await req('GET', '/api/cloud-saas/wallet')).json()) as {
+        balance: number
+      }
+      expect(walletAfter.balance).toBe(walletBefore.balance - 1)
+
+      const txRes = await req('GET', '/api/cloud-saas/wallet/transactions')
+      const txBody = (await txRes.json()) as {
+        transactions: Array<{ amount: number; referenceId?: string; referenceType?: string }>
+      }
+      expect(
+        txBody.transactions.find(
+          (tx) => tx.referenceType === 'cloud_hourly' && tx.referenceId === created.id,
+        ),
+      ).toMatchObject({ amount: -1 })
+
       const logs = await db
         .select()
         .from(schema.cloudDeploymentLogs)
@@ -550,6 +568,7 @@ describe('Cloud SaaS — deployment state consistency', () => {
       expect(logs.some((log) => log.message.includes('Starting deployment'))).toBe(true)
       expect(logs.some((log) => log.message.includes('fake pulumi deploy output'))).toBe(true)
       expect(logs.some((log) => log.message.includes('Deployment complete'))).toBe(true)
+      expect(logs.some((log) => log.message.includes('first hourly runtime unit'))).toBe(true)
     } finally {
       await db
         .delete(schema.cloudDeployments)
@@ -1267,9 +1286,13 @@ describe('Cloud SaaS — deployment + billing', () => {
     const previousShadowServerUrl = process.env.SHADOW_SERVER_URL
     const previousModel = process.env.SHADOW_MODEL_PROXY_MODEL
     const previousProxyEnabled = process.env.SHADOW_MODEL_PROXY_ENABLED
+    const previousUpstreamBaseUrl = process.env.SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL
+    const previousUpstreamApiKey = process.env.SHADOW_MODEL_PROXY_UPSTREAM_API_KEY
     process.env.SHADOW_SERVER_URL = 'http://shadow.test'
     process.env.SHADOW_MODEL_PROXY_MODEL = 'deepseek-v4-flash'
     process.env.SHADOW_MODEL_PROXY_ENABLED = 'true'
+    process.env.SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL = 'https://model.example/v1'
+    process.env.SHADOW_MODEL_PROXY_UPSTREAM_API_KEY = 'official-upstream-secret'
 
     try {
       const namespace = uniqueName('e2e-official-provider-ns')
@@ -1299,7 +1322,7 @@ describe('Cloud SaaS — deployment + billing', () => {
       expect(runtime.OPENAI_COMPATIBLE_BASE_URL).toBe('http://shadow.test/api/ai/v1')
       expect(runtime.OPENAI_COMPATIBLE_API_KEY).toMatch(/^smp_/)
       expect(runtime.OPENAI_COMPATIBLE_API_KEY).not.toBe('user-supplied-key')
-      expect(runtime.OPENAI_COMPATIBLE_MODEL_ID).toBe('deepseek-v4-flash')
+      expect(runtime.OPENAI_COMPATIBLE_MODEL_ID).toBeUndefined()
       expect(runtime.DEEPSEEK_API_KEY).toBeUndefined()
     } finally {
       if (previousShadowServerUrl === undefined) delete process.env.SHADOW_SERVER_URL
@@ -1308,6 +1331,56 @@ describe('Cloud SaaS — deployment + billing', () => {
       else process.env.SHADOW_MODEL_PROXY_MODEL = previousModel
       if (previousProxyEnabled === undefined) delete process.env.SHADOW_MODEL_PROXY_ENABLED
       else process.env.SHADOW_MODEL_PROXY_ENABLED = previousProxyEnabled
+      if (previousUpstreamBaseUrl === undefined)
+        delete process.env.SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL
+      else process.env.SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL = previousUpstreamBaseUrl
+      if (previousUpstreamApiKey === undefined)
+        delete process.env.SHADOW_MODEL_PROXY_UPSTREAM_API_KEY
+      else process.env.SHADOW_MODEL_PROXY_UPSTREAM_API_KEY = previousUpstreamApiKey
+    }
+  })
+
+  it('POST /api/cloud-saas/deployments rejects official model mode when upstream provider env is missing', async () => {
+    const previousShadowServerUrl = process.env.SHADOW_SERVER_URL
+    const previousModelProxyEnabled = process.env.SHADOW_MODEL_PROXY_ENABLED
+    const previousUpstreamBaseUrl = process.env.SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL
+    const previousUpstreamApiKey = process.env.SHADOW_MODEL_PROXY_UPSTREAM_API_KEY
+    process.env.SHADOW_SERVER_URL = 'http://shadow.test'
+    process.env.SHADOW_MODEL_PROXY_ENABLED = 'true'
+    delete process.env.SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL
+    delete process.env.SHADOW_MODEL_PROXY_UPSTREAM_API_KEY
+
+    try {
+      const createRes = await req('POST', '/api/cloud-saas/deployments', {
+        namespace: uniqueName('e2e-official-provider-missing-ns'),
+        name: uniqueName('e2e-official-provider-missing-deploy'),
+        templateSlug: officialTemplateSlug,
+        resourceTier: 'lightweight',
+        configSnapshot: {
+          ...makeConfigSnapshot('official-provider-missing-secret'),
+          use: [{ plugin: 'model-provider' }],
+          [CLOUD_SAAS_RUNTIME_KEY]: {
+            modelProviderMode: 'official',
+          },
+        },
+      })
+
+      expect(createRes.status).toBe(503)
+      const body = (await createRes.json()) as { ok: boolean; error: string }
+      expect(body.ok).toBe(false)
+      expect(body.error).toContain('SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL')
+      expect(body.error).toContain('SHADOW_MODEL_PROXY_UPSTREAM_API_KEY')
+    } finally {
+      if (previousShadowServerUrl === undefined) delete process.env.SHADOW_SERVER_URL
+      else process.env.SHADOW_SERVER_URL = previousShadowServerUrl
+      if (previousModelProxyEnabled === undefined) delete process.env.SHADOW_MODEL_PROXY_ENABLED
+      else process.env.SHADOW_MODEL_PROXY_ENABLED = previousModelProxyEnabled
+      if (previousUpstreamBaseUrl === undefined)
+        delete process.env.SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL
+      else process.env.SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL = previousUpstreamBaseUrl
+      if (previousUpstreamApiKey === undefined)
+        delete process.env.SHADOW_MODEL_PROXY_UPSTREAM_API_KEY
+      else process.env.SHADOW_MODEL_PROXY_UPSTREAM_API_KEY = previousUpstreamApiKey
     }
   })
 
@@ -1692,7 +1765,7 @@ describe('Cloud SaaS — deployment + billing', () => {
     }
   })
 
-  it('POST /api/cloud-saas/deployments deducts coins, creates deployment, and redacts config secrets', async () => {
+  it('POST /api/cloud-saas/deployments creates a time-billed deployment and redacts config secrets', async () => {
     // Get balance before
     const walletBefore = (await (await req('GET', '/api/cloud-saas/wallet')).json()) as {
       balance: number
@@ -1712,6 +1785,8 @@ describe('Cloud SaaS — deployment + billing', () => {
     const deployment = (await res.json()) as {
       id: string
       saasMode: boolean
+      monthlyCost: number | null
+      hourlyCost: number
       configSnapshot: {
         apiKey?: string
         deployments?: {
@@ -1722,6 +1797,8 @@ describe('Cloud SaaS — deployment + billing', () => {
       }
     }
     expect(deployment.saasMode).toBe(true)
+    expect(deployment.monthlyCost).toBe(0)
+    expect(deployment.hourlyCost).toBe(1)
     expect(deployment.configSnapshot.__shadowobRuntime).toBeUndefined()
     expect(deployment.configSnapshot.apiKey).toBe('[REDACTED]')
     expect(deployment.configSnapshot.deployments?.secrets?.API_KEY).toBe('[REDACTED]')
@@ -1733,19 +1810,79 @@ describe('Cloud SaaS — deployment + billing', () => {
     expect(detail.configSnapshot.__shadowobRuntime).toBeUndefined()
     expect(detail.configSnapshot.deployments?.secrets?.API_KEY).toBe('[REDACTED]')
 
-    // Balance should decrease
     const walletAfter = (await (await req('GET', '/api/cloud-saas/wallet')).json()) as {
       balance: number
     }
-    expect(walletAfter.balance).toBeLessThan(walletBefore.balance)
+    expect(walletAfter.balance).toBe(walletBefore.balance)
 
-    // Transaction should appear
     const txRes = await req('GET', '/api/cloud-saas/wallet/transactions')
     const txBody = (await txRes.json()) as {
       transactions: Array<{ type: string; referenceType?: string }>
     }
     const deployTx = txBody.transactions.find((tx) => tx.referenceType === 'cloud_deploy')
-    expect(deployTx).toBeDefined()
+    expect(deployTx).toBeUndefined()
+  })
+
+  it('worker bills deployed Cloud SaaS runtime hourly with 15-minute precision', async () => {
+    const namespace = uniqueName('e2e-hourly-billing-ns')
+    const walletBefore = (await (await req('GET', '/api/cloud-saas/wallet')).json()) as {
+      balance: number
+    }
+
+    try {
+      const [deployment] = await db
+        .insert(schema.cloudDeployments)
+        .values({
+          userId,
+          namespace,
+          name: `${namespace}-agent`,
+          status: 'deployed',
+          agentCount: 1,
+          configSnapshot: makeConfigSnapshot('hourly-billing-secret'),
+          templateSlug: officialTemplateSlug,
+          resourceTier: 'lightweight',
+          monthlyCost: 0,
+          hourlyCost: 1,
+          lastHourlyBilledAt: new Date(Date.now() - 60 * 60 * 1000),
+          saasMode: true,
+        })
+        .returning()
+
+      await processCloudDeploymentQueueOnce({
+        database: db,
+        container: createFakeCloudWorkerContainer(),
+        reconcile: false,
+        deploymentIds: [deployment!.id],
+      })
+
+      const walletAfter = (await (await req('GET', '/api/cloud-saas/wallet')).json()) as {
+        balance: number
+      }
+      expect(walletAfter.balance).toBe(walletBefore.balance - 1)
+
+      const txRes = await req('GET', '/api/cloud-saas/wallet/transactions')
+      const txBody = (await txRes.json()) as {
+        transactions: Array<{ amount: number; referenceId?: string; referenceType?: string }>
+      }
+      expect(
+        txBody.transactions.find(
+          (tx) => tx.referenceType === 'cloud_hourly' && tx.referenceId === deployment!.id,
+        ),
+      ).toMatchObject({ amount: -1 })
+
+      const [updated] = await db
+        .select()
+        .from(schema.cloudDeployments)
+        .where(eq(schema.cloudDeployments.id, deployment!.id))
+        .limit(1)
+      expect(updated!.lastHourlyBilledAt!.getTime()).toBeGreaterThan(
+        deployment!.lastHourlyBilledAt!.getTime(),
+      )
+    } finally {
+      await db
+        .delete(schema.cloudDeployments)
+        .where(eq(schema.cloudDeployments.namespace, namespace))
+    }
   })
 
   it('GET /api/cloud-saas/deployments/costs and /:id/costs return token usage summaries', async () => {
@@ -1894,7 +2031,7 @@ describe('Cloud SaaS — deployment + billing', () => {
     expect(matchingNamespace?.billingAmount).toBe(0.12)
   })
 
-  it('POST /api/cloud-saas/deployments/:id/redeploy creates a durable history entry without charging again', async () => {
+  it('POST /api/cloud-saas/deployments/:id/redeploy creates a durable history entry without an upfront charge', async () => {
     const namespace = uniqueName('e2e-redeploy-ns')
     const walletBefore = (await (await req('GET', '/api/cloud-saas/wallet')).json()) as {
       balance: number
@@ -2236,10 +2373,10 @@ describe('Cloud SaaS — deployment + billing', () => {
     const walletAfter = (await (await req('GET', '/api/cloud-saas/wallet')).json()) as {
       balance: number
     }
-    expect(walletAfter.balance).toBe(walletBefore.balance - 500)
+    expect(walletAfter.balance).toBe(walletBefore.balance)
   })
 
-  it('POST /api/cloud-saas/deployments rejects undeployable templates before charging wallet', async () => {
+  it('POST /api/cloud-saas/deployments rejects undeployable templates before queueing runtime billing', async () => {
     const walletBefore = (await (await req('GET', '/api/cloud-saas/wallet')).json()) as {
       balance: number
     }

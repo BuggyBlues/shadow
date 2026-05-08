@@ -136,6 +136,8 @@ export const cloudDeployments = pgTable(
     templateSlug: varchar('template_slug', { length: 255 }),
     resourceTier: varchar('resource_tier', { length: 32 }),
     monthlyCost: integer('monthly_cost'),
+    hourlyCost: integer('hourly_cost').default(1).notNull(),
+    lastHourlyBilledAt: timestamp('last_hourly_billed_at', { withTimezone: true }),
     saasMode: boolean('saas_mode').default(false).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
