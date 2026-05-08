@@ -76,7 +76,7 @@ You can use this repo to build a product where:
 ### Prerequisites
 
 - Docker and Docker Compose v2 for the fastest product run.
-- Node.js 22+ and pnpm 10+ for local development.
+- Node.js 22.14+ and pnpm 10+ for local development.
 
 ### Option 1: Run the Product With Docker
 

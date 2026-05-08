@@ -30,7 +30,11 @@ import { requestCloudDeploymentCancellation } from '../lib/cloud-deployment-proc
 import { extractShadowProvisionTarget } from '../lib/cloud-shadow-target'
 import { validateJsonLimits } from '../lib/json-limits'
 import { decrypt, encrypt } from '../lib/kms'
-import { officialModelProxyEnvVars, shouldCopyServerRuntimeEnvKey } from '../lib/model-proxy-config'
+import {
+  assertOfficialModelProxyAvailable,
+  officialModelProxyEnvVars,
+  shouldCopyServerRuntimeEnvKey,
+} from '../lib/model-proxy-config'
 import { assertSafeHttpUrl } from '../lib/ssrf'
 import { authMiddleware } from '../middleware/auth.middleware'
 import { createRateLimitMiddleware } from '../middleware/rate-limit.middleware'
@@ -49,14 +53,6 @@ import {
   normalizeLlmProviderModels,
   parseDiscoveredModelsFromResponse,
 } from '../services/llm-provider-platform'
-
-// ─── Resource tier cost map (Shrimp Coins / month) ──────────────────────────
-
-const TIER_COST: Record<string, number> = {
-  lightweight: 500,
-  standard: 1200,
-  pro: 2800,
-}
 
 const OFFICIAL_MODEL_PROXY_ENV_KEYS = new Set([
   'OPENAI_COMPATIBLE_API_KEY',
@@ -140,14 +136,8 @@ function readCloudStoreModelProviderMode(
   if (runtime.officialModelProxy === true) return 'official'
   return null
 }
-const SECOND_CLOUD_DEPLOY_MIN_BALANCE = 1000
-const CURRENT_CLOUD_DEPLOYMENT_STATUSES = new Set([
-  'pending',
-  'deploying',
-  'deployed',
-  'destroying',
-  'cancelling',
-])
+const CLOUD_DEPLOYMENT_HOURLY_COST = 1
+const CLOUD_DEPLOYMENT_BILLING_PRECISION_MINUTES = 15
 
 const deploymentRuntimeContextSchema = z
   .object({
@@ -1130,20 +1120,14 @@ function requestOrigin(c: Context): string | undefined {
   return `${proto}://${host}`
 }
 
-async function enforceSecondCloudDeployStarterBalance(
+async function enforceCloudDeployStarterBalance(
   container: AppContainer,
   userId: string,
-  monthlyCost: number,
+  hourlyCost: number,
 ) {
-  if (monthlyCost <= 0) return
-  const deploymentDao = container.resolve('cloudDeploymentDao')
-  const existingDeployments = await deploymentDao.listByUser(userId, 20, 0)
-  const hasCurrentDeployment = existingDeployments.some((deployment) =>
-    CURRENT_CLOUD_DEPLOYMENT_STATUSES.has(deployment.status),
-  )
-  if (!hasCurrentDeployment) return
+  if (hourlyCost <= 0) return
 
-  const requiredAmount = Math.max(monthlyCost, SECOND_CLOUD_DEPLOY_MIN_BALANCE)
+  const requiredAmount = hourlyCost
   const walletService = container.resolve('walletService')
   const wallet = await walletService.getWallet(userId)
   const balance = wallet?.balance ?? 0
@@ -1352,6 +1336,7 @@ export function createCloudSaasHandler(container: AppContainer) {
     const usesOfficialModelProxy = usesModelProvider && modelProviderMode === 'official'
     if (usesOfficialModelProxy) {
       const runtimeServerUrl = shadowAgentServerUrl ?? shadowServerUrl
+      assertOfficialModelProxyAvailable(runtimeServerUrl)
       const proxyEnvVars = officialModelProxyEnvVars({
         runtimeServerUrl,
         userId,
@@ -2031,7 +2016,7 @@ export function createCloudSaasHandler(container: AppContainer) {
 
   /**
    * POST /api/cloud-saas/deployments
-   * Create a new SaaS deployment. Deducts Shrimp Coins from the user's wallet.
+   * Create a new SaaS deployment. Runtime usage is billed by the worker.
    */
   h.post(
     '/deployments',
@@ -2115,8 +2100,8 @@ export function createCloudSaasHandler(container: AppContainer) {
         )
       }
 
-      const baseCost = template.baseCost ?? 0
-      const monthlyCost = (TIER_COST[input.resourceTier] ?? 0) + baseCost
+      const hourlyCost = CLOUD_DEPLOYMENT_HOURLY_COST
+      const monthlyCost = 0
 
       // Get or use platform cluster, then reserve the namespace at the
       // deployment-instance level. A template can be deployed multiple times,
@@ -2152,23 +2137,10 @@ export function createCloudSaasHandler(container: AppContainer) {
           )
         }
 
-        // Deduct Shrimp Coins
-        await enforceSecondCloudDeployStarterBalance(container, user.userId, monthlyCost)
-        const walletService = container.resolve('walletService')
-        const deployRefId = crypto.randomUUID()
-        let charged = false
+        await enforceCloudDeployStarterBalance(container, user.userId, hourlyCost)
         let deploymentId: string | null = null
 
         try {
-          await walletService.debit(
-            user.userId,
-            monthlyCost,
-            deployRefId,
-            'cloud_deploy',
-            `部署 ${template.name} (${input.resourceTier})`,
-          )
-          charged = true
-
           // Create deployment record
           const deployment = await deploymentDao.create({
             userId: user.userId,
@@ -2191,6 +2163,7 @@ export function createCloudSaasHandler(container: AppContainer) {
               templateSlug: input.templateSlug,
               resourceTier: input.resourceTier,
               monthlyCost,
+              hourlyCost,
               saasMode: true,
             })
             .where(eq(cloudDeployments.id, deployment.id))
@@ -2221,6 +2194,8 @@ export function createCloudSaasHandler(container: AppContainer) {
               templateSlug: input.templateSlug,
               resourceTier: input.resourceTier,
               monthlyCost,
+              hourlyCost,
+              billingPrecisionMinutes: CLOUD_DEPLOYMENT_BILLING_PRECISION_MINUTES,
             },
           })
 
@@ -2241,20 +2216,6 @@ export function createCloudSaasHandler(container: AppContainer) {
               )
             } catch (cleanupErr) {
               console.error('[cloud-saas] failed to persist deployment create error:', cleanupErr)
-            }
-          }
-
-          if (charged) {
-            try {
-              await walletService.refund(
-                user.userId,
-                monthlyCost,
-                deployRefId,
-                'cloud_deploy',
-                `部署退款 ${template.name} (${input.resourceTier})`,
-              )
-            } catch (refundErr) {
-              console.error('[cloud-saas] failed to refund wallet after create error:', refundErr)
             }
           }
 
@@ -2356,6 +2317,8 @@ export function createCloudSaasHandler(container: AppContainer) {
       templateSlug: current.templateSlug,
       resourceTier: current.resourceTier,
       monthlyCost: current.monthlyCost,
+      hourlyCost: current.hourlyCost,
+      lastHourlyBilledAt: current.lastHourlyBilledAt,
       saasMode: current.saasMode,
     })
     if (!destroyTask) {
@@ -2592,6 +2555,7 @@ export function createCloudSaasHandler(container: AppContainer) {
           templateSlug: deployment.templateSlug,
           resourceTier: deployment.resourceTier,
           monthlyCost: deployment.monthlyCost,
+          hourlyCost: deployment.hourlyCost,
           saasMode: deployment.saasMode,
           updatedAt: new Date(),
         })

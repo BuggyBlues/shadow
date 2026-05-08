@@ -834,7 +834,7 @@ export function buildOpenClawConfig(
   normalizeLegacyToolsConfig(openclawConfig.tools)
   normalizeSkillsConfig(openclawConfig.skills)
 
-  // 19. Strip strict-schema-violating fields after plugins have contributed
+  // 20. Strip strict-schema-violating fields after plugins have contributed
   //     their prompt/context additions.
   const workspaceFiles = stripAndCollectWorkspaceFiles(openclawConfig, agent)
   if (Object.keys(workspaceFiles).length > 0) {

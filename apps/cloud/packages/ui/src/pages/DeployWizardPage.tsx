@@ -1935,10 +1935,8 @@ function StepDeploy({
   })
   const walletBalance = walletData?.balance ?? null
 
-  // Cost tiers (Shrimp Coins / month)
-  const TIER_COSTS: Record<string, number> = { lightweight: 500, standard: 1200, pro: 2800 }
-  const monthlyCost = TIER_COSTS['lightweight'] ?? 500
-  const hasEnoughBalance = walletBalance === null || walletBalance >= monthlyCost
+  const hourlyCost = 1
+  const hasEnoughBalance = walletBalance === null || walletBalance >= hourlyCost
   const deploymentEnvVars = useMemo(
     () => filterOfficialModelEnvVars(config.envVars, config.modelProviderMode),
     [config.envVars, config.modelProviderMode],
@@ -2458,7 +2456,7 @@ function StepDeploy({
                   label={t('deploy.estimatedCost')}
                   icon={<DollarSign size={11} />}
                   iconClassName="text-text-muted"
-                  value={`${monthlyCost} ${t('deploy.shrimpCoinsPerMonth')}`}
+                  value={`${hourlyCost} ${t('deploy.shrimpCoinsPerHour')}`}
                   valueClassName="text-sm font-medium"
                 />
               </MetricCardWrapper>

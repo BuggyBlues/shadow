@@ -46,7 +46,7 @@ describe('ModelProxyService', () => {
     process.env.SHADOW_MODEL_PROXY_MODEL = 'deepseek-v4-flash'
     process.env.SHADOW_MODEL_PROXY_UPSTREAM_API_KEY = 'official-upstream-key'
     process.env.SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL = 'https://model.example/v1'
-    process.env.SHADOW_MODEL_PROXY_SHRIMP_PER_CNY = '10'
+    process.env.SHADOW_MODEL_PROXY_SHRIMP_PER_CNY = '20'
     process.env.SHADOW_MODEL_PROXY_SHRIMP_MICROS_PER_COIN = '1000000'
     process.env.SHADOW_MODEL_PROXY_INPUT_CACHE_HIT_CNY_PER_MILLION = '0.02'
     process.env.SHADOW_MODEL_PROXY_INPUT_CACHE_MISS_CNY_PER_MILLION = '1'
@@ -76,13 +76,13 @@ describe('ModelProxyService', () => {
     }
   })
 
-  it('uses deepseek-v4-flash when model env vars are blank', () => {
+  it('exposes only the default public model alias', () => {
     process.env.SHADOW_MODEL_PROXY_MODEL = ''
     process.env.SHADOW_MODEL_PROXY_DEFAULT_MODEL = ''
 
     expect(service.modelsResponse().data).toEqual([
       {
-        id: 'deepseek-v4-flash',
+        id: 'default',
         object: 'model',
         created: 0,
         owned_by: 'shadow-official',
@@ -94,16 +94,16 @@ describe('ModelProxyService', () => {
     expect(service.billingResponse()).toMatchObject({
       enabled: true,
       currency: 'shrimp',
-      model: 'deepseek-v4-flash',
-      models: ['deepseek-v4-flash'],
+      model: 'default',
+      models: ['default'],
       shrimpMicrosPerCoin: 1_000_000,
-      shrimpPerCny: 10,
+      shrimpPerCny: 20,
       inputCacheHitCnyPerMillionTokens: 0.02,
       inputCacheMissCnyPerMillionTokens: 1,
       outputCnyPerMillionTokens: 2,
-      inputCacheHitShrimpPerMillionTokens: 0.2,
-      inputCacheMissShrimpPerMillionTokens: 10,
-      outputShrimpPerMillionTokens: 20,
+      inputCacheHitShrimpPerMillionTokens: 0.4,
+      inputCacheMissShrimpPerMillionTokens: 20,
+      outputShrimpPerMillionTokens: 40,
     })
     expect(JSON.stringify(service.billingResponse())).not.toContain('official-upstream-key')
   })
@@ -115,9 +115,9 @@ describe('ModelProxyService', () => {
     expect(service.billingResponse()).toMatchObject({
       inputTokensPerShrimp: null,
       outputTokensPerShrimp: null,
-      inputCacheHitShrimpPerMillionTokens: 0.2,
-      inputCacheMissShrimpPerMillionTokens: 10,
-      outputShrimpPerMillionTokens: 20,
+      inputCacheHitShrimpPerMillionTokens: 0.4,
+      inputCacheMissShrimpPerMillionTokens: 20,
+      outputShrimpPerMillionTokens: 40,
     })
   })
 
@@ -140,7 +140,7 @@ describe('ModelProxyService', () => {
 
     const identity = await service.resolveIdentity(`Bearer ${token}`)
     const response = await service.proxyChatCompletions(identity, {
-      model: 'deepseek-v4-flash',
+      model: 'default',
       max_tokens: 500,
       messages: [{ role: 'user', content: 'hello' }],
     })
@@ -165,7 +165,7 @@ describe('ModelProxyService', () => {
     )
     expect(walletService.settleReservedMicros).toHaveBeenCalledWith(
       'user-1',
-      20_000,
+      40_000,
       1,
       'model_proxy',
       expect.any(String),
@@ -290,7 +290,7 @@ describe('ModelProxyService', () => {
     expect(response.status).toBe(200)
     expect(walletService.settleReservedMicros).toHaveBeenCalledWith(
       'user-1',
-      200_000,
+      400_000,
       1,
       'model_proxy',
       expect.any(String),

@@ -111,6 +111,102 @@ describe('ShadowClient', () => {
     })
   })
 
+  describe('media helpers', () => {
+    beforeEach(() => {
+      globalThis.fetch = vi.fn() as typeof fetch
+    })
+
+    afterEach(() => {
+      restoreStubbedGlobals()
+    })
+
+    it('downloads Shadow content refs with bearer auth before re-uploading', async () => {
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(new Uint8Array([1, 2, 3]), {
+            status: 200,
+            headers: {
+              'content-disposition': 'inline; filename="private.png"',
+              'content-type': 'image/png',
+            },
+          }),
+        )
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({ url: '/shadow/uploads/new.png', key: 'new.png', size: 3 }),
+            {
+              status: 201,
+              headers: { 'content-type': 'application/json' },
+            },
+          ),
+        )
+      globalThis.fetch = mockFetch as typeof fetch
+
+      const result = await client.uploadMediaFromUrl('/shadow/uploads/private.png', 'message-1')
+
+      expect(result).toEqual({ url: '/shadow/uploads/new.png', key: 'new.png', size: 3 })
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        1,
+        'https://api.example.com/shadow/uploads/private.png',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-token-123',
+          }),
+          redirect: 'follow',
+        }),
+      )
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        2,
+        'https://api.example.com/api/media/upload',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { Authorization: 'Bearer test-token-123' },
+        }),
+      )
+    })
+
+    it('downloads same-origin signed media URLs with bearer-compatible downloader', async () => {
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(new Uint8Array([4, 5]), {
+            status: 200,
+            headers: {
+              'content-disposition': 'inline; filename="signed.jpg"',
+              'content-type': 'image/jpeg',
+            },
+          }),
+        )
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              url: '/shadow/uploads/signed-copy.jpg',
+              key: 'signed-copy.jpg',
+              size: 2,
+            }),
+            {
+              status: 201,
+              headers: { 'content-type': 'application/json' },
+            },
+          ),
+        )
+      globalThis.fetch = mockFetch as typeof fetch
+
+      await client.uploadMediaFromUrl('https://api.example.com/api/media/signed/short-token')
+
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        1,
+        'https://api.example.com/api/media/signed/short-token',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-token-123',
+          }),
+        }),
+      )
+    })
+  })
+
   describe('auth methods', () => {
     beforeEach(() => {
       globalThis.fetch = vi.fn() as typeof fetch

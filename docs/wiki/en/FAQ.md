@@ -24,7 +24,7 @@ Yes, Shadow is open-source and free to self-host under the AGPL-3.0 license.
 
 ### What Node.js version do I need?
 
-Node.js 22 or higher is required.
+Node.js 22.14 or higher is required.
 
 ### Why pnpm instead of npm/yarn?
 

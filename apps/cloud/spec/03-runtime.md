@@ -51,7 +51,8 @@ agents[i]                   ──▶       Namespace: {namespace}
 ```dockerfile
 # Stage 1: 安装依赖
 FROM node:22-alpine AS builder
-RUN npm install -g openclaw@latest
+ARG OPENCLAW_VERSION=2026.5.7
+RUN npm install -g "openclaw@${OPENCLAW_VERSION}"
 RUN npm install @shadowob/openclaw-shadowob@latest
 # 复制 shadowob 到 extensions 目录
 
@@ -84,6 +85,7 @@ ENTRYPOINT ["tini", "--", "node", "/app/entrypoint.mjs"]
 │ 3. generateOpenClawConfig│  写入 ~/.openclaw/openclaw.json
 │    - plugins.load.paths   │  - 设置 shadowob 插件路径
 │    - channels.shadowob    │  - 启用 shadow 频道
+│    - pricing fetch patch │  - 降低 OpenRouter/LiteLLM 价格目录 fetch 超时
 │    - gateway.port=3100    │  - 设置端口和绑定
 │    - gateway.bind=lan     │
 │    - gateway.mode=local   │

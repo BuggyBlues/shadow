@@ -130,7 +130,7 @@ const models = await authedClient.listOfficialModelProxyModels()
 const billing = await authedClient.getOfficialModelProxyBilling()
 
 const completion = await authedClient.createOfficialChatCompletion({
-  model: models.data[0]?.id ?? "deepseek-v4-flash",
+  model: models.data[0]?.id ?? "default",
   messages: [{ role: "user", content: "Say hello in one sentence." }],
 })
 

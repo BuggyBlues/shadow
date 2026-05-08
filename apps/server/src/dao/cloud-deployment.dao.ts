@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, inArray, isNull, ne } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, inArray, isNull, ne, notInArray, or } from 'drizzle-orm'
 import { type Database, workerLockClient } from '../db'
 import { cloudDeploymentLogs, cloudDeployments } from '../db/schema'
 
@@ -9,6 +9,11 @@ const CURRENT_INSTANCE_STATUSES = [
   'deployed',
   'destroying',
   'cancelling',
+] as const
+const NON_RECOVERABLE_FAILED_REASONS = [
+  'cancelled by user',
+  'orphaned-by-cluster',
+  'superseded-by-newer-deployment',
 ] as const
 
 type CloudDeploymentStatus = (typeof cloudDeployments.$inferSelect)['status']
@@ -107,6 +112,37 @@ export class CloudDeploymentDao {
     return this.db.select().from(cloudDeployments).where(eq(cloudDeployments.status, 'deployed'))
   }
 
+  async listHourlyBillable() {
+    return this.db
+      .select()
+      .from(cloudDeployments)
+      .where(
+        and(
+          eq(cloudDeployments.status, 'deployed'),
+          eq(cloudDeployments.saasMode, true),
+          gt(cloudDeployments.hourlyCost, 0),
+        ),
+      )
+  }
+
+  async listRecoverableFailedSince(since: Date) {
+    return this.db
+      .select()
+      .from(cloudDeployments)
+      .where(
+        and(
+          eq(cloudDeployments.status, 'failed'),
+          eq(cloudDeployments.saasMode, true),
+          gt(cloudDeployments.updatedAt, since),
+          or(
+            isNull(cloudDeployments.errorMessage),
+            notInArray(cloudDeployments.errorMessage, [...NON_RECOVERABLE_FAILED_REASONS]),
+          ),
+        ),
+      )
+      .orderBy(desc(cloudDeployments.updatedAt))
+  }
+
   async findLatestCurrentInNamespace(data: {
     userId: string
     namespace: string
@@ -116,6 +152,29 @@ export class CloudDeploymentDao {
     const filters = [
       this.namespaceScopeWhere(data),
       inArray(cloudDeployments.status, [...CURRENT_INSTANCE_STATUSES]),
+    ]
+    if (data.excludeId) filters.push(ne(cloudDeployments.id, data.excludeId))
+
+    const result = await this.db
+      .select()
+      .from(cloudDeployments)
+      .where(and(...filters))
+      .orderBy(desc(cloudDeployments.createdAt), desc(cloudDeployments.updatedAt))
+      .limit(1)
+    return result[0] ?? null
+  }
+
+  async findLatestHourlyBillableInNamespace(data: {
+    userId: string
+    namespace: string
+    clusterId?: string | null
+    excludeId?: string
+  }) {
+    const filters = [
+      this.namespaceScopeWhere(data),
+      eq(cloudDeployments.status, 'deployed' as CloudDeploymentStatus),
+      eq(cloudDeployments.saasMode, true),
+      gt(cloudDeployments.hourlyCost, 0),
     ]
     if (data.excludeId) filters.push(ne(cloudDeployments.id, data.excludeId))
 
@@ -208,6 +267,8 @@ export class CloudDeploymentDao {
     templateSlug?: string | null
     resourceTier?: string | null
     monthlyCost?: number | null
+    hourlyCost?: number | null
+    lastHourlyBilledAt?: Date | null
     saasMode?: boolean
   }) {
     const result = await this.db
@@ -223,6 +284,8 @@ export class CloudDeploymentDao {
         templateSlug: data.templateSlug ?? null,
         resourceTier: data.resourceTier ?? null,
         monthlyCost: data.monthlyCost ?? null,
+        hourlyCost: data.hourlyCost ?? 1,
+        lastHourlyBilledAt: data.lastHourlyBilledAt ?? null,
         saasMode: data.saasMode ?? false,
       })
       .returning()
@@ -249,15 +312,25 @@ export class CloudDeploymentDao {
     return result[0] ?? null
   }
 
-  async markDeployed(id: string, agentCount: number) {
+  async markDeployed(id: string, agentCount: number, lastHourlyBilledAt = new Date()) {
     const result = await this.db
       .update(cloudDeployments)
       .set({
         status: 'deployed' as CloudDeploymentStatus,
         agentCount,
         errorMessage: null,
+        lastHourlyBilledAt,
         updatedAt: new Date(),
       })
+      .where(eq(cloudDeployments.id, id))
+      .returning()
+    return result[0] ?? null
+  }
+
+  async updateLastHourlyBilledAt(id: string, billedAt: Date) {
+    const result = await this.db
+      .update(cloudDeployments)
+      .set({ lastHourlyBilledAt: billedAt })
       .where(eq(cloudDeployments.id, id))
       .returning()
     return result[0] ?? null

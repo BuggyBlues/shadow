@@ -100,6 +100,8 @@ export interface SaasDeployment {
   templateSlug: string | null
   resourceTier: ResourceTier | null
   monthlyCost: number | null
+  hourlyCost: number
+  lastHourlyBilledAt: string | null
   saasMode: boolean
   shadowServerId?: string | null
   createdAt: string

@@ -12,6 +12,7 @@ import ReactDOM from 'react-dom/client'
 import { AppLayout } from './components/layout/app-layout'
 import { RootLayout } from './components/layout/root-layout'
 import { authenticatedRouterPathFromRedirect, currentAppRedirect } from './lib/auth-redirect'
+import { ensureAuthenticatedSession } from './lib/auth-session'
 import { reloadOnceForChunkError } from './lib/chunk-reload'
 import { queryClient } from './lib/query-client'
 import { AppPageRoute } from './pages/apps'
@@ -40,7 +41,6 @@ import { ShopPageRoute } from './pages/shop'
 import { ShopAdminPageRoute } from './pages/shop-admin'
 import { UserProfilePage } from './pages/user-profile'
 import { WorkspacePageRoute } from './pages/workspace'
-import { useAuthStore } from './stores/auth.store'
 import './styles/globals.css'
 
 const CloudSaasApp = lazy(() =>
@@ -59,12 +59,30 @@ const rootRoute = createRootRoute({
   component: RootLayout,
 })
 
+async function requireAuthenticatedRoute() {
+  const user = await ensureAuthenticatedSession()
+  if (!user) {
+    throw redirect({
+      to: '/login',
+      search: { redirect: currentAppRedirect() },
+    })
+  }
+}
+
+async function redirectIfAuthenticatedRoute() {
+  const user = await ensureAuthenticatedSession()
+  if (user) {
+    const redirectTo = new URLSearchParams(window.location.search).get('redirect')
+    throw redirect({ to: authenticatedRouterPathFromRedirect(redirectTo) })
+  }
+}
+
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
   component: () => null,
-  beforeLoad: () => {
-    if (useAuthStore.getState().isAuthenticated) {
+  beforeLoad: async () => {
+    if (await ensureAuthenticatedSession()) {
       throw redirect({ to: '/discover' })
     }
     throw redirect({ to: '/login' })
@@ -75,24 +93,14 @@ const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/login',
   component: LoginPage,
-  beforeLoad: () => {
-    if (useAuthStore.getState().isAuthenticated) {
-      const redirectTo = new URLSearchParams(window.location.search).get('redirect')
-      throw redirect({ to: authenticatedRouterPathFromRedirect(redirectTo) })
-    }
-  },
+  beforeLoad: redirectIfAuthenticatedRoute,
 })
 
 const registerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/register',
   component: RegisterPage,
-  beforeLoad: () => {
-    if (useAuthStore.getState().isAuthenticated) {
-      const redirectTo = new URLSearchParams(window.location.search).get('redirect')
-      throw redirect({ to: authenticatedRouterPathFromRedirect(redirectTo) })
-    }
-  },
+  beforeLoad: redirectIfAuthenticatedRoute,
 })
 
 const inviteRoute = createRoute({
@@ -111,15 +119,7 @@ const oauthAuthorizeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/oauth/authorize',
   component: OAuthAuthorizePage,
-  beforeLoad: () => {
-    if (!useAuthStore.getState().isAuthenticated) {
-      // Preserve the full URL so we redirect back after login
-      throw redirect({
-        to: '/login',
-        search: { redirect: currentAppRedirect() },
-      })
-    }
-  },
+  beforeLoad: requireAuthenticatedRoute,
 })
 
 // Authenticated layout route (pathless — basepath '/app' provides the URL prefix)
@@ -127,14 +127,7 @@ const appRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: 'authenticated',
   component: AppLayout,
-  beforeLoad: () => {
-    if (!useAuthStore.getState().isAuthenticated) {
-      throw redirect({
-        to: '/login',
-        search: { redirect: currentAppRedirect() },
-      })
-    }
-  },
+  beforeLoad: requireAuthenticatedRoute,
 })
 
 const playLaunchRoute = createRoute({
@@ -190,14 +183,7 @@ const serverHomeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/s/$serverId',
   component: ServerHomePage,
-  beforeLoad: () => {
-    if (!useAuthStore.getState().isAuthenticated) {
-      throw redirect({
-        to: '/login',
-        search: { redirect: currentAppRedirect() },
-      })
-    }
-  },
+  beforeLoad: requireAuthenticatedRoute,
 })
 
 const settingsRoute = createRoute({

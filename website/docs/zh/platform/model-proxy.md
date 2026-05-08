@@ -30,17 +30,18 @@ const completion = await fetch('/api/ai/v1/chat/completions', {
 
 ## 计费
 
-官方供应商由环境变量配置。默认模型是 `deepseek-v4-flash`，base URL 和模型都可以不改代码直接替换。
+官方供应商由环境变量配置。默认模型是 `deepseek-v4-flash`，示例环境与 compose 默认 base URL 为
+`https://api.deepseek.com`。base URL 和模型都可以不改代码直接替换。
 
 默认采用 DeepSeek 风格计费：
 
 | 用量类型 | 价格 |
 |----------|------|
-| 输入 tokens，缓存命中 | 0.02 元 / 百万 tokens |
-| 输入 tokens，缓存未命中 | 1 元 / 百万 tokens |
-| 输出 tokens | 2 元 / 百万 tokens |
+| 输入 tokens，缓存命中 | 0.02 元 / 百万 tokens = 0.4 虾币 / 百万 tokens |
+| 输入 tokens，缓存未命中 | 1 元 / 百万 tokens = 20 虾币 / 百万 tokens |
+| 输出 tokens | 2 元 / 百万 tokens = 40 虾币 / 百万 tokens |
 
-Shadow 默认按 `1 元 = 10 虾币` 换算。钱包余额仍保持整数虾币，因此代理会累计 micro-虾币用量，只有达到整虾币时才体现在钱包扣费中。
+Shadow 默认按 `1 元 = 20 虾币` 换算。钱包余额仍保持整数虾币，因此代理会累计 micro-虾币用量，只有达到整虾币时才体现在钱包扣费中。
 
 ## 余额不足
 

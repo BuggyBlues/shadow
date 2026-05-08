@@ -40,6 +40,7 @@ type ModelProxyBillingConfig = {
 }
 
 const DEFAULT_MODEL = 'deepseek-v4-flash'
+const PUBLIC_MODEL_ALIAS = 'default'
 const DEFAULT_SHRIMP_MICROS_PER_COIN = 1_000_000
 const WALLET_RECHARGE_MARKER = 'shadow:wallet-recharge'
 
@@ -92,6 +93,10 @@ function allowedModels() {
   return configured && configured.length > 0
     ? [...new Set([defaultModel(), ...configured])]
     : [defaultModel()]
+}
+
+function publicModels() {
+  return [PUBLIC_MODEL_ALIAS]
 }
 
 function normalizeModel(model: unknown) {
@@ -202,7 +207,7 @@ function modelProxyBillingConfig(): ModelProxyBillingConfig {
     'SHADOW_MODEL_PROXY_SHRIMP_MICROS_PER_COIN',
     DEFAULT_SHRIMP_MICROS_PER_COIN,
   )
-  const shrimpPerCny = parsePositiveNumberEnvWithFallback('SHADOW_MODEL_PROXY_SHRIMP_PER_CNY', 10)
+  const shrimpPerCny = parsePositiveNumberEnvWithFallback('SHADOW_MODEL_PROXY_SHRIMP_PER_CNY', 20)
   const useLegacyTokenRatio = process.env.SHADOW_MODEL_PROXY_BILLING_MODE === 'token_ratio'
   const sharedTokensPerShrimp = useLegacyTokenRatio
     ? parsePositiveNumberEnv('SHADOW_MODEL_PROXY_TOKENS_PER_SHRIMP')
@@ -465,7 +470,7 @@ export class ModelProxyService {
   modelsResponse() {
     return {
       object: 'list',
-      data: allowedModels().map((model) => ({
+      data: publicModels().map((model) => ({
         id: model,
         object: 'model',
         created: 0,
@@ -479,8 +484,8 @@ export class ModelProxyService {
     return {
       enabled: process.env.SHADOW_MODEL_PROXY_ENABLED !== 'false',
       currency: 'shrimp' as const,
-      model: defaultModel(),
-      models: allowedModels(),
+      model: PUBLIC_MODEL_ALIAS,
+      models: publicModels(),
       shrimpMicrosPerCoin: billing.shrimpMicrosPerCoin,
       shrimpPerCny: billing.shrimpPerCny,
       inputTokensPerShrimp: billing.inputTokensPerShrimp,

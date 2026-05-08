@@ -17,11 +17,12 @@ the tier returned by the API instead of hard-coding a boolean visitor/member swi
 tiers can add more capability bundles without changing the play launch contract.
 
 New accounts start with a zero-balance wallet and receive a one-time `welcome_signup` reward of
-1000 Shrimp Coins through the task center. Lightweight Cloud play deployment costs 500 Shrimp
-Coins, so the first deployment can complete without a payment step while leaving starter balance for
-official model usage. A second new deployment requires at least 1000 Shrimp Coins before launch; if
-the starter balance is only 500, the API returns `402 WALLET_INSUFFICIENT_BALANCE` and clients
-should show the beginner-task and recharge paths instead of exposing deployment internals.
+1000 Shrimp Coins through the task center. Cloud play deployments are billed by runtime at 1 Shrimp
+Coin per hour with 15-minute precision. The launch API requires enough balance to cover the first
+hourly unit before queueing a deployment, and the worker charges that first hourly unit when the
+runtime becomes live; if the wallet cannot cover it, the API returns `402 WALLET_INSUFFICIENT_BALANCE`
+and clients should show the beginner-task and recharge paths instead of exposing deployment
+internals.
 
 ## Architecture
 
@@ -132,12 +133,16 @@ See `docs/product/membership-tiers.md` for the extensibility rules.
 - `POST /api/ai/v1/chat/completions`: proxies OpenAI-compatible chat completions to the configured official upstream and bills Shrimp Coins by measured usage.
 
 The official upstream key stays only in the server process. Configure the upstream with
-`SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL` and `SHADOW_MODEL_PROXY_UPSTREAM_API_KEY`. The default model
-is `deepseek-v4-flash`, and production can switch it through `SHADOW_MODEL_PROXY_MODEL`. Cloud
-templates and Pods never receive the real upstream key. One-click Cloud plays receive
-`OPENAI_COMPATIBLE_BASE_URL=/api/ai/v1`, `OPENAI_COMPATIBLE_MODEL_ID`, and a limited `smp_...` model
-proxy token in `OPENAI_COMPATIBLE_API_KEY`. The token is only valid for the model proxy and is not
-accepted as a general Shadow user token.
+`SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL` and `SHADOW_MODEL_PROXY_UPSTREAM_API_KEY`. The example and
+compose deployments default the upstream base URL to DeepSeek's OpenAI-compatible
+`https://api.deepseek.com`; production can switch it and the default `deepseek-v4-flash` model
+through environment variables. Cloud templates and Pods never receive the real upstream key or concrete
+upstream model name.
+One-click Cloud plays receive
+`OPENAI_COMPATIBLE_BASE_URL=/api/ai/v1` and a limited `smp_...` model proxy token in
+`OPENAI_COMPATIBLE_API_KEY`. The OpenClaw config selects the public `default` alias; the server maps it
+to the configured upstream model. The token is only valid for the model proxy and is not accepted as a
+general Shadow user token.
 
 The proxy reserves whole Shrimp Coins before calling the upstream provider, then settles against
 reported token usage with micro-Shrimp accruals so the integer wallet can still charge fractional
@@ -145,7 +150,8 @@ model usage accurately. Default pricing follows DeepSeek-style categories: cache
 input, and output, configured by `SHADOW_MODEL_PROXY_INPUT_CACHE_HIT_CNY_PER_MILLION`,
 `SHADOW_MODEL_PROXY_INPUT_CACHE_MISS_CNY_PER_MILLION`,
 `SHADOW_MODEL_PROXY_OUTPUT_CNY_PER_MILLION`, and `SHADOW_MODEL_PROXY_SHRIMP_PER_CNY` (default
-1 CNY = 10 Shrimp Coins), or directly by
+1 CNY = 20 Shrimp Coins; derived defaults are 0.4 / 20 / 40 Shrimp Coins per million cached input,
+uncached input, and output tokens), or directly by
 `SHADOW_MODEL_PROXY_INPUT_CACHE_HIT_SHRIMP_PER_MILLION`,
 `SHADOW_MODEL_PROXY_INPUT_CACHE_MISS_SHRIMP_PER_MILLION`, and
 `SHADOW_MODEL_PROXY_OUTPUT_SHRIMP_PER_MILLION`. Token-per-coin overrides remain available only when

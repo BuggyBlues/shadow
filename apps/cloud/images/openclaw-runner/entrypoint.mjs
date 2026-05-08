@@ -764,12 +764,15 @@ function listJavaScriptFiles(root, maxDepth = 3) {
 function patchOpenClawPricingTimeout() {
   if (!Number.isFinite(PRICING_FETCH_TIMEOUT_MS) || PRICING_FETCH_TIMEOUT_MS <= 0) return
   const distDir = join(OPENCLAW_PACKAGE_DIR, 'dist')
-  const pattern = /const FETCH_TIMEOUT_MS = 3e4;/g
+  const pattern = /const FETCH_TIMEOUT_MS = [^;]+;/g
   for (const file of listJavaScriptFiles(distDir)) {
     let source
     try {
       source = readFileSync(file, 'utf-8')
     } catch {
+      continue
+    }
+    if (!source.includes('OPENROUTER_MODELS_URL') || !source.includes('LITELLM_PRICING_URL')) {
       continue
     }
     if (!pattern.test(source)) continue

@@ -75,7 +75,7 @@
 ### 前置要求
 
 - Docker 和 Docker Compose v2：用于最快跑起完整产品。
-- Node.js 22+ 和 pnpm 10+：用于本地开发。
+- Node.js 22.14+ 和 pnpm 10+：用于本地开发。
 
 ### 方式一：用 Docker 跑完整产品
 

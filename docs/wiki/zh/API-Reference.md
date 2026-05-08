@@ -75,20 +75,22 @@ git-backed catalog 发布。缺失 action 会返回 `PLAY_NOT_CONFIGURED`、`PLA
 Cloud 模板玩法会从已审核 template content 创建真实 Cloud SaaS deployment，并在 provisioning
 期间返回 `deploymentId`。当 deployment 状态为 `deployed` 且暴露 `shadowServerId` 与 `shadowChannelId` 后，客户端应直接跳入对应频道。
 公开频道和私有房间玩法必须由配置指定已有 `serverSlug` / `serverId`，私有房间还必须指定已部署 Buddy 的 `buddyUserIds`。启动器只负责入服、建私有频道、拉 Buddy 和发送欢迎消息，不会为这类玩法创建假服务器或假 Buddy。Cloud 部署玩法会在部署完成后由已 provision 的 Buddy 发送一次欢迎消息。
-如果钱包余额不足以支付部署费用，API 返回 `402`、`WALLET_INSUFFICIENT_BALANCE`、`requiredAmount`、
-`balance` 和 `shortfall`，客户端应展示新手任务或充值付费墙。用户第二次创建新的 Cloud 部署前需要
-至少 1000 虾币；轻量部署实际扣费仍为 500 虾币，因此首次部署后仍会保留余额给模型调用使用。
+Cloud 部署按运行时间计费，价格为 1 虾币 / 小时，计费精度为 15 分钟。API 在排队前会检查钱包是否能覆盖首个小时单位，
+worker 会在运行时真正变为 live 时扣除这首个小时单位。如果钱包余额不足，API 返回
+`402`、`WALLET_INSUFFICIENT_BALANCE`、`requiredAmount`、`balance` 和 `shortfall`，客户端应展示新手任务或充值付费墙。
 
 ## 官方模型代理
 
 官方模型代理提供 OpenAI-compatible 接口，由 server 侧供应商配置驱动。上游供应商通过
-`SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL` 与 `SHADOW_MODEL_PROXY_UPSTREAM_API_KEY` 配置。默认模型为
-`deepseek-v4-flash`，可通过 `SHADOW_MODEL_PROXY_MODEL` 修改。Cloud 模板和 Pod 只会拿到写在
-`OPENAI_COMPATIBLE_API_KEY` 里的受限 `smp_...` 模型代理 token，不会拿到真实上游 key。
+`SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL` 与 `SHADOW_MODEL_PROXY_UPSTREAM_API_KEY` 配置。示例环境与
+compose 部署默认使用 DeepSeek 的 OpenAI-compatible `https://api.deepseek.com`；真实上游模型可通过
+`SHADOW_MODEL_PROXY_MODEL` 修改。公开 API 响应和 Cloud Pod 只使用 `default` 模型别名，真实模型名留在
+server 侧。Cloud 模板和 Pod 只会拿到写在 `OPENAI_COMPATIBLE_API_KEY` 里的受限 `smp_...`
+模型代理 token，不会拿到真实上游 key。
 
 | 方法 | 端点                            | 描述                         |
 |------|---------------------------------|------------------------------|
-| GET  | `/api/ai/v1/models`             | 列出允许使用的官方模型       |
+| GET  | `/api/ai/v1/models`             | 列出官方模型别名             |
 | GET  | `/api/ai/v1/billing`            | 查看已配置的计费标准         |
 | POST | `/api/ai/v1/chat/completions`   | 代理 OpenAI-compatible 请求  |
 
@@ -104,7 +106,8 @@ Authorization: Bearer <shadow-token-or-smp-token>
 `SHADOW_MODEL_PROXY_INPUT_CACHE_HIT_CNY_PER_MILLION`、
 `SHADOW_MODEL_PROXY_INPUT_CACHE_MISS_CNY_PER_MILLION`、
 `SHADOW_MODEL_PROXY_OUTPUT_CNY_PER_MILLION` 与 `SHADOW_MODEL_PROXY_SHRIMP_PER_CNY` 配置；默认兑换比例为
-1 元 = 10 虾币。也可以直接配置换算后的虾币价格：
+1 元 = 20 虾币，对应默认虾币价格为缓存命中输入 0.4、普通输入 20、输出 40 虾币 / 百万 tokens。
+也可以直接配置换算后的虾币价格：
 `SHADOW_MODEL_PROXY_INPUT_CACHE_HIT_SHRIMP_PER_MILLION`、
 `SHADOW_MODEL_PROXY_INPUT_CACHE_MISS_SHRIMP_PER_MILLION` 与
 `SHADOW_MODEL_PROXY_OUTPUT_SHRIMP_PER_MILLION`。兼容的 token-per-coin 覆盖配置只有在

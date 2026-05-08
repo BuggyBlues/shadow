@@ -23,6 +23,11 @@ interface ChannelMeta {
   serverId: string
 }
 
+interface ChannelAccessMeta {
+  canAccess: boolean
+  channel: ChannelMeta
+}
+
 /**
  * Server layout route — wraps all server child routes with the channel sidebar.
  *
@@ -46,15 +51,16 @@ export function ServerLayout() {
   })
 
   const {
-    data: routeChannel,
+    data: routeChannelAccess,
     isLoading: isRouteChannelLoading,
     isError: isRouteChannelError,
   } = useQuery({
-    queryKey: ['channel', channelId],
-    queryFn: () => fetchApi<ChannelMeta>(`/api/channels/${channelId}`),
+    queryKey: ['channel-access', channelId],
+    queryFn: () => fetchApi<ChannelAccessMeta>(`/api/channels/${channelId}/access`),
     enabled: !!channelId,
     retry: false,
   })
+  const routeChannel = routeChannelAccess?.channel
 
   // Redirect UUID URL → slug URL
   useEffect(() => {

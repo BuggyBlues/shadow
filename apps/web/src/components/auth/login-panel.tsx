@@ -77,6 +77,7 @@ export function LoginPanel({ variant, redirect, onClose, onComplete }: LoginPane
   const navigate = useNavigate()
   const digitRefs = useRef<Array<HTMLInputElement | null>>([])
   const lastSubmittedCodeRef = useRef('')
+  const verificationInFlightRef = useRef(false)
 
   const [step, setStep] = useState<'choose' | 'code' | 'password'>('choose')
   const [email, setEmail] = useState('')
@@ -113,11 +114,19 @@ export function LoginPanel({ variant, redirect, onClose, onComplete }: LoginPane
   }, [resendSeconds])
 
   useEffect(() => {
-    if (step !== 'code' || code.length !== CODE_LENGTH || verifying) return
-    if (lastSubmittedCodeRef.current === code) return
-    lastSubmittedCodeRef.current = code
-    void handleVerifyCode(code)
-  }, [code, step, verifying])
+    if (code.length < CODE_LENGTH) {
+      lastSubmittedCodeRef.current = ''
+      return
+    }
+
+    if (step !== 'code' || !trimmedEmail || code.length !== CODE_LENGTH) return
+    const submissionKey = `${trimmedEmail}:${code}`
+    if (verificationInFlightRef.current || lastSubmittedCodeRef.current === submissionKey) {
+      return
+    }
+    lastSubmittedCodeRef.current = submissionKey
+    void handleVerifyCode({ email: trimmedEmail, code })
+  }, [code, step, trimmedEmail])
 
   useEffect(() => {
     if (variant !== 'page') return
@@ -206,21 +215,23 @@ export function LoginPanel({ variant, redirect, onClose, onComplete }: LoginPane
     }
   }
 
-  async function handleVerifyCode(nextCode: string) {
-    if (!trimmedEmail || nextCode.length !== CODE_LENGTH || verifying) return
+  async function handleVerifyCode(input: { email: string; code: string }) {
+    const nextCode = input.code.trim()
+    if (!input.email || nextCode.length !== CODE_LENGTH || verificationInFlightRef.current) return
 
     setError('')
+    verificationInFlightRef.current = true
     setVerifying(true)
     try {
       const result = await fetchApi<AuthenticatedSession>('/api/auth/email/verify', {
         method: 'POST',
-        body: JSON.stringify({ email: trimmedEmail, code: nextCode }),
+        body: JSON.stringify({ email: input.email, code: nextCode }),
       })
       completeAuth(result)
     } catch (err) {
       setError(getApiErrorMessage(err, t, 'auth.loginFailed'))
-      lastSubmittedCodeRef.current = ''
     } finally {
+      verificationInFlightRef.current = false
       setVerifying(false)
     }
   }

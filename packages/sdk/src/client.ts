@@ -83,6 +83,22 @@ function sanitizeErrorBody(body: string): string {
   return text.slice(0, 200) || '(HTML error page)'
 }
 
+function contentDispositionFilename(header: string | null): string | null {
+  if (!header) return null
+  const utf8Match = /filename\*=UTF-8''([^;]+)/i.exec(header)
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1].trim())
+    } catch {
+      return utf8Match[1].trim()
+    }
+  }
+  const quotedMatch = /filename="([^"]+)"/i.exec(header)
+  if (quotedMatch?.[1]) return quotedMatch[1]
+  const bareMatch = /filename=([^;]+)/i.exec(header)
+  return bareMatch?.[1]?.trim() ?? null
+}
+
 /**
  * Shadow REST API client.
  *
@@ -97,6 +113,25 @@ export class ShadowClient {
   ) {
     // Normalize: strip trailing /api or /api/ to prevent doubled paths
     this.baseUrl = baseUrl.replace(/\/api\/?$/, '')
+  }
+
+  private isShadowPrivateMediaUrl(value: string): boolean {
+    if (value.startsWith('/shadow/uploads/') || value.startsWith('/api/media/signed/')) {
+      return true
+    }
+    if (!/^https?:\/\//.test(value)) return false
+
+    try {
+      const url = new URL(value)
+      const base = new URL(this.baseUrl)
+      return (
+        url.origin === base.origin &&
+        (url.pathname.startsWith('/shadow/uploads/') ||
+          url.pathname.startsWith('/api/media/signed/'))
+      )
+    } catch {
+      return false
+    }
   }
 
   private async request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -1059,6 +1094,16 @@ export class ShadowClient {
       normalizedUrl = normalizedUrl.replace(/^~/, homedir())
     }
 
+    if (this.isShadowPrivateMediaUrl(normalizedUrl)) {
+      const downloaded = await this.downloadFile(normalizedUrl)
+      return this.uploadMedia(
+        downloaded.buffer,
+        downloaded.filename,
+        downloaded.contentType,
+        messageId,
+      )
+    }
+
     // Resolve relative paths
     if (
       !normalizedUrl.startsWith('/') &&
@@ -1151,7 +1196,9 @@ export class ShadowClient {
     const buffer = await res.arrayBuffer()
     const contentType = res.headers.get('content-type') ?? 'application/octet-stream'
     const urlPath = new URL(fullUrl).pathname
-    const filename = decodeURIComponent(urlPath.split('/').pop() ?? 'file')
+    const filename =
+      contentDispositionFilename(res.headers.get('content-disposition')) ??
+      decodeURIComponent(urlPath.split('/').pop() ?? 'file')
     return { buffer, contentType, filename }
   }
 

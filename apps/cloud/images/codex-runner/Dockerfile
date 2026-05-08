@@ -16,9 +16,11 @@ FROM node:22-alpine AS builder
 
 WORKDIR /build
 
+ARG OPENCLAW_VERSION=2026.5.7
+
 # Install OpenClaw, Codex CLI, and Shadow plugin
 RUN npm init -y && \
-    npm install openclaw@latest @openai/codex@latest \
+    npm install "openclaw@${OPENCLAW_VERSION}" @openai/codex@latest \
                 @shadowob/openclaw-shadowob@latest && \
     # Setup extensions directories
     mkdir -p extensions/shadowob && \

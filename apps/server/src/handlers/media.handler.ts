@@ -1,4 +1,4 @@
-import { Hono } from 'hono'
+import { type Context, Hono } from 'hono'
 import type { AppContainer } from '../container'
 import { authMiddleware } from '../middleware/auth.middleware'
 
@@ -6,31 +6,40 @@ function parseDisposition(value: string | undefined): 'inline' | 'attachment' {
   return value === 'attachment' ? 'attachment' : 'inline'
 }
 
-export function createMediaHandler(container: AppContainer) {
-  const mediaHandler = new Hono()
+async function serveSignedMedia(container: AppContainer, c: Context) {
+  const mediaService = container.resolve('mediaService')
+  const token = c.req.param('token')
+  if (!token) return c.json({ ok: false, error: 'File not found' }, 404)
+
+  try {
+    const payload = mediaService.verifySignedToken(token)
+    const response = await mediaService.getSignedObjectResponse(payload, c.req.header('Range'))
+    return c.body(response.body, response.status, response.headers)
+  } catch (err) {
+    const status =
+      typeof (err as { status?: unknown }).status === 'number'
+        ? ((err as { status: number }).status as 400)
+        : 404
+    const headers = (err as { headers?: Record<string, string> }).headers
+    return c.json({ ok: false, error: 'File not found' }, status, headers)
+  }
+}
+
+export function createSignedMediaHandler(container: AppContainer) {
+  const handler = new Hono()
 
   // GET /api/media/signed/:token
   // Short-lived media delivery URL for browser-rendered attachments. Auth is the token itself.
-  mediaHandler.get('/signed/:token', async (c) => {
-    const mediaService = container.resolve('mediaService')
-    try {
-      const payload = mediaService.verifySignedToken(c.req.param('token'))
-      const response = await mediaService.getSignedObjectResponse(payload, c.req.header('Range'))
-      return c.body(response.body, response.status, response.headers)
-    } catch (err) {
-      const status =
-        typeof (err as { status?: unknown }).status === 'number'
-          ? ((err as { status: number }).status as 400)
-          : 404
-      const headers = (err as { headers?: Record<string, string> }).headers
-      return c.json({ ok: false, error: 'File not found' }, status, headers)
-    }
-  })
+  handler.get('/media/signed/:token', async (c) => serveSignedMedia(container, c))
 
-  mediaHandler.use('*', authMiddleware)
+  return handler
+}
+
+export function createMediaHandler(container: AppContainer) {
+  const mediaHandler = new Hono()
 
   // POST /api/media/upload
-  mediaHandler.post('/upload', async (c) => {
+  mediaHandler.post('/upload', authMiddleware, async (c) => {
     const mediaService = container.resolve('mediaService')
     const messageDao = container.resolve('messageDao')
     const userDao = container.resolve('userDao')
@@ -170,9 +179,10 @@ export function createMediaHandler(container: AppContainer) {
   })
 
   // GET /api/media/:id
-  mediaHandler.get('/:id', async (c) => {
+  mediaHandler.get('/:id', authMiddleware, async (c) => {
     const mediaService = container.resolve('mediaService')
     const id = c.req.param('id')
+    if (!id) return c.json({ ok: false, error: 'Invalid media id' }, 400)
     try {
       const url = await mediaService.getPresignedUrl(id)
       return c.redirect(url)

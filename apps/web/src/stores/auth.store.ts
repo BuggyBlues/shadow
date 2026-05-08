@@ -56,5 +56,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ user: null, accessToken: null, isAuthenticated: false })
   },
 
-  setUser: (user) => set({ user }),
+  setUser: (user) =>
+    set((state) => {
+      const accessToken = state.accessToken ?? localStorage.getItem('accessToken')
+      return { user, accessToken, isAuthenticated: Boolean(accessToken) }
+    }),
 }))

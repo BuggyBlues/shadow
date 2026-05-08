@@ -83,23 +83,25 @@ should redirect directly into that channel. Public channel and private room play
 already configured server; private rooms must also configure deployed `buddyUserIds`. The launcher
 only joins, creates the private channel, adds the configured Buddy, and posts the greeting. It does
 not create fake servers or fake Buddies for these actions. Cloud deploy plays post one provisioned
-Buddy greeting after the deployment is ready. If the wallet cannot cover the deploy cost, the API returns `402` with
-`WALLET_INSUFFICIENT_BALANCE`, `requiredAmount`, `balance`, and `shortfall` so clients can show a
-task or recharge paywall. A user's second new Cloud deployment requires at least 1000 Shrimp Coins
-before launch, while the lightweight deploy charge remains 500, so the starter balance can still
-cover model usage after the first deployment.
+Buddy greeting after the deployment is ready. Cloud deployments are billed by runtime at 1 Shrimp
+Coin per hour with 15-minute precision. The API checks that the wallet can cover the first hourly
+unit before queueing, and the worker charges that first hourly unit when the runtime becomes live.
+If the wallet cannot cover it, the API returns `402` with `WALLET_INSUFFICIENT_BALANCE`,
+`requiredAmount`, `balance`, and `shortfall` so clients can show a task or recharge paywall.
 
 ## Official Model Proxy
 
 The official model proxy exposes an OpenAI-compatible surface backed by server-side provider
 configuration. Set `SHADOW_MODEL_PROXY_UPSTREAM_BASE_URL` and `SHADOW_MODEL_PROXY_UPSTREAM_API_KEY`
-for the upstream provider. The default model id is `deepseek-v4-flash`, and can be changed with
-`SHADOW_MODEL_PROXY_MODEL`. Cloud templates and Pods receive a limited `smp_...` model-proxy token
-in `OPENAI_COMPATIBLE_API_KEY`, never the real upstream key.
+for the upstream provider. Example and compose deployments default the base URL to DeepSeek's
+OpenAI-compatible `https://api.deepseek.com`; the concrete upstream model can be changed with
+`SHADOW_MODEL_PROXY_MODEL`. Public API responses and Cloud Pods use the `default` model alias so the
+actual upstream model name stays server-side. Cloud templates and Pods receive a limited `smp_...`
+model-proxy token in `OPENAI_COMPATIBLE_API_KEY`, never the real upstream key.
 
 | Method | Endpoint                        | Description                            |
 |--------|---------------------------------|----------------------------------------|
-| GET    | `/api/ai/v1/models`             | List allowed official models           |
+| GET    | `/api/ai/v1/models`             | List official model aliases            |
 | GET    | `/api/ai/v1/billing`            | Show configured billing rates          |
 | POST   | `/api/ai/v1/chat/completions`   | Proxy OpenAI-compatible chat requests  |
 
@@ -117,7 +119,8 @@ cached input, uncached input, and output. Configure them with
 `SHADOW_MODEL_PROXY_INPUT_CACHE_HIT_CNY_PER_MILLION`,
 `SHADOW_MODEL_PROXY_INPUT_CACHE_MISS_CNY_PER_MILLION`,
 `SHADOW_MODEL_PROXY_OUTPUT_CNY_PER_MILLION`, and `SHADOW_MODEL_PROXY_SHRIMP_PER_CNY`; the default
-exchange rate is 1 CNY = 10 Shrimp Coins. You can also configure the derived Shrimp rates directly
+exchange rate is 1 CNY = 20 Shrimp Coins, which derives defaults of 0.4 / 20 / 40 Shrimp Coins per
+million cached input, uncached input, and output tokens. You can also configure the derived Shrimp rates directly
 with `SHADOW_MODEL_PROXY_INPUT_CACHE_HIT_SHRIMP_PER_MILLION`,
 `SHADOW_MODEL_PROXY_INPUT_CACHE_MISS_SHRIMP_PER_MILLION`, and
 `SHADOW_MODEL_PROXY_OUTPUT_SHRIMP_PER_MILLION`. Legacy token-per-coin overrides are only used when

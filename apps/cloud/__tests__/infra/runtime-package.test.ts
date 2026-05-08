@@ -103,6 +103,8 @@ describe('buildAgentRuntimePackage', () => {
       api: 'anthropic-messages',
       apiKey: '${env:ANTHROPIC_API_KEY}',
     })
+    expect(openclawConfig.models.providers.anthropic).not.toHaveProperty('timeoutSeconds')
+    expect(openclawConfig.models).not.toHaveProperty('pricing')
     expect(openclawConfig.agents.defaults.model.primary).toBe('anthropic/claude-sonnet-4-5')
     expect(serializedConfig).not.toContain('sk-vault-provider')
     expect(runtimePackage.plainEnv.ANTHROPIC_API_KEY).toBeUndefined()
@@ -288,6 +290,7 @@ describe('buildManifests', () => {
         { name: 'OPENCLAW_HEALTH_PORT', value: '3102' },
         { name: 'OPENCLAW_GATEWAY_PORT', value: '3101' },
         { name: 'OPENCLAW_MODEL_PRICING_FETCH_TIMEOUT_MS', value: '2500' },
+        { name: 'OPENCLAW_SKIP_STARTUP_MODEL_PREWARM', value: '1' },
       ]),
     )
     expect(container.env).not.toEqual(

@@ -10,6 +10,13 @@ export type ShadowInboundMediaContext = {
   fields: Record<string, unknown>
 }
 
+function isShadowResolvableMediaUrl(url: string) {
+  if (url.startsWith('/')) {
+    return url.includes('/uploads/') || url.startsWith('/api/media/signed/')
+  }
+  return url.startsWith('http')
+}
+
 function inferMimeType(filename: string, headerType?: string) {
   const ext = filename.split('.').pop()?.toLowerCase() ?? ''
   const map: Record<string, string> = {
@@ -41,9 +48,7 @@ export async function resolveShadowInboundMediaContext(params: {
   const markdownUrls: string[] = []
   for (const mdMatch of rawBody.matchAll(markdownMediaRegex)) {
     const url = mdMatch[1]!
-    if (url.startsWith('/') && url.includes('/uploads/')) {
-      markdownUrls.push(url)
-    } else if (url.startsWith('http')) {
+    if (isShadowResolvableMediaUrl(url)) {
       markdownUrls.push(url)
     }
   }
@@ -94,7 +99,7 @@ export async function resolveShadowInboundMediaContext(params: {
 
   const cleanBody =
     rawBody
-      .replace(/!?\[[^\]]*\]\([^)]*\/uploads\/[^)]+\)/g, '')
+      .replace(/!?\[[^\]]*\]\((?:[^)]*\/uploads\/[^)]+|[^)]*\/api\/media\/signed\/[^)]+)\)/g, '')
       .replace(/\n{2,}/g, '\n')
       .trim() || '[Media attached]'
 

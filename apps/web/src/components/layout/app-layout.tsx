@@ -1,11 +1,11 @@
 import { Button, cn } from '@shadowob/ui'
 import { useQuery } from '@tanstack/react-query'
-import { Outlet, useNavigate } from '@tanstack/react-router'
+import { Outlet } from '@tanstack/react-router'
 import { Menu } from 'lucide-react'
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../../lib/api'
-import { currentAppRedirect } from '../../lib/auth-redirect'
+import { clearAuthenticatedSession } from '../../lib/auth-session'
 import { connectSocket, disconnectSocket } from '../../lib/socket'
 import { useAuthStore } from '../../stores/auth.store'
 import { useUIStore } from '../../stores/ui.store'
@@ -16,8 +16,7 @@ import { DynamicBackground } from './dynamic-background'
 
 export function AppLayout() {
   const { t } = useTranslation()
-  const navigate = useNavigate()
-  const { setUser, logout } = useAuthStore()
+  const { setUser } = useAuthStore()
   const { mobileServerSidebarOpen, closeMobileServerSidebar, openMobileServerSidebar } =
     useUIStore()
 
@@ -47,11 +46,9 @@ export function AppLayout() {
   // Redirect to login on auth failure
   useEffect(() => {
     if (meError && (meError as Error & { status?: number }).status === 401) {
-      const redirectTo = currentAppRedirect()
-      logout()
-      navigate({ to: '/login', search: { redirect: redirectTo } })
+      clearAuthenticatedSession({ redirectToLogin: true })
     }
-  }, [meError, logout, navigate])
+  }, [meError])
 
   // WebSocket connection
   useEffect(() => {

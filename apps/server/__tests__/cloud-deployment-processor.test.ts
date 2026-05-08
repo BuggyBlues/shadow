@@ -15,11 +15,40 @@ vi.mock('@shadowob/cloud', async (importOriginal) => {
 })
 
 import {
+  calculateCloudHourlyBillingCharge,
   ensureNamespaceDeletionStarted,
+  hasReadyDeploymentRuntimeResources,
+  isUserCancelledDeploymentError,
   probeDeploymentRuntimeResources,
   resolveDeploymentShadowProvisionToken,
   waitForNamespaceDeletion,
 } from '../src/lib/cloud-deployment-processor'
+
+describe('calculateCloudHourlyBillingCharge', () => {
+  it('bills deployment runtime in 15-minute increments at 1 Shrimp Coin per hour', () => {
+    const charge = calculateCloudHourlyBillingCharge({
+      lastBilledAt: new Date('2026-05-08T00:00:00.000Z'),
+      now: new Date('2026-05-08T00:44:59.000Z'),
+      hourlyCost: 1,
+    })
+
+    expect(charge).toEqual({
+      intervals: 2,
+      amountMicros: 500_000,
+      billedUntil: new Date('2026-05-08T00:30:00.000Z'),
+    })
+  })
+
+  it('waits until a full 15-minute precision window has elapsed', () => {
+    expect(
+      calculateCloudHourlyBillingCharge({
+        lastBilledAt: new Date('2026-05-08T00:00:00.000Z'),
+        now: new Date('2026-05-08T00:14:59.000Z'),
+        hourlyCost: 1,
+      }),
+    ).toBeNull()
+  })
+})
 
 describe('waitForNamespaceDeletion', () => {
   it('returns as soon as the namespace is deleted', async () => {
@@ -126,6 +155,39 @@ describe('probeDeploymentRuntimeResources', () => {
       podNames: ['strategy-buddy-abc'],
       readyPods: 0,
     })
+  })
+})
+
+describe('cloud deployment recovery classification', () => {
+  it('does not treat kubelet context cancellation as a user cancellation', () => {
+    expect(
+      isUserCancelledDeploymentError(
+        { cancelled: false },
+        'Back-off pulling image: ErrImagePull: rpc error: code = Canceled desc = context canceled',
+      ),
+    ).toBe(false)
+  })
+
+  it('treats an explicit cancellation token as a user cancellation', () => {
+    expect(isUserCancelledDeploymentError({ cancelled: true }, 'context canceled')).toBe(true)
+  })
+
+  it('requires all recovered OpenClaw pods to be ready before marking a failed deployment live', () => {
+    expect(
+      hasReadyDeploymentRuntimeResources({
+        agentCount: 1,
+        podNames: ['strategy-buddy-abc'],
+        readyPods: 0,
+      }),
+    ).toBe(false)
+
+    expect(
+      hasReadyDeploymentRuntimeResources({
+        agentCount: 1,
+        podNames: ['strategy-buddy-abc'],
+        readyPods: 1,
+      }),
+    ).toBe(true)
   })
 })
 
