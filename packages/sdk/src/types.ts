@@ -174,6 +174,11 @@ export interface ShadowAttachment {
   workspaceNodeId?: string | null
 }
 
+export interface ShadowSignedMediaUrl {
+  url: string
+  expiresAt: string
+}
+
 export interface ShadowChannel {
   id: string
   name: string

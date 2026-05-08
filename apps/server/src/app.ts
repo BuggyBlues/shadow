@@ -18,7 +18,7 @@ import { createDmHandler } from './handlers/dm.handler'
 import { createFeatureFlagsHandler } from './handlers/feature-flags.handler'
 import { createFriendshipHandler } from './handlers/friendship.handler'
 import { createInviteHandler } from './handlers/invite.handler'
-import { createMediaHandler } from './handlers/media.handler'
+import { createAttachmentMediaHandler, createMediaHandler } from './handlers/media.handler'
 import { createMembershipHandler } from './handlers/membership.handler'
 import { createMentionHandler } from './handlers/mention.handler'
 import { createMessageHandler } from './handlers/message.handler'
@@ -127,13 +127,13 @@ export function createApp(container: AppContainer) {
     if (!bucket || !filename) return c.json({ ok: false, error: 'Invalid media path' }, 400)
     const mediaService = container.resolve('mediaService')
     const contentRef = `/${bucket}/uploads/${filename}`
-    const buffer = await mediaService.getFileBuffer(contentRef)
-    if (!buffer) return c.json({ ok: false, error: 'File not found' }, 404)
-
     const contentType = lookup(filename) || 'application/octet-stream'
     const activeContent = /(?:html|xml|svg|javascript|ecmascript)/i.test(contentType)
+    const stream = await mediaService.getObjectStream(contentRef, c.req.header('Range'))
+    if (!stream) return c.json({ ok: false, error: 'File not found' }, 404)
 
-    return c.body(new Uint8Array(buffer), 200, {
+    return c.body(stream.body, stream.status, {
+      ...stream.headers,
       'Cache-Control': 'private, max-age=300',
       'Content-Type': contentType,
       ...(activeContent ? { 'Content-Disposition': 'attachment' } : {}),
@@ -190,6 +190,7 @@ export function createApp(container: AppContainer) {
   app.route('/api/search', createSearchHandler(container))
   app.route('/api/dm', createDmHandler(container))
   app.route('/api/friends', createFriendshipHandler(container))
+  app.route('/api', createAttachmentMediaHandler(container))
   app.route('/api/notifications', createNotificationHandler(container))
   app.route('/api/media', createMediaHandler(container))
   app.route('/api/agents', createAgentHandler(container))

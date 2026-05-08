@@ -58,6 +58,34 @@ import { SelectionPopup } from './selection-popup'
 
 const REACTION_ENTERING = ZoomIn.duration(120)
 
+type SignedMediaUrl = {
+  url: string
+  expiresAt: string
+}
+
+const signedMediaCache = new Map<string, SignedMediaUrl>()
+
+function isSignedMediaCacheFresh(entry: SignedMediaUrl): boolean {
+  return new Date(entry.expiresAt).getTime() - 30_000 > Date.now()
+}
+
+async function resolveAttachmentMediaUrl(
+  attachmentId: string,
+  kind: 'channel' | 'dm',
+  disposition: 'inline' | 'attachment',
+): Promise<string> {
+  const cacheKey = `${kind}:${attachmentId}:${disposition}`
+  const cached = signedMediaCache.get(cacheKey)
+  if (cached && isSignedMediaCacheFresh(cached)) return cached.url
+  const path =
+    kind === 'dm'
+      ? `/api/dm-attachments/${attachmentId}/media-url?disposition=${disposition}`
+      : `/api/attachments/${attachmentId}/media-url?disposition=${disposition}`
+  const resolved = await fetchApi<SignedMediaUrl>(path)
+  signedMediaCache.set(cacheKey, resolved)
+  return resolved.url
+}
+
 interface MessageBubbleProps {
   message: Message
   onReply: () => void
@@ -71,6 +99,50 @@ interface MessageBubbleProps {
   isSelected?: boolean
   onToggleSelect?: (messageId: string) => void
   onEnterSelectionMode?: (messageId: string) => void
+}
+
+function SignedAttachmentImage({
+  attachment,
+  kind,
+}: {
+  attachment: Attachment
+  kind: 'channel' | 'dm'
+}) {
+  const [uri, setUri] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    resolveAttachmentMediaUrl(attachment.id, kind, 'inline')
+      .then((signedUrl) => {
+        if (!cancelled) setUri(getImageUrl(signedUrl) ?? signedUrl)
+      })
+      .catch(() => {
+        if (!cancelled) setUri(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [attachment.id, kind])
+
+  return (
+    <Image
+      source={{ uri: uri ?? undefined }}
+      style={[
+        styles.attachmentImage,
+        attachment.width && attachment.height && attachment.width > 0 && attachment.height > 0
+          ? {
+              width: Math.min(260, attachment.width),
+              height: Math.min(
+                320,
+                Math.min(260, attachment.width) / (attachment.width / attachment.height),
+              ),
+            }
+          : null,
+      ]}
+      contentFit="cover"
+      transition={200}
+    />
+  )
 }
 
 function MessageBubbleInner({
@@ -101,9 +173,12 @@ function MessageBubbleInner({
     touchY: number
   } | null>(null)
   const [attachmentAction, setAttachmentAction] = useState<{
+    id: string
     url: string
     filename: string
+    kind: 'channel' | 'dm'
   } | null>(null)
+  const attachmentKind: 'channel' | 'dm' = variant === 'dm' ? 'dm' : 'channel'
   const buildLocalFileUri = useCallback((filename: string) => {
     const extMatch = filename.match(/\.[A-Za-z0-9]+$/)
     const ext = extMatch?.[0] ?? ''
@@ -125,10 +200,31 @@ function MessageBubbleInner({
     [buildLocalFileUri],
   )
 
+  const resolveAttachmentUrl = useCallback(
+    async (attachment: Pick<Attachment, 'id' | 'url'>, disposition: 'inline' | 'attachment') => {
+      try {
+        const signedUrl = await resolveAttachmentMediaUrl(
+          attachment.id,
+          attachmentKind,
+          disposition,
+        )
+        return getImageUrl(signedUrl) ?? signedUrl
+      } catch {
+        return null
+      }
+    },
+    [attachmentKind],
+  )
+
   // Attachment long-press actions
   const handleAttachmentSave = useCallback(async () => {
     if (!attachmentAction) return
-    const resolved = getImageUrl(attachmentAction.url) ?? attachmentAction.url
+    const resolved = await resolveAttachmentUrl(attachmentAction, 'attachment')
+    if (!resolved) {
+      showToast(t('chat.saveFailed', 'Failed to save file'), 'error')
+      setAttachmentAction(null)
+      return
+    }
     const lower = attachmentAction.filename.toLowerCase()
     const isMedia =
       /\.(png|jpe?g|gif|webp|heic|heif|bmp|mp4|mov|m4v|avi|mkv|mp3|wav|m4a|aac|ogg)$/i.test(lower)
@@ -152,11 +248,16 @@ function MessageBubbleInner({
       showToast(t('chat.saveFailed', 'Failed to save file'), 'error')
     }
     setAttachmentAction(null)
-  }, [attachmentAction, t, downloadToLocal])
+  }, [attachmentAction, t, downloadToLocal, resolveAttachmentUrl])
 
   const handleAttachmentShare = useCallback(async () => {
     if (!attachmentAction) return
-    const resolved = getImageUrl(attachmentAction.url) ?? attachmentAction.url
+    const resolved = await resolveAttachmentUrl(attachmentAction, 'attachment')
+    if (!resolved) {
+      showToast(t('chat.shareFailed', 'Failed to share file'), 'error')
+      setAttachmentAction(null)
+      return
+    }
     try {
       const localUri = await downloadToLocal(resolved, attachmentAction.filename)
       if (await Sharing.isAvailableAsync()) {
@@ -169,15 +270,20 @@ function MessageBubbleInner({
       showToast(t('chat.shareFailed', 'Failed to share file'), 'error')
     }
     setAttachmentAction(null)
-  }, [attachmentAction, t, downloadToLocal])
+  }, [attachmentAction, t, downloadToLocal, resolveAttachmentUrl])
 
   const handleAttachmentCopyUrl = useCallback(async () => {
     if (!attachmentAction) return
-    const resolved = getImageUrl(attachmentAction.url) ?? attachmentAction.url
+    const resolved = await resolveAttachmentUrl(attachmentAction, 'attachment')
+    if (!resolved) {
+      showToast(t('chat.shareFailed', 'Failed to share file'), 'error')
+      setAttachmentAction(null)
+      return
+    }
     await Clipboard.setStringAsync(resolved)
     showToast(t('common.copied', '已复制'), 'success')
     setAttachmentAction(null)
-  }, [attachmentAction, t])
+  }, [attachmentAction, t, resolveAttachmentUrl])
 
   // Resolve reply reference
   const replyTarget = useMemo(() => {
@@ -540,35 +646,28 @@ function MessageBubbleInner({
                   key={att.id}
                   style={styles.imageAttachment}
                   disabled={selectionMode}
-                  onPress={() => {
+                  onPress={async () => {
+                    const url = await resolveAttachmentUrl(att, 'inline')
+                    if (!url) return
                     router.push({
                       pathname: '/(main)/media-preview',
                       params: {
-                        url: att.url,
+                        url,
                         filename: att.filename,
                         contentType,
                       },
                     })
                   }}
-                  onLongPress={() => setAttachmentAction({ url: att.url, filename: att.filename })}
+                  onLongPress={() =>
+                    setAttachmentAction({
+                      id: att.id,
+                      url: att.url,
+                      filename: att.filename,
+                      kind: attachmentKind,
+                    })
+                  }
                 >
-                  <Image
-                    source={{ uri: getImageUrl(att.url) ?? att.url }}
-                    style={[
-                      styles.attachmentImage,
-                      att.width && att.height && att.width > 0 && att.height > 0
-                        ? {
-                            width: Math.min(260, att.width),
-                            height: Math.min(
-                              320,
-                              Math.min(260, att.width) / (att.width / att.height),
-                            ),
-                          }
-                        : null,
-                    ]}
-                    contentFit="cover"
-                    transition={200}
-                  />
+                  <SignedAttachmentImage attachment={att} kind={attachmentKind} />
                 </Pressable>
               )
             }
@@ -583,17 +682,26 @@ function MessageBubbleInner({
                   { backgroundColor: colors.surface, borderColor: colors.border },
                 ]}
                 disabled={selectionMode}
-                onPress={() => {
+                onPress={async () => {
+                  const url = await resolveAttachmentUrl(att, 'attachment')
+                  if (!url) return
                   router.push({
                     pathname: '/(main)/media-preview',
                     params: {
-                      url: att.url,
+                      url,
                       filename: att.filename,
                       contentType,
                     },
                   })
                 }}
-                onLongPress={() => setAttachmentAction({ url: att.url, filename: att.filename })}
+                onLongPress={() =>
+                  setAttachmentAction({
+                    id: att.id,
+                    url: att.url,
+                    filename: att.filename,
+                    kind: attachmentKind,
+                  })
+                }
               >
                 <View style={[styles.fileIconWrap, { backgroundColor: `${accentColor}18` }]}>
                   <FileIcon size={20} color={accentColor} />

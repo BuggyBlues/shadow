@@ -47,24 +47,45 @@ attachment = client.upload_media(
 
 ---
 
-## 获取文件
+## 解析附件媒体 URL
 
 ```
-GET /api/media/:id
+GET /api/attachments/:id/media-url?disposition=inline
+GET /api/dm-attachments/:id/media-url?disposition=attachment
 ```
 
-重定向到文件的预签名下载 URL。
+认证调用方并校验其对父频道或私信的访问权限后，返回短期可被浏览器渲染的 URL。数据库中只保存上传接口返回的附件 `url` / contentRef，不要持久化这个签名 URL。
+
+**响应：**
+
+```json
+{
+  "url": "/api/media/signed/<token>",
+  "expiresAt": "2026-05-07T10:00:00.000Z"
+}
+```
 
 :::code-group
 
 ```ts [TypeScript]
-const url = `${client.baseUrl}/api/media/${attachmentId}`
-// 重定向 — 可直接用在 <img> 或 <a> 标签中
+const media = await client.resolveAttachmentMediaUrl(attachmentId, {
+  disposition: 'inline',
+})
 ```
 
 ```python [Python]
-url = f"{client.base_url}/api/media/{attachment_id}"
-# 重定向 — 跟随重定向以下载
+media = client.resolve_attachment_media_url(
+    attachment_id,
+    disposition="inline",
+)
 ```
 
 :::
+
+## 交付签名媒体
+
+```
+GET /api/media/signed/:token
+```
+
+不要求 Bearer token。token 绑定 bucket/key、content type、disposition 和过期时间。HTML、SVG、JavaScript、XML 等 active content 即使请求 `inline` 也会强制按附件下载。响应包含 `Cache-Control: private`、`X-Content-Type-Options: nosniff`，并支持 `Range` 请求。

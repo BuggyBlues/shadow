@@ -149,6 +149,12 @@ class ShadowAttachment:
 
 
 @dataclass
+class ShadowSignedMediaUrl:
+    url: str
+    expires_at: str
+
+
+@dataclass
 class ShadowMessageMention:
     kind: str
     target_id: str

@@ -291,6 +291,35 @@ function isImageType(contentType: string): boolean {
   return contentType.startsWith('image/')
 }
 
+type SignedMediaUrl = {
+  url: string
+  expiresAt: string
+}
+
+const signedMediaCache = new Map<string, SignedMediaUrl>()
+
+function isSignedMediaCacheFresh(entry: SignedMediaUrl): boolean {
+  return new Date(entry.expiresAt).getTime() - 30_000 > Date.now()
+}
+
+async function resolveAttachmentMediaUrl(
+  attachmentId: string,
+  kind: 'channel' | 'dm',
+  disposition: 'inline' | 'attachment',
+): Promise<SignedMediaUrl> {
+  const cacheKey = `${kind}:${attachmentId}:${disposition}`
+  const cached = signedMediaCache.get(cacheKey)
+  if (cached && isSignedMediaCacheFresh(cached)) return cached
+
+  const path =
+    kind === 'dm'
+      ? `/api/dm-attachments/${attachmentId}/media-url?disposition=${disposition}`
+      : `/api/attachments/${attachmentId}/media-url?disposition=${disposition}`
+  const resolved = await fetchApi<SignedMediaUrl>(path)
+  signedMediaCache.set(cacheKey, resolved)
+  return resolved
+}
+
 function formatCoinValue(value: number | undefined): string {
   return typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString() : '—'
 }
@@ -1039,6 +1068,93 @@ function CodeBlockWithCopy({ children }: { children: React.ReactNode }) {
   )
 }
 
+function AttachmentView({
+  attachment,
+  kind,
+  onPreviewFile,
+  onSaveToWorkspace,
+  onImageContextMenu,
+}: {
+  attachment: Attachment
+  kind: 'channel' | 'dm'
+  onPreviewFile?: (attachment: Attachment) => void
+  onSaveToWorkspace?: (attachment: Attachment) => void
+  onImageContextMenu: (event: React.MouseEvent, attachment: Attachment) => void
+}) {
+  const [inlineUrl, setInlineUrl] = useState<string | null>(null)
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
+  const isImage = isImageType(attachment.contentType)
+
+  useEffect(() => {
+    let cancelled = false
+    const disposition = isImage ? 'inline' : 'attachment'
+    resolveAttachmentMediaUrl(attachment.id, kind, disposition)
+      .then((resolved) => {
+        if (!cancelled) {
+          if (isImage) setInlineUrl(resolved.url)
+          else setDownloadUrl(resolved.url)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          if (isImage) setInlineUrl(null)
+          else setDownloadUrl(null)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [attachment.id, kind, isImage])
+
+  const resolveDownload = useCallback(async () => {
+    const resolved = await resolveAttachmentMediaUrl(attachment.id, kind, 'attachment')
+    setDownloadUrl(resolved.url)
+    return resolved.url
+  }, [attachment.id, kind])
+
+  if (isImage) {
+    const href = downloadUrl ?? inlineUrl ?? '#'
+    const src = inlineUrl ?? undefined
+    return (
+      <div className="relative">
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block max-w-xs rounded-xl overflow-hidden border border-border-subtle"
+          onClick={async (event) => {
+            if (downloadUrl) return
+            event.preventDefault()
+            const url = await resolveDownload()
+            window.open(url, '_blank', 'noopener,noreferrer')
+          }}
+          onContextMenu={(event) => onImageContextMenu(event, attachment)}
+        >
+          {src ? (
+            <img src={src} alt={attachment.filename} className="max-h-60 object-contain" />
+          ) : (
+            <div className="h-40 w-60 bg-surface-2" />
+          )}
+        </a>
+      </div>
+    )
+  }
+
+  return (
+    <FileCard
+      filename={attachment.filename}
+      url={downloadUrl ?? '#'}
+      contentType={attachment.contentType}
+      size={attachment.size}
+      onClick={async () => {
+        const url = downloadUrl ?? (await resolveDownload())
+        onPreviewFile?.({ ...attachment, url })
+      }}
+      onSaveToWorkspace={onSaveToWorkspace ? () => onSaveToWorkspace(attachment) : undefined}
+    />
+  )
+}
+
 function MessageBubbleInner({
   message,
   currentUserId,
@@ -1686,47 +1802,32 @@ function MessageBubbleInner({
         {/* Attachments */}
         {message.attachments && message.attachments.length > 0 && (
           <div className="flex flex-col gap-2 mt-2">
-            {message.attachments.map((att) =>
-              isImageType(att.contentType) ? (
-                <div key={att.id} className="relative">
-                  <a
-                    href={att.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block max-w-xs rounded-xl overflow-hidden border border-border-subtle"
-                    onContextMenu={(e) => {
-                      e.preventDefault()
-                      setImageContextMenu({ x: e.clientX, y: e.clientY, att })
-                    }}
-                  >
-                    <img src={att.url} alt={att.filename} className="max-h-60 object-contain" />
-                  </a>
-                  {imageContextMenu?.att.id === att.id &&
-                    createPortal(
-                      <ImageContextMenu
-                        x={imageContextMenu.x}
-                        y={imageContextMenu.y}
-                        attachment={att}
-                        onClose={() => setImageContextMenu(null)}
-                        onSaveToWorkspace={
-                          onSaveToWorkspace ? () => onSaveToWorkspace(att) : undefined
-                        }
-                      />,
-                      document.body,
-                    )}
-                </div>
-              ) : (
-                <FileCard
-                  key={att.id}
-                  filename={att.filename}
-                  url={att.url}
-                  contentType={att.contentType}
-                  size={att.size}
-                  onClick={() => onPreviewFile?.(att)}
-                  onSaveToWorkspace={onSaveToWorkspace ? () => onSaveToWorkspace(att) : undefined}
-                />
-              ),
-            )}
+            {message.attachments.map((att) => (
+              <AttachmentView
+                key={att.id}
+                attachment={att}
+                kind={message.dmChannelId ? 'dm' : 'channel'}
+                onPreviewFile={onPreviewFile}
+                onSaveToWorkspace={onSaveToWorkspace}
+                onImageContextMenu={(event, attachment) => {
+                  event.preventDefault()
+                  setImageContextMenu({ x: event.clientX, y: event.clientY, att: attachment })
+                }}
+              />
+            ))}
+            {imageContextMenu &&
+              createPortal(
+                <ImageContextMenu
+                  x={imageContextMenu.x}
+                  y={imageContextMenu.y}
+                  attachment={imageContextMenu.att}
+                  onClose={() => setImageContextMenu(null)}
+                  onSaveToWorkspace={
+                    onSaveToWorkspace ? () => onSaveToWorkspace(imageContextMenu.att) : undefined
+                  }
+                />,
+                document.body,
+              )}
           </div>
         )}
 

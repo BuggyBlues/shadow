@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { MediaService } from '../src/services/media.service'
 import { MessageService } from '../src/services/message.service'
 import { NotificationService } from '../src/services/notification.service'
 import { ServerService } from '../src/services/server.service'
@@ -193,6 +194,79 @@ describe('ServerService', () => {
         isPublic: true,
       })
     })
+  })
+})
+
+describe('MediaService', () => {
+  it('forces active content attachments to download disposition in signed tokens', () => {
+    const previousSecret = process.env.JWT_SECRET
+    process.env.JWT_SECRET = 'test-media-secret'
+    try {
+      const service = new MediaService({
+        logger: { info: vi.fn(), warn: vi.fn() } as any,
+        messageDao: {} as any,
+        dmService: {} as any,
+        policyService: {} as any,
+      })
+
+      const result = service.createSignedUrl({
+        contentRef: '/shadow/uploads/page.html',
+        contentType: 'text/html',
+        disposition: 'inline',
+        filename: 'page.html',
+      })
+      const payload = service.verifySignedToken(result.url.split('/').pop()!)
+
+      expect(payload.disposition).toBe('attachment')
+      expect(payload.contentType).toBe('text/html')
+      expect(result.url).toMatch(/^\/api\/media\/signed\//)
+    } finally {
+      if (previousSecret === undefined) delete process.env.JWT_SECRET
+      else process.env.JWT_SECRET = previousSecret
+    }
+  })
+
+  it('authorizes channel attachments through the parent message channel', async () => {
+    const previousSecret = process.env.JWT_SECRET
+    process.env.JWT_SECRET = 'test-media-secret'
+    try {
+      const messageDao = {
+        findAttachmentById: vi.fn().mockResolvedValue({
+          id: 'att-1',
+          messageId: 'msg-1',
+          filename: 'photo.png',
+          url: '/shadow/uploads/photo.png',
+          contentType: 'image/png',
+          size: 12,
+        }),
+        findById: vi.fn().mockResolvedValue({ id: 'msg-1', channelId: 'ch-1' }),
+      }
+      const policyService = { requireChannelRead: vi.fn().mockResolvedValue({}) }
+      const service = new MediaService({
+        logger: { info: vi.fn(), warn: vi.fn() } as any,
+        messageDao: messageDao as any,
+        dmService: {} as any,
+        policyService: policyService as any,
+      })
+
+      const result = await service.resolveAttachmentMediaUrl({
+        actor: { kind: 'user', userId: 'u-1', authMethod: 'jwt', scopes: [] },
+        attachmentId: 'att-1',
+        kind: 'channel',
+        disposition: 'inline',
+      })
+      const payload = service.verifySignedToken(result.url.split('/').pop()!)
+
+      expect(policyService.requireChannelRead).toHaveBeenCalledWith(
+        { kind: 'user', userId: 'u-1', authMethod: 'jwt', scopes: [] },
+        'ch-1',
+      )
+      expect(payload.disposition).toBe('inline')
+      expect(payload.key).toBe('uploads/photo.png')
+    } finally {
+      if (previousSecret === undefined) delete process.env.JWT_SECRET
+      else process.env.JWT_SECRET = previousSecret
+    }
   })
 })
 

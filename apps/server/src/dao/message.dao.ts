@@ -269,6 +269,11 @@ export class MessageDao {
     return this.db.select().from(attachments).where(eq(attachments.messageId, messageId))
   }
 
+  async findAttachmentById(id: string) {
+    const result = await this.db.select().from(attachments).where(eq(attachments.id, id)).limit(1)
+    return result[0] ?? null
+  }
+
   // Reactions
   async addReaction(messageId: string, userId: string, emoji: string) {
     const result = await this.db

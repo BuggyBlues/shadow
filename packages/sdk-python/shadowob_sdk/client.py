@@ -859,6 +859,20 @@ class ShadowClient:
         resp.raise_for_status()
         return resp.json()
 
+    def resolve_attachment_media_url(
+        self,
+        attachment_id: str,
+        *,
+        disposition: str = "inline",
+        dm: bool = False,
+    ) -> dict[str, Any]:
+        path = (
+            f"/api/dm-attachments/{attachment_id}/media-url"
+            if dm
+            else f"/api/attachments/{attachment_id}/media-url"
+        )
+        return self._get(path, params={"disposition": disposition})
+
     # ── Friendships ──────────────────────────────────────────────────────
 
     def send_friend_request(self, username: str) -> dict[str, Any]:

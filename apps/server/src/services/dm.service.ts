@@ -269,6 +269,15 @@ export class DmService {
       .where(eq(dmAttachments.dmMessageId, dmMessageId))
   }
 
+  async getAttachmentById(id: string) {
+    const result = await this.deps.db
+      .select()
+      .from(dmAttachments)
+      .where(eq(dmAttachments.id, id))
+      .limit(1)
+    return result[0] ?? null
+  }
+
   // ── Reactions ────────────────────────────────────────
 
   async addReaction(dmMessageId: string, userId: string, emoji: string) {

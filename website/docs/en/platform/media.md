@@ -47,24 +47,50 @@ attachment = client.upload_media(
 
 ---
 
-## Get file
+## Resolve attachment media URL
 
 ```
-GET /api/media/:id
+GET /api/attachments/:id/media-url?disposition=inline
+GET /api/dm-attachments/:id/media-url?disposition=attachment
 ```
 
-Redirects to a presigned download URL for the file.
+Returns a short-lived browser-renderable URL after authenticating the caller and verifying access to
+the parent channel or DM. Store only the attachment `url` / content reference returned by upload;
+do not persist this signed URL.
+
+**Response:**
+
+```json
+{
+  "url": "/api/media/signed/<token>",
+  "expiresAt": "2026-05-07T10:00:00.000Z"
+}
+```
 
 :::code-group
 
 ```ts [TypeScript]
-const url = `${client.baseUrl}/api/media/${attachmentId}`
-// Redirect — use in <img> or <a> tags directly
+const media = await client.resolveAttachmentMediaUrl(attachmentId, {
+  disposition: 'inline',
+})
 ```
 
 ```python [Python]
-url = f"{client.base_url}/api/media/{attachment_id}"
-# Redirect — follow to download
+media = client.resolve_attachment_media_url(
+    attachment_id,
+    disposition="inline",
+)
 ```
 
 :::
+
+## Deliver signed media
+
+```
+GET /api/media/signed/:token
+```
+
+Does not require a Bearer token. The token binds the bucket/key, content type, disposition, and
+expiration. Active content such as HTML, SVG, JavaScript, and XML is always delivered as an
+attachment even when `inline` was requested. Responses include `Cache-Control: private`,
+`X-Content-Type-Options: nosniff`, and support `Range` requests.
