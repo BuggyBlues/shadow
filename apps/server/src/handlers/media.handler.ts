@@ -2,8 +2,30 @@ import { Hono } from 'hono'
 import type { AppContainer } from '../container'
 import { authMiddleware } from '../middleware/auth.middleware'
 
+function parseDisposition(value: string | undefined): 'inline' | 'attachment' {
+  return value === 'attachment' ? 'attachment' : 'inline'
+}
+
 export function createMediaHandler(container: AppContainer) {
   const mediaHandler = new Hono()
+
+  // GET /api/media/signed/:token
+  // Short-lived media delivery URL for browser-rendered attachments. Auth is the token itself.
+  mediaHandler.get('/signed/:token', async (c) => {
+    const mediaService = container.resolve('mediaService')
+    try {
+      const payload = mediaService.verifySignedToken(c.req.param('token'))
+      const response = await mediaService.getSignedObjectResponse(payload, c.req.header('Range'))
+      return c.body(response.body, response.status, response.headers)
+    } catch (err) {
+      const status =
+        typeof (err as { status?: unknown }).status === 'number'
+          ? ((err as { status: number }).status as 400)
+          : 404
+      const headers = (err as { headers?: Record<string, string> }).headers
+      return c.json({ ok: false, error: 'File not found' }, status, headers)
+    }
+  })
 
   mediaHandler.use('*', authMiddleware)
 
@@ -160,4 +182,35 @@ export function createMediaHandler(container: AppContainer) {
   })
 
   return mediaHandler
+}
+
+export function createAttachmentMediaHandler(container: AppContainer) {
+  const handler = new Hono()
+
+  handler.use('/attachments/:id/media-url', authMiddleware)
+  handler.use('/dm-attachments/:id/media-url', authMiddleware)
+
+  handler.get('/attachments/:id/media-url', async (c) => {
+    const mediaService = container.resolve('mediaService')
+    const result = await mediaService.resolveAttachmentMediaUrl({
+      actor: c.get('actor'),
+      attachmentId: c.req.param('id'),
+      kind: 'channel',
+      disposition: parseDisposition(c.req.query('disposition')),
+    })
+    return c.json(result)
+  })
+
+  handler.get('/dm-attachments/:id/media-url', async (c) => {
+    const mediaService = container.resolve('mediaService')
+    const result = await mediaService.resolveAttachmentMediaUrl({
+      actor: c.get('actor'),
+      attachmentId: c.req.param('id'),
+      kind: 'dm',
+      disposition: parseDisposition(c.req.query('disposition')),
+    })
+    return c.json(result)
+  })
+
+  return handler
 }

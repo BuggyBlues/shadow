@@ -59,7 +59,6 @@ describe('schema', () => {
               id: 'openai',
               api: 'openai',
               baseUrl: 'https://api.openai.com/v1',
-              // biome-ignore lint/suspicious/noTemplateCurlyInString: OpenClaw template syntax
               apiKey: '${env:OPENAI_API_KEY}',
               models: [{ id: 'gpt-4o' }],
             },

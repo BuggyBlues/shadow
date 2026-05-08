@@ -1,13 +1,106 @@
-import { randomUUID } from 'node:crypto'
+import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
 import { extname } from 'node:path'
+import { Readable } from 'node:stream'
 import type { Logger } from 'pino'
+import type { MessageDao } from '../dao/message.dao'
+import { type ActorInput, actorUserId } from '../security/actor'
+import type { DmService } from './dm.service'
+import type { PolicyService } from './policy.service'
+
+type MediaDisposition = 'inline' | 'attachment'
+type MediaTokenPayload = {
+  bucket: string
+  key: string
+  contentType: string
+  disposition: MediaDisposition
+  filename?: string
+  exp: number
+}
+
+const SIGNED_MEDIA_TTL_SECONDS = Number(process.env.SIGNED_MEDIA_TTL_SECONDS ?? 300)
+
+function base64UrlEncode(input: Buffer | string): string {
+  return Buffer.from(input).toString('base64url')
+}
+
+function base64UrlDecode(input: string): Buffer {
+  return Buffer.from(input, 'base64url')
+}
+
+function mediaSigningSecret(): string {
+  const secret = process.env.MEDIA_SIGNING_SECRET ?? process.env.JWT_SECRET
+  if (!secret) {
+    throw Object.assign(new Error('Media signing secret is not configured'), { status: 500 })
+  }
+  return secret
+}
+
+function parseContentRef(contentRef: string): { bucket: string; key: string } | null {
+  const match = contentRef.match(/^\/([^/]+)\/(.+)$/)
+  if (!match?.[1] || !match[2]) return null
+  return { bucket: match[1], key: match[2] }
+}
+
+function isActiveContent(contentType: string): boolean {
+  return /(?:html|xml|svg|javascript|ecmascript)/i.test(contentType)
+}
+
+function allowInline(contentType: string): boolean {
+  return (
+    /^(image\/|audio\/|video\/|application\/pdf$)/i.test(contentType) &&
+    !isActiveContent(contentType)
+  )
+}
+
+function contentDisposition(disposition: MediaDisposition, filename?: string) {
+  const safeName = filename?.replace(/["\r\n]/g, '_')
+  return safeName ? `${disposition}; filename="${safeName}"` : disposition
+}
+
+function parseRange(header: string | undefined, size: number) {
+  if (!header) return null
+  const match = header.match(/^bytes=(\d*)-(\d*)$/)
+  if (!match) return 'invalid' as const
+  const startText = match[1] ?? ''
+  const endText = match[2] ?? ''
+  if (!startText && !endText) return 'invalid' as const
+
+  let start: number
+  let end: number
+  if (!startText) {
+    const suffix = Number(endText)
+    if (!Number.isSafeInteger(suffix) || suffix <= 0) return 'invalid' as const
+    start = Math.max(size - suffix, 0)
+    end = size - 1
+  } else {
+    start = Number(startText)
+    end = endText ? Number(endText) : size - 1
+  }
+  if (
+    !Number.isSafeInteger(start) ||
+    !Number.isSafeInteger(end) ||
+    start < 0 ||
+    end < start ||
+    start >= size
+  ) {
+    return 'invalid' as const
+  }
+  return { start, end: Math.min(end, size - 1) }
+}
 
 /** MinIO / S3 compatible storage service */
 export class MediaService {
   // MinIO client will be initialized when service starts
   minioClient: import('minio').Client | null = null
 
-  constructor(private deps: { logger: Logger }) {}
+  constructor(
+    private deps: {
+      logger: Logger
+      messageDao: MessageDao
+      dmService: DmService
+      policyService: PolicyService
+    },
+  ) {}
 
   async init() {
     try {
@@ -61,6 +154,153 @@ export class MediaService {
 
     const bucketName = process.env.MINIO_BUCKET ?? 'shadow'
     return this.minioClient.presignedGetObject(bucketName, key, 3600)
+  }
+
+  async resolveAttachmentMediaUrl(input: {
+    actor: ActorInput
+    attachmentId: string
+    kind: 'channel' | 'dm'
+    disposition: MediaDisposition
+  }): Promise<{ url: string; expiresAt: string }> {
+    if (input.kind === 'channel') {
+      const attachment = await this.deps.messageDao.findAttachmentById(input.attachmentId)
+      if (!attachment) throw Object.assign(new Error('Attachment not found'), { status: 404 })
+      const message = await this.deps.messageDao.findById(attachment.messageId)
+      if (!message) throw Object.assign(new Error('Message not found'), { status: 404 })
+      await this.deps.policyService.requireChannelRead(input.actor, message.channelId)
+      return this.createSignedUrl({
+        contentRef: attachment.url,
+        contentType: attachment.contentType,
+        disposition: input.disposition,
+        filename: attachment.filename,
+      })
+    }
+
+    const attachment = await this.deps.dmService.getAttachmentById(input.attachmentId)
+    if (!attachment) throw Object.assign(new Error('Attachment not found'), { status: 404 })
+    const message = await this.deps.dmService.getMessageById(attachment.dmMessageId)
+    if (!message) throw Object.assign(new Error('DM message not found'), { status: 404 })
+    const isParticipant = await this.deps.dmService.isParticipant(
+      message.dmChannelId,
+      actorUserId(input.actor),
+    )
+    if (!isParticipant) {
+      throw Object.assign(new Error('Not a participant of this DM channel'), { status: 403 })
+    }
+    return this.createSignedUrl({
+      contentRef: attachment.url,
+      contentType: attachment.contentType,
+      disposition: input.disposition,
+      filename: attachment.filename,
+    })
+  }
+
+  createSignedUrl(input: {
+    contentRef: string
+    contentType: string
+    disposition: MediaDisposition
+    filename?: string
+  }): { url: string; expiresAt: string } {
+    const object = parseContentRef(input.contentRef)
+    if (!object) throw Object.assign(new Error('Invalid media reference'), { status: 400 })
+
+    const exp = Math.floor(Date.now() / 1000) + SIGNED_MEDIA_TTL_SECONDS
+    const disposition =
+      input.disposition === 'inline' && allowInline(input.contentType) ? 'inline' : 'attachment'
+    const payload: MediaTokenPayload = {
+      ...object,
+      contentType: input.contentType || 'application/octet-stream',
+      disposition,
+      filename: input.filename,
+      exp,
+    }
+    const encoded = base64UrlEncode(JSON.stringify(payload))
+    const sig = createHmac('sha256', mediaSigningSecret()).update(encoded).digest('base64url')
+    return {
+      url: `/api/media/signed/${encoded}.${sig}`,
+      expiresAt: new Date(exp * 1000).toISOString(),
+    }
+  }
+
+  verifySignedToken(token: string): MediaTokenPayload {
+    const [encoded, sig] = token.split('.')
+    if (!encoded || !sig) throw Object.assign(new Error('Invalid media token'), { status: 401 })
+    const expected = createHmac('sha256', mediaSigningSecret()).update(encoded).digest()
+    const actual = base64UrlDecode(sig)
+    if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
+      throw Object.assign(new Error('Invalid media token'), { status: 401 })
+    }
+
+    const payload = JSON.parse(base64UrlDecode(encoded).toString('utf8')) as MediaTokenPayload
+    if (!payload.bucket || !payload.key || !payload.exp || Date.now() / 1000 >= payload.exp) {
+      throw Object.assign(new Error('Expired media token'), { status: 401 })
+    }
+    return payload
+  }
+
+  async getSignedObjectResponse(
+    payload: MediaTokenPayload,
+    rangeHeader?: string,
+  ): Promise<{
+    body: ReadableStream<Uint8Array>
+    status: 200 | 206
+    headers: Record<string, string>
+  }> {
+    if (!this.minioClient) {
+      throw Object.assign(new Error('File storage not available'), { status: 503 })
+    }
+
+    const stat = await this.minioClient.statObject(payload.bucket, payload.key)
+    const size = Number(stat.size)
+    const range = parseRange(rangeHeader, size)
+    if (range === 'invalid') {
+      throw Object.assign(new Error('Invalid range'), {
+        status: 416,
+        headers: { 'Content-Range': `bytes */${size}` },
+      })
+    }
+
+    const stream = range
+      ? await this.minioClient.getPartialObject(
+          payload.bucket,
+          payload.key,
+          range.start,
+          range.end - range.start + 1,
+        )
+      : await this.minioClient.getObject(payload.bucket, payload.key)
+    const status = range ? 206 : 200
+    const headers: Record<string, string> = {
+      'Accept-Ranges': 'bytes',
+      'Cache-Control': 'private, max-age=300',
+      'Content-Disposition': contentDisposition(payload.disposition, payload.filename),
+      'Content-Length': String(range ? range.end - range.start + 1 : size),
+      'Content-Type': payload.contentType || 'application/octet-stream',
+      'X-Content-Type-Options': 'nosniff',
+      ...(range ? { 'Content-Range': `bytes ${range.start}-${range.end}/${size}` } : {}),
+    }
+
+    return { body: Readable.toWeb(stream) as ReadableStream<Uint8Array>, status, headers }
+  }
+
+  async getObjectStream(
+    contentRef: string,
+    rangeHeader?: string,
+  ): Promise<{
+    body: ReadableStream<Uint8Array>
+    status: 200 | 206
+    headers: Record<string, string>
+  } | null> {
+    const object = parseContentRef(contentRef)
+    if (!object) return null
+    return this.getSignedObjectResponse(
+      {
+        ...object,
+        contentType: 'application/octet-stream',
+        disposition: 'attachment',
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      rangeHeader,
+    ).catch(() => null)
   }
 
   /** Retrieve file content from MinIO by its contentRef (e.g. /shadow/uploads/...) */

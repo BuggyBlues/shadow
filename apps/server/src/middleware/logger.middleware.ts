@@ -4,6 +4,10 @@ import { logger } from '../lib/logger'
 export async function loggerMiddleware(c: Context, next: Next): Promise<void> {
   const start = Date.now()
   const { method, url } = c.req
+  const parsedUrl = new URL(url)
+  const path = parsedUrl.pathname
+  const safePath = path.replace(/^\/api\/media\/signed\/[^/]+$/, '/api/media/signed/[redacted]')
+  const safeUrl = `${parsedUrl.origin}${safePath}${parsedUrl.search}`
 
   await next()
 
@@ -13,10 +17,10 @@ export async function loggerMiddleware(c: Context, next: Next): Promise<void> {
   logger.info(
     {
       method,
-      url,
+      url: safeUrl,
       status,
       duration: `${duration}ms`,
     },
-    `${method} ${new URL(url).pathname} ${status} ${duration}ms`,
+    `${method} ${safePath} ${status} ${duration}ms`,
   )
 }

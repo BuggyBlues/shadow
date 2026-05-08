@@ -55,6 +55,7 @@ import type {
   ShadowScopedUnread,
   ShadowServer,
   ShadowShop,
+  ShadowSignedMediaUrl,
   ShadowSlashCommand,
   ShadowTask,
   ShadowThread,
@@ -1016,6 +1017,17 @@ export class ShadowClient {
       throw new Error(`Shadow API POST /api/media/upload failed (${res.status}): ${body}`)
     }
     return res.json() as Promise<{ url: string; key: string; size: number }>
+  }
+
+  async resolveAttachmentMediaUrl(
+    attachmentId: string,
+    options?: { disposition?: 'inline' | 'attachment'; dm?: boolean },
+  ): Promise<ShadowSignedMediaUrl> {
+    const disposition = options?.disposition ?? 'inline'
+    const path = options?.dm
+      ? `/api/dm-attachments/${attachmentId}/media-url?disposition=${disposition}`
+      : `/api/attachments/${attachmentId}/media-url?disposition=${disposition}`
+    return this.request<ShadowSignedMediaUrl>(path)
   }
 
   /**
